@@ -29,8 +29,13 @@ import org.junit.jupiter.api.Test
  * holder's internal coroutine scope so the idle-release timer and
  * mutex-serialized mutations can be driven deterministically via
  * `advanceTimeBy`.
+ *
+ * `ExperimentalStdlibApi`: `coroutineContext[CoroutineDispatcher]` (used to grab
+ * the test dispatcher) resolves through `CoroutineDispatcher.Key`, an
+ * `AbstractCoroutineContextKey` marked experimental; Kotlin 2.4.0 enforces the
+ * opt-in on that polymorphic key lookup.
  */
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, ExperimentalStdlibApi::class)
 class SharedVideoPlayerTest {
     @Test
     fun appBackgrounded_onStop_pausesPlayingVideo() =
