@@ -214,7 +214,12 @@ class DefaultProfileRepositoryReadTest {
 
         repo.fetchTab("alice.test", tab, cursor = null, limit = 20)
 
-        assertEquals(expectedFilter, engine.requestHistory.single().url.parameters["filter"])
+        assertEquals(
+            expectedFilter,
+            engine.requestHistory
+                .single()
+                .url.parameters["filter"],
+        )
     }
 
     // -------------------------------------------------------------------------
