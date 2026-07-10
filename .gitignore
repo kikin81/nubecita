@@ -82,3 +82,6 @@ fastlane/test_output/
 # PNG in the screenshot dirs plus the HTML overview.
 fastlane/metadata/android/*/images/*Screenshots/*.png
 fastlane/metadata/android/screenshots.html
+
+# app-health skill: local health reports contain real user metrics — never commit (public repo)
+health-reports/
