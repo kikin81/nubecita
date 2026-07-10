@@ -371,13 +371,21 @@ internal fun buildTappableBlueskyAnnotatedString(
                 is FacetLink -> {
                     addStyle(linkStyle, startChar, endChar)
                     val uri = feature.uri.raw
-                    addLink(
-                        LinkAnnotation.Clickable(tag = "link") {
-                            onFacetTap(FacetTarget.Link(uri))
-                        },
-                        startChar,
-                        endChar,
-                    )
+                    // Facet URIs are untrusted post content and may carry non-web
+                    // schemes (intent:, market:, file:, …). Only make http(s) links
+                    // tappable so a crafted post can't drive app-switching or a file
+                    // probe when a host launches a Custom Tab; other schemes stay
+                    // styled-but-inert (like a tag). The http(s)-only contract is
+                    // enforced here, at the single source every host reads from.
+                    if (uri.isHttpUri()) {
+                        addLink(
+                            LinkAnnotation.Clickable(tag = "link") {
+                                onFacetTap(FacetTarget.Link(uri))
+                            },
+                            startChar,
+                            endChar,
+                        )
+                    }
                 }
                 // Tags are styled but not yet tappable (tag search needs a query route).
                 is FacetTag -> addStyle(linkStyle, startChar, endChar)
@@ -387,6 +395,11 @@ internal fun buildTappableBlueskyAnnotatedString(
         }
     }
 }
+
+// http/https only — the schemes the Custom Tab contract targets. Kept a pure
+// string check (no android.net.Uri) so the designsystem's JVM unit tests can
+// exercise it. Scheme comparison is case-insensitive per RFC 3986.
+private fun String.isHttpUri(): Boolean = startsWith("http://", ignoreCase = true) || startsWith("https://", ignoreCase = true)
 
 @Composable
 private fun EmbedSlot(

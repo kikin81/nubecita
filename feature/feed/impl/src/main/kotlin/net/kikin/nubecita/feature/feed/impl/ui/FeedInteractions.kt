@@ -167,6 +167,22 @@ internal fun rememberFeedInteractions(
     //    screen-nav slots not present in the shared helper.
     val callbacks =
         remember(viewModel, context, haptics, interactions.callbacks) {
+            // Shared by the external-embed tap and the inline-link facet tap.
+            // Narrowed catch: silent no-op only for the documented "no CCT-capable
+            // browser installed" case (per nubecita-aku scope). Other launch
+            // failures (rare SecurityException / RuntimeException from the browser
+            // lib) propagate so genuine bugs surface in logcat.
+            val openInCustomTab: (String) -> Unit = { uri ->
+                try {
+                    CustomTabsIntent
+                        .Builder()
+                        .setShowTitle(true)
+                        .build()
+                        .launchUrl(context, AndroidUri.parse(uri))
+                } catch (_: ActivityNotFoundException) {
+                    // No browser available — silent no-op.
+                }
+            }
             interactions.callbacks.copy(
                 onLike = { post ->
                     if (post.viewer.isLikedByViewer) haptics.likeOff() else haptics.likeOn()
@@ -193,41 +209,16 @@ internal fun rememberFeedInteractions(
                 onShareLongPress = { viewModel.onShareLongPress(it) },
                 onTap = { viewModel.handleEvent(FeedEvent.OnPostTapped(it)) },
                 onAuthorTap = { viewModel.handleEvent(FeedEvent.OnAuthorTapped(it.did)) },
-                onExternalEmbedTap = { uri ->
-                    // Narrowed catch: silent no-op only for the documented
-                    // "no CCT-capable browser installed" case (per
-                    // nubecita-aku scope). Other launch failures (rare
-                    // SecurityException / RuntimeException from the
-                    // browser lib) propagate so genuine bugs surface in
-                    // logcat instead of being hidden by a blanket catch.
-                    try {
-                        CustomTabsIntent
-                            .Builder()
-                            .setShowTitle(true)
-                            .build()
-                            .launchUrl(context, AndroidUri.parse(uri))
-                    } catch (_: ActivityNotFoundException) {
-                        // No browser available — silent no-op.
-                    }
-                },
+                onExternalEmbedTap = { uri -> openInCustomTab(uri) },
                 onFacetTap = { target ->
                     when (target) {
                         // A @mention → the mentioned account's profile. Reuses the
                         // same author-nav event (Profile resolves a DID directly).
                         is FacetTarget.Mention ->
                             viewModel.handleEvent(FeedEvent.OnAuthorTapped(target.did))
-                        // An inline link → in-app browser, same Custom Tab path as
-                        // an external embed (narrowed catch for the no-browser case).
-                        is FacetTarget.Link ->
-                            try {
-                                CustomTabsIntent
-                                    .Builder()
-                                    .setShowTitle(true)
-                                    .build()
-                                    .launchUrl(context, AndroidUri.parse(target.uri))
-                            } catch (_: ActivityNotFoundException) {
-                                // No browser available — silent no-op.
-                            }
+                        // An inline link → in-app browser (http(s)-only is already
+                        // enforced upstream in the tappable-facet builder).
+                        is FacetTarget.Link -> openInCustomTab(target.uri)
                     }
                 },
                 onQuotedPostTap = { quoted ->

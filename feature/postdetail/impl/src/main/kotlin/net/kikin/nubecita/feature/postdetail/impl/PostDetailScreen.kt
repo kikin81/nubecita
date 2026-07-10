@@ -192,6 +192,22 @@ internal fun PostDetailScreen(
     // width-conditional composer launcher so the screen stays host-agnostic.
     val callbacks =
         remember(viewModel, haptics, context, interactions.callbacks) {
+            // Shared by the external-embed tap and the inline-link facet tap.
+            // Opening a URL is a stateless platform action, done inline (no VM
+            // round-trip) exactly like FeedScreen. Narrowed catch: silent no-op
+            // only for the "no CCT-capable browser installed" case; other launch
+            // failures propagate so genuine bugs surface in logcat.
+            val openInCustomTab: (String) -> Unit = { uri ->
+                try {
+                    CustomTabsIntent
+                        .Builder()
+                        .setShowTitle(true)
+                        .build()
+                        .launchUrl(context, AndroidUri.parse(uri))
+                } catch (_: ActivityNotFoundException) {
+                    // No browser available — silent no-op.
+                }
+            }
             interactions.callbacks.copy(
                 onTap = { viewModel.handleEvent(PostDetailEvent.OnPostTapped(it.id)) },
                 onAuthorTap = { viewModel.handleEvent(PostDetailEvent.OnAuthorTapped(it.did)) },
@@ -220,40 +236,16 @@ internal fun PostDetailScreen(
                 // Long-press already fires the system long-press haptic via
                 // combinedClickable — don't double-tap the motor.
                 onShareLongPress = { viewModel.onShareLongPress(it) },
-                onExternalEmbedTap = { uri ->
-                    // Opening a URL is a stateless platform action, so do it
-                    // inline (no VM round-trip) exactly like FeedScreen. Narrowed
-                    // catch: silent no-op only for the "no CCT-capable browser
-                    // installed" case; other launch failures propagate so genuine
-                    // bugs surface in logcat instead of a blanket catch.
-                    try {
-                        CustomTabsIntent
-                            .Builder()
-                            .setShowTitle(true)
-                            .build()
-                            .launchUrl(context, AndroidUri.parse(uri))
-                    } catch (_: ActivityNotFoundException) {
-                        // No browser available — silent no-op.
-                    }
-                },
+                onExternalEmbedTap = { uri -> openInCustomTab(uri) },
                 onFacetTap = { target ->
                     when (target) {
                         // A @mention → the mentioned account's profile (Profile
                         // resolves a DID directly), same nav as tapping the author.
                         is FacetTarget.Mention ->
                             viewModel.handleEvent(PostDetailEvent.OnAuthorTapped(target.did))
-                        // An inline link → in-app browser, same Custom Tab path as
-                        // an external embed.
-                        is FacetTarget.Link ->
-                            try {
-                                CustomTabsIntent
-                                    .Builder()
-                                    .setShowTitle(true)
-                                    .build()
-                                    .launchUrl(context, AndroidUri.parse(target.uri))
-                            } catch (_: ActivityNotFoundException) {
-                                // No browser available — silent no-op.
-                            }
+                        // An inline link → in-app browser (http(s)-only is already
+                        // enforced upstream in the tappable-facet builder).
+                        is FacetTarget.Link -> openInCustomTab(target.uri)
                     }
                 },
                 onQuotedPostTap = { quoted ->

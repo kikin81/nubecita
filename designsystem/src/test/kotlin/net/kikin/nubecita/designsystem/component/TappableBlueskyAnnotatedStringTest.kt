@@ -66,6 +66,29 @@ class TappableBlueskyAnnotatedStringTest {
         assertEquals(FacetTarget.Link("https://nubecita.app"), tapped)
     }
 
+    // Security: facet URIs are untrusted content. A non-web scheme (intent:,
+    // market:, file:, …) must be styled but NOT tappable, so it can never reach a
+    // host's Custom Tab and drive app-switching / a file probe.
+    @Test
+    fun nonWebSchemeLinkIsStyledButNotTappable() {
+        val text = "get the app market://details?id=com.evil"
+        val start = text.indexOf("market://")
+        val facets =
+            persistentListOf(
+                Facet(
+                    features = listOf(FacetLink(uri = Uri("market://details?id=com.evil"))),
+                    index = FacetByteSlice(byteStart = start.toLong(), byteEnd = text.length.toLong()),
+                ),
+            )
+        val annotated = buildTappableBlueskyAnnotatedString(text, facets, linkStyle) { }
+
+        assertTrue(
+            annotated.getLinkAnnotations(0, annotated.length).isEmpty(),
+            "a non-http(s) link scheme must not be a tappable link annotation",
+        )
+        assertEquals(text, annotated.text)
+    }
+
     // The core "multiple handles in one post" case: each mention is its own span
     // and routes to its own DID — no manual hit-testing, no shared target.
     @Test
