@@ -110,6 +110,19 @@ sealed interface SettingsEvent : UiEvent {
      */
     data object ManageAccountTapped : SettingsEvent
 
+    /** User tapped the "Terms of Service" row → [SettingsEffect.LaunchUri] to the hosted terms page. */
+    data object TermsTapped : SettingsEvent
+
+    /** User tapped the "Privacy Policy" row → [SettingsEffect.LaunchUri] to the hosted privacy page. */
+    data object PrivacyTapped : SettingsEvent
+
+    /**
+     * User tapped the "Delete account" row. Account + content deletion lives on
+     * Bluesky (the data is on the PDS, not in Nubecita), so the VM opens the
+     * hosted Bluesky settings page via [SettingsEffect.LaunchUri].
+     */
+    data object DeleteAccountTapped : SettingsEvent
+
     /**
      * User tapped the Switch-account placeholder row. Multi-account auth
      * is out of scope for this epic; VM responds with a coming-soon

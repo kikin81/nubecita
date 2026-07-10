@@ -199,6 +199,42 @@ internal class SettingsViewModelTest {
         }
 
     @Test
+    fun `TermsTapped emits LaunchUri to the hosted terms page`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = createVm(auth = mockk(relaxed = true))
+            vm.effects.test {
+                vm.handleEvent(SettingsEvent.TermsTapped)
+                advanceUntilIdle()
+                assertEquals(SettingsEffect.LaunchUri(uri = "https://nubecita.app/terms/"), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `PrivacyTapped emits LaunchUri to the hosted privacy page`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = createVm(auth = mockk(relaxed = true))
+            vm.effects.test {
+                vm.handleEvent(SettingsEvent.PrivacyTapped)
+                advanceUntilIdle()
+                assertEquals(SettingsEffect.LaunchUri(uri = "https://nubecita.app/privacy-policy/"), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `DeleteAccountTapped emits LaunchUri to Bluesky settings where deletion lives`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = createVm(auth = mockk(relaxed = true))
+            vm.effects.test {
+                vm.handleEvent(SettingsEvent.DeleteAccountTapped)
+                advanceUntilIdle()
+                assertEquals(SettingsEffect.LaunchUri(uri = "https://bsky.app/settings"), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `SwitchAccountTapped emits ShowSwitchAccountComingSoon`() =
         runTest(mainDispatcher.dispatcher) {
             val vm = createVm(auth = mockk(relaxed = true))
