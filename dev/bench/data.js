@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783586051087,
+  "lastUpdate": 1783671915352,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -51,6 +51,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 1206.506,
             "range": "+/- 29.7%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "81b8466ee2f223c6245f79e00b6455146080c1db",
+          "message": "ci(release): 1.284.2\n\n## [1.284.2](https://github.com/kikin81/nubecita/compare/v1.284.1...v1.284.2) (2026-07-10)\n\n### Bug Fixes\n\n* **deps:** update dependency com.google.firebase:firebase-bom to v34.16.0 ([#707](https://github.com/kikin81/nubecita/issues/707)) ([1445df5](https://github.com/kikin81/nubecita/commit/1445df5c70b0bac204592c7fe714ec7563dfca76))\n\n### Tests\n\n* **chats:** cover DefaultChatRepository orchestration ([#709](https://github.com/kikin81/nubecita/issues/709)) ([62926a1](https://github.com/kikin81/nubecita/commit/62926a1a1de8879108ba6603e02eec044bff283c))",
+          "timestamp": "2026-07-10T04:21:01Z",
+          "url": "https://github.com/kikin81/nubecita/commit/81b8466ee2f223c6245f79e00b6455146080c1db"
+        },
+        "date": 1783671912873,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 28,
+            "range": "+/- 9.7%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1748.16,
+            "range": "+/- 6.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1479.498,
+            "range": "+/- 5.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1537.664,
+            "range": "+/- 24.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1477.71,
+            "range": "+/- 8.2%",
             "unit": "ms"
           }
         ]
