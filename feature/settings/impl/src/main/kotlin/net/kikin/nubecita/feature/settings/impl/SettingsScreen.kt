@@ -394,9 +394,12 @@ internal fun SettingsContent(
     val notificationsRowLabel = stringResource(R.string.settings_notifications_row_label)
     val messageCheckingLabel = stringResource(R.string.settings_message_checking_label)
     val messageCheckingSupporting = stringResource(R.string.settings_message_checking_supporting)
-    val versionRowLabel = stringResource(R.string.settings_version_row_label)
+    val versionFooter = stringResource(R.string.settings_version_footer, versionLabel)
     val followDeveloperLabel = stringResource(R.string.settings_follow_developer_row_label)
     val aboutLabel = stringResource(R.string.settings_about_label)
+    val termsLabel = stringResource(R.string.settings_terms_label)
+    val privacyLabel = stringResource(R.string.settings_privacy_label)
+    val deleteAccountLabel = stringResource(R.string.settings_delete_account_label)
 
     val notificationsRows =
         remember(notificationsRowLabel, messageCheckingLabel, messageCheckingSupporting, state.messageCheckingEnabled) {
@@ -407,7 +410,7 @@ internal fun SettingsContent(
                 // section; in-app per-reason toggles arrive in a later
                 // epic and will join this list.
                 SettingsRow.Link(
-                    icon = null,
+                    icon = NubecitaIconName.Notifications,
                     label = notificationsRowLabel,
                     onClick = { currentOnEvent(SettingsEvent.NotificationsTapped) },
                 ),
@@ -416,7 +419,7 @@ internal fun SettingsContent(
                 // DM-notification worker. Honest supporting copy spells out
                 // that off means no notifications AND no unread badge.
                 SettingsRow.Toggle(
-                    icon = null,
+                    icon = NubecitaIconName.ChatBubble,
                     label = messageCheckingLabel,
                     supportingText = messageCheckingSupporting,
                     checked = state.messageCheckingEnabled,
@@ -424,46 +427,60 @@ internal fun SettingsContent(
                 ),
             )
         }
+    // Account card — the destructive pair grouped at the bottom. Both open a
+    // path that removes something: Delete account forwards to Bluesky (where the
+    // account + content live), Sign out clears this device. Both destructive-tinted.
     val accountRows =
-        remember(signOutLabel) {
+        remember(deleteAccountLabel, signOutLabel) {
             persistentListOf(
+                // Delete account → Bluesky's hosted settings (external). Action +
+                // isDestructive for the red tint; icon deferred to nubecita-8xlv
+                // (DeleteForever needs the font-pin work first).
                 SettingsRow.Action(
                     icon = null,
+                    label = deleteAccountLabel,
+                    isDestructive = true,
+                    onClick = { currentOnEvent(SettingsEvent.DeleteAccountTapped) },
+                ),
+                SettingsRow.Action(
+                    icon = NubecitaIconName.Logout,
                     label = signOutLabel,
                     isDestructive = true,
                     onClick = { currentOnEvent(SettingsEvent.SignOutTapped) },
                 ),
             )
         }
+    // About & legal card — consolidates the previously-floating About / Follow /
+    // Version pills into one dense group and surfaces Terms + Privacy outside the
+    // paywall. Version moved to the footer caption below the list.
     val aboutRows =
-        remember(followDeveloperLabel, aboutLabel, versionRowLabel, versionLabel) {
+        remember(aboutLabel, termsLabel, privacyLabel, followDeveloperLabel) {
             persistentListOf(
-                // Action, not Link: this opens an *in-app* Profile route (pushed
-                // onto MainShell's back stack), matching the Pro-upsell row.
-                // SettingsRow.Link is reserved for *external* destinations (web /
-                // OS-settings deep links) and is slated to grow an "open in new"
-                // badge, which would misrepresent this in-app navigation.
-                // PersonAdd reads as "follow".
-                SettingsRow.Action(
-                    icon = NubecitaIconName.PersonAdd,
-                    label = followDeveloperLabel,
-                    onClick = { currentOnEvent(SettingsEvent.FollowDeveloperTapped) },
-                ),
                 // Opens the in-app About sub-route (source, special thanks,
-                // open-source licenses). Action — in-app navigation, not external.
+                // open-source licenses). Action — in-app navigation. Icon deferred
+                // to nubecita-8xlv (Info needs the font-pin work first).
                 SettingsRow.Action(
                     icon = null,
                     label = aboutLabel,
                     onClick = { currentOnEvent(SettingsEvent.AboutTapped) },
                 ),
-                // Non-interactive: the version is informational. Info renders
-                // the same visual rhythm (Surface tone + segmented shape) as
-                // the surrounding action rows but has no click handler, no
-                // ripple, and announces as text to screen readers.
-                SettingsRow.Info(
-                    icon = null,
-                    label = versionRowLabel,
-                    supportingText = versionLabel,
+                // Terms / Privacy open the hosted web pages — Link (external).
+                SettingsRow.Link(
+                    icon = NubecitaIconName.Article,
+                    label = termsLabel,
+                    onClick = { currentOnEvent(SettingsEvent.TermsTapped) },
+                ),
+                SettingsRow.Link(
+                    icon = NubecitaIconName.LockPerson,
+                    label = privacyLabel,
+                    onClick = { currentOnEvent(SettingsEvent.PrivacyTapped) },
+                ),
+                // Action, not Link: opens an *in-app* Profile route. PersonAdd reads
+                // as "follow".
+                SettingsRow.Action(
+                    icon = NubecitaIconName.PersonAdd,
+                    label = followDeveloperLabel,
+                    onClick = { currentOnEvent(SettingsEvent.FollowDeveloperTapped) },
                 ),
             )
         }
@@ -537,7 +554,7 @@ internal fun SettingsContent(
         remember(moderationLabel) {
             persistentListOf(
                 SettingsRow.Action(
-                    icon = null,
+                    icon = NubecitaIconName.Flag,
                     label = moderationLabel,
                     onClick = { currentOnEvent(SettingsEvent.ModerationTapped) },
                 ),
@@ -586,10 +603,21 @@ internal fun SettingsContent(
         //   7. Data usage           — filled by nubecita-37to.8
         SettingsSection(rows = notificationsRows)
         SettingsSection(rows = contentModerationRows, label = contentModerationSectionLabel)
-        SettingsSection(rows = accountRows)
+        // About & legal above the destructive Account card, which sits last.
         SettingsSection(rows = aboutRows)
-        // Transparency footer: non-English UI translations are AI/machine-
-        // generated (the in-repo ones and any Play Console Gemini translations).
+        SettingsSection(rows = accountRows)
+        // Footer: version (moved out of the list so every row stays a uniform
+        // action height) + transparency note that non-English UI translations are
+        // AI/machine-generated (in-repo strings and any Play Console translations).
+        Text(
+            text = versionFooter,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 12.dp),
+        )
         Text(
             text = stringResource(R.string.settings_translation_disclosure),
             style = MaterialTheme.typography.bodySmall,

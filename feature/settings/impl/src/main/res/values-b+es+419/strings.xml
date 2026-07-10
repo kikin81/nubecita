@@ -5,11 +5,14 @@
     <string name="settings_close_content_description">Cerrar</string>
     <string name="settings_signout">Cerrar sesión</string>
     <string name="settings_signout_dialog_title">¿Cerrar sesión?</string>
-    <string name="settings_signout_dialog_body">Tendrás que iniciar sesión de nuevo para usar Nubecita.</string>
+    <string name="settings_signout_dialog_body">Esto cierra tu sesión y elimina los datos de Nubecita de este dispositivo. Tendrás que iniciar sesión de nuevo para usar Nubecita.</string>
     <string name="settings_signout_dialog_confirm">Cerrar sesión</string>
     <string name="settings_signout_dialog_cancel">Cancelar</string>
     <string name="settings_signout_error">No se pudo cerrar sesión. Revisa tu conexión e inténtalo de nuevo.</string>
-    <string name="settings_version_row_label">Versión</string>
+    <string name="settings_version_footer">Versión %1$s</string>
+    <string name="settings_terms_label">Términos del servicio</string>
+    <string name="settings_privacy_label">Política de privacidad</string>
+    <string name="settings_delete_account_label">Eliminar cuenta</string>
     <string name="settings_version_unknown">desconocida</string>
     <string name="settings_follow_developer_row_label">Sigue al desarrollador</string>
     <string name="settings_header_greeting_with_name">¡Hola, %1$s!</string>
@@ -21,7 +24,7 @@
     <string name="settings_switch_account_avatar_content_description">Cuenta actual</string>
     <string name="settings_notifications_row_label">Notificaciones</string>
     <string name="settings_message_checking_label">Buscar mensajes nuevos</string>
-    <string name="settings_message_checking_supporting">Cuando está desactivado, Nubecita deja de buscar mensajes: sin notificaciones de mensajes ni insignia de no leídos.</string>
+    <string name="settings_message_checking_supporting">Si se desactiva: sin verificación de mensajes, notificaciones ni insignia de no leídos.</string>
     <string name="settings_pro_section_label">Nubecita Pro</string>
     <string name="settings_pro_upsell_label">Nubecita Pro</string>
     <string name="settings_pro_upsell_supporting">Apoya al desarrollador y desbloquea las ventajas Pro</string>

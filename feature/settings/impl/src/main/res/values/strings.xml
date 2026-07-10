@@ -9,17 +9,19 @@
     <string name="settings_close_content_description">Close</string>
     <string name="settings_signout">Sign out</string>
     <string name="settings_signout_dialog_title">Sign out?</string>
-    <string name="settings_signout_dialog_body">You\'ll need to sign in again to use Nubecita.</string>
+    <string name="settings_signout_dialog_body">This signs you out and removes Nubecita\'s data from this device. You\'ll need to sign in again to use Nubecita.</string>
     <string name="settings_signout_dialog_confirm">Sign out</string>
     <string name="settings_signout_dialog_cancel">Cancel</string>
     <string name="settings_signout_error">Couldn\'t sign out. Check your network and try again.</string>
 
-    <!-- About-section version row. Label is plain "Version"; the version
-         value (e.g. "1.104.0 (1104000)") rides in the row's
-         supportingText slot below the label. _unknown is the fallback
-         when PackageManager can't resolve the package — should never
-         fire in practice. -->
-    <string name="settings_version_row_label">Version</string>
+    <!-- Version caption in the Settings footer (below the last card, so every
+         list row stays a uniform action height). %1$s is the version value, e.g.
+         "1.104.0 (1104000)"; _unknown is the fallback when PackageManager can't
+         resolve the package — should never fire in practice. -->
+    <string name="settings_version_footer">Version %1$s</string>
+    <string name="settings_terms_label">Terms of Service</string>
+    <string name="settings_privacy_label">Privacy Policy</string>
+    <string name="settings_delete_account_label">Delete account</string>
     <string name="settings_version_unknown">unknown</string>
 
     <!-- About-section row linking to the developer's Bluesky profile. Tapping
@@ -48,7 +50,7 @@
          live in the same section and arrive in a later epic. -->
     <string name="settings_notifications_row_label">Notifications</string>
     <string name="settings_message_checking_label">Check for new messages</string>
-    <string name="settings_message_checking_supporting">When off, Nubecita stops checking for messages — no message notifications and no unread badge.</string>
+    <string name="settings_message_checking_supporting">When off, no message checks, notifications, or unread badge.</string>
 
     <!-- Nubecita Pro section (nubecita-q5ge.10). Two faces:
          - Non-Pro: an upsell row opening the paywall. "Support the

@@ -5,11 +5,14 @@
     <string name="settings_close_content_description">Fechar</string>
     <string name="settings_signout">Sair</string>
     <string name="settings_signout_dialog_title">Sair?</string>
-    <string name="settings_signout_dialog_body">Você precisará entrar novamente para usar o Nubecita.</string>
+    <string name="settings_signout_dialog_body">Isso encerra sua sessão e remove os dados do Nubecita deste dispositivo. Você precisará entrar novamente para usar o Nubecita.</string>
     <string name="settings_signout_dialog_confirm">Sair</string>
     <string name="settings_signout_dialog_cancel">Cancelar</string>
     <string name="settings_signout_error">Não foi possível sair. Verifique sua conexão e tente de novo.</string>
-    <string name="settings_version_row_label">Versão</string>
+    <string name="settings_version_footer">Versão %1$s</string>
+    <string name="settings_terms_label">Termos de Serviço</string>
+    <string name="settings_privacy_label">Política de Privacidade</string>
+    <string name="settings_delete_account_label">Excluir conta</string>
     <string name="settings_version_unknown">desconhecida</string>
     <string name="settings_follow_developer_row_label">Siga o desenvolvedor</string>
     <string name="settings_header_greeting_with_name">Olá, %1$s!</string>
@@ -21,7 +24,7 @@
     <string name="settings_switch_account_avatar_content_description">Conta atual</string>
     <string name="settings_notifications_row_label">Notificações</string>
     <string name="settings_message_checking_label">Verificar novas mensagens</string>
-    <string name="settings_message_checking_supporting">Quando desativado, o Nubecita para de verificar mensagens — sem notificações de mensagens e sem selo de não lidas.</string>
+    <string name="settings_message_checking_supporting">Quando desativado: sem verificação de mensagens, notificações ou selo de não lidas.</string>
     <string name="settings_pro_section_label">Nubecita Pro</string>
     <string name="settings_pro_upsell_label">Nubecita Pro</string>
     <string name="settings_pro_upsell_supporting">Apoie o desenvolvedor e desbloqueie as vantagens Pro</string>
