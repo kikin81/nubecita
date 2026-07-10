@@ -1,19 +1,16 @@
 package net.kikin.nubecita.designsystem.component
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.ListItem
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.ListItemShapes
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
@@ -21,33 +18,40 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.designsystem.NubecitaTheme
 
 /**
- * A connected-card grouped list — the Google Play settings-sheet look.
+ * A Material 3 **Expressive** connected/segmented grouped list.
  *
- * [items] render as **flush rows inside one rounded [surfaceContainer] card**,
- * separated by hairline dividers, with only the group's **outer** corners
- * rounded. The card owns the rounding (a single clipped [Surface]), so callers
- * never compute first / middle / last shapes — they supply the items and a
- * per-item [row] slot and the grouping is handled here.
+ * [items] render as **[SegmentedListItem] segments** — separate rounded rows with
+ * the framework's 2dp [ListItemDefaults.SegmentedGap] between them and
+ * position-aware corners from [ListItemDefaults.segmentedShapes]: the first row
+ * has large top corners, the last row large bottom corners, middle rows small
+ * corners, and a single row is fully rounded. This is the M3 Expressive list look
+ * (the reference we're matching), not a flat single card.
  *
- * This replaces the hand-rolled `ListItemDefaults.segmentedShapes(index, count)`
- * pattern that was duplicated per call site (and read as separate pills because
- * of the inter-row gap). An optional [label] renders a section caption above the
- * card (M3 `labelMedium` / `onSurfaceVariant`). Empty [items] renders nothing —
- * caption included — so a not-yet-populated group leaves no stray label.
+ * The group computes each row's shape and hands it to the [row] slot, so callers
+ * still **never compute first / middle / last positions** — they supply the items
+ * and a per-item [row] that forwards the passed `shapes` into [NubecitaListItem].
  *
- * Rows are typically [NubecitaListItem] (below), which is a plain M3 [ListItem]
- * with a transparent container so this card's tone shows through.
+ * The segment fill is [surfaceContainerHigh][androidx.compose.material3.ColorScheme.surfaceContainerHigh]
+ * (a **raised** tone) so the segments read clearly against the screen's near-black
+ * `surface` canvas on dark — `surfaceContainer` sits too close to the canvas and
+ * the inter-segment gaps look muddy. See `docs/design-system/surface-roles.md`.
+ *
+ * An optional [label] renders a section caption above the group (M3 `labelMedium`
+ * / `onSurfaceVariant`). Empty [items] renders nothing — caption included — so a
+ * not-yet-populated group leaves no stray label.
  *
  * @param items the group's rows, in display order.
- * @param label optional section caption shown above the card.
- * @param row renders one item's row content.
+ * @param label optional section caption shown above the group.
+ * @param row renders one item's row given its segment [ListItemShapes] (forward it
+ *   into [NubecitaListItem]).
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun <T> NubecitaListGroup(
     items: ImmutableList<T>,
     modifier: Modifier = Modifier,
     label: String? = null,
-    row: @Composable (T) -> Unit,
+    row: @Composable (item: T, shapes: ListItemShapes) -> Unit,
 ) {
     if (items.isEmpty()) return
     Column(modifier = modifier) {
@@ -59,37 +63,28 @@ fun <T> NubecitaListGroup(
                 modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp),
             )
         }
-        Surface(
-            shape = RoundedCornerShape(GROUP_CORNER_RADIUS),
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Column {
-                items.forEachIndexed { index, item ->
-                    if (index > 0) {
-                        // Hairline between adjacent rows, inset past the leading
-                        // slot so it aligns under the row text (Play-style).
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = DIVIDER_START_INSET),
-                            thickness = 1.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant,
-                        )
-                    }
-                    row(item)
-                }
+        Column(verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
+            items.forEachIndexed { index, item ->
+                row(item, ListItemDefaults.segmentedShapes(index = index, count = items.size))
             }
         }
     }
 }
 
 /**
- * The standard row for [NubecitaListGroup]: a plain M3 [ListItem] with a
- * **transparent** container (the group card owns the surface tone) and an
- * optional [onClick]. Keeps every grouped-list row visually identical without
- * each call site re-specifying the transparent color / clickable wiring.
+ * The standard row for [NubecitaListGroup]: a Material 3 [SegmentedListItem] shaped
+ * by the [shapes] the group passes down, filled with the raised
+ * [surfaceContainerHigh][androidx.compose.material3.ColorScheme.surfaceContainerHigh]
+ * segment tone.
+ *
+ * A non-null [onClick] renders the interactive (button-role) segment; a null
+ * [onClick] renders the non-interactive overload — announced as text, not a
+ * disabled button — for read-only rows.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun NubecitaListItem(
+    shapes: ListItemShapes,
     headlineContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
@@ -97,22 +92,33 @@ fun NubecitaListItem(
     trailingContent: (@Composable () -> Unit)? = null,
     supportingContent: (@Composable () -> Unit)? = null,
 ) {
-    ListItem(
-        headlineContent = headlineContent,
-        modifier = if (onClick != null) modifier.clickable(onClick = onClick) else modifier,
-        leadingContent = leadingContent,
-        trailingContent = trailingContent,
-        supportingContent = supportingContent,
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-    )
+    val colors =
+        ListItemDefaults.segmentedColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        )
+    if (onClick != null) {
+        SegmentedListItem(
+            onClick = onClick,
+            shapes = shapes,
+            colors = colors,
+            leadingContent = leadingContent,
+            trailingContent = trailingContent,
+            supportingContent = supportingContent,
+            modifier = modifier,
+            content = headlineContent,
+        )
+    } else {
+        SegmentedListItem(
+            shapes = shapes,
+            colors = colors,
+            leadingContent = leadingContent,
+            trailingContent = trailingContent,
+            supportingContent = supportingContent,
+            modifier = modifier,
+            content = headlineContent,
+        )
+    }
 }
-
-// Outer corner radius of the group card. Matches the app's item-card rounding.
-private val GROUP_CORNER_RADIUS = 20.dp
-
-// Divider inset: 16dp card padding + 24dp icon + 16dp gap ≈ text start, so the
-// hairline sits under the row text for rows that carry a leading icon.
-private val DIVIDER_START_INSET = 56.dp
 
 @Preview(name = "NubecitaListGroup — labeled group", showBackground = true)
 @Composable
@@ -121,8 +127,9 @@ private fun NubecitaListGroupPreview() {
         NubecitaListGroup(
             items = persistentListOf("First item", "Second item", "Third item"),
             label = "Section",
-        ) { text ->
+        ) { text, shapes ->
             NubecitaListItem(
+                shapes = shapes,
                 headlineContent = { Text(text) },
                 onClick = {},
             )
@@ -134,8 +141,8 @@ private fun NubecitaListGroupPreview() {
 @Composable
 private fun NubecitaListGroupSinglePreview() {
     NubecitaTheme {
-        NubecitaListGroup(items = persistentListOf("Only row")) { text ->
-            NubecitaListItem(headlineContent = { Text(text) }, onClick = {})
+        NubecitaListGroup(items = persistentListOf("Only row")) { text, shapes ->
+            NubecitaListItem(shapes = shapes, headlineContent = { Text(text) }, onClick = {})
         }
     }
 }

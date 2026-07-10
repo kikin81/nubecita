@@ -15,11 +15,12 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.preview.NubecitaComponentPreview
 
 /**
- * Screenshot baselines for [NubecitaListGroup] — the connected-card grouped list
- * (one rounded `surfaceContainer` card, flush rows, hairline dividers, outer-only
- * corners). Captures the multi-row (dividers) and single-row (fully rounded, no
- * divider) cases in light + dark. Regenerate after intentional visual changes
- * with `./gradlew :designsystem:updateDebugScreenshotTest`.
+ * Screenshot baselines for [NubecitaListGroup] — the M3 Expressive segmented
+ * grouped list (separate rounded segments, 2dp gaps, position-aware outer
+ * corners, raised `surfaceContainerHigh` fill). Captures the multi-row
+ * (first/middle/last shapes) and single-row (fully rounded) cases in light +
+ * dark. Regenerate after intentional visual changes with
+ * `./gradlew :designsystem:updateDebugScreenshotTest`.
  */
 
 private data class DemoRow(
@@ -41,8 +42,9 @@ private fun NubecitaListGroupMultiRowScreenshot() {
                 DemoRow(NubecitaIconName.Flag, "Moderation"),
             ),
         label = "Section",
-    ) { item ->
+    ) { item, shapes ->
         NubecitaListItem(
+            shapes = shapes,
             headlineContent = { Text(item.label) },
             onClick = {},
             leadingContent = {
@@ -58,8 +60,9 @@ private fun NubecitaListGroupMultiRowScreenshot() {
 @PreviewWrapper(NubecitaComponentPreview::class)
 @Composable
 private fun NubecitaListGroupSingleRowScreenshot() {
-    NubecitaListGroup(items = persistentListOf(DemoRow(NubecitaIconName.WorkspacePremium, "Only row"))) { item ->
+    NubecitaListGroup(items = persistentListOf(DemoRow(NubecitaIconName.WorkspacePremium, "Only row"))) { item, shapes ->
         NubecitaListItem(
+            shapes = shapes,
             headlineContent = { Text(item.label) },
             onClick = {},
             leadingContent = {

@@ -1,6 +1,8 @@
 package net.kikin.nubecita.feature.settings.impl.ui
 
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.ListItemShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -15,10 +17,10 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 
 /**
  * Material 3 Expressive grouped-list section for the Settings home. Delegates
- * the grouping to the shared [NubecitaListGroup] design-system component — one
- * rounded [surfaceContainer] card, flush rows, hairline dividers, outer-only
- * corners (the Google Play settings-sheet look) — so this file only maps a
- * [SettingsRow] to row content and no longer hand-computes first/last shapes.
+ * the grouping to the shared [NubecitaListGroup] design-system component — M3
+ * Expressive segmented rows (separate rounded segments, 2dp gaps, position-aware
+ * outer corners) — so this file only maps a [SettingsRow] to row content and
+ * forwards the segment `shapes` the group hands each row.
  *
  * Empty sections render nothing (caption included) per the group component.
  */
@@ -28,13 +30,17 @@ internal fun SettingsSection(
     modifier: Modifier = Modifier,
     label: String? = null,
 ) {
-    NubecitaListGroup(items = rows, modifier = modifier, label = label) { row ->
-        SettingsRowContent(row)
+    NubecitaListGroup(items = rows, modifier = modifier, label = label) { row, shapes ->
+        SettingsRowContent(row, shapes)
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun SettingsRowContent(row: SettingsRow) {
+private fun SettingsRowContent(
+    row: SettingsRow,
+    shapes: ListItemShapes,
+) {
     // Destructive rows (Sign out, Delete account) tint icon + label with `error`.
     val isDestructive =
         (row is SettingsRow.Action && row.isDestructive) ||
@@ -71,6 +77,7 @@ private fun SettingsRowContent(row: SettingsRow) {
     when (row) {
         is SettingsRow.Action ->
             NubecitaListItem(
+                shapes = shapes,
                 headlineContent = headline,
                 onClick = row.onClick,
                 leadingContent = leadingContent,
@@ -78,6 +85,7 @@ private fun SettingsRowContent(row: SettingsRow) {
             )
         is SettingsRow.Link ->
             NubecitaListItem(
+                shapes = shapes,
                 headlineContent = headline,
                 onClick = row.onClick,
                 leadingContent = leadingContent,
@@ -85,6 +93,7 @@ private fun SettingsRowContent(row: SettingsRow) {
             )
         is SettingsRow.Toggle ->
             NubecitaListItem(
+                shapes = shapes,
                 headlineContent = headline,
                 // Whole row toggles the switch (matches the trailing Switch).
                 onClick = { row.onCheckedChange(!row.checked) },
@@ -96,6 +105,7 @@ private fun SettingsRowContent(row: SettingsRow) {
             )
         is SettingsRow.Picker ->
             NubecitaListItem(
+                shapes = shapes,
                 headlineContent = headline,
                 onClick = row.onClick,
                 leadingContent = leadingContent,
@@ -111,6 +121,7 @@ private fun SettingsRowContent(row: SettingsRow) {
         is SettingsRow.Info ->
             // Non-interactive (no onClick) — announces as text, not a button.
             NubecitaListItem(
+                shapes = shapes,
                 headlineContent = headline,
                 leadingContent = leadingContent,
                 supportingContent = supportingContent,
