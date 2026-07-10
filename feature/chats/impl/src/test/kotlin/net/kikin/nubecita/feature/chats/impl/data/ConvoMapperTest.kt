@@ -270,8 +270,15 @@ internal class ConvoMapperTest {
     private fun sampleGroupConvo(
         name: String = "Group",
         lockStatus: String = "unlocked",
+        memberCount: Long = 2L,
+        memberLimit: Long = 100L,
     ): GroupConvo =
         GroupConvo(
+            // atproto 9.7.5 added createdAt / lockStatusModerationOverride /
+            // memberCount / memberLimit to groupConvo; the mapper derives its own
+            // member count from the member list, so these carry representative
+            // fixture values only.
+            createdAt = Datetime("2026-01-01T00:00:00Z"),
             joinLink =
                 JoinLinkView(
                     code = "code-1",
@@ -281,6 +288,9 @@ internal class ConvoMapperTest {
                     requireApproval = false,
                 ),
             lockStatus = lockStatus,
+            lockStatusModerationOverride = false,
+            memberCount = memberCount,
+            memberLimit = memberLimit,
             name = name,
         )
 
