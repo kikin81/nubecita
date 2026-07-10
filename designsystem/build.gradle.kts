@@ -17,6 +17,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.text.google.fonts)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.palette)
+    implementation(libs.atproto.compose)
     implementation(libs.atproto.compose.material3)
     implementation(libs.coil.compose)
 

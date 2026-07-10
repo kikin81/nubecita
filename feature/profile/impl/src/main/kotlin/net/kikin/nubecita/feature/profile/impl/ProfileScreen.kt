@@ -20,6 +20,8 @@ import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.core.postinteractions.ui.InteractionStrings
 import net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions
+import net.kikin.nubecita.data.models.FacetTarget
+import net.kikin.nubecita.feature.profile.impl.ui.openBioLinkInCustomTab
 import android.net.Uri as AndroidUri
 
 /**
@@ -187,6 +189,17 @@ internal fun ProfileScreen(
                             .launchUrl(context, AndroidUri.parse(uri))
                     } catch (_: ActivityNotFoundException) {
                         // No browser available — silent no-op.
+                    }
+                },
+                onFacetTap = { target ->
+                    when (target) {
+                        // A @mention → the mentioned account's profile (Profile
+                        // resolves a DID directly), same nav as tapping the author.
+                        is FacetTarget.Mention ->
+                            viewModel.handleEvent(ProfileEvent.HandleTapped(target.did))
+                        // An inline link → in-app browser, reusing the same Custom
+                        // Tab helper the profile bio links use (narrowed catch).
+                        is FacetTarget.Link -> openBioLinkInCustomTab(context, target.uri)
                     }
                 },
                 onQuotedPostTap = { quoted ->

@@ -1,5 +1,7 @@
 package net.kikin.nubecita.feature.search.impl
 
+import android.content.ActivityNotFoundException
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -7,16 +9,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.postinteractions.ui.InteractionStrings
 import net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions
+import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
 import net.kikin.nubecita.feature.search.impl.ui.PostsTabContent
+import android.net.Uri as AndroidUri
 
 /**
  * Stateful entry for the Posts tab. Hoists [SearchPostsViewModel],
@@ -92,17 +97,39 @@ internal fun SearchPostsScreen(
             strings = interactionStrings,
         )
 
+    val context = LocalContext.current
+
     // Merge the shared callbacks with search-local overrides:
     //  - onTap  → PostTapped MVI event
     //  - onAuthorTap → OnAuthorTapped MVI event (→ NavigateToProfile effect)
+    //  - onFacetTap → mention: same author-nav event (DID routes via Profile);
+    //    link: in-app browser (Custom Tab).
     // Do NOT re-wrap onLike / onRepost — search has no haptics and the
     // shared handler slots are correct as-is.
     val callbacks =
-        remember(viewModel, interactions.callbacks) {
+        remember(viewModel, context, interactions.callbacks) {
             interactions.callbacks.copy(
                 onTap = { post -> viewModel.handleEvent(SearchPostsEvent.PostTapped(post.id)) },
                 onAuthorTap = { author ->
                     viewModel.handleEvent(SearchPostsEvent.OnAuthorTapped(author.handle))
+                },
+                onFacetTap = { target ->
+                    when (target) {
+                        // OnAuthorTapped carries the actor id for Profile(handle=…),
+                        // which resolves a handle OR a DID — here it's a mention's DID.
+                        is FacetTarget.Mention ->
+                            viewModel.handleEvent(SearchPostsEvent.OnAuthorTapped(target.did))
+                        is FacetTarget.Link ->
+                            try {
+                                CustomTabsIntent
+                                    .Builder()
+                                    .setShowTitle(true)
+                                    .build()
+                                    .launchUrl(context, AndroidUri.parse(target.uri))
+                            } catch (_: ActivityNotFoundException) {
+                                // No browser available — silent no-op.
+                            }
+                    }
                 },
             )
         }

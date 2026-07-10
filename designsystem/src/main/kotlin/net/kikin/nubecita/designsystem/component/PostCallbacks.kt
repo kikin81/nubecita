@@ -2,6 +2,7 @@ package net.kikin.nubecita.designsystem.component
 
 import androidx.compose.runtime.Stable
 import net.kikin.nubecita.data.models.AuthorUi
+import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.QuotedPostUi
 
@@ -52,6 +53,15 @@ data class PostCallbacks(
      */
     val onShareLongPress: ((PostUi) -> Unit)? = null,
     val onExternalEmbedTap: (uri: String) -> Unit = {},
+    /**
+     * A tappable rich-text facet in the post body was tapped — a `@mention`
+     * ([FacetTarget.Mention], the mentioned account's DID → open their profile)
+     * or an inline link ([FacetTarget.Link] → in-app browser). The default no-op
+     * leaves facets styled-but-inert (preview / `PostCallbacks.None` call sites).
+     * Modeling the target (not "a handle") keeps this generic: a new facet kind
+     * is a new [FacetTarget] variant + one host branch, not new plumbing.
+     */
+    val onFacetTap: (FacetTarget) -> Unit = {},
     /**
      * Tap on the inner quoted-post region of a record / record-with-media
      * embed. `null` (the default) means the host has NOT wired tap-to-open

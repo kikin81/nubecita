@@ -205,6 +205,35 @@ internal class ProfileViewModelTest {
             }
         }
 
+    // Regression: a @mention routes through HandleTapped carrying a DID (not a
+    // handle). Tapping a self-mention on the profile you're viewing must still be
+    // a no-op — the guard has to match the header DID, not only the handle.
+    @Test
+    fun `self-mention DID tap is a silent no-op`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(
+                            ProfileHeaderWithViewer(
+                                SAMPLE_HEADER.copy(handle = "alice.bsky.social"),
+                                ViewerRelationship.None,
+                            ),
+                        ),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "alice.bsky.social"))
+            advanceUntilIdle()
+
+            vm.effects.test {
+                // SAMPLE_HEADER.did — the DID of the profile currently on screen.
+                vm.handleEvent(ProfileEvent.HandleTapped("did:plc:alice"))
+                advanceUntilIdle()
+                expectNoEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
     @Test
     fun `cross-handle tap emits NavigateToProfile`() =
         runTest(mainDispatcher.dispatcher) {

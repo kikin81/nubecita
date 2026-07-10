@@ -405,14 +405,17 @@ internal class ProfileViewModel
             setState { copy(selectedTab = tab) }
         }
 
-        private fun onHandleTapped(handle: String) {
-            // Self-tap guard: tapping the @handle on a post within
-            // the current profile's own posts MUST NOT push another
-            // copy of the same profile onto the back stack. Silent
-            // no-op (per the `Self-handle tap is a no-op` scenario).
-            val currentHandle = uiState.value.header?.handle ?: route.handle
-            if (handle == currentHandle) return
-            sendEffect(ProfileEffect.NavigateToProfile(handle))
+        private fun onHandleTapped(actor: String) {
+            // Self-tap guard: tapping the author @handle OR an in-body @mention of
+            // the profile currently on screen MUST NOT push another copy of the same
+            // profile onto the back stack. Silent no-op (per the `Self-handle tap is
+            // a no-op` scenario). The author line passes a handle; a mention passes a
+            // DID — so guard against BOTH the current profile's handle and its DID
+            // ([actor] can be either, and Profile resolves either).
+            val header = uiState.value.header
+            val currentHandle = header?.handle ?: route.handle
+            if (actor == currentHandle || actor == header?.did) return
+            sendEffect(ProfileEffect.NavigateToProfile(actor))
         }
 
         /**

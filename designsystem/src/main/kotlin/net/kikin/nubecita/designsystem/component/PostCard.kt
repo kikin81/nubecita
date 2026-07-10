@@ -17,25 +17,34 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import io.github.kikin81.atproto.app.bsky.richtext.Facet
 import io.github.kikin81.atproto.app.bsky.richtext.FacetByteSlice
+import io.github.kikin81.atproto.app.bsky.richtext.FacetFeaturesUnion
 import io.github.kikin81.atproto.app.bsky.richtext.FacetLink
 import io.github.kikin81.atproto.app.bsky.richtext.FacetMention
-import io.github.kikin81.atproto.compose.material3.rememberBlueskyAnnotatedString
+import io.github.kikin81.atproto.app.bsky.richtext.FacetTag
+import io.github.kikin81.atproto.compose.appendBlueskyText
 import io.github.kikin81.atproto.runtime.Did
 import io.github.kikin81.atproto.runtime.Uri
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.time.rememberRelativeTimeText
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.data.models.ImageUi
 import net.kikin.nubecita.data.models.MediaContentWarning
 import net.kikin.nubecita.data.models.PostStatsUi
@@ -150,9 +159,20 @@ fun PostCard(
                 // weight(1f) — claim the remaining width after the avatar. Was
                 // fillMaxWidth() which overflows past the avatar on narrow screens.
                 Column(modifier = Modifier.weight(1f)) {
-                    AuthorLine(post = post)
+                    // The whole author identity row (name · @handle · time) opens the
+                    // author's profile, same target as the avatar. Nested inside the
+                    // card's onTap clickable, so this consumes the tap first.
+                    AuthorLine(
+                        post = post,
+                        modifier = Modifier.clickable { callbacks.onAuthorTap(post.author) },
+                    )
                     Spacer(Modifier.height(4.dp))
-                    BodyText(text = post.text, facets = post.facets, bodyMatch = bodyMatch)
+                    BodyText(
+                        text = post.text,
+                        facets = post.facets,
+                        onFacetTap = callbacks.onFacetTap,
+                        bodyMatch = bodyMatch,
+                    )
                     EmbedSlot(
                         embed = post.embed,
                         callbacks = callbacks,
@@ -200,9 +220,13 @@ private fun RepostedByLine(
 }
 
 @Composable
-private fun AuthorLine(post: PostUi) {
+private fun AuthorLine(
+    post: PostUi,
+    modifier: Modifier = Modifier,
+) {
     val timestamp by rememberRelativeTimeText(then = post.createdAt)
     Row(
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -268,9 +292,10 @@ private fun AuthorLine(post: PostUi) {
 private fun BodyText(
     text: String,
     facets: kotlinx.collections.immutable.ImmutableList<Facet>,
+    onFacetTap: (FacetTarget) -> Unit,
     bodyMatch: String? = null,
 ) {
-    val annotated = rememberBlueskyAnnotatedString(text = text, facets = facets)
+    val annotated = rememberTappableBlueskyAnnotatedString(text = text, facets = facets, onFacetTap = onFacetTap)
     val withHighlight =
         annotated.withMatchHighlight(
             match = bodyMatch,
@@ -282,6 +307,99 @@ private fun BodyText(
         )
     Text(text = withHighlight, style = MaterialTheme.typography.bodyLarge)
 }
+
+/**
+ * Bluesky post body as a tappable [AnnotatedString]. Reuses the atproto SDK's
+ * [appendBlueskyText] primitive (which owns the UTF-8-byte → char index math) and
+ * layers a Compose [LinkAnnotation.Clickable] over each mention/link facet so
+ * `Text(...)` makes them tappable natively — each facet is its own span, so
+ * multiple mentions in one post each route to their own target with no manual
+ * hit-testing. `#tag` facets stay styled but inert until tag search exists.
+ *
+ * Memoized on `(text, facets, linkStyle)`; the tap listener reads the latest
+ * [onFacetTap] via [rememberUpdatedState] so the string isn't rebuilt when the
+ * host's lambda identity changes.
+ */
+@Composable
+private fun rememberTappableBlueskyAnnotatedString(
+    text: String,
+    facets: kotlinx.collections.immutable.ImmutableList<Facet>,
+    onFacetTap: (FacetTarget) -> Unit,
+    linkStyle: SpanStyle = SpanStyle(color = MaterialTheme.colorScheme.primary),
+): AnnotatedString {
+    // The listener reads the latest lambda so the string (memoized on the keys
+    // below) isn't rebuilt when the host's onFacetTap identity changes.
+    val latestOnFacetTap = rememberUpdatedState(onFacetTap)
+    return remember(text, facets, linkStyle) {
+        buildTappableBlueskyAnnotatedString(text, facets, linkStyle) { latestOnFacetTap.value(it) }
+    }
+}
+
+/**
+ * Pure builder behind [rememberTappableBlueskyAnnotatedString] — no Compose
+ * runtime, so it's unit-testable: build with a capturing `onFacetTap`, pull the
+ * link annotations off the result, and invoke each listener to assert the
+ * target it routes to. Kept `internal` for the designsystem's own tests only.
+ */
+internal fun buildTappableBlueskyAnnotatedString(
+    text: String,
+    facets: kotlinx.collections.immutable.ImmutableList<Facet>,
+    linkStyle: SpanStyle,
+    onFacetTap: (FacetTarget) -> Unit,
+): AnnotatedString {
+    // Preserve the established rendering exactly — only tappability is new:
+    //  - a @mention is color-only (no underline), matching the post header handle;
+    //  - an inline link keeps the default link underline.
+    // A bare LinkAnnotation underlines its span, so mentions need an explicit
+    // textDecoration = None; links pass no styles and inherit the default underline
+    // (in the link color) — pixel-identical to the previous non-tappable rendering.
+    val mentionStyles = TextLinkStyles(style = SpanStyle(textDecoration = TextDecoration.None))
+    return buildAnnotatedString {
+        appendBlueskyText(text, facets) { feature, startChar, endChar, _ ->
+            when (feature) {
+                is FacetMention -> {
+                    addStyle(linkStyle, startChar, endChar)
+                    val did = feature.did.raw
+                    addLink(
+                        LinkAnnotation.Clickable(tag = "mention", styles = mentionStyles) {
+                            onFacetTap(FacetTarget.Mention(did))
+                        },
+                        startChar,
+                        endChar,
+                    )
+                }
+                is FacetLink -> {
+                    addStyle(linkStyle, startChar, endChar)
+                    val uri = feature.uri.raw
+                    // Facet URIs are untrusted post content and may carry non-web
+                    // schemes (intent:, market:, file:, …). Only make http(s) links
+                    // tappable so a crafted post can't drive app-switching or a file
+                    // probe when a host launches a Custom Tab; other schemes stay
+                    // styled-but-inert (like a tag). The http(s)-only contract is
+                    // enforced here, at the single source every host reads from.
+                    if (uri.isHttpUri()) {
+                        addLink(
+                            LinkAnnotation.Clickable(tag = "link") {
+                                onFacetTap(FacetTarget.Link(uri))
+                            },
+                            startChar,
+                            endChar,
+                        )
+                    }
+                }
+                // Tags are styled but not yet tappable (tag search needs a query route).
+                is FacetTag -> addStyle(linkStyle, startChar, endChar)
+                // Forward-compatible: an unknown facet feature stays plain text.
+                is FacetFeaturesUnion.Unknown -> Unit
+            }
+        }
+    }
+}
+
+// http/https only — the schemes the Custom Tab contract targets. Kept a pure
+// string check (no android.net.Uri) so the designsystem's JVM unit tests can
+// exercise it. Scheme comparison is case-insensitive per RFC 3986.
+private fun String.isHttpUri(): Boolean = startsWith("http://", ignoreCase = true) || startsWith("https://", ignoreCase = true)
 
 @Composable
 private fun EmbedSlot(
