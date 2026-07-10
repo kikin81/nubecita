@@ -114,18 +114,25 @@ internal class PostDetailViewModel
                         sendEffect(PostDetailEffect.NavigateToComposer(parentPostUri = focus.id))
                     }
                 }
-                is PostDetailEvent.OnFocusImageClicked ->
-                    // Use the focus post's canonical (DID-based) id, not
-                    // route.postUri. When post-detail is opened from a deep link
-                    // the route URI is handle-based (PostDeepLinkKey builds
-                    // at://<handle>/...), and the media viewer's getPost(handle)
-                    // 404s ("Post not found") because the appview's getPosts only
-                    // resolves DID-based at-uris. The image tap only fires from the
-                    // loaded focus post, so focusPost is non-null here; fall back to
-                    // route.postUri defensively if it somehow isn't.
+                is PostDetailEvent.OnPostImageClicked ->
+                    // The screen supplies the tapped post's canonical (DID-based)
+                    // id — `item.post.id` from the loaded thread — for ancestor,
+                    // focus, AND reply posts alike. This is why we forward it
+                    // verbatim instead of reaching for route.postUri: on a deep
+                    // link the route URI is handle-based (PostDeepLinkKey builds
+                    // at://<handle>/...) and the media viewer's getPost(handle)
+                    // 404s, whereas the loaded post's id always resolves.
                     sendEffect(
                         PostDetailEffect.NavigateToMediaViewer(
-                            postUri = uiState.value.focusPost?.id ?: route.postUri,
+                            postUri = event.postUri,
+                            imageIndex = event.imageIndex,
+                        ),
+                    )
+                is PostDetailEvent.OnQuotedImageClicked ->
+                    // Quoted-post image tap → media viewer for the quoted post.
+                    sendEffect(
+                        PostDetailEffect.NavigateToMediaViewer(
+                            postUri = event.quotedPostUri,
                             imageIndex = event.imageIndex,
                         ),
                     )

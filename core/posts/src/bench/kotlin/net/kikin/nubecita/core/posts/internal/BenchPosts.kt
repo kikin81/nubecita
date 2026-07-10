@@ -6,6 +6,8 @@ import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.ImageUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.QuotedEmbedUi
+import net.kikin.nubecita.data.models.QuotedPostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import kotlin.time.Instant
 
@@ -49,6 +51,7 @@ private fun benchTextPost(
     createdAt: String,
     body: String,
     stats: PostStatsUi,
+    embed: EmbedUi = EmbedUi.Empty,
 ): PostUi =
     PostUi(
         id = "at://did:plc:$didSuffix/app.bsky.feed.post/$rkey",
@@ -63,7 +66,7 @@ private fun benchTextPost(
         createdAt = Instant.parse(createdAt),
         text = body,
         facets = persistentListOf(),
-        embed = EmbedUi.Empty,
+        embed = embed,
         stats = stats,
         viewer = ViewerStateUi(),
         repostedBy = null,
@@ -143,9 +146,43 @@ internal val benchGalleryPost: PostUi =
     )
 
 /**
- * Two text replies beneath [benchGalleryPost] so the bench post-detail renders a
- * full thread (focus + replies) — a richer tablet list-detail pane than the
- * empty "select post" placeholder.
+ * A quoted post that itself carries an image gallery — embedded by
+ * [benchGalleryReplies]' quote reply. Tapping its image must open the media
+ * viewer for THIS post (uri below), not the quoted-post detail (nubecita-5g71).
+ */
+internal val benchQuotedImagePost: QuotedPostUi =
+    QuotedPostUi(
+        uri = "at://did:plc:benchdana/app.bsky.feed.post/quotedshot",
+        cid = "bafyreidana00000000000000000000000000000000000000000001",
+        author =
+            AuthorUi(
+                did = "did:plc:benchdana",
+                handle = "dana.peaks",
+                displayName = "Dana",
+                avatarUrl = "file:///android_asset/img/avatars/carmen.jpg",
+            ),
+        createdAt = Instant.parse("2026-06-02T08:00:00Z"),
+        text = "reposting last spring's traverse — same saddle, different light.",
+        facets = persistentListOf(),
+        embed =
+            QuotedEmbedUi.Images(
+                items =
+                    persistentListOf(
+                        galleryImage("ridge-flower.jpg", "Alpine flowers at the saddle.", 1.0f),
+                    ),
+            ),
+    )
+
+/**
+ * Replies beneath [benchGalleryPost] so the bench post-detail renders a full
+ * thread (focus + replies) — a richer tablet list-detail pane than the empty
+ * "select post" placeholder. Also the on-device repro fixtures for
+ * nubecita-5g71:
+ *  - Gabe's reply carries its OWN image gallery → tapping it must open the
+ *    media viewer, not that reply's detail.
+ *  - Carmen's reply QUOTES [benchQuotedImagePost] (which has an image) →
+ *    tapping the quoted image must open the media viewer for the quoted post,
+ *    not the quoted-post detail.
  */
 internal val benchGalleryReplies: List<PostUi> =
     listOf(
@@ -156,8 +193,15 @@ internal val benchGalleryReplies: List<PostUi> =
             displayName = "Gabe",
             avatar = "gabe.jpg",
             createdAt = "2026-06-02T10:05:00Z",
-            body = "that second frame is unreal. what time did you start the approach?",
+            body = "that second frame is unreal. what time did you start the approach? here's mine:",
             stats = PostStatsUi(replyCount = 0, repostCount = 0, likeCount = 6),
+            embed =
+                EmbedUi.Images(
+                    items =
+                        persistentListOf(
+                            galleryImage("ridge-trail.jpg", "My approach shot at first light.", 0.75f),
+                        ),
+                ),
         ),
         benchTextPost(
             rkey = "reply2",
@@ -166,7 +210,45 @@ internal val benchGalleryReplies: List<PostUi> =
             displayName = "Carmen",
             avatar = "carmen.jpg",
             createdAt = "2026-06-02T10:40:00Z",
-            body = "saving the topo. been eyeing this line all season.",
+            body = "saving the topo. been eyeing this line all season — reminds me of this:",
             stats = PostStatsUi(replyCount = 0, repostCount = 1, likeCount = 14),
+            embed = EmbedUi.Record(quotedPost = benchQuotedImagePost),
         ),
     )
+
+/**
+ * A `PostUi` view of [benchQuotedImagePost] (same uri + image) so the media
+ * viewer's `getPost(quotedUri)` resolves when a quoted-post image is tapped.
+ */
+internal val benchQuotedImageAsPost: PostUi =
+    PostUi(
+        id = benchQuotedImagePost.uri,
+        cid = benchQuotedImagePost.cid,
+        author = benchQuotedImagePost.author,
+        createdAt = benchQuotedImagePost.createdAt,
+        text = benchQuotedImagePost.text,
+        facets = persistentListOf(),
+        embed =
+            EmbedUi.Images(
+                items =
+                    persistentListOf(
+                        galleryImage("ridge-flower.jpg", "Alpine flowers at the saddle.", 1.0f),
+                    ),
+            ),
+        stats = PostStatsUi(replyCount = 0, repostCount = 3, likeCount = 20),
+        viewer = ViewerStateUi(),
+        repostedBy = null,
+    )
+
+/**
+ * Every bench post the media viewer / fullscreen player can be asked to re-read
+ * by canonical (DID-based) uri: the gallery focus, each reply that carries its
+ * own media, and the quoted-image post. [BenchFakePostRepository.getPost] uses
+ * this before falling back to the video post.
+ */
+internal val benchPostsByUri: Map<String, PostUi> =
+    buildMap {
+        put(benchGalleryPost.id, benchGalleryPost)
+        put(benchQuotedImageAsPost.id, benchQuotedImageAsPost)
+        benchGalleryReplies.forEach { put(it.id, it) }
+    }

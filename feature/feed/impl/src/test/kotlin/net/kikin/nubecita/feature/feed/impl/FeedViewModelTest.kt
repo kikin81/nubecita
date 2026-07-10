@@ -1262,6 +1262,27 @@ internal class FeedViewModelTest {
         }
 
     @Test
+    fun `OnQuotedImageTapped emits NavigateToMediaViewer with the quoted post's URI`() =
+        runTest(mainDispatcher.dispatcher) {
+            // A tap on a quoted post's own image opens the media viewer for the
+            // QUOTED post — distinct from OnQuotedPostTapped (opens its detail).
+            val repo = FakeFeedRepository()
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler())
+            advanceUntilIdle()
+            val quotedUri = "at://did:plc:fake/app.bsky.feed.post/quoted"
+
+            vm.effects.test {
+                vm.handleEvent(FeedEvent.OnQuotedImageTapped(quotedPostUri = quotedUri, imageIndex = 1))
+
+                val effect = awaitItem()
+                assertTrue(effect is FeedEffect.NavigateToMediaViewer)
+                effect as FeedEffect.NavigateToMediaViewer
+                assertEquals(quotedUri, effect.postUri)
+                assertEquals(1, effect.imageIndex)
+            }
+        }
+
+    @Test
     fun `OnQuotedPostTapped emits NavigateToPost with the quoted post's URI`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()

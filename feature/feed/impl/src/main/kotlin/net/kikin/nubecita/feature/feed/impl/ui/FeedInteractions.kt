@@ -45,6 +45,7 @@ import android.net.Uri as AndroidUri
 internal data class FeedInteractions(
     val callbacks: PostCallbacks,
     val onImageTap: (PostUi, Int) -> Unit,
+    val onQuotedImageTap: (quotedPostUri: String, imageIndex: Int) -> Unit,
     val onVideoTap: (String) -> Unit,
     val onRefresh: () -> Unit,
     val onRetry: () -> Unit,
@@ -246,6 +247,14 @@ internal fun rememberFeedInteractions(
         remember(viewModel) {
             { post: PostUi, index: Int -> viewModel.handleEvent(FeedEvent.OnImageTapped(post, index)) }
         }
+    // Quoted-post image dispatcher — carries the quoted post's uri (bound by
+    // PostCard from the embed) so the media viewer targets the quoted post.
+    val onQuotedImageTap =
+        remember(viewModel) {
+            { quotedPostUri: String, index: Int ->
+                viewModel.handleEvent(FeedEvent.OnQuotedImageTapped(quotedPostUri, index))
+            }
+        }
     // Per-video tap dispatcher. Each PostCard's videoSlot lambda closes
     // over its leaf URI (parent video) or the quoted post's URI (quoted
     // video). The VM turns the event into NavigateToVideoPlayer.
@@ -355,6 +364,7 @@ internal fun rememberFeedInteractions(
     return FeedInteractions(
         callbacks = callbacks,
         onImageTap = onImageTap,
+        onQuotedImageTap = onQuotedImageTap,
         onVideoTap = onVideoTap,
         onRefresh = onRefresh,
         onRetry = onRetry,

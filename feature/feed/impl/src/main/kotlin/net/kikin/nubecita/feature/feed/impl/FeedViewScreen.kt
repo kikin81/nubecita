@@ -154,6 +154,7 @@ internal fun FeedViewScreen(
         onPinToggle = { pinViewModel.handleEvent(FeedPinEvent.TogglePin) },
         onBack = onBack,
         onImageTap = interactions.onImageTap,
+        onQuotedImageTap = interactions.onQuotedImageTap,
         onVideoTap = interactions.onVideoTap,
         coordinator = interactions.coordinator,
     )
@@ -183,6 +184,7 @@ internal fun FeedViewScreenContent(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     onImageTap: (post: PostUi, imageIndex: Int) -> Unit = { _, _ -> },
+    onQuotedImageTap: (quotedPostUri: String, imageIndex: Int) -> Unit = { _, _ -> },
     onVideoTap: ((postUri: String) -> Unit)? = null,
     coordinator: FeedVideoPlayerCoordinator? = null,
 ) {
@@ -288,6 +290,7 @@ internal fun FeedViewScreenContent(
                     onRefresh = onRefresh,
                     onLoadMore = onLoadMore,
                     onImageTap = onImageTap,
+                    onQuotedImageTap = onQuotedImageTap,
                     cardColor = cardColor,
                     cardShape = cardShape,
                     contentPadding = padding,

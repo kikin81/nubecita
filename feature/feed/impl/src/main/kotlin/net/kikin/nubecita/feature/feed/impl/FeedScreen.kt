@@ -182,6 +182,7 @@ internal fun FeedScreen(
         onNavigateTo = onNavigateTo,
         onComposeClick = onComposeClick,
         onImageTap = interactions.onImageTap,
+        onQuotedImageTap = interactions.onQuotedImageTap,
         onVideoTap = interactions.onVideoTap,
         coordinator = interactions.coordinator,
         modifier = modifier,
@@ -216,6 +217,7 @@ internal fun FeedScreenContent(
     modifier: Modifier = Modifier,
     onComposeClick: () -> Unit = {},
     onImageTap: (post: PostUi, imageIndex: Int) -> Unit = { _, _ -> },
+    onQuotedImageTap: (quotedPostUri: String, imageIndex: Int) -> Unit = { _, _ -> },
     onVideoTap: ((postUri: String) -> Unit)? = null,
     coordinator: FeedVideoPlayerCoordinator? = null,
 ) {
@@ -445,6 +447,7 @@ internal fun FeedScreenContent(
                 )
             is FeedScreenViewState.Loaded ->
                 PostFeedList(
+                    onQuotedImageTap = onQuotedImageTap,
                     feedItems = viewState.feedItems,
                     isAppending = viewState.isAppending,
                     isRefreshing = viewState.isRefreshing,

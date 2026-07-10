@@ -445,28 +445,40 @@ internal class PostDetailViewModelTest {
         }
 
     @Test
-    fun `OnFocusImageClicked emits NavigateToMediaViewer with the focus post's canonical URI`() =
+    fun `OnPostImageClicked emits NavigateToMediaViewer with the tapped post's URI`() =
         runTest(mainDispatcher.dispatcher) {
-            // Deep links open post-detail with a handle-based route URI; the media
-            // viewer's getPost only resolves DID-based URIs, so the tap must carry
-            // the focus post's canonical id, not route.postUri (else "Post not
-            // found"). Assert the two differ and the canonical one is emitted.
-            val canonicalUri = "at://did:plc:abcdefghijklmnopqrstuvwx/app.bsky.feed.post/3lkb"
-            val routeUri = "at://alice.bsky.social/app.bsky.feed.post/3lkb"
-            val items = persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost(canonicalUri)))
-            val repo = FakeRepo(results = listOf(Result.success(items)))
-            val vm = newVm(repo, focusUri = routeUri)
-
-            vm.handleEvent(PostDetailEvent.Load)
-            advanceUntilIdle()
+            // The screen supplies the tapped post's canonical (DID-based) id —
+            // item.post.id from the loaded thread — for ancestor / focus / reply
+            // alike, so the media viewer's getPost always resolves (a handle-based
+            // route.postUri would 404). The VM forwards that URI verbatim.
+            val ancestorUri = "at://did:plc:abcdefghijklmnopqrstuvwx/app.bsky.feed.post/anc"
+            val vm = newVm(FakeRepo())
 
             vm.effects.test {
-                vm.handleEvent(PostDetailEvent.OnFocusImageClicked(imageIndex = 2))
+                vm.handleEvent(PostDetailEvent.OnPostImageClicked(postUri = ancestorUri, imageIndex = 2))
                 val effect = awaitItem()
                 assertTrue(effect is PostDetailEffect.NavigateToMediaViewer)
                 val nav = effect as PostDetailEffect.NavigateToMediaViewer
-                assertEquals(canonicalUri, nav.postUri)
+                assertEquals(ancestorUri, nav.postUri)
                 assertEquals(2, nav.imageIndex)
+            }
+        }
+
+    @Test
+    fun `OnQuotedImageClicked emits NavigateToMediaViewer with the quoted post's URI`() =
+        runTest(mainDispatcher.dispatcher) {
+            // A tap on a quoted post's own image opens the media viewer for the
+            // QUOTED post (not the quoted-post detail — that's OnQuotedPostTapped).
+            val quotedUri = "at://did:plc:zzzzzzzzzzzzzzzzzzzzzzzz/app.bsky.feed.post/quo"
+            val vm = newVm(FakeRepo())
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.OnQuotedImageClicked(quotedPostUri = quotedUri, imageIndex = 1))
+                val effect = awaitItem()
+                assertTrue(effect is PostDetailEffect.NavigateToMediaViewer)
+                val nav = effect as PostDetailEffect.NavigateToMediaViewer
+                assertEquals(quotedUri, nav.postUri)
+                assertEquals(1, nav.imageIndex)
             }
         }
 

@@ -110,6 +110,7 @@ fun PostCard(
     videoEmbedSlot: (@Composable (EmbedUi.Video, cover: MediaCover?) -> Unit)? = null,
     quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null,
     onImageClick: ((imageIndex: Int) -> Unit)? = null,
+    onQuotedImageClick: ((quotedPostUri: String, imageIndex: Int) -> Unit)? = null,
     animateLikeTap: Boolean = false,
     animateRepostTap: Boolean = false,
     bodyMatch: String? = null,
@@ -179,6 +180,7 @@ fun PostCard(
                         videoEmbedSlot = videoEmbedSlot,
                         quotedVideoEmbedSlot = quotedVideoEmbedSlot,
                         onImageClick = onImageClick,
+                        onQuotedImageClick = onQuotedImageClick,
                         isMediaRevealed = isMediaRevealed,
                         onRevealMedia = onRevealMedia,
                     )
@@ -408,6 +410,7 @@ private fun EmbedSlot(
     videoEmbedSlot: (@Composable (EmbedUi.Video, cover: MediaCover?) -> Unit)?,
     quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)?,
     onImageClick: ((imageIndex: Int) -> Unit)?,
+    onQuotedImageClick: ((quotedPostUri: String, imageIndex: Int) -> Unit)?,
     isMediaRevealed: Boolean,
     onRevealMedia: () -> Unit,
 ) {
@@ -466,6 +469,11 @@ private fun EmbedSlot(
                 // nothing — the tap should fall through to the outer parent
                 // onTap instead.
                 onTap = callbacks.onQuotedPostTap?.let { tap -> { tap(embed.quotedPost) } },
+                // A tap on the quoted post's OWN image opens the media viewer
+                // for the quoted post (not the quoted-post detail). Bind the
+                // quoted post's uri here so the host routes to the right post.
+                onImageClick =
+                    onQuotedImageClick?.let { cb -> { index -> cb(embed.quotedPost.uri, index) } },
                 quotedVideoEmbedSlot = quotedVideoEmbedSlot,
             )
         }
@@ -485,6 +493,18 @@ private fun EmbedSlot(
                     when (val r = embed.record) {
                         is EmbedUi.Record ->
                             callbacks.onQuotedPostTap?.let { tap -> { tap(r.quotedPost) } }
+                        is EmbedUi.RecordUnavailable -> null
+                    },
+                // The media half is THIS post's own attachment → the outer
+                // per-index image handler. The quoted record's own images →
+                // the quoted-post-uri handler (bound only when the record
+                // resolved). Both open the media viewer instead of bubbling
+                // to a card tap.
+                onMediaImageClick = onImageClick,
+                onQuotedImageClick =
+                    when (val r = embed.record) {
+                        is EmbedUi.Record ->
+                            onQuotedImageClick?.let { cb -> { index -> cb(r.quotedPost.uri, index) } }
                         is EmbedUi.RecordUnavailable -> null
                     },
                 onExternalMediaTap = callbacks.onExternalEmbedTap,

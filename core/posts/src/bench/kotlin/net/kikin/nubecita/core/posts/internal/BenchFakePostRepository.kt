@@ -39,7 +39,10 @@ internal class BenchFakePostRepository
                     // can't resolve it. Surfaces as MediaViewerError.NotFound.
                     return@withContext Result.failure(PostNotFoundException(uri))
                 }
-                val post = if (uri == benchGalleryPost.id) benchGalleryPost else benchVideoPost
+                // Resolve any bench post that carries media (gallery focus,
+                // image replies, quoted-image post); fall back to the video post
+                // so the fullscreen player still has a fixture.
+                val post = benchPostsByUri[uri] ?: benchVideoPost
                 Result.success(post)
             }
     }
