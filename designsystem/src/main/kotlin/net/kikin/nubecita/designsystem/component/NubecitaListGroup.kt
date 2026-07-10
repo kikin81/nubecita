@@ -3,6 +3,7 @@ package net.kikin.nubecita.designsystem.component
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.ListItemShapes
@@ -11,6 +12,8 @@ import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
@@ -77,9 +80,15 @@ fun <T> NubecitaListGroup(
  * [surfaceContainerHigh][androidx.compose.material3.ColorScheme.surfaceContainerHigh]
  * segment tone.
  *
- * A non-null [onClick] renders the interactive (button-role) segment; a null
- * [onClick] renders the non-interactive overload — announced as text, not a
- * disabled button — for read-only rows.
+ * Row modes, in precedence order:
+ * - A non-null [onCheckedChange] renders the **toggleable** segment (M3's
+ *   `checked`/`onCheckedChange` overload): the whole row carries the toggle
+ *   semantics (`ToggleableState` + role) so a screen reader announces the on/off
+ *   state, and any [trailingContent] switch should be **display-only**
+ *   (`onCheckedChange = null`) so there is a single interactive node, not two.
+ * - Otherwise a non-null [onClick] renders the interactive (button-role) segment.
+ * - Otherwise the non-interactive overload — announced as text, not a disabled
+ *   button — for read-only rows.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -88,6 +97,8 @@ fun NubecitaListItem(
     headlineContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    checked: Boolean = false,
+    onCheckedChange: ((Boolean) -> Unit)? = null,
     leadingContent: (@Composable () -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null,
     supportingContent: (@Composable () -> Unit)? = null,
@@ -96,27 +107,51 @@ fun NubecitaListItem(
         ListItemDefaults.segmentedColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         )
-    if (onClick != null) {
-        SegmentedListItem(
-            onClick = onClick,
-            shapes = shapes,
-            colors = colors,
-            leadingContent = leadingContent,
-            trailingContent = trailingContent,
-            supportingContent = supportingContent,
-            modifier = modifier,
-            content = headlineContent,
-        )
-    } else {
-        SegmentedListItem(
-            shapes = shapes,
-            colors = colors,
-            leadingContent = leadingContent,
-            trailingContent = trailingContent,
-            supportingContent = supportingContent,
-            modifier = modifier,
-            content = headlineContent,
-        )
+    when {
+        onCheckedChange != null ->
+            // Row-level toggle via Modifier.toggleable (NOT M3's checked overload,
+            // which treats `checked` as `selected` and tints the whole row). This
+            // bakes Role.Switch + the toggle state onto the one interactive node
+            // and leaves the resting visual identical to a plain row; the trailing
+            // Switch is display-only. Clip to the segment shape so the ripple
+            // matches the rounded corners.
+            SegmentedListItem(
+                shapes = shapes,
+                colors = colors,
+                leadingContent = leadingContent,
+                trailingContent = trailingContent,
+                supportingContent = supportingContent,
+                modifier =
+                    modifier
+                        .clip(shapes.shape)
+                        .toggleable(
+                            value = checked,
+                            role = Role.Switch,
+                            onValueChange = onCheckedChange,
+                        ),
+                content = headlineContent,
+            )
+        onClick != null ->
+            SegmentedListItem(
+                onClick = onClick,
+                shapes = shapes,
+                colors = colors,
+                leadingContent = leadingContent,
+                trailingContent = trailingContent,
+                supportingContent = supportingContent,
+                modifier = modifier,
+                content = headlineContent,
+            )
+        else ->
+            SegmentedListItem(
+                shapes = shapes,
+                colors = colors,
+                leadingContent = leadingContent,
+                trailingContent = trailingContent,
+                supportingContent = supportingContent,
+                modifier = modifier,
+                content = headlineContent,
+            )
     }
 }
 

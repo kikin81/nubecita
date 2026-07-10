@@ -1,10 +1,8 @@
 package net.kikin.nubecita.designsystem.component
 
 import android.content.res.Configuration
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewWrapper
 import androidx.compose.ui.unit.dp
@@ -48,7 +46,7 @@ private fun NubecitaListGroupMultiRowScreenshot() {
             headlineContent = { Text(item.label) },
             onClick = {},
             leadingContent = {
-                NubecitaIcon(name = item.icon, contentDescription = null, modifier = Modifier.size(24.dp))
+                NubecitaIcon(name = item.icon, contentDescription = null, opticalSize = 24.dp)
             },
         )
     }
@@ -66,7 +64,7 @@ private fun NubecitaListGroupSingleRowScreenshot() {
             headlineContent = { Text(item.label) },
             onClick = {},
             leadingContent = {
-                NubecitaIcon(name = item.icon, contentDescription = null, modifier = Modifier.size(24.dp))
+                NubecitaIcon(name = item.icon, contentDescription = null, opticalSize = 24.dp)
             },
         )
     }

@@ -95,12 +95,16 @@ private fun SettingsRowContent(
             NubecitaListItem(
                 shapes = shapes,
                 headlineContent = headline,
-                // Whole row toggles the switch (matches the trailing Switch).
-                onClick = { row.onCheckedChange(!row.checked) },
+                // Row-level toggle: the whole row carries the toggle semantics
+                // (checked state announced to a screen reader), so the trailing
+                // Switch is display-only (onCheckedChange = null) — one
+                // interactive node, not two.
+                checked = row.checked,
+                onCheckedChange = row.onCheckedChange,
                 leadingContent = leadingContent,
                 supportingContent = supportingContent,
                 trailingContent = {
-                    Switch(checked = row.checked, onCheckedChange = row.onCheckedChange)
+                    Switch(checked = row.checked, onCheckedChange = null)
                 },
             )
         is SettingsRow.Picker ->
