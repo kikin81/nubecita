@@ -69,6 +69,7 @@ sealed interface SettingsRow {
         override val icon: NubecitaIconName?,
         override val label: String,
         override val supportingText: String? = null,
+        val isDestructive: Boolean = false,
         val onClick: () -> Unit,
     ) : SettingsRow
 

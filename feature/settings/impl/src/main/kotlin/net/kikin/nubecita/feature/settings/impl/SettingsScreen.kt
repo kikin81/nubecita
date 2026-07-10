@@ -433,10 +433,11 @@ internal fun SettingsContent(
     val accountRows =
         remember(deleteAccountLabel, signOutLabel) {
             persistentListOf(
-                // Delete account → Bluesky's hosted settings (external). Action +
-                // isDestructive for the red tint; icon deferred to nubecita-8xlv
-                // (DeleteForever needs the font-pin work first).
-                SettingsRow.Action(
+                // Delete account → Bluesky's hosted settings (external), so Link
+                // (not Action) per the SettingsRow contract — destructive-tinted.
+                // Icon deferred to nubecita-8xlv (DeleteForever needs the font-pin
+                // work first).
+                SettingsRow.Link(
                     icon = null,
                     label = deleteAccountLabel,
                     isDestructive = true,
@@ -598,9 +599,10 @@ internal fun SettingsContent(
         //                              (v1 content); in-app per-reason
         //                              toggles arrive in a later epic.
         //   4. Content & moderation — Content filters row (nubecita-twmt.2)
-        //   5. Account              — Sign Out lives here today
-        //   6. About                — Version row lives here today
+        //   5. About & legal         — About, Terms, Privacy, Follow developer
+        //   6. Account               — Delete account + Sign Out (destructive)
         //   7. Data usage           — filled by nubecita-37to.8
+        // (Version renders as a footer caption below the cards, not a row.)
         SettingsSection(rows = notificationsRows)
         SettingsSection(rows = contentModerationRows, label = contentModerationSectionLabel)
         // About & legal above the destructive Account card, which sits last.

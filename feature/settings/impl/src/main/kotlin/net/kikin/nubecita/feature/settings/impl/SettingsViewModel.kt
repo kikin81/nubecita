@@ -262,8 +262,9 @@ internal class SettingsViewModel
             const val MANAGE_ACCOUNT_URL = "https://bsky.app/settings"
 
             // Account + content deletion happens on Bluesky (the data lives on the
-            // PDS), so "Delete account" opens the same hosted Bluesky settings page.
-            const val DELETE_ACCOUNT_URL = "https://bsky.app/settings"
+            // PDS), so "Delete account" opens the same hosted Bluesky settings page
+            // as Manage account — reference it so the two can't silently diverge.
+            const val DELETE_ACCOUNT_URL = MANAGE_ACCOUNT_URL
             const val TERMS_URL = "https://nubecita.app/terms/"
             const val PRIVACY_URL = "https://nubecita.app/privacy-policy/"
         }

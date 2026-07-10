@@ -5,7 +5,7 @@
     <string name="settings_close_content_description">Cerrar</string>
     <string name="settings_signout">Cerrar sesión</string>
     <string name="settings_signout_dialog_title">¿Cerrar sesión?</string>
-    <string name="settings_signout_dialog_body">Esto cierra tu sesión y elimina los datos de Nubecita de este dispositivo. Tendrás que iniciar sesión de nuevo para usar Nubecita.</string>
+    <string name="settings_signout_dialog_body">Esto cierra tu sesión y elimina tus credenciales guardadas de este dispositivo. Tendrás que iniciar sesión de nuevo para usar Nubecita.</string>
     <string name="settings_signout_dialog_confirm">Cerrar sesión</string>
     <string name="settings_signout_dialog_cancel">Cancelar</string>
     <string name="settings_signout_error">No se pudo cerrar sesión. Revisa tu conexión e inténtalo de nuevo.</string>

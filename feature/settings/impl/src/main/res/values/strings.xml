@@ -9,7 +9,7 @@
     <string name="settings_close_content_description">Close</string>
     <string name="settings_signout">Sign out</string>
     <string name="settings_signout_dialog_title">Sign out?</string>
-    <string name="settings_signout_dialog_body">This signs you out and removes Nubecita\'s data from this device. You\'ll need to sign in again to use Nubecita.</string>
+    <string name="settings_signout_dialog_body">This signs you out and removes your saved login from this device. You\'ll need to sign in again to use Nubecita.</string>
     <string name="settings_signout_dialog_confirm">Sign out</string>
     <string name="settings_signout_dialog_cancel">Cancel</string>
     <string name="settings_signout_error">Couldn\'t sign out. Check your network and try again.</string>

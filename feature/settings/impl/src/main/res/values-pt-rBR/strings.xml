@@ -5,7 +5,7 @@
     <string name="settings_close_content_description">Fechar</string>
     <string name="settings_signout">Sair</string>
     <string name="settings_signout_dialog_title">Sair?</string>
-    <string name="settings_signout_dialog_body">Isso encerra sua sessão e remove os dados do Nubecita deste dispositivo. Você precisará entrar novamente para usar o Nubecita.</string>
+    <string name="settings_signout_dialog_body">Isso encerra sua sessão e remove suas credenciais salvas deste dispositivo. Você precisará entrar novamente para usar o Nubecita.</string>
     <string name="settings_signout_dialog_confirm">Sair</string>
     <string name="settings_signout_dialog_cancel">Cancelar</string>
     <string name="settings_signout_error">Não foi possível sair. Verifique sua conexão e tente de novo.</string>

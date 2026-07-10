@@ -78,7 +78,11 @@ private fun SettingsRowRender(
         ListItemDefaults.segmentedColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
         )
-    val destructiveIconTint = row is SettingsRow.Action && row.isDestructive
+    // Destructive rows (Sign out, Delete account) tint icon + label with `error`.
+    // Both Action and the external Link variant can be destructive.
+    val destructiveIconTint =
+        (row is SettingsRow.Action && row.isDestructive) ||
+            (row is SettingsRow.Link && row.isDestructive)
     val iconTint =
         if (destructiveIconTint) {
             MaterialTheme.colorScheme.error
@@ -178,7 +182,16 @@ private fun SettingsRowRender(
                 supportingContent = supportingContent,
                 modifier = modifier,
             ) {
-                Text(text = row.label, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = row.label,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color =
+                        if (row.isDestructive) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            Color.Unspecified
+                        },
+                )
             }
         is SettingsRow.Info ->
             // Non-interactive row — Surface(shape, surfaceContainer) wrapping a
