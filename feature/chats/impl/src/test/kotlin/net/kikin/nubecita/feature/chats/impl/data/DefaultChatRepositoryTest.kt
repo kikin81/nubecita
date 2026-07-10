@@ -44,8 +44,8 @@ import org.junit.jupiter.api.Test
  * Scope: the repository's *orchestration* — endpoint wiring, the shared
  * `convosCache` / `requestConvosCache` StateFlow updates, session guards,
  * pagination cursors, `getProfiles` chunking, plus negative-path branches —
- * network-failure, signed-out guard, and cancellation-propagation (for the
- * methods that rethrow it) — across the repository's methods.
+ * network-failure, the signed-out guard, and cancellation-propagation for every
+ * method that rethrows it.
  * The wire→UI mappers and the cache-patch helpers are unit-tested separately
  * (ConvoMapperTest, MessageMapperTest, ConvoCachePatchTest, …), so this suite
  * spot-checks the mapped result rather than re-verifying field-by-field mapping.
@@ -612,6 +612,82 @@ internal class DefaultChatRepositoryTest {
             val (_, repo) = newRepo(signedIn = true) { errorJson() }
             assertTrue(repo.getLog(cursor = null).isFailure)
         }
+
+    // -------------------------------------------------------------------------
+    // Cancellation propagation — the remaining methods that rethrow
+    // CancellationException (convoMutation / groupMutation / joinLinkMutation
+    // helpers + getProfiles), so a broadened runCatching can never silently wrap
+    // a cancel into Result.failure.
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun acceptConvo_cancellation_propagates() {
+        val (_, repo) = newRepo(signedIn = true) { throw CancellationException("cancelled") }
+        assertThrows(CancellationException::class.java) { runBlocking { repo.acceptConvo("c1") } }
+    }
+
+    @Test
+    fun setMuted_cancellation_propagates() {
+        val (_, repo) = newRepo(signedIn = true) { throw CancellationException("cancelled") }
+        assertThrows(CancellationException::class.java) { runBlocking { repo.setMuted("c1", muted = true) } }
+    }
+
+    @Test
+    fun removeReaction_networkFailure_returnsFailure() =
+        runTest {
+            val (_, repo) = newRepo(signedIn = true) { errorJson() }
+            assertTrue(repo.removeReaction("c1", "m1", "👍").isFailure)
+        }
+
+    @Test
+    fun removeReaction_cancellation_propagates() {
+        val (_, repo) = newRepo(signedIn = true) { throw CancellationException("cancelled") }
+        assertThrows(CancellationException::class.java) { runBlocking { repo.removeReaction("c1", "m1", "👍") } }
+    }
+
+    @Test
+    fun removeMembers_cancellation_propagates() {
+        val (_, repo) = newRepo(signedIn = true) { throw CancellationException("cancelled") }
+        assertThrows(CancellationException::class.java) { runBlocking { repo.removeMembers("c1", listOf("did:plc:a")) } }
+    }
+
+    @Test
+    fun approveJoinRequest_cancellation_propagates() {
+        val (_, repo) = newRepo(signedIn = true) { throw CancellationException("cancelled") }
+        assertThrows(CancellationException::class.java) { runBlocking { repo.approveJoinRequest("c1", "did:plc:a") } }
+    }
+
+    @Test
+    fun rejectJoinRequest_cancellation_propagates() {
+        val (_, repo) = newRepo(signedIn = true) { throw CancellationException("cancelled") }
+        assertThrows(CancellationException::class.java) { runBlocking { repo.rejectJoinRequest("c1", "did:plc:a") } }
+    }
+
+    @Test
+    fun editJoinLink_cancellation_propagates() {
+        val (_, repo) = newRepo(signedIn = true) { throw CancellationException("cancelled") }
+        assertThrows(CancellationException::class.java) {
+            runBlocking { repo.editJoinLink("c1", JoinRule.Anyone, requireApproval = true) }
+        }
+    }
+
+    @Test
+    fun enableJoinLink_cancellation_propagates() {
+        val (_, repo) = newRepo(signedIn = true) { throw CancellationException("cancelled") }
+        assertThrows(CancellationException::class.java) { runBlocking { repo.enableJoinLink("c1") } }
+    }
+
+    @Test
+    fun disableJoinLink_cancellation_propagates() {
+        val (_, repo) = newRepo(signedIn = true) { throw CancellationException("cancelled") }
+        assertThrows(CancellationException::class.java) { runBlocking { repo.disableJoinLink("c1") } }
+    }
+
+    @Test
+    fun getProfiles_cancellation_propagates() {
+        val (_, repo) = newRepo(signedIn = true) { throw CancellationException("cancelled") }
+        assertThrows(CancellationException::class.java) { runBlocking { repo.getProfiles(listOf("did:plc:a")) } }
+    }
 
     // -------------------------------------------------------------------------
     // Harness helpers
