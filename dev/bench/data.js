@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783671915352,
+  "lastUpdate": 1783756096540,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -103,6 +103,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 1477.71,
             "range": "+/- 8.2%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "4a28ba118d6d8c6d1ff794027a6a71b39953d47c",
+          "message": "ci(release): 1.286.0\n\n## [1.286.0](https://github.com/kikin81/nubecita/compare/v1.285.2...v1.286.0) (2026-07-11)\n\n### Features\n\n* **designsystem:** reusable M3 Expressive segmented list group; migrate Settings ([#714](https://github.com/kikin81/nubecita/issues/714)) ([7ea7cec](https://github.com/kikin81/nubecita/commit/7ea7cec63540230ea6253ea1640593db891958e5))",
+          "timestamp": "2026-07-11T01:02:17Z",
+          "url": "https://github.com/kikin81/nubecita/commit/4a28ba118d6d8c6d1ff794027a6a71b39953d47c"
+        },
+        "date": 1783756094080,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 30,
+            "range": "+/- 7%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1393.177,
+            "range": "+/- 3.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1288.446,
+            "range": "+/- 7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1234.855,
+            "range": "+/- 10.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 630.924,
+            "range": "+/- 35.5%",
             "unit": "ms"
           }
         ]
