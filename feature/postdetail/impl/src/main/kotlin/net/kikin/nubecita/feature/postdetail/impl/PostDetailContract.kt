@@ -157,10 +157,27 @@ internal sealed interface PostDetailEvent : UiEvent {
     data object OnReplyClicked : PostDetailEvent
 
     /**
-     * Tap on a focus-post image. The screen routes this to the
-     * fullscreen media viewer via [PostDetailEffect.NavigateToMediaViewer].
+     * Tap on an image of ANY thread post (ancestor, focus, or reply).
+     * The screen routes this to the fullscreen media viewer via
+     * [PostDetailEffect.NavigateToMediaViewer]. [postUri] is the tapped
+     * post's canonical (DID-based) id — the screen supplies `item.post.id`
+     * from the loaded thread, so unlike `route.postUri` (which may be
+     * handle-based on a deep link) it always resolves in the media
+     * viewer's `getPost`.
      */
-    data class OnFocusImageClicked(
+    data class OnPostImageClicked(
+        val postUri: String,
+        val imageIndex: Int,
+    ) : PostDetailEvent
+
+    /**
+     * Tap on an image of a quoted post embedded in any thread PostCard.
+     * Routes to the media viewer for the QUOTED post (not the quoted-post
+     * detail, which is [OnQuotedPostTapped]'s destination). [quotedPostUri]
+     * is the quoted post's uri, supplied by the PostCard from the embed.
+     */
+    data class OnQuotedImageClicked(
+        val quotedPostUri: String,
         val imageIndex: Int,
     ) : PostDetailEvent
 

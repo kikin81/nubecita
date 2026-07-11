@@ -75,6 +75,7 @@ internal fun PostFeedList(
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
     onImageTap: (post: PostUi, imageIndex: Int) -> Unit,
+    onQuotedImageTap: (quotedPostUri: String, imageIndex: Int) -> Unit,
     // Per-card Surface tokens, hoisted at FeedScreenContent so the
     // LazyColumn items lambda doesn't re-subscribe to LocalColorScheme /
     // LocalShapes per visible item. See FeedScreenContent's `cardColor`
@@ -266,6 +267,7 @@ internal fun PostFeedList(
                                 videoEmbedSlot = videoSlot,
                                 quotedVideoEmbedSlot = quotedVideoSlot,
                                 onImageClick = { idx -> onImageTap(item.post, idx) },
+                                onQuotedImageClick = onQuotedImageTap,
                                 animateLikeTap = item.post.id == lastLikeTapPostUri,
                                 animateRepostTap = item.post.id == lastRepostTapPostUri,
                                 isMediaRevealed = item.post.id in revealedMedia,
@@ -291,6 +293,7 @@ internal fun PostFeedList(
                             // ship time; restoring it here.
                             onFoldTap = { callbacks.onTap(item.leaf) },
                             onImageClick = onImageTap,
+                            onQuotedImageClick = onQuotedImageTap,
                             lastLikeTapPostUri = lastLikeTapPostUri,
                             lastRepostTapPostUri = lastRepostTapPostUri,
                             revealedMedia = revealedMedia,
@@ -329,6 +332,7 @@ internal fun PostFeedList(
                                         videoEmbedSlot = if (isLeaf) videoSlot else null,
                                         quotedVideoEmbedSlot = if (isLeaf) quotedVideoSlot else null,
                                         onImageClick = { idx -> onImageTap(chainPost, idx) },
+                                        onQuotedImageClick = onQuotedImageTap,
                                         animateLikeTap = chainPost.id == lastLikeTapPostUri,
                                         animateRepostTap = chainPost.id == lastRepostTapPostUri,
                                         isMediaRevealed = chainPost.id in revealedMedia,

@@ -179,6 +179,17 @@ sealed interface FeedEvent : UiEvent {
     ) : FeedEvent
 
     /**
+     * User tapped an image of a quoted post embedded in a PostCard.
+     * Routes directly to the fullscreen MediaViewer for the QUOTED post
+     * — distinct from [OnQuotedPostTapped], which opens the quoted post's
+     * detail. [quotedPostUri] is the quoted post's uri (from the embed).
+     */
+    data class OnQuotedImageTapped(
+        val quotedPostUri: String,
+        val imageIndex: Int,
+    ) : FeedEvent
+
+    /**
      * User tapped the inner quoted-post region of a PostCard's record
      * embed. Routes to PostDetail for the quoted post — distinct from
      * [OnPostTapped] which routes to the outer (parent) post.

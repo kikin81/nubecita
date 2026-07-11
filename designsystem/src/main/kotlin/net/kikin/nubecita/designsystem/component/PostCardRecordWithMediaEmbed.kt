@@ -65,6 +65,13 @@ public fun PostCardRecordWithMediaEmbed(
     media: EmbedUi.MediaEmbed,
     modifier: Modifier = Modifier,
     onQuotedPostTap: (() -> Unit)? = null,
+    // Tap on the MEDIA half (this post's own image attachment) → opens the
+    // media viewer for this post. Tap on the quoted record's OWN image →
+    // [onQuotedImageClick], which the host binds to the quoted post's uri.
+    // Both default null so the `:designsystem` preview / screenshot path and
+    // any no-handler call site keep images inert (tap falls through as before).
+    onMediaImageClick: ((imageIndex: Int) -> Unit)? = null,
+    onQuotedImageClick: ((imageIndex: Int) -> Unit)? = null,
     onExternalMediaTap: ((uri: String) -> Unit)? = null,
     videoEmbedSlot: (@Composable (EmbedUi.Video, cover: MediaCover?) -> Unit)? = null,
     quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null,
@@ -82,7 +89,7 @@ public fun PostCardRecordWithMediaEmbed(
         val mediaRendered: Boolean =
             when (media) {
                 is EmbedUi.ImageContainerEmbed -> {
-                    PostCardImageEmbed(items = media.items, cover = mediaCover)
+                    PostCardImageEmbed(items = media.items, onImageClick = onMediaImageClick, cover = mediaCover)
                     true
                 }
                 is EmbedUi.External -> {
@@ -120,6 +127,7 @@ public fun PostCardRecordWithMediaEmbed(
                 PostCardQuotedPost(
                     quotedPost = record.quotedPost,
                     onTap = onQuotedPostTap,
+                    onImageClick = onQuotedImageClick,
                     quotedVideoEmbedSlot = quotedVideoEmbedSlot,
                 )
             // RecordUnavailable stays a no-op chip — the target is gone, so

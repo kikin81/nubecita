@@ -67,6 +67,12 @@ public fun PostCardQuotedPost(
     quotedPost: QuotedPostUi,
     modifier: Modifier = Modifier,
     onTap: (() -> Unit)? = null,
+    // Tap on one of the quoted post's OWN images. When non-null the image cell
+    // intercepts the gesture and opens the media viewer for the quoted post;
+    // when null the image stays inert so the tap falls through to [onTap] (the
+    // quoted-post detail) — preserving the previous whole-card behavior and the
+    // `:designsystem` preview / screenshot path.
+    onImageClick: ((imageIndex: Int) -> Unit)? = null,
     quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null,
 ) {
     // Surface (not Column + clip + background) so LocalContentColor
@@ -85,6 +91,7 @@ public fun PostCardQuotedPost(
             QuotedBodyText(quotedPost = quotedPost)
             QuotedEmbedSlot(
                 embed = quotedPost.embed,
+                onImageClick = onImageClick,
                 quotedVideoEmbedSlot = quotedVideoEmbedSlot,
             )
         }
@@ -158,6 +165,7 @@ private fun QuotedBodyText(quotedPost: QuotedPostUi) {
 @Composable
 private fun QuotedEmbedSlot(
     embed: QuotedEmbedUi,
+    onImageClick: ((imageIndex: Int) -> Unit)?,
     quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)?,
 ) {
     when (embed) {
@@ -167,7 +175,7 @@ private fun QuotedEmbedSlot(
             // Images and Gallery share the carousel; wrapper-type
             // duplication, payload reuse — the inner ImmutableList<ImageUi>
             // is the same shape the parent's EmbedUi.ImageContainerEmbed carries.
-            PostCardImageEmbed(items = embed.items)
+            PostCardImageEmbed(items = embed.items, onImageClick = onImageClick)
         }
         is QuotedEmbedUi.External -> {
             Spacer(Modifier.height(8.dp))
@@ -204,6 +212,7 @@ private fun QuotedEmbedSlot(
             Spacer(Modifier.height(8.dp))
             QuotedRecordWithMediaSlot(
                 media = embed.media,
+                onImageClick = onImageClick,
                 quotedVideoEmbedSlot = quotedVideoEmbedSlot,
             )
         }
@@ -231,13 +240,14 @@ private fun QuotedEmbedSlot(
 @Composable
 private fun QuotedRecordWithMediaSlot(
     media: QuotedEmbedUi.MediaEmbed,
+    onImageClick: ((imageIndex: Int) -> Unit)?,
     quotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)?,
 ) {
     Column {
         val mediaRendered: Boolean =
             when (media) {
                 is QuotedEmbedUi.ImageContainerEmbed -> {
-                    PostCardImageEmbed(items = media.items)
+                    PostCardImageEmbed(items = media.items, onImageClick = onImageClick)
                     true
                 }
                 is QuotedEmbedUi.External -> {

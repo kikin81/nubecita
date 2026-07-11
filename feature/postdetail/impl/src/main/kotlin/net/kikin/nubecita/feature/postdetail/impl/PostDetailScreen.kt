@@ -266,9 +266,19 @@ internal fun PostDetailScreen(
                 viewModel.handleEvent(PostDetailEvent.OnReplyClicked)
             }
         }
-    val onFocusImageClick =
+    val onPostImageClick =
         remember(viewModel) {
-            { index: Int -> viewModel.handleEvent(PostDetailEvent.OnFocusImageClicked(imageIndex = index)) }
+            { postUri: String, index: Int ->
+                viewModel.handleEvent(PostDetailEvent.OnPostImageClicked(postUri = postUri, imageIndex = index))
+            }
+        }
+    val onQuotedImageClick =
+        remember(viewModel) {
+            { quotedPostUri: String, index: Int ->
+                viewModel.handleEvent(
+                    PostDetailEvent.OnQuotedImageClicked(quotedPostUri = quotedPostUri, imageIndex = index),
+                )
+            }
         }
     val currentOnBack by rememberUpdatedState(onBack)
     val currentOnNavigateToPost by rememberUpdatedState(onNavigateToPost)
@@ -342,7 +352,8 @@ internal fun PostDetailScreen(
         onRetry = onRetry,
         onRefresh = onRefresh,
         onReply = onReply,
-        onFocusImageClick = onFocusImageClick,
+        onPostImageClick = onPostImageClick,
+        onQuotedImageClick = onQuotedImageClick,
         onVideoTap = onVideoTap,
         modifier = modifier,
     )
@@ -359,7 +370,8 @@ internal fun PostDetailScreenContent(
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
     onReply: () -> Unit = {},
-    onFocusImageClick: (Int) -> Unit = {},
+    onPostImageClick: (postUri: String, imageIndex: Int) -> Unit = { _, _ -> },
+    onQuotedImageClick: (quotedPostUri: String, imageIndex: Int) -> Unit = { _, _ -> },
     onVideoTap: (postUri: String) -> Unit = {},
 ) {
     Scaffold(
@@ -429,7 +441,8 @@ internal fun PostDetailScreenContent(
                     isRefreshing = status is PostDetailLoadStatus.Refreshing,
                     onRefresh = onRefresh,
                     callbacks = callbacks,
-                    onFocusImageClick = onFocusImageClick,
+                    onPostImageClick = onPostImageClick,
+                    onQuotedImageClick = onQuotedImageClick,
                     onVideoTap = onVideoTap,
                     contentPadding = padding,
                     lastLikeTapPostUri = state.lastLikeTapPostUri,
@@ -446,7 +459,8 @@ private fun LoadedThread(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     callbacks: PostCallbacks,
-    onFocusImageClick: (Int) -> Unit,
+    onPostImageClick: (postUri: String, imageIndex: Int) -> Unit,
+    onQuotedImageClick: (quotedPostUri: String, imageIndex: Int) -> Unit,
     onVideoTap: (postUri: String) -> Unit,
     contentPadding: PaddingValues,
     lastLikeTapPostUri: String? = null,
@@ -502,6 +516,8 @@ private fun LoadedThread(
                         PostCard(
                             post = item.post,
                             callbacks = callbacks,
+                            onImageClick = { index -> onPostImageClick(item.post.id, index) },
+                            onQuotedImageClick = onQuotedImageClick,
                             videoEmbedSlot = videoSlot,
                             quotedVideoEmbedSlot = quotedVideoSlot,
                             animateLikeTap = item.post.id == lastLikeTapPostUri,
@@ -521,17 +537,18 @@ private fun LoadedThread(
                             color = MaterialTheme.colorScheme.surfaceContainerHigh,
                             shape = RoundedCornerShape(FOCUS_CONTAINER_CORNER_RADIUS),
                         ) {
-                            // Per task 4.3: ancestor / reply PostCards do NOT
-                            // wire onImageClick — taps on those images stay
-                            // no-op for v1. Only the Focus PostCard surfaces
-                            // the per-image-index callback. Video taps DO
-                            // route on every PostCard in the thread — there's
-                            // no fullscreen-viewer detour to skip the way
-                            // images go through PostDetail.
+                            // Every thread PostCard (ancestor / focus / reply)
+                            // wires onImageClick + onQuotedImageClick so a tap
+                            // on any post's image opens the media viewer for
+                            // THAT post instead of bubbling to the card tap and
+                            // opening the post's detail (nubecita-5g71). The
+                            // callback carries item.post.id so the viewer
+                            // resolves the tapped post, not the focus.
                             PostCard(
                                 post = item.post,
                                 callbacks = callbacks,
-                                onImageClick = onFocusImageClick,
+                                onImageClick = { index -> onPostImageClick(item.post.id, index) },
+                                onQuotedImageClick = onQuotedImageClick,
                                 videoEmbedSlot = videoSlot,
                                 quotedVideoEmbedSlot = quotedVideoSlot,
                                 animateLikeTap = item.post.id == lastLikeTapPostUri,
@@ -547,6 +564,8 @@ private fun LoadedThread(
                         PostCard(
                             post = item.post,
                             callbacks = callbacks,
+                            onImageClick = { index -> onPostImageClick(item.post.id, index) },
+                            onQuotedImageClick = onQuotedImageClick,
                             videoEmbedSlot = videoSlot,
                             quotedVideoEmbedSlot = quotedVideoSlot,
                             animateLikeTap = item.post.id == lastLikeTapPostUri,
