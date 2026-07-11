@@ -81,11 +81,13 @@ fun <T> NubecitaListGroup(
  * segment tone.
  *
  * Row modes, in precedence order:
- * - A non-null [onCheckedChange] renders the **toggleable** segment (M3's
- *   `checked`/`onCheckedChange` overload): the whole row carries the toggle
- *   semantics (`ToggleableState` + role) so a screen reader announces the on/off
- *   state, and any [trailingContent] switch should be **display-only**
- *   (`onCheckedChange = null`) so there is a single interactive node, not two.
+ * - A non-null [onCheckedChange] renders a **toggleable** segment via
+ *   `Modifier.toggleable(role = Role.Switch)` — deliberately NOT M3's
+ *   `checked`/`onCheckedChange` overload, which paints the whole row with a
+ *   `selected` tint. The whole row carries the toggle state in semantics so a
+ *   screen reader announces on/off, and any [trailingContent] switch should be
+ *   **display-only** (`onCheckedChange = null`) so there is a single
+ *   interactive node, not two.
  * - Otherwise a non-null [onClick] renders the interactive (button-role) segment.
  * - Otherwise the non-interactive overload — announced as text, not a disabled
  *   button — for read-only rows.
