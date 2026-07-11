@@ -7,9 +7,9 @@ Reading order top→bottom is back→front in the visual stack.
 | Depth role | M3 token | What lives there |
 |---|---|---|
 | **Screen canvas** | `surface` | Scaffold root, modal root, full-screen routes. Every screen paints exactly one of these. |
-| **Item card** | `surfaceContainer` | Discrete content objects sitting on the canvas: post cards, settings section cards, chat convo rows, post-position placeholders (`BlockedPostCard`, `NotFoundPostCard`). |
+| **Item card** | `surfaceContainer` | Discrete content objects sitting on the canvas: post cards, chat convo rows, post-position placeholders (`BlockedPostCard`, `NotFoundPostCard`). |
 | **Recessed inset** | `surfaceContainerLow` | Anything nested *inside* an item card: quoted posts, external link embeds, "record unavailable" / "unsupported embed" placeholders inside a post body. In dark mode this token is darker than `surfaceContainer`, producing the carved-in feel. |
-| **Raised affordance** | `surfaceContainerHigh` | Things sitting on top of an item card: chat message bubbles, day-separator chips, video-poster top gradient stop. |
+| **Raised affordance** | `surfaceContainerHigh` | Things sitting on top of an item card: chat message bubbles, day-separator chips, video-poster top gradient stop. Also the **segments of a connected/segmented list** (`NubecitaListGroup` / M3 `SegmentedListItem`, e.g. Settings sections): the 2dp gaps expose the canvas between segments, so the raised tone keeps each segment legible on dark where `surfaceContainer` sits too close to the near-black canvas. |
 | **Strong fill** | `surfaceContainerHighest` | Thumbnail placeholders, shimmer base, image-load placeholders, character-counter track, disabled fills. Independent of nesting depth. |
 | **Reserved** | `surfaceDim`, `surfaceBright`, `surfaceContainerLowest` | Documented unused in v1. Code review enforces — a custom lint rule was considered (workstream 4) and deferred indefinitely per the nubecita-zw4k decision. |
 
