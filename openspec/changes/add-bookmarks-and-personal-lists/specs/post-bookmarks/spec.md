@@ -12,7 +12,7 @@ The post UI model SHALL expose whether the signed-in viewer has bookmarked a pos
 - **THEN** the model has `isBookmarked = false` and a non-negative `bookmarkCount` (0 when absent)
 
 ### Requirement: Bookmark a post
-The system SHALL let the signed-in user bookmark or un-bookmark any post, calling `createBookmark` / `deleteBookmark` with the post's strong reference.
+The system SHALL let the signed-in user bookmark a post or remove an existing bookmark, calling `createBookmark` / `deleteBookmark` with the post's strong reference.
 
 #### Scenario: Bookmark an un-bookmarked post
 - **WHEN** the user activates bookmark on a post with `isBookmarked = false`
@@ -38,19 +38,19 @@ The bookmark toggle SHALL update the UI optimistically, reflect the new state on
 - **THEN** a second toggle for the same post does not issue an overlapping request
 
 ### Requirement: Bookmark action is exposed in the post action row
-Each post's action row SHALL render a bookmark control positioned between the like and share controls, shown filled when the post is bookmarked and outlined otherwise, with an accessible action label.
+Each post's action row SHALL render a bookmark control positioned between the like and share controls, as a toggleable cell shown filled when the post is bookmarked and outlined otherwise, with a static accessibility label whose on/off state is announced via a switch role (mirroring the like control).
 
 #### Scenario: Row order
 - **WHEN** a post card renders its action row
 - **THEN** the controls appear in the order reply, repost, like, bookmark, share, overflow
 
-#### Scenario: Filled state reflects bookmark
+#### Scenario: Filled state and switch semantics reflect bookmark
 - **WHEN** a post is bookmarked
-- **THEN** the bookmark control renders its filled glyph and exposes the "Remove bookmark" action label; otherwise it renders outlined with the "Bookmark" action label
+- **THEN** the bookmark control renders its filled glyph, exposes the static "Bookmark" accessibility label, and announces an active switch state; otherwise it renders outlined and announces an inactive switch state
 
 ### Requirement: Bookmark interactions are instrumented
-The system SHALL log a post-interaction analytics event distinguishing bookmark from un-bookmark so that action-row usage can be reviewed and the control's placement decided from data.
+The system SHALL log a post-interaction analytics event distinguishing adding a bookmark from removing one so that action-row usage can be reviewed and the control's placement decided from data.
 
 #### Scenario: Bookmark logs an interaction event
 - **WHEN** the user bookmarks a post
-- **THEN** an `interact_post` event is logged with `action_type = bookmark` (and `unbookmark` when removing)
+- **THEN** an `interact_post` event is logged with `action_type = bookmark` (and `action_type = unbookmark` when removing a bookmark)

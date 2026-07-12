@@ -29,7 +29,7 @@ Add `onBookmark(post)` to `PostInteractionHandler` + `DefaultPostInteractionHand
 
 **D3 — Model state on the viewer.** Add `isBookmarked: Boolean` + `bookmarkCount: Int` to `ViewerStateUi`/`PostUi` (`@Stable`), mapped in `:core:feed-mapping` from `postView.viewer.bookmarked` + `postView.bookmarkCount`. Consistent with how `isLikedByViewer`/`likeCount` are carried.
 
-**D4 — Action-row placement between like and share (6 cells).** Matches the official Bluesky app's mental model and keeps share visible. The row is a weighted layout so six cells fit; narrow-screen density is acceptable for the measurement window. Filled glyph when bookmarked (FILL axis via `NubecitaIcon(filled = true)`), `onClickLabel` "Bookmark"/"Remove bookmark" (labels go on onClickLabel, not contentDescription).
+**D4 — Action-row placement between like and share (6 cells).** Matches the official Bluesky app's mental model and keeps share visible. The row is a weighted layout so six cells fit; narrow-screen density is acceptable for the measurement window. Rendered as a `PostStat` **toggleable** cell (`toggleable = true`, `active = isBookmarked`): filled glyph when bookmarked (FILL axis), and a **static** `accessibilityLabel = "Bookmark"` — the on/off state is announced by the cell's `Role.Switch`, exactly like the `like` cell. (`onClickLabel`/dynamic verbs are for the non-toggle cells like reply/share; `PostStat` ignores `onClickLabel` when `toggleable = true`.)
 
 **D5 — Expose first, demote by data.** Ship the cell visible; emit `interact_post action_type = bookmark/unbookmark`. After ~1 month, review the interaction rate; if low relative to the row real estate, move bookmark into `PostOverflowAction`. This makes placement an evidence-based decision instead of a guess.
 
