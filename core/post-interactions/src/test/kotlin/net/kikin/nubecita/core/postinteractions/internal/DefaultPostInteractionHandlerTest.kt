@@ -125,6 +125,21 @@ internal class DefaultPostInteractionHandlerTest {
         }
 
     @Test
+    fun `onBookmark on un-bookmarked post calls toggleBookmark and fires Bookmark analytics`() =
+        runTest(mainDispatcher.dispatcher) {
+            val handler = makeHandler()
+            handler.bind(PostSurface.Feed, this)
+            val post = unlikedPost() // isBookmarked defaults to false
+
+            handler.onBookmark(post)
+            advanceUntilIdle()
+
+            assertEquals(1, fakeCache.toggleBookmarkCalls)
+            assertEquals(post.id, fakeCache.lastToggleBookmarkArgs.first().first)
+            assertEquals(listOf(InteractPost(PostAction.Bookmark, PostSurface.Feed)), analytics.events)
+        }
+
+    @Test
     fun `two rapid onLike calls for same post fire toggleLike and analytics exactly once`() =
         runTest(mainDispatcher.dispatcher) {
             // Make the first toggleLike suspend until we release it

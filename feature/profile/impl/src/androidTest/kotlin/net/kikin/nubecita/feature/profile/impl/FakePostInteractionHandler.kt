@@ -38,6 +38,8 @@ internal class FakePostInteractionHandler : PostInteractionHandler {
 
     override fun onLike(post: PostUi) = Unit
 
+    override fun onBookmark(post: PostUi) = Unit
+
     override fun onRepost(post: PostUi) = Unit
 
     override fun onReply(post: PostUi) = Unit

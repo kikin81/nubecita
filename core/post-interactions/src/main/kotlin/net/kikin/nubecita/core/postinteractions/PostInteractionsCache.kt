@@ -107,6 +107,18 @@ interface PostInteractionsCache {
     ): Result<Unit>
 
     /**
+     * Toggle bookmark for [postUri]. Same single-flight + optimistic-flip +
+     * rollback contract as [toggleLike], except the state is a boolean
+     * ([PostInteractionState.isBookmarked]) with no record URI — both
+     * `createBookmark` and `deleteBookmark` key off the post's own
+     * [StrongRef]. [postCid] is required for that StrongRef.
+     */
+    suspend fun toggleBookmark(
+        postUri: String,
+        postCid: String,
+    ): Result<Unit>
+
+    /**
      * Reset the cache. Called by `:core/auth/DefaultAuthRepository.signOut`
      * before session revocation so a re-login starts with a fresh
      * canonical state.

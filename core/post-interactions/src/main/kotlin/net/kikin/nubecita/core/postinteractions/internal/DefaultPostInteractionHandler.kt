@@ -95,6 +95,7 @@ internal class DefaultPostInteractionHandler
 
         private val activeLikeJobs = ConcurrentHashMap<String, Job>()
         private val activeRepostJobs = ConcurrentHashMap<String, Job>()
+        private val activeBookmarkJobs = ConcurrentHashMap<String, Job>()
 
         // ──────────────────────────────────────────────────────────────────────
         // PostInteractionHandler contract
@@ -124,6 +125,23 @@ internal class DefaultPostInteractionHandler
                 }
             activeLikeJobs[post.id] = job
             job.invokeOnCompletion { activeLikeJobs.remove(post.id, job) }
+        }
+
+        override fun onBookmark(post: PostUi) {
+            // Per-URI guard: ignore a second tap while the first is in flight.
+            if (activeBookmarkJobs[post.id]?.isActive == true) return
+
+            val action = if (post.viewer.isBookmarked) PostAction.Unbookmark else PostAction.Bookmark
+            analytics.log(InteractPost(action = action, surface = surface))
+
+            val job =
+                requireScope().launch {
+                    cache
+                        .toggleBookmark(post.id, post.cid)
+                        .onFailure { emitError(it) }
+                }
+            activeBookmarkJobs[post.id] = job
+            job.invokeOnCompletion { activeBookmarkJobs.remove(post.id, job) }
         }
 
         override fun onRepost(post: PostUi) {

@@ -162,6 +162,9 @@ interface PostInteractionHandler {
     /** Toggle like on [post]. Ignored if a like/unlike for this URI is in flight. */
     fun onLike(post: PostUi)
 
+    /** Toggle bookmark on [post]. Ignored if a bookmark/unbookmark for this URI is in flight. */
+    fun onBookmark(post: PostUi)
+
     /** Toggle repost on [post]. Ignored if a repost/unrepost for this URI is in flight. */
     fun onRepost(post: PostUi)
 

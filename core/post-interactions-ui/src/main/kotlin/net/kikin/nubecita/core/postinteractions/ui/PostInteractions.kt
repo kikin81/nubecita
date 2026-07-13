@@ -141,6 +141,7 @@ fun rememberPostInteractions(
         remember(handler) {
             PostCallbacks(
                 onLike = { post -> handler.onLike(post) },
+                onBookmark = { post -> handler.onBookmark(post) },
                 onRepost = { post -> handler.onRepost(post) },
                 onQuote = { post -> handler.onQuote(post) },
                 onReply = { post -> handler.onReply(post) },

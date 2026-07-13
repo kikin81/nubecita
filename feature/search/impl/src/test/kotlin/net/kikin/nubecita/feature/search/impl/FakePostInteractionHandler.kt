@@ -61,6 +61,14 @@ internal class FakePostInteractionHandler(
         }
     }
 
+    override fun onBookmark(post: PostUi) {
+        requireScope().launch {
+            cache
+                .toggleBookmark(post.id, post.cid)
+                .onFailure { emit(InteractionEffect.ShowError(InteractionError.Network)) }
+        }
+    }
+
     override fun onRepost(post: PostUi) {
         _tapMarkers.value = _tapMarkers.value.copy(lastRepostTapPostUri = post.id)
         requireScope().launch {

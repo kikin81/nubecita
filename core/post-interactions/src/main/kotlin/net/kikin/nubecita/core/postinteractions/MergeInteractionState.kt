@@ -41,10 +41,12 @@ fun PostUi.mergeInteractionState(state: PostInteractionState): PostUi =
                 likeUri = state.viewerLikeUri?.takeIf { it != PENDING_LIKE_SENTINEL },
                 isRepostedByViewer = state.viewerRepostUri != null,
                 repostUri = state.viewerRepostUri?.takeIf { it != PENDING_REPOST_SENTINEL },
+                isBookmarked = state.isBookmarked,
             ),
         stats =
             stats.copy(
                 likeCount = state.likeCount.toInt(),
                 repostCount = state.repostCount.toInt(),
+                bookmarkCount = state.bookmarkCount.toInt(),
             ),
     )
