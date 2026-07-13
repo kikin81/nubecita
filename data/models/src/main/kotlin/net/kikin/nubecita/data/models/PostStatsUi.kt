@@ -16,4 +16,5 @@ public data class PostStatsUi(
     val repostCount: Int = 0,
     val likeCount: Int = 0,
     val quoteCount: Int = 0,
+    val bookmarkCount: Int = 0,
 )

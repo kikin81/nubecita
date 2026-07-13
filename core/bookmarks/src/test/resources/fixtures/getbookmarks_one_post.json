@@ -1,0 +1,32 @@
+{
+  "bookmarks": [
+    {
+      "createdAt": "2026-04-26T12:30:00Z",
+      "subject": {
+        "uri": "at://did:plc:fake/app.bsky.feed.post/p1",
+        "cid": "bafyreifakecid000000000000000000000000000000000"
+      },
+      "item": {
+        "$type": "app.bsky.feed.defs#postView",
+        "uri": "at://did:plc:fake/app.bsky.feed.post/p1",
+        "cid": "bafyreifakecid000000000000000000000000000000000",
+        "author": {
+          "did": "did:plc:fake",
+          "handle": "fake.bsky.social",
+          "displayName": "Fake User"
+        },
+        "indexedAt": "2026-04-26T12:00:00Z",
+        "bookmarkCount": 7,
+        "viewer": {
+          "bookmarked": true
+        },
+        "record": {
+          "$type": "app.bsky.feed.post",
+          "text": "hello from a bookmarked post",
+          "createdAt": "2026-04-26T12:00:00Z"
+        }
+      }
+    }
+  ],
+  "cursor": "next-page-cursor"
+}
