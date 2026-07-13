@@ -7,6 +7,7 @@ import io.github.kikin81.atproto.app.bsky.bookmark.GetBookmarksRequest
 import io.github.kikin81.atproto.app.bsky.feed.PostView
 import io.github.kikin81.atproto.com.atproto.repo.StrongRef
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.auth.XrpcClientProvider
@@ -35,7 +36,7 @@ internal class DefaultBookmarkRepository
                 runCatching {
                     BookmarkService(xrpcClientProvider.authenticated())
                         .createBookmark(CreateBookmarkRequest(cid = post.cid, uri = post.uri))
-                }.onFailure { Timber.tag(TAG).w(it, "createBookmark failed: %s", it.javaClass.name) }
+                }.onFailure { logUnlessCancelled(it, "createBookmark") }
             }
 
         override suspend fun unbookmark(post: StrongRef): Result<Unit> =
@@ -43,7 +44,7 @@ internal class DefaultBookmarkRepository
                 runCatching {
                     BookmarkService(xrpcClientProvider.authenticated())
                         .deleteBookmark(DeleteBookmarkRequest(uri = post.uri))
-                }.onFailure { Timber.tag(TAG).w(it, "deleteBookmark failed: %s", it.javaClass.name) }
+                }.onFailure { logUnlessCancelled(it, "deleteBookmark") }
             }
 
         override suspend fun getBookmarks(cursor: String?): Result<BookmarksPage> =
@@ -61,8 +62,22 @@ internal class DefaultBookmarkRepository
                                 .toImmutableList(),
                         cursor = response.cursor,
                     )
-                }.onFailure { Timber.tag(TAG).w(it, "getBookmarks failed: %s", it.javaClass.name) }
+                }.onFailure { logUnlessCancelled(it, "getBookmarks") }
             }
+
+        /**
+         * `runCatching` catches every [Throwable], including
+         * [CancellationException] — swallowing it would break structured
+         * cancellation (a cancelled coroutine would see a [Result.failure]
+         * instead of cancelling cooperatively). Rethrow it; log everything else.
+         */
+        private fun logUnlessCancelled(
+            throwable: Throwable,
+            action: String,
+        ) {
+            if (throwable is CancellationException) throw throwable
+            Timber.tag(TAG).w(throwable, "%s failed: %s", action, throwable.javaClass.name)
+        }
 
         private companion object {
             private const val TAG = "BookmarkRepository"
