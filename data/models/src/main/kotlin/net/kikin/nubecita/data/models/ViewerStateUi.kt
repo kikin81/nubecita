@@ -36,6 +36,14 @@ public data class ViewerStateUi(
     val likeUri: String? = null,
     val repostUri: String? = null,
     /**
+     * Whether the viewer has bookmarked this post. Sourced from the post
+     * viewer's `bookmarked` flag (AT Protocol `app.bsky.feed.defs#viewerState`,
+     * added by the bookmark overlay). Unlike [likeUri] / [repostUri] there is
+     * no per-viewer record URI to carry: `app.bsky.bookmark.deleteBookmark`
+     * keys off the post's own AT URI ([PostUi.id]), so the boolean is enough.
+     */
+    val isBookmarked: Boolean = false,
+    /**
      * Whether the viewer has muted the post's author. Sourced from the
      * post's `author.viewer.muted` (AT Protocol `app.bsky.actor.defs#viewerState`),
      * NOT from the post-level viewer block — moderation lives on the

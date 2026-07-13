@@ -91,6 +91,7 @@ fun PostView.toPostUiCore(): PostUi? {
                 repostCount = (repostCount ?: 0L).toInt(),
                 likeCount = (likeCount ?: 0L).toInt(),
                 quoteCount = (quoteCount ?: 0L).toInt(),
+                bookmarkCount = (bookmarkCount ?: 0L).toInt(),
             ),
         viewer = viewer.toViewerStateUi(authorViewer = author.viewer),
         repostedBy = null,
@@ -186,6 +187,9 @@ fun ViewerState?.toViewerStateUi(authorViewer: ActorViewerState? = null): Viewer
         isFollowingAuthor = authorViewer?.following != null,
         likeUri = this?.like?.raw,
         repostUri = this?.repost?.raw,
+        // Bookmark overlay flag on the post viewer state; no record URI to carry
+        // (deleteBookmark keys off the post's own AT URI).
+        isBookmarked = this?.bookmarked == true,
         isAuthorMutedByViewer = authorViewer?.muted == true,
         isAuthorBlockedByViewer = authorViewer?.blocking != null,
         isAuthorBlockingViewer = authorViewer?.blockedBy == true,
