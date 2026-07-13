@@ -14,7 +14,7 @@ The post UI model SHALL expose whether the signed-in viewer has bookmarked a pos
 ### Requirement: Bookmark a post
 The system SHALL let the signed-in user bookmark a post or remove an existing bookmark, calling `createBookmark` / `deleteBookmark` with the post's strong reference.
 
-#### Scenario: Bookmark an un-bookmarked post
+#### Scenario: Bookmark a post that is not bookmarked
 - **WHEN** the user activates bookmark on a post with `isBookmarked = false`
 - **THEN** the system calls `createBookmark` for that post's uri/cid and the post becomes `isBookmarked = true`
 
