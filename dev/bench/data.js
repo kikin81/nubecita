@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783843063676,
+  "lastUpdate": 1783930721870,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -207,6 +207,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 531.49,
             "range": "+/- 59.4%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "70918249e4229ac6876441ccb39711ce72ae8a73",
+          "message": "docs(bookmarks): openspec change for bookmarks + personal-content lists (#718)\n\n* docs(bookmarks): openspec change for bookmarks + personal-content lists\n\nPlan for the bookmarks epic (beads nubecita-i8ny, children .1-.6):\nproposal + design + specs (post-bookmarks, profile-personal-lists) +\ntasks. Design-locked via brainstorm; validated `openspec validate\n--strict`.\n\nHighlights: bookmark rides the existing PostInteractionHandler as an\noptimistic toggle (atproto 9.7.5 already ships BookmarkService + the\npostView bookmarkCount/viewer.bookmarked overlay — no SDK work); action\ncell sits between like and share; Likes = a profile tab, Bookmarks = an\nown-profile top-bar route; ship exposed then demote to overflow by data\n(deferred .4). tasks.md groups map 1:1 to the bead children.\n\nRefs: nubecita-i8ny\n\n* docs(bookmarks): address review — toggle a11y, cache-merge, terminology\n\n- Bookmark action-row cell is a PostStat toggleable cell (Role.Switch +\n  static \"Bookmark\" accessibilityLabel), mirroring the like cell — not a\n  dynamic onClickLabel verb (PostStat ignores onClickLabel when\n  toggleable). Updated design D4, the spec scenario, and task 3.3.\n- Profile Bookmarks-list + Your-Likes-tab VMs must merge the shared\n  interactions cache.state + seed it (tasks 5.2, 6.1).\n- Use \"unbookmark\" / \"remove a bookmark\" consistently (spec).\n\nRefs: nubecita-i8ny\n\n* docs(bookmarks): review round 2 — neutral wording + localized a11y label\n\n- Rename scenario 'Bookmark an un-bookmarked post' → 'Bookmark a post\n  that is not bookmarked' (drop the last hyphenated term).\n- Design D4 + task 3.3 describe the bookmark accessibilityLabel as a\n  localized string resource (es-419/pt-BR), not a hardcoded literal.\n\nRefs: nubecita-i8ny",
+          "timestamp": "2026-07-13T04:06:17Z",
+          "url": "https://github.com/kikin81/nubecita/commit/70918249e4229ac6876441ccb39711ce72ae8a73"
+        },
+        "date": 1783930719344,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 32,
+            "range": "+/- 4.9%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1319.132,
+            "range": "+/- 10.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1167.409,
+            "range": "+/- 9.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1026.333,
+            "range": "+/- 32.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1112.241,
+            "range": "+/- 22.4%",
             "unit": "ms"
           }
         ]
