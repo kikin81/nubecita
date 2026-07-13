@@ -175,6 +175,40 @@ internal class DefaultPostInteractionsCacheTest {
         }
 
     @Test
+    fun `toggleBookmark from bookmarked state clears isBookmarked and calls unbookmark`() =
+        runTest {
+            val bookmarks = FakeBookmarkRepository()
+            val cache = newCache(FakeLikeRepostRepository(), bookmarks)
+            cache.seedDirectly("at://post-bm-on", PostInteractionState(isBookmarked = true, bookmarkCount = 5))
+
+            val result = cache.toggleBookmark("at://post-bm-on", "bafyON")
+            advanceUntilIdle()
+
+            assertTrue(result.isSuccess)
+            val state = cache.state.value["at://post-bm-on"]
+            assertEquals(false, state?.isBookmarked, "isBookmarked MUST flip to false")
+            assertEquals(4L, state?.bookmarkCount, "bookmarkCount MUST decrement from 5 to 4")
+            assertEquals(1, bookmarks.unbookmarkCalls.get(), "unbookmark() MUST be called exactly once")
+            assertEquals(0, bookmarks.bookmarkCalls.get(), "bookmark() MUST NOT be called")
+        }
+
+    @Test
+    fun `toggleBookmark is single-flight per postUri — double-tap is absorbed`() =
+        runTest {
+            val bookmarks = FakeBookmarkRepository().apply { nextDelayMs = 1_000 }
+            val cache = newCache(FakeLikeRepostRepository(), bookmarks)
+
+            val first = async { cache.toggleBookmark("at://post-bm-sf", "bafySF") }
+            val second = async { cache.toggleBookmark("at://post-bm-sf", "bafySF") }
+            advanceUntilIdle()
+
+            assertTrue(first.await().isSuccess)
+            assertTrue(second.await().isSuccess, "second toggle MUST return synthetic success (no error)")
+            assertEquals(1, bookmarks.bookmarkCalls.get(), "single-flight: bookmark() MUST be called exactly once")
+            assertEquals(0, bookmarks.unbookmarkCalls.get(), "single-flight: second tap absorbed, not inverted")
+        }
+
+    @Test
     fun `toggleLike is single-flight per postUri — double-tap is absorbed`() =
         runTest {
             val fake =

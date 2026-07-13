@@ -109,9 +109,10 @@ interface PostInteractionsCache {
     /**
      * Toggle bookmark for [postUri]. Same single-flight + optimistic-flip +
      * rollback contract as [toggleLike], except the state is a boolean
-     * ([PostInteractionState.isBookmarked]) with no record URI — both
-     * `createBookmark` and `deleteBookmark` key off the post's own
-     * [StrongRef]. [postCid] is required for that StrongRef.
+     * ([PostInteractionState.isBookmarked]) with no record URI: the underlying
+     * `BookmarkRepository.bookmark` / `unbookmark` calls (AT Protocol
+     * `app.bsky.bookmark.createBookmark` / `deleteBookmark`) both key off the
+     * post's own `StrongRef`, so [postCid] is required to build it.
      */
     suspend fun toggleBookmark(
         postUri: String,

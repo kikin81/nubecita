@@ -140,6 +140,40 @@ internal class DefaultPostInteractionHandlerTest {
         }
 
     @Test
+    fun `onBookmark on bookmarked post fires Unbookmark analytics`() =
+        runTest(mainDispatcher.dispatcher) {
+            val handler = makeHandler()
+            handler.bind(PostSurface.Feed, this)
+            val post = unlikedPost().let { it.copy(viewer = it.viewer.copy(isBookmarked = true)) }
+
+            handler.onBookmark(post)
+            advanceUntilIdle()
+
+            assertEquals(listOf(InteractPost(PostAction.Unbookmark, PostSurface.Feed)), analytics.events)
+        }
+
+    @Test
+    fun `two rapid onBookmark calls for same post fire toggleBookmark and analytics exactly once`() =
+        runTest(mainDispatcher.dispatcher) {
+            val latch = CompletableDeferred<Unit>()
+            fakeCache.toggleBookmarkLatch = latch
+
+            val handler = makeHandler()
+            handler.bind(PostSurface.Feed, this)
+            val post = unlikedPost()
+
+            // First tap launches and suspends in the cache; second arrives while in flight.
+            handler.onBookmark(post)
+            handler.onBookmark(post)
+
+            latch.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals(1, fakeCache.toggleBookmarkCalls, "toggleBookmark MUST be called exactly once")
+            assertEquals(1, analytics.events.size, "analytics MUST fire exactly once")
+        }
+
+    @Test
     fun `two rapid onLike calls for same post fire toggleLike and analytics exactly once`() =
         runTest(mainDispatcher.dispatcher) {
             // Make the first toggleLike suspend until we release it
