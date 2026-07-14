@@ -142,7 +142,7 @@ class ProfileScreenInstrumentationTest {
     fun composeFab_onOwnProfile_passesNullMention() {
         val context = composeTestRule.activity
         val composeLabel = context.getString(R.string.profile_compose_new_post)
-        var called = false
+        var callCount = 0
         var captured: String? = "sentinel"
 
         composeTestRule.setContent {
@@ -155,7 +155,7 @@ class ProfileScreenInstrumentationTest {
                     onEvent = {},
                     onBack = null,
                     onComposeClick = {
-                        called = true
+                        callCount++
                         captured = it
                     },
                 )
@@ -165,7 +165,8 @@ class ProfileScreenInstrumentationTest {
         composeTestRule.onNodeWithContentDescription(composeLabel).performClick()
         composeTestRule.waitForIdle()
 
-        assertTrue("Compose FAB tap MUST invoke onComposeClick", called)
+        // Exactly once — a double-invocation regression must fail, not pass silently.
+        assertEquals("Compose FAB tap MUST invoke onComposeClick exactly once", 1, callCount)
         assertEquals("Own-profile compose MUST pass a null mention (blank composer)", null, captured)
     }
 
