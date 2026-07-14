@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.profile.impl.data
 import io.github.kikin81.atproto.app.bsky.actor.ActorService
 import io.github.kikin81.atproto.app.bsky.actor.GetProfilesRequest
 import io.github.kikin81.atproto.app.bsky.feed.FeedService
+import io.github.kikin81.atproto.app.bsky.feed.GetActorLikesRequest
 import io.github.kikin81.atproto.com.atproto.repo.GetRecordRequest
 import io.github.kikin81.atproto.com.atproto.repo.PutRecordRequest
 import io.github.kikin81.atproto.com.atproto.repo.RepoService
@@ -128,20 +129,38 @@ internal class DefaultProfileRepository
         ): Result<ProfileTabPage> =
             withContext(dispatcher) {
                 runCatching {
-                    val client = xrpcClientProvider.authenticated()
-                    val response =
-                        FeedService(client).getAuthorFeed(
-                            buildAuthorFeedRequest(actor, tab, cursor, limit),
-                        )
+                    val service = FeedService(xrpcClientProvider.authenticated())
+                    // The Likes tab is a distinct endpoint (getActorLikes, own-profile
+                    // only), not a getAuthorFeed filter; both return the same
+                    // List<FeedViewPost> + cursor, so downstream mapping is identical.
+                    val (feed, nextCursor) =
+                        if (tab == ProfileTab.Likes) {
+                            val response =
+                                service.getActorLikes(
+                                    GetActorLikesRequest(
+                                        actor = AtIdentifier(actor),
+                                        cursor = cursor,
+                                        limit = limit.toLong(),
+                                    ),
+                                )
+                            response.feed to response.cursor
+                        } else {
+                            val response = service.getAuthorFeed(buildAuthorFeedRequest(actor, tab, cursor, limit))
+                            response.feed to response.cursor
+                        }
                     // Drop hard-filtered posts and cover warned media off the
                     // render path, against the cached prefs + viewer DID.
                     val prefs = moderationPreferences.prefs.value
                     val viewerDid = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
                     ProfileTabPage(
-                        items = response.feed.toTabItems(tab, prefs, viewerDid),
-                        nextCursor = response.cursor,
+                        items = feed.toTabItems(tab, prefs, viewerDid),
+                        nextCursor = nextCursor,
                     )
                 }.onFailure { throwable ->
+                    // runCatching also traps CancellationException; rethrow so structured
+                    // cancellation propagates instead of surfacing as an error Result
+                    // (matches resolveVerifiers in this file + the repo-wide convention).
+                    if (throwable is CancellationException) throw throwable
                     // `actor` is a raw DID or handle (PII); `cursor` is
                     // opaque appview state, also withheld. `tab` is a
                     // closed enum — safe to include for triage.

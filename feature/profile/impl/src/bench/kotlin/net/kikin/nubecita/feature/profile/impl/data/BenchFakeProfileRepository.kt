@@ -67,6 +67,9 @@ internal class BenchFakeProfileRepository
                         ProfileTab.Posts -> BenchProfileMapper.toTabItemPosts(dto.posts)
                         ProfileTab.Replies -> BenchProfileMapper.toTabItemPosts(dto.replies)
                         ProfileTab.Media -> BenchProfileMapper.toTabItemMediaCells(dto.media)
+                        // Bench Likes reuses the sample posts so the own-profile
+                        // Likes tab renders offline (getActorLikes has no fake wire).
+                        ProfileTab.Likes -> BenchProfileMapper.toTabItemPosts(dto.posts)
                     }.toPersistentList()
                 ProfileTabPage(items = items, nextCursor = null)
             }

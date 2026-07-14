@@ -62,16 +62,34 @@ internal class ProfileViewModelTest {
     val mainDispatcher = MainDispatcherExtension()
 
     @Test
-    fun `init kicks off four concurrent loads (header + three tabs)`() =
+    fun `own-profile init kicks off five concurrent loads (header + four tabs incl likes)`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeProfileRepository()
-            newVm(repo = repo)
+            newVm(repo = repo) // route handle == null -> own profile
             advanceUntilIdle()
 
             assertEquals(1, repo.headerCalls.get(), "header MUST be loaded exactly once on init")
             assertEquals(1, repo.tabCalls[ProfileTab.Posts]?.get())
             assertEquals(1, repo.tabCalls[ProfileTab.Replies]?.get())
             assertEquals(1, repo.tabCalls[ProfileTab.Media]?.get())
+            assertEquals(1, repo.tabCalls[ProfileTab.Likes]?.get(), "own profile MUST eager-load the Likes tab")
+        }
+
+    @Test
+    fun `other-profile init skips the own-profile-only Likes tab`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeProfileRepository()
+            newVm(repo = repo, route = Profile(handle = "alice.bsky.social"))
+            advanceUntilIdle()
+
+            assertEquals(1, repo.tabCalls[ProfileTab.Posts]?.get())
+            assertEquals(1, repo.tabCalls[ProfileTab.Replies]?.get())
+            assertEquals(1, repo.tabCalls[ProfileTab.Media]?.get())
+            assertEquals(
+                0,
+                repo.tabCalls[ProfileTab.Likes]?.get(),
+                "Likes (getActorLikes) is private — MUST NOT load on another user's profile",
+            )
         }
 
     @Test
@@ -2447,7 +2465,15 @@ internal class ProfileViewModelTest {
             // pass cursor=null (the default); LoadMore passes the
             // current cursor — that's what the spec scenario asserts.
             if (cursor != null) lastTabCursor[tab] = cursor
-            return tabResults.getValue(tab)
+            // Own-profile init also eager-loads Likes, so tolerate a missing Likes
+            // stub (many tests supply only a 3-entry Posts/Replies/Media map). The
+            // original three stay strict via getValue() — a missing stub there is a
+            // test bug, not something to silently paper over.
+            return if (tab == ProfileTab.Likes) {
+                tabResults[tab] ?: Result.success(EMPTY_PAGE)
+            } else {
+                tabResults.getValue(tab)
+            }
         }
 
         override suspend fun follow(subjectDid: String): Result<String> {

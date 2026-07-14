@@ -71,7 +71,7 @@ internal fun ProfileScreenContent(
     onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    val pillTabs = rememberProfilePillTabs()
+    val pillTabs = rememberProfilePillTabs(ownProfile = state.ownProfile)
     val activeTabIsRefreshing = state.activeTabIsRefreshing()
     val onVideoTap =
         remember(onEvent) {
@@ -188,6 +188,20 @@ internal fun ProfileScreenContent(
                             },
                             onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Media)) },
                         )
+                    ProfileTab.Likes ->
+                        profileFeedTabBody(
+                            tab = ProfileTab.Likes,
+                            status = state.likesStatus,
+                            callbacks = postCallbacks,
+                            onImageTap = { post, idx -> onEvent(ProfileEvent.OnImageTapped(post, idx)) },
+                            onQuotedImageTap = { uri, idx -> onEvent(ProfileEvent.OnQuotedImageTapped(uri, idx)) },
+                            onVideoTap = onVideoTap,
+                            onRetry = { onEvent(ProfileEvent.RetryTab(ProfileTab.Likes)) },
+                            lastLikeTapPostUri = state.lastLikeTapPostUri,
+                            lastRepostTapPostUri = state.lastRepostTapPostUri,
+                            revealedMedia = revealedMedia,
+                            onRevealMedia = onRevealMedia,
+                        )
                 }
             }
         }
@@ -238,6 +252,7 @@ private fun ProfileScreenViewState.activeTabStatus(): TabLoadStatus =
         ProfileTab.Posts -> postsStatus
         ProfileTab.Replies -> repliesStatus
         ProfileTab.Media -> mediaStatus
+        ProfileTab.Likes -> likesStatus
     }
 
 private fun ProfileScreenViewState.activeTabIsRefreshing(): Boolean {

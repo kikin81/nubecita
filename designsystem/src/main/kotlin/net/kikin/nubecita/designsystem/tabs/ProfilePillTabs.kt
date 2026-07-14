@@ -44,7 +44,8 @@ public data class PillTab<T>(
 
 /**
  * Single-selection segmented control used on the profile screen
- * (Posts / Replies / Media). Built on M3 Expressive's [ButtonGroup]
+ * (Posts / Replies / Media, plus an own-profile-only Likes pill —
+ * three or four items). Built on M3 Expressive's [ButtonGroup]
  * with [androidx.compose.material3.ButtonGroupScope.toggleableItem]
  * children — replaces the deprecated `SegmentedButton` per the M3
  * docs' migration guidance.
@@ -62,9 +63,13 @@ public data class PillTab<T>(
  * pill's icon reads as the active state.
  *
  * Equal-width pills: every item gets `weight = 1f` so the row
- * distributes available width evenly. The fixed three-item set never
- * overflows; the required `overflowIndicator` slot is intentionally
- * empty.
+ * distributes available width evenly. Because every item is weighted,
+ * [ButtonGroup] sizes them to their proportional share rather than
+ * spilling any into the overflow menu — so no pill is ever dropped,
+ * for either the three-item (other user) or four-item (own profile,
+ * with Likes) row. The required `overflowIndicator` slot is therefore
+ * intentionally empty. On narrow widths or long locales the pill
+ * *labels* truncate (they never disappear); tabs stay fully tappable.
  *
  * @param tabs Ordered list of pill configurations. Display order is
  *   the iteration order (left-to-right in LTR).
@@ -87,8 +92,9 @@ public fun <T> ProfilePillTabs(
 ) {
     if (tabs.isEmpty()) return
     ButtonGroup(
-        // The 3 profile tabs always fit; the overflow slot is required
-        // by the API surface but is unreachable in this configuration.
+        // All items are weighted (weight = 1f below), so ButtonGroup sizes
+        // them to their share and never overflows — the overflow slot is
+        // required by the API but unreachable here, for 3 or 4 pills alike.
         overflowIndicator = {},
         expandedRatio = 0.025f,
         modifier = modifier.padding(horizontal = 8.dp),

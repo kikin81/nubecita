@@ -3,6 +3,7 @@
     <string name="profile_tab_posts">Publicaciones</string>
     <string name="profile_tab_replies">Respuestas</string>
     <string name="profile_tab_media">Multimedia</string>
+    <string name="profile_tab_likes">Me gusta</string>
 
     <string name="profile_action_edit">Editar perfil</string>
     <string name="profile_action_overflow">Más opciones</string>
@@ -47,6 +48,8 @@
     <string name="profile_replies_empty_body">Cuando este usuario responda, lo verás aquí.</string>
     <string name="profile_media_empty_title">Aún no hay multimedia</string>
     <string name="profile_media_empty_body">Cuando este usuario publique multimedia, lo verás aquí.</string>
+    <string name="profile_likes_empty_title">Aún no hay me gusta</string>
+    <string name="profile_likes_empty_body">Las publicaciones que te gusten aparecerán aquí.</string>
 
     <string name="profile_error_network_title">No se puede conectar con Bluesky</string>
     <string name="profile_error_network_body">Revisa tu conexión e inténtalo de nuevo.</string>

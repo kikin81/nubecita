@@ -138,6 +138,9 @@ internal fun ProfileTab.toAuthorFeedFilter(): String =
         ProfileTab.Posts -> "posts_no_replies"
         ProfileTab.Replies -> "posts_with_replies"
         ProfileTab.Media -> "posts_with_media"
+        // Likes is a separate endpoint (getActorLikes) with no getAuthorFeed
+        // filter; fetchTab routes it around buildAuthorFeedRequest.
+        ProfileTab.Likes -> error("Likes tab uses getActorLikes, not a getAuthorFeed filter")
     }
 
 /**

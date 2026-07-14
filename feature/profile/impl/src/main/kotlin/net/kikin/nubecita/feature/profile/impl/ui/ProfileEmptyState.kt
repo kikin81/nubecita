@@ -31,12 +31,14 @@ internal fun ProfileEmptyState(
             ProfileTab.Posts -> R.string.profile_posts_empty_title
             ProfileTab.Replies -> R.string.profile_replies_empty_title
             ProfileTab.Media -> R.string.profile_media_empty_title
+            ProfileTab.Likes -> R.string.profile_likes_empty_title
         }
     val bodyRes =
         when (tab) {
             ProfileTab.Posts -> R.string.profile_posts_empty_body
             ProfileTab.Replies -> R.string.profile_replies_empty_body
             ProfileTab.Media -> R.string.profile_media_empty_body
+            ProfileTab.Likes -> R.string.profile_likes_empty_body
         }
     Column(
         modifier = modifier.fillMaxWidth().padding(24.dp),

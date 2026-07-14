@@ -61,6 +61,7 @@ internal fun LazyListScope.profileFeedTabBody(
         when (tab) {
             ProfileTab.Posts -> "posts"
             ProfileTab.Replies -> "replies"
+            ProfileTab.Likes -> "likes"
             // Media has its own body in [profileMediaTabBody]; defensive prefix.
             ProfileTab.Media -> "posts"
         }
