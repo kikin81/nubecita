@@ -29,6 +29,7 @@ data class PostCallbacks(
     val onTap: (PostUi) -> Unit = {},
     val onAuthorTap: (AuthorUi) -> Unit = {},
     val onLike: (PostUi) -> Unit = {},
+    val onBookmark: (PostUi) -> Unit = {},
     val onRepost: (PostUi) -> Unit = {},
     /**
      * "Quote post" was selected from the repost cell's menu. `null` (the default)

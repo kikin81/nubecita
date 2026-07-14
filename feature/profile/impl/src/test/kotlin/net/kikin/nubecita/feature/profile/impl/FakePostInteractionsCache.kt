@@ -53,6 +53,19 @@ internal class FakePostInteractionsCache : PostInteractionsCache {
         return nextToggleRepostResult
     }
 
+    val toggleBookmarkCalls = AtomicInteger(0)
+    val lastToggleBookmarkArgs: MutableList<Pair<String, String>> = mutableListOf()
+    var nextToggleBookmarkResult: Result<Unit> = Result.success(Unit)
+
+    override suspend fun toggleBookmark(
+        postUri: String,
+        postCid: String,
+    ): Result<Unit> {
+        toggleBookmarkCalls.incrementAndGet()
+        lastToggleBookmarkArgs += postUri to postCid
+        return nextToggleBookmarkResult
+    }
+
     override fun clear() {
         clearCalls.incrementAndGet()
         _state.value = persistentMapOf()

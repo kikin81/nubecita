@@ -539,9 +539,13 @@ private fun ActionRow(
     // locale-aware compact formatter and the digit-roll animation
     // (gated by `animateUserDelta` per the careful rule in
     // AnimatedCompactCount).
+    // SpaceBetween + fillMaxWidth distributes the (now six) cells across the row
+    // so they never clip on narrow widths — a fixed spacedBy() left-packs and
+    // pushes the trailing overflow cell off-screen once the bookmark cell is
+    // added. Cell count varies (overflow is conditional), and SpaceBetween adapts.
     Row(
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
-        modifier = Modifier.padding(top = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
     ) {
         PostStat(
             name = NubecitaIconName.ChatBubble,
@@ -576,6 +580,20 @@ private fun ActionRow(
             onClick = { callbacks.onLike(post) },
             iconAnimation = PostStatIconAnimation.Pop,
             animateUserDelta = animateLikeTap,
+        )
+        // Bookmark is a private toggle — icon only, no public count (matches the
+        // official Bluesky action row). Toggle semantics (Role.Switch + on/off)
+        // come from PostStat's toggleable path, same as like.
+        PostStat(
+            name = NubecitaIconName.Bookmark,
+            filled = post.viewer.isBookmarked,
+            count = null,
+            accessibilityLabel = stringResource(R.string.postcard_action_bookmark),
+            active = post.viewer.isBookmarked,
+            toggleable = true,
+            activeColor = MaterialTheme.colorScheme.primary,
+            onClick = { callbacks.onBookmark(post) },
+            iconAnimation = PostStatIconAnimation.Pop,
         )
         PostStat(
             name = NubecitaIconName.IosShare,

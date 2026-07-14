@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import net.kikin.nubecita.core.bookmarks.BookmarkRepository
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.core.common.session.SessionClearable
 import net.kikin.nubecita.core.postinteractions.LikeRepostRepository
@@ -40,12 +41,14 @@ internal class DefaultPostInteractionsCache
     @Inject
     constructor(
         private val likeRepostRepository: LikeRepostRepository,
+        private val bookmarkRepository: BookmarkRepository,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) : PostInteractionsCache,
         SessionClearable {
         private val _state = MutableStateFlow<PersistentMap<String, PostInteractionState>>(persistentMapOf())
         private val likeJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
         private val repostJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
+        private val bookmarkJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
 
         override val state: StateFlow<PersistentMap<String, PostInteractionState>> = _state.asStateFlow()
 
@@ -57,21 +60,27 @@ internal class DefaultPostInteractionsCache
                         when {
                             // In-flight optimistic state takes precedence over wire data.
                             existing?.pendingLikeWrite == PendingState.Pending ||
-                                existing?.pendingRepostWrite == PendingState.Pending -> existing
+                                existing?.pendingRepostWrite == PendingState.Pending ||
+                                existing?.pendingBookmarkWrite == PendingState.Pending -> existing
                             // Cached likeUri non-null but wire says null: assume appview lag,
-                            // preserve cache. Same for repost.
+                            // preserve cache. Same for repost / bookmark.
                             existing != null &&
                                 existing.viewerLikeUri != null &&
                                 post.viewer.likeUri == null -> existing
                             existing != null &&
                                 existing.viewerRepostUri != null &&
                                 post.viewer.repostUri == null -> existing
+                            existing != null &&
+                                existing.isBookmarked &&
+                                !post.viewer.isBookmarked -> existing
                             else ->
                                 PostInteractionState(
                                     viewerLikeUri = post.viewer.likeUri,
                                     viewerRepostUri = post.viewer.repostUri,
                                     likeCount = post.stats.likeCount.toLong(),
                                     repostCount = post.stats.repostCount.toLong(),
+                                    isBookmarked = post.viewer.isBookmarked,
+                                    bookmarkCount = post.stats.bookmarkCount.toLong(),
                                 )
                         }
                     acc.putting(post.id, merged)
@@ -190,6 +199,55 @@ internal class DefaultPostInteractionsCache
                 job.await()
             } finally {
                 repostJobs.remove(postUri)
+            }
+        }
+
+        override suspend fun toggleBookmark(
+            postUri: String,
+            postCid: String,
+        ): Result<Unit> {
+            if (bookmarkJobs[postUri]?.isActive == true) {
+                return Result.success(Unit)
+            }
+
+            val before = _state.value[postUri] ?: PostInteractionState()
+            // Both create and delete take the post's own StrongRef — there is no
+            // separate bookmark-record URI (see BookmarkRepository).
+            val ref = StrongRef(uri = AtUri(postUri), cid = Cid(postCid))
+            val optimistic =
+                before.copy(
+                    isBookmarked = !before.isBookmarked,
+                    bookmarkCount = (before.bookmarkCount + if (before.isBookmarked) -1 else 1).coerceAtLeast(0),
+                    pendingBookmarkWrite = PendingState.Pending,
+                )
+            _state.update { it.putting(postUri, optimistic) }
+
+            val job =
+                applicationScope.async {
+                    runCatching {
+                        if (before.isBookmarked) {
+                            bookmarkRepository.unbookmark(ref).getOrThrow()
+                        } else {
+                            bookmarkRepository.bookmark(ref).getOrThrow()
+                        }
+                    }.fold(
+                        onSuccess = {
+                            _state.update {
+                                it.putting(postUri, optimistic.copy(pendingBookmarkWrite = PendingState.None))
+                            }
+                            Result.success(Unit)
+                        },
+                        onFailure = { throwable ->
+                            _state.update { it.putting(postUri, before) }
+                            Result.failure(throwable)
+                        },
+                    )
+                }
+            bookmarkJobs[postUri] = job
+            return try {
+                job.await()
+            } finally {
+                bookmarkJobs.remove(postUri)
             }
         }
 

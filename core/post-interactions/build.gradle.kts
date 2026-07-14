@@ -25,6 +25,7 @@ dependencies {
     implementation(project(":core:actors"))
     implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
+    implementation(project(":core:bookmarks"))
     implementation(project(":core:common"))
     implementation(project(":designsystem"))
     implementation(libs.atproto.models)

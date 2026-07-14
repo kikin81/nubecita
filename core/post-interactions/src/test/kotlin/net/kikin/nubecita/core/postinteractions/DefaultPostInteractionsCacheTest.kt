@@ -9,6 +9,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.postinteractions.internal.DefaultPostInteractionsCache
+import net.kikin.nubecita.core.postinteractions.internal.FakeBookmarkRepository
 import net.kikin.nubecita.core.postinteractions.internal.FakeLikeRepostRepository
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
@@ -134,6 +135,77 @@ internal class DefaultPostInteractionsCacheTest {
                 state?.pendingLikeWrite,
                 "rollback MUST clear pendingLikeWrite",
             )
+        }
+
+    @Test
+    fun `toggleBookmark from empty cache sets isBookmarked and calls bookmark`() =
+        runTest {
+            val bookmarks = FakeBookmarkRepository()
+            val cache = newCache(FakeLikeRepostRepository(), bookmarks)
+
+            val result = cache.toggleBookmark(postUri = "at://post-bm", postCid = "bafyBM")
+            advanceUntilIdle()
+
+            assertTrue(result.isSuccess, "toggleBookmark from empty cache MUST succeed")
+            val state = cache.state.value["at://post-bm"]
+            assertEquals(true, state?.isBookmarked, "isBookmarked MUST flip to true")
+            assertEquals(1L, state?.bookmarkCount, "bookmarkCount MUST increment from 0 to 1")
+            assertEquals(PendingState.None, state?.pendingBookmarkWrite, "pendingBookmarkWrite MUST clear on success")
+            assertEquals(1, bookmarks.bookmarkCalls.get(), "bookmark() MUST be called exactly once")
+            assertEquals(0, bookmarks.unbookmarkCalls.get(), "unbookmark() MUST NOT be called")
+        }
+
+    @Test
+    fun `toggleBookmark rolls back isBookmarked and count on failure`() =
+        runTest {
+            val failure = IllegalStateException("net down")
+            val bookmarks = FakeBookmarkRepository().apply { nextBookmarkResult = Result.failure(failure) }
+            val cache = newCache(FakeLikeRepostRepository(), bookmarks)
+            val initial = PostInteractionState(isBookmarked = false, bookmarkCount = 3)
+            cache.seedDirectly("at://post-bm-fail", initial)
+
+            val result = cache.toggleBookmark("at://post-bm-fail", "bafyBMF")
+            advanceUntilIdle()
+
+            assertTrue(result.isFailure, "toggleBookmark MUST surface the underlying failure")
+            val state = cache.state.value["at://post-bm-fail"]
+            assertEquals(false, state?.isBookmarked, "rollback MUST restore pre-tap isBookmarked (false)")
+            assertEquals(3L, state?.bookmarkCount, "rollback MUST restore pre-tap bookmarkCount (3)")
+            assertEquals(PendingState.None, state?.pendingBookmarkWrite, "rollback MUST clear pendingBookmarkWrite")
+        }
+
+    @Test
+    fun `toggleBookmark from bookmarked state clears isBookmarked and calls unbookmark`() =
+        runTest {
+            val bookmarks = FakeBookmarkRepository()
+            val cache = newCache(FakeLikeRepostRepository(), bookmarks)
+            cache.seedDirectly("at://post-bm-on", PostInteractionState(isBookmarked = true, bookmarkCount = 5))
+
+            val result = cache.toggleBookmark("at://post-bm-on", "bafyON")
+            advanceUntilIdle()
+
+            assertTrue(result.isSuccess)
+            val state = cache.state.value["at://post-bm-on"]
+            assertEquals(false, state?.isBookmarked, "isBookmarked MUST flip to false")
+            assertEquals(4L, state?.bookmarkCount, "bookmarkCount MUST decrement from 5 to 4")
+            assertEquals(1, bookmarks.unbookmarkCalls.get(), "unbookmark() MUST be called exactly once")
+            assertEquals(0, bookmarks.bookmarkCalls.get(), "bookmark() MUST NOT be called")
+        }
+
+    @Test
+    fun `toggleBookmark is single-flight per postUri — double-tap is absorbed`() =
+        runTest {
+            val bookmarks = FakeBookmarkRepository().apply { nextDelayMs = 1_000 }
+            val cache = newCache(FakeLikeRepostRepository(), bookmarks)
+
+            val first = async { cache.toggleBookmark("at://post-bm-sf", "bafySF") }
+            val second = async { cache.toggleBookmark("at://post-bm-sf", "bafySF") }
+            advanceUntilIdle()
+
+            assertTrue(first.await().isSuccess)
+            assertTrue(second.await().isSuccess, "second toggle MUST return synthetic success (no error)")
+            assertEquals(1, bookmarks.bookmarkCalls.get(), "single-flight: bookmark() MUST be called exactly once")
+            assertEquals(0, bookmarks.unbookmarkCalls.get(), "single-flight: second tap absorbed, not inverted")
         }
 
     @Test
@@ -369,9 +441,13 @@ internal class DefaultPostInteractionsCacheTest {
 
     // -- Test helpers ---------------------------------------------------------
 
-    private fun TestScope.newCache(fake: FakeLikeRepostRepository): DefaultPostInteractionsCache =
+    private fun TestScope.newCache(
+        fake: FakeLikeRepostRepository,
+        bookmarks: FakeBookmarkRepository = FakeBookmarkRepository(),
+    ): DefaultPostInteractionsCache =
         DefaultPostInteractionsCache(
             likeRepostRepository = fake,
+            bookmarkRepository = bookmarks,
             applicationScope = this,
         )
 

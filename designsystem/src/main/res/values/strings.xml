@@ -60,6 +60,7 @@
     <!-- Repost menu item: open the composer to quote this post. -->
     <string name="postcard_action_quote">Quote post</string>
     <string name="postcard_action_like">Like</string>
+    <string name="postcard_action_bookmark">Bookmark</string>
     <string name="postcard_action_share">Share post</string>
     <!-- Long-press on the share button copies the post permalink. Surfaced
          to TalkBack via combinedClickable's onLongClickLabel so the

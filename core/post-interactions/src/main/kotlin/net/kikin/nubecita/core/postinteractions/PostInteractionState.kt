@@ -30,6 +30,13 @@ data class PostInteractionState(
     val repostCount: Long = 0,
     val pendingLikeWrite: PendingState = PendingState.None,
     val pendingRepostWrite: PendingState = PendingState.None,
+    // Bookmark has no viewer record URI (delete keys off the post's own AT URI),
+    // so a boolean suffices — no sentinel. `pendingBookmarkWrite` freezes seeding
+    // (prevents seed/merge from overwriting optimistic bookmark state) the same
+    // way the like/repost pending flags do.
+    val isBookmarked: Boolean = false,
+    val bookmarkCount: Long = 0,
+    val pendingBookmarkWrite: PendingState = PendingState.None,
 )
 
 /**

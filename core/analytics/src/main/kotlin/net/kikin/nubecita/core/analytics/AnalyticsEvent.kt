@@ -258,6 +258,8 @@ enum class PostAction(
     Unrepost("unrepost"),
     Quote("quote"),
     Reply("reply"),
+    Bookmark("bookmark"),
+    Unbookmark("unbookmark"),
 }
 
 /** The screen surface the interaction originated from (no instance identity). */
