@@ -217,6 +217,51 @@ internal val benchGalleryReplies: List<PostUi> =
     )
 
 /**
+ * Filler replies below [benchGalleryReplies] so the bench thread is tall enough
+ * to actually SCROLL the focus card up under the app bar. Without enough content
+ * below the focus, the list has nowhere to go and the toolbar swap can never
+ * fire on device — a fixture that silently passes by never reaching the code.
+ *
+ * They sit below the fold at scroll 0, so the `a09PostDetail` marketing capture
+ * (which opens this thread at the top) is unaffected.
+ */
+internal val benchThreadFillerReplies: List<PostUi> =
+    listOf(
+        "the topo is the real gift here, thank you" to "benchdana",
+        "how long was the approach in total?" to "benchgabe",
+        "adding this to the list for september" to "benchcarmen",
+        "that alpine flower shot though" to "benchdana",
+        "did you bivvy at the saddle or push through?" to "benchgabe",
+        "saving all four of these" to "benchcarmen",
+    ).mapIndexed { index, (body, didSuffix) ->
+        benchTextPost(
+            rkey = "filler${index + 1}",
+            didSuffix = didSuffix,
+            handle =
+                when (didSuffix) {
+                    "benchdana" -> "dana.peaks"
+                    "benchgabe" -> "gabe.climbs"
+                    else -> "carmen.alpine"
+                },
+            displayName =
+                when (didSuffix) {
+                    "benchdana" -> "Dana"
+                    "benchgabe" -> "Gabe"
+                    else -> "Carmen"
+                },
+            avatar =
+                when (didSuffix) {
+                    "benchdana" -> "carmen.jpg"
+                    "benchgabe" -> "gabe.jpg"
+                    else -> "carmen.jpg"
+                },
+            createdAt = "2026-06-02T11:${((index + 1) * 5).toString().padStart(2, '0')}:00Z",
+            body = body,
+            stats = PostStatsUi(replyCount = 0, repostCount = 0, likeCount = index + 1),
+        )
+    }
+
+/**
  * A `PostUi` view of [benchQuotedImagePost] (same uri + image) so the media
  * viewer's `getPost(quotedUri)` resolves when a quoted-post image is tapped.
  */
@@ -251,4 +296,5 @@ internal val benchPostsByUri: Map<String, PostUi> =
         put(benchGalleryPost.id, benchGalleryPost)
         put(benchQuotedImageAsPost.id, benchQuotedImageAsPost)
         benchGalleryReplies.forEach { put(it.id, it) }
+        benchThreadFillerReplies.forEach { put(it.id, it) }
     }

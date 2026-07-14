@@ -6,6 +6,8 @@
 
 The bar tracks exactly one author for the screen's lifetime — the focus post's. It never re-targets to an ancestor's or a reply's author.
 
+> **OPEN (does not change the scenarios below).** When the focus post is itself a reply — i.e. it has ancestors and does not sit at list index 0 — it is undecided whether the anchor should remain the focus post or shift to the thread **root**. In the common case (a top-level post opened from the feed) focus == root, so the two are indistinguishable and every scenario below holds unchanged. The decision affects only which post `focusIndex` / `focusPost` resolve to and is a one-line predicate; it is pending a check of Threads' behavior for a tapped reply. See `design.md` Decision 1.
+
 The author block is **not** interactive. It carries no `clickable` and no `onClickLabel`.
 
 #### Scenario: Toolbar reads "Post" at rest

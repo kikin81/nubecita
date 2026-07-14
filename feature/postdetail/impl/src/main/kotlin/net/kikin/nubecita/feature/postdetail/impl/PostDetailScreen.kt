@@ -12,12 +12,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -25,7 +26,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -75,6 +75,7 @@ import net.kikin.nubecita.designsystem.component.VideoPosterEmbed
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.icon.mirror
+import net.kikin.nubecita.feature.postdetail.impl.ui.PostDetailTopBar
 import kotlin.time.Clock
 import kotlin.time.Instant
 import android.net.Uri as AndroidUri
@@ -374,23 +375,22 @@ internal fun PostDetailScreenContent(
     onQuotedImageClick: (quotedPostUri: String, imageIndex: Int) -> Unit = { _, _ -> },
     onVideoTap: (postUri: String) -> Unit = {},
 ) {
+    // Hoisted so the top bar and the thread's LazyColumn share one scroll state:
+    // the bar reads it to decide whether to show the focus author.
+    val listState = rememberLazyListState()
+    // The LazyColumn renders `items` 1:1, so this index IS the lazy-list index.
+    val focusIndex = remember(state.items) { state.items.indexOfFirst { it is ThreadItem.Focus } }
+
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surface,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.postdetail_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        NubecitaIcon(
-                            name = NubecitaIconName.ArrowBack,
-                            contentDescription = stringResource(R.string.postdetail_back_content_description),
-                            filled = true,
-                            modifier = Modifier.mirror(),
-                        )
-                    }
-                },
+            PostDetailTopBar(
+                author = state.focusPost?.author,
+                listState = listState,
+                focusIndex = focusIndex,
+                onBack = onBack,
             )
         },
         floatingActionButton = {
@@ -438,6 +438,7 @@ internal fun PostDetailScreenContent(
             ->
                 LoadedThread(
                     items = state.items,
+                    listState = listState,
                     isRefreshing = status is PostDetailLoadStatus.Refreshing,
                     onRefresh = onRefresh,
                     callbacks = callbacks,
@@ -456,6 +457,7 @@ internal fun PostDetailScreenContent(
 @Composable
 private fun LoadedThread(
     items: ImmutableList<ThreadItem>,
+    listState: LazyListState,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     callbacks: PostCallbacks,
@@ -506,6 +508,7 @@ private fun LoadedThread(
             // Stable tag (surfaced as a bare resource-id via testTagsAsResourceId)
             // so the marketing screenshot journey can await the loaded thread.
             modifier = Modifier.fillMaxSize().testTag(POST_DETAIL_LIST_TEST_TAG),
+            state = listState,
             contentPadding = mergedContentPadding,
         ) {
             items(items = items, key = { it.key }) { item ->

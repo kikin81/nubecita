@@ -1,3 +1,16 @@
+> **Spike note (2026-07-14).** A working prototype validated the behavior on the
+> bench flavor. Corrections are folded into `design.md` and the tasks below
+> ([spike] markers). The prototype instrumentation (a `Log.d("TopBarSpike", …)` in
+> the stateful bar) MUST be removed before landing — see task 3.4. One design
+> question is left OPEN (focus vs. thread-root anchor; `design.md` Decision 1);
+> it does not block any task here.
+
+## 0. Bench fixture — make the thread scrollable (spike-landed, keep)
+
+- [ ] 0.1 In `core/posts/src/bench/.../BenchPosts.kt`, add `benchThreadFillerReplies` (a handful of text replies) so the bench thread is tall enough to scroll the focus card under the bar. The original `[Focus, reply, reply]` fixture was too short — the swap was unreachable on device.
+- [ ] 0.2 In `BenchFakePostThreadRepository`, append the filler replies AFTER the existing focus + replies. Keep the focus at **index 0** (no ancestors) so `a09PostDetail`'s marketing screenshot still opens on the gallery card. Register the filler posts in `benchPostsByUri`.
+- [ ] 0.3 Confirm `MarketingScreenshotJourney.a09PostDetail` still captures the gallery focus card leading the frame (the filler replies sit below the fold at scroll 0).
+
 ## 1. Pure scroll math + its tests (TDD — no UI yet)
 
 - [ ] 1.1 Create `feature/postdetail/impl/src/main/kotlin/net/kikin/nubecita/feature/postdetail/impl/ui/PostDetailTopBar.kt` containing **only** the pure `internal fun shouldShowAuthorInBar(focusIndex: Int, firstVisibleItemIndex: Int, focusItemTopPx: Int?, enterThresholdPx: Int, exitThresholdPx: Int, currentlyShown: Boolean): Boolean`, plus the two threshold constants (`AUTHOR_BAR_ENTER_THRESHOLD = 56.dp`, `AUTHOR_BAR_EXIT_THRESHOLD = 40.dp`) and the slide constant (`AUTHOR_BAR_SLIDE_DISTANCE = 24.dp`). Resolution order per `design.md` Decision 4.
@@ -16,8 +29,9 @@
 ## 3. The stateful bar
 
 - [ ] 3.1 Add the stateful `internal fun PostDetailTopBar(author: AuthorUi?, listState: LazyListState, focusIndex: Int, onBack: () -> Unit, modifier: Modifier = Modifier)` overload — mirrors the two-overload shape `:feature:profile:impl`'s `ProfileTopBar` already uses.
-- [ ] 3.2 Inside it, hold `var shown by remember { mutableStateOf(false) }`-style current-state for the hysteresis input, and compute the target in a `derivedStateOf` over `listState.layoutInfo`: look up `visibleItemsInfo.firstOrNull { it.index == focusIndex }`, normalize its `offset` to be **relative to the bottom of the app bar**, and call `shouldShowAuthorInBar(...)` passing the current value as `currentlyShown`. Delegate to the stateless overload.
-- [ ] 3.3 **Verify the `LazyListItemInfo.offset` origin on device** (`design.md` Risks) — whether it already excludes the top `contentPadding` or needs `- layoutInfo.beforeContentPadding`. Getting this wrong makes the swap fire ~64dp early or late. Normalize at this call site only; the pure function must keep consuming an already-normalized value.
+- [ ] 3.2 Hold `var shown by remember { mutableStateOf(false) }` and drive it from a `LaunchedEffect(listState, focusIndex, enterPx, exitPx)` that runs `snapshotFlow { …read listState.layoutInfo… }.collect { shown = shouldShowAuthorInBar(…, currentlyShown = shown) }`. **NOT `derivedStateOf`** — the hysteresis makes this a fold over `shown`'s own previous value, so a derivedStateOf that reads and writes `shown` is a backwards write during composition (`design.md` Decision 2 [spike]). `shown` being a plain boolean MutableState means writing the same value is a no-op, so the bar recomposes only on the flip. Delegate to the stateless overload.
+- [ ] 3.3 Pass `focus.offset` straight through as `focusItemTopPx` — **no normalization needed**. The spike verified on device that `LazyListItemInfo.offset` is already measured from the app-bar bottom (`viewportStartOffset == -beforeContentPadding`, so their sum is 0; `design.md` Decision 4 [spike]). Keep the pure function consuming an already-normalized value so this stays a call-site concern.
+- [ ] 3.4 **Remove the spike instrumentation** — the `Log.d("TopBarSpike", …)` / `snapshotFlow`-logging left in the prototype's stateful bar. The production collector computes `shown` without logging. Grep for `TopBarSpike` to confirm none remains.
 
 ## 4. Wire it into the screen
 
@@ -34,6 +48,6 @@
 ## 6. Verify + land
 
 - [ ] 6.1 `./gradlew :feature:postdetail:impl:testDebugUnitTest :feature:postdetail:impl:lintProductionDebug spotlessCheck` — note the **module's own** lint, not `:app`'s (`:app:lintProductionDebug` misses `MissingTranslation`; this change adds no strings, but run it anyway to catch anything else).
-- [ ] 6.2 On-device smoke on the bench flavor (`./gradlew :app:installBenchDebug`): open a post detail **with ancestors**, scroll down past the focus card, confirm "Post" fades out in place while the avatar + name slide in from the start; scroll back to the top and confirm the exact reverse. Confirm the swap fires when the focus card's author row passes the bar — not ~64dp off (that is the `beforeContentPadding` bug from task 3.3). Screenshot both ends as evidence.
-- [ ] 6.3 Smoke a thread **without** ancestors (focus is item 0) and a thread still loading (`InitialLoading` → bar reads "Post", no crash on `focusIndex == -1`).
+- [ ] 6.2 On-device smoke on the bench flavor (`./gradlew :app:installBenchDebug`): open the bench post detail (focus at index 0 — tap the first post in the feed), scroll down past the focus card, confirm "Post" fades out in place while the avatar + name slide in from the start and the bar shows the FOCUS author (Jessica Elena) even while replies from other authors are on screen; scroll back to the top and confirm the exact reverse. Screenshot both ends as evidence. (This was exercised by the spike and passed; re-confirm against the final, non-instrumented build.)
+- [ ] 6.3 Smoke a thread still loading (`InitialLoading` → bar reads "Post", no crash on `focusIndex == -1`). Note: the bench thread has no ancestors by design (`design.md` Risks [spike]), so the focus-at-non-zero-index path is covered by task 1.2's unit tests, not on device.
 - [ ] 6.4 Run the compose-expert skill over the diff (it adds `@Composable` lines, so the project's Compose review gate applies).
