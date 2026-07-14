@@ -202,6 +202,38 @@ class ProfileScreenInstrumentationTest {
         )
     }
 
+    @Test
+    fun composeFab_otherUserProfile_headerNotLoaded_fallsBackToRouteHandle() {
+        // Header still loading → fall back to the route handle so the mention
+        // prefills immediately (as long as it's a handle, not a DID).
+        val context = composeTestRule.activity
+        val composeLabel = context.getString(R.string.profile_compose_new_post)
+        var captured: String? = null
+
+        composeTestRule.setContent {
+            NubecitaTheme(dynamicColor = false) {
+                ProfileScreenContent(
+                    state = sampleOtherUserProfileState().copy(header = null),
+                    listState = rememberLazyListState(),
+                    snackbarHostState = remember { SnackbarHostState() },
+                    postCallbacks = PostCallbacks.None,
+                    onEvent = {},
+                    onBack = { },
+                    onComposeClick = { captured = it },
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(composeLabel).performClick()
+        composeTestRule.waitForIdle()
+
+        assertEquals(
+            "With no header, the FAB MUST fall back to the (non-DID) route handle",
+            "bob.bsky.social",
+            captured,
+        )
+    }
+
     private fun sampleOtherUserProfileState(): ProfileScreenViewState {
         val base = sampleOwnProfileState()
         return base.copy(

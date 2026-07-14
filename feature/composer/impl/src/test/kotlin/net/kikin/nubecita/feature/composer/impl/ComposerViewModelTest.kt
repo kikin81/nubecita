@@ -159,6 +159,24 @@ class ComposerViewModelTest {
         }
 
     @Test
+    fun mentionHandle_normalizesLeadingAtAndWhitespace() =
+        runTest {
+            // A caller that hands over an already-`@`-prefixed / padded handle
+            // must not produce "@@alice " (which FacetExtractor wouldn't resolve).
+            val vm = newVm(mentionHandle = " @alice.bsky.social ")
+
+            assertEquals("@alice.bsky.social ", vm.textFieldState.text.toString())
+        }
+
+    @Test
+    fun mentionHandle_blank_seedsEmptyComposer() =
+        runTest {
+            val vm = newVm(mentionHandle = "   ")
+
+            assertEquals("", vm.textFieldState.text.toString())
+        }
+
+    @Test
     fun replyMode_loadingPath_transitionsToLoaded() =
         runTest {
             // Gate the fetch with a CompletableDeferred so we can

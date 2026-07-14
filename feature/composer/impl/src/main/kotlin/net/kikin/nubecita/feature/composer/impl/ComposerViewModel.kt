@@ -169,7 +169,15 @@ internal class ComposerViewModel
          * VM reducer. See class Kdoc for the rationale.
          */
         val textFieldState: TextFieldState =
-            TextFieldState(initialText = route.mentionHandle?.let { "@$it " }.orEmpty())
+            TextFieldState(
+                initialText =
+                    route.mentionHandle
+                        ?.trim()
+                        ?.removePrefix("@")
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { "@$it " }
+                        .orEmpty(),
+            )
 
         /**
          * BCP-47 tag for the device's primary locale, captured once at

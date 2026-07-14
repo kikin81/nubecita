@@ -98,9 +98,16 @@ internal fun ProfileScreenContent(
 ) {
     val pillTabs = rememberProfilePillTabs(ownProfile = state.ownProfile)
     // Compose-FAB target: blank on your own profile, `@handle`-prefilled on
-    // someone else's. Uses the resolved header handle (not the route arg,
-    // which may be a DID); null header (not loaded yet) falls back to blank.
-    val composeMentionHandle = if (state.ownProfile) null else state.header?.handle
+    // someone else's. Prefer the resolved header handle; if the header hasn't
+    // loaded yet, fall back to the route handle the user navigated with — but
+    // only when it's an actual handle, not a DID (a DID wouldn't render as a
+    // readable @mention).
+    val composeMentionHandle =
+        if (state.ownProfile) {
+            null
+        } else {
+            state.header?.handle ?: state.handle?.takeIf { !it.startsWith("did:") }
+        }
     val activeTabIsRefreshing = state.activeTabIsRefreshing()
     val onVideoTap =
         remember(onEvent) {
