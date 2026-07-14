@@ -1,7 +1,6 @@
 package net.kikin.nubecita.designsystem.tabs
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
@@ -68,18 +67,22 @@ public data class PillTab<T>(
  * Single-selection semantics over [ToggleButton]'s boolean toggle: each
  * pill only forwards `onCheckedChange(true)` to [onSelect]; tapping the
  * already-selected pill is a no-op (there is no "no tab selected"
- * state). Selection state is hoisted via [selectedValue]; the composable
- * doesn't re-render until the caller updates that value.
+ * state). Selection is hoisted: [selectedValue] is the single source of
+ * truth for which pill is active, and the row is a pure projection of it.
  *
  * Pills are joined into one connected control via
  * [ButtonGroupDefaults.connectedLeadingButtonShapes] /
  * [ButtonGroupDefaults.connectedMiddleButtonShapes] /
- * [ButtonGroupDefaults.connectedTrailingButtonShapes] keyed on position
- * (first / middle / last) and the tight
+ * [ButtonGroupDefaults.connectedTrailingButtonShapes] keyed on **list**
+ * position (first / middle / last) and the tight
  * [ButtonGroupDefaults.ConnectedSpaceBetween] horizontal spacing, so the
  * row reads as one segmented group with rounded outer corners — matching
- * the Material 3 `SingleSelectConnectedButtonGroupSample`. On wrap, shapes
- * follow list position (the sample's own behavior).
+ * the Material 3 `SingleSelectConnectedButtonGroupSample`. Shapes follow
+ * list position, not visual-row position, so on wrap the last pill of the
+ * first visual row keeps its middle (flat-outer) shape and the trailing
+ * rounding lands on the list-final pill on the second row — the sample's
+ * own wrap behavior. This is a deliberate tradeoff for the connected look;
+ * it only shows on the narrow-width four-pill wrap.
  *
  * Each pill carries its [PillTab.iconName] as a leading icon; the
  * `filled` axis of [NubecitaIcon] tracks selection so the active pill's
@@ -97,7 +100,7 @@ public data class PillTab<T>(
  *   Receives the tapped pill's [PillTab.value]. NOT invoked when the
  *   user taps the already-selected pill.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 public fun <T> ProfilePillTabs(
     tabs: ImmutableList<PillTab<T>>,
