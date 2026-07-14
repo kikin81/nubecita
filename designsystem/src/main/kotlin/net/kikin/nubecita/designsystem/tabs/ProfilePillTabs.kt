@@ -1,11 +1,17 @@
 package net.kikin.nubecita.designsystem.tabs
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.ButtonGroup
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Modifier
@@ -43,36 +49,48 @@ public data class PillTab<T>(
 )
 
 /**
- * Single-selection segmented control used on the profile screen
- * (Posts / Replies / Media, plus an own-profile-only Likes pill —
- * three or four items). Built on M3 Expressive's [ButtonGroup]
- * with [androidx.compose.material3.ButtonGroupScope.toggleableItem]
- * children — replaces the deprecated `SegmentedButton` per the M3
- * docs' migration guidance.
+ * Single-selection pill row used on the profile screen (Posts / Replies /
+ * Media, plus an own-profile-only Likes pill) and the Chats screen
+ * (Messages / Requests). Built as a [FlowRow] of content-sized M3
+ * Expressive [ToggleButton]s.
  *
- * Single-selection semantics over [ButtonGroup]'s boolean-toggle
- * primitive: each item only forwards `onCheckedChange(true)` to
- * [onSelect]; tapping the already-selected pill is a no-op (we
- * don't fire `onSelect` for `onCheckedChange(false)`, since
- * "deselecting the active tab" is not a valid state). Selection
- * state is hoisted via [selectedValue]; the composable does not
- * internally re-render until the caller updates that value.
+ * **Why a flow layout, not a weighted [androidx.compose.material3.ButtonGroup].**
+ * The previous connected `ButtonGroup` gave every pill `weight = 1f`
+ * (equal width). With four pills — and longer locales (es
+ * "Publicaciones" / "Multimedia", pt "Publicações") — the equal-width
+ * share is narrower than the label, so labels truncated ("Replie",
+ * "Media" cut off). A [FlowRow] instead sizes each pill to its own
+ * content and wraps the row onto a second line when the pills don't all
+ * fit, so labels are never clipped. This mirrors the Material 3 Samples
+ * "single select" flow example.
  *
- * Each item carries its [PillTab.iconName] as a leading icon. The
- * `filled` axis of [NubecitaIcon] tracks selection so the selected
- * pill's icon reads as the active state.
+ * Single-selection semantics over [ToggleButton]'s boolean toggle: each
+ * pill only forwards `onCheckedChange(true)` to [onSelect]; tapping the
+ * already-selected pill is a no-op (there is no "no tab selected"
+ * state). Selection is hoisted: [selectedValue] is the single source of
+ * truth for which pill is active, and the row is a pure projection of it.
  *
- * Equal-width pills: every item gets `weight = 1f` so the row
- * distributes available width evenly. Because every item is weighted,
- * [ButtonGroup] sizes them to their proportional share rather than
- * spilling any into the overflow menu — so no pill is ever dropped,
- * for either the three-item (other user) or four-item (own profile,
- * with Likes) row. The required `overflowIndicator` slot is therefore
- * intentionally empty. On narrow widths or long locales the pill
- * *labels* truncate (they never disappear); tabs stay fully tappable.
+ * Pills are joined into one connected control via
+ * [ButtonGroupDefaults.connectedLeadingButtonShapes] /
+ * [ButtonGroupDefaults.connectedMiddleButtonShapes] /
+ * [ButtonGroupDefaults.connectedTrailingButtonShapes] keyed on **list**
+ * position (first / middle / last) and the tight
+ * [ButtonGroupDefaults.ConnectedSpaceBetween] horizontal spacing, so the
+ * row reads as one segmented group with rounded outer corners — matching
+ * the Material 3 `SingleSelectConnectedButtonGroupSample`. Shapes follow
+ * list position, not visual-row position, so on wrap the last pill of the
+ * first visual row keeps its middle (flat-outer) shape and the trailing
+ * rounding lands on the list-final pill on the second row — the sample's
+ * own wrap behavior. This is a deliberate tradeoff for the connected look;
+ * it only shows on the narrow-width four-pill wrap.
+ *
+ * Each pill carries its [PillTab.iconName] as a leading icon; the
+ * `filled` axis of [NubecitaIcon] tracks selection so the active pill's
+ * icon reads as selected. A positive [PillTab.badgeCount] renders as an
+ * M3 [Badge] over the icon.
  *
  * @param tabs Ordered list of pill configurations. Display order is
- *   the iteration order (left-to-right in LTR).
+ *   the iteration order (left-to-right in LTR, wrapping top-to-bottom).
  * @param selectedValue The currently-active pill's [PillTab.value].
  *   When [selectedValue] does not match any `tabs[i].value` (e.g.
  *   during a transient mismatch while caller state catches up), no
@@ -91,46 +109,40 @@ public fun <T> ProfilePillTabs(
     modifier: Modifier = Modifier,
 ) {
     if (tabs.isEmpty()) return
-    ButtonGroup(
-        // All items are weighted (weight = 1f below), so ButtonGroup sizes
-        // them to their share and never overflows — the overflow slot is
-        // required by the API but unreachable here, for 3 or 4 pills alike.
-        overflowIndicator = {},
-        expandedRatio = 0.025f,
+    FlowRow(
         modifier = modifier.padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        tabs.forEach { tab ->
+        tabs.forEachIndexed { index, tab ->
             val isSelected = tab.value == selectedValue
-            toggleableItem(
+            ToggleButton(
                 checked = isSelected,
-                label = tab.label,
-                onCheckedChange = { newChecked ->
-                    // Tapping the selected pill fires onCheckedChange(false)
-                    // which we ignore — there is no "no tab selected"
-                    // state. Tapping an unselected pill fires
-                    // onCheckedChange(true) which delegates to onSelect.
-                    if (newChecked) onSelect(tab.value)
-                },
-                icon = {
-                    val badge = tab.badgeCount
-                    if (badge != null && badge > 0) {
-                        BadgedBox(badge = { Badge { Text(badgeLabel(badge)) } }) {
-                            NubecitaIcon(
-                                name = tab.iconName,
-                                contentDescription = null,
-                                filled = isSelected,
-                            )
-                        }
-                    } else {
-                        NubecitaIcon(
-                            name = tab.iconName,
-                            contentDescription = null,
-                            filled = isSelected,
-                        )
+                // Single-select: tapping the active pill fires
+                // onCheckedChange(false), which we ignore — there is no
+                // "no tab selected" state. Tapping an unselected pill fires
+                // onCheckedChange(true), which delegates to onSelect.
+                onCheckedChange = { newChecked -> if (newChecked) onSelect(tab.value) },
+                // Connected group shapes by position, per the M3
+                // SingleSelectConnectedButtonGroupSample.
+                shapes =
+                    when (index) {
+                        0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                        tabs.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                        else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                    },
+            ) {
+                val badge = tab.badgeCount
+                if (badge != null && badge > 0) {
+                    BadgedBox(badge = { Badge { Text(badgeLabel(badge)) } }) {
+                        NubecitaIcon(name = tab.iconName, contentDescription = null, filled = isSelected)
                     }
-                },
-                weight = 1f,
-            )
+                } else {
+                    NubecitaIcon(name = tab.iconName, contentDescription = null, filled = isSelected)
+                }
+                Spacer(Modifier.width(ToggleButtonDefaults.IconSpacing))
+                Text(tab.label)
+            }
         }
     }
 }
