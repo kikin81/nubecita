@@ -137,10 +137,13 @@ internal object ProfileNavigationModule {
                     // canonical Nav3 modular-hilt recipe and matches
                     // FeedScreen / FeedNavigationModule (PR3 of oftc.3).
                     onNavigateTo = { key -> navState.add(key) },
-                    // Composer FAB → blank new-post composer. Same adaptive-dialog
-                    // presentation as the Feed's onComposeClick (ComposerRoute's
-                    // entry is tagged adaptiveDialog).
-                    onComposeClick = { navState.add(ComposerRoute()) },
+                    // Composer FAB → new-post composer. Prefills `@handle` when
+                    // composing from another user's profile (mentionHandle
+                    // non-null), blank on the own profile. Same adaptive-dialog
+                    // presentation as the Feed's onComposeClick.
+                    onComposeClick = { mentionHandle ->
+                        navState.add(ComposerRoute(mentionHandle = mentionHandle))
+                    },
                 )
             }
         }

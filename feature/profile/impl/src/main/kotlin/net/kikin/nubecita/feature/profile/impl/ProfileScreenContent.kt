@@ -79,7 +79,13 @@ internal fun ProfileScreenContent(
     onEvent: (ProfileEvent) -> Unit,
     onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
-    onComposeClick: () -> Unit = {},
+    /**
+     * Composer FAB tap. Carries the handle to pre-`@`-mention: `null` on the
+     * signed-in user's own profile (a blank "What's on your mind?" composer)
+     * or the viewed user's handle on someone else's profile (opens with
+     * `@handle `). The host maps it to `ComposerRoute(mentionHandle = …)`.
+     */
+    onComposeClick: (mentionHandle: String?) -> Unit = {},
     // Composer-FAB variant selector, hoisted with a window-size default so
     // previews / screenshot tests can force the phone (icon-only) vs tablet
     // (labelled Small Extended) layout without manipulating the global window
@@ -91,6 +97,10 @@ internal fun ProfileScreenContent(
             .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND),
 ) {
     val pillTabs = rememberProfilePillTabs(ownProfile = state.ownProfile)
+    // Compose-FAB target: blank on your own profile, `@handle`-prefilled on
+    // someone else's. Uses the resolved header handle (not the route arg,
+    // which may be a DID); null header (not loaded yet) falls back to blank.
+    val composeMentionHandle = if (state.ownProfile) null else state.header?.handle
     val activeTabIsRefreshing = state.activeTabIsRefreshing()
     val onVideoTap =
         remember(onEvent) {
@@ -120,7 +130,7 @@ internal fun ProfileScreenContent(
         },
         floatingActionButton = {
             if (isCompact) {
-                FloatingActionButton(onClick = onComposeClick) {
+                FloatingActionButton(onClick = { onComposeClick(composeMentionHandle) }) {
                     NubecitaIcon(
                         name = NubecitaIconName.Edit,
                         contentDescription = stringResource(R.string.profile_compose_new_post),
@@ -133,7 +143,7 @@ internal fun ProfileScreenContent(
                 // semantics tree so TalkBack reads the icon's full
                 // "Compose new post" description once (matches FeedScreen).
                 SmallExtendedFloatingActionButton(
-                    onClick = onComposeClick,
+                    onClick = { onComposeClick(composeMentionHandle) },
                     text = {
                         Text(
                             text = stringResource(R.string.profile_compose_fab_label),
