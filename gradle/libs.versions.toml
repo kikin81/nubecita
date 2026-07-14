@@ -1,6 +1,6 @@
 [versions]
 aboutlibraries = "15.0.0-b03"
-androidGradlePlugin = "9.2.1"
+androidGradlePlugin = "9.3.0"
 androidxBenchmark = "1.5.0-alpha07"
 androidxUiAutomator = "2.4.0"
 atproto = "9.7.5"
