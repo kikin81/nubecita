@@ -188,11 +188,12 @@ class ProfileScreenInstrumentationTest {
         composeTestRule.onNodeWithContentDescription(composeLabel).assertIsDisplayed()
     }
 
-    private fun sampleOtherUserProfileState(): ProfileScreenViewState =
-        sampleOwnProfileState().copy(
+    private fun sampleOtherUserProfileState(): ProfileScreenViewState {
+        val base = sampleOwnProfileState()
+        return base.copy(
             handle = "bob.bsky.social",
             header =
-                sampleOwnProfileState().header?.copy(
+                base.header?.copy(
                     did = "did:plc:bob",
                     handle = "bob.bsky.social",
                     displayName = "Bob",
@@ -200,6 +201,7 @@ class ProfileScreenInstrumentationTest {
             ownProfile = false,
             viewerRelationship = ViewerRelationship.NotFollowing(),
         )
+    }
 
     private fun sampleOwnProfileState(): ProfileScreenViewState =
         ProfileScreenViewState(

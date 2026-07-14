@@ -80,15 +80,17 @@ internal fun ProfileScreenContent(
     onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
     onComposeClick: () -> Unit = {},
-) {
-    val pillTabs = rememberProfilePillTabs(ownProfile = state.ownProfile)
-    // Composer FAB is a global "new post" action, shown on every profile
-    // (own + other users). Tablet gets the labelled Small Extended variant,
-    // phones the icon-only FAB — mirrors FeedScreen's composer entry point.
-    val isCompact =
+    // Composer-FAB variant selector, hoisted with a window-size default so
+    // previews / screenshot tests can force the phone (icon-only) vs tablet
+    // (labelled Small Extended) layout without manipulating the global window
+    // environment. The FAB is a global "new post" action shown on every
+    // profile (own + other users) — mirrors FeedScreen's composer entry point.
+    isCompact: Boolean =
         !currentWindowAdaptiveInfoV2()
             .windowSizeClass
-            .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
+            .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND),
+) {
+    val pillTabs = rememberProfilePillTabs(ownProfile = state.ownProfile)
     val activeTabIsRefreshing = state.activeTabIsRefreshing()
     val onVideoTap =
         remember(onEvent) {
