@@ -14,6 +14,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.PostCallbacks
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -136,6 +137,69 @@ class ProfileScreenInstrumentationTest {
         )
         composeTestRule.onNodeWithText(editComingSoon).assertDoesNotExist()
     }
+
+    @Test
+    fun composeFab_tap_invokesOnComposeClick() {
+        val context = composeTestRule.activity
+        val composeLabel = context.getString(R.string.profile_compose_new_post)
+        var composeClicks = 0
+
+        composeTestRule.setContent {
+            NubecitaTheme(dynamicColor = false) {
+                ProfileScreenContent(
+                    state = sampleOwnProfileState(),
+                    listState = rememberLazyListState(),
+                    snackbarHostState = remember { SnackbarHostState() },
+                    postCallbacks = PostCallbacks.None,
+                    onEvent = {},
+                    onBack = null,
+                    onComposeClick = { composeClicks++ },
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(composeLabel).performClick()
+        composeTestRule.waitForIdle()
+
+        assertEquals("Compose FAB tap MUST invoke onComposeClick exactly once", 1, composeClicks)
+    }
+
+    @Test
+    fun composeFab_shownOnOtherUserProfile() {
+        // The compose FAB is a global "new post" action, shown on every
+        // profile — pin that it's present on another user's profile too
+        // (not just the own-profile 'You' tab).
+        val context = composeTestRule.activity
+        val composeLabel = context.getString(R.string.profile_compose_new_post)
+
+        composeTestRule.setContent {
+            NubecitaTheme(dynamicColor = false) {
+                ProfileScreenContent(
+                    state = sampleOtherUserProfileState(),
+                    listState = rememberLazyListState(),
+                    snackbarHostState = remember { SnackbarHostState() },
+                    postCallbacks = PostCallbacks.None,
+                    onEvent = {},
+                    onBack = { },
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(composeLabel).assertIsDisplayed()
+    }
+
+    private fun sampleOtherUserProfileState(): ProfileScreenViewState =
+        sampleOwnProfileState().copy(
+            handle = "bob.bsky.social",
+            header =
+                sampleOwnProfileState().header?.copy(
+                    did = "did:plc:bob",
+                    handle = "bob.bsky.social",
+                    displayName = "Bob",
+                ),
+            ownProfile = false,
+            viewerRelationship = ViewerRelationship.NotFollowing(),
+        )
 
     private fun sampleOwnProfileState(): ProfileScreenViewState =
         ProfileScreenViewState(
