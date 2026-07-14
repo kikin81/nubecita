@@ -272,6 +272,7 @@ enum class PostSurface(
     Search("search"),
     FeedView("feed_view"),
     Explore("explore"),
+    Bookmarks("bookmarks"),
 }
 
 /** Fired at like/repost/quote/reply call sites. */

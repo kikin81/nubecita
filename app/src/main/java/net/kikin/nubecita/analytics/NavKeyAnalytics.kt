@@ -7,6 +7,7 @@ import net.kikin.nubecita.Main
 import net.kikin.nubecita.Splash
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.AnalyticsScreen
+import net.kikin.nubecita.feature.bookmarks.api.Bookmarks
 import net.kikin.nubecita.feature.chats.api.Chat
 import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.chats.api.NewChat
@@ -80,6 +81,7 @@ internal fun NavKey.toAnalyticsScreenOrNull(): AnalyticsScreen? =
         is ComposerRoute -> AnalyticsScreen.Composer
         is EditProfile -> AnalyticsScreen.EditProfile
         Settings -> AnalyticsScreen.Settings
+        Bookmarks -> AnalyticsScreen.Bookmarks
         is Chat -> AnalyticsScreen.ChatThread
         is MediaViewerRoute -> AnalyticsScreen.MediaViewer
 

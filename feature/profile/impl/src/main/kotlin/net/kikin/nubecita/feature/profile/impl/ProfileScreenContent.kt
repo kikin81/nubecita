@@ -96,6 +96,7 @@ internal fun ProfileScreenContent(
                 ownProfile = state.ownProfile,
                 onBack = onBack,
                 onSettings = { onEvent(ProfileEvent.SettingsTapped) },
+                onBookmarks = { onEvent(ProfileEvent.BookmarksTapped) },
             )
         },
     ) { padding ->

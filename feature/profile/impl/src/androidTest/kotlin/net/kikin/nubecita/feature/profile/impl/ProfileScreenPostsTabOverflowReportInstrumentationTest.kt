@@ -219,6 +219,7 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
                         onNavigateToPost = {},
                         onNavigateToProfile = {},
                         onNavigateToSettings = {},
+                        onNavigateToBookmarks = {},
                         onNavigateToMessage = {},
                         onNavigateToMediaViewer = { _, _ -> },
                         onNavigateToVideoPlayer = {},

@@ -299,6 +299,8 @@ dependencies {
     implementation(project(":core:video"))
     implementation(project(":core:widget-sync"))
     implementation(project(":designsystem"))
+    implementation(project(":feature:bookmarks:api"))
+    implementation(project(":feature:bookmarks:impl"))
     implementation(project(":feature:chats:api"))
     implementation(project(":feature:chats:impl"))
     implementation(project(":feature:composer:api"))

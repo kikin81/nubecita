@@ -16,6 +16,7 @@ import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.designsystem.R
 import net.kikin.nubecita.designsystem.component.DetailPaneEmptyState
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.feature.bookmarks.api.Bookmarks
 import net.kikin.nubecita.feature.chats.api.Chat
 import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
@@ -100,6 +101,7 @@ internal object ProfileNavigationModule {
                     onNavigateToPost = { uri -> navState.add(PostDetailRoute(postUri = uri)) },
                     onNavigateToProfile = { handle -> navState.add(Profile(handle = handle)) },
                     onNavigateToSettings = { navState.add(Settings) },
+                    onNavigateToBookmarks = { navState.add(Bookmarks) },
                     // Cross-tab nav: switch to Chats, then push the per-conversation
                     // thread for the other user. ChatScreen resolves DID→convoId
                     // itself via `chat.bsky.convo.getConvoForMembers`.

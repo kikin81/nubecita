@@ -511,6 +511,9 @@ sealed interface ProfileEvent : UiEvent {
     /** User tapped an overflow-menu entry that pushes the Settings sub-route. */
     data object SettingsTapped : ProfileEvent
 
+    /** Own-profile top-bar Bookmarks button; pushes the Bookmarks sub-route. */
+    data object BookmarksTapped : ProfileEvent
+
     /**
      * User tapped the verification badge in the hero. Opens the explanation
      * sheet and triggers a one-time lazy resolution of the verifier DIDs →
@@ -595,6 +598,9 @@ sealed interface ProfileEffect : UiEffect {
 
     /** Push the Settings sub-route onto the active tab's back stack. */
     data object NavigateToSettings : ProfileEffect
+
+    /** Push the Bookmarks sub-route onto the active tab's back stack. */
+    data object NavigateToBookmarks : ProfileEffect
 
     /**
      * Switch to the Chats top-level tab and push the per-conversation

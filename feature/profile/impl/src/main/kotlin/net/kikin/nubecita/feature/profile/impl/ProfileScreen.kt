@@ -51,6 +51,7 @@ internal fun ProfileScreen(
     onNavigateToPost: (String) -> Unit,
     onNavigateToProfile: (String) -> Unit,
     onNavigateToSettings: () -> Unit,
+    onNavigateToBookmarks: () -> Unit,
     onNavigateToMessage: (String) -> Unit,
     onNavigateToMediaViewer: (postUri: String, imageIndex: Int) -> Unit,
     onNavigateToVideoPlayer: (postUri: String) -> Unit,
@@ -217,6 +218,7 @@ internal fun ProfileScreen(
     val currentOnNavigateToPost by rememberUpdatedState(onNavigateToPost)
     val currentOnNavigateToProfile by rememberUpdatedState(onNavigateToProfile)
     val currentOnNavigateToSettings by rememberUpdatedState(onNavigateToSettings)
+    val currentOnNavigateToBookmarks by rememberUpdatedState(onNavigateToBookmarks)
     val currentOnNavigateToMessage by rememberUpdatedState(onNavigateToMessage)
     val currentOnNavigateToMediaViewer by rememberUpdatedState(onNavigateToMediaViewer)
     val currentOnNavigateToVideoPlayer by rememberUpdatedState(onNavigateToVideoPlayer)
@@ -260,6 +262,7 @@ internal fun ProfileScreen(
                 is ProfileEffect.NavigateToPost -> currentOnNavigateToPost(effect.postUri)
                 is ProfileEffect.NavigateToProfile -> currentOnNavigateToProfile(effect.handle)
                 ProfileEffect.NavigateToSettings -> currentOnNavigateToSettings()
+                ProfileEffect.NavigateToBookmarks -> currentOnNavigateToBookmarks()
                 is ProfileEffect.NavigateToMessage ->
                     currentOnNavigateToMessage(effect.otherUserDid)
                 is ProfileEffect.NavigateToMediaViewer ->
