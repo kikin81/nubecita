@@ -72,12 +72,12 @@ internal fun ProfileScreen(
     onNavigateTo: (NavKey) -> Unit,
     modifier: Modifier = Modifier,
     /**
-     * Composer FAB tap. The host wires it to
-     * `navState.add(ComposerRoute())` (a blank new-post composer), same as
-     * `FeedNavigationModule`'s `onComposeClick`. Defaulted so previews /
-     * screenshot tests that don't exercise composition can omit it.
+     * Composer FAB tap, carrying the handle to pre-`@`-mention (`null` on the
+     * own profile → blank composer; the viewed user's handle elsewhere). The
+     * host wires it to `navState.add(ComposerRoute(mentionHandle = …))`.
+     * Defaulted so previews / screenshot tests can omit it.
      */
-    onComposeClick: () -> Unit = {},
+    onComposeClick: (mentionHandle: String?) -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }

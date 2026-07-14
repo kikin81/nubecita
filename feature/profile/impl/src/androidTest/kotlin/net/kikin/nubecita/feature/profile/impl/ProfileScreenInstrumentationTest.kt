@@ -139,10 +139,11 @@ class ProfileScreenInstrumentationTest {
     }
 
     @Test
-    fun composeFab_tap_invokesOnComposeClick() {
+    fun composeFab_onOwnProfile_passesNullMention() {
         val context = composeTestRule.activity
         val composeLabel = context.getString(R.string.profile_compose_new_post)
-        var composeClicks = 0
+        var callCount = 0
+        var captured: String? = "sentinel"
 
         composeTestRule.setContent {
             NubecitaTheme(dynamicColor = false) {
@@ -153,7 +154,10 @@ class ProfileScreenInstrumentationTest {
                     postCallbacks = PostCallbacks.None,
                     onEvent = {},
                     onBack = null,
-                    onComposeClick = { composeClicks++ },
+                    onComposeClick = {
+                        callCount++
+                        captured = it
+                    },
                 )
             }
         }
@@ -161,16 +165,18 @@ class ProfileScreenInstrumentationTest {
         composeTestRule.onNodeWithContentDescription(composeLabel).performClick()
         composeTestRule.waitForIdle()
 
-        assertEquals("Compose FAB tap MUST invoke onComposeClick exactly once", 1, composeClicks)
+        // Exactly once — a double-invocation regression must fail, not pass silently.
+        assertEquals("Compose FAB tap MUST invoke onComposeClick exactly once", 1, callCount)
+        assertEquals("Own-profile compose MUST pass a null mention (blank composer)", null, captured)
     }
 
     @Test
-    fun composeFab_shownOnOtherUserProfile() {
-        // The compose FAB is a global "new post" action, shown on every
-        // profile — pin that it's present on another user's profile too
-        // (not just the own-profile 'You' tab).
+    fun composeFab_onOtherUserProfile_passesTheirHandle() {
+        // The compose FAB is shown on every profile (all-profiles behavior);
+        // composing from another user's profile pre-mentions them.
         val context = composeTestRule.activity
         val composeLabel = context.getString(R.string.profile_compose_new_post)
+        var captured: String? = null
 
         composeTestRule.setContent {
             NubecitaTheme(dynamicColor = false) {
@@ -181,11 +187,52 @@ class ProfileScreenInstrumentationTest {
                     postCallbacks = PostCallbacks.None,
                     onEvent = {},
                     onBack = { },
+                    onComposeClick = { captured = it },
                 )
             }
         }
 
         composeTestRule.onNodeWithContentDescription(composeLabel).assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription(composeLabel).performClick()
+        composeTestRule.waitForIdle()
+
+        assertEquals(
+            "Compose from another user's profile MUST pass their handle to pre-mention",
+            "bob.bsky.social",
+            captured,
+        )
+    }
+
+    @Test
+    fun composeFab_otherUserProfile_headerNotLoaded_fallsBackToRouteHandle() {
+        // Header still loading → fall back to the route handle so the mention
+        // prefills immediately (as long as it's a handle, not a DID).
+        val context = composeTestRule.activity
+        val composeLabel = context.getString(R.string.profile_compose_new_post)
+        var captured: String? = null
+
+        composeTestRule.setContent {
+            NubecitaTheme(dynamicColor = false) {
+                ProfileScreenContent(
+                    state = sampleOtherUserProfileState().copy(header = null),
+                    listState = rememberLazyListState(),
+                    snackbarHostState = remember { SnackbarHostState() },
+                    postCallbacks = PostCallbacks.None,
+                    onEvent = {},
+                    onBack = { },
+                    onComposeClick = { captured = it },
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(composeLabel).performClick()
+        composeTestRule.waitForIdle()
+
+        assertEquals(
+            "With no header, the FAB MUST fall back to the (non-DID) route handle",
+            "bob.bsky.social",
+            captured,
+        )
     }
 
     private fun sampleOtherUserProfileState(): ProfileScreenViewState {

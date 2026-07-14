@@ -160,12 +160,24 @@ internal class ComposerViewModel
 
         /**
          * Canonical text and selection for the composer. Constructed
-         * once in init (default empty); never re-assigned. The
-         * screen's `OutlinedTextField(state = textFieldState)` reads
-         * and writes directly; the IME never round-trips through the
+         * once in init; never re-assigned. Seeded with `@handle ` (cursor
+         * after it) when [ComposerRoute.mentionHandle] is set — composing
+         * from another user's profile — otherwise empty. The `@handle`
+         * token resolves to a mention facet on submit via the shared
+         * FacetExtractor. The screen's `OutlinedTextField(state = textFieldState)`
+         * reads and writes directly; the IME never round-trips through the
          * VM reducer. See class Kdoc for the rationale.
          */
-        val textFieldState: TextFieldState = TextFieldState()
+        val textFieldState: TextFieldState =
+            TextFieldState(
+                initialText =
+                    route.mentionHandle
+                        ?.trim()
+                        ?.removePrefix("@")
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { "@$it " }
+                        .orEmpty(),
+            )
 
         /**
          * BCP-47 tag for the device's primary locale, captured once at

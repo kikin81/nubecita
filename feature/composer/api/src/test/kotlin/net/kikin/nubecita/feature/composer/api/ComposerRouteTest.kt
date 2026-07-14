@@ -53,4 +53,16 @@ class ComposerRouteTest {
         assertEquals(route, decoded)
         assertEquals("at://did:plc:abc/app.bsky.feed.post/3kxyz", decoded.replyToUri)
     }
+
+    @Test
+    fun mentionRoute_carriesMentionHandle_andRoundTrips() {
+        val route = ComposerRoute(mentionHandle = "alice.bsky.social")
+
+        assertEquals("alice.bsky.social", route.mentionHandle)
+        assertNull(route.replyToUri)
+
+        val decoded = Json.decodeFromString(ComposerRoute.serializer(), Json.encodeToString(ComposerRoute.serializer(), route))
+        assertEquals(route, decoded)
+        assertEquals("alice.bsky.social", decoded.mentionHandle)
+    }
 }

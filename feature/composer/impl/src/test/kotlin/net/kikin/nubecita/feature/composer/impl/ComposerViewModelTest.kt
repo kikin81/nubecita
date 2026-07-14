@@ -145,6 +145,38 @@ class ComposerViewModelTest {
         }
 
     @Test
+    fun mentionHandle_seedsTextFieldWithAtMention() =
+        runTest {
+            // Composing from another user's profile prefills "@handle " so the
+            // FacetExtractor resolves it to a mention on submit; the cursor sits
+            // after the trailing space, ready for the post body.
+            val vm = newVm(mentionHandle = "alice.bsky.social")
+
+            // Text + cursor are seeded synchronously at TextFieldState
+            // construction (no snapshot flush needed to read them).
+            assertEquals("@alice.bsky.social ", vm.textFieldState.text.toString())
+            assertEquals("@alice.bsky.social ".length, vm.textFieldState.selection.start)
+        }
+
+    @Test
+    fun mentionHandle_normalizesLeadingAtAndWhitespace() =
+        runTest {
+            // A caller that hands over an already-`@`-prefixed / padded handle
+            // must not produce "@@alice " (which FacetExtractor wouldn't resolve).
+            val vm = newVm(mentionHandle = " @alice.bsky.social ")
+
+            assertEquals("@alice.bsky.social ", vm.textFieldState.text.toString())
+        }
+
+    @Test
+    fun mentionHandle_blank_seedsEmptyComposer() =
+        runTest {
+            val vm = newVm(mentionHandle = "   ")
+
+            assertEquals("", vm.textFieldState.text.toString())
+        }
+
+    @Test
     fun replyMode_loadingPath_transitionsToLoaded() =
         runTest {
             // Gate the fetch with a CompletableDeferred so we can
@@ -1282,10 +1314,11 @@ class ComposerViewModelTest {
     private fun newVm(
         replyToUri: String? = null,
         quotePostUri: String? = null,
+        mentionHandle: String? = null,
         deviceLocaleTag: String = "en-US",
     ): ComposerViewModel =
         ComposerViewModel(
-            route = ComposerRoute(replyToUri = replyToUri, quotePostUri = quotePostUri),
+            route = ComposerRoute(replyToUri = replyToUri, quotePostUri = quotePostUri, mentionHandle = mentionHandle),
             postingRepository = postingRepository,
             parentFetchSource = parentFetchSource,
             quotePostFetcher = quotePostFetcher,

@@ -46,4 +46,15 @@ data class ComposerRoute(
      * on the VM directly.
      */
     val quotePostUri: String? = null,
+    /**
+     * Handle of a user to pre-`@`-mention in a **new** post, or `null` for a
+     * blank composer. Set when composing from another user's profile (the
+     * profile compose FAB) so the field opens with `@handle ` and the cursor
+     * after it; the mention resolves to a proper `app.bsky.richtext.facet`
+     * mention on submit via the shared `FacetExtractor`. A bare handle string
+     * (no leading `@`), kept a `String?` for the same api-purity reason as
+     * [replyToUri]. Orthogonal to [replyToUri] / [quotePostUri] — own-profile
+     * and Feed compose entry points leave it null.
+     */
+    val mentionHandle: String? = null,
 ) : NavKey
