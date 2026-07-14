@@ -11,6 +11,7 @@
     <string name="profile_action_message">Mensaje</string>
     <string name="profile_action_following">Siguiendo</string>
     <string name="profile_action_settings">Ajustes</string>
+    <string name="profile_action_bookmarks">Guardados</string>
     <string name="profile_action_block">Bloquear</string>
     <string name="profile_action_mute">Silenciar</string>
     <string name="profile_action_unmute">Dejar de silenciar</string>

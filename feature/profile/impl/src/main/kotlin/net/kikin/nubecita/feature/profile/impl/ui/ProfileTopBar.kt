@@ -56,6 +56,7 @@ internal fun ProfileTopBar(
     onBack: (() -> Unit)?,
     onSettings: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    onBookmarks: (() -> Unit)? = null,
 ) {
     val alpha by remember(listState) {
         derivedStateOf {
@@ -78,6 +79,7 @@ internal fun ProfileTopBar(
         onBack = onBack,
         onSettings = onSettings,
         modifier = modifier,
+        onBookmarks = onBookmarks,
     )
 }
 
@@ -90,6 +92,7 @@ internal fun ProfileTopBar(
     onBack: (() -> Unit)?,
     onSettings: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    onBookmarks: (() -> Unit)? = null,
 ) {
     val barColors =
         TopAppBarDefaults.topAppBarColors(
@@ -126,6 +129,14 @@ internal fun ProfileTopBar(
             }
         },
         actions = {
+            // Bookmarks + Settings are own-profile only (both private utilities).
+            if (ownProfile && onBookmarks != null) {
+                ProfileTopBarCircleButton(
+                    onClick = onBookmarks,
+                    icon = NubecitaIconName.Bookmark,
+                    contentDescription = stringResource(R.string.profile_action_bookmarks),
+                )
+            }
             if (ownProfile && onSettings != null) {
                 ProfileTopBarCircleButton(
                     onClick = onSettings,

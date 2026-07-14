@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="bookmarks_title">Bookmarks</string>
+    <string name="bookmarks_back_content_description">Back</string>
+    <string name="bookmarks_loading_content_description">Loading bookmarks</string>
+
+    <string name="bookmarks_empty_title">No bookmarks yet</string>
+    <string name="bookmarks_empty_body">Posts you bookmark will show up here.</string>
+
+    <string name="bookmarks_error_network_title">No connection</string>
+    <string name="bookmarks_error_network_body">Check your connection and try again.</string>
+    <string name="bookmarks_error_unknown_title">Something went wrong</string>
+    <string name="bookmarks_error_unknown_body">We couldn\'t load your bookmarks. Try again.</string>
+    <string name="bookmarks_error_retry">Try again</string>
+
+    <string name="bookmarks_snackbar_error_network">Network error. Try again.</string>
+    <string name="bookmarks_snackbar_error_unauthenticated">Sign-in expired. Sign in again.</string>
+    <string name="bookmarks_snackbar_error_unknown">Something went wrong. Try again.</string>
+    <string name="bookmarks_snackbar_link_copied">Link copied to clipboard</string>
+    <string name="bookmarks_clipboard_label">Bluesky post link</string>
+    <string name="bookmarks_snackbar_overflow_report_coming_soon">Report — coming soon</string>
+    <string name="bookmarks_snackbar_overflow_mute_coming_soon">Mute — coming soon</string>
+    <string name="bookmarks_snackbar_overflow_unmute_coming_soon">Unmute — coming soon</string>
+    <string name="bookmarks_snackbar_overflow_block_coming_soon">Block — coming soon</string>
+    <string name="bookmarks_snackbar_overflow_unblock_coming_soon">Unblock — coming soon</string>
+    <string name="bookmarks_snackbar_overflow_mute_thread_coming_soon">Mute thread — coming soon</string>
+    <string name="bookmarks_snackbar_overflow_unmute_thread_coming_soon">Unmute thread — coming soon</string>
+    <string name="bookmarks_snackbar_overflow_copy_text_coming_soon">Copy post text — coming soon</string>
+</resources>

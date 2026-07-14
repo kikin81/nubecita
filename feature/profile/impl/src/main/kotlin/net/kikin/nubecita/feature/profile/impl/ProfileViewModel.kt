@@ -219,6 +219,7 @@ internal class ProfileViewModel
                     sendEffect(ProfileEffect.ShowComingSoon(event.action))
                 ProfileEvent.OnReportAccountRequested -> onReportAccountRequested()
                 ProfileEvent.SettingsTapped -> sendEffect(ProfileEffect.NavigateToSettings)
+                ProfileEvent.BookmarksTapped -> sendEffect(ProfileEffect.NavigateToBookmarks)
                 is ProfileEvent.OnPostOverflowAction -> onOverflowAction(event.post, event.action)
                 ProfileEvent.VerificationBadgeTapped -> onVerificationBadgeTapped()
                 ProfileEvent.VerificationSheetDismissed -> setState { copy(verificationSheetVisible = false) }

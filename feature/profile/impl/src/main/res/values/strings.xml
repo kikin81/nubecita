@@ -13,6 +13,7 @@
     <string name="profile_action_message">Message</string>
     <string name="profile_action_following">Following</string>
     <string name="profile_action_settings">Settings</string>
+    <string name="profile_action_bookmarks">Bookmarks</string>
     <string name="profile_action_block">Block</string>
     <string name="profile_action_mute">Mute</string>
     <string name="profile_action_unmute">Unmute</string>

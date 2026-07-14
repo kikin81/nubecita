@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="bookmarks_title">Salvos</string>
+    <string name="bookmarks_back_content_description">Voltar</string>
+    <string name="bookmarks_loading_content_description">Carregando salvos</string>
+
+    <string name="bookmarks_empty_title">Ainda não há salvos</string>
+    <string name="bookmarks_empty_body">Os posts que você salvar aparecerão aqui.</string>
+
+    <string name="bookmarks_error_network_title">Sem conexão</string>
+    <string name="bookmarks_error_network_body">Verifique sua conexão e tente de novo.</string>
+    <string name="bookmarks_error_unknown_title">Algo deu errado</string>
+    <string name="bookmarks_error_unknown_body">Não foi possível carregar seus salvos. Tente de novo.</string>
+    <string name="bookmarks_error_retry">Tentar de novo</string>
+
+    <string name="bookmarks_snackbar_error_network">Erro de rede. Tente de novo.</string>
+    <string name="bookmarks_snackbar_error_unauthenticated">Sessão expirada. Entre novamente.</string>
+    <string name="bookmarks_snackbar_error_unknown">Algo deu errado. Tente de novo.</string>
+    <string name="bookmarks_snackbar_link_copied">Link copiado para a área de transferência</string>
+    <string name="bookmarks_clipboard_label">Link de post do Bluesky</string>
+    <string name="bookmarks_snackbar_overflow_report_coming_soon">Denunciar — em breve</string>
+    <string name="bookmarks_snackbar_overflow_mute_coming_soon">Silenciar — em breve</string>
+    <string name="bookmarks_snackbar_overflow_unmute_coming_soon">Reativar — em breve</string>
+    <string name="bookmarks_snackbar_overflow_block_coming_soon">Bloquear — em breve</string>
+    <string name="bookmarks_snackbar_overflow_unblock_coming_soon">Desbloquear — em breve</string>
+    <string name="bookmarks_snackbar_overflow_mute_thread_coming_soon">Silenciar thread — em breve</string>
+    <string name="bookmarks_snackbar_overflow_unmute_thread_coming_soon">Reativar thread — em breve</string>
+    <string name="bookmarks_snackbar_overflow_copy_text_coming_soon">Copiar texto do post — em breve</string>
+</resources>

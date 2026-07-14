@@ -40,6 +40,7 @@ enum class AnalyticsScreen(
     Profile("profile"),
     EditProfile("edit_profile"),
     Settings("settings"),
+    Bookmarks("bookmarks"),
     Chats("chats"),
     ChatThread("chat_thread"),
     Notifications("notifications"),

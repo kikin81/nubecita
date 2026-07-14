@@ -42,6 +42,12 @@ dependencies {
     implementation(project(":core:profile"))
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
+    // Bookmarks NavKey — pushed onto MainShell's inner back stack from the
+    // Profile entry's `onNavigateToBookmarks` callback when the signed-in user
+    // taps the Bookmarks button in the own-profile top bar. The Bookmarks list
+    // screen lives in :feature:bookmarks:impl and contributes its own
+    // @MainShell entry provider.
+    implementation(project(":feature:bookmarks:api"))
     implementation(project(":feature:chats:api"))
     // ComposerRoute NavKey — reply taps on a PostCard push the composer in
     // reply mode (ComposerRoute(replyToUri = post.id)).

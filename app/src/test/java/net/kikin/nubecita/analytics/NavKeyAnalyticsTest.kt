@@ -3,6 +3,7 @@ package net.kikin.nubecita.analytics
 import net.kikin.nubecita.Main
 import net.kikin.nubecita.Splash
 import net.kikin.nubecita.core.analytics.AnalyticsScreen
+import net.kikin.nubecita.feature.bookmarks.api.Bookmarks
 import net.kikin.nubecita.feature.chats.api.Chat
 import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.chats.api.NewChat
@@ -56,6 +57,7 @@ class NavKeyAnalyticsTest {
         assertEquals(AnalyticsScreen.Composer, ComposerRoute().toAnalyticsScreenOrNull())
         assertEquals(AnalyticsScreen.EditProfile, EditProfile().toAnalyticsScreenOrNull())
         assertEquals(AnalyticsScreen.Settings, Settings.toAnalyticsScreenOrNull())
+        assertEquals(AnalyticsScreen.Bookmarks, Bookmarks.toAnalyticsScreenOrNull())
         assertEquals(AnalyticsScreen.ChatThread, Chat(otherUserDid = "did:plc:x").toAnalyticsScreenOrNull())
         assertEquals(
             AnalyticsScreen.MediaViewer,

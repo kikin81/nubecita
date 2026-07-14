@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="bookmarks_title">Guardados</string>
+    <string name="bookmarks_back_content_description">Atrás</string>
+    <string name="bookmarks_loading_content_description">Cargando guardados</string>
+
+    <string name="bookmarks_empty_title">Aún no hay guardados</string>
+    <string name="bookmarks_empty_body">Las publicaciones que guardes aparecerán aquí.</string>
+
+    <string name="bookmarks_error_network_title">Sin conexión</string>
+    <string name="bookmarks_error_network_body">Revisa tu conexión e inténtalo de nuevo.</string>
+    <string name="bookmarks_error_unknown_title">Algo salió mal</string>
+    <string name="bookmarks_error_unknown_body">No pudimos cargar tus guardados. Inténtalo de nuevo.</string>
+    <string name="bookmarks_error_retry">Reintentar</string>
+
+    <string name="bookmarks_snackbar_error_network">Error de red. Inténtalo de nuevo.</string>
+    <string name="bookmarks_snackbar_error_unauthenticated">Sesión caducada. Inicia sesión de nuevo.</string>
+    <string name="bookmarks_snackbar_error_unknown">Algo salió mal. Inténtalo de nuevo.</string>
+    <string name="bookmarks_snackbar_link_copied">Enlace copiado al portapapeles</string>
+    <string name="bookmarks_clipboard_label">Enlace de publicación de Bluesky</string>
+    <string name="bookmarks_snackbar_overflow_report_coming_soon">Denunciar: muy pronto</string>
+    <string name="bookmarks_snackbar_overflow_mute_coming_soon">Silenciar: muy pronto</string>
+    <string name="bookmarks_snackbar_overflow_unmute_coming_soon">Dejar de silenciar: muy pronto</string>
+    <string name="bookmarks_snackbar_overflow_block_coming_soon">Bloquear: muy pronto</string>
+    <string name="bookmarks_snackbar_overflow_unblock_coming_soon">Desbloquear: muy pronto</string>
+    <string name="bookmarks_snackbar_overflow_mute_thread_coming_soon">Silenciar hilo: muy pronto</string>
+    <string name="bookmarks_snackbar_overflow_unmute_thread_coming_soon">Dejar de silenciar hilo: muy pronto</string>
+    <string name="bookmarks_snackbar_overflow_copy_text_coming_soon">Copiar texto de la publicación: muy pronto</string>
+</resources>
