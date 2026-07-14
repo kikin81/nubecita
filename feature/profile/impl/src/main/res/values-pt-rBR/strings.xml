@@ -3,6 +3,7 @@
     <string name="profile_tab_posts">Posts</string>
     <string name="profile_tab_replies">Respostas</string>
     <string name="profile_tab_media">Mídia</string>
+    <string name="profile_tab_likes">Curtidas</string>
 
     <string name="profile_action_edit">Editar perfil</string>
     <string name="profile_action_overflow">Mais opções</string>
@@ -47,6 +48,8 @@
     <string name="profile_replies_empty_body">Quando este usuário responder, você verá aqui.</string>
     <string name="profile_media_empty_title">Ainda não há mídia</string>
     <string name="profile_media_empty_body">Quando este usuário postar mídia, você verá aqui.</string>
+    <string name="profile_likes_empty_title">Ainda não há curtidas</string>
+    <string name="profile_likes_empty_body">As publicações que você curtir aparecerão aqui.</string>
 
     <string name="profile_error_network_title">Não foi possível acessar o Bluesky</string>
     <string name="profile_error_network_body">Verifique sua conexão e tente de novo.</string>

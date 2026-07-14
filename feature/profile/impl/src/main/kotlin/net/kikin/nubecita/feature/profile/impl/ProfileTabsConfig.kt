@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.res.stringResource
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.tabs.PillTab
 
@@ -24,15 +24,21 @@ import net.kikin.nubecita.designsystem.tabs.PillTab
  * the catalog gains one).
  */
 @Composable
-internal fun rememberProfilePillTabs(): ImmutableList<PillTab<ProfileTab>> {
+internal fun rememberProfilePillTabs(ownProfile: Boolean): ImmutableList<PillTab<ProfileTab>> {
     val postsLabel = stringResource(R.string.profile_tab_posts)
     val repliesLabel = stringResource(R.string.profile_tab_replies)
     val mediaLabel = stringResource(R.string.profile_tab_media)
-    return remember(postsLabel, repliesLabel, mediaLabel) {
-        persistentListOf(
-            PillTab(value = ProfileTab.Posts, label = postsLabel, iconName = NubecitaIconName.Article),
-            PillTab(value = ProfileTab.Replies, label = repliesLabel, iconName = NubecitaIconName.Reply),
-            PillTab(value = ProfileTab.Media, label = mediaLabel, iconName = NubecitaIconName.AddPhotoAlternate),
-        )
+    val likesLabel = stringResource(R.string.profile_tab_likes)
+    return remember(ownProfile, postsLabel, repliesLabel, mediaLabel, likesLabel) {
+        buildList {
+            add(PillTab(value = ProfileTab.Posts, label = postsLabel, iconName = NubecitaIconName.Article))
+            add(PillTab(value = ProfileTab.Replies, label = repliesLabel, iconName = NubecitaIconName.Reply))
+            add(PillTab(value = ProfileTab.Media, label = mediaLabel, iconName = NubecitaIconName.AddPhotoAlternate))
+            // Likes (getActorLikes) is private — shown only on the signed-in
+            // user's own profile.
+            if (ownProfile) {
+                add(PillTab(value = ProfileTab.Likes, label = likesLabel, iconName = NubecitaIconName.Favorite))
+            }
+        }.toImmutableList()
     }
 }

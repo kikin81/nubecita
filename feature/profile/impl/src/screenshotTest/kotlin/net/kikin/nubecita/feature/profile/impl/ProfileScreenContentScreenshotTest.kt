@@ -307,6 +307,53 @@ private fun ProfileScreenRepliesErrorScreenshot() {
     )
 }
 
+@PreviewTest
+@Preview(name = "screen-likes-loaded-light", showBackground = true, heightDp = 1600)
+@Preview(name = "screen-likes-loaded-dark", showBackground = true, heightDp = 1600, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ProfileScreenLikesLoadedScreenshot() {
+    // Likes tab selected (own profile only). likesStatus holds 3 liked
+    // PostCards; the Likes pill appears because sampleLoadedState is ownProfile.
+    ProfileScreenContentHost(
+        sampleLoadedState().copy(
+            selectedTab = ProfileTab.Likes,
+            likesStatus =
+                TabLoadStatus.Loaded(
+                    items =
+                        persistentListOf(
+                            TabItemUi.Post(samplePostUi("liked-a")),
+                            TabItemUi.Post(samplePostUi("liked-b")),
+                            TabItemUi.Post(samplePostUi("liked-c")),
+                        ),
+                    isAppending = false,
+                    isRefreshing = false,
+                    hasMore = false,
+                    cursor = null,
+                ),
+        ),
+    )
+}
+
+@PreviewTest
+@Preview(name = "screen-likes-empty-light", showBackground = true, heightDp = 1200)
+@Preview(name = "screen-likes-empty-dark", showBackground = true, heightDp = 1200, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ProfileScreenLikesEmptyScreenshot() {
+    ProfileScreenContentHost(
+        sampleLoadedState().copy(
+            selectedTab = ProfileTab.Likes,
+            likesStatus =
+                TabLoadStatus.Loaded(
+                    items = EMPTY_LIST,
+                    isAppending = false,
+                    isRefreshing = false,
+                    hasMore = false,
+                    cursor = null,
+                ),
+        ),
+    )
+}
+
 // ─── Other-user variants ─────────────────────────────────────────────────────
 
 @PreviewTest

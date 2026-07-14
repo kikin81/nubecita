@@ -55,6 +55,8 @@ data class ProfileScreenViewState(
     val postsStatus: TabLoadStatus = TabLoadStatus.Idle,
     val repliesStatus: TabLoadStatus = TabLoadStatus.Idle,
     val mediaStatus: TabLoadStatus = TabLoadStatus.Idle,
+    /** Own-profile-only: posts the signed-in user has liked (getActorLikes). */
+    val likesStatus: TabLoadStatus = TabLoadStatus.Idle,
     /** Same-shape user-delta flag as FeedState. See FeedState KDoc. */
     val lastLikeTapPostUri: String? = null,
     /** Same-shape user-delta flag as FeedState. See FeedState KDoc. */
@@ -96,7 +98,7 @@ data class ProfileScreenViewState(
  * Which of the three tab bodies is currently rendering. The default
  * tab on profile open is Posts (per the wireframes).
  */
-enum class ProfileTab { Posts, Replies, Media }
+enum class ProfileTab { Posts, Replies, Media, Likes }
 
 /**
  * The relationship between the authenticated viewer and the

@@ -4,6 +4,7 @@
     <string name="profile_tab_posts">Posts</string>
     <string name="profile_tab_replies">Replies</string>
     <string name="profile_tab_media">Media</string>
+    <string name="profile_tab_likes">Likes</string>
 
     <!-- Actions row -->
     <string name="profile_action_edit">Edit profile</string>
@@ -64,6 +65,8 @@
     <string name="profile_replies_empty_body">When this user replies, you\'ll see it here.</string>
     <string name="profile_media_empty_title">No media yet</string>
     <string name="profile_media_empty_body">When this user posts media, you\'ll see it here.</string>
+    <string name="profile_likes_empty_title">No likes yet</string>
+    <string name="profile_likes_empty_body">Posts you like will show up here.</string>
 
     <!-- Tab body — error states -->
     <string name="profile_error_network_title">Can\'t reach Bluesky</string>

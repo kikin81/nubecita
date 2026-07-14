@@ -62,16 +62,34 @@ internal class ProfileViewModelTest {
     val mainDispatcher = MainDispatcherExtension()
 
     @Test
-    fun `init kicks off four concurrent loads (header + three tabs)`() =
+    fun `own-profile init kicks off five concurrent loads (header + four tabs incl likes)`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeProfileRepository()
-            newVm(repo = repo)
+            newVm(repo = repo) // route handle == null -> own profile
             advanceUntilIdle()
 
             assertEquals(1, repo.headerCalls.get(), "header MUST be loaded exactly once on init")
             assertEquals(1, repo.tabCalls[ProfileTab.Posts]?.get())
             assertEquals(1, repo.tabCalls[ProfileTab.Replies]?.get())
             assertEquals(1, repo.tabCalls[ProfileTab.Media]?.get())
+            assertEquals(1, repo.tabCalls[ProfileTab.Likes]?.get(), "own profile MUST eager-load the Likes tab")
+        }
+
+    @Test
+    fun `other-profile init skips the own-profile-only Likes tab`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeProfileRepository()
+            newVm(repo = repo, route = Profile(handle = "alice.bsky.social"))
+            advanceUntilIdle()
+
+            assertEquals(1, repo.tabCalls[ProfileTab.Posts]?.get())
+            assertEquals(1, repo.tabCalls[ProfileTab.Replies]?.get())
+            assertEquals(1, repo.tabCalls[ProfileTab.Media]?.get())
+            assertEquals(
+                0,
+                repo.tabCalls[ProfileTab.Likes]?.get(),
+                "Likes (getActorLikes) is private — MUST NOT load on another user's profile",
+            )
         }
 
     @Test
@@ -2447,7 +2465,10 @@ internal class ProfileViewModelTest {
             // pass cursor=null (the default); LoadMore passes the
             // current cursor — that's what the spec scenario asserts.
             if (cursor != null) lastTabCursor[tab] = cursor
-            return tabResults.getValue(tab)
+            // Tests that only care about Posts/Replies/Media supply a 3-entry
+            // map; own-profile init also eager-loads Likes, so fall back to an
+            // empty page for any tab a test didn't explicitly stub.
+            return tabResults[tab] ?: Result.success(EMPTY_PAGE)
         }
 
         override suspend fun follow(subjectDid: String): Result<String> {

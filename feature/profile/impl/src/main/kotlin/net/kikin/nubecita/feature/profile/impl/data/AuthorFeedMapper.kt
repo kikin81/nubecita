@@ -66,6 +66,9 @@ internal fun List<FeedViewPost>.toTabItems(
                 .toImmutableList()
         ProfileTab.Media ->
             mapNotNull { it.toMediaCellOrNull(prefs, viewerDid) }.toImmutableList()
+        // Liked posts (getActorLikes) render as normal post cards, same as Posts.
+        ProfileTab.Likes ->
+            mapNotNull { it.toPostTabItemOrNull(prefs, viewerDid) }.toImmutableList()
     }
 
 private fun FeedViewPost.toPostTabItemOrNull(

@@ -10,6 +10,7 @@ import net.kikin.nubecita.feature.profile.impl.ProfileTab
 import net.kikin.nubecita.feature.profile.impl.TabItemUi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -325,11 +326,54 @@ internal class AuthorFeedMapperTest {
                 "posts_and_author_threads",
                 "posts_with_video",
             )
-        ProfileTab.entries.forEach { tab ->
+        // Likes is served by getActorLikes, not getAuthorFeed, so it has no
+        // filter value (toAuthorFeedFilter() throws by design). Exclude it.
+        ProfileTab.entries.filter { it != ProfileTab.Likes }.forEach { tab ->
             assertTrue(
                 tab.toAuthorFeedFilter() in legal,
                 "ProfileTab.$tab MUST map to one of the lexicon filter values; got ${tab.toAuthorFeedFilter()}",
             )
         }
+    }
+
+    @Test
+    fun `Likes tab has no getAuthorFeed filter`() {
+        // getActorLikes is a distinct endpoint; asking for a filter is a
+        // programming error, guarded by toAuthorFeedFilter().
+        assertThrows(IllegalStateException::class.java) {
+            ProfileTab.Likes.toAuthorFeedFilter()
+        }
+    }
+
+    @Test
+    fun `Likes tab maps feed entries to post cards`() {
+        // getActorLikes returns the same FeedViewPost shape as getAuthorFeed;
+        // the Likes projection reuses the Posts path (every entry -> a Post).
+        val likesJson =
+            """
+            {
+              "feed": [
+                {
+                  "post": {
+                    "uri": "at://did:plc:carol/app.bsky.feed.post/liked1",
+                    "cid": "cidL1",
+                    "author": { "did": "did:plc:carol", "handle": "carol.bsky.social" },
+                    "indexedAt": "2026-06-02T12:00:00Z",
+                    "record": {
+                      "${'$'}type": "app.bsky.feed.post",
+                      "text": "a post the viewer liked",
+                      "createdAt": "2026-06-02T12:00:00Z"
+                    }
+                  }
+                }
+              ]
+            }
+            """.trimIndent()
+
+        val response = json.decodeFromString(GetAuthorFeedResponse.serializer(), likesJson)
+        val items = response.feed.toTabItems(ProfileTab.Likes, ModerationPrefs.DEFAULT, viewerDid = null)
+
+        assertEquals(1, items.size, "liked posts MUST render as post cards")
+        assertTrue(items.all { it is TabItemUi.Post }, "Likes projects every entry to a TabItemUi.Post")
     }
 }
