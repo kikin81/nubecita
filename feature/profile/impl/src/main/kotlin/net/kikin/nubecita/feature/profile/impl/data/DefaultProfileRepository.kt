@@ -157,6 +157,10 @@ internal class DefaultProfileRepository
                         nextCursor = nextCursor,
                     )
                 }.onFailure { throwable ->
+                    // runCatching also traps CancellationException; rethrow so structured
+                    // cancellation propagates instead of surfacing as an error Result
+                    // (matches resolveVerifiers in this file + the repo-wide convention).
+                    if (throwable is CancellationException) throw throwable
                     // `actor` is a raw DID or handle (PII); `cursor` is
                     // opaque appview state, also withheld. `tab` is a
                     // closed enum — safe to include for triage.

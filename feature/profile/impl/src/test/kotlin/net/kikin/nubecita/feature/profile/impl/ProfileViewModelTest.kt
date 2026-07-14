@@ -2465,10 +2465,15 @@ internal class ProfileViewModelTest {
             // pass cursor=null (the default); LoadMore passes the
             // current cursor — that's what the spec scenario asserts.
             if (cursor != null) lastTabCursor[tab] = cursor
-            // Tests that only care about Posts/Replies/Media supply a 3-entry
-            // map; own-profile init also eager-loads Likes, so fall back to an
-            // empty page for any tab a test didn't explicitly stub.
-            return tabResults[tab] ?: Result.success(EMPTY_PAGE)
+            // Own-profile init also eager-loads Likes, so tolerate a missing Likes
+            // stub (many tests supply only a 3-entry Posts/Replies/Media map). The
+            // original three stay strict via getValue() — a missing stub there is a
+            // test bug, not something to silently paper over.
+            return if (tab == ProfileTab.Likes) {
+                tabResults[tab] ?: Result.success(EMPTY_PAGE)
+            } else {
+                tabResults.getValue(tab)
+            }
         }
 
         override suspend fun follow(subjectDid: String): Result<String> {

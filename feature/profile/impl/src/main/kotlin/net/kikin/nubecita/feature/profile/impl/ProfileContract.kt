@@ -95,8 +95,9 @@ data class ProfileScreenViewState(
 }
 
 /**
- * Which of the three tab bodies is currently rendering. The default
- * tab on profile open is Posts (per the wireframes).
+ * Which tab body is currently rendering. The default tab on profile
+ * open is Posts (per the wireframes). Likes is own-profile only (backed
+ * by getActorLikes) and its pill is hidden on other users' profiles.
  */
 enum class ProfileTab { Posts, Replies, Media, Likes }
 
