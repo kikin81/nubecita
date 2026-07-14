@@ -19,6 +19,7 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.bookmarks.api.Bookmarks
 import net.kikin.nubecita.feature.chats.api.Chat
 import net.kikin.nubecita.feature.chats.api.Chats
+import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
@@ -136,6 +137,10 @@ internal object ProfileNavigationModule {
                     // canonical Nav3 modular-hilt recipe and matches
                     // FeedScreen / FeedNavigationModule (PR3 of oftc.3).
                     onNavigateTo = { key -> navState.add(key) },
+                    // Composer FAB → blank new-post composer. Same adaptive-dialog
+                    // presentation as the Feed's onComposeClick (ComposerRoute's
+                    // entry is tagged adaptiveDialog).
+                    onComposeClick = { navState.add(ComposerRoute()) },
                 )
             }
         }
