@@ -150,7 +150,7 @@ private fun BookmarksLoadedBody(
                 post = post,
                 callbacks = callbacks,
                 isMediaRevealed = post.id in revealedMedia,
-                onRevealMedia = { revealedMedia = revealedMedia.add(post.id) },
+                onRevealMedia = { revealedMedia = revealedMedia.adding(post.id) },
                 animateLikeTap = post.id == tapMarkers.lastLikeTapPostUri,
                 animateRepostTap = post.id == tapMarkers.lastRepostTapPostUri,
             )

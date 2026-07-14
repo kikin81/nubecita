@@ -5,6 +5,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.bookmarks.BookmarkRepository
@@ -75,40 +76,48 @@ internal class BookmarksViewModel
             }
         }
 
+        private var loadJob: Job? = null
+
         private fun loadFirstPage() {
+            // Single-flight: a rapid second Retry cancels the prior in-flight
+            // load so two responses can't race to set the final state.
+            loadJob?.cancel()
             setState { copy(loadStatus = BookmarksLoadStatus.InitialLoading) }
-            viewModelScope.launch {
-                repository
-                    .getBookmarks(cursor = null)
-                    .onSuccess { page ->
-                        cache.seed(page.posts)
-                        // Dedupe by post id (the AT-URI the LazyColumn keys on): a
-                        // bookmarks page could echo the same post twice, and duplicate
-                        // LazyColumn keys crash Compose. applyInteractions projects the
-                        // live cache so a post liked/reposted elsewhere shows its
-                        // optimistic state immediately, not on the next cache emission.
-                        val deduped =
-                            page.posts
-                                .distinctBy { it.id }
-                                .toImmutableList()
-                                .applyInteractions(cache.state.value)
-                        val nextStatus =
-                            if (deduped.isEmpty()) {
-                                BookmarksLoadStatus.Empty
-                            } else {
-                                BookmarksLoadStatus.Loaded(
-                                    items = deduped,
-                                    nextCursor = page.cursor,
-                                    endReached = page.cursor == null,
+            loadJob =
+                viewModelScope.launch {
+                    repository
+                        .getBookmarks(cursor = null)
+                        .onSuccess { page ->
+                            cache.seed(page.posts)
+                            // Dedupe by post id (the AT-URI the LazyColumn keys on): a
+                            // bookmarks page could echo the same post twice, and duplicate
+                            // LazyColumn keys crash Compose.
+                            val deduped = page.posts.distinctBy { it.id }.toImmutableList()
+                            setState {
+                                // Project the live cache INSIDE setState (reading
+                                // cache.state.value fresh) so a cache emission that lands
+                                // during the fetch can't be clobbered by a value computed
+                                // from a stale snapshot.
+                                val merged = deduped.applyInteractions(cache.state.value)
+                                copy(
+                                    loadStatus =
+                                        if (merged.isEmpty()) {
+                                            BookmarksLoadStatus.Empty
+                                        } else {
+                                            BookmarksLoadStatus.Loaded(
+                                                items = merged,
+                                                nextCursor = page.cursor,
+                                                endReached = page.cursor == null,
+                                            )
+                                        },
                                 )
                             }
-                        setState { copy(loadStatus = nextStatus) }
-                    }.onFailure { throwable ->
-                        setState {
-                            copy(loadStatus = BookmarksLoadStatus.InitialError(throwable.toBookmarksError()))
+                        }.onFailure { throwable ->
+                            setState {
+                                copy(loadStatus = BookmarksLoadStatus.InitialError(throwable.toBookmarksError()))
+                            }
                         }
-                    }
-            }
+                }
         }
 
         private fun loadMore() {
@@ -117,8 +126,13 @@ internal class BookmarksViewModel
             if (status.endReached) return
             if (status.isAppending) return
 
-            setState { copy(loadStatus = status.copy(isAppending = true)) }
             val cursor = status.nextCursor
+            setState {
+                // Re-read inside setState so flipping isAppending can't clobber a
+                // cache emission that landed after the guard checks above.
+                val current = loadStatus as? BookmarksLoadStatus.Loaded ?: return@setState this
+                copy(loadStatus = current.copy(isAppending = true))
+            }
             viewModelScope.launch {
                 repository
                     .getBookmarks(cursor = cursor)
@@ -145,8 +159,12 @@ internal class BookmarksViewModel
                             )
                         }
                     }.onFailure { throwable ->
-                        val current = uiState.value.loadStatus as? BookmarksLoadStatus.Loaded ?: return@onFailure
-                        setState { copy(loadStatus = current.copy(isAppending = false)) }
+                        setState {
+                            // Clear isAppending against the freshest state so a cache
+                            // emission during the failed append isn't clobbered.
+                            val current = loadStatus as? BookmarksLoadStatus.Loaded ?: return@setState this
+                            copy(loadStatus = current.copy(isAppending = false))
+                        }
                         sendEffect(BookmarksEffect.ShowAppendError(throwable.toBookmarksError()))
                     }
             }

@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.postinteractions.ui.InteractionStrings
 import net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions
@@ -127,6 +128,11 @@ internal fun BookmarksScreen(
     val appendErrorUnknown = stringResource(R.string.bookmarks_snackbar_error_unknown)
 
     LaunchedEffect(Unit) {
+        // Capture the collector's scope so each snackbar runs in its own child
+        // job: awaiting showSnackbar() inline would block subsequent effects
+        // (e.g. a navigation) until the snackbar dismisses, and a dismiss
+        // interrupting the suspended show would cancel the whole collector.
+        val effectScope = this
         viewModel.effects.collect { effect ->
             when (effect) {
                 is BookmarksEffect.NavigateToPost ->
@@ -139,8 +145,10 @@ internal fun BookmarksScreen(
                             BookmarksError.Network -> appendErrorNetwork
                             is BookmarksError.Unknown -> appendErrorUnknown
                         }
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message)
+                    effectScope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(message)
+                    }
                 }
             }
         }
