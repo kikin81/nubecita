@@ -10,10 +10,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallExtendedFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,12 +30,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.window.core.layout.WindowSizeClass
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
 import kotlinx.coroutines.flow.distinctUntilChanged
 import net.kikin.nubecita.data.models.VerifiedBadge
 import net.kikin.nubecita.designsystem.component.NubecitaPullToRefreshBox
 import net.kikin.nubecita.designsystem.component.PostCallbacks
+import net.kikin.nubecita.designsystem.icon.NubecitaIcon
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.tabs.ProfilePillTabs
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileHero
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileTopBar
@@ -70,8 +79,16 @@ internal fun ProfileScreenContent(
     onEvent: (ProfileEvent) -> Unit,
     onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    onComposeClick: () -> Unit = {},
 ) {
     val pillTabs = rememberProfilePillTabs(ownProfile = state.ownProfile)
+    // Composer FAB is a global "new post" action, shown on every profile
+    // (own + other users). Tablet gets the labelled Small Extended variant,
+    // phones the icon-only FAB — mirrors FeedScreen's composer entry point.
+    val isCompact =
+        !currentWindowAdaptiveInfoV2()
+            .windowSizeClass
+            .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
     val activeTabIsRefreshing = state.activeTabIsRefreshing()
     val onVideoTap =
         remember(onEvent) {
@@ -98,6 +115,38 @@ internal fun ProfileScreenContent(
                 onSettings = { onEvent(ProfileEvent.SettingsTapped) },
                 onBookmarks = { onEvent(ProfileEvent.BookmarksTapped) },
             )
+        },
+        floatingActionButton = {
+            if (isCompact) {
+                FloatingActionButton(onClick = onComposeClick) {
+                    NubecitaIcon(
+                        name = NubecitaIconName.Edit,
+                        contentDescription = stringResource(R.string.profile_compose_new_post),
+                        filled = true,
+                    )
+                }
+            } else {
+                // Small Extended FAB on tablet width — a "Compose" pill label
+                // for discoverability. The visible label is cleared from the
+                // semantics tree so TalkBack reads the icon's full
+                // "Compose new post" description once (matches FeedScreen).
+                SmallExtendedFloatingActionButton(
+                    onClick = onComposeClick,
+                    text = {
+                        Text(
+                            text = stringResource(R.string.profile_compose_fab_label),
+                            modifier = Modifier.clearAndSetSemantics {},
+                        )
+                    },
+                    icon = {
+                        NubecitaIcon(
+                            name = NubecitaIconName.Edit,
+                            contentDescription = stringResource(R.string.profile_compose_new_post),
+                            filled = true,
+                        )
+                    },
+                )
+            }
         },
     ) { padding ->
         val topBarPadding = padding.calculateTopPadding()

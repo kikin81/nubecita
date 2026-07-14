@@ -71,6 +71,13 @@ internal fun ProfileScreen(
      */
     onNavigateTo: (NavKey) -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * Composer FAB tap. The host wires it to
+     * `navState.add(ComposerRoute())` (a blank new-post composer), same as
+     * `FeedNavigationModule`'s `onComposeClick`. Defaulted so previews /
+     * screenshot tests that don't exercise composition can omit it.
+     */
+    onComposeClick: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
@@ -290,5 +297,6 @@ internal fun ProfileScreen(
         onEvent = viewModel::handleEvent,
         onBack = onBack,
         modifier = modifier,
+        onComposeClick = onComposeClick,
     )
 }

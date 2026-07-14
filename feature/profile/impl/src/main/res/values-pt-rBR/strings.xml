@@ -102,4 +102,6 @@
     <string name="verification_sheet_verifiers_error">Não foi possível carregar quem verificou esta conta.</string>
     <string name="verification_badge_open_details">Mostrar detalhes da verificação</string>
 
+    <string name="profile_compose_new_post">Escrever novo post</string>
+    <string name="profile_compose_fab_label">Escrever</string>
 </resources>

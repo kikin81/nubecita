@@ -125,4 +125,6 @@
     <string name="verification_sheet_verifiers_error">Couldn\'t load who verified this account.</string>
     <string name="verification_badge_open_details">Show verification details</string>
 
+    <string name="profile_compose_new_post">Compose new post</string>
+    <string name="profile_compose_fab_label">Compose</string>
 </resources>
