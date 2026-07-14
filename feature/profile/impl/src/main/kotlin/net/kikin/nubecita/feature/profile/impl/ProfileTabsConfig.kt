@@ -16,12 +16,14 @@ import net.kikin.nubecita.designsystem.tabs.PillTab
  * is stable across recompositions when the resolved strings haven't
  * changed.
  *
- * Order matches the spec: Posts, Replies, Media (left-to-right LTR).
+ * Order matches the spec: Posts, Replies, Media (left-to-right LTR),
+ * plus a trailing Likes pill appended only when [ownProfile] is true
+ * (getActorLikes is private, so other users' profiles show three pills).
  * Icon glyphs use the NubecitaIcons catalog — Article for posts,
  * Reply for replies, AddPhotoAlternate for media (the catalog does
  * not currently carry a plain `Image`/`Photo` glyph; the
  * photo-alternate codepoint is the closest available stand-in until
- * the catalog gains one).
+ * the catalog gains one), Favorite for likes.
  */
 @Composable
 internal fun rememberProfilePillTabs(ownProfile: Boolean): ImmutableList<PillTab<ProfileTab>> {

@@ -42,12 +42,14 @@ import java.io.IOException
  * Presenter for the Profile screen — both own (`handle = null`) and
  * other-user (`handle = "..."`) variants share this one class.
  *
- * On construction, kicks off **four concurrent loads** (header +
- * Posts + Replies + Media) — per `openspec/.../design.md` Decision 3
- * (eager fetch beats lazy-on-tab-select for the wireframes' visual
- * model and for tab-switch latency). Each load updates its own state
- * field independently; one tab failure does NOT mask sibling
- * successes (per the spec's `Per-tab independent failure` scenario).
+ * On construction, kicks off **four concurrent loads** on another
+ * user's profile (header + Posts + Replies + Media), or **five** on the
+ * own profile (the extra own-profile-only Likes tab, getActorLikes) —
+ * per `openspec/.../design.md` Decision 3 (eager fetch beats
+ * lazy-on-tab-select for the wireframes' visual model and for
+ * tab-switch latency). Each load updates its own state field
+ * independently; one tab failure does NOT mask sibling successes (per
+ * the spec's `Per-tab independent failure` scenario).
  *
  * `Profile(handle = null)` resolves to the authenticated user's DID
  * via `:core:auth`'s [SessionStateProvider]. The repository takes a
