@@ -34,12 +34,18 @@ On a thread with ancestors, this means the toolbar still reads "Post" through th
 > UI already highlights (the `surfaceContainerHigh` focus card); anchoring to
 > the root would make the bar name a post that is *not* the highlighted one, and
 > the display target and the trigger row must stay the same post or the swap is
-> incoherent. This is pending a check of what Threads does for a tapped reply.
-> Whichever way it lands, it is a **one-line change** to `focusIndex` /
-> `focusPost` at the call site plus the matching predicate; `shouldShowAuthorInBar`
-> and every other part of this design are unaffected, and the has-ancestors
-> branch is covered by unit tests either way (Decision 4). It does **not** block
-> implementation of the rest.
+> incoherent.
+>
+> **DECIDED (2026-07-14): ship focus post.** The author confirmed keeping the
+> focus-post anchor as the shipped behavior after considering Threads. The
+> thread-**root** alternative is left open only as a possible future revisit —
+> it is NOT a blocker and NOT a known-wrong default. Switching later is a
+> call-site-only change (the `focusIndex` predicate + the author fed to the bar
+> at `PostDetailScreen.kt`); `shouldShowAuthorInBar` is anchor-agnostic and
+> unchanged either way, and its has-ancestors branch (Decision 4) already covers
+> the geometry a root anchor would exercise. What is NOT yet written is a test
+> asserting a specifically root-anchored scenario — only needed if the revisit
+> happens.
 
 Rejected: **tracking the topmost visible post's author.** The name would churn through every ancestor and reply author during a fling. It is more "alive" and strictly worse.
 
