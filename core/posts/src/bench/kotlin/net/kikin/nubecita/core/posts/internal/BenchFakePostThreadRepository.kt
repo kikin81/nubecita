@@ -1,7 +1,7 @@
 package net.kikin.nubecita.core.posts.internal
 
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
@@ -42,11 +42,30 @@ internal class BenchFakePostThreadRepository
             }
 
         private companion object {
+            /**
+             * Focus → replies. The focus post is deliberately the FIRST row (a
+             * top-level post, no ancestors) — the common shape when a post is
+             * tapped from the feed, and the one the marketing screenshot journey
+             * captures (`a09PostDetail` opens this thread at scroll 0, so the
+             * gallery card must lead the frame).
+             *
+             * [benchThreadFillerReplies] pads the thread below the focus so the
+             * list is actually SCROLLABLE — without enough content underneath, the
+             * focus card can never be scrolled up under the app bar and the
+             * scroll-reactive toolbar's swap is unreachable on device. They sit
+             * below the fold at scroll 0, so they don't affect the marketing
+             * capture.
+             *
+             * NOTE: this fake returns a thread with NO ancestors, so the
+             * "focus post is itself a reply" branch of the toolbar (focus at a
+             * non-zero index) is not reachable on bench. That branch is covered by
+             * `shouldShowAuthorInBar`'s JVM unit tests instead.
+             */
             private val BENCH_THREAD: ImmutableList<ThreadItem> =
-                persistentListOf(
-                    ThreadItem.Focus(post = benchGalleryPost),
-                    ThreadItem.Reply(post = benchGalleryReplies[0], depth = 1),
-                    ThreadItem.Reply(post = benchGalleryReplies[1], depth = 1),
-                )
+                buildList {
+                    add(ThreadItem.Focus(post = benchGalleryPost))
+                    benchGalleryReplies.forEach { add(ThreadItem.Reply(post = it, depth = 1)) }
+                    benchThreadFillerReplies.forEach { add(ThreadItem.Reply(post = it, depth = 1)) }
+                }.toPersistentList()
         }
     }
