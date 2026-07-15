@@ -13,7 +13,7 @@ This change ports that behavior to `:feature:postdetail:impl`. It is a screen-la
 A new file `ui/PostDetailTopBar.kt` mirroring the two-overload shape `:feature:profile:impl`'s `ProfileTopBar` already established (a stateful overload that derives scroll state, delegating to a stateless overload that previews and screenshot tests drive directly):
 
 - **Stateless** `PostDetailTopBar(author: AuthorUi?, showAuthor: Boolean, onBack: () -> Unit)` — renders an M3 `TopAppBar` whose `title` slot is an `AnimatedContent` keyed on `showAuthor`. When `false`, the existing `Text(stringResource(R.string.postdetail_title))` ("Post"). When `true`, an author block: `NubecitaAvatar` (28dp) + display name (falling back to `@handle` when the account has no display name), single line, ellipsized.
-- **Stateful** `PostDetailTopBar(author: AuthorUi?, listState: LazyListState, focusIndex: Int, onBack: () -> Unit)` — computes `showAuthor` in a `derivedStateOf` over `listState.layoutInfo` and delegates.
+- **Stateful** `PostDetailTopBar(author: AuthorUi?, listState: LazyListState, focusIndex: Int, onBack: () -> Unit)` — folds `showAuthor` from a `snapshotFlow` over `listState.layoutInfo` into a `MutableState<Boolean>` (NOT `derivedStateOf` — the hysteresis is a fold over the prior output; see design.md Decision 2) and delegates.
 - **Pure** `internal fun shouldShowAuthorInBar(...)` — all threshold/hysteresis math, extracted so it is unit-testable on the JVM with no device and no Compose runtime. Same rationale as `ProfileTopBar.computeBarAlpha`.
 
 ### `:feature:postdetail:impl` — `PostDetailScreenContent`
@@ -52,7 +52,7 @@ None.
 - **Affected modules**: `:feature:postdetail:impl` only (one new file, one modified file, new screenshot fixtures, one new unit test). No new library dependencies — `androidx.compose.animation` is already on the Compose BOM, and `NubecitaAvatar` already lives in `:designsystem`.
 - **Affected specs**: `feature-postdetail` (delta — new requirement on the scroll-reactive toolbar).
 - **New string resources**: none. The author block's text comes from `AuthorUi`; the avatar is decorative (`contentDescription = null`) because the display name sits immediately beside it. The existing `postdetail_title` and `postdetail_back_content_description` are reused unchanged. **This means no `values-b+es+419` / `values-pt-rBR` backfill is required for this change.**
-- **Backwards compatibility**: additive at the screen layer. Existing `PostDetailViewModel` unit tests are untouched. Existing post-detail screenshot fixtures render at scroll position 0, where `showAuthor` is `false` and the bar renders the identical "Post" title — so those baselines stay byte-for-byte unchanged.
+- **Backwards compatibility**: additive at the screen layer. Existing `PostDetailViewModel` unit tests are untouched. Existing post-detail screenshot fixtures render at scroll position 0, where `showAuthor` is `false` and the bar renders the semantically identical "Post" title — but wrapping that title in `AnimatedContent` sub-pixel-shifts the Scaffold body, so 5 focus-bearing LIGHT baselines move by a few (imperceptible) shadow pixels and are regenerated with this change. See `design.md` Risks.
 
 ## Non-goals
 

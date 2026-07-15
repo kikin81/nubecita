@@ -13,7 +13,7 @@ The author block is **not** interactive. It carries no `clickable` and no `onCli
 #### Scenario: Toolbar reads "Post" at rest
 
 - **WHEN** the post-detail screen renders at scroll position 0
-- **THEN** the toolbar title is the localized "Post" string, and no avatar or author name is present in the bar. Existing post-detail screenshot baselines remain byte-for-byte unchanged.
+- **THEN** the toolbar title is the localized "Post" string, and no avatar or author name is present in the bar. (Note: the resting "Post" title is semantically identical to the previous inline bar, but wrapping it in `AnimatedContent` sub-pixel-shifts the Scaffold body — so 5 focus-bearing LIGHT screenshot baselines move by a few shadow pixels. That is expected and imperceptible; see `design.md` Risks. It is NOT a byte-for-byte-unchanged guarantee.)
 
 #### Scenario: Author appears once the focus card scrolls under the bar
 
@@ -38,7 +38,7 @@ The author block is **not** interactive. It carries no `clickable` and no `onCli
 
 ### Requirement: The swap threshold is a hysteresis band evaluated by a pure function
 
-The show/hide decision SHALL be computed by an `internal` pure function `shouldShowAuthorInBar(focusIndex, firstVisibleItemIndex, focusItemTopPx, enterThresholdPx, exitThresholdPx, currentlyShown)` returning `Boolean`, and consumed by the stateful `PostDetailTopBar` overload inside a `derivedStateOf` over `LazyListState.layoutInfo`.
+The show/hide decision SHALL be computed by an `internal` pure function `shouldShowAuthorInBar(focusIndex, firstVisibleItemIndex, focusItemTopPx, enterThresholdPx, exitThresholdPx, currentlyShown)` returning `Boolean`, and consumed by the stateful `PostDetailTopBar` overload via a `snapshotFlow` over `LazyListState.layoutInfo` (inside a `LaunchedEffect`) that folds the result into a `MutableState<Boolean>`. It is NOT a `derivedStateOf`: the hysteresis makes the decision a fold over its own previous output (`currentlyShown`), which a `derivedStateOf` reading and writing the same state cannot express (backwards write during composition). See `design.md` Decision 2.
 
 The function takes distinct enter (56dp) and exit (40dp) thresholds so that a slow drag parked on the boundary cannot flip the state repeatedly and re-fire the transition.
 

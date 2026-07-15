@@ -60,9 +60,12 @@ private val AUTHOR_BAR_AVATAR_SIZE = 28.dp
  * Pure so every branch is JVM-testable without a device or a Compose runtime.
  *
  * [focusItemTopPx] is the focus card's top edge **relative to the bottom of the
- * app bar** (negative once it has tucked underneath). Callers normalize
- * `LazyListItemInfo.offset` into that frame; this function never sees raw
- * lazy-list coordinates.
+ * app bar** (negative once it has tucked underneath). In this screen the bar's
+ * height reaches the list as its top `contentPadding`, so `LazyListItemInfo
+ * .offset` is *already* in that frame and the caller passes it straight through
+ * (verified on device: `viewportStartOffset == -beforeContentPadding`). A caller
+ * whose bar is NOT the list's top padding must translate `offset` into this
+ * frame first; this function never sees raw lazy-list coordinates.
  *
  * The `focusItemTopPx == null` case is the subtle one: a focus card absent from
  * `visibleItemsInfo` is EITHER scrolled off the top (show the author) OR still
@@ -232,7 +235,7 @@ private fun AuthorTitle(author: AuthorUi) {
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = author.displayName?.takeIf { it.isNotBlank() } ?: "@${author.handle}",
+            text = author.displayName.takeIf { it.isNotBlank() } ?: "@${author.handle}",
             style = MaterialTheme.typography.titleMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

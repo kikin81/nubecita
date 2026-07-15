@@ -65,7 +65,7 @@ internal class PostDetailTopBarTest {
     }
 
     @Test
-    fun `focus absent off the top stays shown even if index equals first visible boundary`() {
+    fun `focus absent at the first-visible boundary -- hidden`() {
         // Guard the strict "<" in the predicate: focusIndex == firstVisibleItemIndex
         // with a null offset means the row is not measured but also not behind the
         // first visible one => treat as below the fold => hidden.
