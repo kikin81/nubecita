@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.data.models.AuthorUi
@@ -164,7 +165,7 @@ internal fun PostDetailTopBar(
     // Specs come from the theme's MotionScheme, which already collapses to short
     // linear tweens under reduce-motion. Hand-rolling a spring()/tween() here
     // would silently opt this surface out of that.
-    val spatialSpec = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntOffset>()
+    val spatialSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
     val effectsSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
 
     TopAppBar(
