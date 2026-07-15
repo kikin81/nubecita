@@ -101,6 +101,16 @@ internal fun PostDetailTopBar(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // No focus resolved yet (initial load / error) → there is no author to show,
+    // so render the plain "Post" bar and skip the scroll collector entirely (it
+    // could only ever compute `false`). `author == null` moves in lockstep with
+    // "no Focus row exists" / `focusIndex < 0` — all three derive from the same
+    // item, so this one guard covers every no-focus state.
+    if (author == null) {
+        PostDetailTopBar(author = null, showAuthor = false, onBack = onBack, modifier = modifier)
+        return
+    }
+
     val density = LocalDensity.current
     val enterPx = with(density) { AUTHOR_BAR_ENTER_THRESHOLD.roundToPx() }
     val exitPx = with(density) { AUTHOR_BAR_EXIT_THRESHOLD.roundToPx() }
@@ -235,7 +245,7 @@ private fun AuthorTitle(author: AuthorUi) {
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = author.displayName.takeIf { it.isNotBlank() } ?: "@${author.handle}",
+            text = author.displayName.ifBlank { "@${author.handle}" },
             style = MaterialTheme.typography.titleMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
