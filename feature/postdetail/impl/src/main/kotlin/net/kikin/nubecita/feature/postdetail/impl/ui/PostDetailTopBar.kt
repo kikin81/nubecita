@@ -1,6 +1,5 @@
 package net.kikin.nubecita.feature.postdetail.impl.ui
 
-import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
@@ -112,29 +111,15 @@ internal fun PostDetailTopBar(
 
     LaunchedEffect(listState, focusIndex, enterPx, exitPx) {
         snapshotFlow {
-            val info = listState.layoutInfo
-            val focus = info.visibleItemsInfo.firstOrNull { it.index == focusIndex }
-            // Normalize into "relative to the bottom of the app bar". The bar's
-            // height reaches the list as its top contentPadding, so the bar's
-            // bottom edge sits at viewportStartOffset + beforeContentPadding in
-            // lazy-list coordinates.
-            //
-            // SPIKE: this normalization is exactly the assumption design.md
-            // refused to guess at. The Log.d below prints the raw numbers so we
-            // can confirm it on device instead of trusting it.
-            val barBottom = info.viewportStartOffset + info.beforeContentPadding
-            Triple(
-                listState.firstVisibleItemIndex,
-                focus?.let { it.offset - barBottom },
-                info.beforeContentPadding to info.viewportStartOffset,
-            )
-        }.collect { (firstVisible, focusTop, padding) ->
-            Log.d(
-                "TopBarSpike",
-                "focusIdx=$focusIndex firstVisible=$firstVisible focusTopRelBar=$focusTop " +
-                    "beforeContentPadding=${padding.first} viewportStart=${padding.second} " +
-                    "enterPx=$enterPx shown=$shown",
-            )
+            val focus =
+                listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == focusIndex }
+            // LazyListItemInfo.offset is already expressed relative to the bottom
+            // of the app bar (the bar's height arrives as the list's top
+            // contentPadding, and viewportStartOffset == -beforeContentPadding
+            // exactly, so their sum is 0). Verified on device; no normalization
+            // needed. Pass the raw offset straight through as focusItemTopPx.
+            listState.firstVisibleItemIndex to focus?.offset
+        }.collect { (firstVisible, focusTop) ->
             shown =
                 shouldShowAuthorInBar(
                     focusIndex = focusIndex,
