@@ -2,7 +2,7 @@
 
 ### Requirement: The post-detail toolbar swaps its title for the focus post's author on scroll
 
-`PostDetailScreenContent`'s `topBar` SHALL render a `PostDetailTopBar` whose title is scroll-reactive. At rest it displays the localized "Post" title (`R.string.postdetail_title`). Once the **focus** post's card has scrolled up under the app bar, the title is replaced by an author block: the focus post's avatar (28dp `NubecitaAvatar`, including its deterministic initial fallback for avatarless accounts) followed by the author's display name, falling back to `@handle` when `displayName` is null or blank, on a single ellipsized line.
+`PostDetailScreenContent`'s `topBar` SHALL render a `PostDetailTopBar` whose title is scroll-reactive. At rest it displays the localized "Post" title (`R.string.postdetail_title`). Once the **focus** post's card has scrolled up under the app bar, the title is replaced by an author block: the focus post's avatar (28dp `NubecitaAvatar`, including its deterministic initial fallback for avatarless accounts) followed by the author's display name, falling back to `@handle` when `displayName` is blank (`AuthorUi.displayName` is a non-null `String`, so the fallback handles the empty-string case), on a single ellipsized line.
 
 The bar tracks exactly one author for the screen's lifetime — the focus post's. It never re-targets to an ancestor's or a reply's author.
 

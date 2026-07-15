@@ -121,7 +121,12 @@ internal fun PostDetailTopBar(
     // fold instead: it ticks every scroll frame, but `shown` is a MutableState,
     // so it only invalidates the bar when the boolean actually FLIPS. The 120hz
     // guarantee survives.
-    var shown by remember { mutableStateOf(false) }
+    //
+    // Keyed on focusIndex so the state resets when the tracked row changes
+    // (e.g. a refresh reorders the thread and the focus lands at a new index):
+    // otherwise the old `shown` would linger for the frame or two until the
+    // re-keyed collector below recomputes it.
+    var shown by remember(focusIndex) { mutableStateOf(false) }
 
     LaunchedEffect(listState, focusIndex, enterPx, exitPx) {
         snapshotFlow {
