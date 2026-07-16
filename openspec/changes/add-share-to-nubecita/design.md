@@ -86,7 +86,7 @@ The `MainActivity` `ACTION_SEND` branch is the thin glue: call `ShareIntentParse
 - **Unit (`:feature:composer:impl`)**: VM seeds text from `sharedText` (and it auto-cards via the scanner); dispatches `AddAttachments` from `sharedImageUri`; "images win" when both present; cleanup called on publish / onCleared / attachment-remove.
 - **Instrumented (`:app` or `:feature:composer`, `run-instrumented` label)**: an `ACTION_SEND` `text/plain` intent → composer opens prefilled (reference: `LoginScreenInstrumentationTest`'s intent pattern). Add the `run-instrumented` label to the PR.
 - **Screenshot (`:feature:composer:impl`)**: composer prefilled with a URL (link card), with plain text, with a single image attachment.
-- **On-device bench smoke**: `adb shell am start -a android.intent.action.SEND --es android.intent.extra.TEXT "https://example.com" -t text/plain net.kikin.nubecita` → composer opens carded. (Bench flavor fakes sign-in, so the buffered-router auth gate is satisfied.)
+- **On-device bench smoke**: `adb shell am start -n net.kikin.nubecita/.MainActivity -a android.intent.action.SEND -t text/plain --es android.intent.extra.TEXT "https://example.com"` → composer opens carded. (Bench flavor fakes sign-in, so the buffered-router auth gate is satisfied.)
 
 ## Risks / open verification
 
