@@ -129,11 +129,18 @@ class ShareToComposerE2ETest {
         val uri =
             resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
                 ?: error("could not insert a test image into MediaStore")
-        resolver.openOutputStream(uri)!!.use { out ->
-            val bitmap =
-                Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
-            bitmap.recycle()
+        try {
+            resolver.openOutputStream(uri)!!.use { out ->
+                val bitmap =
+                    Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                bitmap.recycle()
+            }
+        } catch (e: Throwable) {
+            // Don't leak the MediaStore row if writing the bytes fails before the
+            // caller's finally-delete can run.
+            resolver.delete(uri, null, null)
+            throw e
         }
         return uri
     }

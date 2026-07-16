@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -78,9 +79,9 @@ class DefaultSharedMediaStoreTest {
             assertTrue("copy should exist", file.exists())
             assertEquals("copy should live under composer_shares", sharesDir.canonicalPath, file.parentFile?.canonicalPath)
             assertEquals("png", file.extension)
-            assertArrayEqualsBytes(pngPayload, file.readBytes())
+            assertArrayEquals(pngPayload, file.readBytes())
             // No temp files left behind after a successful copy.
-            assertTrue(sharesDir.listFiles()!!.none { it.name.startsWith("tmp_") })
+            assertTrue(sharesDir.listFiles().orEmpty().none { it.name.startsWith("tmp_") })
         }
 
     @Test
@@ -166,16 +167,15 @@ class DefaultSharedMediaStoreTest {
             sharesDir.mkdirs()
             val old = File(sharesDir, "old.png").apply { writeBytes(pngPayload) }
             val fresh = File(sharesDir, "fresh.png").apply { writeBytes(pngPayload) }
-            old.setLastModified(System.currentTimeMillis() - 25L * 60 * 60 * 1000) // 25h > 24h retention
+            // setLastModified can fail silently on some emulator filesystems — assert the precondition held.
+            assertTrue(
+                "failed to backdate the orphan's mtime",
+                old.setLastModified(System.currentTimeMillis() - 25L * 60 * 60 * 1000), // 25h > 24h retention
+            )
 
             store().sweepOrphans()
 
             assertFalse("expired copy should be swept", old.exists())
             assertTrue("recent copy should survive", fresh.exists())
         }
-
-    private fun assertArrayEqualsBytes(
-        expected: ByteArray,
-        actual: ByteArray,
-    ) = assertTrue("byte contents should match", expected.contentEquals(actual))
 }
