@@ -8,6 +8,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.core.profile.canViewerMessage
 import net.kikin.nubecita.data.models.toVerifiedBadge
+import net.kikin.nubecita.feature.profile.impl.PinnedPostRef
 import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
 import net.kikin.nubecita.feature.profile.impl.VerifierRef
 import net.kikin.nubecita.feature.profile.impl.ViewerModerationState
@@ -46,6 +47,7 @@ internal fun ProfileViewDetailed.toProfileHeaderUi(): ProfileHeaderUi =
         postsCount = postsCount ?: 0L,
         followersCount = followersCount ?: 0L,
         followsCount = followsCount ?: 0L,
+        pinnedPost = pinnedPost?.let { PinnedPostRef(uri = it.uri.raw, cid = it.cid.raw) },
         canMessage = canViewerMessage(associated, viewer),
         viewerModeration = viewer.toViewerModerationState(),
         verifiedBadge = verification.toVerifiedBadge(),

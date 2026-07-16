@@ -104,4 +104,5 @@
 
     <string name="profile_compose_new_post">Escrever novo post</string>
     <string name="profile_compose_fab_label">Escrever</string>
+    <string name="profile_pinned_post_label">Fixado</string>
 </resources>

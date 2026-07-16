@@ -57,6 +57,14 @@ data class ProfileScreenViewState(
     val mediaStatus: TabLoadStatus = TabLoadStatus.Idle,
     /** Own-profile-only: posts the signed-in user has liked (getActorLikes). */
     val likesStatus: TabLoadStatus = TabLoadStatus.Idle,
+    /**
+     * The profile's pinned post, resolved from [ProfileHeaderUi.pinnedPost] and
+     * rendered at the top of the Posts tab (all profiles). Null when the profile
+     * has no pinned post, or when the pinned reference is dangling (the post was
+     * deleted) — in which case the pinned slot is simply omitted, never a blank
+     * or crashing card.
+     */
+    val pinnedPost: PostUi? = null,
     /** Same-shape user-delta flag as FeedState. See FeedState KDoc. */
     val lastLikeTapPostUri: String? = null,
     /** Same-shape user-delta flag as FeedState. See FeedState KDoc. */
@@ -196,6 +204,17 @@ data class ViewerModerationState(
 )
 
 /**
+ * The `com.atproto.repo.strongRef` a profile's pinned post points at — the raw
+ * `uri` + `cid` unwrapped at the mapper boundary. The uri resolves the post for
+ * display; the cid completes the strongRef the pin/unpin write path (slice 2)
+ * targets.
+ */
+data class PinnedPostRef(
+    val uri: String,
+    val cid: String,
+)
+
+/**
  * Header-row UI model. Derived from `app.bsky.actor.defs#profileViewDetailed`
  * via [net.kikin.nubecita.feature.profile.impl.data.AuthorProfileMapper].
  *
@@ -215,6 +234,13 @@ data class ProfileHeaderUi(
     val postsCount: Long,
     val followersCount: Long,
     val followsCount: Long,
+    /**
+     * The profile's pinned post reference (`app.bsky.actor.profile#pinnedPost`,
+     * a `com.atproto.repo.strongRef`), or null when nothing is pinned. Carried
+     * as the raw uri + cid (mirroring [PostUi]'s inline strongRef convention);
+     * the VM resolves the [PinnedPostRef.uri] to a full [PostUi] for display.
+     */
+    val pinnedPost: PinnedPostRef? = null,
     /**
      * Whether the signed-in viewer is allowed to send this user a DM.
      * Derived in the mapper from `associated.chat.allowIncoming` and

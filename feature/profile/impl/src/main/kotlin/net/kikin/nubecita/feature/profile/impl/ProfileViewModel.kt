@@ -28,6 +28,7 @@ import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
+import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.moderation.api.Report
@@ -69,6 +70,8 @@ internal class ProfileViewModel
         private val analytics: AnalyticsClient,
         private val muteRepository: MuteRepository,
         private val handler: PostInteractionHandler,
+        // Resolves the profile's pinned-post strongRef into a full post for display.
+        private val postRepository: PostRepository,
     ) : MviViewModel<ProfileScreenViewState, ProfileEvent, ProfileEffect>(
             ProfileScreenViewState(
                 handle = route.handle,
@@ -364,11 +367,38 @@ internal class ProfileViewModel
                                     if (ownProfile) ViewerRelationship.Self else result.viewerRelationship,
                             )
                         }
+                        resolvePinnedPost(result.header.pinnedPost)
                     }.onFailure { throwable ->
                         val error = throwable.toProfileError()
                         setState { copy(headerError = error) }
                         sendEffect(ProfileEffect.ShowError(error))
                     }
+            }
+        }
+
+        /**
+         * Resolve the profile's pinned-post strongRef into a full post for the top
+         * of the Posts tab. A null ref (nothing pinned, or a header refresh that
+         * cleared the pin) clears the slot; a resolve failure (deleted/dangling
+         * post) leaves it null — the slot is omitted, never a blank or crashing
+         * card. The resolved post is seeded into the interaction cache and merged
+         * so its like/repost state stays consistent with the rest of the feed.
+         */
+        private fun resolvePinnedPost(ref: PinnedPostRef?) {
+            if (ref == null) {
+                setState { copy(pinnedPost = null) }
+                return
+            }
+            viewModelScope.launch {
+                postRepository
+                    .getPost(ref.uri)
+                    .onSuccess { post ->
+                        postInteractionsCache.seed(listOf(post))
+                        val merged =
+                            postInteractionsCache.state.value[post.id]?.let { post.mergeInteractionState(it) } ?: post
+                        setState { copy(pinnedPost = merged) }
+                    }
+                // onFailure: leave pinnedPost null — a dangling ref degrades to no pinned slot.
             }
         }
 
@@ -767,6 +797,7 @@ private fun ProfileScreenViewState.applyInteractions(
         repliesStatus = repliesStatus.applyInteractions(map),
         mediaStatus = mediaStatus.applyInteractions(map),
         likesStatus = likesStatus.applyInteractions(map),
+        pinnedPost = pinnedPost?.let { p -> map[p.id]?.let { p.mergeInteractionState(it) } ?: p },
     )
 
 private fun TabLoadStatus.applyInteractions(

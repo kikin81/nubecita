@@ -95,62 +95,18 @@ internal fun LazyListScope.profileFeedTabBody(
                     },
                 ) { item ->
                     when (item) {
-                        is TabItemUi.Post -> {
-                            // Hoist the video slots inside a remember keyed on
-                            // the post URI + the tap lambda so the per-item
-                            // closures stay stable across recompositions —
-                            // same shape as FeedScreen's slot wiring.
-                            val parentPostUri = item.post.id
-                            val videoSlot: @Composable (EmbedUi.Video, MediaCover?) -> Unit =
-                                remember(parentPostUri, onVideoTap) {
-                                    val tap = { onVideoTap(parentPostUri) }
-                                    val slot: @Composable (EmbedUi.Video, MediaCover?) -> Unit = { video, cover ->
-                                        VideoPosterEmbed(
-                                            posterUrl = video.posterUrl,
-                                            aspectRatio = video.aspectRatio,
-                                            altText = video.altText,
-                                            onTap = tap,
-                                            cover = cover,
-                                        )
-                                    }
-                                    slot
-                                }
-                            // Quoted-video slot binds identity to the quoted
-                            // post's URI so the resolver fetches the right
-                            // embed when the user taps a quoted video.
-                            val quotedVideoUri =
-                                item.post.embed.quotedRecord
-                                    ?.uri
-                            val quotedVideoSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? =
-                                remember(quotedVideoUri, onVideoTap) {
-                                    if (quotedVideoUri == null) {
-                                        null
-                                    } else {
-                                        val tap = { onVideoTap(quotedVideoUri) }
-                                        val slot: @Composable (QuotedEmbedUi.Video) -> Unit = { qVideo ->
-                                            VideoPosterEmbed(
-                                                posterUrl = qVideo.posterUrl,
-                                                aspectRatio = qVideo.aspectRatio,
-                                                altText = qVideo.altText,
-                                                onTap = tap,
-                                            )
-                                        }
-                                        slot
-                                    }
-                                }
-                            PostCard(
+                        is TabItemUi.Post ->
+                            ProfileFeedPostCard(
                                 post = item.post,
                                 callbacks = callbacks,
-                                onImageClick = { idx -> onImageTap(item.post, idx) },
-                                onQuotedImageClick = onQuotedImageTap,
-                                videoEmbedSlot = videoSlot,
-                                quotedVideoEmbedSlot = quotedVideoSlot,
+                                onImageTap = onImageTap,
+                                onQuotedImageTap = onQuotedImageTap,
+                                onVideoTap = onVideoTap,
                                 animateLikeTap = item.post.id == lastLikeTapPostUri,
                                 animateRepostTap = item.post.id == lastRepostTapPostUri,
                                 isMediaRevealed = item.post.id in revealedMedia,
                                 onRevealMedia = { onRevealMedia(item.post.id) },
                             )
-                        }
                         is TabItemUi.MediaCell -> {
                             // Posts/Replies filter never yields a MediaCell.
                             // Branch exists for type completeness; renders nothing.
@@ -165,4 +121,72 @@ internal fun LazyListScope.profileFeedTabBody(
             }
         }
     }
+}
+
+/**
+ * Renders a single profile-feed [PostCard] with its parent/quoted video slots
+ * wired. Extracted from [profileFeedTabBody]'s item body so the pinned-post slot
+ * ([pinnedPostItem]) renders an identical card. The video slots are hoisted into
+ * `remember`s keyed on the post URI + tap lambda so the closures stay stable
+ * across recompositions — same shape as FeedScreen's slot wiring.
+ */
+@Composable
+internal fun ProfileFeedPostCard(
+    post: PostUi,
+    callbacks: PostCallbacks,
+    onImageTap: (post: PostUi, imageIndex: Int) -> Unit,
+    onQuotedImageTap: (quotedPostUri: String, imageIndex: Int) -> Unit,
+    onVideoTap: (postUri: String) -> Unit,
+    animateLikeTap: Boolean,
+    animateRepostTap: Boolean,
+    isMediaRevealed: Boolean,
+    onRevealMedia: () -> Unit,
+) {
+    val parentPostUri = post.id
+    val videoSlot: @Composable (EmbedUi.Video, MediaCover?) -> Unit =
+        remember(parentPostUri, onVideoTap) {
+            val tap = { onVideoTap(parentPostUri) }
+            val slot: @Composable (EmbedUi.Video, MediaCover?) -> Unit = { video, cover ->
+                VideoPosterEmbed(
+                    posterUrl = video.posterUrl,
+                    aspectRatio = video.aspectRatio,
+                    altText = video.altText,
+                    onTap = tap,
+                    cover = cover,
+                )
+            }
+            slot
+        }
+    // Quoted-video slot binds identity to the quoted post's URI so the resolver
+    // fetches the right embed when the user taps a quoted video.
+    val quotedVideoUri = post.embed.quotedRecord?.uri
+    val quotedVideoSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? =
+        remember(quotedVideoUri, onVideoTap) {
+            if (quotedVideoUri == null) {
+                null
+            } else {
+                val tap = { onVideoTap(quotedVideoUri) }
+                val slot: @Composable (QuotedEmbedUi.Video) -> Unit = { qVideo ->
+                    VideoPosterEmbed(
+                        posterUrl = qVideo.posterUrl,
+                        aspectRatio = qVideo.aspectRatio,
+                        altText = qVideo.altText,
+                        onTap = tap,
+                    )
+                }
+                slot
+            }
+        }
+    PostCard(
+        post = post,
+        callbacks = callbacks,
+        onImageClick = { idx -> onImageTap(post, idx) },
+        onQuotedImageClick = onQuotedImageTap,
+        videoEmbedSlot = videoSlot,
+        quotedVideoEmbedSlot = quotedVideoSlot,
+        animateLikeTap = animateLikeTap,
+        animateRepostTap = animateRepostTap,
+        isMediaRevealed = isMediaRevealed,
+        onRevealMedia = onRevealMedia,
+    )
 }

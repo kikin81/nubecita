@@ -1,6 +1,8 @@
 package net.kikin.nubecita.feature.profile.impl
 
 import app.cash.turbine.test
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.collections.immutable.ImmutableList
@@ -23,6 +25,7 @@ import net.kikin.nubecita.core.postinteractions.InteractionEffect
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
+import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.data.models.AuthorUi
@@ -2010,6 +2013,7 @@ internal class ProfileViewModelTest {
         analytics: AnalyticsClient = RecordingAnalyticsClient(),
         muteRepository: MuteRepository = FakeMuteRepository(),
         handler: PostInteractionHandler = FakePostInteractionHandler(),
+        postRepository: PostRepository = mockk(relaxed = true),
     ): ProfileViewModel {
         val sessionProvider =
             mockk<SessionStateProvider>(relaxed = true).also {
@@ -2028,6 +2032,7 @@ internal class ProfileViewModelTest {
             analytics = analytics,
             muteRepository = muteRepository,
             handler = handler,
+            postRepository = postRepository,
         )
     }
 
@@ -2341,6 +2346,56 @@ internal class ProfileViewModelTest {
             vm.handleEvent(ProfileEvent.VerificationSheetDismissed)
 
             assertFalse(vm.uiState.value.verificationSheetVisible)
+        }
+
+    // --- pinned post (nubecita-iwjz.1: display) ---
+
+    private fun headerWithPinned(ref: PinnedPostRef) =
+        FakeProfileRepository(
+            headerWithViewerResult = Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER.copy(pinnedPost = ref), ViewerRelationship.None)),
+        )
+
+    @Test
+    fun pinnedPostRef_resolvedToPost_populatesPinnedState() =
+        runTest {
+            val pinned = samplePostUi(id = "at://did:plc:alice/app.bsky.feed.post/pinned", cid = "bafypinned")
+            val postRepo =
+                mockk<PostRepository> {
+                    coEvery { getPost(pinned.id) } returns Result.success(pinned)
+                }
+
+            val vm = newVm(repo = headerWithPinned(PinnedPostRef(uri = pinned.id, cid = pinned.cid)), postRepository = postRepo)
+            advanceUntilIdle()
+
+            assertEquals(pinned, vm.uiState.value.pinnedPost)
+        }
+
+    @Test
+    fun pinnedPostRef_danglingOrDeleted_leavesPinnedNull() =
+        runTest {
+            // getPost fails (post deleted / not found) — the pinned slot is omitted, not a crash.
+            val postRepo =
+                mockk<PostRepository> {
+                    coEvery { getPost(any()) } returns Result.failure(RuntimeException("gone"))
+                }
+
+            val vm = newVm(repo = headerWithPinned(PinnedPostRef(uri = "at://gone", cid = "c")), postRepository = postRepo)
+            advanceUntilIdle()
+
+            assertNull(vm.uiState.value.pinnedPost)
+        }
+
+    @Test
+    fun noPinnedRef_leavesPinnedNull_andSkipsResolve() =
+        runTest {
+            // SAMPLE_HEADER has pinnedPost = null → no resolve call at all.
+            val postRepo = mockk<PostRepository>(relaxed = true)
+
+            val vm = newVm(repo = FakeProfileRepository(), postRepository = postRepo)
+            advanceUntilIdle()
+
+            assertNull(vm.uiState.value.pinnedPost)
+            coVerify(exactly = 0) { postRepo.getPost(any()) }
         }
 
     private companion object {
