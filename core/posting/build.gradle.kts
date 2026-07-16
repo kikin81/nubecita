@@ -41,4 +41,13 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.mockk)
+
+    // Instrumented tests for the SharedMediaStore file-I/O + Uri/ContentResolver
+    // glue (its pure core, MediaCopy, is JVM-unit-tested). No Hilt: the impl is
+    // constructed directly with the instrumentation targetContext.
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
 }
