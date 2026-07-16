@@ -94,6 +94,21 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!--
+                Inbound share target: receive shared text/links (ACTION_SEND,
+                text/plain) into the composer. Slice B of the share-target epic;
+                the image/* filter lands together with image handling in a later
+                slice. This widens the already-exported MainActivity's launchable
+                surface, so MainActivity.handleShareIntent treats the payload as
+                untrusted and validates it (via ShareIntentParser) before
+                publishing a ComposerRoute.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
             <!--
                 Verified Android App Link for the OAuth redirect.
                 android:autoVerify="true" tells the package manager to fetch

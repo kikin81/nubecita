@@ -36,6 +36,8 @@ import net.kikin.nubecita.core.common.navigation.DeepLinkRouter
 import net.kikin.nubecita.core.common.navigation.LocalPipController
 import net.kikin.nubecita.core.common.navigation.NavKeyDeepLinkMatcher
 import net.kikin.nubecita.core.common.navigation.Navigator
+import net.kikin.nubecita.core.posting.ShareIntentParser
+import net.kikin.nubecita.core.posting.SharedContent
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import net.kikin.nubecita.core.push.PushNotificationBuilder
 import net.kikin.nubecita.core.push.PushPayload
@@ -43,6 +45,7 @@ import net.kikin.nubecita.core.update.InAppUpdateController
 import net.kikin.nubecita.core.video.PipController
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.login.api.Login
 import net.kikin.nubecita.feature.onboarding.api.Onboarding
 import net.kikin.nubecita.feature.postdetail.api.PostDeepLinkKey
@@ -275,7 +278,52 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
     }
 
+    /**
+     * Handle an inbound Android share (`ACTION_SEND`). Returns `true` if this was
+     * a share intent (and was therefore consumed here), `false` if it's anything
+     * else and normal [handleIntent] processing should continue.
+     *
+     * The `ACTION_SEND` intent-filter makes this already-exported Activity
+     * launchable by any app with a share payload, so the extras are untrusted:
+     * [ShareIntentParser] validates the MIME + scheme-allowlists the URL +
+     * caps the length. A valid text/link opens the composer prefilled (via the
+     * buffered deep-link router, which inherits the signed-out → buffer-until-
+     * login gate for free); an invalid or blank share is consumed silently.
+     *
+     * Either way the share extras are stripped **in place** afterward — matching
+     * the existing `intent.data = null` consumption convention — so a
+     * configuration change or `onNewIntent` re-read can't replay the composer.
+     */
+    private fun handleShareIntent(intent: Intent): Boolean {
+        if (intent.action != ShareIntentParser.ACTION_SEND) return false
+
+        val parsed =
+            ShareIntentParser.parse(
+                action = intent.action,
+                mimeType = intent.type,
+                extraText = intent.getStringExtra(Intent.EXTRA_TEXT),
+                maxTextLength = SHARE_TEXT_MAX_LENGTH,
+            )
+        if (parsed is SharedContent.Text) {
+            lifecycleScope.launch { deepLinkRouter.publish(ComposerRoute(sharedText = parsed.text)) }
+        }
+
+        // Consume in place so rotation / onNewIntent can't replay. Do NOT
+        // setIntent(Intent()) — that would drop flags/type/clipData the rest of
+        // the Activity may rely on.
+        intent.removeExtra(Intent.EXTRA_TEXT)
+        intent.removeExtra(Intent.EXTRA_STREAM)
+        intent.clipData = null
+        return true
+    }
+
     private fun handleIntent(intent: Intent) {
+        // Inbound share (ACTION_SEND) has no `intent.data`, so it must be handled
+        // BEFORE the `uri == null` FCM branch below (which would otherwise swallow
+        // it). Runs on both cold start and onNewIntent, so re-validation is
+        // automatic on warm deliveries.
+        if (handleShareIntent(intent)) return
+
         val uri = intent.data
         if (uri == null) {
             // FCM auto-display fallback: when the push gateway sends a
@@ -452,6 +500,12 @@ class MainActivity : ComponentActivity() {
         private const val FCM_KEY_URI = "uri"
         private const val FCM_KEY_ACTOR_DID = "actorDid"
         private const val FCM_KEY_RECIPIENT_DID = "recipientDid"
+
+        // Upper bound on shared text we'll accept (anti-exhaustion guard on an
+        // untrusted world-launchable entry point). Generous vs the composer's
+        // real grapheme limit — a shared URL/title is short; this only rejects a
+        // pathologically large EXTRA_TEXT. The composer enforces the post limit.
+        private const val SHARE_TEXT_MAX_LENGTH = 10_000
     }
 }
 
