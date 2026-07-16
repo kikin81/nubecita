@@ -127,4 +127,6 @@
 
     <string name="profile_compose_new_post">Compose new post</string>
     <string name="profile_compose_fab_label">Compose</string>
+    <!-- Label above the pinned post at the top of a profile's Posts tab. -->
+    <string name="profile_pinned_post_label">Pinned</string>
 </resources>

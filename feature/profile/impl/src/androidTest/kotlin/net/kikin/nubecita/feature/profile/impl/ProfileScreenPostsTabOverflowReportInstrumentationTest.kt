@@ -196,6 +196,7 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
                 analytics = NoOpAnalyticsClient(),
                 muteRepository = mockk(relaxed = true),
                 handler = FakePostInteractionHandler(),
+                postRepository = mockk(relaxed = true),
             )
 
         val profileRoot: NavKey = Profile(handle = header.handle)

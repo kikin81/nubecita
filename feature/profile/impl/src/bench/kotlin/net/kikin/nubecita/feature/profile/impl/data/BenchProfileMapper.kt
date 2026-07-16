@@ -9,6 +9,7 @@ import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.VerifiedBadge
 import net.kikin.nubecita.data.models.ViewerStateUi
+import net.kikin.nubecita.feature.profile.impl.PinnedPostRef
 import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
 import net.kikin.nubecita.feature.profile.impl.TabItemUi
 import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
@@ -35,6 +36,14 @@ internal object BenchProfileMapper {
                 postsCount = dto.postsCount,
                 followersCount = dto.followersCount,
                 followsCount = dto.followsCount,
+                // Bench: pin the self-authored benchPinnedPost so the Posts tab's
+                // pinned slot renders offline. uri/cid must match core:posts'
+                // benchPinnedPost (resolved via BenchFakePostRepository.getPost).
+                pinnedPost =
+                    PinnedPostRef(
+                        uri = "at://did:plc:benchnubecita0000000000000/app.bsky.feed.post/pinned0000001",
+                        cid = "bafyreibenchpinned00000000000000000000000000000000000001",
+                    ),
                 verifiedBadge = dto.verifiedBadge.toVerifiedBadge(),
             )
         return ProfileHeaderWithViewer(header = header, viewerRelationship = ViewerRelationship.None)

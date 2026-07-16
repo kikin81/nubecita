@@ -209,6 +209,15 @@ private fun ProfileScreenPostsLoadedScreenshot() {
 }
 
 @PreviewTest
+@Preview(name = "screen-posts-with-pinned-light", showBackground = true, heightDp = 1600)
+@Preview(name = "screen-posts-with-pinned-dark", showBackground = true, heightDp = 1600, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ProfileScreenPostsWithPinnedScreenshot() {
+    // A resolved pinned post leads the Posts tab under a "Pinned" label.
+    ProfileScreenContentHost(sampleLoadedState().copy(pinnedPost = samplePostUi("pinned")))
+}
+
+@PreviewTest
 @Preview(name = "screen-posts-loading-light", showBackground = true, heightDp = 1600)
 @Preview(name = "screen-posts-loading-dark", showBackground = true, heightDp = 1600, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable

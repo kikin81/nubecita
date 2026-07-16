@@ -46,6 +46,7 @@ import net.kikin.nubecita.feature.profile.impl.ui.ProfileHero
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileTopBar
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileVerbsRow
 import net.kikin.nubecita.feature.profile.impl.ui.VerificationSheet
+import net.kikin.nubecita.feature.profile.impl.ui.pinnedPostItem
 import net.kikin.nubecita.feature.profile.impl.ui.profileFeedTabBody
 import net.kikin.nubecita.feature.profile.impl.ui.profileMediaTabBody
 
@@ -216,7 +217,19 @@ internal fun ProfileScreenContent(
                     }
                 }
                 when (state.selectedTab) {
-                    ProfileTab.Posts ->
+                    ProfileTab.Posts -> {
+                        // Pinned post (if any) leads the Posts tab, above the timeline.
+                        state.pinnedPost?.let { pinned ->
+                            pinnedPostItem(
+                                post = pinned,
+                                callbacks = postCallbacks,
+                                onImageTap = { post, idx -> onEvent(ProfileEvent.OnImageTapped(post, idx)) },
+                                onQuotedImageTap = { uri, idx -> onEvent(ProfileEvent.OnQuotedImageTapped(uri, idx)) },
+                                onVideoTap = onVideoTap,
+                                isMediaRevealed = pinned.id in revealedMedia,
+                                onRevealMedia = onRevealMedia,
+                            )
+                        }
                         profileFeedTabBody(
                             tab = ProfileTab.Posts,
                             status = state.postsStatus,
@@ -230,6 +243,7 @@ internal fun ProfileScreenContent(
                             revealedMedia = revealedMedia,
                             onRevealMedia = onRevealMedia,
                         )
+                    }
                     ProfileTab.Replies ->
                         profileFeedTabBody(
                             tab = ProfileTab.Replies,
