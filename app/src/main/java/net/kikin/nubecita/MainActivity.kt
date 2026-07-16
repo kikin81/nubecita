@@ -36,6 +36,8 @@ import net.kikin.nubecita.core.common.navigation.DeepLinkRouter
 import net.kikin.nubecita.core.common.navigation.LocalPipController
 import net.kikin.nubecita.core.common.navigation.NavKeyDeepLinkMatcher
 import net.kikin.nubecita.core.common.navigation.Navigator
+import net.kikin.nubecita.core.posting.ShareIntentParser
+import net.kikin.nubecita.core.posting.SharedContent
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import net.kikin.nubecita.core.push.PushNotificationBuilder
 import net.kikin.nubecita.core.push.PushPayload
@@ -43,6 +45,7 @@ import net.kikin.nubecita.core.update.InAppUpdateController
 import net.kikin.nubecita.core.video.PipController
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.login.api.Login
 import net.kikin.nubecita.feature.onboarding.api.Onboarding
 import net.kikin.nubecita.feature.postdetail.api.PostDeepLinkKey
@@ -181,7 +184,17 @@ class MainActivity : ComponentActivity() {
         // Cold-start case: the OAuth redirect arrived while the app was dead and Android
         // launched MainActivity with the redirect intent. The broker buffers until
         // LoginViewModel's init-time collector subscribes.
-        handleIntent(intent)
+        //
+        // Only on a genuine fresh start (savedInstanceState == null). On recreation
+        // (a config change outside `configChanges`, or system-initiated process
+        // death) the OS re-delivers a COPY of the original launch intent, and
+        // in-place consumption (intent.data = null / removeExtra) doesn't persist
+        // across that copy — so an unguarded call would re-fire the share /
+        // deep-link / OAuth handler and, e.g., re-open the composer. onNewIntent
+        // still handles warm deliveries.
+        if (savedInstanceState == null) {
+            handleIntent(intent)
+        }
 
         // Drive the initial session state read off the splash. Once refresh() completes,
         // state transitions to SignedIn or SignedOut; the collector below reacts.
@@ -275,7 +288,66 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
     }
 
+    /**
+     * Handle an inbound Android share (`ACTION_SEND`). Returns `true` if this was
+     * a share intent (and was therefore consumed here), `false` if it's anything
+     * else and normal [handleIntent] processing should continue.
+     *
+     * The `ACTION_SEND` intent-filter makes this already-exported Activity
+     * launchable by any app with a share payload, so the extras are untrusted:
+     * [ShareIntentParser] validates the MIME + scheme-allowlists the URL +
+     * caps the length. A valid text/link opens the composer prefilled (via the
+     * buffered deep-link router, which inherits the signed-out → buffer-until-
+     * login gate for free); an invalid or blank share is consumed silently.
+     *
+     * Either way the share extras are stripped **in place** afterward — matching
+     * the existing `intent.data = null` consumption convention — so a
+     * configuration change or `onNewIntent` re-read can't replay the composer.
+     */
+    private fun handleShareIntent(intent: Intent): Boolean {
+        if (intent.action != ShareIntentParser.ACTION_SEND) return false
+
+        // getCharSequenceExtra, not getStringExtra: many senders (Chrome, Photos,
+        // the system share sheet) put EXTRA_TEXT as a Spannable/CharSequence to
+        // preserve formatting, and getStringExtra returns null for those —
+        // silently dropping the share. Gate on the CharSequence length BEFORE
+        // toString(): a world-launchable entry point could hand over a huge
+        // EXTRA_TEXT, and materializing it to a String just to have the parser
+        // reject it would defeat the parser's own OOM guard, so oversize input
+        // is never stringified.
+        val rawText =
+            intent
+                .getCharSequenceExtra(Intent.EXTRA_TEXT)
+                ?.takeIf { it.length <= SHARE_TEXT_MAX_LENGTH }
+                ?.toString()
+        val parsed =
+            ShareIntentParser.parse(
+                action = intent.action,
+                mimeType = intent.type,
+                extraText = rawText,
+                maxTextLength = SHARE_TEXT_MAX_LENGTH,
+            )
+        if (parsed is SharedContent.Text) {
+            lifecycleScope.launch { deepLinkRouter.publish(ComposerRoute(sharedText = parsed.text)) }
+        }
+
+        // Consume in place so rotation / onNewIntent can't replay. Strip only the
+        // share payload (EXTRA_TEXT / EXTRA_STREAM / clipData); don't
+        // setIntent(Intent()), which would also drop the action / flags / type
+        // the rest of the Activity relies on.
+        intent.removeExtra(Intent.EXTRA_TEXT)
+        intent.removeExtra(Intent.EXTRA_STREAM)
+        intent.clipData = null
+        return true
+    }
+
     private fun handleIntent(intent: Intent) {
+        // Inbound share (ACTION_SEND) has no `intent.data`, so it must be handled
+        // BEFORE the `uri == null` FCM branch below (which would otherwise swallow
+        // it). Runs on both cold start and onNewIntent, so re-validation is
+        // automatic on warm deliveries.
+        if (handleShareIntent(intent)) return
+
         val uri = intent.data
         if (uri == null) {
             // FCM auto-display fallback: when the push gateway sends a
@@ -452,6 +524,12 @@ class MainActivity : ComponentActivity() {
         private const val FCM_KEY_URI = "uri"
         private const val FCM_KEY_ACTOR_DID = "actorDid"
         private const val FCM_KEY_RECIPIENT_DID = "recipientDid"
+
+        // Upper bound on shared text we'll accept (anti-exhaustion guard on an
+        // untrusted world-launchable entry point). Generous vs the composer's
+        // real grapheme limit — a shared URL/title is short; this only rejects a
+        // pathologically large EXTRA_TEXT. The composer enforces the post limit.
+        private const val SHARE_TEXT_MAX_LENGTH = 10_000
     }
 }
 
