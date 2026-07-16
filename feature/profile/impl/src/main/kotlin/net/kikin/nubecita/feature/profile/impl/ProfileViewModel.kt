@@ -111,6 +111,7 @@ internal class ProfileViewModel
          * [ProfileScreenViewState.verifiers] after the refs it targeted are gone.
          */
         private var verifierResolveJob: Job? = null
+        private var pinnedPostResolveJob: Job? = null
 
         /**
          * The [VerifierRef] set the in-flight [verifierResolveJob] is resolving,
@@ -385,21 +386,34 @@ internal class ProfileViewModel
          * so its like/repost state stays consistent with the rest of the feed.
          */
         private fun resolvePinnedPost(ref: PinnedPostRef?) {
+            // Single-flight: cancel any in-flight resolution so a slower stale fetch
+            // (from a rapid refresh / repeated ownProfileUpdates) can't land last and
+            // overwrite a newer one.
+            pinnedPostResolveJob?.cancel()
             if (ref == null) {
                 setState { copy(pinnedPost = null) }
                 return
             }
-            viewModelScope.launch {
-                postRepository
-                    .getPost(ref.uri)
-                    .onSuccess { post ->
-                        postInteractionsCache.seed(listOf(post))
-                        val merged =
-                            postInteractionsCache.state.value[post.id]?.let { post.mergeInteractionState(it) } ?: post
-                        setState { copy(pinnedPost = merged) }
-                    }
-                // onFailure: leave pinnedPost null — a dangling ref degrades to no pinned slot.
+            // Drop a now-stale slot immediately when the pinned target changed, so the
+            // old post doesn't linger on screen while the new one resolves.
+            if (uiState.value.pinnedPost?.id != ref.uri) {
+                setState { copy(pinnedPost = null) }
             }
+            pinnedPostResolveJob =
+                viewModelScope.launch {
+                    postRepository
+                        .getPost(ref.uri)
+                        .onSuccess { post ->
+                            postInteractionsCache.seed(listOf(post))
+                            val merged =
+                                postInteractionsCache.state.value[post.id]?.let { post.mergeInteractionState(it) } ?: post
+                            setState { copy(pinnedPost = merged) }
+                        }.onFailure {
+                            // Deleted/dangling or a fetch error → omit the slot, clearing any
+                            // previously-shown pinned post so stale data can't persist.
+                            setState { copy(pinnedPost = null) }
+                        }
+                }
         }
 
         private fun launchInitialTabLoad(

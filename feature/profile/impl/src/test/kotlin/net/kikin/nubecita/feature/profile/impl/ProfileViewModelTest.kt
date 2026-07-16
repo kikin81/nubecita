@@ -2357,7 +2357,7 @@ internal class ProfileViewModelTest {
 
     @Test
     fun pinnedPostRef_resolvedToPost_populatesPinnedState() =
-        runTest {
+        runTest(mainDispatcher.dispatcher) {
             val pinned = samplePostUi(id = "at://did:plc:alice/app.bsky.feed.post/pinned", cid = "bafypinned")
             val postRepo =
                 mockk<PostRepository> {
@@ -2372,7 +2372,7 @@ internal class ProfileViewModelTest {
 
     @Test
     fun pinnedPostRef_danglingOrDeleted_leavesPinnedNull() =
-        runTest {
+        runTest(mainDispatcher.dispatcher) {
             // getPost fails (post deleted / not found) — the pinned slot is omitted, not a crash.
             val postRepo =
                 mockk<PostRepository> {
@@ -2387,7 +2387,7 @@ internal class ProfileViewModelTest {
 
     @Test
     fun noPinnedRef_leavesPinnedNull_andSkipsResolve() =
-        runTest {
+        runTest(mainDispatcher.dispatcher) {
             // SAMPLE_HEADER has pinnedPost = null → no resolve call at all.
             val postRepo = mockk<PostRepository>(relaxed = true)
 
