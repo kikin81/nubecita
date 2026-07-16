@@ -88,9 +88,11 @@ class ShareIntentParserTest {
     }
 
     @Test
-    fun nonTextMime_isInvalid() {
-        // Slice B handles text only; an image share isn't parsed here.
-        assertEquals(SharedContent.Invalid, parse(mimeType = "image/png", extraText = "https://x.com"))
+    fun unsupportedMime_isInvalid() {
+        // text/plain and image/* are the only accepted essences; video, audio,
+        // and arbitrary binary shares are dropped.
+        assertEquals(SharedContent.Invalid, parse(mimeType = "video/mp4", extraText = "https://x.com"))
+        assertEquals(SharedContent.Invalid, parse(mimeType = "application/pdf", extraText = "https://x.com"))
     }
 
     @Test
@@ -114,6 +116,51 @@ class ShareIntentParserTest {
     @Test
     fun nullMime_isInvalid() {
         assertEquals(SharedContent.Invalid, parse(mimeType = null, extraText = "https://x.com"))
+    }
+
+    // --- image shares (slice C) ---------------------------------------------
+
+    @Test
+    fun imagePng_noText_isImageWithNullCaption() {
+        assertEquals(SharedContent.Image(caption = null), parse(mimeType = "image/png", extraText = null))
+    }
+
+    @Test
+    fun imageJpeg_withText_isImageWithCaption() {
+        assertEquals(SharedContent.Image(caption = "my cat"), parse(mimeType = "image/jpeg", extraText = "my cat"))
+    }
+
+    @Test
+    fun imageCaption_isTrimmed() {
+        assertEquals(SharedContent.Image(caption = "hi"), parse(mimeType = "image/png", extraText = "  hi  "))
+    }
+
+    @Test
+    fun image_blankText_isImageWithNullCaption() {
+        assertEquals(SharedContent.Image(caption = null), parse(mimeType = "image/png", extraText = "   "))
+    }
+
+    @Test
+    fun image_oversizeCaption_keepsImageDropsCaption() {
+        // The caption is over the cap, but the image is the payload — keep it, drop the caption.
+        assertEquals(SharedContent.Image(caption = null), parse(mimeType = "image/png", extraText = "x".repeat(cap + 1)))
+    }
+
+    @Test
+    fun imageWildcardMime_isImage() {
+        // Some senders declare image/* on a single ACTION_SEND; the byte sniff in
+        // SharedMediaStore is the real gate, so the declared subtype is permissive.
+        assertEquals(SharedContent.Image(caption = null), parse(mimeType = "image/*", extraText = null))
+    }
+
+    @Test
+    fun imageWithCharsetParam_isImage() {
+        assertEquals(SharedContent.Image(caption = null), parse(mimeType = "image/png;foo=bar", extraText = null))
+    }
+
+    @Test
+    fun image_wrongAction_isInvalid() {
+        assertEquals(SharedContent.Invalid, parse(action = "android.intent.action.VIEW", mimeType = "image/png"))
     }
 
     @Test

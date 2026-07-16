@@ -331,6 +331,8 @@ class ComposerViewModelTypeaheadTest {
                 },
             externalLinkMetadataRepository = mockk(relaxed = true),
             reviewManager = mockk(relaxed = true),
+            sharedMediaStore = mockk(relaxed = true),
+            applicationScope = kotlinx.coroutines.CoroutineScope(testDispatcher),
         )
 
     private fun TestScope.setComposerText(

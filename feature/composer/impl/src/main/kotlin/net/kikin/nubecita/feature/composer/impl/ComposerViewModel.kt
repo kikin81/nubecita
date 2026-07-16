@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.composer.impl
 
+import android.net.Uri
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.viewModelScope
@@ -10,6 +11,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
@@ -21,6 +23,7 @@ import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.actors.ActorRepository
+import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.common.text.GraphemeCounter
 import net.kikin.nubecita.core.moderation.PostAudienceDefaultRepository
@@ -31,6 +34,7 @@ import net.kikin.nubecita.core.posting.LocaleProvider
 import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.ReplyRefs
+import net.kikin.nubecita.core.posting.SharedMediaStore
 import net.kikin.nubecita.core.review.ReviewManager
 import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.data.models.KlipyMediaUi
@@ -100,10 +104,12 @@ import kotlin.time.Duration.Companion.milliseconds
  *
  * # Constructor contract (append-only)
  *
- * V1 ships with four injected dependencies (the assisted
- * [ComposerRoute] + [PostingRepository] + [ParentFetchSource] +
- * [ActorRepository]). The future `:core:drafts` adds
- * `DraftRepository` as the next param — no reorder, no rename.
+ * New dependencies are appended, never reordered or renamed. The
+ * share-target slice appended [SharedMediaStore] (resolves a shared
+ * image into an attachment + owns its copy's lifecycle) and the
+ * `@ApplicationScope` [kotlinx.coroutines.CoroutineScope] (for the
+ * dismiss-time cleanup that must outlive `viewModelScope`). The future
+ * `:core:drafts` adds `DraftRepository` as the next param.
  *
  * # Process death
  *
@@ -138,6 +144,12 @@ internal class ComposerViewModel
         // it — it has no Activity handle, and launching here would cancel when the
         // composer route pops. See `ReviewManager` and design D2/D3.
         val reviewManager: ReviewManager,
+        // Slice C (share target): resolves route.sharedImageUri into an attachment
+        // and owns the app-owned copy's lifecycle (delete on remove/publish/dismiss).
+        private val sharedMediaStore: SharedMediaStore,
+        // Deletes on dismiss run here, not in viewModelScope — onCleared cancels
+        // viewModelScope, so a launch there would never complete.
+        @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) : MviViewModel<ComposerState, ComposerEvent, ComposerEffect>(
             // Pre-fill the audience from the synced default — a point-in-time read
             // of the repo's seeded/refreshed StateFlow at open, mirroring
@@ -264,12 +276,29 @@ internal class ComposerViewModel
         // images restores the card; a manual dismiss leaves it memoized.
         private var cardedLinkText: String? = null
 
+        // The app-owned copy of an image shared into Nubecita, tracked so its
+        // lifecycle can be closed out (delete on remove / publish / dismiss). Null
+        // once deleted or when no image was shared.
+        private var sharedImageAttachmentUri: Uri? = null
+
         init {
             uiState.value.replyToUri?.let { uri ->
                 launchParentFetch(uri)
             }
             uiState.value.quotePostUri?.let { uri ->
                 launchQuoteFetch(uri)
+            }
+
+            // Shared image (Android share target): resolve the app-owned copy into
+            // an attachment. A gone/unreadable copy resolves to null → the composer
+            // opens text-only (graceful missing-file), never crashes.
+            route.sharedImageUri?.let { uriString ->
+                viewModelScope.launch {
+                    sharedMediaStore.attachmentFor(uriString)?.let { attachment ->
+                        sharedImageAttachmentUri = attachment.uri
+                        handleAddAttachments(listOf(attachment))
+                    }
+                }
             }
 
             // Snapshot collector — drives the grapheme counter and
@@ -417,12 +446,18 @@ internal class ComposerViewModel
         }
 
         private fun handleRemoveAttachment(index: Int) {
+            val removed = uiState.value.attachments.getOrNull(index)
             setState {
                 if (index !in attachments.indices) {
                     this
                 } else {
                     copy(attachments = attachments.toMutableList().apply { removeAt(index) }.toImmutableList())
                 }
+            }
+            // If the removed attachment was the shared-image copy, it's now
+            // unreferenced — delete it immediately.
+            if (removed != null && removed.uri == sharedImageAttachmentUri) {
+                deleteSharedImageCopy()
             }
             // Crossed back below the card-XOR-images boundary: a URL still in the
             // text can re-detect and restore its card (image-add forgot it). Image
@@ -431,6 +466,27 @@ internal class ComposerViewModel
             if (uiState.value.attachments.isEmpty()) {
                 externalLinkScanner.scan(textFieldState.text.toString())
             }
+        }
+
+        override fun onCleared() {
+            super.onCleared()
+            // Composer dismissed (nav entry popped). If a shared image was never
+            // published, delete its copy. The publish path already deleted it (uri
+            // nulled) when the post succeeded; the boot-time sweepOrphans() is the
+            // backstop for the process-death case where this never runs.
+            deleteSharedImageCopy()
+        }
+
+        /**
+         * Delete the app-owned shared-image copy, if any, and forget it. Runs on
+         * [applicationScope] so it survives `viewModelScope` cancellation (the
+         * dismiss path calls this from [onCleared]); idempotent and a no-op when no
+         * image was shared or it was already deleted.
+         */
+        private fun deleteSharedImageCopy() {
+            val uri = sharedImageAttachmentUri ?: return
+            sharedImageAttachmentUri = null
+            applicationScope.launch { sharedMediaStore.delete(uri) }
         }
 
         private fun handleMoveAttachment(
@@ -628,6 +684,8 @@ internal class ComposerViewModel
                             uri.raw.substringAfterLast('/'),
                         )
                         setState { copy(submitStatus = ComposerSubmitStatus.Success) }
+                        // Post is up; the shared-image copy is now dead weight.
+                        deleteSharedImageCopy()
                         sendEffect(
                             ComposerEffect.OnSubmitSuccess(
                                 newPostUri = uri,
