@@ -57,4 +57,27 @@ data class ComposerRoute(
      * and Feed compose entry points leave it null.
      */
     val mentionHandle: String? = null,
+    /**
+     * Text (or a URL) to pre-fill a **new** post with, or `null` for a blank
+     * composer. Set by the inbound Android share target (`ACTION_SEND` /
+     * `text/plain`) so a link/text shared from another app opens the composer
+     * with it seeded; a seeded URL auto-generates a link card via the composer's
+     * existing `ExternalLinkDetector` scanner. Lower precedence than
+     * [mentionHandle] (an explicit compose-from-profile action). Kept a `String?`
+     * for the same api-purity reason as [replyToUri]. See the `share-target`
+     * capability spec.
+     */
+    val sharedText: String? = null,
+    /**
+     * App-owned file URI (as a `String`) of an image shared into the composer via
+     * the inbound Android share target (`ACTION_SEND` with an image MIME), or `null`.
+     *
+     * Carried on the route only in this slice; the producing side (the
+     * `MainActivity` share branch copying the transient `content://` into
+     * app-private storage) and the consuming side (turning it into a
+     * `ComposerAttachment`) land in a later slice of the share-target epic. The
+     * URI is app-owned (no transient grant) so it survives process death with the
+     * serialized route.
+     */
+    val sharedImageUri: String? = null,
 ) : NavKey

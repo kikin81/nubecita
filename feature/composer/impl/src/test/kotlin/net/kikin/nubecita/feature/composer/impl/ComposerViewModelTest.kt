@@ -169,6 +169,54 @@ class ComposerViewModelTest {
         }
 
     @Test
+    fun sharedText_seedsTextFieldVerbatim() =
+        runTest {
+            // A "share to Nubecita" of plain text (or a URL) seeds the composer
+            // text field verbatim. (The seeded-URL → link-card path is asserted
+            // separately in sharedText_url_autoLoadsLinkCardFromInitialScan.)
+            val vm = newVm(sharedText = "https://example.com/article")
+
+            assertEquals("https://example.com/article", vm.textFieldState.text.toString())
+        }
+
+    @Test
+    fun sharedText_url_autoLoadsLinkCardFromInitialScan() =
+        runTest {
+            // The feature's payoff: a URL shared into the composer (seeded at
+            // construction, NOT typed) is picked up by the existing scanner's
+            // INITIAL snapshotFlow emission and resolves to a Loaded link card
+            // with no user typing — the "share a link → composer with card" flow.
+            coEvery { externalLinkMetadataRepository.fetch(EXTERNAL_URL) } returns aLinkPreview()
+
+            val vm = newVm(sharedText = EXTERNAL_URL)
+            // Drive the snapshot system + scheduler so the init-launched scanner
+            // collector processes the seeded text's first emission (past debounce).
+            Snapshot.sendApplyNotifications()
+            advanceUntilIdle()
+
+            assertEquals(ExternalLinkStatus.Loaded(aLinkPreview()), vm.uiState.value.externalLink)
+        }
+
+    @Test
+    fun sharedText_blankSeedsEmpty() =
+        runTest {
+            // A blank shared text is treated as no prefill.
+            val vm = newVm(sharedText = "   ")
+
+            assertEquals("", vm.textFieldState.text.toString())
+        }
+
+    @Test
+    fun mentionHandle_takesPrecedenceOverSharedText() =
+        runTest {
+            // Composing from a profile (mentionHandle) is an explicit action and
+            // wins over an incidental shared text if somehow both are present.
+            val vm = newVm(mentionHandle = "alice.bsky.social", sharedText = "https://example.com")
+
+            assertEquals("@alice.bsky.social ", vm.textFieldState.text.toString())
+        }
+
+    @Test
     fun mentionHandle_blank_seedsEmptyComposer() =
         runTest {
             val vm = newVm(mentionHandle = "   ")
@@ -1315,10 +1363,17 @@ class ComposerViewModelTest {
         replyToUri: String? = null,
         quotePostUri: String? = null,
         mentionHandle: String? = null,
+        sharedText: String? = null,
         deviceLocaleTag: String = "en-US",
     ): ComposerViewModel =
         ComposerViewModel(
-            route = ComposerRoute(replyToUri = replyToUri, quotePostUri = quotePostUri, mentionHandle = mentionHandle),
+            route =
+                ComposerRoute(
+                    replyToUri = replyToUri,
+                    quotePostUri = quotePostUri,
+                    mentionHandle = mentionHandle,
+                    sharedText = sharedText,
+                ),
             postingRepository = postingRepository,
             parentFetchSource = parentFetchSource,
             quotePostFetcher = quotePostFetcher,

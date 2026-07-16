@@ -160,9 +160,12 @@ internal class ComposerViewModel
 
         /**
          * Canonical text and selection for the composer. Constructed
-         * once in init; never re-assigned. Seeded with `@handle ` (cursor
-         * after it) when [ComposerRoute.mentionHandle] is set — composing
-         * from another user's profile — otherwise empty. The `@handle`
+         * once in init; never re-assigned. Seeded, in precedence order:
+         * with `@handle ` (cursor after it) when [ComposerRoute.mentionHandle]
+         * is set — composing from another user's profile; else with
+         * [ComposerRoute.sharedText] verbatim when a link/text was shared into
+         * Nubecita via the Android share target (a seeded URL then auto-cards
+         * through the existing `ExternalLinkDetector`); else empty. The `@handle`
          * token resolves to a mention facet on submit via the shared
          * FacetExtractor. The screen's `OutlinedTextField(state = textFieldState)`
          * reads and writes directly; the IME never round-trips through the
@@ -176,7 +179,8 @@ internal class ComposerViewModel
                         ?.removePrefix("@")
                         ?.takeIf { it.isNotBlank() }
                         ?.let { "@$it " }
-                        .orEmpty(),
+                        ?: route.sharedText?.takeIf { it.isNotBlank() }
+                        ?: "",
             )
 
         /**
