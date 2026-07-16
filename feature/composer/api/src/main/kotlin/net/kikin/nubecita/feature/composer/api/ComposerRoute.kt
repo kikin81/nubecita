@@ -71,10 +71,13 @@ data class ComposerRoute(
     /**
      * App-owned file URI (as a `String`) of an image shared into the composer via
      * the inbound Android share target (`ACTION_SEND` with an image MIME), or `null`.
-     * The receiving `MainActivity` branch copies the transient `content://` into
-     * app-private storage first (the grant is temporary and the VM outlives the
-     * intent), then passes the resulting app-owned URI here so it survives process
-     * death with the serialized route. Consumed as a `ComposerAttachment`.
+     *
+     * Carried on the route only in this slice; the producing side (the
+     * `MainActivity` share branch copying the transient `content://` into
+     * app-private storage) and the consuming side (turning it into a
+     * `ComposerAttachment`) land in a later slice of the share-target epic. The
+     * URI is app-owned (no transient grant) so it survives process death with the
+     * serialized route.
      */
     val sharedImageUri: String? = null,
 ) : NavKey

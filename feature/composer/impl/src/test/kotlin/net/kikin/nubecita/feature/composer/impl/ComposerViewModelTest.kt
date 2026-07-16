@@ -172,11 +172,29 @@ class ComposerViewModelTest {
     fun sharedText_seedsTextFieldVerbatim() =
         runTest {
             // A "share to Nubecita" of plain text (or a URL) seeds the composer
-            // text field verbatim; a seeded URL then auto-generates a link card
-            // via the existing ExternalLinkDetector scanner (no new scan code).
+            // text field verbatim. (The seeded-URL → link-card path is asserted
+            // separately in sharedText_url_autoLoadsLinkCardFromInitialScan.)
             val vm = newVm(sharedText = "https://example.com/article")
 
             assertEquals("https://example.com/article", vm.textFieldState.text.toString())
+        }
+
+    @Test
+    fun sharedText_url_autoLoadsLinkCardFromInitialScan() =
+        runTest {
+            // The feature's payoff: a URL shared into the composer (seeded at
+            // construction, NOT typed) is picked up by the existing scanner's
+            // INITIAL snapshotFlow emission and resolves to a Loaded link card
+            // with no user typing — the "share a link → composer with card" flow.
+            coEvery { externalLinkMetadataRepository.fetch(EXTERNAL_URL) } returns aLinkPreview()
+
+            val vm = newVm(sharedText = EXTERNAL_URL)
+            // Drive the snapshot system + scheduler so the init-launched scanner
+            // collector processes the seeded text's first emission (past debounce).
+            Snapshot.sendApplyNotifications()
+            advanceUntilIdle()
+
+            assertEquals(ExternalLinkStatus.Loaded(aLinkPreview()), vm.uiState.value.externalLink)
         }
 
     @Test
