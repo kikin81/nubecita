@@ -106,6 +106,35 @@ internal val benchVideoPost: PostUi =
     )
 
 /**
+ * The self-authored **pinned** post for the bench profile ("Nubecita Bench").
+ * Resolved via `getPost` when the profile's pinned-post strongRef is displayed
+ * at the top of the Posts tab. Its DID matches the bench profile so it reads as
+ * an own-profile pin. Kept in sync with the `pinnedPost` ref set in
+ * `:feature:profile:impl`'s bench `BenchProfileMapper`.
+ */
+internal val benchPinnedPost: PostUi =
+    PostUi(
+        id = "at://did:plc:benchnubecita0000000000000/app.bsky.feed.post/pinned0000001",
+        cid = "bafyreibenchpinned00000000000000000000000000000000000001",
+        author =
+            AuthorUi(
+                did = "did:plc:benchnubecita0000000000000",
+                handle = "bench.nubecita.app",
+                displayName = "Nubecita Bench",
+                avatarUrl = "file:///android_asset/img/brand/app-icon.png",
+            ),
+        createdAt = Instant.parse("2026-05-01T09:00:00Z"),
+        text =
+            "Pinned: welcome to Nubecita — a fast, native Bluesky client for Android. " +
+                "120hz scrolling or bust. 🐳",
+        facets = persistentListOf(),
+        embed = EmbedUi.Empty,
+        stats = PostStatsUi(replyCount = 12, repostCount = 48, likeCount = 305),
+        viewer = ViewerStateUi(),
+        repostedBy = null,
+    )
+
+/**
  * The multi-image **gallery** post used as the focus of the bench post-detail
  * thread. Tapping any image opens the media viewer, which re-reads the post via
  * `getPost(focus.id)` — DID-based, so it resolves (the deep-link fix). Backed by
@@ -293,6 +322,7 @@ internal val benchQuotedImageAsPost: PostUi =
  */
 internal val benchPostsByUri: Map<String, PostUi> =
     buildMap {
+        put(benchPinnedPost.id, benchPinnedPost)
         put(benchGalleryPost.id, benchGalleryPost)
         put(benchQuotedImageAsPost.id, benchQuotedImageAsPost)
         benchGalleryReplies.forEach { put(it.id, it) }
