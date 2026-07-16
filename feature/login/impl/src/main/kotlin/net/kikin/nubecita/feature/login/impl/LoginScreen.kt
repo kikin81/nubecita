@@ -32,9 +32,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentType
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -189,7 +192,17 @@ internal fun LoginScreen(
                                 onEvent(LoginEvent.SubmitLogin)
                             },
                         ),
-                    modifier = Modifier.fillMaxWidth(),
+                    // Autofill hint so password managers (1Password, Google
+                    // Autofill) recognise this as the account identifier and
+                    // offer the saved Bluesky handle. Username + EmailAddress
+                    // because handles (you.bsky.social) are stored either way
+                    // across managers. The password isn't entered here — it's
+                    // entered in the OAuth browser (Custom Tab to the PDS) — so
+                    // there's no in-app password field to hint.
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .semantics { contentType = ContentType.Username + ContentType.EmailAddress },
                 )
 
                 AnimatedVisibility(visible = errorText != null) {
