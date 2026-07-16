@@ -21,7 +21,7 @@ Four vertical slices, each a branch + PR. A→B ships text/URL sharing end-to-en
 
 ## Slice C — Single image `[bead: nubecita-9xoz.3]`
 
-- [ ] C1 `SharedMediaStore` (`:core:posting`): `copyIn(uri): Uri` — bounded read with hard byte cap (reject over), `ContentResolver.getType` **+ magic-byte header sniff** (drop non-images), `runCatching` around all IO; writes to `filesDir/composer_shares/<uuid>.<ext>`. Plus `delete(uri)` and `sweepOrphans(maxAge)`.
+- [ ] C1 `SharedMediaStore` (`:core:posting`): `copyIn(uri): Uri` — main-safe by contract via `withContext(ioDispatcher)` using an **injected `@IoDispatcher`** (not hardcoded `Dispatchers.IO`); bounded read with hard byte cap (reject over), `ContentResolver.getType` **+ magic-byte header sniff** (drop non-images), `runCatching` around all IO **rethrowing `CancellationException`** (`if (it is CancellationException) throw it`); writes to `filesDir/composer_shares/<uuid>.<ext>`. Plus `delete(uri)` and `sweepOrphans(maxAge)`.
 - [ ] C2 Unit tests (`:core:posting`): byte-cap rejection; declared-image-but-non-image-bytes rejection; IO failure → null/failure (no crash); `sweepOrphans` age boundary; own-authority reject already covered in B.
 - [ ] C3 `MainActivity` branch: for Image / UrlWithImage → `SharedMediaStore.copyIn` off-main-thread → `ComposerRoute(sharedText = url?, sharedImageUri = copiedUri)`. "images win": UrlWithImage keeps the URL as text, attaches the image (no card).
 - [ ] C4 `ComposerViewModel`: from `sharedImageUri`, build `ComposerAttachment(appOwnedUri, verifiedMime)` and dispatch `ComposerEvent.AddAttachments`. Read the **app-owned** copy at upload, never the original `content://`.

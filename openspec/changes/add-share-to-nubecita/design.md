@@ -46,13 +46,13 @@ data class ComposerRoute(
 
 ## Decision 5 — Security (mandatory; the entry point is world-launchable)
 
-An `ACTION_SEND` filter makes the Activity exported and callable by any app. Every extra is attacker-controlled. Requirements (sources: `kb://android/training/sharing/{receive,send}`, the `android-intent-security` skill, `kb://android/about/versions/14/behavior-changes-14`):
+`MainActivity` is already exported (for `ACTION_VIEW` deep links + LAUNCHER). Adding an `ACTION_SEND` intent-filter **widens its world-launchable surface** — any app can now launch it with a share payload — so every share extra is attacker-controlled. Requirements (sources: [Receiving content from other apps](https://developer.android.com/training/sharing/receive), [Sending content to other apps](https://developer.android.com/training/sharing/send), [Behavior changes: Android 14](https://developer.android.com/about/versions/14/behavior-changes-14), and the repo's `android-intent-security` guidance):
 
 1. **Validate `EXTRA_TEXT`.** Allowlist scheme `http`/`https` only; reject `javascript:`/`file:`/`content:`/`intent:`; cap length. A non-URL text share is seeded verbatim (as text), but is never *treated as a URL*.
 2. **`content://` from `EXTRA_STREAM` under the temporary per-URI grant only.** **Validate the URI authority** — a malicious sender can point a `content://` at Nubecita's *own* provider (confused-deputy); reject a URI whose authority is our own. Read via `ContentResolver` off-main-thread. Never `takePersistableUriPermission` or re-grant onward.
 3. **Bounded copy.** Enforce a hard byte ceiling during the read/copy loop (guards storage exhaustion / OOM from an endless stream). Reject — do not truncate — anything over the cap.
 4. **Actual-type verification.** Do not trust the intent's declared `type`. Verify with `ContentResolver.getType(uri)` **and** a magic-byte header sniff; only a confirmed decodable image becomes a `ComposerAttachment`. Otherwise drop the image and keep the text.
-5. **`runCatching` all IO.** Expired grant / provider crash / `FileNotFoundException` → fail closed: no attachment, generic user-facing error, composer still opens.
+5. **`runCatching` all IO, but rethrow `CancellationException`.** Expired grant / provider crash / `FileNotFoundException` → fail closed: no attachment, generic user-facing error, composer still opens. Because `runCatching` on a suspend function also catches `CancellationException`, the `onFailure`/`getOrElse` block MUST rethrow it (`if (it is CancellationException) throw it`) so structured coroutine cancellation isn't swallowed — matching the established pattern in `DefaultAuthRepository`.
 6. **Strip the share extras after publishing.** Right after `deepLinkRouter.publish(...)`, neuter the activity intent (`setIntent(Intent())` or remove `EXTRA_TEXT`/`EXTRA_STREAM`) so a rotation/keyboard-resize `onNewIntent`/re-read can't replay the composer.
 7. **Re-validate on every entry.** `onNewIntent` (warm boot, `singleTask`) bypasses `onCreate` validation — re-run the full parse+validate there.
 8. **No new exported components.** Only `MainActivity` (already exported) handles the intent. Any `PendingIntent` built is `FLAG_IMMUTABLE`.
@@ -75,7 +75,7 @@ Copies live in `filesDir/composer_shares/<uuid>.<ext>` (deterministic across pro
 | Unit | Module | Responsibility | Depends on |
 |---|---|---|---|
 | `ShareIntentParser` (+ validator) | `:core:posting` (pure) | `Intent`-in → typed `SharedContent` (Text / Url / Image / UrlWithImage / Invalid); scheme allowlist, length cap, authority reject. No IO. | Android `Intent` (value read only), JVM-testable |
-| `SharedMediaStore` | `:core:posting` | `copyIn(uri)` (byte cap, `getType` + magic-byte verify, `runCatching`), `delete(uri)`, `sweepOrphans()`. Owns `filesDir/composer_shares/`. | `Context`, `ContentResolver`, dispatchers |
+| `SharedMediaStore` | `:core:posting` | `copyIn(uri)` (byte cap, `getType` + magic-byte verify, `runCatching`), `delete(uri)`, `sweepOrphans()`. Owns `filesDir/composer_shares/`. | `Context`, `ContentResolver`, injected `@IoDispatcher` |
 | `ComposerRoute` prefill + VM seeding | `:feature:composer:{api,impl}` | New route params; VM seeds `TextFieldState` + dispatches `AddAttachments`; wires the 4 cleanup triggers. | existing composer |
 
 The `MainActivity` `ACTION_SEND` branch is the thin glue: call `ShareIntentParser`, call `SharedMediaStore.copyIn` for an image, `deepLinkRouter.publish(ComposerRoute(...))`, strip extras.
