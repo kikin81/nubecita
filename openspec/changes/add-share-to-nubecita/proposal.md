@@ -21,7 +21,7 @@ Make Nubecita an Android **share target** for **text/links and a single image** 
 
 ### App-owned media copy + lifecycle (`:core:posting`)
 
-- A `SharedMediaStore` seam: `copyIn(uri): Uri` (bounded read with a hard byte cap, `runCatching` around IO, **actual-type verification** via `ContentResolver.getType` + magic-byte sniff), `delete(uri)`, `sweepOrphans()`. Copies live in a dedicated `filesDir/composer_shares/` subdirectory (deterministic across process death, unlike `cacheDir`).
+- A `SharedMediaStore` seam: `copyIn(uri): Uri?` (**null when rejected or failed** — oversize, non-image, or IO error), with a bounded read (hard byte cap), `runCatching` around IO, **actual-type verification** via `ContentResolver.getType` + magic-byte sniff; plus `delete(uri)`, `sweepOrphans()`. Copies live in a dedicated `filesDir/composer_shares/` subdirectory (deterministic across process death, unlike `cacheDir`).
 
 ### Composer prefill (`:feature:composer`)
 
