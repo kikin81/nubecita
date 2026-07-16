@@ -96,18 +96,19 @@
             </intent-filter>
 
             <!--
-                Inbound share target: receive shared text/links (ACTION_SEND,
-                text/plain) into the composer. Slice B of the share-target epic;
-                the image/* filter lands together with image handling in a later
-                slice. This widens the already-exported MainActivity's launchable
-                surface, so MainActivity.handleShareIntent treats the payload as
-                untrusted and validates it (via ShareIntentParser) before
-                publishing a ComposerRoute.
+                Inbound share target: receive shared text/links (text/plain) and a
+                single image (image/*) via ACTION_SEND into the composer. This
+                widens the already-exported MainActivity's launchable surface, so
+                MainActivity.handleShareIntent treats the payload as untrusted:
+                text is validated via ShareIntentParser, and the image content://
+                is byte-verified and copied into app-private storage by
+                SharedMediaStore before a ComposerRoute is published.
             -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
+                <data android:mimeType="image/*" />
             </intent-filter>
             <!--
                 Verified Android App Link for the OAuth redirect.

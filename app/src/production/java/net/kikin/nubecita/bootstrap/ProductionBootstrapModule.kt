@@ -7,10 +7,14 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import net.kikin.nubecita.BuildConfig
 import net.kikin.nubecita.core.billing.RevenueCatInitializer
+import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.core.moderation.ModerationPreferencesCoordinator
 import net.kikin.nubecita.core.moderation.PostAudienceDefaultCoordinator
+import net.kikin.nubecita.core.posting.SharedMediaStore
 import net.kikin.nubecita.core.push.AppLifecycleObserver
 import net.kikin.nubecita.core.push.PushRegistrationCoordinator
 import net.kikin.nubecita.core.widgetsync.worker.WidgetRefreshScheduler
@@ -109,6 +113,22 @@ internal object ProductionBootstrapModule {
     fun providePostAudienceDefaultInitializer(
         coordinator: PostAudienceDefaultCoordinator,
     ): AppInitializer = AppInitializer { coordinator.start() }
+
+    // Boot-time backstop for the shared-image copy directory: delete orphaned
+    // copies older than the retention window — the case where a share opened the
+    // composer but the process died before the in-session cleanup (remove /
+    // publish / dismiss) fired. Production-only: the bench flavor never receives
+    // shares, so nothing accumulates there. sweepOrphans is suspending IO, so it
+    // runs on the application scope rather than blocking startup.
+    @Provides
+    @IntoSet
+    fun provideSharedMediaSweepInitializer(
+        sharedMediaStore: SharedMediaStore,
+        @ApplicationScope applicationScope: CoroutineScope,
+    ): AppInitializer =
+        AppInitializer {
+            applicationScope.launch { sharedMediaStore.sweepOrphans() }
+        }
 
     // RevenueCat lives only in the production flavor: configure runs here, so the
     // bench flavor (empty initializer set) never touches the SDK or the network.

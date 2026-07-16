@@ -10,6 +10,7 @@
     <string name="pip_action_pause">Pausar</string>
     <string name="in_app_update_downloaded">Atualização baixada</string>
     <string name="in_app_update_restart">Reiniciar</string>
+    <string name="share_image_unavailable">Não foi possível anexar a imagem compartilhada</string>
 
     <plurals name="notifications_unread">
         <item quantity="one">%1$d notificação não lida</item>

@@ -18,6 +18,8 @@
     <!-- In-app FLEXIBLE update: snackbar shown when an update has finished downloading and a restart will install it. -->
     <string name="in_app_update_downloaded">Update downloaded</string>
     <string name="in_app_update_restart">Restart</string>
+    <!-- Toast shown when an image shared into Nubecita from another app couldn't be attached (unreadable, too large, or an expired grant); the composer still opens. -->
+    <string name="share_image_unavailable">Couldn\'t attach the shared image</string>
 
     <plurals name="notifications_unread">
         <item quantity="one">%1$d unread notification</item>

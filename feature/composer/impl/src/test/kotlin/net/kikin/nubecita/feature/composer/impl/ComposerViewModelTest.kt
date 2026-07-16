@@ -79,6 +79,14 @@ import org.junit.jupiter.api.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ComposerViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
+
+    // Shared-image (slice C): the VM resolves route.sharedImageUri through the
+    // store into a ComposerAttachment, and deletes the app-owned copy on remove /
+    // publish / dismiss. relaxed so delete/sweepOrphans are no-op; attachmentFor
+    // is stubbed per test.
+    private val sharedMediaStore = mockk<net.kikin.nubecita.core.posting.SharedMediaStore>(relaxed = true)
+    private val sharedImageMockUri = mockk<android.net.Uri>(relaxed = true)
+
     private val postingRepository = mockk<PostingRepository>()
     private val parentFetchSource = mockk<ParentFetchSource>()
     private val quotePostFetcher = mockk<QuotePostFetcher>()
@@ -1359,11 +1367,105 @@ class ComposerViewModelTest {
             imageUrl = "https://cardyb.bsky.app/v1/image?url=x",
         )
 
+    // --- shared image (slice C) ---------------------------------------------
+
+    private fun sharedImageAttachment() =
+        net.kikin.nubecita.core.posting
+            .ComposerAttachment(uri = sharedImageMockUri, mimeType = "image/jpeg")
+
+    @Test
+    fun sharedImageUri_resolvesAndSeedsAttachment() =
+        runTest {
+            coEvery { sharedMediaStore.attachmentFor("file:///data/a.jpg") } returns sharedImageAttachment()
+
+            val vm = newVm(sharedImageUri = "file:///data/a.jpg")
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(sharedImageAttachment()),
+                vm.uiState.value.attachments
+                    .toList(),
+            )
+        }
+
+    @Test
+    fun sharedImageUri_gone_seedsNoAttachment() =
+        runTest {
+            // Graceful missing-file: the copy was evicted / the route is stale.
+            coEvery { sharedMediaStore.attachmentFor(any()) } returns null
+
+            val vm = newVm(sharedImageUri = "file:///data/gone.jpg")
+            advanceUntilIdle()
+
+            assertEquals(0, vm.uiState.value.attachments.size)
+        }
+
+    @Test
+    fun sharedImageWithSharedText_imageAttachedAndCaptionSeeded() =
+        runTest {
+            coEvery { sharedMediaStore.attachmentFor(any()) } returns sharedImageAttachment()
+
+            val vm = newVm(sharedText = "look at this", sharedImageUri = "file:///data/a.jpg")
+            advanceUntilIdle()
+
+            // Both coexist: the image is attached (not dropped for the text) and
+            // the caption seeds the field.
+            assertEquals(1, vm.uiState.value.attachments.size)
+            assertEquals("look at this", vm.textFieldState.text.toString())
+        }
+
+    @Test
+    fun removingSharedImage_deletesTheAppOwnedCopy() =
+        runTest {
+            coEvery { sharedMediaStore.attachmentFor(any()) } returns sharedImageAttachment()
+            val vm = newVm(sharedImageUri = "file:///data/a.jpg")
+            advanceUntilIdle()
+
+            vm.handleEvent(ComposerEvent.RemoveAttachment(0))
+            advanceUntilIdle()
+
+            coVerify { sharedMediaStore.delete(sharedImageMockUri) }
+        }
+
+    @Test
+    fun publishSuccess_deletesTheSharedImageCopy() =
+        runTest {
+            coEvery { sharedMediaStore.attachmentFor(any()) } returns sharedImageAttachment()
+            coEvery {
+                postingRepository.createPost(text = any(), attachments = any(), replyTo = any())
+            } returns Result.success(AtUri("at://did:plc:me/app.bsky.feed.post/new"))
+
+            val vm = newVm(sharedImageUri = "file:///data/a.jpg")
+            advanceUntilIdle()
+            vm.handleEvent(ComposerEvent.Submit)
+            advanceUntilIdle()
+
+            coVerify { sharedMediaStore.delete(sharedImageMockUri) }
+        }
+
+    @Test
+    fun onCleared_deletesSharedImageCopy_whenNotPublished() =
+        runTest {
+            coEvery { sharedMediaStore.attachmentFor(any()) } returns sharedImageAttachment()
+            val vm = newVm(sharedImageUri = "file:///data/a.jpg")
+            advanceUntilIdle()
+
+            // onCleared is protected; invoke it the way the ViewModelStore would.
+            ComposerViewModel::class.java
+                .getDeclaredMethod("onCleared")
+                .apply { isAccessible = true }
+                .invoke(vm)
+            advanceUntilIdle()
+
+            coVerify { sharedMediaStore.delete(sharedImageMockUri) }
+        }
+
     private fun newVm(
         replyToUri: String? = null,
         quotePostUri: String? = null,
         mentionHandle: String? = null,
         sharedText: String? = null,
+        sharedImageUri: String? = null,
         deviceLocaleTag: String = "en-US",
     ): ComposerViewModel =
         ComposerViewModel(
@@ -1373,6 +1475,7 @@ class ComposerViewModelTest {
                     quotePostUri = quotePostUri,
                     mentionHandle = mentionHandle,
                     sharedText = sharedText,
+                    sharedImageUri = sharedImageUri,
                 ),
             postingRepository = postingRepository,
             parentFetchSource = parentFetchSource,
@@ -1382,6 +1485,8 @@ class ComposerViewModelTest {
             postAudienceDefaultRepository = postAudienceDefaultRepository,
             externalLinkMetadataRepository = externalLinkMetadataRepository,
             reviewManager = mockk(relaxed = true),
+            sharedMediaStore = sharedMediaStore,
+            applicationScope = kotlinx.coroutines.CoroutineScope(testDispatcher),
         )
 
     private fun fixedLocaleProvider(tag: String): LocaleProvider =

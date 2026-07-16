@@ -17,6 +17,17 @@ sealed interface SharedContent {
         val text: String,
     ) : SharedContent
 
+    /**
+     * An image share (`ACTION_SEND` with an image MIME). The bytes live in
+     * `EXTRA_STREAM` — resolved, copied, and byte-verified by `SharedMediaStore`
+     * on the `MainActivity` side, not here. [caption] is any accompanying
+     * `EXTRA_TEXT` (trimmed, within cap), seeded verbatim into the composer; a
+     * blank or oversize caption is dropped but the image is still kept.
+     */
+    data class Image(
+        val caption: String?,
+    ) : SharedContent
+
     /** Nothing usable was shared (blank, oversized, wrong action/MIME, or a bare unsafe-scheme URI). */
     data object Invalid : SharedContent
 }
@@ -43,12 +54,23 @@ object ShareIntentParser {
         maxTextLength: Int,
     ): SharedContent {
         if (action != ACTION_SEND) return SharedContent.Invalid
-        // Exactly text/plain — not text/html, text/vcard, etc. Strip any MIME
-        // parameters (`text/plain;charset=utf-8`) and match the essence.
         if (mimeType == null) return SharedContent.Invalid
+        // Strip any MIME parameters (`text/plain;charset=utf-8`) and match the
+        // essence. text/plain is matched exactly (not text/html, text/vcard);
+        // image/* is matched by prefix — the real gate is the magic-byte sniff in
+        // SharedMediaStore, so the declared image subtype can be permissive.
         val essence = mimeType.substringBefore(';').trim().lowercase(Locale.ROOT)
-        if (essence != "text/plain") return SharedContent.Invalid
+        return when {
+            essence == "text/plain" -> parseText(extraText, maxTextLength)
+            essence.startsWith("image/") -> SharedContent.Image(caption = caption(extraText, maxTextLength))
+            else -> SharedContent.Invalid
+        }
+    }
 
+    private fun parseText(
+        extraText: String?,
+        maxTextLength: Int,
+    ): SharedContent {
         // Length-gate BEFORE trim: an untrusted sender could hand over a
         // multi-megabyte EXTRA_TEXT, and trim() would allocate a full copy first
         // (OOM risk on low-end devices). Reject on the raw length, then trim.
@@ -72,4 +94,19 @@ object ShareIntentParser {
 
         return SharedContent.Text(text)
     }
+
+    /**
+     * The optional caption that rides along with an image share. Length-gated
+     * before trim (same OOM guard as text); a blank or oversize caption becomes
+     * null so the image is kept without it. Seeded verbatim — no scheme
+     * allowlist, since it is accompanying prose, not the shared payload itself.
+     */
+    private fun caption(
+        extraText: String?,
+        maxTextLength: Int,
+    ): String? =
+        extraText
+            ?.takeIf { it.length <= maxTextLength }
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
 }

@@ -1,8 +1,10 @@
 package net.kikin.nubecita
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -38,6 +40,7 @@ import net.kikin.nubecita.core.common.navigation.NavKeyDeepLinkMatcher
 import net.kikin.nubecita.core.common.navigation.Navigator
 import net.kikin.nubecita.core.posting.ShareIntentParser
 import net.kikin.nubecita.core.posting.SharedContent
+import net.kikin.nubecita.core.posting.SharedMediaStore
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import net.kikin.nubecita.core.push.PushNotificationBuilder
 import net.kikin.nubecita.core.push.PushPayload
@@ -83,6 +86,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var inAppUpdateController: InAppUpdateController
+
+    @Inject
+    lateinit var sharedMediaStore: SharedMediaStore
 
     /**
      * Activity-scoped launcher for the in-app-update confirmation flow (Play's
@@ -327,8 +333,28 @@ class MainActivity : ComponentActivity() {
                 extraText = rawText,
                 maxTextLength = SHARE_TEXT_MAX_LENGTH,
             )
-        if (parsed is SharedContent.Text) {
-            lifecycleScope.launch { deepLinkRouter.publish(ComposerRoute(sharedText = parsed.text)) }
+        // Capture the stream URI BEFORE the extras are stripped below.
+        val streamUri = if (parsed is SharedContent.Image) intent.extraStreamUri() else null
+
+        when (parsed) {
+            is SharedContent.Text ->
+                lifecycleScope.launch { deepLinkRouter.publish(ComposerRoute(sharedText = parsed.text)) }
+            is SharedContent.Image ->
+                lifecycleScope.launch {
+                    // Copy the transient content:// into app-private storage off the
+                    // main thread (copyIn switches to IO internally); the composer only
+                    // ever reads the app-owned copy, never the expiring grant.
+                    val copied = streamUri?.let { sharedMediaStore.copyIn(it) }
+                    if (copied == null && streamUri != null) {
+                        Toast.makeText(this@MainActivity, R.string.share_image_unavailable, Toast.LENGTH_SHORT).show()
+                    }
+                    // The composer opens either way (design D5 §5): with the image when
+                    // the copy succeeded, else caption-only or empty.
+                    deepLinkRouter.publish(
+                        ComposerRoute(sharedImageUri = copied?.toString(), sharedText = parsed.caption),
+                    )
+                }
+            SharedContent.Invalid -> Unit
         }
 
         // Consume in place so rotation / onNewIntent can't replay. Strip only the
@@ -340,6 +366,14 @@ class MainActivity : ComponentActivity() {
         intent.clipData = null
         return true
     }
+
+    @Suppress("DEPRECATION")
+    private fun Intent.extraStreamUri(): Uri? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+        } else {
+            getParcelableExtra(Intent.EXTRA_STREAM)
+        }
 
     private fun handleIntent(intent: Intent) {
         // Inbound share (ACTION_SEND) has no `intent.data`, so it must be handled
