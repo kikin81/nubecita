@@ -166,6 +166,7 @@ class ProfileScreenOverflowReportInstrumentationTest {
                 analytics = NoOpAnalyticsClient(),
                 muteRepository = mockk(relaxed = true),
                 handler = FakePostInteractionHandler(),
+                postRepository = mockk(relaxed = true),
             )
 
         // MainShellNavState's primary constructor accepts a startRoute,
