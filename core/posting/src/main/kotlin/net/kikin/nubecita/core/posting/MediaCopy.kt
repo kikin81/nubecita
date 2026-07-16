@@ -67,6 +67,7 @@ internal object MediaCopy {
         maxBytes: Long,
     ): Boolean {
         var written = 0L
+        var exceeded = false
         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
         dest.outputStream().use { out ->
             while (true) {
@@ -74,14 +75,17 @@ internal object MediaCopy {
                 if (read == -1) break
                 written += read
                 if (written > maxBytes) {
-                    out.flush()
-                    dest.delete()
-                    return false
+                    exceeded = true
+                    break
                 }
                 out.write(buffer, 0, read)
             }
         }
-        return true
+        // Delete AFTER the stream is closed (outside `use`): deleting while the
+        // output handle is still open fails on some filesystems (e.g. Windows,
+        // where JVM unit tests may run).
+        if (exceeded) dest.delete()
+        return !exceeded
     }
 
     /**

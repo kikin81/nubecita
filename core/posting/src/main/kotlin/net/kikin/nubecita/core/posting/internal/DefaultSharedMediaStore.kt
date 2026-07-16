@@ -51,25 +51,25 @@ internal class DefaultSharedMediaStore
                     dir.mkdirs()
                     val id = UUID.randomUUID().toString()
                     val temp = File(dir, "tmp_$id")
-                    val copied =
-                        resolver.openInputStream(source)?.use { input ->
-                            MediaCopy.copyBounded(input, temp, MAX_IMAGE_BYTES)
-                        } ?: false
-                    if (!copied) {
-                        temp.delete()
-                        return@runCatching null
+                    var renamed = false
+                    try {
+                        val copied =
+                            resolver.openInputStream(source)?.use { input ->
+                                MediaCopy.copyBounded(input, temp, MAX_IMAGE_BYTES)
+                            } ?: false
+                        if (!copied) return@runCatching null
+                        val type = MediaCopy.sniff(readHeader(temp)) ?: return@runCatching null
+                        val dest = File(dir, "$id.${type.extension}")
+                        if (!temp.renameTo(dest)) return@runCatching null
+                        renamed = true
+                        Uri.fromFile(dest)
+                    } finally {
+                        // Always clean up the temp copy unless it was renamed into
+                        // place — covers the reject paths AND copyBounded/readHeader/
+                        // renameTo throwing (disk full, write error), which
+                        // runCatching would otherwise swallow, leaking tmp_* files.
+                        if (!renamed) temp.delete()
                     }
-                    val type = MediaCopy.sniff(readHeader(temp))
-                    if (type == null) {
-                        temp.delete()
-                        return@runCatching null
-                    }
-                    val dest = File(dir, "$id.${type.extension}")
-                    if (!temp.renameTo(dest)) {
-                        temp.delete()
-                        return@runCatching null
-                    }
-                    Uri.fromFile(dest)
                 }.getOrElse { if (it is CancellationException) throw it else null }
             }
 

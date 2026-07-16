@@ -369,10 +369,20 @@ class MainActivity : ComponentActivity() {
 
     @Suppress("DEPRECATION")
     private fun Intent.extraStreamUri(): Uri? =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
-        } else {
-            getParcelableExtra(Intent.EXTRA_STREAM)
+        try {
+            // World-launchable entry point: a hostile sender can put a non-Uri
+            // object (ClassCastException) or a custom Parcelable not on our
+            // classpath (BadParcelableException while the extras bundle unparcels)
+            // in EXTRA_STREAM. Fail closed to null rather than crash. The API 33+
+            // overload is already type-safe; `as? Uri` covers the legacy path.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+            } else {
+                getParcelableExtra(Intent.EXTRA_STREAM) as? Uri
+            }
+        } catch (e: RuntimeException) {
+            Timber.w(e, "Malformed EXTRA_STREAM in shared intent; dropping the image")
+            null
         }
 
     private fun handleIntent(intent: Intent) {
