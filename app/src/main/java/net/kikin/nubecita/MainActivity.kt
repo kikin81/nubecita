@@ -307,24 +307,34 @@ class MainActivity : ComponentActivity() {
     private fun handleShareIntent(intent: Intent): Boolean {
         if (intent.action != ShareIntentParser.ACTION_SEND) return false
 
+        // getCharSequenceExtra, not getStringExtra: many senders (Chrome, Photos,
+        // the system share sheet) put EXTRA_TEXT as a Spannable/CharSequence to
+        // preserve formatting, and getStringExtra returns null for those —
+        // silently dropping the share. Gate on the CharSequence length BEFORE
+        // toString(): a world-launchable entry point could hand over a huge
+        // EXTRA_TEXT, and materializing it to a String just to have the parser
+        // reject it would defeat the parser's own OOM guard, so oversize input
+        // is never stringified.
+        val rawText =
+            intent
+                .getCharSequenceExtra(Intent.EXTRA_TEXT)
+                ?.takeIf { it.length <= SHARE_TEXT_MAX_LENGTH }
+                ?.toString()
         val parsed =
             ShareIntentParser.parse(
                 action = intent.action,
                 mimeType = intent.type,
-                // getCharSequenceExtra, not getStringExtra: many senders (Chrome,
-                // Photos, the system share sheet) put EXTRA_TEXT as a Spannable/
-                // CharSequence to preserve formatting, and getStringExtra returns
-                // null for those — silently dropping the share.
-                extraText = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString(),
+                extraText = rawText,
                 maxTextLength = SHARE_TEXT_MAX_LENGTH,
             )
         if (parsed is SharedContent.Text) {
             lifecycleScope.launch { deepLinkRouter.publish(ComposerRoute(sharedText = parsed.text)) }
         }
 
-        // Consume in place so rotation / onNewIntent can't replay. Do NOT
-        // setIntent(Intent()) — that would drop flags/type/clipData the rest of
-        // the Activity may rely on.
+        // Consume in place so rotation / onNewIntent can't replay. Strip only the
+        // share payload (EXTRA_TEXT / EXTRA_STREAM / clipData); don't
+        // setIntent(Intent()), which would also drop the action / flags / type
+        // the rest of the Activity relies on.
         intent.removeExtra(Intent.EXTRA_TEXT)
         intent.removeExtra(Intent.EXTRA_STREAM)
         intent.clipData = null

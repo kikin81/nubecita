@@ -1,5 +1,7 @@
 package net.kikin.nubecita.core.posting
 
+import java.util.Locale
+
 /**
  * The classified result of an inbound Android share (`ACTION_SEND`). Slice B of
  * the share-target epic covers text/links only; image variants are added by a
@@ -44,7 +46,7 @@ object ShareIntentParser {
         // Exactly text/plain — not text/html, text/vcard, etc. Strip any MIME
         // parameters (`text/plain;charset=utf-8`) and match the essence.
         if (mimeType == null) return SharedContent.Invalid
-        val essence = mimeType.substringBefore(';').trim().lowercase()
+        val essence = mimeType.substringBefore(';').trim().lowercase(Locale.ROOT)
         if (essence != "text/plain") return SharedContent.Invalid
 
         // Length-gate BEFORE trim: an untrusted sender could hand over a
@@ -64,7 +66,7 @@ object ShareIntentParser {
                     .find(text)
                     ?.groupValues
                     ?.get(1)
-                    ?.lowercase()
+                    ?.lowercase(Locale.ROOT)
             if (scheme != null && scheme != "http" && scheme != "https") return SharedContent.Invalid
         }
 

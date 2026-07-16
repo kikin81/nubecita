@@ -2,6 +2,7 @@ package net.kikin.nubecita.core.posting
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import java.util.Locale
 
 /**
  * Unit tests for [ShareIntentParser] — the pure classifier behind the inbound
@@ -113,5 +114,20 @@ class ShareIntentParserTest {
     @Test
     fun nullMime_isInvalid() {
         assertEquals(SharedContent.Invalid, parse(mimeType = null, extraText = "https://x.com"))
+    }
+
+    @Test
+    fun uppercaseMime_inTurkishLocale_isText() {
+        // Regression lock: a no-arg lowercase() under tr-TR maps 'I' -> dotless
+        // 'ı', so "TEXT/PLAIN" would NOT match "text/plain" and the share would be
+        // wrongly rejected. Locale.ROOT keeps MIME matching deterministic. This
+        // test fails if either lowercase() call drops its Locale.ROOT argument.
+        val prior = Locale.getDefault()
+        try {
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"))
+            assertEquals(SharedContent.Text("https://x.com"), parse(mimeType = "TEXT/PLAIN", extraText = "https://x.com"))
+        } finally {
+            Locale.setDefault(prior)
+        }
     }
 }
