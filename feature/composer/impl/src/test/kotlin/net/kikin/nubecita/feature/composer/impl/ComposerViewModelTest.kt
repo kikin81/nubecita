@@ -169,6 +169,36 @@ class ComposerViewModelTest {
         }
 
     @Test
+    fun sharedText_seedsTextFieldVerbatim() =
+        runTest {
+            // A "share to Nubecita" of plain text (or a URL) seeds the composer
+            // text field verbatim; a seeded URL then auto-generates a link card
+            // via the existing ExternalLinkDetector scanner (no new scan code).
+            val vm = newVm(sharedText = "https://example.com/article")
+
+            assertEquals("https://example.com/article", vm.textFieldState.text.toString())
+        }
+
+    @Test
+    fun sharedText_blankSeedsEmpty() =
+        runTest {
+            // A blank shared text is treated as no prefill.
+            val vm = newVm(sharedText = "   ")
+
+            assertEquals("", vm.textFieldState.text.toString())
+        }
+
+    @Test
+    fun mentionHandle_takesPrecedenceOverSharedText() =
+        runTest {
+            // Composing from a profile (mentionHandle) is an explicit action and
+            // wins over an incidental shared text if somehow both are present.
+            val vm = newVm(mentionHandle = "alice.bsky.social", sharedText = "https://example.com")
+
+            assertEquals("@alice.bsky.social ", vm.textFieldState.text.toString())
+        }
+
+    @Test
     fun mentionHandle_blank_seedsEmptyComposer() =
         runTest {
             val vm = newVm(mentionHandle = "   ")
@@ -1315,10 +1345,17 @@ class ComposerViewModelTest {
         replyToUri: String? = null,
         quotePostUri: String? = null,
         mentionHandle: String? = null,
+        sharedText: String? = null,
         deviceLocaleTag: String = "en-US",
     ): ComposerViewModel =
         ComposerViewModel(
-            route = ComposerRoute(replyToUri = replyToUri, quotePostUri = quotePostUri, mentionHandle = mentionHandle),
+            route =
+                ComposerRoute(
+                    replyToUri = replyToUri,
+                    quotePostUri = quotePostUri,
+                    mentionHandle = mentionHandle,
+                    sharedText = sharedText,
+                ),
             postingRepository = postingRepository,
             parentFetchSource = parentFetchSource,
             quotePostFetcher = quotePostFetcher,
