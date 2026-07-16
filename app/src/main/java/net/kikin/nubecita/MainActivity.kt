@@ -184,7 +184,17 @@ class MainActivity : ComponentActivity() {
         // Cold-start case: the OAuth redirect arrived while the app was dead and Android
         // launched MainActivity with the redirect intent. The broker buffers until
         // LoginViewModel's init-time collector subscribes.
-        handleIntent(intent)
+        //
+        // Only on a genuine fresh start (savedInstanceState == null). On recreation
+        // (a config change outside `configChanges`, or system-initiated process
+        // death) the OS re-delivers a COPY of the original launch intent, and
+        // in-place consumption (intent.data = null / removeExtra) doesn't persist
+        // across that copy — so an unguarded call would re-fire the share /
+        // deep-link / OAuth handler and, e.g., re-open the composer. onNewIntent
+        // still handles warm deliveries.
+        if (savedInstanceState == null) {
+            handleIntent(intent)
+        }
 
         // Drive the initial session state read off the splash. Once refresh() completes,
         // state transitions to SignedIn or SignedOut; the collector below reacts.
@@ -301,7 +311,11 @@ class MainActivity : ComponentActivity() {
             ShareIntentParser.parse(
                 action = intent.action,
                 mimeType = intent.type,
-                extraText = intent.getStringExtra(Intent.EXTRA_TEXT),
+                // getCharSequenceExtra, not getStringExtra: many senders (Chrome,
+                // Photos, the system share sheet) put EXTRA_TEXT as a Spannable/
+                // CharSequence to preserve formatting, and getStringExtra returns
+                // null for those — silently dropping the share.
+                extraText = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString(),
                 maxTextLength = SHARE_TEXT_MAX_LENGTH,
             )
         if (parsed is SharedContent.Text) {

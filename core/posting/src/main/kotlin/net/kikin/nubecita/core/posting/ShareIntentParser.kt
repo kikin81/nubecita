@@ -41,10 +41,18 @@ object ShareIntentParser {
         maxTextLength: Int,
     ): SharedContent {
         if (action != ACTION_SEND) return SharedContent.Invalid
-        if (mimeType == null || !mimeType.startsWith("text/")) return SharedContent.Invalid
+        // Exactly text/plain — not text/html, text/vcard, etc. Strip any MIME
+        // parameters (`text/plain;charset=utf-8`) and match the essence.
+        if (mimeType == null) return SharedContent.Invalid
+        val essence = mimeType.substringBefore(';').trim().lowercase()
+        if (essence != "text/plain") return SharedContent.Invalid
 
-        val text = extraText?.trim().orEmpty()
-        if (text.isEmpty() || text.length > maxTextLength) return SharedContent.Invalid
+        // Length-gate BEFORE trim: an untrusted sender could hand over a
+        // multi-megabyte EXTRA_TEXT, and trim() would allocate a full copy first
+        // (OOM risk on low-end devices). Reject on the raw length, then trim.
+        if (extraText == null || extraText.length > maxTextLength) return SharedContent.Invalid
+        val text = extraText.trim()
+        if (text.isEmpty()) return SharedContent.Invalid
 
         // A whitespace-free payload that is a single URI: allowlist the scheme to
         // http/https. A bare javascript:/file:/content:/intent:/… URI is rejected

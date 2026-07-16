@@ -93,6 +93,24 @@ class ShareIntentParserTest {
     }
 
     @Test
+    fun nonPlainTextMime_isInvalid() {
+        // Only text/plain — not text/html, text/vcard, etc. The manifest filter
+        // advertises text/plain, and this is a world-launchable entry point, so
+        // the parser must not silently accept other text subtypes.
+        assertEquals(SharedContent.Invalid, parse(mimeType = "text/html", extraText = "https://x.com"))
+        assertEquals(SharedContent.Invalid, parse(mimeType = "text/vcard", extraText = "https://x.com"))
+    }
+
+    @Test
+    fun textPlainWithCharsetParam_isText() {
+        // A MIME with parameters (text/plain;charset=utf-8) is still text/plain.
+        assertEquals(
+            SharedContent.Text("https://x.com"),
+            parse(mimeType = "text/plain;charset=utf-8", extraText = "https://x.com"),
+        )
+    }
+
+    @Test
     fun nullMime_isInvalid() {
         assertEquals(SharedContent.Invalid, parse(mimeType = null, extraText = "https://x.com"))
     }
