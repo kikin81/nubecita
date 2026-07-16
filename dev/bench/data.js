@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784101884526,
+  "lastUpdate": 1784188563003,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -363,6 +363,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 1122.203,
             "range": "+/- 26.5%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "7d6e90fac3f590d15163f2d8361d51643c2762b2",
+          "message": "test(share): add instrumented SharedMediaStore + bench E2E coverage for the share target (#740)\n\n* test(share): add instrumented SharedMediaStore + bench E2E coverage for the share target\n\nSlice D of the share-to-Nubecita epic — validation.\n\n- DefaultSharedMediaStoreTest (:core:posting androidTest, 10 tests): the real\n  Context/ContentResolver/Uri glue the pure MediaCopy unit tests can't reach —\n  own-authority (confused-deputy) rejection, magic-byte rejection of non-images,\n  the byte cap (rejects, no partial file), the owned-copy guards on resolve /\n  delete, and the orphan sweep. No Hilt: the impl is constructed directly with\n  the instrumentation target context. To drive the 25 MB byte cap cheaply, the\n  cap + sweep age are now constructor-injectable, with the production defaults\n  supplied by an @Inject secondary constructor.\n\n- ShareToComposerE2ETest (:app androidTest, bench flavor, 2 tests): fires a real\n  ACTION_SEND at MainActivity and asserts the composer opens prefilled — text\n  (URL seeded into the field) and image (a MediaStore JPEG copies, attaches, and\n  enables Post). Bench-gated via assumeTrue like ModerationNavigationE2ETest,\n  since production has no fake session and stops at Login.\n\nCI compile-checks both androidTest source sets (compileProductionDebugAndroidTest\nSources); the tests run locally / nightly via connected*AndroidTest — verified\ngreen on a local emulator, plus a manual text-share smoke (composer opens carded\nin the tablet dialog posture).\n\nNote for whoever smoke-tests images by hand: `adb shell am start ... --eu\nandroid.intent.extra.STREAM content://...` delivers the URI extra in a form the\nAPI-33+ getParcelableExtra(name, Uri::class.java) does not read, so it opens an\nempty composer — an `am` tooling artifact, not a bug. The in-process E2E (real\nParcel round-trip, like Chrome/Gallery) confirms the image path works; use a\nreal Gallery share, not `am --eu`, for a manual check.\n\nRefs: nubecita-9xoz.7\n\n* test(share): guard MediaStore-row leak, assert setLastModified, use assertArrayEquals\n\nGemini review on slice D:\n\n- insertTestImage: wrap the openOutputStream/compress in try/catch and delete\n  the inserted MediaStore row if writing the bytes throws — otherwise a failure\n  before the caller's finally-delete leaks a row in the shared MediaStore.\n- sweepOrphans test: assert File.setLastModified() returned true; it can fail\n  silently on some emulator filesystems, which would make the sweep assertion a\n  false positive (the file wouldn't actually be backdated past retention).\n- Use JUnit's built-in assertArrayEquals (better failure diagnostics) and drop\n  the custom assertArrayEqualsBytes helper.\n- listFiles().orEmpty() instead of !! for consistency / NPE-safety.\n\nRefs: nubecita-9xoz.7",
+          "timestamp": "2026-07-16T06:25:29Z",
+          "url": "https://github.com/kikin81/nubecita/commit/7d6e90fac3f590d15163f2d8361d51643c2762b2"
+        },
+        "date": 1784188560984,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 29,
+            "range": "+/- 13.4%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1412.239,
+            "range": "+/- 9.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1345.075,
+            "range": "+/- 10%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 619.582,
+            "range": "+/- 38.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1112.904,
+            "range": "+/- 7.7%",
             "unit": "ms"
           }
         ]
