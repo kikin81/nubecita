@@ -13,8 +13,6 @@ import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
-import androidx.glance.appwidget.lazy.LazyColumn
-import androidx.glance.appwidget.lazy.items
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
@@ -116,14 +114,17 @@ private fun WidgetHeader(
 
 @Composable
 private fun PostList(rows: List<WidgetRow>) {
-    LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
-        items(items = rows, itemId = {
-            it.item.postUri
-                .hashCode()
-                .toLong()
-        }) { row ->
-            PostRow(row)
-        }
+    // A non-lazy Column, NOT a LazyColumn: a LazyColumn renders as a RemoteViews
+    // collection, so each row's tap goes through a shared PendingIntent template
+    // plus a per-item fill-in intent routed via Glance's ActionTrampolineActivity.
+    // On stale / cloned-launcher (parallel-space) RemoteViews replay the fill-in
+    // is dropped, and the trampoline crashes with "List adapter activity
+    // trampoline invoked without specifying target intent" (nubecita-ew77, top
+    // FATAL). A Column instead attaches a direct per-row PendingIntent — no
+    // collection, no trampoline. MAX_WIDGET_POSTS is 8 and the largest widget
+    // shows ~4-6, so losing lazy scrolling only clips the overflow rows.
+    Column(modifier = GlanceModifier.fillMaxSize()) {
+        rows.forEach { row -> PostRow(row) }
     }
 }
 

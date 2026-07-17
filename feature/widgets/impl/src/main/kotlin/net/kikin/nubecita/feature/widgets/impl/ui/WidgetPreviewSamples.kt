@@ -27,9 +27,8 @@ internal object WidgetPreviewSamples {
         WidgetRow(
             item =
                 WidgetPostItem(
-                    // Unique per row so the LazyColumn itemId (postUri.hashCode())
-                    // doesn't collide; preview rows are non-clickable so the value
-                    // need not be a real AT-URI.
+                    // Unique per row (distinct handle); preview rows are
+                    // non-clickable so the value need not be a real AT-URI.
                     postUri = "preview://$handle",
                     authorDisplay = name,
                     handle = handle,

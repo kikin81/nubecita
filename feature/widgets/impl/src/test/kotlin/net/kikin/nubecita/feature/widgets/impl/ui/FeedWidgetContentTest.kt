@@ -4,6 +4,7 @@ import androidx.glance.appwidget.testing.unit.GlanceAppWidgetUnitTest
 import androidx.glance.appwidget.testing.unit.runGlanceAppWidgetUnitTest
 import androidx.glance.testing.unit.hasTestTag
 import androidx.glance.testing.unit.hasText
+import net.kikin.nubecita.feature.widgets.impl.MAX_WIDGET_POSTS
 import net.kikin.nubecita.feature.widgets.impl.model.WidgetPostItem
 import org.junit.jupiter.api.Test
 import kotlin.time.Duration.Companion.seconds
@@ -57,6 +58,19 @@ internal class FeedWidgetContentTest {
             onNode(hasText(TITLE)).assertExists()
             onNode(hasTestTag(WidgetTestTags.REFRESH)).assertExists()
             onAllNodes(hasTestTag(WidgetTestTags.POST_ROW)).assertCountEquals(3)
+        }
+
+    @Test
+    fun everyRowRendersUpToTheWidgetCap() =
+        // Guards the LazyColumn -> Column switch (nubecita-ew77): a Column must
+        // still render every row, not just the ones that fit. Uses MAX_WIDGET_POSTS
+        // rows so a regression to a bounded/lazy container that drops overflow rows
+        // would fail here.
+        runWidgetTest {
+            val rows = (1..MAX_WIDGET_POSTS).map { row("at://$it", "Author$it") }
+            provideComposable { FeedWidgetContent(TITLE, FeedWidgetUiState.Loaded(rows = rows), STRINGS) }
+
+            onAllNodes(hasTestTag(WidgetTestTags.POST_ROW)).assertCountEquals(MAX_WIDGET_POSTS)
         }
 
     private companion object {
