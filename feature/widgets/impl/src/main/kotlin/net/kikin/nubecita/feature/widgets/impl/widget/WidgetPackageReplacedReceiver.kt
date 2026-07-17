@@ -3,11 +3,13 @@ package net.kikin.nubecita.feature.widgets.impl.widget
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.feature.widgets.impl.di.widgetEntryPoint
+import timber.log.Timber
 
 /**
  * Forces a full re-render of every placed feed widget after the app is updated.
@@ -47,11 +49,25 @@ internal class WidgetPackageReplacedReceiver : BroadcastReceiver() {
         // bounded AppWidgetManager re-render (well under the ~10s broadcast limit)
         // and already isolates each widget's failure internally.
         CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
+            // This scope has no CoroutineExceptionHandler, so an uncaught throw
+            // would reach the thread's handler and crash the app — right after an
+            // update, in a background broadcast, i.e. a crash loop. updateFeedWidgets
+            // already isolates each widget internally; this is belt-and-suspenders
+            // against anything else (entry-point/IPC), mirroring
+            // GlanceWidgetUpdater.updateSafely.
             try {
                 updater.updateFeedWidgets()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
+                Timber.tag(TAG).w(throwable, "widget re-render after MY_PACKAGE_REPLACED failed")
             } finally {
                 pending.finish()
             }
         }
+    }
+
+    private companion object {
+        const val TAG = "WidgetPkgReplaced"
     }
 }
