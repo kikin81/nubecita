@@ -17,7 +17,15 @@ internal class DefaultNavigator
         }
 
         override fun goBack() {
-            backStack.removeLastOrNull()
+            // Never empty the stack: the outer NavDisplay requires >= 1 entry, so a
+            // double-pop — an effect-driven goBack (VideoPlayer NavigateBack /
+            // MediaViewer onDismiss) racing the NavDisplay back handler, or a rapid
+            // double back — would otherwise crash it with "NavDisplay backstack
+            // cannot be empty" (nubecita-yqva). At the root there is nothing to pop;
+            // the platform's own back handling (finish the Activity) takes over.
+            if (backStack.size > 1) {
+                backStack.removeLastOrNull()
+            }
         }
 
         override fun replaceTo(key: NavKey) {

@@ -3,7 +3,6 @@ package net.kikin.nubecita.core.common.navigation
 import androidx.navigation3.runtime.NavKey
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class DefaultNavigatorTest {
@@ -35,14 +34,20 @@ class DefaultNavigatorTest {
     }
 
     @Test
-    fun `goBack on empty stack is a no-op`() {
+    fun `goBack never empties the stack`() {
         val navigator = DefaultNavigator(start = TestStart)
-        navigator.goBack() // pops TestStart
-        assertTrue(navigator.backStack.isEmpty())
 
-        navigator.goBack() // no-op
+        // Single-entry stack: goBack must NOT pop the last entry. The outer
+        // NavDisplay requires >= 1 entry, and a double-pop (an effect-driven
+        // goBack racing the NavDisplay back handler, or a rapid double back)
+        // would otherwise crash it with "NavDisplay backstack cannot be empty"
+        // (nubecita-yqva). At the root, the platform's back handling takes over.
+        navigator.goBack()
+        assertEquals(listOf<NavKey>(TestStart), navigator.backStack.toList())
 
-        assertTrue(navigator.backStack.isEmpty())
+        // A second (racing) goBack is still a safe no-op — the stack stays put.
+        navigator.goBack()
+        assertEquals(listOf<NavKey>(TestStart), navigator.backStack.toList())
     }
 
     @Test
