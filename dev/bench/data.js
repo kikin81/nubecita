@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784188563003,
+  "lastUpdate": 1784274792164,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -415,6 +415,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 1112.904,
             "range": "+/- 7.7%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "337d8c35a1fae69af018c3ef65e63b3180818edf",
+          "message": "ci(release): 1.298.1\n\n## [1.298.1](https://github.com/kikin81/nubecita/compare/v1.298.0...v1.298.1) (2026-07-17)\n\n### Bug Fixes\n\n* **deps:** update dependency io.nlopez.compose.rules:ktlint to v0.6.3 ([#742](https://github.com/kikin81/nubecita/issues/742)) ([dcd096f](https://github.com/kikin81/nubecita/commit/dcd096fb742d7a5496c608dddf9ffa1bc04e3dbb))",
+          "timestamp": "2026-07-17T06:04:43Z",
+          "url": "https://github.com/kikin81/nubecita/commit/337d8c35a1fae69af018c3ef65e63b3180818edf"
+        },
+        "date": 1784274791418,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 34,
+            "range": "+/- 7.9%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1396.109,
+            "range": "+/- 9.1%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1253.55,
+            "range": "+/- 4.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1129.218,
+            "range": "+/- 39.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1130.628,
+            "range": "+/- 35%",
             "unit": "ms"
           }
         ]
