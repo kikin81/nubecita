@@ -33,6 +33,23 @@
                 android:resource="@xml/widget_discover_info" />
         </receiver>
 
+        <!--
+          Re-renders the widgets after an app update so a stale collection
+          PendingIntent template cached by the launcher (from an older Glance
+          that routed list-item clicks through ActionTrampolineActivity on
+          Android 11) is replaced with the current safe template. Fixes the top
+          FATAL crash babbf348 (nubecita-ew77). exported="false" is correct:
+          MY_PACKAGE_REPLACED is a protected system broadcast delivered to the
+          app's own manifest receivers.
+        -->
+        <receiver
+            android:name="net.kikin.nubecita.feature.widgets.impl.widget.WidgetPackageReplacedReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>
