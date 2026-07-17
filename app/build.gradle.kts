@@ -393,6 +393,10 @@ dependencies {
     // benchmark/README.md for cadence.
     "baselineProfile"(project(":benchmark"))
 
+    // Bench also ships the widget, rendered offline against fakes — see the note
+    // on the productionImplementation line below (nubecita-epe3).
+    "benchImplementation"(project(":feature:widgets:impl"))
+
     kspAndroidTest(libs.hilt.android.compiler)
 
     // Glance widgets ship in production; the bench flavor also includes them but
@@ -403,7 +407,6 @@ dependencies {
     // (nubecita-ew77) without OAuth. Network-silence is preserved: the fakes
     // issue no XRPC.
     "productionImplementation"(project(":feature:widgets:impl"))
-    "benchImplementation"(project(":feature:widgets:impl"))
 }
 
 tasks.register("publish") {
