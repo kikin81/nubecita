@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.nubecita.android.library)
     alias(libs.plugins.nubecita.android.hilt)
+    alias(libs.plugins.nubecita.android.flavors)
 }
 
 android {

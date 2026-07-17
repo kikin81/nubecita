@@ -8,7 +8,6 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
-import net.kikin.nubecita.core.feedcache.DefaultFeedRepository
 import net.kikin.nubecita.core.feedcache.FeedCacheEvictionCoordinator
 import net.kikin.nubecita.core.feedcache.FeedCacheTransactionRunner
 import net.kikin.nubecita.core.feedcache.FeedRepository
@@ -29,9 +28,10 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 internal abstract class FeedCacheModule {
-    @Binds
-    @Singleton
-    internal abstract fun bindFeedRepository(impl: DefaultFeedRepository): FeedRepository
+    // [FeedRepository] is bound per flavor: the production source set binds
+    // `DefaultFeedRepository` (Room-backed); the bench source set binds an
+    // in-process fake so the feed widget renders offline (nubecita-epe3). See
+    // `FeedRepositoryModule` in src/production and src/bench.
 
     @Binds
     @Singleton

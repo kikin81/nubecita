@@ -393,11 +393,19 @@ dependencies {
     // benchmark/README.md for cadence.
     "baselineProfile"(project(":benchmark"))
 
+    // Bench also ships the widget, rendered offline against fakes — see the note
+    // on the productionImplementation line below (nubecita-epe3).
+    "benchImplementation"(project(":feature:widgets:impl"))
+
     kspAndroidTest(libs.hilt.android.compiler)
 
-    // Glance widgets ship in the production flavor only — the bench flavor stays
-    // Glance-free (no widget receivers in its manifest, no widget work). The real
-    // WidgetUpdater / WidgetImagePrefetcher seam bindings follow in group 8.
+    // Glance widgets ship in production; the bench flavor also includes them but
+    // renders offline against in-process fakes (nubecita-epe3) — the bench
+    // `FakeFeedRepository` + `FakeSessionStateProvider` mean the widget shows
+    // sample posts with zero network, so it can be smoke/screenshot-tested and
+    // used to reproduce the Android-11 list-adapter trampoline crash
+    // (nubecita-ew77) without OAuth. Network-silence is preserved: the fakes
+    // issue no XRPC.
     "productionImplementation"(project(":feature:widgets:impl"))
 }
 
