@@ -1,7 +1,5 @@
 package net.kikin.nubecita.designsystem.tabs
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -15,6 +13,8 @@ import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.Placeable
+import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -51,18 +51,24 @@ public data class PillTab<T>(
 /**
  * Single-selection pill row used on the profile screen (Posts / Replies /
  * Media, plus an own-profile-only Likes pill) and the Chats screen
- * (Messages / Requests). Built as a [FlowRow] of content-sized M3
- * Expressive [ToggleButton]s.
+ * (Messages / Requests). A wrapping row of M3 Expressive [ToggleButton]s,
+ * every pill sized to one uniform width — the widest pill's — and the
+ * connected group centered on each line.
  *
- * **Why a flow layout, not a weighted [androidx.compose.material3.ButtonGroup].**
- * The previous connected `ButtonGroup` gave every pill `weight = 1f`
- * (equal width). With four pills — and longer locales (es
- * "Publicaciones" / "Multimedia", pt "Publicações") — the equal-width
- * share is narrower than the label, so labels truncated ("Replie",
- * "Media" cut off). A [FlowRow] instead sizes each pill to its own
- * content and wraps the row onto a second line when the pills don't all
- * fit, so labels are never clipped. This mirrors the Material 3 Samples
- * "single select" flow example.
+ * **Why uniform-width via a measure pass, not a weighted
+ * [androidx.compose.material3.ButtonGroup] or bare content-sizing.**
+ * A weighted `ButtonGroup` gave every pill `weight = 1f` (equal share of the
+ * row); with four pills and longer locales (es "Publicaciones" / "Multimedia",
+ * pt "Publicações") that share is narrower than the label, so labels truncated
+ * ("Replie", "Media" cut off). Bare content-sizing (each pill its own width)
+ * fixes truncation but reads unevenly — short pills cluster to one side, and a
+ * pill that wraps alone onto a second line looks lost. So instead a
+ * [SubcomposeLayout] takes the widest pill's natural width (via `maxIntrinsicWidth`)
+ * and lays every pill out pinned to that width, wrapping and centering each line
+ * by hand. The widest label defines the width, so **nothing ever truncates**; all
+ * pills are the same even size; and a lone wrapped pill matches the rest instead
+ * of stretching. Each pill is composed once and measured once, so there are no
+ * phantom nodes to pollute the semantics tree.
  *
  * Single-selection semantics over [ToggleButton]'s boolean toggle: each
  * pill only forwards `onCheckedChange(true)` to [onSelect]; tapping the
@@ -109,41 +115,96 @@ public fun <T> ProfilePillTabs(
     modifier: Modifier = Modifier,
 ) {
     if (tabs.isEmpty()) return
-    FlowRow(
-        modifier = modifier.padding(horizontal = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        tabs.forEachIndexed { index, tab ->
-            val isSelected = tab.value == selectedValue
-            ToggleButton(
-                checked = isSelected,
-                // Single-select: tapping the active pill fires
-                // onCheckedChange(false), which we ignore — there is no
-                // "no tab selected" state. Tapping an unselected pill fires
-                // onCheckedChange(true), which delegates to onSelect.
-                onCheckedChange = { newChecked -> if (newChecked) onSelect(tab.value) },
-                // Connected group shapes by position, per the M3
-                // SingleSelectConnectedButtonGroupSample.
-                shapes =
-                    when (index) {
-                        0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                        tabs.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                        else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                    },
-            ) {
-                val badge = tab.badgeCount
-                if (badge != null && badge > 0) {
-                    BadgedBox(badge = { Badge { Text(badgeLabel(badge)) } }) {
-                        NubecitaIcon(name = tab.iconName, contentDescription = null, filled = isSelected)
-                    }
-                } else {
-                    NubecitaIcon(name = tab.iconName, contentDescription = null, filled = isSelected)
+    // The pills are subcomposed ONCE (single composition, single set of semantics
+    // nodes — no phantom measuring copies to confuse TalkBack or UI tests). Their
+    // natural widths come from `maxIntrinsicWidth`, so each pill is `measure`d
+    // exactly once — at the shared uniform width. Layout then wraps and centers
+    // each line by hand (a tiny flow), pinning every pill to the widest pill's
+    // width so the row reads as even and a lone wrapped pill matches the rest.
+    SubcomposeLayout(modifier = modifier.padding(horizontal = 8.dp)) { constraints ->
+        val columnGap = ButtonGroupDefaults.ConnectedSpaceBetween.roundToPx()
+        val rowGap = 2.dp.roundToPx()
+
+        val measurables =
+            subcompose(Unit) {
+                tabs.forEachIndexed { index, tab ->
+                    PillToggle(tab, index, tabs.lastIndex, tab.value == selectedValue, onSelect)
                 }
-                Spacer(Modifier.width(ToggleButtonDefaults.IconSpacing))
-                Text(tab.label)
+            }
+        // Uniform cell width = the widest pill's natural width, capped to the row
+        // so an extreme label (huge translation / font scaling) can't overflow.
+        val cellWidth =
+            (measurables.maxOfOrNull { it.maxIntrinsicWidth(constraints.maxHeight) } ?: 0)
+                .coerceAtMost(constraints.maxWidth)
+        val cellConstraints = constraints.copy(minWidth = cellWidth, maxWidth = cellWidth)
+        val placeables = measurables.map { it.measure(cellConstraints) }
+
+        // Wrap into lines that fit the available width.
+        val rowWidth = if (constraints.hasBoundedWidth) constraints.maxWidth else placeables.sumOf { it.width } + columnGap * (placeables.size - 1).coerceAtLeast(0)
+        val lines = mutableListOf<List<Placeable>>()
+        var line = mutableListOf<Placeable>()
+        var lineWidth = 0
+        for (placeable in placeables) {
+            val added = if (line.isEmpty()) placeable.width else columnGap + placeable.width
+            if (line.isNotEmpty() && lineWidth + added > rowWidth) {
+                lines += line
+                line = mutableListOf()
+                lineWidth = 0
+            }
+            line += placeable
+            lineWidth += if (line.size == 1) placeable.width else columnGap + placeable.width
+        }
+        if (line.isNotEmpty()) lines += line
+
+        val totalHeight = lines.sumOf { row -> row.maxOf { it.height } } + rowGap * (lines.size - 1).coerceAtLeast(0)
+        layout(rowWidth, totalHeight) {
+            var y = 0
+            for (row in lines) {
+                val contentWidth = row.sumOf { it.width } + columnGap * (row.size - 1).coerceAtLeast(0)
+                var x = ((rowWidth - contentWidth) / 2).coerceAtLeast(0) // center each line
+                val rowHeight = row.maxOf { it.height }
+                for (placeable in row) {
+                    placeable.place(x, y + (rowHeight - placeable.height) / 2)
+                    x += placeable.width + columnGap
+                }
+                y += rowHeight + rowGap
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun <T> PillToggle(
+    tab: PillTab<T>,
+    index: Int,
+    lastIndex: Int,
+    isSelected: Boolean,
+    onSelect: (T) -> Unit,
+) {
+    ToggleButton(
+        checked = isSelected,
+        // Single-select: tapping the active pill fires onCheckedChange(false),
+        // which we ignore; tapping an unselected pill fires (true) → onSelect.
+        onCheckedChange = { newChecked -> if (newChecked) onSelect(tab.value) },
+        // Connected group shapes by list position (M3 SingleSelectConnectedButtonGroupSample).
+        shapes =
+            when (index) {
+                0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+            },
+    ) {
+        val badge = tab.badgeCount
+        if (badge != null && badge > 0) {
+            BadgedBox(badge = { Badge { Text(badgeLabel(badge)) } }) {
+                NubecitaIcon(name = tab.iconName, contentDescription = null, filled = isSelected)
+            }
+        } else {
+            NubecitaIcon(name = tab.iconName, contentDescription = null, filled = isSelected)
+        }
+        Spacer(Modifier.width(ToggleButtonDefaults.IconSpacing))
+        Text(tab.label)
     }
 }
 
