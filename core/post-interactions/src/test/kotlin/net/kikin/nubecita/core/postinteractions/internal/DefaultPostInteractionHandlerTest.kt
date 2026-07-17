@@ -472,7 +472,7 @@ internal class DefaultPostInteractionHandlerTest {
         }
 
     @Test
-    fun `onOverflowAction CopyPostText emits ShowComingSoon`() =
+    fun `onOverflowAction CopyPostText emits CopyPostText with the post's text`() =
         runTest(mainDispatcher.dispatcher) {
             val handler = makeHandler()
             handler.bind(PostSurface.Feed, this)
@@ -480,8 +480,8 @@ internal class DefaultPostInteractionHandlerTest {
             handler.interactionEffects.test {
                 handler.onOverflowAction(unlikedPost(), PostOverflowAction.CopyPostText)
 
-                val effect = awaitItem() as InteractionEffect.ShowComingSoon
-                assertEquals(PostOverflowAction.CopyPostText, effect.action)
+                val effect = awaitItem() as InteractionEffect.CopyPostText
+                assertEquals("Hello from test.", effect.text)
             }
         }
 

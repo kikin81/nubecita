@@ -46,7 +46,7 @@
     <string name="feed_snackbar_overflow_unblock_coming_soon">Desbloquear — em breve</string>
     <string name="feed_snackbar_overflow_mute_thread_coming_soon">Silenciar thread — em breve</string>
     <string name="feed_snackbar_overflow_unmute_thread_coming_soon">Dessilenciar thread — em breve</string>
-    <string name="feed_snackbar_overflow_copy_text_coming_soon">Copiar texto do post — em breve</string>
+    <string name="feed_snackbar_text_copied">Texto copiado</string>
 
     <string name="feed_lists_chip_collapsed">Listas</string>
     <string name="feed_lists_chip_selected">Lista: %1$s</string>

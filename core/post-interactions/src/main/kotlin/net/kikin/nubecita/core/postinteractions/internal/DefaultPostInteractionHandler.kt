@@ -213,13 +213,14 @@ internal class DefaultPostInteractionHandler
                     }
                 }
 
+                PostOverflowAction.CopyPostText ->
+                    emit(InteractionEffect.CopyPostText(post.text))
+
                 // These actions are not yet implemented on the server side
-                // (block removal, thread muting) or are pending a separate
-                // milestone (CopyPostText). Surface a coming-soon snackbar.
+                // (block removal, thread muting). Surface a coming-soon snackbar.
                 PostOverflowAction.UnblockAuthor,
                 PostOverflowAction.MuteThread,
                 PostOverflowAction.UnmuteThread,
-                PostOverflowAction.CopyPostText,
                 -> emit(InteractionEffect.ShowComingSoon(action))
             }
         }

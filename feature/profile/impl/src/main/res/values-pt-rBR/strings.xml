@@ -23,7 +23,7 @@
     <string name="profile_snackbar_post_overflow_unblock_coming_soon">Desbloquear — em breve</string>
     <string name="profile_snackbar_post_overflow_mute_thread_coming_soon">Silenciar thread — em breve</string>
     <string name="profile_snackbar_post_overflow_unmute_thread_coming_soon">Reativar som da thread — em breve</string>
-    <string name="profile_snackbar_post_overflow_copy_text_coming_soon">Copiar texto do post — em breve</string>
+    <string name="profile_snackbar_text_copied">Texto copiado</string>
 
     <string name="profile_snackbar_error_network">Erro de rede. Puxe para atualizar.</string>
     <string name="profile_snackbar_error_unknown">Não foi possível carregar o perfil.</string>

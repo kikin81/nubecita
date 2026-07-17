@@ -135,8 +135,8 @@ internal fun ProfileScreen(
                 stringResource(R.string.profile_snackbar_post_overflow_mute_thread_coming_soon),
             unmuteThreadComingSoon =
                 stringResource(R.string.profile_snackbar_post_overflow_unmute_thread_coming_soon),
-            copyTextComingSoon =
-                stringResource(R.string.profile_snackbar_post_overflow_copy_text_coming_soon),
+            textCopied =
+                stringResource(R.string.profile_snackbar_text_copied),
         )
 
     // Wire the shared post-interaction helper. Handles share sheet, clipboard,

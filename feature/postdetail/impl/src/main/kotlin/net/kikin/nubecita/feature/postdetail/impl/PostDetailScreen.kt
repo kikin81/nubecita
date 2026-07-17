@@ -171,8 +171,8 @@ internal fun PostDetailScreen(
                 stringResource(R.string.postdetail_snackbar_overflow_mute_thread_coming_soon),
             unmuteThreadComingSoon =
                 stringResource(R.string.postdetail_snackbar_overflow_unmute_thread_coming_soon),
-            copyTextComingSoon =
-                stringResource(R.string.postdetail_snackbar_overflow_copy_text_coming_soon),
+            textCopied =
+                stringResource(R.string.postdetail_snackbar_text_copied),
         )
 
     // Wire the shared post-interaction helper. Handles share sheet, clipboard,

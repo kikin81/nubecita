@@ -25,5 +25,5 @@
     <string name="bookmarks_snackbar_overflow_unblock_coming_soon">Desbloquear — em breve</string>
     <string name="bookmarks_snackbar_overflow_mute_thread_coming_soon">Silenciar thread — em breve</string>
     <string name="bookmarks_snackbar_overflow_unmute_thread_coming_soon">Reativar thread — em breve</string>
-    <string name="bookmarks_snackbar_overflow_copy_text_coming_soon">Copiar texto do post — em breve</string>
+    <string name="bookmarks_snackbar_text_copied">Texto copiado</string>
 </resources>

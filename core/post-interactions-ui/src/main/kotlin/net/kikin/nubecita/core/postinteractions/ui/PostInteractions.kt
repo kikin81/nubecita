@@ -47,7 +47,7 @@ import net.kikin.nubecita.feature.moderation.api.Report
  * @property unblockComingSoon "Coming soon" copy for [PostOverflowAction.UnblockAuthor].
  * @property muteThreadComingSoon "Coming soon" copy for [PostOverflowAction.MuteThread].
  * @property unmuteThreadComingSoon "Coming soon" copy for [PostOverflowAction.UnmuteThread].
- * @property copyTextComingSoon "Coming soon" copy for [PostOverflowAction.CopyPostText].
+ * @property textCopied Copy shown after a post's text is copied to the clipboard.
  */
 data class InteractionStrings(
     val errorNetwork: String,
@@ -62,7 +62,7 @@ data class InteractionStrings(
     val unblockComingSoon: String,
     val muteThreadComingSoon: String,
     val unmuteThreadComingSoon: String,
-    val copyTextComingSoon: String,
+    val textCopied: String,
 )
 
 /**
@@ -201,6 +201,15 @@ fun rememberPostInteractions(
                     snackbarHostState.showSnackbar(message = currentStrings.linkCopied)
                 }
 
+                is InteractionEffect.CopyPostText -> {
+                    currentClipboardManager.setPrimaryClip(
+                        ClipData.newPlainText(currentStrings.clipLabel, effect.text),
+                    )
+                    // Fresh "text copied" confirmation outranks a stale error.
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(message = currentStrings.textCopied)
+                }
+
                 is InteractionEffect.ShowComingSoon -> {
                     val message =
                         when (effect.action) {
@@ -211,7 +220,9 @@ fun rememberPostInteractions(
                             PostOverflowAction.UnblockAuthor -> currentStrings.unblockComingSoon
                             PostOverflowAction.MuteThread -> currentStrings.muteThreadComingSoon
                             PostOverflowAction.UnmuteThread -> currentStrings.unmuteThreadComingSoon
-                            PostOverflowAction.CopyPostText -> currentStrings.copyTextComingSoon
+                            // CopyPostText is handled by the CopyPostText effect above
+                            // (it copies), never as a coming-soon; kept for exhaustiveness.
+                            PostOverflowAction.CopyPostText -> currentStrings.textCopied
                         }
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = message)

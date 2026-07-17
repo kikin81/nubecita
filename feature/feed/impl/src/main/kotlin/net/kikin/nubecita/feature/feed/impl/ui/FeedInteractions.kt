@@ -120,8 +120,8 @@ internal fun rememberFeedInteractions(
         stringResource(R.string.feed_snackbar_overflow_mute_thread_coming_soon)
     val overflowUnmuteThreadComingSoon =
         stringResource(R.string.feed_snackbar_overflow_unmute_thread_coming_soon)
-    val overflowCopyTextComingSoon =
-        stringResource(R.string.feed_snackbar_overflow_copy_text_coming_soon)
+    val overflowTextCopied =
+        stringResource(R.string.feed_snackbar_text_copied)
 
     // Build the shared InteractionStrings from the feed's existing string
     // resources so snackbar text stays byte-identical across the migration.
@@ -139,7 +139,7 @@ internal fun rememberFeedInteractions(
             unblockComingSoon = overflowUnblockComingSoon,
             muteThreadComingSoon = overflowMuteThreadComingSoon,
             unmuteThreadComingSoon = overflowUnmuteThreadComingSoon,
-            copyTextComingSoon = overflowCopyTextComingSoon,
+            textCopied = overflowTextCopied,
         )
 
     // Wire the shared helper — it collects handler.interactionEffects directly
