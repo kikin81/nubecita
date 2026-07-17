@@ -139,11 +139,20 @@ internal object ProductionBootstrapModule {
     fun provideRevenueCatInitializer(
         initializer: RevenueCatInitializer,
         proAnalytics: ProAnalyticsCoordinator,
+        @ApplicationScope applicationScope: CoroutineScope,
     ): AppInitializer =
+        // Fire-and-forget off the caller thread. onCreate invokes start() on
+        // Dispatchers.Main, but Purchases.configure synchronously builds Tink's
+        // Ed25519 verifier (heavy BigInteger crypto in a static init), which ANRs
+        // on slow devices when run inline on Main (nubecita-wrld). ApplicationScope
+        // is backed by Dispatchers.Default, so launching here keeps configure off
+        // the main thread — same shape as provideSharedMediaSweepInitializer above.
         AppInitializer {
-            initializer.initialize(apiKey = BuildConfig.REVENUECAT_API_KEY, verboseLogging = BuildConfig.DEBUG)
-            // After configure: link the Firebase app-instance id to the RC
-            // customer (F4) and start mirroring isPro into the GA4 user property.
-            proAnalytics.start()
+            applicationScope.launch {
+                initializer.initialize(apiKey = BuildConfig.REVENUECAT_API_KEY, verboseLogging = BuildConfig.DEBUG)
+                // After configure: link the Firebase app-instance id to the RC
+                // customer (F4) and start mirroring isPro into the GA4 user property.
+                proAnalytics.start()
+            }
         }
 }
