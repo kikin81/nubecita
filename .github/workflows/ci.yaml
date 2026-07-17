@@ -93,7 +93,11 @@ jobs:
           checkout-repo: false
 
       - name: Sort dependencies
-        run: ./gradlew :app:checkSortDependencies
+        # All modules, not just :app — checking only :app let unsorted
+        # dependency blocks in library/feature modules slip through
+        # (nubecita-epe3 surfaced :core:testing, :core:widget-sync,
+        # :feature:widgets:impl). --continue reports every offender in one run.
+        run: ./gradlew checkSortDependencies --continue
 
   lint-android:
     name: Lint / android
