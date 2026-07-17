@@ -1,6 +1,6 @@
 Obrigado por usar o nubecita! Novidades:
-• Selos de verificação: agora aparecem em perfis, publicações e resultados de busca, com uma explicação ao tocar neles nos perfis.
-• GIFs e figurinhas: adicione-os às suas publicações pelo novo seletor do compositor.
-• Gerencie seus feeds: reordene e remova seus feeds arrastando e soltando.
-• Inicialização mais rápida, além de mais correções de bugs e melhorias de desempenho.
+• Salvos: salve publicações para ler depois e encontre todas em um só lugar no seu perfil.
+• Selos de verificação em perfis, publicações e buscas.
+• GIFs e figurinhas no compositor.
+• Mais estável: corrigimos várias falhas (widgets, navegação) e deixamos a inicialização mais rápida.
 Obrigado por estar aqui! 💙

@@ -1,6 +1,6 @@
 ¡Gracias por usar nubecita! Novedades:
-• Insignias de verificación: ahora aparecen en perfiles, publicaciones y resultados de búsqueda, con una explicación al tocarlas en los perfiles.
-• GIFs y stickers: agrégalos a tus publicaciones desde el nuevo selector del editor.
-• Administra tus feeds: reordénalos y elimínalos arrastrando y soltando.
-• Inicio más rápido, además de más correcciones de errores y mejoras de rendimiento.
+• Guardados: guarda publicaciones para leerlas más tarde y encuéntralas en un solo lugar en tu perfil.
+• Insignias de verificación en perfiles, publicaciones y búsquedas.
+• GIFs y stickers en el editor.
+• Más estable: corregimos varios fallos (widgets, navegación) e hicimos el inicio más rápido.
 ¡Gracias por acompañarnos! 💙
