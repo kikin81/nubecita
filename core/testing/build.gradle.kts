@@ -7,12 +7,6 @@ android {
 }
 
 dependencies {
-    // Test fixtures consumed under src/test/ in downstream modules. Promoted to
-    // `api` so consumers' `testImplementation(project(":core:testing"))` lines
-    // pull these onto the test classpath transitively without re-declaring them.
-    api(libs.junit.jupiter.api)
-    api(libs.kotlinx.coroutines.test)
-
     // RecordingAnalyticsClient implements AnalyticsClient and exposes lists of
     // AnalyticsEvent / AnalyticsScreen / UserProperty in its public API, so the
     // analytics types must reach consumers transitively — hence `api`. No cycle:
@@ -20,4 +14,9 @@ dependencies {
     // `environment` flavor resolves to `production` via the library convention
     // plugin's missingDimensionStrategy.
     api(project(":core:analytics"))
+    // Test fixtures consumed under src/test/ in downstream modules. Promoted to
+    // `api` so consumers' `testImplementation(project(":core:testing"))` lines
+    // pull these onto the test classpath transitively without re-declaring them.
+    api(libs.junit.jupiter.api)
+    api(libs.kotlinx.coroutines.test)
 }

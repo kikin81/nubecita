@@ -31,10 +31,6 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.timber)
 
-    // @HiltWorker factory binding generator (androidx.hilt), in addition to the
-    // dagger hilt-android-compiler the convention plugin already wires.
-    ksp(libs.androidx.hilt.compiler)
-
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockk)
@@ -51,6 +47,10 @@ dependencies {
     androidTestImplementation(libs.hilt.android.testing)
     androidTestImplementation(libs.junit)
     androidTestImplementation(libs.kotlinx.coroutines.test)
+
+    // @HiltWorker factory binding generator (androidx.hilt), in addition to the
+    // dagger hilt-android-compiler the convention plugin already wires.
+    ksp(libs.androidx.hilt.compiler)
 
     kspAndroidTest(libs.hilt.android.compiler)
 }
