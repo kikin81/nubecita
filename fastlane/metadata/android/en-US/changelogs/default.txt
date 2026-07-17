@@ -1,6 +1,6 @@
 Thanks for using nubecita! What's new:
-• Verified badges — verification checkmarks now appear on profiles, posts, and search results, with a tap-to-learn-more explanation on profiles.
-• GIFs & stickers — add them to your posts from the new picker in the composer.
-• Manage your feeds — reorder and remove your feeds with simple drag-and-drop.
-• Faster cold starts, plus more bug fixes and performance improvements under the hood.
+• Bookmarks — save posts to read later and find them all in one place on your profile.
+• Verified badges on profiles, posts, and search results.
+• GIFs & stickers in the composer.
+• More stable — we fixed several crashes (widgets, navigation) and made cold starts faster.
 Thanks for being here. 💙
