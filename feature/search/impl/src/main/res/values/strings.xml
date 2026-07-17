@@ -152,7 +152,7 @@
     <string name="search_snackbar_overflow_unblock_coming_soon">Unblock — coming soon</string>
     <string name="search_snackbar_overflow_mute_thread_coming_soon">Mute thread — coming soon</string>
     <string name="search_snackbar_overflow_unmute_thread_coming_soon">Unmute thread — coming soon</string>
-    <string name="search_snackbar_overflow_copy_text_coming_soon">Copy post text — coming soon</string>
+    <string name="search_snackbar_text_copied">Text copied</string>
 
     <!-- trpn: Discover tab — suggested accounts section -->
     <string name="discover_accounts_section_title">Suggested accounts</string>

@@ -78,8 +78,8 @@ internal fun BookmarksScreen(
                 stringResource(R.string.bookmarks_snackbar_overflow_mute_thread_coming_soon),
             unmuteThreadComingSoon =
                 stringResource(R.string.bookmarks_snackbar_overflow_unmute_thread_coming_soon),
-            copyTextComingSoon =
-                stringResource(R.string.bookmarks_snackbar_overflow_copy_text_coming_soon),
+            textCopied =
+                stringResource(R.string.bookmarks_snackbar_text_copied),
         )
 
     // Wire the shared interaction helper — it collects viewModel.interactionEffects

@@ -32,7 +32,7 @@
     <string name="profile_snackbar_post_overflow_unblock_coming_soon">Unblock — coming soon</string>
     <string name="profile_snackbar_post_overflow_mute_thread_coming_soon">Mute thread — coming soon</string>
     <string name="profile_snackbar_post_overflow_unmute_thread_coming_soon">Unmute thread — coming soon</string>
-    <string name="profile_snackbar_post_overflow_copy_text_coming_soon">Copy post text — coming soon</string>
+    <string name="profile_snackbar_text_copied">Text copied</string>
 
     <!-- Snackbar copy for ShowError -->
     <string name="profile_snackbar_error_network">Network error. Pull to refresh.</string>

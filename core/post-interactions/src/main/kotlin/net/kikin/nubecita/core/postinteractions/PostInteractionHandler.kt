@@ -73,6 +73,15 @@ sealed interface InteractionEffect {
     ) : InteractionEffect
 
     /**
+     * Copy a post's text to the system clipboard. Fired from the overflow
+     * menu's "Copy post text" action. Writing to the clipboard needs no
+     * permission (only reading is restricted), so this adds none.
+     */
+    data class CopyPostText(
+        val text: String,
+    ) : InteractionEffect
+
+    /**
      * Open the composer pre-filled for a reply (when [replyToUri] is
      * non-null) or a quote-post (when [quoteUri] is non-null). Exactly one
      * of the two is non-null per emission.

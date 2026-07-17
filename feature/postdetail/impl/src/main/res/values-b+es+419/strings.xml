@@ -25,5 +25,5 @@
     <string name="postdetail_snackbar_overflow_unblock_coming_soon">Desbloquear — próximamente</string>
     <string name="postdetail_snackbar_overflow_mute_thread_coming_soon">Silenciar hilo — próximamente</string>
     <string name="postdetail_snackbar_overflow_unmute_thread_coming_soon">Dejar de silenciar hilo — próximamente</string>
-    <string name="postdetail_snackbar_overflow_copy_text_coming_soon">Copiar texto de la publicación — próximamente</string>
+    <string name="postdetail_snackbar_text_copied">Texto copiado</string>
 </resources>

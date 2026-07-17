@@ -68,7 +68,7 @@
     <string name="feed_snackbar_overflow_unblock_coming_soon">Unblock — coming soon</string>
     <string name="feed_snackbar_overflow_mute_thread_coming_soon">Mute thread — coming soon</string>
     <string name="feed_snackbar_overflow_unmute_thread_coming_soon">Unmute thread — coming soon</string>
-    <string name="feed_snackbar_overflow_copy_text_coming_soon">Copy post text — coming soon</string>
+    <string name="feed_snackbar_text_copied">Text copied</string>
 
     <!-- Pinned lists chip row and bottom sheet -->
     <string name="feed_lists_chip_collapsed">Lists</string>
