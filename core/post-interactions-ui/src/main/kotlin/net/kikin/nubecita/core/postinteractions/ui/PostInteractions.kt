@@ -3,6 +3,7 @@ package net.kikin.nubecita.core.postinteractions.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.Build
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -194,20 +195,14 @@ fun rememberPostInteractions(
                     currentClipboardManager.setPrimaryClip(
                         ClipData.newPlainText(currentStrings.clipLabel, effect.permalink),
                     )
-                    // Replace any pending error snackbar — a fresh "link
-                    // copied" confirmation outranks a stale error message
-                    // for the moment the user just took action.
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = currentStrings.linkCopied)
+                    snackbarHostState.showCopyConfirmation(currentStrings.linkCopied)
                 }
 
                 is InteractionEffect.CopyPostText -> {
                     currentClipboardManager.setPrimaryClip(
                         ClipData.newPlainText(currentStrings.clipLabel, effect.text),
                     )
-                    // Fresh "text copied" confirmation outranks a stale error.
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = currentStrings.textCopied)
+                    snackbarHostState.showCopyConfirmation(currentStrings.textCopied)
                 }
 
                 is InteractionEffect.ShowComingSoon -> {
@@ -249,4 +244,17 @@ fun rememberPostInteractions(
         callbacks = callbacks,
         tapMarkers = tapMarkers,
     )
+}
+
+/**
+ * Show a "copied" confirmation for a clipboard action — but only below Android
+ * 13. On API 33+ the system shows its own clipboard-confirmation overlay
+ * automatically, so an app-level snackbar would double-confirm (Gemini review,
+ * #752). Replaces any pending snackbar (a fresh confirmation outranks a stale
+ * error). Shared by the copy-link and copy-text effects so both behave the same.
+ */
+private suspend fun SnackbarHostState.showCopyConfirmation(message: String) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return
+    currentSnackbarData?.dismiss()
+    showSnackbar(message = message)
 }
