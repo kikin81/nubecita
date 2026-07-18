@@ -31,8 +31,15 @@ uses (`track_promote_to` + localized changelog upload + a gated approval).
   track-agnostic. (Rejected: separate `promote-closed.yaml` / `promote-open.yaml`
   — three copies of near-identical logic to keep in sync.)
 
-- **D3 — Source track is always `internal`.** Every CI build lands on `internal`
-  and stays there; all promotes source from it via `track_promote_to`.
+- **D3 — Direct-target promotion; no source track.** Do **not** use
+  `track_promote_to`. Instead target the destination track directly with the
+  `version_code`, letting supply pull the artifact from the App Bundle Library
+  (`skip_upload_aab: true`). A versionCode only needs to have been *uploaded* to
+  the app — which CI guarantees (every build lands on `internal`) — not to still
+  be internal's *active* release. This eliminates the "superseded build no longer
+  on internal" failure mode that a `track: internal, track_promote_to: X` call
+  would hit once a newer build supersedes it on internal. (Changed from an
+  earlier `track_promote_to` design after Gemini review on PR #753.)
 
 - **D4 — Reuse the existing `production` GitHub environment gate** for all
   targets. Single reviewer approval covers the whole batch. Accepted trade-off:
@@ -69,10 +76,12 @@ uses (`track_promote_to` + localized changelog upload + a gated approval).
 
 ### 1. `fastlane/Fastfile` — generalize `promote_production` → `promote`
 
-Rename the lane and accept a comma-separated `tracks` option. Keep the existing
-version-code resolve (`nubecita_resolve_promote_version_code`), the three-locale
-changelog validation, and the `already_on_target` promote-vs-advance logic —
-applied **per track** in a loop.
+Rename the lane (`promote_production` → `promote`) and accept a comma-separated
+`tracks` option. Keep the existing version-code resolve
+(`nubecita_resolve_promote_version_code`) and the three-locale changelog
+validation. Promote each selected track **directly** (D3) in a loop, using
+`already_on_target` only to (a) skip a redundant testing-track re-promote and
+(b) gate the immutable production update-priority to the initial promote.
 
 ```ruby
 PROMOTE_TRACKS = %w[alpha beta production].freeze  # closed / open / production
@@ -103,15 +112,24 @@ lane :promote do |options|
       UI.message("versionCode #{vc} already on #{target}; nothing to advance — skipping.")
       next
     end
-    rollout  = target == "production" ? prod_rollout : "1.0"
-    priority = target == "production" ? prod_priority : nil
+    rollout = target == "production" ? prod_rollout : "1.0"
+    # in_app_update_priority is IMMUTABLE per release: set it only on the INITIAL
+    # promote to a track, never on a production advance-rollout re-run (Play can
+    # reject a priority change mid-rollout). Testing tracks never carry priority.
+    priority = (target == "production" && !already_on_target) ? prod_priority : nil
     UI.message("#{already_on_target ? 'Advancing' : 'Promoting'} versionCode #{vc} → #{target} @ #{rollout}")
+    # Direct-target promotion (D3): reference the versionCode straight from the
+    # App Bundle Library — NO track_promote_to and NO "internal" source track.
+    # A versionCode only needs to have been uploaded to the app (it has: CI puts
+    # every build on internal); it does NOT need to still be internal's ACTIVE
+    # release. This sidesteps the "superseded build no longer on internal"
+    # failure that track_promote_to would hit. We inject changelogs ourselves
+    # (D7), so losing Play's source-track note copy costs nothing.
     upload_to_play_store(
-      track:            already_on_target ? target : "internal",
-      track_promote_to: already_on_target ? nil    : target,
+      track: target,
       version_code: vc,
       rollout: rollout,
-      in_app_update_priority: already_on_target ? nil : priority,
+      in_app_update_priority: priority,
       metadata_path: nubecita_metadata_android_dir,
       skip_upload_changelogs: false,
       skip_upload_apk: true, skip_upload_aab: true,
@@ -121,8 +139,9 @@ lane :promote do |options|
 end
 ```
 
-- Keep a thin `promote_production` alias **or** update all callers — decide in the
-  plan. Current sole caller is `promote.yaml`, so updating it directly is clean.
+- **Drop the `promote_production` name entirely** — update the sole caller
+  (`promote.yaml`) to call `promote`. No alias; smaller surface, one less
+  indirection. (Confirmed by Gemini review on PR #753.)
 - `resolve_promote_target` lane is **unchanged**.
 
 ### 2. `.github/workflows/promote.yaml` — multi-track inputs + loop
@@ -137,7 +156,26 @@ end
 
 - Keep the existing `rollout`, `version_code`, `in_app_update_priority` inputs.
 - A shared step assembles the checked booleans into a comma list
-  (`alpha,beta,production`) and fails if empty.
+  (`alpha,beta,production`) and fails if empty. Reference implementation:
+
+  ```yaml
+  - name: Assemble target tracks
+    id: assemble_tracks
+    run: |
+      TRACKS=()
+      [[ "${{ inputs.to_closed }}" == 'true' ]] && TRACKS+=("alpha")
+      [[ "${{ inputs.to_open }}" == 'true' ]] && TRACKS+=("beta")
+      [[ "${{ inputs.to_production }}" == 'true' ]] && TRACKS+=("production")
+      JOINED=$(IFS=, ; echo "${TRACKS[*]}")
+      if [[ -z "$JOINED" ]]; then
+        echo "::error::No target tracks selected — check at least one."
+        exit 1
+      fi
+      echo "list=$JOINED" >> "$GITHUB_OUTPUT"
+  ```
+
+  The `promote` job then passes `tracks:"${{ steps.assemble_tracks.outputs.list }}"`
+  to the lane. (Snippet from Gemini review on PR #753.)
 - The `resolve` job's `$GITHUB_STEP_SUMMARY` block adds a `- tracks: **<list>**`
   line (alongside the existing versionCode + rollout/priority + the three
   changelogs).
@@ -158,17 +196,16 @@ end
   `-f to_closed=… -f to_open=… -f to_production=…`.
 - Update the run-summary hand-off copy to mention the resolved track list.
 
-## Open implementation risk (verify, do not assume)
+## Implementation note (verify on first real dispatch)
 
-Play promotion semantics: confirm a versionCode remains promotable **from
-`internal`** to a *second* track after it has already been promoted off internal
-once (e.g. the same build going internal→alpha, then later internal→beta). The
-current internal→production flow works, which is evidence it's fine, but the
-"source = internal always" rule (D3) depends on it. If Play drops the release
-from internal's active set after promotion, add a fallback that sources each
-track from wherever the versionCode currently lives. **Verify with a real
-dispatch** (e.g. promote a build to `alpha` only, then to `beta` only) before
-relying on batch multi-track promotes.
+The direct-target approach (D3) **dissolves** the earlier "is the build still
+promotable from internal after being superseded" risk — we no longer read a
+source track at all. The one thing to confirm empirically the first time: that
+supply's `upload_to_play_store(track: <target>, version_code: <vc>,
+skip_upload_aab: true)` correctly attaches the existing App-Bundle-Library
+artifact to the target track's release (high confidence — this is supply's
+documented "change a build's track" path — but worth eyeballing on the first
+`alpha`-only dispatch before relying on batch multi-track promotes).
 
 ## Testing / verification
 
