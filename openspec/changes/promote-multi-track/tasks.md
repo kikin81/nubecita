@@ -24,4 +24,4 @@
 
 - [ ] 4.1 First real dispatch `to_closed=true` only on a current internal build → confirm it lands on closed testing in Play Console with rendered changelogs (verifies direct-target attach, D3).
 - [ ] 4.2 Multi-track dispatch (all three) → confirm a single approval, correct rollout split (testers 100%, production staged), and the idempotent testing-track skip on a re-run.
-- [ ] 4.3 Confirm the closed track id is the default `alpha` (resolve the design's one open question); adjust the allowlist/mapping if a custom track id is in use.
+- [x] 4.3 Confirm the closed track id is the default `alpha` — **done (2026-07-17, Play Console)**: closed = `alpha`, open = `beta`, no custom tracks; allowlist/mapping correct as designed.

@@ -118,4 +118,4 @@ Validate and upload `en-US` / `es-419` / `pt-BR` `changelogs/default.txt` (prese
 
 ## Open Questions
 
-- Is the closed track the default `alpha`, or a custom-named track? (Assumed `alpha`; confirm before/at implementation — the only value that would change the track allowlist and mapping.)
+- ~~Is the closed track the default `alpha`, or a custom-named track?~~ **Resolved (2026-07-17):** Play Console shows the closed track is literally `alpha` (default), and open testing is the default `beta` (no custom-named tracks). The allowlist `%w[alpha beta production]` and the `to_closed`→`alpha` / `to_open`→`beta` mapping are correct as designed. (Authoritative programmatic recheck if ever needed: `google_play_track_version_codes(track: "beta")` via the Play-linked service account — not plain gcloud, which lacks the androidpublisher scope.)
