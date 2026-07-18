@@ -184,8 +184,15 @@ platform :android do
     # surfacing before any track is touched.
     prod_rollout = nubecita_blank(options[:rollout]) || "0.1"
     UI.user_error!("Rollout must be in (0.0, 1.0] (got: #{prod_rollout})") unless prod_rollout.to_f > 0.0 && prod_rollout.to_f <= 1.0
-    prod_priority = nubecita_blank(options[:priority])&.to_i
-    UI.user_error!("Priority must be 0..5 (got: #{prod_priority})") if prod_priority && !prod_priority.between?(0, 5)
+    # Validate priority as an integer string: bare `.to_i` turns "foo" into 0,
+    # which would silently pass the range check as a valid priority of 0.
+    prod_priority_raw = nubecita_blank(options[:priority])
+    prod_priority = nil
+    if prod_priority_raw
+      UI.user_error!("Priority must be an integer (got: #{prod_priority_raw})") unless prod_priority_raw =~ /\A\d+\z/
+      prod_priority = prod_priority_raw.to_i
+      UI.user_error!("Priority must be 0..5 (got: #{prod_priority})") unless prod_priority.between?(0, 5)
+    end
 
     vc = nubecita_resolve_promote_version_code(options[:version_code]) ||
       UI.user_error!("No internal version code found to promote")
@@ -201,7 +208,10 @@ platform :android do
     end
 
     tracks.each do |target|
-      already_on_target = google_play_track_version_codes(track: target).map(&:to_i).include?(vc)
+      # Guard against nil — a never-released track (e.g. an empty beta) can yield
+      # nil rather than [], and .map on nil would crash the promote mid-batch.
+      version_codes = google_play_track_version_codes(track: target) || []
+      already_on_target = version_codes.map(&:to_i).include?(vc)
       # Testing tracks are always 100% (no staged rollout to advance), so a
       # re-promote of a build already live on alpha/beta is a redundant Play API
       # call that can fail as an already-completed release — skip it. Only

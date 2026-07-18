@@ -35,14 +35,14 @@ Per-track behavior handled by the lane: **rollout % and update priority apply to
 
 3. **Assemble + confirm the command.** Show the exact command and get a yes before running — this publishes to real users / testers. Pass a boolean for each track (`true`/`false`); include `rollout`/`in_app_update_priority` only when Production is selected (they default otherwise):
    ```bash
+   # include rollout / in_app_update_priority only when to_production=true (they default otherwise);
+   # add -f version_code=<versionCode> only if a specific build was requested.
    gh workflow run "Promote to Production" --ref main \
      -f to_closed=<true|false> \
      -f to_open=<true|false> \
      -f to_production=<true|false> \
-     -f rollout=<rollout> \                 # only if to_production=true
-     -f in_app_update_priority=<priority>   # only if to_production=true
-     # add only if a specific build was requested:
-     # -f version_code=<versionCode>
+     -f rollout=<rollout> \
+     -f in_app_update_priority=<priority>
    ```
    (`gh workflow run promote.yaml …` works too.)
 
