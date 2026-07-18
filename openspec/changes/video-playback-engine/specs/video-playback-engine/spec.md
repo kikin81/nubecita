@@ -36,7 +36,7 @@ The engine SHALL extract the `SimpleCache`, track/codec selectors, `LoadControl`
 #### Scenario: Cache constructed off-main
 
 - **WHEN** the shared `SimpleCache` is created
-- **THEN** it SHALL be constructed on a background thread (its constructor touches disk and would risk an ANR on the main thread)
+- **THEN** it SHALL be constructed via the injected `IoDispatcher` (its constructor touches disk and would risk an ANR on the main thread)
 
 #### Scenario: SharedVideoPlayer behavior preserved
 
@@ -64,22 +64,22 @@ Entering a vertical playlist surface SHALL pause/release `SharedVideoPlayer` so 
 
 ### Requirement: Playback hardening
 
-The engine SHALL apply short-video-oriented `LoadControl` tuning, prefetch only the next item, recover from decoder failures by excluding the failed decoder and retrying, key cached `MediaSource`es by player id, and enable software-decoder fallback.
+The engine SHALL apply short-video-oriented `LoadControl` tuning, prefetch only the next item, recover from decoder failures by excluding the failed decoder and retrying, create a fresh `MediaSource` per playback from a shared factory (never reusing `MediaSource` instances across players), and enable software-decoder fallback.
 
 #### Scenario: Short-video buffering
 
 - **WHEN** the engine configures `LoadControl`
-- **THEN** it SHALL use short-video values (e.g. `bufferForPlaybackMs` ≈ 1000, `min`/`max` buffer ≈ 20000, drip-feed) rather than the long-video defaults
+- **THEN** it SHALL use short-video values (e.g. `bufferForPlaybackMs` ≈ 1000, low min/max buffer ≈ 20000) rather than the long-video defaults; the exact min/max (Reddit's equal drip-feed vs. a small `min`<`max` hysteresis gap) is a battery-vs-rebuffer tuning decision validated in the perf pass
 
 #### Scenario: Decoder failure is excluded and retried
 
 - **WHEN** a decoder init/decode failure occurs for an item
 - **THEN** the engine SHALL exclude that decoder from selection and retry the playback once, keeping at least one decoder available
 
-#### Scenario: MediaSource not shared across players
+#### Scenario: Fresh MediaSource per playback
 
-- **WHEN** a `MediaSource` is cached for reuse
-- **THEN** it SHALL be keyed by player id so it is only reused by the player instance it was attached to (avoiding Media3 `PlaybackException` `ERROR_CODE_FAILED_RUNTIME_CHECK` / code 1004)
+- **WHEN** a player binds to a video
+- **THEN** the engine SHALL create a fresh `MediaSource` from a shared `MediaSource.Factory` (over the shared cache-backed `DataSource.Factory`), and SHALL NOT cache or reuse `MediaSource` instances across players — avoiding both Media3 `PlaybackException` `ERROR_CODE_FAILED_RUNTIME_CHECK` (code 1004) and stateful-MediaSource leaks. Byte-level reuse happens in the shared cache, not by sharing `MediaSource` objects.
 
 ### Requirement: Playback analytics
 

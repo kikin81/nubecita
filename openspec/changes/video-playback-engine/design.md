@@ -49,9 +49,9 @@ interface VerticalVideoPlaylistPlayer {
 ### D2 — Share infra, not the instance
 
 Extract into `:core:video` building blocks consumed by both players:
-- `VideoCache` — a process-singleton `SimpleCache` **built off-main** (background thread), dedicated folder, explicit LRU evictor, custom cache-key factory (Bluesky HLS URLs may carry query params).
+- `VideoCache` — a process-singleton `SimpleCache` **built off-main via the injected `IoDispatcher`** (its constructor touches disk), dedicated folder, explicit LRU evictor, custom cache-key factory (Bluesky HLS URLs may carry query params). Exposed through a shared cache-backed `DataSource.Factory` → `MediaSource.Factory`.
 - `VideoTrackSelectorFactory` / a custom `MediaCodecSelector` (decoder-exclusion — D4).
-- `shortVideoLoadControl()` — `bufferForPlaybackMs`≈1000, `min`=`max`≈20000 (drip-feed).
+- `shortVideoLoadControl()` — `bufferForPlaybackMs`≈1000 and a low min/max buffer (≈20000). Reddit's drip-feed uses `min`=`max` (best rebuffering on unstable networks); a small `min`<`max` **hysteresis gap** (e.g. 15000/20000) trades a little rebuffering for fewer loader on/off cycles (lower CPU). Final values are validated in the Slice 5 perf pass — battery-vs-rebuffer, given battery is a top priority.
 - `ExoPlayerFactory` — one place that wires cache + selectors + LoadControl + software-decoder fallback.
 
 `SharedVideoPlayer` is refactored to consume these **without behavior change** (regression-covered). *Alternative rejected:* duplicate the infra in the pool — optimizations drift.
@@ -65,7 +65,7 @@ Hardware decoders are finite (low-end ~1–2). On entering a playlist surface, p
 - **Prewarm** = `prepare()` the next player before viewport entry; gate on prefetch completion (`PriorityTaskManager`) to avoid a prewarm-vs-prefetch race.
 - **Lazy-prefetch the next item only** (DownloadManager sharing the shared cache) — aggressive whole-batch prefetch raised parallel-request latency in Reddit's data.
 - **Decoder-exclusion retry:** a custom `MediaCodecSelector` that excludes a decoder after a 4001/4003 failure and retries once (keep ≥1 decoder).
-- **MediaSource keyed by player id** — never reuse a `MediaSource` across player instances (root cause of Media3 1004 `ERROR_CODE_FAILED_RUNTIME_CHECK`).
+- **Fresh MediaSource per playback** — create each `MediaSource` from the shared `MediaSource.Factory` (over the shared cache-backed `DataSource.Factory`); never cache or reuse a stateful `MediaSource` across players (the root cause of Media3 1004 `ERROR_CODE_FAILED_RUNTIME_CHECK`, and a leak risk). Reuse is byte-level, in the shared cache.
 - **Software-decoder fallback** enabled.
 
 ### D5 — Analytics + seekbar
@@ -76,7 +76,7 @@ Playback events (first-frame time, rebuffer, started/stopped, error+code) via Me
 
 - **[Infra extraction regresses `SharedVideoPlayer`]** → the highest risk; gate on `SharedVideoPlayer`'s existing tests + added regression coverage; extraction is behavior-preserving by contract.
 - **[Decoder exhaustion on low-end / with PiP]** → single-active + pool-of-2 + `ON_STOP` handoff (D3) + decoder-exclusion retry (D4); verify on a low-RAM / 1-decoder emulator.
-- **[Prewarm vs prefetch race → 1004]** → gate `prepare()` on prefetch completion; key MediaSources by player id.
+- **[Prewarm vs prefetch race → 1004]** → gate `prepare()` on prefetch completion; use a fresh MediaSource per playback from the shared factory (never reuse across players).
 - **[Pool complexity]** → keep pool size fixed at 2 for MVP; adaptive sizing by device performance class deferred.
 - **[Battery]** → no background playback, single active, pause off-screen, honor data-saver.
 
