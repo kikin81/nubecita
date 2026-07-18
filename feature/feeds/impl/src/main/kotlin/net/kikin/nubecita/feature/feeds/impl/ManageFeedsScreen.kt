@@ -31,6 +31,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -163,9 +165,13 @@ private fun PinnedFeedList(
     // captured lambda always calls the current instance.
     val currentOnEvent by rememberUpdatedState(onEvent)
     val listState = rememberLazyListState()
+    val haptics = LocalHapticFeedback.current
     val reorderableState =
         rememberReorderableLazyListState(listState) { from, to ->
             currentOnEvent(ManageFeedsEvent.Move(from.index, to.index))
+            // A light tick each time the dragged row swaps past another — the
+            // reorderable library ships no haptics, so we drive them here.
+            haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
         }
 
     LazyColumn(
@@ -186,18 +192,13 @@ private fun PinnedFeedList(
                     onMove = { from, to -> currentOnEvent(ManageFeedsEvent.Move(from, to)) },
                     onRemove = { currentOnEvent(ManageFeedsEvent.Remove(feed.uri)) },
                     elevation = elevation,
-                    dragHandle = {
-                        // longPressDraggableHandle() is a ReorderableCollectionItemScope
-                        // extension, so it must be resolved here inside the item lambda. The
-                        // handle is decorative for a11y — the row's custom actions (Move
-                        // up/down) are the screen-reader path.
-                        Box(
-                            modifier = Modifier.longPressDraggableHandle().size(48.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            NubecitaIcon(name = NubecitaIconName.Menu, contentDescription = null)
-                        }
-                    },
+                    // The WHOLE ROW is the drag affordance: long-press anywhere on it to
+                    // lift. longPressDraggableHandle() is a ReorderableCollectionItemScope
+                    // extension, so it must be resolved here inside the item lambda and is
+                    // passed as the row's modifier. The ≡ handle inside the row is now a
+                    // decorative visual cue, and the row's custom actions (Move up/down)
+                    // remain the screen-reader path.
+                    modifier = Modifier.longPressDraggableHandle(),
                 )
             }
         }
@@ -212,7 +213,6 @@ private fun PinnedFeedRow(
     onMove: (from: Int, to: Int) -> Unit,
     onRemove: () -> Unit,
     elevation: Dp,
-    dragHandle: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val removable = feed.kind != FeedKind.Following
@@ -263,8 +263,15 @@ private fun PinnedFeedRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            // Drag handle — long-press to lift (the library drives the haptics).
-            dragHandle()
+            // Decorative drag affordance — the whole row is long-press-draggable
+            // (longPressDraggableHandle on the Surface above); this handle is just
+            // the visual cue.
+            Box(
+                modifier = Modifier.size(48.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                NubecitaIcon(name = NubecitaIconName.Menu, contentDescription = null)
+            }
 
             FeedLeadingIcon(feed)
 
