@@ -31,15 +31,24 @@ uses (`track_promote_to` + localized changelog upload + a gated approval).
   track-agnostic. (Rejected: separate `promote-closed.yaml` / `promote-open.yaml`
   — three copies of near-identical logic to keep in sync.)
 
-- **D3 — Direct-target promotion; no source track.** Do **not** use
-  `track_promote_to`. Instead target the destination track directly with the
-  `version_code`, letting supply pull the artifact from the App Bundle Library
-  (`skip_upload_aab: true`). A versionCode only needs to have been *uploaded* to
-  the app — which CI guarantees (every build lands on `internal`) — not to still
-  be internal's *active* release. This eliminates the "superseded build no longer
-  on internal" failure mode that a `track: internal, track_promote_to: X` call
-  would hit once a newer build supersedes it on internal. (Changed from an
-  earlier `track_promote_to` design after Gemini review on PR #753.)
+- **D3 — Promote from the internal track via `track_promote_to`.** Source each
+  target from `internal`: `track: "internal", track_promote_to: <target>`.
+  supply's `promote_track` reads internal's live release and copies it to the
+  target **without modifying internal**, so a batch can promote the same build to
+  several tracks in one run. *Advance-rollout exception:* when the build is
+  already on production, update it in place (`track: "production"`, no
+  `track_promote_to`).
+  - **⚠️ Correction (verified on PR #754's live test).** An earlier revision of
+    this doc proposed "direct-target" promotion — `track: <target>` with **no**
+    `track_promote_to`, on the theory supply would pull the artifact from the App
+    Bundle Library. **It does not.** supply's non-promote path looks for an
+    *existing* release on the target track and fails with `Unable to find the
+    requested release on track - 'alpha'` when the build isn't already there
+    (`supply/uploader.rb#promote_track`). The direct-target idea (adopted from a
+    Gemini suggestion on PR #753) was wrong; `track_promote_to` from internal is
+    required. *Known limitation of the correct approach:* the versionCode must be
+    a live release on internal, so an explicit *older*, superseded build is not
+    promotable — promote the latest internal build.
 
 - **D4 — Reuse the existing `production` GitHub environment gate** for all
   targets. Single reviewer approval covers the whole batch. Accepted trade-off:
@@ -118,15 +127,14 @@ lane :promote do |options|
     # reject a priority change mid-rollout). Testing tracks never carry priority.
     priority = (target == "production" && !already_on_target) ? prod_priority : nil
     UI.message("#{already_on_target ? 'Advancing' : 'Promoting'} versionCode #{vc} → #{target} @ #{rollout}")
-    # Direct-target promotion (D3): reference the versionCode straight from the
-    # App Bundle Library — NO track_promote_to and NO "internal" source track.
-    # A versionCode only needs to have been uploaded to the app (it has: CI puts
-    # every build on internal); it does NOT need to still be internal's ACTIVE
-    # release. This sidesteps the "superseded build no longer on internal"
-    # failure that track_promote_to would hit. We inject changelogs ourselves
-    # (D7), so losing Play's source-track note copy costs nothing.
+    # Promote from internal via track_promote_to (D3). supply's promote_track
+    # reads internal's live release and copies it to the target without modifying
+    # internal, so a batch fans one build out to several tracks. The direct-target
+    # path (track: <target>, no track_promote_to) was tried and FAILS — supply
+    # errors "Unable to find the requested release on track" (PR #754 test).
     upload_to_play_store(
-      track: target,
+      track: already_on_target ? target : "internal",
+      track_promote_to: already_on_target ? nil : target,
       version_code: vc,
       rollout: rollout,
       in_app_update_priority: priority,
@@ -196,16 +204,15 @@ end
   `-f to_closed=… -f to_open=… -f to_production=…`.
 - Update the run-summary hand-off copy to mention the resolved track list.
 
-## Implementation note (verify on first real dispatch)
+## Implementation note (resolved by the first real dispatch)
 
-The direct-target approach (D3) **dissolves** the earlier "is the build still
-promotable from internal after being superseded" risk — we no longer read a
-source track at all. The one thing to confirm empirically the first time: that
-supply's `upload_to_play_store(track: <target>, version_code: <vc>,
-skip_upload_aab: true)` correctly attaches the existing App-Bundle-Library
-artifact to the target track's release (high confidence — this is supply's
-documented "change a build's track" path — but worth eyeballing on the first
-`alpha`-only dispatch before relying on batch multi-track promotes).
+PR #754's first `alpha`-only dispatch **disproved** the direct-target theory:
+supply's `track: <target>` (no `track_promote_to`) path errored `Unable to find
+the requested release on track - 'alpha'` because it updates an *existing* target
+release rather than creating one. Corrected to `track_promote_to` sourcing from
+internal (D3). `promote_track` copies internal's release to the target without
+modifying internal, so batches work; the only constraint is that the versionCode
+must be a live internal release (promote the latest build, not a superseded one).
 
 ## Testing / verification
 

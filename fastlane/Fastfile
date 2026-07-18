@@ -222,19 +222,28 @@ platform :android do
       end
       rollout = target == "production" ? prod_rollout : "1.0"
       # in_app_update_priority is IMMUTABLE per release: set it only on the
-      # INITIAL production promote, never on a rollout-advance re-run. Testing
-      # tracks never carry a priority.
+      # INITIAL promote to a track (production only), never on a rollout-advance
+      # re-run. Testing tracks never carry a priority.
       priority = (target == "production" && !already_on_target) ? prod_priority : nil
       UI.message("#{already_on_target ? 'Advancing rollout for' : 'Promoting'} versionCode #{vc} → #{target} @ #{rollout}")
 
-      # Direct-target promotion: reference the versionCode straight from the App
-      # Bundle Library (skip_upload_aab). A code only needs to have been UPLOADED
-      # to the app (CI puts every build on internal), not to still be internal's
-      # ACTIVE release — so this never hits the "superseded build not on source
-      # track" failure that track_promote_to would. We inject changelogs (below),
-      # so losing Play's source-track note copy costs nothing.
+      # Promote from the internal track (where CI lands every build) via
+      # track_promote_to. supply's promote_track reads the release from the SOURCE
+      # track and writes it to the target WITHOUT modifying the source, so the
+      # build stays on internal and one batch can promote it to several tracks.
+      # (supply's "direct" path — track: <target> with no track_promote_to — does
+      # NOT create a release from the bundle library; it looks for an EXISTING
+      # release on <target> to update and errors "Unable to find the requested
+      # release on track" when absent. Verified empirically on PR #754's test run
+      # and in supply/uploader.rb#promote_track.)
+      # The one already_on_target case is production advancing its staged rollout,
+      # which updates the existing production release in place (no track_promote_to).
+      # NOTE: promote_track requires the version code to be a live release on the
+      # SOURCE track — promoting an OLD, superseded internal build (an explicit
+      # older version_code) is unsupported; promote the latest internal build.
       upload_to_play_store(
-        track: target,
+        track: already_on_target ? target : "internal",
+        track_promote_to: already_on_target ? nil : target,
         version_code: vc,
         rollout: rollout,
         in_app_update_priority: priority,
