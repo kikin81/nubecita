@@ -53,6 +53,12 @@ uses (`track_promote_to` + localized changelog upload + a gated approval).
   - `production` → `rollout` = input, `in_app_update_priority` = input
   - `alpha` / `beta` → always `rollout = 1.0` (100% of testers), priority unset
     (Play default).
+  - Corollary — **idempotent skip for testing tracks.** Because alpha/beta have
+    no staged rollout, there is nothing to "advance." If the versionCode is
+    already live on a selected testing track, skip it (no-op) rather than
+    re-promote — a redundant re-promote is a wasted Play API call and can fail as
+    an already-completed release. Only `production` re-runs to advance its staged
+    rollout %. (Raised by Gemini review on PR #753.)
 
 - **D7 — Changelogs reused as-is.** Same three-locale
   (`en-US` / `es-419` / `pt-BR`) `changelogs/default.txt` validation + upload for
@@ -88,9 +94,17 @@ lane :promote do |options|
   # Existing three-locale changelog validation (unchanged) …
 
   tracks.each do |target|
+    already_on_target = google_play_track_version_codes(track: target).map(&:to_i).include?(vc)
+    # Testing tracks are always 100% (D6): there is no rollout to advance, so a
+    # re-promote of a build already live on alpha/beta is a redundant Play API
+    # call that can fail as an already-completed release. Skip it — only
+    # production has a real "advance the staged rollout" re-run.
+    if already_on_target && target != "production"
+      UI.message("versionCode #{vc} already on #{target}; nothing to advance — skipping.")
+      next
+    end
     rollout  = target == "production" ? prod_rollout : "1.0"
     priority = target == "production" ? prod_priority : nil
-    already_on_target = google_play_track_version_codes(track: target).map(&:to_i).include?(vc)
     UI.message("#{already_on_target ? 'Advancing' : 'Promoting'} versionCode #{vc} → #{target} @ #{rollout}")
     upload_to_play_store(
       track:            already_on_target ? target : "internal",
