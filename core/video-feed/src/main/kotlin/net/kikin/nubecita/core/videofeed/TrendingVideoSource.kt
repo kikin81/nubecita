@@ -4,6 +4,7 @@ import io.github.kikin81.atproto.app.bsky.feed.FeedService
 import io.github.kikin81.atproto.app.bsky.feed.FeedViewPost
 import io.github.kikin81.atproto.app.bsky.feed.GetFeedRequest
 import io.github.kikin81.atproto.runtime.AtUri
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.auth.XrpcClientProvider
@@ -50,6 +51,9 @@ internal class DefaultTrendingVideoSource
                         )
                     VideoFeedPage(items = toVideoPosts(response.feed), cursor = response.cursor)
                 }.onFailure { throwable ->
+                    // runCatching also catches CancellationException; rethrow it so structured
+                    // coroutine cancellation propagates instead of being swallowed into a Result.
+                    if (throwable is CancellationException) throw throwable
                     // Log only the error identity — the feed URI is public, but keep parity
                     // with the redaction discipline used across the XRPC repositories.
                     Timber.tag(TAG).w(throwable, "trending getFeed failed: %s", throwable.javaClass.name)
