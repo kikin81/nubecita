@@ -35,13 +35,15 @@ Closed/open are selectable destinations of the existing gated workflow, not auto
 
 Generalize `promote_production` → `promote(tracks:)` and thread a track list through `promote.yaml`. *Alternative rejected:* separate `promote-closed.yaml` / `promote-open.yaml` + per-track lanes — three copies of near-identical logic to keep in sync. The `promote_production` name is dropped (no alias); its sole caller `promote.yaml` is updated directly.
 
-### D3 — Direct-target promotion; no source track
+### D3 — Promote from the internal track via `track_promote_to`
 
-Promote by referencing the versionCode directly on the destination track and let `supply` pull the artifact from the App Bundle Library:
+Promote each selected track from the **internal** track (where CI lands every build):
 
 ```ruby
 upload_to_play_store(
-  track: target, version_code: vc, rollout: rollout,
+  track: already_on_target ? target : "internal",
+  track_promote_to: already_on_target ? nil : target,
+  version_code: vc, rollout: rollout,
   in_app_update_priority: priority,
   metadata_path: nubecita_metadata_android_dir,
   skip_upload_changelogs: false,
@@ -50,7 +52,9 @@ upload_to_play_store(
 )
 ```
 
-A versionCode only needs to have been *uploaded* to the app (CI guarantees it — every build lands on internal), not to still be internal's *active* release. *Alternative rejected:* `track: internal, track_promote_to: target` — fails once a newer build supersedes the target on internal ("versionCode not found in source track"). We inject changelogs ourselves (D7), so losing Play's source-track note copy costs nothing.
+**Correction (verified on PR #754's live test):** an earlier revision of this design used a "direct-target" call — `track: target` with **no** `track_promote_to` — on the theory that supply would pull the artifact from the App Bundle Library. It does **not**: supply's non-promote path looks for an *existing* release on `track` to update and fails with `Unable to find the requested release on track - 'alpha'` when the build isn't already there (confirmed in `supply/uploader.rb#promote_track`). The correct primitive is `track_promote_to`, sourcing from internal.
+
+`promote_track` reads the release from the source (internal) track and writes it to the target **without modifying the source** (`deactivate_on_promote` is an accepted option but unused in this code path), so promoting to one track leaves the build on internal and a batch can promote it to several tracks in one run. *Known limitation:* the versionCode must be a live release on internal — an explicit *older*, superseded build is not promotable; promote the latest internal build. *Advance-rollout exception:* when the build is already on production, update the existing production release in place (`track: "production"`, no `track_promote_to`).
 
 ### D4 — Reuse the existing `production` environment gate
 
@@ -103,7 +107,8 @@ Validate and upload `en-US` / `es-419` / `pt-BR` `changelogs/default.txt` (prese
 
 ## Risks / Trade-offs
 
-- **[Direct-target attach unverified in this repo]** → supply's `track: <target>, version_code: <vc>, skip_upload_aab: true` is supply's documented "change a build's track" path, but confirm on the first real `alpha`-only dispatch that it attaches the App-Bundle-Library artifact and renders the changelogs before relying on batch promotes.
+- **[Promoting an old, superseded internal build fails]** → `track_promote_to` requires the versionCode to be a live release on internal; an explicit older version_code that a newer build has replaced is not promotable. Mitigation: default to the latest internal build (the resolver does), and the failure is loud (`Track 'internal' doesn't have any releases`), not silent.
+- **[Direct-target attach does NOT work — resolved]** → an earlier revision used `track: <target>` with no `track_promote_to`; PR #754's live test proved supply errors `Unable to find the requested release on track` because that path updates an existing release rather than creating one. Fixed by sourcing from internal via `track_promote_to` (D3).
 - **[Gate label says "production" for closed/open promotes]** → accepted; the run name carries the actual track list (D4).
 - **[Re-sending immutable production priority on a rollout advance]** → mitigated by gating priority on `!already_on_target` (D6); only the initial production promote carries priority.
 - **[Empty/oversized changelog fails mid-run]** → mitigated by validating all three locales up front, before any track is promoted (D7).

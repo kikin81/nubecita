@@ -114,11 +114,14 @@ Optional:
 `promote` promotes an existing internal version code (no rebuild) to one or more
 downstream tracks — `alpha` (closed testing), `beta` (open testing),
 `production` — via `tracks:"…"`, uploading the committed localized changelogs.
-It targets the version code directly from the App Bundle Library (no
-`track_promote_to`), so a build that a newer one has superseded on internal is
-still promotable. Rollout and update priority apply to **production only**;
-`alpha`/`beta` always go to 100% of testers with no priority, and a build already
-live on a testing track is skipped (no redundant re-promote).
+Each track is promoted **from the internal track** (`track_promote_to`), which
+supply resolves against internal's live release and copies to the target without
+removing it from internal — so one dispatch can fan the same build out to several
+tracks. (Promote the **latest** internal build: an older, superseded version code
+is no longer a live internal release and can't be promoted.) Rollout and update
+priority apply to **production only**; `alpha`/`beta` always go to 100% of testers
+with no priority, and a build already live on a testing track is skipped (no
+redundant re-promote).
 
 ```bash
 # auto-detect latest internal version code, promote to production @ 10%, default priority:

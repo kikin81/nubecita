@@ -21,14 +21,24 @@ The promotion workflow SHALL let an operator select any non-empty combination of
 - **WHEN** an operator dispatches with all three booleans `true` and approves the gate once
 - **THEN** the versionCode is promoted to `alpha`, `beta`, and `production` without requiring a second approval
 
-### Requirement: Direct-target promotion without a source track
+### Requirement: Promotion sourced from the internal track
 
-The system SHALL promote a build by referencing its versionCode directly on the target track (`upload_to_play_store(track: <target>, version_code: <vc>, skip_upload_aab: true)`), pulling the artifact from the Play App Bundle Library. It SHALL NOT use `track_promote_to` and SHALL NOT depend on the build still being the active release on any source track.
+The system SHALL promote a build to each selected track from the **internal** track via `track_promote_to` (`upload_to_play_store(track: "internal", track_promote_to: <target>, version_code: <vc>, skip_upload_aab: true)`). supply resolves the release from the source (internal) track and copies it to the target **without removing it from internal**, so one dispatch can promote the same build to multiple tracks. The production "advance rollout" re-run is the sole exception: when the versionCode is already on production, the rollout is updated in place (`track: "production"`, no `track_promote_to`).
 
-#### Scenario: Build superseded on internal is still promotable
+#### Scenario: Promote latest internal build to a new track
 
-- **WHEN** a newer build has superseded the target versionCode as internal's active release
-- **THEN** the target versionCode SHALL still promote successfully to the selected track from the App Bundle Library
+- **WHEN** the target versionCode is a live release on internal but not yet on the selected track
+- **THEN** the system SHALL create the release on the selected track and SHALL leave the build present on internal
+
+#### Scenario: Same build promoted to multiple tracks in one dispatch
+
+- **WHEN** a batch promotes one versionCode to `alpha`, `beta`, and `production`
+- **THEN** every track SHALL be sourced from internal successfully (promoting to one track SHALL NOT remove the build from internal for the next)
+
+#### Scenario: Superseded internal build is not promotable
+
+- **WHEN** an explicit older versionCode that is no longer a live internal release is requested
+- **THEN** the promotion SHALL fail rather than silently promote the wrong build (promote the latest internal build instead)
 
 #### Scenario: Version code resolution
 
