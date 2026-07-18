@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.feeds.impl
 
+import android.os.Build
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -166,12 +167,22 @@ private fun PinnedFeedList(
     val currentOnEvent by rememberUpdatedState(onEvent)
     val listState = rememberLazyListState()
     val haptics = LocalHapticFeedback.current
+    // SegmentFrequentTick maps to HapticFeedbackConstants.SEGMENT_FREQUENT_TICK, which is
+    // API 34+; Compose does not guard it, so on our minSdk-28 floor it would silently
+    // no-op on API 28–33. Fall back to the older text-handle drag tick (API 27+) there so
+    // reordering has feedback on every supported device. Device-constant, so computed once.
+    val reorderTick =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            HapticFeedbackType.SegmentFrequentTick
+        } else {
+            HapticFeedbackType.TextHandleMove
+        }
     val reorderableState =
         rememberReorderableLazyListState(listState) { from, to ->
             currentOnEvent(ManageFeedsEvent.Move(from.index, to.index))
             // A light tick each time the dragged row swaps past another — the
             // reorderable library ships no haptics, so we drive them here.
-            haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+            haptics.performHapticFeedback(reorderTick)
         }
 
     LazyColumn(
