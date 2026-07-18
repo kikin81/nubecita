@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.feeds.impl
 
+import android.os.Build
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -163,9 +166,23 @@ private fun PinnedFeedList(
     // captured lambda always calls the current instance.
     val currentOnEvent by rememberUpdatedState(onEvent)
     val listState = rememberLazyListState()
+    val haptics = LocalHapticFeedback.current
+    // SegmentFrequentTick maps to HapticFeedbackConstants.SEGMENT_FREQUENT_TICK, which is
+    // API 34+; Compose does not guard it, so on our minSdk-28 floor it would silently
+    // no-op on API 28–33. Fall back to the older text-handle drag tick (API 27+) there so
+    // reordering has feedback on every supported device. Device-constant, so computed once.
+    val reorderTick =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            HapticFeedbackType.SegmentFrequentTick
+        } else {
+            HapticFeedbackType.TextHandleMove
+        }
     val reorderableState =
         rememberReorderableLazyListState(listState) { from, to ->
             currentOnEvent(ManageFeedsEvent.Move(from.index, to.index))
+            // A light tick each time the dragged row swaps past another — the
+            // reorderable library ships no haptics, so we drive them here.
+            haptics.performHapticFeedback(reorderTick)
         }
 
     LazyColumn(
@@ -186,13 +203,15 @@ private fun PinnedFeedList(
                     onMove = { from, to -> currentOnEvent(ManageFeedsEvent.Move(from, to)) },
                     onRemove = { currentOnEvent(ManageFeedsEvent.Remove(feed.uri)) },
                     elevation = elevation,
+                    // Two affordances, both ReorderableCollectionItemScope extensions
+                    // resolved here inside the item lambda:
+                    //  • the WHOLE ROW long-presses to lift (discoverable), via modifier;
+                    //  • the ≡ handle is an INSTANT drag (grab and slide, no hold delay).
+                    // The row's custom actions (Move up/down) remain the screen-reader path.
+                    modifier = Modifier.longPressDraggableHandle(),
                     dragHandle = {
-                        // longPressDraggableHandle() is a ReorderableCollectionItemScope
-                        // extension, so it must be resolved here inside the item lambda. The
-                        // handle is decorative for a11y — the row's custom actions (Move
-                        // up/down) are the screen-reader path.
                         Box(
-                            modifier = Modifier.longPressDraggableHandle().size(48.dp),
+                            modifier = Modifier.draggableHandle().size(48.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             NubecitaIcon(name = NubecitaIconName.Menu, contentDescription = null)
@@ -263,7 +282,8 @@ private fun PinnedFeedRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            // Drag handle — long-press to lift (the library drives the haptics).
+            // The ≡ handle: an instant drag target (drag starts immediately, no hold).
+            // The whole row also long-press-drags (modifier on the Surface above).
             dragHandle()
 
             FeedLeadingIcon(feed)
