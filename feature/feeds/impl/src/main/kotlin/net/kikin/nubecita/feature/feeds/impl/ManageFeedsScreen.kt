@@ -203,13 +203,20 @@ private fun PinnedFeedList(
                     onMove = { from, to -> currentOnEvent(ManageFeedsEvent.Move(from, to)) },
                     onRemove = { currentOnEvent(ManageFeedsEvent.Remove(feed.uri)) },
                     elevation = elevation,
-                    // The WHOLE ROW is the drag affordance: long-press anywhere on it to
-                    // lift. longPressDraggableHandle() is a ReorderableCollectionItemScope
-                    // extension, so it must be resolved here inside the item lambda and is
-                    // passed as the row's modifier. The ≡ handle inside the row is now a
-                    // decorative visual cue, and the row's custom actions (Move up/down)
-                    // remain the screen-reader path.
+                    // Two affordances, both ReorderableCollectionItemScope extensions
+                    // resolved here inside the item lambda:
+                    //  • the WHOLE ROW long-presses to lift (discoverable), via modifier;
+                    //  • the ≡ handle is an INSTANT drag (grab and slide, no hold delay).
+                    // The row's custom actions (Move up/down) remain the screen-reader path.
                     modifier = Modifier.longPressDraggableHandle(),
+                    dragHandle = {
+                        Box(
+                            modifier = Modifier.draggableHandle().size(48.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            NubecitaIcon(name = NubecitaIconName.Menu, contentDescription = null)
+                        }
+                    },
                 )
             }
         }
@@ -224,6 +231,7 @@ private fun PinnedFeedRow(
     onMove: (from: Int, to: Int) -> Unit,
     onRemove: () -> Unit,
     elevation: Dp,
+    dragHandle: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val removable = feed.kind != FeedKind.Following
@@ -274,15 +282,9 @@ private fun PinnedFeedRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            // Decorative drag affordance — the whole row is long-press-draggable
-            // (longPressDraggableHandle on the Surface above); this handle is just
-            // the visual cue.
-            Box(
-                modifier = Modifier.size(48.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                NubecitaIcon(name = NubecitaIconName.Menu, contentDescription = null)
-            }
+            // The ≡ handle: an instant drag target (drag starts immediately, no hold).
+            // The whole row also long-press-drags (modifier on the Surface above).
+            dragHandle()
 
             FeedLeadingIcon(feed)
 
