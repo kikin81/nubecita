@@ -85,3 +85,7 @@ fastlane/metadata/android/screenshots.html
 
 # app-health skill: local health reports contain real user metrics — never commit (public repo)
 health-reports/
+
+# Local reference material (third-party article digests) — never commit (public
+# repo, copyright); committed specs cite source URLs. See docs/references/README.md.
+docs/references/
