@@ -3,8 +3,20 @@ name: Promote to Production
 on:
   workflow_dispatch:
     inputs:
+      to_closed:
+        description: "→ Closed testing (alpha)"
+        type: boolean
+        default: false
+      to_open:
+        description: "→ Open testing (beta)"
+        type: boolean
+        default: false
+      to_production:
+        description: "→ Production"
+        type: boolean
+        default: true
       rollout:
-        description: "Rollout fraction (re-run higher to advance)"
+        description: "Rollout fraction — PRODUCTION only (re-run higher to advance; testers always 100%)"
         required: true
         default: "0.1"
         type: choice
@@ -14,7 +26,7 @@ on:
         required: false
         type: string
       in_app_update_priority:
-        description: "Production update priority (>=4 forces IMMEDIATE; 0 = default)"
+        description: "Update priority — PRODUCTION only (>=4 forces IMMEDIATE; 0 = default)"
         required: true
         default: "0"
         type: choice
@@ -37,10 +49,26 @@ jobs:
     environment: release
     outputs:
       version_code: ${{ steps.resolve.outputs.version_code }}
+      tracks: ${{ steps.assemble_tracks.outputs.list }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0          # full history so `git log -1 -- <changelog>` finds the last edit
+      - name: Assemble target tracks
+        id: assemble_tracks
+        # workflow_dispatch has no multi-select, so the three booleans are folded
+        # into a comma list here (before the gate) and fail fast if none are set.
+        run: |
+          TRACKS=()
+          [[ "${{ inputs.to_closed }}" == 'true' ]] && TRACKS+=("alpha")
+          [[ "${{ inputs.to_open }}" == 'true' ]] && TRACKS+=("beta")
+          [[ "${{ inputs.to_production }}" == 'true' ]] && TRACKS+=("production")
+          JOINED=$(IFS=, ; echo "${TRACKS[*]}")
+          if [[ -z "$JOINED" ]]; then
+            echo "::error::No target tracks selected — check at least one of to_closed / to_open / to_production."
+            exit 1
+          fi
+          echo "list=$JOINED" >> "$GITHUB_OUTPUT"
       - uses: ruby/setup-ruby@v1
         with:
           bundler-cache: true
@@ -65,7 +93,8 @@ jobs:
           {
             echo "## Promote target"
             echo "- versionCode: **$vc**"
-            echo "- rollout: **${{ inputs.rollout }}**  ·  priority: **${{ inputs.in_app_update_priority }}**"
+            echo "- tracks: **${{ steps.assemble_tracks.outputs.list }}**"
+            echo "- rollout (production only): **${{ inputs.rollout }}**  ·  priority (production only): **${{ inputs.in_app_update_priority }}**"
             for loc in en-US es-419 pt-BR; do
               f="fastlane/metadata/android/$loc/changelogs/default.txt"
               edited=$(git log -1 --format='last edited %cr (%h: %s)' -- "$f")
@@ -77,7 +106,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   promote:
-    name: Promote v${{ needs.resolve.outputs.version_code }} to production
+    name: Promote v${{ needs.resolve.outputs.version_code }} to ${{ needs.resolve.outputs.tracks }}
     needs: resolve
     runs-on: ubuntu-latest
     # NEW environment with required reviewers → the "Approve and deploy" gate.
@@ -95,9 +124,10 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-      - name: Promote to production
+      - name: Promote to selected tracks
         run: |
-          bundle exec fastlane promote_production \
+          bundle exec fastlane promote \
+            tracks:"${{ needs.resolve.outputs.tracks }}" \
             version_code:"${{ needs.resolve.outputs.version_code }}" \
             rollout:"${{ inputs.rollout }}" \
             priority:"${{ inputs.in_app_update_priority }}"
