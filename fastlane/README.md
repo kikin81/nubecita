@@ -8,8 +8,8 @@ for Nubecita.
 | Lane                     | What it does                                                                                                                                                                                                                            |
 |--------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `internal`               | Builds a signed release AAB (`./gradlew bundleRelease`) and uploads it to the Play Console **internal** track. Skips listing metadata, images, and screenshots; uploads release notes from `PLAY_RELEASE_NOTES` (placeholder if unset). Optionally sets `IN_APP_UPDATE_PRIORITY`. |
-| `promote_production`      | Promotes an existing **internal** version code to **production** (no rebuild) at a rollout fraction, uploading the committed localized changelogs and an optional immutable update priority. See [Promote to production](#promote-to-production). |
-| `resolve_promote_target` | Prints `RESOLVED_VERSION_CODE=<n>` for the code `promote_production` would target (auto-detect helper for the promote workflow's confirm step). Reads nothing, uploads nothing.                                                          |
+| `promote`                | Promotes an existing **internal** version code (no rebuild) to one or more tracks — `alpha` (closed testing), `beta` (open testing), `production` — passed as `tracks:"alpha,beta,production"`, uploading the committed localized changelogs. Rollout/priority apply to production only; testing tracks go 100% and skip a redundant re-promote. See [Promote to production](#promote-to-production). |
+| `resolve_promote_target` | Prints `RESOLVED_VERSION_CODE=<n>` for the code the `promote` lane would target (auto-detect helper for the promote workflow's confirm step). Reads nothing, uploads nothing.                                                          |
 
 ## Prerequisites
 
@@ -111,20 +111,27 @@ Optional:
 
 ## Promote to production
 
-`promote_production` promotes an existing internal version code to the
-production track (no rebuild) at a rollout fraction, uploading the committed
-localized changelogs and an optional immutable update priority.
+`promote` promotes an existing internal version code (no rebuild) to one or more
+downstream tracks — `alpha` (closed testing), `beta` (open testing),
+`production` — via `tracks:"…"`, uploading the committed localized changelogs.
+It targets the version code directly from the App Bundle Library (no
+`track_promote_to`), so a build that a newer one has superseded on internal is
+still promotable. Rollout and update priority apply to **production only**;
+`alpha`/`beta` always go to 100% of testers with no priority, and a build already
+live on a testing track is skipped (no redundant re-promote).
 
 ```bash
-# auto-detect latest internal version code, 10% rollout, default priority:
-bundle exec fastlane promote_production
-# explicit code, 50% rollout, force IMMEDIATE:
-bundle exec fastlane promote_production version_code:142 rollout:0.5 priority:5
+# auto-detect latest internal version code, promote to production @ 10%, default priority:
+bundle exec fastlane promote tracks:production
+# catch up both testing tracks (100% to testers):
+bundle exec fastlane promote tracks:alpha,beta
+# explicit code to all three; production @ 50% force IMMEDIATE (testers still 100%):
+bundle exec fastlane promote tracks:alpha,beta,production version_code:142 rollout:0.5 priority:5
 ```
 
-Re-running with a higher `rollout` advances an in-progress rollout (the lane
-detects the code is already on production). Priority is set only on the initial
-promote — it is immutable per release.
+Re-running with a higher `rollout` and `tracks:production` advances an in-progress
+production rollout (the lane detects the code is already on production). Priority
+is set only on the initial production promote — it is immutable per release.
 
 Release notes are the committed files
 `fastlane/metadata/android/<locale>/changelogs/default.txt` (en-US / es-419 /

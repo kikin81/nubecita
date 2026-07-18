@@ -21,6 +21,11 @@ REQUIRED_KEYSTORE_ENV = %w[KEYSTORE_FILE KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWOR
 # the upload mid-request with a hard-to-debug "field too long" error.
 PLAY_CHANGELOG_MAX_CHARS = 500
 
+# Downstream tracks the `promote` lane can target, by Play track id:
+# alpha = closed testing, beta = open testing, production = production.
+# (internal is the CI landing track — the source, never a promote target.)
+PROMOTE_TRACKS = %w[alpha beta production].freeze
+
 # Locale buckets that ship framed marketing screenshots. en-US is the source of
 # truth (the journey captures it); the others reuse those captures with a
 # localized title band (see the `localize_marketing_screenshots` lane). The app
@@ -157,7 +162,7 @@ platform :android do
     end
   end
 
-  desc "Print the version code promote_production would target (RESOLVED_VERSION_CODE=<n>)."
+  desc "Print the version code the promote lane would target (RESOLVED_VERSION_CODE=<n>)."
   lane :resolve_promote_target do |options|
     vc = nubecita_resolve_promote_version_code(options[:version_code]) ||
       UI.user_error!("No internal version code found to resolve")
@@ -165,17 +170,29 @@ platform :android do
     puts "RESOLVED_VERSION_CODE=#{vc}"
   end
 
-  desc "Promote an internal version code to production at a rollout fraction, with localized notes."
-  lane :promote_production do |options|
-    rollout = nubecita_blank(options[:rollout]) || "0.1"
-    UI.user_error!("Rollout must be in (0.0, 1.0] (got: #{rollout})") unless rollout.to_f > 0.0 && rollout.to_f <= 1.0
-    priority = nubecita_blank(options[:priority])&.to_i
-    UI.user_error!("Priority must be 0..5 (got: #{priority})") if priority && !priority.between?(0, 5)
+  desc "Promote an internal version code to one or more tracks (alpha/beta/production),"
+  desc "with localized notes. Pass tracks:\"alpha,beta,production\" (comma-separated)."
+  lane :promote do |options|
+    tracks = nubecita_blank(options[:tracks]).to_s.split(",").map(&:strip).reject(&:empty?)
+    UI.user_error!("No tracks selected (pass tracks:\"alpha,beta,production\")") if tracks.empty?
+    bad = tracks - PROMOTE_TRACKS
+    UI.user_error!("Unknown track(s): #{bad.join(', ')}. Valid: #{PROMOTE_TRACKS.join(', ')}") unless bad.empty?
+
+    # rollout + priority are production-only knobs (D6); testing tracks always go
+    # 100% with no priority. Validate the production inputs up front regardless of
+    # whether production is selected — a bad value is an operator error worth
+    # surfacing before any track is touched.
+    prod_rollout = nubecita_blank(options[:rollout]) || "0.1"
+    UI.user_error!("Rollout must be in (0.0, 1.0] (got: #{prod_rollout})") unless prod_rollout.to_f > 0.0 && prod_rollout.to_f <= 1.0
+    prod_priority = nubecita_blank(options[:priority])&.to_i
+    UI.user_error!("Priority must be 0..5 (got: #{prod_priority})") if prod_priority && !prod_priority.between?(0, 5)
+
     vc = nubecita_resolve_promote_version_code(options[:version_code]) ||
       UI.user_error!("No internal version code found to promote")
 
     # Every locale must have a non-empty default.txt within Play's per-locale cap,
-    # else supply ships a partial set or fails the upload mid-request.
+    # else supply ships a partial set or fails the upload mid-request. Validate
+    # once, before promoting any track.
     %w[en-US es-419 pt-BR].each do |loc|
       f = File.join(nubecita_metadata_android_dir, loc, "changelogs", "default.txt")
       text = File.exist?(f) ? File.read(f).strip : ""
@@ -183,22 +200,41 @@ platform :android do
       UI.user_error!("Changelog #{loc} exceeds #{PLAY_CHANGELOG_MAX_CHARS} chars (#{text.length})") if text.length > PLAY_CHANGELOG_MAX_CHARS
     end
 
-    already_prod = google_play_track_version_codes(track: "production").map(&:to_i).include?(vc)
-    UI.message("#{already_prod ? 'Advancing rollout for' : 'Promoting'} versionCode #{vc} → production @ #{rollout}")
+    tracks.each do |target|
+      already_on_target = google_play_track_version_codes(track: target).map(&:to_i).include?(vc)
+      # Testing tracks are always 100% (no staged rollout to advance), so a
+      # re-promote of a build already live on alpha/beta is a redundant Play API
+      # call that can fail as an already-completed release — skip it. Only
+      # production re-runs to advance its staged rollout.
+      if already_on_target && target != "production"
+        UI.message("versionCode #{vc} already on #{target}; nothing to advance — skipping.")
+        next
+      end
+      rollout = target == "production" ? prod_rollout : "1.0"
+      # in_app_update_priority is IMMUTABLE per release: set it only on the
+      # INITIAL production promote, never on a rollout-advance re-run. Testing
+      # tracks never carry a priority.
+      priority = (target == "production" && !already_on_target) ? prod_priority : nil
+      UI.message("#{already_on_target ? 'Advancing rollout for' : 'Promoting'} versionCode #{vc} → #{target} @ #{rollout}")
 
-    upload_to_play_store(
-      track: already_prod ? "production" : "internal",      # first run promotes; re-run advances rollout
-      track_promote_to: already_prod ? nil : "production",
-      version_code: vc,
-      rollout: rollout,
-      # Priority is immutable per release: set it only on the initial promote.
-      in_app_update_priority: already_prod ? nil : priority,
-      metadata_path: nubecita_metadata_android_dir,         # committed en-US/es-419/pt-BR changelogs
-      skip_upload_changelogs: false,                        # the localized-notes upload
-      skip_upload_apk: true, skip_upload_aab: true,
-      skip_upload_metadata: true,                           # listing text / images untouched
-      skip_upload_images: true, skip_upload_screenshots: true,
-    )
+      # Direct-target promotion: reference the versionCode straight from the App
+      # Bundle Library (skip_upload_aab). A code only needs to have been UPLOADED
+      # to the app (CI puts every build on internal), not to still be internal's
+      # ACTIVE release — so this never hits the "superseded build not on source
+      # track" failure that track_promote_to would. We inject changelogs (below),
+      # so losing Play's source-track note copy costs nothing.
+      upload_to_play_store(
+        track: target,
+        version_code: vc,
+        rollout: rollout,
+        in_app_update_priority: priority,
+        metadata_path: nubecita_metadata_android_dir,         # committed en-US/es-419/pt-BR changelogs
+        skip_upload_changelogs: false,                        # the localized-notes upload
+        skip_upload_apk: true, skip_upload_aab: true,
+        skip_upload_metadata: true,                           # listing text / images untouched
+        skip_upload_images: true, skip_upload_screenshots: true,
+      )
+    end
   end
 
   desc "Upload the committed framed marketing screenshots to the Play listing."
