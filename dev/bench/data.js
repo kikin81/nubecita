@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784274792164,
+  "lastUpdate": 1784360871338,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -467,6 +467,58 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
             "value": 1130.628,
             "range": "+/- 35%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "f18cb8cce131b0cf868618a2c0f3316440e81040",
+          "message": "ci: source promotions from internal via track_promote_to (#755)\n\nThe multi-track promote lane used a direct-target upload\n(track: <target>, no track_promote_to) on the theory supply would\nattach the build from the App Bundle Library. It does not: supply's\nnon-promote path looks for an EXISTING release on the target track and\nfails 'Unable to find the requested release on track - alpha' when the\nbuild isn't already there (PR #754 live test; confirmed in\nsupply/uploader.rb#promote_track).\n\nRestore track_promote_to sourcing from internal. supply's promote_track\ncopies internal's live release to the target without modifying internal,\nso a batch fans one build out to alpha/beta/production in a single run.\nProduction advance-rollout stays an in-place update (track: production,\nno track_promote_to). Limitation documented: the version code must be a\nlive internal release (promote the latest build, not a superseded one).\n\nCorrects D3 in the design + spec docs accordingly.\n\nRefs: nubecita-keas",
+          "timestamp": "2026-07-18T04:35:28Z",
+          "url": "https://github.com/kikin81/nubecita/commit/f18cb8cce131b0cf868618a2c0f3316440e81040"
+        },
+        "date": 1784360868929,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 30,
+            "range": "+/- 5.4%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1494.363,
+            "range": "+/- 4.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1380.828,
+            "range": "+/- 3.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1227.507,
+            "range": "+/- 11.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1121.431,
+            "range": "+/- 19.6%",
             "unit": "ms"
           }
         ]
