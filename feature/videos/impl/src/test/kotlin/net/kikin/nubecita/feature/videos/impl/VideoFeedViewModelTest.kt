@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.videos.impl
 
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.collections.immutable.persistentListOf
@@ -9,6 +10,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.core.video.SharedVideoPlayer
+import net.kikin.nubecita.core.video.playback.DataSaverStatus
 import net.kikin.nubecita.core.video.playback.VerticalVideoPlaylistPlayer
 import net.kikin.nubecita.core.videofeed.VideoFeedPage
 import net.kikin.nubecita.core.videofeed.VideoFeedSource
@@ -33,8 +35,9 @@ class VideoFeedViewModelTest {
     private val source = mockk<VideoFeedSource>()
     private val pool = mockk<VerticalVideoPlaylistPlayer>(relaxed = true)
     private val shared = mockk<SharedVideoPlayer>(relaxed = true)
+    private val dataSaver = mockk<DataSaverStatus>(relaxed = true) // isActive() = false by default → prewarm on
 
-    private fun vm(startIndex: Int = 0) = VideoFeedViewModel(VideoFeed(startIndex), source, pool, shared)
+    private fun vm(startIndex: Int = 0) = VideoFeedViewModel(VideoFeed(startIndex), source, pool, shared, dataSaver)
 
     @Test
     fun init_releasesSharedPlayer_loadsFirstPage_bindsPool() =
@@ -49,6 +52,30 @@ class VideoFeedViewModelTest {
             assertInstanceOf(VideoFeedStatus.Content::class.java, status)
             assertEquals(2, (status as VideoFeedStatus.Content).items.size)
             coVerify { pool.bind(match { it.size == 2 }, 0) }
+        }
+
+    @Test
+    fun init_underDataSaver_disablesPrewarm() =
+        runTest(mainDispatcher.dispatcher) {
+            every { dataSaver.isActive() } returns true
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(listOf(videoPost("a")), cursor = null))
+
+            vm()
+            advanceUntilIdle()
+
+            verify { pool.setPrewarmEnabled(false) }
+        }
+
+    @Test
+    fun init_withoutDataSaver_keepsPrewarm() =
+        runTest(mainDispatcher.dispatcher) {
+            every { dataSaver.isActive() } returns false
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(listOf(videoPost("a")), cursor = null))
+
+            vm()
+            advanceUntilIdle()
+
+            verify { pool.setPrewarmEnabled(true) }
         }
 
     @Test

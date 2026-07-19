@@ -90,6 +90,13 @@ public class VerticalVideoPlaylistPlayer(
     private var maxSlots: Int = 2
     private var degradedForDecoderBudget: Boolean = false
 
+    // Whether to prewarm the next item. Turned off under Data Saver (skip the
+    // next-clip prefetch; the active clip still plays) — see [setPrewarmEnabled].
+    // Independent of the decoder-budget [maxSlots] ceiling: prewarm happens only
+    // when both allow it. (Epic nubecita-zdv8 Slice 5c; "Battery discipline".)
+    @Volatile
+    private var prewarmEnabled: Boolean = true
+
     private var items: List<VideoSource> = emptyList()
     private var activeIndex: Int = -1
 
@@ -193,6 +200,17 @@ public class VerticalVideoPlaylistPlayer(
         slots.firstOrNull { it.index == activeIndex }?.player?.volume = if (muted) 0f else 1f
     }
 
+    /**
+     * Enable/disable prewarming the next item. Set **before** [bind] (e.g. from a
+     * Data Saver check): with prewarm off the pool runs single-player and only
+     * loads the clip the user is actually watching. Toggling after a prewarm slot
+     * already exists does not tear it down — the intended use is a one-shot gate
+     * at feed open.
+     */
+    public fun setPrewarmEnabled(enabled: Boolean) {
+        prewarmEnabled = enabled
+    }
+
     /** Synchronously release everything. Call from the host ViewModel's `onCleared` (main thread). */
     public fun release() {
         released = true
@@ -226,7 +244,7 @@ public class VerticalVideoPlaylistPlayer(
         if (released) return
         // Prewarm the next item only when the pool ceiling allows a second
         // player (maxSlots drops to 1 after a decoder-budget degrade).
-        val nextIndex = (target + 1).takeIf { it in items.indices && maxSlots > 1 }
+        val nextIndex = (target + 1).takeIf { it in items.indices && maxSlots > 1 && prewarmEnabled }
         val neededSlots = if (nextIndex == null) 1 else 2
         // No shrink loop is needed here: the only place `maxSlots` drops is
         // `recoverFromDecoderBudget`, which trims `slots` to the single active

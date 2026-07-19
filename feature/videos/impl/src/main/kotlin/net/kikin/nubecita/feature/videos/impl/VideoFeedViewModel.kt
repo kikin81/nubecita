@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.video.SharedVideoPlayer
+import net.kikin.nubecita.core.video.playback.DataSaverStatus
 import net.kikin.nubecita.core.video.playback.PlaylistPlaybackState
 import net.kikin.nubecita.core.video.playback.VerticalVideoPlaylistPlayer
 import net.kikin.nubecita.core.video.playback.VideoSource
@@ -39,6 +40,7 @@ class VideoFeedViewModel
         private val source: VideoFeedSource,
         private val pool: VerticalVideoPlaylistPlayer,
         private val sharedVideoPlayer: SharedVideoPlayer,
+        private val dataSaver: DataSaverStatus,
     ) : MviViewModel<VideoFeedState, VideoFeedEvent, VideoFeedEffect>(
             VideoFeedState(activeIndex = route.startIndex.coerceAtLeast(0)),
         ) {
@@ -61,6 +63,8 @@ class VideoFeedViewModel
         init {
             // Free the feed player's decoder for the pool's budget (rebuilds lazily on return).
             sharedVideoPlayer.release()
+            // Under Data Saver, don't prefetch the next clip (the active one still plays).
+            pool.setPrewarmEnabled(!dataSaver.isActive())
             loadFirstPage()
         }
 
