@@ -528,6 +528,7 @@ enum class VideoSurface(
     VideoPlayer("video_player"),
     MediaViewer("media_viewer"),
     PostDetail("post_detail"),
+    VerticalFeed("vertical_feed"),
 }
 
 /**
@@ -545,6 +546,50 @@ data class VideoPlay(
         mapOf(
             "source_surface" to Str(surface.wire),
             "autoplay" to BoolVal(autoplay),
+        )
+}
+
+/**
+ * Per-playback quality summary, emitted when a clip's playback session ends
+ * (media item changes or the player is released) from a Media3
+ * `PlaybackStatsListener`. [timeToFirstFrameMs] is the join time (buffering
+ * before the first frame — the swipe-to-video latency the vertical feed
+ * optimizes); rebuffer + play-time capture stall vs. watch time. PII-free: no
+ * clip URI, no bitrate, no position. "Started/stopped" is implicit — an event
+ * is only emitted for a session that played.
+ */
+data class VideoPlaybackStats(
+    val surface: VideoSurface,
+    val timeToFirstFrameMs: Long,
+    val rebufferCount: Long,
+    val rebufferMs: Long,
+    val playMs: Long,
+) : AnalyticsEvent {
+    override val name: String = "video_playback_stats"
+    override val params: Map<String, AnalyticsValue> =
+        mapOf(
+            "source_surface" to Str(surface.wire),
+            "ttff_ms" to LongVal(timeToFirstFrameMs),
+            "rebuffer_count" to LongVal(rebufferCount),
+            "rebuffer_ms" to LongVal(rebufferMs),
+            "play_ms" to LongVal(playMs),
+        )
+}
+
+/**
+ * A fatal playback error. [errorCode] is the Media3 `PlaybackException` error
+ * code (e.g. 4001 decoder-init, 2001 network) — numeric, so segmentation stays
+ * PII-free (no message, no clip URI).
+ */
+data class VideoPlaybackError(
+    val surface: VideoSurface,
+    val errorCode: Long,
+) : AnalyticsEvent {
+    override val name: String = "video_playback_error"
+    override val params: Map<String, AnalyticsValue> =
+        mapOf(
+            "source_surface" to Str(surface.wire),
+            "error_code" to LongVal(errorCode),
         )
 }
 
