@@ -1,6 +1,7 @@
 package net.kikin.nubecita.core.video.playback
 
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.exoplayer.ExoPlayer
 import io.mockk.every
 import io.mockk.mockk
@@ -35,6 +36,8 @@ class VerticalVideoPlaylistPlayerTest {
         )
 
     private fun sources(n: Int) = (0 until n).map { VideoSource(playlistUrl = "https://cdn.example/$it.m3u8") }
+
+    private fun decoderError() = PlaybackException("boom", null, PlaybackException.ERROR_CODE_DECODING_FAILED)
 
     @Test
     fun bind_createsTwoPlayers_activePlays_nextPrewarms() =
@@ -139,6 +142,30 @@ class VerticalVideoPlaylistPlayerTest {
             assertEquals(1, created.size)
             verify { created[0].release() }
             assertNull(pool.activePlayer.value)
+        }
+
+    @Test
+    fun decoderError_onActive_freesPrewarm_retriesActive_thenRunsPoolOfOne() =
+        runTest {
+            val pool = pool()
+            pool.bind(sources(3), startIndex = 0)
+            assertEquals(2, created.size) // pool-of-2 to start
+
+            // The active playback hits a decoder error — the concurrent-decoder
+            // shortfall tell. (The real listener forwards player.playerError here.)
+            pool.onActivePlayerError(decoderError())
+            runCurrent()
+
+            // Prewarm decoder freed; active re-prepared + resumed as the sole player.
+            verify { created[1].release() }
+            verify(atLeast = 2) { created[0].prepare() }
+            verify(atLeast = 2) { created[0].play() }
+            assertSame(created[0], pool.activePlayer.value)
+
+            // Degraded: a forward swipe re-binds the single player, spawns no 3rd.
+            pool.onActiveIndexChanged(1)
+            assertEquals(2, created.size)
+            assertSame(created[0], pool.activePlayer.value)
         }
 
     @Test

@@ -3,13 +3,18 @@
 package net.kikin.nubecita.core.video.playback
 
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -49,6 +54,11 @@ public sealed interface PlaylistPlaybackState {
  * backgrounds; [onStart] re-prepares. Not a Hilt singleton — the hosting
  * ViewModel constructs one per vertical-feed surface and calls [release] in
  * `onCleared`.
+ *
+ * Decoder budget: if the active playback hits a decoder error while the pool
+ * holds two players, the device can't sustain two concurrent decoders — the
+ * pool frees the prewarm and retries the active as pool-of-1 for the rest of
+ * the surface's life (trading instant swipes for playing at all).
  */
 public class VerticalVideoPlaylistPlayer(
     private val playerProvider: suspend () -> ExoPlayer,
@@ -64,6 +74,21 @@ public class VerticalVideoPlaylistPlayer(
 
     private val mutex = Mutex()
     private val slots = mutableListOf<Slot>()
+
+    // Own scope for self-initiated decoder-budget recovery (triggered from the
+    // active player's error listener, not a caller). Cancelled in release().
+    private val recoveryScope = CoroutineScope(mainDispatcher + SupervisorJob())
+
+    // Pool ceiling. Starts at 2 (active + prewarm) and degrades to 1 the first
+    // time the active playback hits a decoder error — the tell-tale of a device
+    // whose concurrent hardware-decoder budget can't sustain two (emulator
+    // goldfish; phones capped at 2 while a SharedVideoPlayer also holds one).
+    // Once degraded, the pool runs single-player for the rest of the surface's
+    // life: swipes re-prepare in place rather than promote a prewarm. (Epic
+    // nubecita-zdv8 Slice 5a; spec video-playback-engine "decoder-exclusion".)
+    @Volatile
+    private var maxSlots: Int = 2
+    private var degradedForDecoderBudget: Boolean = false
 
     private var items: List<VideoSource> = emptyList()
     private var activeIndex: Int = -1
@@ -108,9 +133,12 @@ public class VerticalVideoPlaylistPlayer(
                     return
                 }
                 val error = player.playerError
+                if (error != null) {
+                    onActivePlayerError(error)
+                    return
+                }
                 _playbackState.value =
                     when {
-                        error != null -> PlaylistPlaybackState.Error(error)
                         player.playbackState == Player.STATE_BUFFERING -> PlaylistPlaybackState.Buffering
                         player.isPlaying -> PlaylistPlaybackState.Playing
                         else -> PlaylistPlaybackState.Idle
@@ -168,17 +196,42 @@ public class VerticalVideoPlaylistPlayer(
     /** Synchronously release everything. Call from the host ViewModel's `onCleared` (main thread). */
     public fun release() {
         released = true
+        recoveryScope.cancel()
         teardownPlayers()
         items = emptyList()
         activeIndex = -1
+    }
+
+    /**
+     * The active player reported [error]. A decoder error on the first
+     * (still pool-of-2) playback almost always means the device can't sustain
+     * two concurrent decoders — free the prewarm's decoder and retry the active
+     * once as pool-of-1 (spec decoder-exclusion retry) instead of surfacing a
+     * hard error. Any other error (or a second failure once degraded) surfaces.
+     * `internal` so the pool's error path is unit-testable without Media3's
+     * `Player.Events` / `ExoPlaybackException` construction plumbing.
+     */
+    internal fun onActivePlayerError(error: PlaybackException) {
+        if (error.isDecoderError() && !degradedForDecoderBudget && maxSlots > 1) {
+            _playbackState.value = PlaylistPlaybackState.Buffering
+            recoveryScope.launch { recoverFromDecoderBudget(error) }
+        } else {
+            _playbackState.value = PlaylistPlaybackState.Error(error)
+        }
     }
 
     // --- internals (always on the main thread, under the mutex) ---
 
     private suspend fun settle(target: Int) {
         if (released) return
-        val nextIndex = (target + 1).takeIf { it in items.indices }
+        // Prewarm the next item only when the pool ceiling allows a second
+        // player (maxSlots drops to 1 after a decoder-budget degrade).
+        val nextIndex = (target + 1).takeIf { it in items.indices && maxSlots > 1 }
         val neededSlots = if (nextIndex == null) 1 else 2
+        // No shrink loop is needed here: the only place `maxSlots` drops is
+        // `recoverFromDecoderBudget`, which trims `slots` to the single active
+        // player and lowers `maxSlots` atomically under the same mutex — so
+        // `settle` never observes `slots.size > maxSlots`.
         while (slots.size < neededSlots) {
             val player = playerProvider()
             // release() may have run while we were suspended in playerProvider() —
@@ -213,6 +266,41 @@ public class VerticalVideoPlaylistPlayer(
         _activePlayer.value = activeSlot.player
     }
 
+    /**
+     * The active playback failed to decode ([error]) while the pool held two
+     * players. Degrade to a single player (freeing the prewarm's decoder) and
+     * retry the active item once. If it fails again as pool-of-1, the next error
+     * is a genuine playback failure and surfaces as [PlaylistPlaybackState.Error].
+     */
+    private suspend fun recoverFromDecoderBudget(error: PlaybackException): Unit =
+        mutex.withLock {
+            withContext(mainDispatcher) {
+                // Torn down, or another error already drove the degrade+retry — nothing to do.
+                if (released || degradedForDecoderBudget) return@withContext
+                degradedForDecoderBudget = true
+                maxSlots = 1
+
+                // No active slot to retry: surface the original error instead of
+                // leaving the UI stuck on the Buffering state set by onActivePlayerError.
+                val active =
+                    slots.firstOrNull { it.index == activeIndex }
+                        ?: run {
+                            _playbackState.value = PlaylistPlaybackState.Error(error)
+                            return@withContext
+                        }
+                // Free every other player's decoder so the active has headroom.
+                slots.filter { it !== active }.forEach { it.player.release() }
+                slots.retainAll { it === active }
+
+                // Re-prepare the same player (prepare() clears its error) and resume.
+                rebind(active, activeIndex)
+                attachActiveListener(active.player)
+                active.player.volume = if (muted) 0f else 1f
+                active.player.play()
+                _activePlayer.value = active.player
+            }
+        }
+
     private fun rebind(
         slot: Slot,
         index: Int,
@@ -243,3 +331,11 @@ public class VerticalVideoPlaylistPlayer(
         _playbackState.value = PlaylistPlaybackState.Idle
     }
 }
+
+/**
+ * The Media3 decoder-error band (init/query/decode/format failures,
+ * 4001–4005) — the errors that a concurrent-decoder shortfall surfaces as.
+ */
+private fun PlaybackException.isDecoderError(): Boolean =
+    errorCode in
+        PlaybackException.ERROR_CODE_DECODER_INIT_FAILED..PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED
