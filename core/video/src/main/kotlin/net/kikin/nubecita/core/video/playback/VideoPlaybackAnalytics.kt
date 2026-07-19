@@ -37,7 +37,9 @@ internal fun ExoPlayer.installPlaybackAnalytics(
             analytics.log(
                 VideoPlaybackStats(
                     surface = surface,
-                    timeToFirstFrameMs = stats.meanJoinTimeMs,
+                    // meanJoinTimeMs is C.TIME_UNSET (Long.MIN_VALUE) when no join was
+                    // recorded — coerce so a huge negative can't corrupt GA4 aggregates.
+                    timeToFirstFrameMs = stats.meanJoinTimeMs.coerceAtLeast(0L),
                     rebufferCount = stats.totalRebufferCount.toLong(),
                     rebufferMs = stats.totalRebufferTimeMs,
                     playMs = stats.totalPlayTimeMs,
