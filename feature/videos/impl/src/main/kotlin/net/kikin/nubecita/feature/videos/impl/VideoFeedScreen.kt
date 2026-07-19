@@ -25,6 +25,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.ui.compose.PlayerSurface
+import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
 import kotlinx.coroutines.flow.distinctUntilChanged
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 
@@ -96,8 +97,19 @@ private fun VideoPage(
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         // The pool holds a single active player; only the settled page renders it.
         // Non-active pages stay black until swiped to (poster reveal arrives with chrome).
+        //
+        // TextureView, not the default SurfaceView: a SurfaceView is a separate
+        // compositor layer whose Surface attaches asynchronously and repaints only
+        // on a relayout — so a freshly-created per-page SurfaceView shows black
+        // after a swipe settles until the surface is nudged. A TextureView renders
+        // in the view hierarchy and presents the current frame on the settle layout
+        // pass. (nubecita-zdv8.10.)
         if (isActive && player != null) {
-            PlayerSurface(player = player, modifier = Modifier.fillMaxSize())
+            PlayerSurface(
+                player = player,
+                surfaceType = SURFACE_TYPE_TEXTURE_VIEW,
+                modifier = Modifier.fillMaxSize(),
+            )
         }
     }
 }
