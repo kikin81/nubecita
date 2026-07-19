@@ -55,8 +55,10 @@ class VideoFeedScrollBenchmark {
                         "Feed list ('$FEED_LIST_RES_ID') not found — is the bench build signed in?",
                     )
                 // Switch to the Discover feed, which hosts the Trending Videos carousel.
+                // Wait (not findObject) — the chip may not be laid out the instant the
+                // feed list appears; a bare findObject would flake.
                 val discoverChip =
-                    device.findObject(By.text(FEED_DISCOVER_CHIP_TEXT))
+                    device.wait(Until.findObject(By.text(FEED_DISCOVER_CHIP_TEXT)), NAV_WAIT_MS)
                         ?: throw AssertionError("Discover chip ('$FEED_DISCOVER_CHIP_TEXT') not found.")
                 discoverChip.click()
                 // Open the vertical feed at the first trending poster.
