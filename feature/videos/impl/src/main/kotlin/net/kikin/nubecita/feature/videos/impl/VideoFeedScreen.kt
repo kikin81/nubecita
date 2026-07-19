@@ -95,8 +95,13 @@ internal fun VideoFeedScreen(
                     }
                     // The pager is a transparent gesture + snapping layer on top; its pages
                     // carry no content yet (3b), so the surface behind shows through. It owns
-                    // the swipe gesture and reports the settled page to the ViewModel.
-                    VerticalPager(state = pagerState, modifier = Modifier.fillMaxSize()) {
+                    // the swipe gesture and reports the settled page to the ViewModel. A stable
+                    // per-item key keeps page state aligned as the feed paginates (appends).
+                    VerticalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxSize(),
+                        key = { index -> status.items[index].post.id },
+                    ) { _ ->
                         Box(Modifier.fillMaxSize())
                     }
                 }
