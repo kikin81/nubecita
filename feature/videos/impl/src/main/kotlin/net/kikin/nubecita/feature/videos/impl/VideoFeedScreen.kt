@@ -2,7 +2,6 @@
 
 package net.kikin.nubecita.feature.videos.impl
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -30,9 +29,10 @@ import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 
 /**
  * Full-screen vertical video feed. A snapping [VerticalPager] whose settled page
- * drives the [VerticalVideoPlaylistPlayer] pool via the ViewModel; the active
- * page renders the single pooled `PlayerSurface`. Overlay chrome (author,
- * caption, interactions, mute control) lands in the next slice.
+ * drives the pooled player via the ViewModel; a single persistent `PlayerSurface`
+ * sits behind the pager and re-binds to whichever pooled player is active, so it
+ * is never recreated across swipes. Overlay chrome (author, caption, interactions,
+ * mute control) and the poster underlay land in the next slice.
  */
 @Composable
 internal fun VideoFeedScreen(
@@ -80,24 +80,27 @@ internal fun VideoFeedScreen(
                         viewModel.handleEvent(VideoFeedEvent.ActiveIndexChanged(settled))
                     }
                 }
-                VerticalPager(state = pagerState, modifier = contentModifier) { page ->
-                    VideoPage(isActive = page == state.activeIndex, player = activePlayer)
+                Box(contentModifier) {
+                    // ONE persistent video surface for the whole feed, sitting behind the
+                    // pager. Because it is never recreated as the active page changes,
+                    // promoting a pooled player only re-binds it (`setVideoSurface` on the
+                    // already-attached Surface) — there is no async surface-attach race, so
+                    // the next video presents on settle with no relayout "nudge", and the
+                    // SurfaceView keeps its efficient hardware-overlay path (battery). The
+                    // pool guarantees exactly one active player, so a single surface is all
+                    // the feed needs. Poster underlay, per-page slide, and a first-frame
+                    // crossfade arrive in Slice 3b.
+                    activePlayer?.let { player ->
+                        PlayerSurface(player = player, modifier = Modifier.fillMaxSize())
+                    }
+                    // The pager is a transparent gesture + snapping layer on top; its pages
+                    // carry no content yet (3b), so the surface behind shows through. It owns
+                    // the swipe gesture and reports the settled page to the ViewModel.
+                    VerticalPager(state = pagerState, modifier = Modifier.fillMaxSize()) {
+                        Box(Modifier.fillMaxSize())
+                    }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun VideoPage(
-    isActive: Boolean,
-    player: androidx.media3.common.Player?,
-) {
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
-        // The pool holds a single active player; only the settled page renders it.
-        // Non-active pages stay black until swiped to (poster reveal arrives with chrome).
-        if (isActive && player != null) {
-            PlayerSurface(player = player, modifier = Modifier.fillMaxSize())
         }
     }
 }
