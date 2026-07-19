@@ -57,4 +57,6 @@
     <string name="feed_view_pin_content_description">Fixar feed na barra de abas</string>
     <string name="feed_view_unpin_content_description">Desafixar feed da barra de abas</string>
     <string name="feed_view_snackbar_pin_error">Não foi possível atualizar — tente de novo</string>
+    <string name="feed_trending_videos_title">Vídeos em alta</string>
+    <string name="feed_trending_videos_dismiss">Dispensar</string>
 </resources>

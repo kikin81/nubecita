@@ -1,0 +1,96 @@
+package net.kikin.nubecita.feature.feed.impl.ui
+
+import io.mockk.coEvery
+import io.mockk.mockk
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.core.videofeed.VideoFeedPage
+import net.kikin.nubecita.core.videofeed.VideoFeedSource
+import net.kikin.nubecita.data.models.AuthorUi
+import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.PostStatsUi
+import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.ViewerStateUi
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
+import kotlin.time.Instant
+
+class TrendingVideosViewModelTest {
+    @JvmField
+    @RegisterExtension
+    val mainDispatcher = MainDispatcherExtension()
+
+    private val source = mockk<VideoFeedSource>()
+
+    @Test
+    fun load_mapsVideoPostsToThumbsWithIndices() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns
+                Result.success(VideoFeedPage(listOf(videoPost("a", "poster-a"), videoPost("b", "poster-b")), cursor = "c1"))
+
+            val vm = TrendingVideosViewModel(source)
+            vm.load()
+            advanceUntilIdle()
+
+            val thumbs = vm.thumbs.value
+            assertEquals(listOf(0, 1), thumbs.map { it.index })
+            assertEquals(listOf("poster-a", "poster-b"), thumbs.map { it.posterUrl })
+        }
+
+    @Test
+    fun load_cancelsInFlightLoad_soLatestWins() =
+        runTest(mainDispatcher.dispatcher) {
+            // First load suspends on the gate; the second load must cancel it
+            // and win, so the stalled first result never clobbers the thumbs.
+            val gate = CompletableDeferred<Result<VideoFeedPage>>()
+            coEvery { source.loadPage(null) } coAnswers { gate.await() } andThen
+                Result.success(VideoFeedPage(listOf(videoPost("b", "poster-b")), cursor = null))
+
+            val vm = TrendingVideosViewModel(source)
+            vm.load()
+            runCurrent() // let the first load start and park on the gate
+            vm.load() // cancels the parked first load, launches the second
+            advanceUntilIdle()
+
+            // Complete the (now cancelled) first load — it must NOT overwrite.
+            gate.complete(Result.success(VideoFeedPage(listOf(videoPost("a", "poster-a")), cursor = null)))
+            advanceUntilIdle()
+
+            assertEquals(listOf("poster-b"), vm.thumbs.value.map { it.posterUrl })
+        }
+
+    @Test
+    fun loadFailure_leavesEmpty() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns Result.failure(RuntimeException("boom"))
+
+            val vm = TrendingVideosViewModel(source)
+            vm.load()
+            advanceUntilIdle()
+
+            assertTrue(vm.thumbs.value.isEmpty())
+        }
+
+    private fun videoPost(
+        id: String,
+        poster: String,
+    ): PostUi =
+        PostUi(
+            id = id,
+            cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
+            author = AuthorUi(did = "did:plc:fake", handle = "a.bsky.social", displayName = "A", avatarUrl = null),
+            createdAt = Instant.parse("2026-07-18T12:00:00Z"),
+            text = "",
+            facets = persistentListOf(),
+            embed = EmbedUi.Video(posterUrl = poster, playlistUrl = "https://cdn.example/$id.m3u8", aspectRatio = 0.56f, durationSeconds = 8, altText = null),
+            stats = PostStatsUi(),
+            viewer = ViewerStateUi(),
+            repostedBy = null,
+        )
+}

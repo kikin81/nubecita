@@ -82,9 +82,12 @@ import net.kikin.nubecita.feature.feed.impl.ui.FeedEmptyState
 import net.kikin.nubecita.feature.feed.impl.ui.FeedErrorState
 import net.kikin.nubecita.feature.feed.impl.ui.PinnedListsSheet
 import net.kikin.nubecita.feature.feed.impl.ui.PostFeedList
+import net.kikin.nubecita.feature.feed.impl.ui.TrendingVideosCarousel
+import net.kikin.nubecita.feature.feed.impl.ui.TrendingVideosViewModel
 import net.kikin.nubecita.feature.feed.impl.ui.rememberFeedInteractions
 import net.kikin.nubecita.feature.feed.impl.video.FeedVideoPlayerCoordinator
 import net.kikin.nubecita.feature.feeds.api.Feeds
+import net.kikin.nubecita.feature.videos.api.VideoFeed
 import kotlin.math.roundToInt
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -143,10 +146,41 @@ internal fun FeedScreen(
     onQuoteClick: (String) -> Unit = {},
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     viewModel: FeedViewModel = hiltViewModel(),
+    trendingViewModel: TrendingVideosViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val viewState = remember(state) { state.toViewState() }
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+
+    // Discover-only Trending Videos carousel. The ViewModel is created
+    // unconditionally (composition-safe across feed switches) but only loads
+    // when Discover is the active feed — on first selection and on each
+    // pull-to-refresh. Its empty/dismissed visibility is owned here so the
+    // header slot is absent (not a zero-height item) when there's nothing to
+    // show, avoiding a phantom spacing gap atop the feed.
+    val trendingThumbs by trendingViewModel.thumbs.collectAsStateWithLifecycle()
+    var trendingDismissed by rememberSaveable { mutableStateOf(false) }
+    var trendingLoadRequested by rememberSaveable { mutableStateOf(false) }
+    val isDiscoverFeed = selectedFeedUri?.endsWith("/app.bsky.feed.generator/whats-hot") == true
+    val isFeedRefreshing = (viewState as? FeedScreenViewState.Loaded)?.isRefreshing == true
+    LaunchedEffect(isDiscoverFeed, isFeedRefreshing) {
+        if (isDiscoverFeed && (!trendingLoadRequested || isFeedRefreshing)) {
+            trendingViewModel.load()
+            trendingLoadRequested = true
+        }
+    }
+    val trendingHeader: (@Composable () -> Unit)? =
+        if (isDiscoverFeed && trendingThumbs.isNotEmpty() && !trendingDismissed) {
+            {
+                TrendingVideosCarousel(
+                    thumbs = trendingThumbs,
+                    onOpen = { index -> onNavigateTo(VideoFeed(index)) },
+                    onDismiss = { trendingDismissed = true },
+                )
+            }
+        } else {
+            null
+        }
     val haptics = rememberPostHaptics()
     val interactions =
         rememberFeedInteractions(
@@ -185,6 +219,7 @@ internal fun FeedScreen(
         onQuotedImageTap = interactions.onQuotedImageTap,
         onVideoTap = interactions.onVideoTap,
         coordinator = interactions.coordinator,
+        header = trendingHeader,
         modifier = modifier,
     )
 }
@@ -220,6 +255,12 @@ internal fun FeedScreenContent(
     onQuotedImageTap: (quotedPostUri: String, imageIndex: Int) -> Unit = { _, _ -> },
     onVideoTap: ((postUri: String) -> Unit)? = null,
     coordinator: FeedVideoPlayerCoordinator? = null,
+    /**
+     * Optional leading item above the posts (the Discover Trending Videos
+     * carousel). Hoisted so the host owns its empty/dismissed visibility —
+     * `null` renders no header slot at all, avoiding a phantom spacing gap.
+     */
+    header: (@Composable () -> Unit)? = null,
 ) {
     var showPinnedListsSheet by rememberSaveable { mutableStateOf(false) }
 
@@ -463,6 +504,7 @@ internal fun FeedScreenContent(
                     lastRepostTapPostUri = viewState.lastRepostTapPostUri,
                     onVideoTap = onVideoTap,
                     coordinator = coordinator,
+                    header = header,
                 )
         }
     }

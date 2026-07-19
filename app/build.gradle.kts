@@ -334,6 +334,7 @@ dependencies {
     implementation(project(":feature:settings:impl"))
     implementation(project(":feature:videoplayer:api"))
     implementation(project(":feature:videoplayer:impl"))
+    implementation(project(":feature:videos:impl"))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
     implementation(libs.androidx.compose.material3.adaptive.navigation3)

@@ -60,6 +60,7 @@ dependencies {
     implementation(project(":core:post-interactions-ui"))
     implementation(project(":core:preferences"))
     implementation(project(":core:video"))
+    implementation(project(":core:video-feed"))
     implementation(project(":data:models"))
     // ComposerRoute NavKey — pushed onto the back stack when the
     // compose-new-post FAB is tapped. Imports `:api` only; never `:impl`.
@@ -85,6 +86,7 @@ dependencies {
     // embed in a feed PostCard is tapped (skip the PostDetail detour).
     // Imports `:api` only; never `:impl`.
     implementation(project(":feature:videoplayer:api"))
+    implementation(project(":feature:videos:api"))
     implementation(libs.androidx.browser)
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.atproto.models)

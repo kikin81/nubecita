@@ -57,4 +57,6 @@
     <string name="feed_view_pin_content_description">Fijar feed en la barra de pestañas</string>
     <string name="feed_view_unpin_content_description">Dejar de fijar el feed de la barra de pestañas</string>
     <string name="feed_view_snackbar_pin_error">No se pudo actualizar — vuelve a intentarlo</string>
+    <string name="feed_trending_videos_title">Videos populares</string>
+    <string name="feed_trending_videos_dismiss">Descartar</string>
 </resources>
