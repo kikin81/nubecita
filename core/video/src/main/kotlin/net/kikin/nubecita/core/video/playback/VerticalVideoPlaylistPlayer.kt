@@ -214,7 +214,7 @@ public class VerticalVideoPlaylistPlayer(
     internal fun onActivePlayerError(error: PlaybackException) {
         if (error.isDecoderError() && !degradedForDecoderBudget && maxSlots > 1) {
             _playbackState.value = PlaylistPlaybackState.Buffering
-            recoveryScope.launch { recoverFromDecoderBudget() }
+            recoveryScope.launch { recoverFromDecoderBudget(error) }
         } else {
             _playbackState.value = PlaylistPlaybackState.Error(error)
         }
@@ -228,12 +228,10 @@ public class VerticalVideoPlaylistPlayer(
         // player (maxSlots drops to 1 after a decoder-budget degrade).
         val nextIndex = (target + 1).takeIf { it in items.indices && maxSlots > 1 }
         val neededSlots = if (nextIndex == null) 1 else 2
-        // A prior degrade may leave an extra slot around; release it so we hold
-        // at most `maxSlots` decoders.
-        while (slots.size > maxSlots) {
-            val extra = slots.removeAt(slots.lastIndex)
-            if (extra.player !== activeListenerTarget) extra.player.release()
-        }
+        // No shrink loop is needed here: the only place `maxSlots` drops is
+        // `recoverFromDecoderBudget`, which trims `slots` to the single active
+        // player and lowers `maxSlots` atomically under the same mutex — so
+        // `settle` never observes `slots.size > maxSlots`.
         while (slots.size < neededSlots) {
             val player = playerProvider()
             // release() may have run while we were suspended in playerProvider() —
@@ -269,19 +267,27 @@ public class VerticalVideoPlaylistPlayer(
     }
 
     /**
-     * The active playback failed to decode while the pool held two players.
-     * Degrade to a single player (freeing the prewarm's decoder) and retry the
-     * active item once. If it fails again as pool-of-1, the next error is a
-     * genuine playback failure and surfaces as [PlaylistPlaybackState.Error].
+     * The active playback failed to decode ([error]) while the pool held two
+     * players. Degrade to a single player (freeing the prewarm's decoder) and
+     * retry the active item once. If it fails again as pool-of-1, the next error
+     * is a genuine playback failure and surfaces as [PlaylistPlaybackState.Error].
      */
-    private suspend fun recoverFromDecoderBudget(): Unit =
+    private suspend fun recoverFromDecoderBudget(error: PlaybackException): Unit =
         mutex.withLock {
             withContext(mainDispatcher) {
+                // Torn down, or another error already drove the degrade+retry — nothing to do.
                 if (released || degradedForDecoderBudget) return@withContext
                 degradedForDecoderBudget = true
                 maxSlots = 1
 
-                val active = slots.firstOrNull { it.index == activeIndex } ?: return@withContext
+                // No active slot to retry: surface the original error instead of
+                // leaving the UI stuck on the Buffering state set by onActivePlayerError.
+                val active =
+                    slots.firstOrNull { it.index == activeIndex }
+                        ?: run {
+                            _playbackState.value = PlaylistPlaybackState.Error(error)
+                            return@withContext
+                        }
                 // Free every other player's decoder so the active has headroom.
                 slots.filter { it !== active }.forEach { it.player.release() }
                 slots.retainAll { it === active }
