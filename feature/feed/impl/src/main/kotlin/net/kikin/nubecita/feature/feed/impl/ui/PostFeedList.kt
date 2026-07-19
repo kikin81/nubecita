@@ -88,6 +88,10 @@ internal fun PostFeedList(
     lastRepostTapPostUri: String? = null,
     onVideoTap: ((postUri: String) -> Unit)? = null,
     coordinator: FeedVideoPlayerCoordinator? = null,
+    // Optional leading list item (e.g. the Discover "Trending Videos" carousel).
+    // A single header item above the posts — it never touches the tuned post-item
+    // rendering below; null on non-Discover feeds.
+    header: (@Composable () -> Unit)? = null,
 ) {
     // Per-list reveal state: ids of posts whose covered (NSFW-labelled) media the
     // viewer chose to "Show anyway". Terminates at the screen — the VM never sees
@@ -126,6 +130,9 @@ internal fun PostFeedList(
             contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            if (header != null) {
+                item(key = "feed-header", contentType = "feed-header") { header() }
+            }
             items(
                 items = feedItems,
                 key = { it.key },

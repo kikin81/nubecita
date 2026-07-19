@@ -47,12 +47,14 @@ android {
 
 dependencies {
     api(project(":feature:feed:api"))
+    implementation(project(":feature:videos:api"))
 
     implementation(project(":core:actors"))
     implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
     implementation(project(":core:feed-mapping"))
     implementation(project(":core:feeds"))
+    implementation(project(":core:video-feed"))
     // ModerationPreferencesRepository (cached prefs) + applyModeration, to
     // drop/cover NSFW-labelled posts as the timeline maps.
     implementation(project(":core:moderation"))

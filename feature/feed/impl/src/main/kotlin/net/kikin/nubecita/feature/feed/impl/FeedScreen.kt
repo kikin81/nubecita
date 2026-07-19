@@ -82,9 +82,11 @@ import net.kikin.nubecita.feature.feed.impl.ui.FeedEmptyState
 import net.kikin.nubecita.feature.feed.impl.ui.FeedErrorState
 import net.kikin.nubecita.feature.feed.impl.ui.PinnedListsSheet
 import net.kikin.nubecita.feature.feed.impl.ui.PostFeedList
+import net.kikin.nubecita.feature.feed.impl.ui.TrendingVideosCarousel
 import net.kikin.nubecita.feature.feed.impl.ui.rememberFeedInteractions
 import net.kikin.nubecita.feature.feed.impl.video.FeedVideoPlayerCoordinator
 import net.kikin.nubecita.feature.feeds.api.Feeds
+import net.kikin.nubecita.feature.videos.api.VideoFeed
 import kotlin.math.roundToInt
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -463,6 +465,14 @@ internal fun FeedScreenContent(
                     lastRepostTapPostUri = viewState.lastRepostTapPostUri,
                     onVideoTap = onVideoTap,
                     coordinator = coordinator,
+                    // Trending Videos carousel — Discover only. Tapping a thumbnail opens
+                    // the full-screen vertical video feed at that index.
+                    header =
+                        if (selectedFeedUri?.endsWith("/app.bsky.feed.generator/whats-hot") == true) {
+                            { TrendingVideosCarousel(onOpen = { index -> onNavigateTo(VideoFeed(index)) }) }
+                        } else {
+                            null
+                        },
                 )
         }
     }
