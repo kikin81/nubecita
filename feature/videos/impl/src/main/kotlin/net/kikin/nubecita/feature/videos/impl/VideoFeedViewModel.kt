@@ -114,21 +114,25 @@ class VideoFeedViewModel
             loadingMore = true
             loadMoreJob =
                 viewModelScope.launch {
-                    source
-                        .loadPage(cursor)
-                        .onSuccess { page ->
-                            cursor = page.cursor
-                            endReached = page.cursor == null
-                            val fresh = page.items.mapNotNull { it.toVideoFeedItemOrNull() }
-                            if (fresh.isNotEmpty()) {
-                                loaded += fresh
-                                setState { copy(status = VideoFeedStatus.Content(loaded.toImmutableList())) }
-                                // Re-bind with the appended items so the pool can prewarm past the old tail.
-                                // settle() reuses the active/prewarm slots by index, so this doesn't restart playback.
-                                pool.bind(loaded.map { it.source }, startIndex = uiState.value.activeIndex)
-                            }
-                        }.onFailure { Timber.w(it, "video feed page failed") }
-                    loadingMore = false
+                    try {
+                        source
+                            .loadPage(cursor)
+                            .onSuccess { page ->
+                                cursor = page.cursor
+                                endReached = page.cursor == null
+                                val fresh = page.items.mapNotNull { it.toVideoFeedItemOrNull() }
+                                if (fresh.isNotEmpty()) {
+                                    loaded += fresh
+                                    setState { copy(status = VideoFeedStatus.Content(loaded.toImmutableList())) }
+                                    // Re-bind with the appended items so the pool can prewarm past the old tail.
+                                    // settle() reuses the active/prewarm slots by index, so this doesn't restart playback.
+                                    pool.bind(loaded.map { it.source }, startIndex = uiState.value.activeIndex)
+                                }
+                            }.onFailure { Timber.w(it, "video feed page failed") }
+                    } finally {
+                        // Reset even on cancellation, so a cancelled load can't leave the flag stuck true.
+                        loadingMore = false
+                    }
                 }
         }
 
