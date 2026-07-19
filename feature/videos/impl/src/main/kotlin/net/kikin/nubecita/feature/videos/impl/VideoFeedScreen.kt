@@ -72,7 +72,9 @@ internal fun VideoFeedScreen(
                 }
 
             is VideoFeedStatus.Content -> {
-                val pagerState = rememberPagerState(pageCount = { status.items.size })
+                // Open at the VM's initial active index (route.startIndex, e.g. from the
+                // Trending carousel); rememberPagerState only reads initialPage on first use.
+                val pagerState = rememberPagerState(initialPage = state.activeIndex, pageCount = { status.items.size })
                 LaunchedEffect(pagerState) {
                     snapshotFlowSettledPage(pagerState) { settled ->
                         viewModel.handleEvent(VideoFeedEvent.ActiveIndexChanged(settled))

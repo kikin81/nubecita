@@ -2,8 +2,12 @@ package net.kikin.nubecita.feature.videos.impl
 
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.Player
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
@@ -14,8 +18,8 @@ import net.kikin.nubecita.core.video.playback.VideoSource
 import net.kikin.nubecita.core.videofeed.VideoFeedSource
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.feature.videos.api.VideoFeed
 import timber.log.Timber
-import javax.inject.Inject
 
 /**
  * Drives the vertical video feed: loads video posts from [VideoFeedSource]
@@ -27,14 +31,22 @@ import javax.inject.Inject
  * screen drives [onStart]/[onStop] on the surface lifecycle. The pool is
  * released in [onCleared].
  */
-@HiltViewModel
+@HiltViewModel(assistedFactory = VideoFeedViewModel.Factory::class)
 class VideoFeedViewModel
-    @Inject
+    @AssistedInject
     constructor(
+        @Assisted private val route: VideoFeed,
         private val source: VideoFeedSource,
         private val pool: VerticalVideoPlaylistPlayer,
         private val sharedVideoPlayer: SharedVideoPlayer,
-    ) : MviViewModel<VideoFeedState, VideoFeedEvent, VideoFeedEffect>(VideoFeedState()) {
+    ) : MviViewModel<VideoFeedState, VideoFeedEvent, VideoFeedEffect>(
+            VideoFeedState(activeIndex = route.startIndex.coerceAtLeast(0)),
+        ) {
+        @AssistedFactory
+        interface Factory {
+            fun create(route: VideoFeed): VideoFeedViewModel
+        }
+
         /** The ExoPlayer for the active page — the screen renders `PlayerSurface(activePlayer)`. */
         val activePlayer: StateFlow<Player?> = pool.activePlayer
         val playbackState: StateFlow<PlaylistPlaybackState> = pool.playbackState
@@ -43,6 +55,8 @@ class VideoFeedViewModel
         private var cursor: String? = null
         private var endReached = false
         private var loadingMore = false
+        private var loadJob: Job? = null
+        private var loadMoreJob: Job? = null
 
         init {
             // Free the feed player's decoder for the pool's budget (rebuilds lazily on return).
@@ -59,26 +73,32 @@ class VideoFeedViewModel
         }
 
         private fun loadFirstPage() {
+            // Cancel any in-flight loads so a retry can't race a pending page append onto the cleared list.
+            loadJob?.cancel()
+            loadMoreJob?.cancel()
+            loadingMore = false
             setState { copy(status = VideoFeedStatus.Loading) }
-            viewModelScope.launch {
-                source
-                    .loadPage(null)
-                    .onSuccess { page ->
-                        cursor = page.cursor
-                        endReached = page.cursor == null
-                        loaded.clear()
-                        loaded += page.items.mapNotNull { it.toVideoFeedItemOrNull() }
-                        if (loaded.isEmpty()) {
+            loadJob =
+                viewModelScope.launch {
+                    source
+                        .loadPage(null)
+                        .onSuccess { page ->
+                            cursor = page.cursor
+                            endReached = page.cursor == null
+                            loaded.clear()
+                            loaded += page.items.mapNotNull { it.toVideoFeedItemOrNull() }
+                            if (loaded.isEmpty()) {
+                                setState { copy(status = VideoFeedStatus.Error) }
+                            } else {
+                                val initialIndex = route.startIndex.coerceIn(0, loaded.lastIndex)
+                                setState { copy(status = VideoFeedStatus.Content(loaded.toImmutableList()), activeIndex = initialIndex) }
+                                pool.bind(loaded.map { it.source }, startIndex = initialIndex)
+                            }
+                        }.onFailure {
+                            Timber.w(it, "video feed first page failed")
                             setState { copy(status = VideoFeedStatus.Error) }
-                        } else {
-                            setState { copy(status = VideoFeedStatus.Content(loaded.toImmutableList()), activeIndex = 0) }
-                            pool.bind(loaded.map { it.source }, startIndex = 0)
                         }
-                    }.onFailure {
-                        Timber.w(it, "video feed first page failed")
-                        setState { copy(status = VideoFeedStatus.Error) }
-                    }
-            }
+                }
         }
 
         private fun onActiveIndexChanged(index: Int) {
@@ -92,23 +112,24 @@ class VideoFeedViewModel
             if (loadingMore || endReached) return
             if (index < loaded.size - PREFETCH_THRESHOLD) return
             loadingMore = true
-            viewModelScope.launch {
-                source
-                    .loadPage(cursor)
-                    .onSuccess { page ->
-                        cursor = page.cursor
-                        endReached = page.cursor == null
-                        val fresh = page.items.mapNotNull { it.toVideoFeedItemOrNull() }
-                        if (fresh.isNotEmpty()) {
-                            loaded += fresh
-                            setState { copy(status = VideoFeedStatus.Content(loaded.toImmutableList())) }
-                            // Re-bind with the appended items so the pool can prewarm past the old tail.
-                            // settle() reuses the active/prewarm slots by index, so this doesn't restart playback.
-                            pool.bind(loaded.map { it.source }, startIndex = uiState.value.activeIndex)
-                        }
-                    }.onFailure { Timber.w(it, "video feed page failed") }
-                loadingMore = false
-            }
+            loadMoreJob =
+                viewModelScope.launch {
+                    source
+                        .loadPage(cursor)
+                        .onSuccess { page ->
+                            cursor = page.cursor
+                            endReached = page.cursor == null
+                            val fresh = page.items.mapNotNull { it.toVideoFeedItemOrNull() }
+                            if (fresh.isNotEmpty()) {
+                                loaded += fresh
+                                setState { copy(status = VideoFeedStatus.Content(loaded.toImmutableList())) }
+                                // Re-bind with the appended items so the pool can prewarm past the old tail.
+                                // settle() reuses the active/prewarm slots by index, so this doesn't restart playback.
+                                pool.bind(loaded.map { it.source }, startIndex = uiState.value.activeIndex)
+                            }
+                        }.onFailure { Timber.w(it, "video feed page failed") }
+                    loadingMore = false
+                }
         }
 
         private fun toggleMute() {

@@ -17,6 +17,7 @@ import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
+import net.kikin.nubecita.feature.videos.api.VideoFeed
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -33,7 +34,7 @@ class VideoFeedViewModelTest {
     private val pool = mockk<VerticalVideoPlaylistPlayer>(relaxed = true)
     private val shared = mockk<SharedVideoPlayer>(relaxed = true)
 
-    private fun vm() = VideoFeedViewModel(source, pool, shared)
+    private fun vm(startIndex: Int = 0) = VideoFeedViewModel(VideoFeed(startIndex), source, pool, shared)
 
     @Test
     fun init_releasesSharedPlayer_loadsFirstPage_bindsPool() =
@@ -101,6 +102,18 @@ class VideoFeedViewModelTest {
             coVerify { source.loadPage("c1") }
             val status = viewModel.uiState.value.status as VideoFeedStatus.Content
             assertEquals(7, status.items.size)
+        }
+
+    @Test
+    fun startIndex_opensAndBindsAtThatVideo_coercedToBounds() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(List(5) { videoPost("v$it") }, cursor = null))
+
+            val viewModel = vm(startIndex = 99) // out of bounds → coerced to lastIndex (4)
+            advanceUntilIdle()
+
+            assertEquals(4, viewModel.uiState.value.activeIndex)
+            coVerify { pool.bind(any(), 4) }
         }
 
     @Test
