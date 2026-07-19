@@ -3,7 +3,6 @@
 package net.kikin.nubecita.core.video.playback
 
 import androidx.media3.common.MediaItem
-import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.CoroutineDispatcher
@@ -75,6 +74,12 @@ public class VerticalVideoPlaylistPlayer(
     @Volatile
     private var muted: Boolean = false
 
+    // Set by release() (which is synchronous and mutex-free, so it can run on the
+    // main thread while a suspended settle() is parked at playerProvider()). settle()
+    // re-checks it after each creation to abort instead of resurrecting a torn-down pool.
+    @Volatile
+    private var released: Boolean = false
+
     private var activeListenerTarget: ExoPlayer? = null
 
     private val _activePlayer = MutableStateFlow<Player?>(null)
@@ -85,28 +90,31 @@ public class VerticalVideoPlaylistPlayer(
     private val _playbackState = MutableStateFlow<PlaylistPlaybackState>(PlaylistPlaybackState.Idle)
     public val playbackState: StateFlow<PlaylistPlaybackState> = _playbackState.asStateFlow()
 
+    // Map the active player's state atomically on any relevant event, so pause /
+    // STATE_ENDED transition back to Idle (an isPlaying/state-change split would
+    // otherwise leave the projection stuck on Playing when the user pauses).
     private val activeListener =
         object : Player.Listener {
-            override fun onPlaybackStateChanged(state: Int) {
-                when (state) {
-                    Player.STATE_BUFFERING -> _playbackState.value = PlaylistPlaybackState.Buffering
-                    Player.STATE_READY ->
-                        _playbackState.value =
-                            if (activeListenerTarget?.isPlaying == true) {
-                                PlaylistPlaybackState.Playing
-                            } else {
-                                PlaylistPlaybackState.Idle
-                            }
-                    else -> Unit
+            override fun onEvents(
+                player: Player,
+                events: Player.Events,
+            ) {
+                if (!events.containsAny(
+                        Player.EVENT_PLAYBACK_STATE_CHANGED,
+                        Player.EVENT_IS_PLAYING_CHANGED,
+                        Player.EVENT_PLAYER_ERROR,
+                    )
+                ) {
+                    return
                 }
-            }
-
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                if (isPlaying) _playbackState.value = PlaylistPlaybackState.Playing
-            }
-
-            override fun onPlayerError(error: PlaybackException) {
-                _playbackState.value = PlaylistPlaybackState.Error(error)
+                val error = player.playerError
+                _playbackState.value =
+                    when {
+                        error != null -> PlaylistPlaybackState.Error(error)
+                        player.playbackState == Player.STATE_BUFFERING -> PlaylistPlaybackState.Buffering
+                        player.isPlaying -> PlaylistPlaybackState.Playing
+                        else -> PlaylistPlaybackState.Idle
+                    }
             }
         }
 
@@ -159,6 +167,7 @@ public class VerticalVideoPlaylistPlayer(
 
     /** Synchronously release everything. Call from the host ViewModel's `onCleared` (main thread). */
     public fun release() {
+        released = true
         teardownPlayers()
         items = emptyList()
         activeIndex = -1
@@ -167,9 +176,19 @@ public class VerticalVideoPlaylistPlayer(
     // --- internals (always on the main thread, under the mutex) ---
 
     private suspend fun settle(target: Int) {
+        if (released) return
         val nextIndex = (target + 1).takeIf { it in items.indices }
         val neededSlots = if (nextIndex == null) 1 else 2
-        while (slots.size < neededSlots) slots.add(Slot(playerProvider()))
+        while (slots.size < neededSlots) {
+            val player = playerProvider()
+            // release() may have run while we were suspended in playerProvider() —
+            // abort and release the just-built player instead of resurrecting the pool.
+            if (released) {
+                player.release()
+                return
+            }
+            slots.add(Slot(player))
+        }
 
         // Fast path: a slot already prepared for `target` (the prior prewarm) becomes
         // active with no re-prepare. Otherwise take any slot and rebind it.

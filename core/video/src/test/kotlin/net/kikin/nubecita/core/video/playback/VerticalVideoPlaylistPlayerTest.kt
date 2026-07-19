@@ -5,8 +5,11 @@ import androidx.media3.exoplayer.ExoPlayer
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -109,6 +112,44 @@ class VerticalVideoPlaylistPlayerTest {
             assertEquals(4, created.size) // two fresh players
             verify { created[2].prepare() }
             verify { created[2].play() }
+        }
+
+    @Test
+    fun releaseDuringPlayerCreation_abortsAndReleasesTheBuiltPlayer() =
+        runTest {
+            val gate = CompletableDeferred<Unit>()
+            val pool =
+                VerticalVideoPlaylistPlayer(
+                    playerProvider = {
+                        gate.await() // suspend inside settle() until we release()
+                        newPlayer()
+                    },
+                    mainDispatcher = UnconfinedTestDispatcher(testScheduler),
+                    buildMediaItem = { mockk<MediaItem>(relaxed = true) },
+                )
+
+            val binding = launch { pool.bind(sources(3), startIndex = 0) }
+            runCurrent() // let bind() reach the suspended playerProvider()
+
+            pool.release() // runs on the "main thread" while settle() is parked
+            gate.complete(Unit) // now let the provider return
+            binding.join()
+
+            // The just-built player is released (not leaked), and the pool stays torn down.
+            assertEquals(1, created.size)
+            verify { created[0].release() }
+            assertNull(pool.activePlayer.value)
+        }
+
+    @Test
+    fun bindAfterRelease_isNoOp() =
+        runTest {
+            val pool = pool()
+            pool.release()
+            pool.bind(sources(3), startIndex = 0)
+
+            assertEquals(0, created.size)
+            assertNull(pool.activePlayer.value)
         }
 
     @Test
