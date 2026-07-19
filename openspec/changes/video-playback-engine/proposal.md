@@ -9,7 +9,7 @@ This change is the **design + spec** deliverable of epic slice S1 (bd `nubecita-
 ## What Changes
 
 - **New `VerticalVideoPlaylistPlayer`** — a pool of **2** ExoPlayers (active + next-prewarmed) scoped to a vertical playlist surface, distinct from `SharedVideoPlayer`. **Prewarms** the next item via `prepare()` before it enters the viewport so a swipe yields an instant first frame. Exactly **one active** (audible/playing) playback at a time.
-- **Extract shared playback infra** in `:core:video` — off-main `SimpleCache`, track/codec selectors, `LoadControl` config, and the ExoPlayer factory — consumed by **both** `SharedVideoPlayer` and the pool. Extraction MUST NOT change `SharedVideoPlayer`'s observable behavior (**regression-covered**).
+- **New reusable playback infra** in `:core:video` — off-main `SimpleCache`, a cache-backed `MediaSource.Factory`, track/codec selectors, `LoadControl` config, and the ExoPlayer factory — built for the pool and reusable by any `:core:video` player. `SharedVideoPlayer` (a bare ExoPlayer today) is **left untouched** here; adopting the shared cache is a deferred, separately-measured migration.
 - **Decoder budget via lifecycle handoff** — entering a playlist surface pauses/releases `SharedVideoPlayer`; the pool holds ≤2 decoders and **releases on `Lifecycle.ON_STOP`** (not just route-pop), re-preparing on `ON_START`.
 - **Playback hardening (Reddit playbook)** — short-video `LoadControl` tuning, lazy-prefetch of the next item only, decoder-exclusion retry via a custom `MediaCodecSelector`, `MediaSource`es keyed by player id, software-decoder fallback.
 - **Playback analytics** — first-frame time, rebuffer, started/stopped, error via Media3 `AnalyticsListener`/`PlaybackStatsListener`.
@@ -28,7 +28,7 @@ Not a breaking change to app behavior — additive; `SharedVideoPlayer`'s contra
 ## Impact
 
 - `:core:video` — new `VerticalVideoPlaylistPlayer` + pool management; extracted infra (`SimpleCache`/selectors/`LoadControl`/factory) refactored out of `SharedVideoPlayer` and shared. `PipController` interplay with the handoff.
-- Consumers (later slices): the vertical-feed screen (Slice 3) drives the pool; no change to feed previews / fullscreen route beyond the (behavior-preserving) infra extraction.
+- Consumers (later slices): the vertical-feed screen (Slice 3) drives the pool; feed previews / fullscreen route / PiP are untouched (`SharedVideoPlayer` source unchanged).
 - External: Media3/ExoPlayer only; no new libraries. HLS delivery unchanged.
 - Analytics: new playback events (Firebase Analytics, already integrated).
 
