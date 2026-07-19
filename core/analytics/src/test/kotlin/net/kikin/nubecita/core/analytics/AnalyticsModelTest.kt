@@ -142,6 +142,42 @@ class AnalyticsModelTest {
     }
 
     @Test
+    fun `video_playback_stats carries quality metrics, PII-free`() {
+        val event =
+            VideoPlaybackStats(
+                surface = VideoSurface.VerticalFeed,
+                timeToFirstFrameMs = 320,
+                rebufferCount = 2,
+                rebufferMs = 450,
+                playMs = 8000,
+            )
+        assertEquals("video_playback_stats", event.name)
+        assertEquals(
+            mapOf(
+                "source_surface" to Str("vertical_feed"),
+                "ttff_ms" to LongVal(320),
+                "rebuffer_count" to LongVal(2),
+                "rebuffer_ms" to LongVal(450),
+                "play_ms" to LongVal(8000),
+            ),
+            event.params,
+        )
+    }
+
+    @Test
+    fun `video_playback_error carries the numeric media3 code`() {
+        val event = VideoPlaybackError(surface = VideoSurface.VerticalFeed, errorCode = 4001)
+        assertEquals("video_playback_error", event.name)
+        assertEquals(
+            mapOf(
+                "source_surface" to Str("vertical_feed"),
+                "error_code" to LongVal(4001),
+            ),
+            event.params,
+        )
+    }
+
+    @Test
     fun `pip_attempt carries the entered vs upsell outcome`() {
         assertEquals("pip_attempt", PipAttempt(PipOutcome.Entered).name)
         assertEquals(mapOf("pip_outcome" to Str("entered")), PipAttempt(PipOutcome.Entered).params)
@@ -166,6 +202,8 @@ class AnalyticsModelTest {
                 PaywallPurchaseError,
                 PaywallRestore(RestoreOutcome.Restored),
                 VideoPlay(VideoSurface.Feed, autoplay = true),
+                VideoPlaybackStats(VideoSurface.VerticalFeed, 320, 2, 450, 8000),
+                VideoPlaybackError(VideoSurface.VerticalFeed, 4001),
                 PipAttempt(PipOutcome.Upsell),
             )
         events.forEach { AnalyticsValidator.requireValid(it) }
