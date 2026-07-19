@@ -3,6 +3,7 @@
 package net.kikin.nubecita.feature.videos.impl
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.VerticalPager
@@ -17,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -24,6 +26,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.ui.compose.PlayerSurface
+import androidx.media3.ui.compose.state.rememberPresentationState
 import kotlinx.coroutines.flow.distinctUntilChanged
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 
@@ -91,7 +94,25 @@ internal fun VideoFeedScreen(
                     // the feed needs. Poster underlay, per-page slide, and a first-frame
                     // crossfade arrive in Slice 3b.
                     activePlayer?.let { player ->
-                        PlayerSurface(player = player, modifier = Modifier.fillMaxSize())
+                        // Size the surface to the video's own aspect ratio and center it, so
+                        // a landscape/wide clip is letterboxed (black bars) rather than
+                        // stretched to fill the portrait frame. rememberPresentationState
+                        // reports the decoded video size; until it's known we fill (portrait
+                        // is the common case and already matches the frame closely). Blurred
+                        // background fill for the bars is deferred to Slice 3b.
+                        val presentationState = rememberPresentationState(player)
+                        val videoSize = presentationState.videoSizeDp
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            PlayerSurface(
+                                player = player,
+                                modifier =
+                                    if (videoSize != null && videoSize.width > 0f && videoSize.height > 0f) {
+                                        Modifier.aspectRatio(videoSize.width / videoSize.height)
+                                    } else {
+                                        Modifier.fillMaxSize()
+                                    },
+                            )
+                        }
                     }
                     // The pager is a transparent gesture + snapping layer on top; its pages
                     // carry no content yet (3b), so the surface behind shows through. It owns
@@ -99,7 +120,7 @@ internal fun VideoFeedScreen(
                     // per-item key keeps page state aligned as the feed paginates (appends).
                     VerticalPager(
                         state = pagerState,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().testTag(VideoFeedTestTags.PAGER),
                         key = { index -> status.items[index].post.id },
                     ) { _ ->
                         Box(Modifier.fillMaxSize())

@@ -28,4 +28,12 @@ object FeedTestTags {
      * since the metric of interest is real-content frame timing).
      */
     const val LIST: String = "feed_list"
+
+    /**
+     * A poster in the Discover "Trending Videos" carousel. Applied to every
+     * thumbnail (they share the tag); the `:benchmark` `VideoFeedScrollBenchmark`
+     * selects the first via `By.res` to open the vertical video feed. Coordinated
+     * with `benchmark/.../BenchmarkConstants.kt`'s `TRENDING_VIDEO_THUMB_RES_ID`.
+     */
+    const val TRENDING_VIDEO_THUMB: String = "trending_video_thumb"
 }

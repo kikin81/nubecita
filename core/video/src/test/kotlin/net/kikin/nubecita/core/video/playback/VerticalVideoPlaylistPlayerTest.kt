@@ -169,6 +169,17 @@ class VerticalVideoPlaylistPlayerTest {
         }
 
     @Test
+    fun prewarmDisabled_bindsSinglePlayer_noNextPrewarm() =
+        runTest {
+            val pool = pool()
+            pool.setPrewarmEnabled(false) // Data Saver: skip the next-clip prefetch
+            pool.bind(sources(3), startIndex = 0)
+
+            assertEquals(1, created.size) // active only — no prewarm player built
+            verify { created[0].play() }
+        }
+
+    @Test
     fun bindAfterRelease_isNoOp() =
         runTest {
             val pool = pool()

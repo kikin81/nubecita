@@ -68,3 +68,24 @@ internal const val TAB_YOU_DESC: String = "You"
 
 /** Compose FAB icon content description (`feed_compose_new_post`). */
 internal const val COMPOSE_FAB_DESC: String = "Compose new post"
+
+// ── Vertical video feed selectors (nubecita-zdv8.6.3) ─────────────────
+//
+// `VideoFeedScrollBenchmark` navigates Discover chip → Trending Videos
+// carousel → the full-screen vertical feed, then flings the pager.
+
+/** Discover feed chip text (English generation device, like the tab descs). */
+internal const val FEED_DISCOVER_CHIP_TEXT: String = "Discover"
+
+/**
+ * A poster in the Discover "Trending Videos" carousel — pinned to
+ * `FeedTestTags.TRENDING_VIDEO_THUMB` by `:feature:feed:impl/FeedTestTagsTest`.
+ * The benchmark taps the first match to open the vertical feed.
+ */
+internal const val TRENDING_VIDEO_THUMB_RES_ID: String = "trending_video_thumb"
+
+/**
+ * The vertical feed's `VerticalPager` — pinned to `VideoFeedTestTags.PAGER` by
+ * `:feature:videos:impl/VideoFeedTestTagsTest`. Flung under measurement.
+ */
+internal const val VIDEO_FEED_RES_ID: String = "video_feed"
