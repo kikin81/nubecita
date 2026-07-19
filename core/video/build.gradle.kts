@@ -25,6 +25,9 @@ dependencies {
     implementation(project(":core:billing"))
     implementation(project(":core:common"))
     implementation(libs.androidx.lifecycle.process)
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.media3.database)
+    implementation(libs.media3.datasource)
     implementation(libs.media3.exoplayer.hls)
     implementation(libs.timber)
 
