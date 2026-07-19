@@ -31,17 +31,17 @@ The engine SHALL keep at most one **active** (audible, playing) playback at any 
 
 ### Requirement: Shared playback infrastructure
 
-The engine SHALL extract the `SimpleCache`, track/codec selectors, `LoadControl` configuration, and ExoPlayer factory into shared `:core:video` building blocks consumed by **both** `SharedVideoPlayer` and `VerticalVideoPlaylistPlayer`. The `SimpleCache` MUST be constructed off the main thread. The extraction MUST NOT change `SharedVideoPlayer`'s observable behavior.
+The engine SHALL provide reusable `:core:video` playback building blocks — a `SimpleCache`, a cache-backed `MediaSource.Factory`, track/codec selectors, `LoadControl` configuration, and an ExoPlayer factory that assembles them. These are **new** components (the existing `SharedVideoPlayer` is a bare `ExoPlayer` with none of them, so nothing is extracted). The building blocks SHALL be designed for reuse by any `:core:video` player; the `SimpleCache` MUST be constructed off the main thread. This change SHALL NOT modify `SharedVideoPlayer` — it stays a bare player with no behavior change (zero regression surface). Migrating `SharedVideoPlayer` to adopt the shared cache is deferred to a separate, independently-measured change (a caching/buffering behavior change on the feed player).
 
 #### Scenario: Cache constructed off-main
 
 - **WHEN** the shared `SimpleCache` is created
 - **THEN** it SHALL be constructed via the injected `IoDispatcher` (its constructor touches disk and would risk an ANR on the main thread)
 
-#### Scenario: SharedVideoPlayer behavior preserved
+#### Scenario: SharedVideoPlayer is not touched
 
-- **WHEN** the shared infra replaces `SharedVideoPlayer`'s previously-inline cache/selectors/LoadControl/factory
-- **THEN** `SharedVideoPlayer`'s existing behavior (single-player invariant, playback modes, bitrate floor) SHALL remain unchanged, verified by its existing tests plus regression coverage
+- **WHEN** the shared building blocks are introduced
+- **THEN** `SharedVideoPlayer`'s source SHALL be unchanged (it does not consume the new infra in this change), so its existing behavior — single-player invariant, playback modes, bitrate floor — is preserved by construction
 
 ### Requirement: Decoder budget via lifecycle handoff
 
