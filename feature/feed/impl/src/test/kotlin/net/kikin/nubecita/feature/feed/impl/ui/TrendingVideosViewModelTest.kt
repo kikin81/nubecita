@@ -3,7 +3,9 @@ package net.kikin.nubecita.feature.feed.impl.ui
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.core.videofeed.VideoFeedPage
@@ -33,6 +35,7 @@ class TrendingVideosViewModelTest {
                 Result.success(VideoFeedPage(listOf(videoPost("a", "poster-a"), videoPost("b", "poster-b")), cursor = "c1"))
 
             val vm = TrendingVideosViewModel(source)
+            vm.load()
             advanceUntilIdle()
 
             val thumbs = vm.thumbs.value
@@ -41,11 +44,34 @@ class TrendingVideosViewModelTest {
         }
 
     @Test
+    fun load_cancelsInFlightLoad_soLatestWins() =
+        runTest(mainDispatcher.dispatcher) {
+            // First load suspends on the gate; the second load must cancel it
+            // and win, so the stalled first result never clobbers the thumbs.
+            val gate = CompletableDeferred<Result<VideoFeedPage>>()
+            coEvery { source.loadPage(null) } coAnswers { gate.await() } andThen
+                Result.success(VideoFeedPage(listOf(videoPost("b", "poster-b")), cursor = null))
+
+            val vm = TrendingVideosViewModel(source)
+            vm.load()
+            runCurrent() // let the first load start and park on the gate
+            vm.load() // cancels the parked first load, launches the second
+            advanceUntilIdle()
+
+            // Complete the (now cancelled) first load — it must NOT overwrite.
+            gate.complete(Result.success(VideoFeedPage(listOf(videoPost("a", "poster-a")), cursor = null)))
+            advanceUntilIdle()
+
+            assertEquals(listOf("poster-b"), vm.thumbs.value.map { it.posterUrl })
+        }
+
+    @Test
     fun loadFailure_leavesEmpty() =
         runTest(mainDispatcher.dispatcher) {
             coEvery { source.loadPage(null) } returns Result.failure(RuntimeException("boom"))
 
             val vm = TrendingVideosViewModel(source)
+            vm.load()
             advanceUntilIdle()
 
             assertTrue(vm.thumbs.value.isEmpty())

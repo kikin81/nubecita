@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,6 +27,10 @@ data class TrendingVideoThumb(
  * [VideoFeedSource] with the vertical feed, so a thumbnail's [TrendingVideoThumb.index]
  * is exactly the `VideoFeed(startIndex)` to open. Load failure → empty (the
  * carousel simply hides).
+ *
+ * Loading is an explicit [load] call (not `init`) because this ViewModel is
+ * scoped to the host `FeedScreen`: it survives feed switches, so the host
+ * re-triggers it on first Discover selection and on pull-to-refresh.
  */
 @HiltViewModel
 class TrendingVideosViewModel
@@ -36,17 +41,25 @@ class TrendingVideosViewModel
         private val _thumbs = MutableStateFlow<ImmutableList<TrendingVideoThumb>>(persistentListOf())
         val thumbs: StateFlow<ImmutableList<TrendingVideoThumb>> = _thumbs.asStateFlow()
 
-        init {
-            viewModelScope.launch {
-                source
-                    .loadPage(null)
-                    .onSuccess { page ->
-                        _thumbs.value =
-                            page.items
-                                .mapIndexedNotNull { index, post ->
-                                    (post.embed as? EmbedUi.Video)?.let { video -> TrendingVideoThumb(index, video.posterUrl) }
-                                }.toImmutableList()
-                    }.onFailure { Timber.w(it, "trending videos carousel load failed") }
-            }
+        private var loadJob: Job? = null
+
+        /** (Re)load the trending page, cancelling any in-flight load first. */
+        fun load() {
+            loadJob?.cancel()
+            loadJob =
+                viewModelScope.launch {
+                    source
+                        .loadPage(null)
+                        .onSuccess { page ->
+                            _thumbs.value =
+                                page.items
+                                    .mapIndexedNotNull { index, post ->
+                                        (post.embed as? EmbedUi.Video)?.let { video -> TrendingVideoThumb(index, video.posterUrl) }
+                                    }.toImmutableList()
+                        }.onFailure { exception ->
+                            Timber.w(exception, "trending videos carousel load failed")
+                            _thumbs.value = persistentListOf()
+                        }
+                }
         }
     }

@@ -16,40 +16,35 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.collections.immutable.ImmutableList
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.feed.impl.R
 
 /**
- * Dismissible "Trending Videos" carousel for the Discover feed — a horizontal
+ * Stateless "Trending Videos" carousel for the Discover feed — a horizontal
  * strip of portrait posters. Tapping one opens the full-screen vertical video
- * feed at that index. Renders nothing when empty or dismissed.
+ * feed at that index. Visibility (empty / dismissed) is owned by the host so
+ * an absent carousel contributes no layout slot; this composable assumes it is
+ * only rendered when [thumbs] is non-empty.
  *
+ * @param thumbs the trending thumbnails to show.
  * @param onOpen invoked with the tapped video's index (a `VideoFeed(startIndex)`).
+ * @param onDismiss invoked when the user taps the close affordance.
  */
 @Composable
 internal fun TrendingVideosCarousel(
+    thumbs: ImmutableList<TrendingVideoThumb>,
     onOpen: (Int) -> Unit,
+    onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: TrendingVideosViewModel = hiltViewModel(),
 ) {
-    val thumbs by viewModel.thumbs.collectAsStateWithLifecycle()
-    var dismissed by rememberSaveable { mutableStateOf(false) }
-
-    if (dismissed || thumbs.isEmpty()) return
-
     Column(modifier.fillMaxWidth().padding(bottom = 8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
@@ -60,7 +55,7 @@ internal fun TrendingVideosCarousel(
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f),
             )
-            IconButton(onClick = { dismissed = true }) {
+            IconButton(onClick = onDismiss) {
                 NubecitaIcon(
                     name = NubecitaIconName.Close,
                     contentDescription = stringResource(R.string.feed_trending_videos_dismiss),
