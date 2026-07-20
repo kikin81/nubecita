@@ -1,13 +1,21 @@
 package net.kikin.nubecita.feature.videos.impl
 
+import app.cash.turbine.test
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.analytics.PostSurface
+import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
+import net.kikin.nubecita.core.postinteractions.PostInteractionState
+import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.core.video.playback.DataSaverStatus
@@ -19,6 +27,8 @@ import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
+import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
+import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.videos.api.VideoFeed
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -36,8 +46,14 @@ class VideoFeedViewModelTest {
     private val pool = mockk<VerticalVideoPlaylistPlayer>(relaxed = true)
     private val shared = mockk<SharedVideoPlayer>(relaxed = true)
     private val dataSaver = mockk<DataSaverStatus>(relaxed = true) // isActive() = false by default → prewarm on
+    private val handler = mockk<PostInteractionHandler>(relaxed = true)
+    private val cacheState = MutableStateFlow<PersistentMap<String, PostInteractionState>>(persistentMapOf())
+    private val interactionsCache =
+        mockk<PostInteractionsCache>(relaxed = true) {
+            every { state } returns cacheState
+        }
 
-    private fun vm(startIndex: Int = 0) = VideoFeedViewModel(VideoFeed(startIndex), source, pool, shared, dataSaver)
+    private fun vm(startIndex: Int = 0) = VideoFeedViewModel(VideoFeed(startIndex), source, pool, shared, dataSaver, handler, interactionsCache)
 
     @Test
     fun init_releasesSharedPlayer_loadsFirstPage_bindsPool() =
@@ -154,6 +170,113 @@ class VideoFeedViewModelTest {
 
             assertTrue(viewModel.uiState.value.isMuted)
             verify { pool.setMuted(true) }
+        }
+
+    @Test
+    fun init_bindsHandlerToVideosSurface() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(listOf(videoPost("a")), cursor = null))
+
+            vm()
+            advanceUntilIdle()
+
+            verify { handler.bind(PostSurface.Videos, any()) }
+        }
+
+    @Test
+    fun authorTapped_emitsNavigateToProfile() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(listOf(videoPost("a")), cursor = null))
+            val viewModel = vm()
+            advanceUntilIdle()
+
+            viewModel.effects.test {
+                viewModel.handleEvent(VideoFeedEvent.AuthorTapped(videoPost("a")))
+                assertEquals(VideoFeedEffect.NavigateTo(Profile(handle = "did:plc:fake")), awaitItem())
+            }
+        }
+
+    @Test
+    fun postTapped_emitsNavigateToPostDetail() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(listOf(videoPost("a")), cursor = null))
+            val viewModel = vm()
+            advanceUntilIdle()
+
+            viewModel.effects.test {
+                viewModel.handleEvent(VideoFeedEvent.PostTapped(videoPost("a")))
+                assertEquals(VideoFeedEffect.NavigateTo(PostDetailRoute(postUri = "a")), awaitItem())
+            }
+        }
+
+    @Test
+    fun cacheEmission_mergesIntoItems_soCountsStayLive() =
+        runTest(mainDispatcher.dispatcher) {
+            // Guards a regression that has happened before on a handler migration:
+            // dropping this merge makes a like appear to work and then revert.
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(listOf(videoPost("a")), cursor = null))
+            val viewModel = vm()
+            advanceUntilIdle()
+
+            cacheState.value =
+                persistentMapOf(
+                    "a" to PostInteractionState(viewerLikeUri = "at://did:plc:fake/app.bsky.feed.like/1", likeCount = 5),
+                )
+            advanceUntilIdle()
+
+            val merged = (viewModel.uiState.value.status as VideoFeedStatus.Content).items.first().post
+            assertTrue(merged.viewer.isLikedByViewer)
+            assertEquals(5, merged.stats.likeCount)
+        }
+
+    @Test
+    fun firstPage_appliesCacheImmediately_noRawFlicker() =
+        runTest(mainDispatcher.dispatcher) {
+            // A post already liked on another surface must render liked in the FIRST
+            // Content state, not raw-then-corrected once the collector emits.
+            cacheState.value =
+                persistentMapOf(
+                    "a" to PostInteractionState(viewerLikeUri = "at://did:plc:fake/app.bsky.feed.like/1", likeCount = 9),
+                )
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(listOf(videoPost("a")), cursor = null))
+
+            val viewModel = vm()
+            advanceUntilIdle()
+
+            val first = (viewModel.uiState.value.status as VideoFeedStatus.Content).items.first().post
+            assertTrue(first.viewer.isLikedByViewer)
+            assertEquals(9, first.stats.likeCount)
+        }
+
+    @Test
+    fun appendedPage_appliesCacheImmediately() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(List(4) { videoPost("v$it") }, cursor = "c1"))
+            coEvery { source.loadPage("c1") } returns Result.success(VideoFeedPage(listOf(videoPost("w0")), cursor = null))
+            val viewModel = vm()
+            advanceUntilIdle()
+
+            cacheState.value =
+                persistentMapOf(
+                    "w0" to PostInteractionState(viewerLikeUri = "at://did:plc:fake/app.bsky.feed.like/2", likeCount = 3),
+                )
+            viewModel.handleEvent(VideoFeedEvent.ActiveIndexChanged(1))
+            advanceUntilIdle()
+
+            val appended = (viewModel.uiState.value.status as VideoFeedStatus.Content).items.first { it.post.id == "w0" }.post
+            assertTrue(appended.viewer.isLikedByViewer)
+            assertEquals(3, appended.stats.likeCount)
+        }
+
+    @Test
+    fun firstPage_seedsInteractionsCache() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(listOf(videoPost("a")), cursor = null))
+
+            vm()
+            advanceUntilIdle()
+
+            verify { interactionsCache.seed(match { posts -> posts.map { it.id } == listOf("a") }) }
         }
 
     // --- fixtures ---

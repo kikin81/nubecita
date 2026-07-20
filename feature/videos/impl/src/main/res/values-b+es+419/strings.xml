@@ -1,4 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="videos_retry">Reintentar</string>
+
+    <string name="videos_action_like">Me gusta</string>
+    <string name="videos_action_repost">Republicar</string>
+    <string name="videos_action_reply">Responder</string>
+    <string name="videos_action_share">Compartir</string>
+    <string name="videos_action_mute">Silenciar</string>
+    <string name="videos_open_profile">Abrir perfil</string>
+    <string name="videos_expand_caption">Expandir descripción</string>
+    <string name="videos_collapse_caption">Contraer descripción</string>
+
+    <string name="videos_snackbar_error_network">Error de red. Reintenta.</string>
+    <string name="videos_snackbar_error_unauthenticated">Sesión expirada. Inicia sesión de nuevo.</string>
+    <string name="videos_snackbar_error_unknown">Algo salió mal. Reintenta.</string>
+    <string name="videos_snackbar_link_copied">Enlace copiado al portapapeles</string>
+    <string name="videos_snackbar_text_copied">Texto copiado</string>
+    <string name="videos_clipboard_label_post_link">Enlace de publicación de Bluesky</string>
+
+    <string name="videos_snackbar_overflow_report_coming_soon">Denunciar: próximamente</string>
+    <string name="videos_snackbar_overflow_mute_coming_soon">Silenciar: próximamente</string>
+    <string name="videos_snackbar_overflow_unmute_coming_soon">Dejar de silenciar: próximamente</string>
+    <string name="videos_snackbar_overflow_block_coming_soon">Bloquear: próximamente</string>
+    <string name="videos_snackbar_overflow_unblock_coming_soon">Desbloquear: próximamente</string>
+    <string name="videos_snackbar_overflow_mute_thread_coming_soon">Silenciar hilo: próximamente</string>
+    <string name="videos_snackbar_overflow_unmute_thread_coming_soon">Dejar de silenciar el hilo: próximamente</string>
 </resources>

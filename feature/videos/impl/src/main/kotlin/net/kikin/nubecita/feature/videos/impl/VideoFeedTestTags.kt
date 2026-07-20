@@ -19,4 +19,22 @@ object VideoFeedTestTags {
 
     /** A single page's poster layer, which covers the video until its first frame. */
     const val POSTER: String = "video_feed_poster"
+
+    /** Right-rail like cell. */
+    const val RAIL_LIKE: String = "video_feed_like"
+
+    /** Right-rail repost cell. */
+    const val RAIL_REPOST: String = "video_feed_repost"
+
+    /** Right-rail reply cell. */
+    const val RAIL_REPLY: String = "video_feed_reply"
+
+    /** Right-rail share cell. */
+    const val RAIL_SHARE: String = "video_feed_share"
+
+    /** Mute toggle at the foot of the rail. */
+    const val MUTE: String = "video_feed_mute"
+
+    /** Caption block; tap toggles expansion. */
+    const val CAPTION: String = "video_feed_caption"
 }

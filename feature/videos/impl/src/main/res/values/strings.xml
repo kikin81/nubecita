@@ -1,4 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="videos_retry">Retry</string>
+
+    <!-- Right-rail action labels. Toggles (like, repost, mute) carry these as the
+         icon's contentDescription under Role.Switch semantics, so they are the
+         plain noun and never the inverse verb ("Unlike"). -->
+    <string name="videos_action_like">Like</string>
+    <string name="videos_action_repost">Repost</string>
+    <string name="videos_action_reply">Reply</string>
+    <string name="videos_action_share">Share</string>
+    <string name="videos_action_mute">Mute</string>
+    <string name="videos_open_profile">Open profile</string>
+    <string name="videos_expand_caption">Expand caption</string>
+    <string name="videos_collapse_caption">Collapse caption</string>
+
+    <!-- Interaction snackbars, surfaced by the shared rememberPostInteractions helper.
+         Deliberately not copied verbatim from :feature:feed — its wording says "Pull to
+         retry" / "Couldn't refresh", and this surface has no pull-to-refresh. -->
+    <string name="videos_snackbar_error_network">Network error. Try again.</string>
+    <string name="videos_snackbar_error_unauthenticated">Sign-in expired. Sign in again.</string>
+    <string name="videos_snackbar_error_unknown">Something went wrong. Try again.</string>
+    <string name="videos_snackbar_link_copied">Link copied to clipboard</string>
+    <string name="videos_snackbar_text_copied">Text copied</string>
+    <string name="videos_clipboard_label_post_link">Bluesky post link</string>
+
+    <!-- Overflow coming-soon messages. Required by InteractionStrings' 13-field
+         contract but currently unreachable: this surface ships no overflow menu
+         (tracked as nubecita-zdv8.12). -->
+    <string name="videos_snackbar_overflow_report_coming_soon">Report — coming soon</string>
+    <string name="videos_snackbar_overflow_mute_coming_soon">Mute — coming soon</string>
+    <string name="videos_snackbar_overflow_unmute_coming_soon">Unmute — coming soon</string>
+    <string name="videos_snackbar_overflow_block_coming_soon">Block — coming soon</string>
+    <string name="videos_snackbar_overflow_unblock_coming_soon">Unblock — coming soon</string>
+    <string name="videos_snackbar_overflow_mute_thread_coming_soon">Mute thread — coming soon</string>
+    <string name="videos_snackbar_overflow_unmute_thread_coming_soon">Unmute thread — coming soon</string>
 </resources>

@@ -8,7 +8,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
+import kotlinx.collections.immutable.persistentListOf
+import net.kikin.nubecita.data.models.AuthorUi
+import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.PostStatsUi
+import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import kotlin.time.Instant
 
 private const val CANVAS_HEIGHT_DP = 600
 
@@ -87,3 +94,102 @@ private fun VideoFeedPageMissingPosterPreview() {
         VideoFeedPage(posterUrl = null, aspectRatio = 9f / 16f, posterAlpha = { 1f })
     }
 }
+
+/**
+ * Chrome fixture. The instant is pinned rather than `now()` so the baseline can
+ * never depend on the host clock, and the counts are chosen to exercise the
+ * compact formatter's suffixed form (1.2K) alongside a plain one.
+ */
+private fun chromePost(
+    text: String = "shot this on the ridge at golden hour",
+    liked: Boolean = false,
+): PostUi =
+    PostUi(
+        id = "at://did:plc:preview/app.bsky.feed.post/1",
+        cid = "bafyreipreviewpreviewpreviewpreviewpreviewpreview",
+        author =
+            AuthorUi(
+                did = "did:plc:preview",
+                handle = "ana.bsky.social",
+                displayName = "Ana Ruiz",
+                avatarUrl = null,
+            ),
+        createdAt = Instant.parse("2026-07-18T12:00:00Z"),
+        text = text,
+        facets = persistentListOf(),
+        embed = EmbedUi.Empty,
+        stats = PostStatsUi(replyCount = 12, repostCount = 48, likeCount = 1234),
+        viewer = ViewerStateUi(isLikedByViewer = liked),
+        repostedBy = null,
+    )
+
+@Composable
+private fun PreviewChrome(
+    post: PostUi = chromePost(),
+    isMuted: Boolean = false,
+    captionExpanded: Boolean = false,
+) {
+    VideoPageChrome(
+        post = post,
+        isMuted = isMuted,
+        captionExpanded = captionExpanded,
+        onCaptionToggle = {},
+        onAuthorTap = {},
+        onLike = {},
+        onRepost = {},
+        onReply = {},
+        onShare = {},
+        onMuteToggle = {},
+    )
+}
+
+/** The chrome as it ships: rail on the right, author and caption over the scrim. */
+@PreviewTest
+@Preview(name = "chrome-default", showBackground = true, heightDp = CANVAS_HEIGHT_DP)
+@Composable
+private fun VideoPageChromePreview() {
+    VideoFeedCanvas {
+        VideoFeedPage(posterUrl = POSTER_9X16, aspectRatio = 9f / 16f, posterAlpha = { 1f }) { PreviewChrome() }
+    }
+}
+
+/** Liked + muted: pins the active tint on the toggles and the swapped mute glyph. */
+@PreviewTest
+@Preview(name = "chrome-active", showBackground = true, heightDp = CANVAS_HEIGHT_DP)
+@Composable
+private fun VideoPageChromeActivePreview() {
+    VideoFeedCanvas {
+        VideoFeedPage(posterUrl = POSTER_9X16, aspectRatio = 9f / 16f, posterAlpha = { 1f }) {
+            PreviewChrome(post = chromePost(liked = true), isMuted = true)
+        }
+    }
+}
+
+/** A long caption collapsed to two lines with an ellipsis. */
+@PreviewTest
+@Preview(name = "chrome-caption-collapsed", showBackground = true, heightDp = CANVAS_HEIGHT_DP)
+@Composable
+private fun VideoPageChromeCaptionCollapsedPreview() {
+    VideoFeedCanvas {
+        VideoFeedPage(posterUrl = POSTER_9X16, aspectRatio = 9f / 16f, posterAlpha = { 1f }) {
+            PreviewChrome(post = chromePost(text = LONG_CAPTION))
+        }
+    }
+}
+
+/** The same caption expanded — the pair is what makes the truncation testable. */
+@PreviewTest
+@Preview(name = "chrome-caption-expanded", showBackground = true, heightDp = CANVAS_HEIGHT_DP)
+@Composable
+private fun VideoPageChromeCaptionExpandedPreview() {
+    VideoFeedCanvas {
+        VideoFeedPage(posterUrl = POSTER_9X16, aspectRatio = 9f / 16f, posterAlpha = { 1f }) {
+            PreviewChrome(post = chromePost(text = LONG_CAPTION), captionExpanded = true)
+        }
+    }
+}
+
+private const val LONG_CAPTION =
+    "hiked up before dawn to catch the light coming over the ridge, and it was worth every " +
+        "freezing minute. the whole valley went gold for about ninety seconds and then it was " +
+        "gone. no filter on this one."

@@ -12,6 +12,8 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -19,7 +21,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,9 +42,12 @@ import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
 import androidx.media3.ui.compose.state.rememberPresentationState
 import kotlinx.coroutines.flow.distinctUntilChanged
+import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.feature.videos.impl.ui.VideoFeedPage
+import net.kikin.nubecita.feature.videos.impl.ui.VideoPageChrome
 import net.kikin.nubecita.feature.videos.impl.ui.posterAlphaTarget
+import net.kikin.nubecita.feature.videos.impl.ui.rememberVideoFeedInteractions
 import net.kikin.nubecita.feature.videos.impl.ui.surfaceTranslationPx
 
 /**
@@ -48,8 +56,9 @@ import net.kikin.nubecita.feature.videos.impl.ui.surfaceTranslationPx
  * sits behind the pager and re-binds to whichever pooled player is active, so it
  * is never recreated across swipes. Each page renders a poster OVER that surface
  * — an overlay, not an underlay — that fades out once its player has a decoded
- * frame. Overlay chrome (author, caption, interactions, mute control) lands in
- * the next slice.
+ * frame. Overlay chrome (author, caption, action rail, mute) composes into each
+ * page above the poster; its interactions are delegated to the shared
+ * PostInteractionHandler. Tap gestures and playback progress land in PR3.
  */
 @Composable
 internal fun VideoFeedScreen(
@@ -75,7 +84,24 @@ internal fun VideoFeedScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    Scaffold(modifier = modifier, containerColor = Color.Black) { innerPadding ->
+    val snackbarHostState = remember { SnackbarHostState() }
+    val callbacks = rememberVideoFeedInteractions(viewModel, snackbarHostState)
+    // The nav state holder is a CompositionLocal, which a ViewModel cannot reach —
+    // hence navigation arrives as an effect and the screen performs the push.
+    val navState by rememberUpdatedState(LocalMainShellNavState.current)
+    LaunchedEffect(viewModel) {
+        viewModel.effects.collect { effect ->
+            when (effect) {
+                is VideoFeedEffect.NavigateTo -> navState.add(effect.target)
+            }
+        }
+    }
+
+    Scaffold(
+        modifier = modifier,
+        containerColor = Color.Black,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { innerPadding ->
         val contentModifier = Modifier.fillMaxSize().padding(innerPadding)
         when (val status = state.status) {
             VideoFeedStatus.Loading ->
@@ -196,11 +222,31 @@ internal fun VideoFeedScreen(
                                 animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
                                 label = "VideoFeedPoster-alpha",
                             )
+                        // Caption expansion is per-page Compose state, not VM state: it is a
+                        // presentation detail with no bearing on playback, and keying it on the
+                        // post id keeps it correct as the pager recycles pages.
+                        var captionExpanded by rememberSaveable(item.post.id) { mutableStateOf(false) }
                         VideoFeedPage(
                             posterUrl = item.posterUrl,
                             aspectRatio = if (isSettled) settledAspectRatio else item.aspectRatio,
                             posterAlpha = { posterAlphaState.value },
-                        )
+                        ) {
+                            VideoPageChrome(
+                                post = item.post,
+                                isMuted = state.isMuted,
+                                captionExpanded = captionExpanded,
+                                onCaptionToggle = { captionExpanded = !captionExpanded },
+                                onAuthorTap = { viewModel.handleEvent(VideoFeedEvent.AuthorTapped(item.post)) },
+                                // Delegation-forwarded: the handler owns the optimistic write.
+                                onLike = { viewModel.onLike(item.post) },
+                                onRepost = { viewModel.onRepost(item.post) },
+                                // Routed through the helper's callbacks so its composer-navigation
+                                // and share-sheet effects fire.
+                                onReply = { callbacks.onReply(item.post) },
+                                onShare = { callbacks.onShare(item.post) },
+                                onMuteToggle = { viewModel.handleEvent(VideoFeedEvent.ToggleMute) },
+                            )
+                        }
                     }
                 }
             }
