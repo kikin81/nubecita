@@ -230,6 +230,45 @@ class VideoFeedViewModelTest {
         }
 
     @Test
+    fun firstPage_appliesCacheImmediately_noRawFlicker() =
+        runTest(mainDispatcher.dispatcher) {
+            // A post already liked on another surface must render liked in the FIRST
+            // Content state, not raw-then-corrected once the collector emits.
+            cacheState.value =
+                persistentMapOf(
+                    "a" to PostInteractionState(viewerLikeUri = "at://did:plc:fake/app.bsky.feed.like/1", likeCount = 9),
+                )
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(listOf(videoPost("a")), cursor = null))
+
+            val viewModel = vm()
+            advanceUntilIdle()
+
+            val first = (viewModel.uiState.value.status as VideoFeedStatus.Content).items.first().post
+            assertTrue(first.viewer.isLikedByViewer)
+            assertEquals(9, first.stats.likeCount)
+        }
+
+    @Test
+    fun appendedPage_appliesCacheImmediately() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(List(4) { videoPost("v$it") }, cursor = "c1"))
+            coEvery { source.loadPage("c1") } returns Result.success(VideoFeedPage(listOf(videoPost("w0")), cursor = null))
+            val viewModel = vm()
+            advanceUntilIdle()
+
+            cacheState.value =
+                persistentMapOf(
+                    "w0" to PostInteractionState(viewerLikeUri = "at://did:plc:fake/app.bsky.feed.like/2", likeCount = 3),
+                )
+            viewModel.handleEvent(VideoFeedEvent.ActiveIndexChanged(1))
+            advanceUntilIdle()
+
+            val appended = (viewModel.uiState.value.status as VideoFeedStatus.Content).items.first { it.post.id == "w0" }.post
+            assertTrue(appended.viewer.isLikedByViewer)
+            assertEquals(3, appended.stats.likeCount)
+        }
+
+    @Test
     fun firstPage_seedsInteractionsCache() =
         runTest(mainDispatcher.dispatcher) {
             coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(listOf(videoPost("a")), cursor = null))

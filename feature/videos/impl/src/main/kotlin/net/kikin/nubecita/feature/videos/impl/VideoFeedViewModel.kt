@@ -8,12 +8,9 @@ import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentMap
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.common.mvi.MviViewModel
@@ -82,15 +79,19 @@ class VideoFeedViewModel
             // work and then reverts — a regression that has happened before on a
             // handler migration, hence its own test.
             viewModelScope.launch {
-                postInteractionsCache.state
-                    .map { snapshot -> uiState.value.itemsOrEmpty().applyInteractions(snapshot) }
-                    .distinctUntilChanged()
-                    .collect { merged ->
-                        setState {
-                            val current = status
-                            if (current is VideoFeedStatus.Content) copy(status = current.copy(items = merged)) else this
+                // The read and the merge happen atomically INSIDE setState. Mapping over
+                // `uiState.value` outside it would let a concurrent page-append land
+                // between the read and the write and be silently overwritten.
+                postInteractionsCache.state.collect { snapshot ->
+                    setState {
+                        val current = status
+                        if (current is VideoFeedStatus.Content) {
+                            copy(status = current.copy(items = current.items.applyInteractions(snapshot)))
+                        } else {
+                            this
                         }
                     }
+                }
             }
             // Free the feed player's decoder for the pool's budget (rebuilds lazily on return).
             sharedVideoPlayer.release()
@@ -98,8 +99,6 @@ class VideoFeedViewModel
             pool.setPrewarmEnabled(!dataSaver.isActive())
             loadFirstPage()
         }
-
-        private fun VideoFeedState.itemsOrEmpty(): ImmutableList<VideoFeedItem> = (status as? VideoFeedStatus.Content)?.items ?: persistentListOf()
 
         private fun ImmutableList<VideoFeedItem>.applyInteractions(
             interactionMap: PersistentMap<String, PostInteractionState>,
@@ -142,7 +141,11 @@ class VideoFeedViewModel
                                 setState { copy(status = VideoFeedStatus.Error) }
                             } else {
                                 val initialIndex = route.startIndex.coerceIn(0, loaded.lastIndex)
-                                setState { copy(status = VideoFeedStatus.Content(loaded.toImmutableList()), activeIndex = initialIndex) }
+                                // Merge the cache NOW rather than waiting for the collector's next
+                                // emission: a post already liked on another surface would otherwise
+                                // render unliked for a frame before snapping.
+                                val merged = loaded.toImmutableList().applyInteractions(postInteractionsCache.state.value)
+                                setState { copy(status = VideoFeedStatus.Content(merged), activeIndex = initialIndex) }
                                 pool.bind(loaded.map { it.source }, startIndex = initialIndex)
                                 postInteractionsCache.seed(loaded.map { it.post })
                             }
@@ -175,7 +178,8 @@ class VideoFeedViewModel
                                 val fresh = page.items.mapNotNull { it.toVideoFeedItemOrNull() }
                                 if (fresh.isNotEmpty()) {
                                     loaded += fresh
-                                    setState { copy(status = VideoFeedStatus.Content(loaded.toImmutableList())) }
+                                    val merged = loaded.toImmutableList().applyInteractions(postInteractionsCache.state.value)
+                                    setState { copy(status = VideoFeedStatus.Content(merged)) }
                                     // Re-bind with the appended items so the pool can prewarm past the old tail.
                                     // settle() reuses the active/prewarm slots by index, so this doesn't restart playback.
                                     pool.bind(loaded.map { it.source }, startIndex = uiState.value.activeIndex)

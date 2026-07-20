@@ -12,6 +12,7 @@
     <string name="videos_action_mute">Mute</string>
     <string name="videos_open_profile">Open profile</string>
     <string name="videos_expand_caption">Expand caption</string>
+    <string name="videos_collapse_caption">Collapse caption</string>
 
     <!-- Interaction snackbars, surfaced by the shared rememberPostInteractions helper.
          Deliberately not copied verbatim from :feature:feed — its wording says "Pull to

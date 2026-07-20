@@ -9,6 +9,7 @@
     <string name="videos_action_mute">Silenciar</string>
     <string name="videos_open_profile">Abrir perfil</string>
     <string name="videos_expand_caption">Expandir descripción</string>
+    <string name="videos_collapse_caption">Contraer descripción</string>
 
     <string name="videos_snackbar_error_network">Error de red. Reintenta.</string>
     <string name="videos_snackbar_error_unauthenticated">Sesión expirada. Inicia sesión de nuevo.</string>

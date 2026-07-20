@@ -14,6 +14,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -146,19 +150,36 @@ internal fun VideoPageChrome(
                     )
                 }
                 if (post.text.isNotBlank()) {
+                    // Only offer the expand affordance when there is something to expand.
+                    // A one-line caption that announces "double-tap to Expand caption" and
+                    // then does nothing is a dead end for a TalkBack user.
+                    //
+                    // The `|| captionExpanded` is load-bearing: once expanded there is no
+                    // visual overflow, so guarding on truncation alone would strip the
+                    // affordance and leave no way to collapse again.
+                    var isTruncated by remember(post.id) { mutableStateOf(false) }
+                    val expandLabel = stringResource(R.string.videos_expand_caption)
+                    val collapseLabel = stringResource(R.string.videos_collapse_caption)
                     Text(
                         text = post.text,
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.White,
                         maxLines = if (captionExpanded) Int.MAX_VALUE else CAPTION_COLLAPSED_LINES,
                         overflow = TextOverflow.Ellipsis,
+                        onTextLayout = { result -> isTruncated = result.hasVisualOverflow },
                         modifier =
                             Modifier
                                 .testTag(VideoFeedTestTags.CAPTION)
-                                .clickable(
-                                    role = Role.Button,
-                                    onClickLabel = stringResource(R.string.videos_expand_caption),
-                                    onClick = onCaptionToggle,
+                                .then(
+                                    if (isTruncated || captionExpanded) {
+                                        Modifier.clickable(
+                                            role = Role.Button,
+                                            onClickLabel = if (captionExpanded) collapseLabel else expandLabel,
+                                            onClick = onCaptionToggle,
+                                        )
+                                    } else {
+                                        Modifier
+                                    },
                                 ),
                     )
                 }
