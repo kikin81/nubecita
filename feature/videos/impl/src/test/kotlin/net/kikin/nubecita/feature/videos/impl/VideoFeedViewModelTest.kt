@@ -31,6 +31,7 @@ import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.videos.api.VideoFeed
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -333,6 +334,73 @@ class VideoFeedViewModelTest {
 
             val ids = (viewModel.uiState.value.status as VideoFeedStatus.Content).items.map { it.post.id }
             assertEquals(listOf("v0", "v1", "v2", "v3", "w0"), ids)
+        }
+
+    @Test
+    fun togglePlayPause_flipsState_andDrivesPool() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(listOf(videoPost("a")), cursor = null))
+            val viewModel = vm()
+            advanceUntilIdle()
+
+            viewModel.handleEvent(VideoFeedEvent.TogglePlayPause)
+            assertTrue(viewModel.uiState.value.isPaused)
+            verify { pool.setPaused(true) }
+
+            viewModel.handleEvent(VideoFeedEvent.TogglePlayPause)
+            assertFalse(viewModel.uiState.value.isPaused)
+            verify { pool.setPaused(false) }
+        }
+
+    @Test
+    fun swipingToANewPage_clearsPaused() =
+        runTest(mainDispatcher.dispatcher) {
+            // The pool's settle() resumes playback on promotion, so the UI flag must
+            // not lag behind it and render a paused glyph over a playing clip.
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(List(3) { videoPost("v$it") }, cursor = null))
+            val viewModel = vm()
+            advanceUntilIdle()
+            viewModel.handleEvent(VideoFeedEvent.TogglePlayPause)
+            assertTrue(viewModel.uiState.value.isPaused)
+
+            viewModel.handleEvent(VideoFeedEvent.ActiveIndexChanged(1))
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.isPaused)
+        }
+
+    @Test
+    fun doubleTapLike_likesAnUnlikedPost() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(listOf(videoPost("a")), cursor = null))
+            val viewModel = vm()
+            advanceUntilIdle()
+
+            viewModel.handleEvent(VideoFeedEvent.DoubleTapLike(videoPost("a")))
+
+            verify { handler.onLike(any()) }
+        }
+
+    @Test
+    fun doubleTapLike_onAnAlreadyLikedPost_doesNotUnlike_evenFromAStaleCapture() =
+        runTest(mainDispatcher.dispatcher) {
+            // Regression for a real device-only bug: pointerInput(Unit) never restarts,
+            // so the page pinned its first lambda and kept reporting an already-liked
+            // post as unliked. onLike toggles, so the second double tap unliked. The VM
+            // now resolves the post from current state rather than trusting the capture.
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(listOf(videoPost("a")), cursor = null))
+            val viewModel = vm()
+            advanceUntilIdle()
+            cacheState.value =
+                persistentMapOf(
+                    "a" to PostInteractionState(viewerLikeUri = "at://did:plc:fake/app.bsky.feed.like/1", likeCount = 1),
+                )
+            advanceUntilIdle()
+
+            // The UI hands over the ORIGINAL, unliked post — a stale capture.
+            viewModel.handleEvent(VideoFeedEvent.DoubleTapLike(videoPost("a")))
+
+            verify(exactly = 0) { handler.onLike(any()) }
         }
 
     // --- fixtures ---

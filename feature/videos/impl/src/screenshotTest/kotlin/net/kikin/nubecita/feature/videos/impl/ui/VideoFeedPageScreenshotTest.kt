@@ -193,3 +193,18 @@ private const val LONG_CAPTION =
     "hiked up before dawn to catch the light coming over the ridge, and it was worth every " +
         "freezing minute. the whole valley went gold for about ninety seconds and then it was " +
         "gone. no filter on this one."
+
+/** Paused: pins the centre glyph's placement and size over the chrome. */
+@PreviewTest
+@Preview(name = "chrome-paused", showBackground = true, heightDp = CANVAS_HEIGHT_DP)
+@Composable
+private fun VideoPageChromePausedPreview() {
+    VideoFeedCanvas {
+        VideoFeedPage(
+            posterUrl = POSTER_9X16,
+            aspectRatio = 9f / 16f,
+            posterAlpha = { 1f },
+            isPaused = true,
+        ) { PreviewChrome() }
+    }
+}

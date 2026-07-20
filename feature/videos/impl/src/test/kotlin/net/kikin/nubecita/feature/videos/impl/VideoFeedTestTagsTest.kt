@@ -24,6 +24,7 @@ internal class VideoFeedTestTagsTest {
         assertEquals("video_feed_share", VideoFeedTestTags.RAIL_SHARE)
         assertEquals("video_feed_mute", VideoFeedTestTags.MUTE)
         assertEquals("video_feed_caption", VideoFeedTestTags.CAPTION)
+        assertEquals("video_feed_pause_indicator", VideoFeedTestTags.PAUSE_INDICATOR)
     }
 
     @Test

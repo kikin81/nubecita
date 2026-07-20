@@ -1,19 +1,30 @@
 package net.kikin.nubecita.feature.videos.impl.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import net.kikin.nubecita.designsystem.icon.NubecitaIcon
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.feature.videos.impl.R
 import net.kikin.nubecita.feature.videos.impl.VideoFeedTestTags
 
 /**
@@ -37,6 +48,9 @@ internal fun VideoFeedPage(
     aspectRatio: Float,
     posterAlpha: () -> Float,
     modifier: Modifier = Modifier,
+    isPaused: Boolean = false,
+    onTogglePlayPause: () -> Unit = {},
+    onDoubleTapLike: () -> Unit = {},
     chrome: @Composable () -> Unit = {},
 ) {
     // One painter instance for all three poster states; ColorPainter is cheap but
@@ -79,8 +93,57 @@ internal fun VideoFeedPage(
                 fallback = blackPainter,
             )
         }
+        // Gesture layer sits ABOVE the poster but BELOW the chrome, so the rail's
+        // own clickables win over the page tap instead of being swallowed by it.
+        // detectTapGestures does not consume drags, so the pager keeps its swipe.
+        //
+        // rememberUpdatedState is load-bearing: pointerInput(Unit) never restarts, so
+        // it would otherwise capture the FIRST lambdas forever. The double-tap lambda
+        // closes over the page's PostUi, so a stale capture keeps reporting the post
+        // as unliked — and since onLike toggles, the second double tap silently
+        // UNLIKED. Caught on device; a unit test calling handleEvent directly with a
+        // fresh post cannot see it.
+        val currentOnTogglePlayPause by rememberUpdatedState(onTogglePlayPause)
+        val currentOnDoubleTapLike by rememberUpdatedState(onDoubleTapLike)
+        // detectTapGestures is RAW pointer input and contributes no semantics, unlike
+        // Modifier.clickable. Play/pause exists only as this gesture — there is no rail
+        // cell for it — so without an explicit semantics action a TalkBack user could be
+        // told the video is paused (the glyph carries a contentDescription) with no way
+        // to resume it. The label tracks state so the announcement matches the outcome.
+        val playPauseLabel =
+            stringResource(if (isPaused) R.string.videos_action_play else R.string.videos_action_pause)
+        Box(
+            Modifier
+                .matchParentSize()
+                .semantics {
+                    onClick(label = playPauseLabel) {
+                        currentOnTogglePlayPause()
+                        true
+                    }
+                }.pointerInput(Unit) {
+                    detectTapGestures(
+                        onDoubleTap = { currentOnDoubleTapLike() },
+                        onTap = { currentOnTogglePlayPause() },
+                    )
+                },
+        )
+        if (isPaused) {
+            NubecitaIcon(
+                name = NubecitaIconName.PlayArrow,
+                contentDescription = stringResource(R.string.videos_paused),
+                tint = Color.White.copy(alpha = PAUSE_GLYPH_ALPHA),
+                opticalSize = PAUSE_GLYPH_SIZE,
+                modifier =
+                    Modifier
+                        .align(Alignment.Center)
+                        .testTag(VideoFeedTestTags.PAUSE_INDICATOR),
+            )
+        }
         // Chrome draws last so it sits above the poster — and therefore above the
         // video too, since the poster fades out to reveal the surface behind.
         chrome()
     }
 }
+
+private val PAUSE_GLYPH_SIZE = 72.dp
+private const val PAUSE_GLYPH_ALPHA = 0.85f

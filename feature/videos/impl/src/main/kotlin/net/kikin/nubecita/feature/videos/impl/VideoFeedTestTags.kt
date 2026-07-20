@@ -37,4 +37,7 @@ object VideoFeedTestTags {
 
     /** Caption block; tap toggles expansion. */
     const val CAPTION: String = "video_feed_caption"
+
+    /** Centre glyph shown while playback is paused. */
+    const val PAUSE_INDICATOR: String = "video_feed_pause_indicator"
 }

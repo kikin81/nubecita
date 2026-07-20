@@ -10,6 +10,9 @@
     <string name="videos_open_profile">Abrir perfil</string>
     <string name="videos_expand_caption">Expandir legenda</string>
     <string name="videos_collapse_caption">Recolher legenda</string>
+    <string name="videos_paused">Pausado</string>
+    <string name="videos_action_play">Reproduzir</string>
+    <string name="videos_action_pause">Pausar</string>
 
     <string name="videos_snackbar_error_network">Erro de rede. Tente de novo.</string>
     <string name="videos_snackbar_error_unauthenticated">Sessão expirada. Entre novamente.</string>

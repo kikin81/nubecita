@@ -230,6 +230,11 @@ internal fun VideoFeedScreen(
                             posterUrl = item.posterUrl,
                             aspectRatio = if (isSettled) settledAspectRatio else item.aspectRatio,
                             posterAlpha = { posterAlphaState.value },
+                            // isPaused is screen-level, so gate on isSettled or every
+                            // composed neighbour would render the glyph too.
+                            isPaused = state.isPaused && isSettled,
+                            onTogglePlayPause = { viewModel.handleEvent(VideoFeedEvent.TogglePlayPause) },
+                            onDoubleTapLike = { viewModel.handleEvent(VideoFeedEvent.DoubleTapLike(item.post)) },
                         ) {
                             VideoPageChrome(
                                 post = item.post,

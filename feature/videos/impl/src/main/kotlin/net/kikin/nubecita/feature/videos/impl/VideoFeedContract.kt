@@ -43,6 +43,7 @@ data class VideoFeedState(
     val status: VideoFeedStatus = VideoFeedStatus.Loading,
     val activeIndex: Int = 0,
     val isMuted: Boolean = false,
+    val isPaused: Boolean = false,
 ) : UiState
 
 sealed interface VideoFeedEvent : UiEvent {
@@ -52,6 +53,17 @@ sealed interface VideoFeedEvent : UiEvent {
     ) : VideoFeedEvent
 
     data object ToggleMute : VideoFeedEvent
+
+    /** The page was single-tapped — toggle playback of the active clip. */
+    data object TogglePlayPause : VideoFeedEvent
+
+    /**
+     * The page was double-tapped. Always an affirmative like, never a toggle: a
+     * mistimed second tap must not silently undo an existing like.
+     */
+    data class DoubleTapLike(
+        val post: PostUi,
+    ) : VideoFeedEvent
 
     data object Retry : VideoFeedEvent
 
