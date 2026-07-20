@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.videos.impl.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,9 +12,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import net.kikin.nubecita.designsystem.icon.NubecitaIcon
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.feature.videos.impl.R
 import net.kikin.nubecita.feature.videos.impl.VideoFeedTestTags
 
 /**
@@ -37,6 +44,9 @@ internal fun VideoFeedPage(
     aspectRatio: Float,
     posterAlpha: () -> Float,
     modifier: Modifier = Modifier,
+    isPaused: Boolean = false,
+    onTogglePlayPause: () -> Unit = {},
+    onDoubleTapLike: () -> Unit = {},
     chrome: @Composable () -> Unit = {},
 ) {
     // One painter instance for all three poster states; ColorPainter is cheap but
@@ -79,8 +89,36 @@ internal fun VideoFeedPage(
                 fallback = blackPainter,
             )
         }
+        // Gesture layer sits ABOVE the poster but BELOW the chrome, so the rail's
+        // own clickables win over the page tap instead of being swallowed by it.
+        // detectTapGestures does not consume drags, so the pager keeps its swipe.
+        Box(
+            Modifier
+                .matchParentSize()
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onDoubleTap = { onDoubleTapLike() },
+                        onTap = { onTogglePlayPause() },
+                    )
+                },
+        )
+        if (isPaused) {
+            NubecitaIcon(
+                name = NubecitaIconName.PlayArrow,
+                contentDescription = stringResource(R.string.videos_paused),
+                tint = Color.White.copy(alpha = PAUSE_GLYPH_ALPHA),
+                opticalSize = PAUSE_GLYPH_SIZE,
+                modifier =
+                    Modifier
+                        .align(Alignment.Center)
+                        .testTag(VideoFeedTestTags.PAUSE_INDICATOR),
+            )
+        }
         // Chrome draws last so it sits above the poster — and therefore above the
         // video too, since the poster fades out to reveal the surface behind.
         chrome()
     }
 }
+
+private val PAUSE_GLYPH_SIZE = 72.dp
+private const val PAUSE_GLYPH_ALPHA = 0.85f
