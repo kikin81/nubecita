@@ -15,4 +15,9 @@ internal class VideoFeedTestTagsTest {
     fun `pager tag value is pinned to video_feed`() {
         assertEquals("video_feed", VideoFeedTestTags.PAGER)
     }
+
+    @Test
+    fun `poster tag value is pinned to video_feed_poster`() {
+        assertEquals("video_feed_poster", VideoFeedTestTags.POSTER)
+    }
 }
