@@ -13,6 +13,25 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 private const val CANVAS_HEIGHT_DP = 600
 
 /**
+ * Ratio-matched 1-colour posters embedded as `data:` URIs.
+ *
+ * layoutlib has no network, so a remote URL renders Coil's error painter — which
+ * this surface deliberately paints BLACK (spec D4), making every baseline a
+ * byte-identical black rectangle that discriminates nothing. An embedded image
+ * resolves without I/O, so the letterbox geometry is actually visible and a
+ * regression in it can actually fail.
+ *
+ * Each is sized to the ratio of the preview that uses it (9:16 / 16:9) so
+ * `ContentScale.Fit` fills the ratio-locked box exactly; a square source would
+ * inset inside those bounds and pin misleading geometry.
+ */
+private const val POSTER_9X16 =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAkAAAAQCAIAAABLKsIUAAAAF0lEQVR42mOsWPWfAQdgYsANRuUGhxwA0uQCQS3T4GYAAAAASUVORK5CYII="
+
+private const val POSTER_16X9 =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAJCAIAAAC0SDtlAAAAF0lEQVR42mOsWPWfgRTAxEAiGNVAEw0At3cCM1TB5YoAAAAASUVORK5CYII="
+
+/**
  * The feed's canvas is `Color.Black` at every theme — `VideoFeedScreen` sets
  * `Scaffold(containerColor = Color.Black)` for a full-bleed video surface. So
  * previews wrap in an explicit black Box rather than NubecitaCanvasPreviewTheme
@@ -35,7 +54,7 @@ private fun VideoFeedCanvas(content: @Composable () -> Unit) {
 @Composable
 private fun VideoFeedPagePortraitPreview() {
     VideoFeedCanvas {
-        VideoFeedPage(posterUrl = "https://example.invalid/poster.jpg", aspectRatio = 9f / 16f, posterAlpha = { 1f })
+        VideoFeedPage(posterUrl = POSTER_9X16, aspectRatio = 9f / 16f, posterAlpha = { 1f })
     }
 }
 
@@ -45,7 +64,7 @@ private fun VideoFeedPagePortraitPreview() {
 @Composable
 private fun VideoFeedPageLandscapePreview() {
     VideoFeedCanvas {
-        VideoFeedPage(posterUrl = "https://example.invalid/poster.jpg", aspectRatio = 16f / 9f, posterAlpha = { 1f })
+        VideoFeedPage(posterUrl = POSTER_16X9, aspectRatio = 16f / 9f, posterAlpha = { 1f })
     }
 }
 
@@ -55,7 +74,7 @@ private fun VideoFeedPageLandscapePreview() {
 @Composable
 private fun VideoFeedPageMidFadePreview() {
     VideoFeedCanvas {
-        VideoFeedPage(posterUrl = "https://example.invalid/poster.jpg", aspectRatio = 9f / 16f, posterAlpha = { 0.5f })
+        VideoFeedPage(posterUrl = POSTER_9X16, aspectRatio = 9f / 16f, posterAlpha = { 0.5f })
     }
 }
 
