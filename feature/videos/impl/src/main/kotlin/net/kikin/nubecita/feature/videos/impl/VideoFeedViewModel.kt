@@ -113,6 +113,10 @@ class VideoFeedViewModel
             when (event) {
                 is VideoFeedEvent.ActiveIndexChanged -> onActiveIndexChanged(event.index)
                 VideoFeedEvent.ToggleMute -> toggleMute()
+                VideoFeedEvent.TogglePlayPause -> togglePlayPause()
+                is VideoFeedEvent.DoubleTapLike ->
+                    // Affirmative only — see the event's KDoc.
+                    if (!event.post.viewer.isLikedByViewer) onLike(event.post)
                 VideoFeedEvent.Retry -> loadFirstPage()
                 is VideoFeedEvent.AuthorTapped ->
                     sendEffect(VideoFeedEffect.NavigateTo(Profile(handle = event.post.author.did)))
@@ -166,7 +170,9 @@ class VideoFeedViewModel
 
         private fun onActiveIndexChanged(index: Int) {
             if (index == uiState.value.activeIndex) return
-            setState { copy(activeIndex = index) }
+            // The pool's settle() resumes playback on promotion, so clear the flag with
+            // it or the glyph would linger over a playing clip.
+            setState { copy(activeIndex = index, isPaused = false) }
             viewModelScope.launch { pool.onActiveIndexChanged(index) }
             maybeLoadMore(index)
         }
@@ -207,6 +213,12 @@ class VideoFeedViewModel
                         loadingMore = false
                     }
                 }
+        }
+
+        private fun togglePlayPause() {
+            val paused = !uiState.value.isPaused
+            setState { copy(isPaused = paused) }
+            pool.setPaused(paused)
         }
 
         private fun toggleMute() {
