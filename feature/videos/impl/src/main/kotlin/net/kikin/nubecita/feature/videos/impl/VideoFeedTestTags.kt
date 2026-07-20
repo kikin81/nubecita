@@ -16,4 +16,7 @@ package net.kikin.nubecita.feature.videos.impl
 object VideoFeedTestTags {
     /** The full-screen `VerticalPager` that owns the swipe gesture. */
     const val PAGER: String = "video_feed"
+
+    /** A single page's poster layer, which covers the video until its first frame. */
+    const val POSTER: String = "video_feed_poster"
 }
