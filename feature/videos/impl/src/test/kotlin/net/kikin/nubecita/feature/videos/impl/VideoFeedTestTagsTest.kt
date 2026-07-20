@@ -17,6 +17,16 @@ internal class VideoFeedTestTagsTest {
     }
 
     @Test
+    fun `chrome tag values are pinned`() {
+        assertEquals("video_feed_like", VideoFeedTestTags.RAIL_LIKE)
+        assertEquals("video_feed_repost", VideoFeedTestTags.RAIL_REPOST)
+        assertEquals("video_feed_reply", VideoFeedTestTags.RAIL_REPLY)
+        assertEquals("video_feed_share", VideoFeedTestTags.RAIL_SHARE)
+        assertEquals("video_feed_mute", VideoFeedTestTags.MUTE)
+        assertEquals("video_feed_caption", VideoFeedTestTags.CAPTION)
+    }
+
+    @Test
     fun `poster tag value is pinned to video_feed_poster`() {
         assertEquals("video_feed_poster", VideoFeedTestTags.POSTER)
     }
