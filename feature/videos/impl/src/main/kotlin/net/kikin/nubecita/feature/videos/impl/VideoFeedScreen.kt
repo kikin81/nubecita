@@ -2,6 +2,8 @@
 
 package net.kikin.nubecita.feature.videos.impl
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -26,9 +29,13 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.ui.compose.PlayerSurface
+import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
 import androidx.media3.ui.compose.state.rememberPresentationState
 import kotlinx.coroutines.flow.distinctUntilChanged
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
+import net.kikin.nubecita.feature.videos.impl.ui.VideoFeedPage
+import net.kikin.nubecita.feature.videos.impl.ui.posterAlphaTarget
+import net.kikin.nubecita.feature.videos.impl.ui.surfaceTranslationPx
 
 /**
  * Full-screen vertical video feed. A snapping [VerticalPager] whose settled page
@@ -86,44 +93,77 @@ internal fun VideoFeedScreen(
                 Box(contentModifier) {
                     // ONE persistent video surface for the whole feed, sitting behind the
                     // pager. Because it is never recreated as the active page changes,
-                    // promoting a pooled player only re-binds it (`setVideoSurface` on the
-                    // already-attached Surface) — there is no async surface-attach race, so
-                    // the next video presents on settle with no relayout "nudge", and the
-                    // SurfaceView keeps its efficient hardware-overlay path (battery). The
-                    // pool guarantees exactly one active player, so a single surface is all
-                    // the feed needs. Poster underlay, per-page slide, and a first-frame
-                    // crossfade arrive in Slice 3b.
+                    // promoting a pooled player only re-binds it — there is no async
+                    // surface-attach race and no black first frame. The pool guarantees
+                    // exactly one active player, so a single surface is all the feed needs.
+                    val settledItem = status.items.getOrNull(pagerState.settledPage)
+                    // rememberPresentationState accepts a nullable player and re-observes on
+                    // change, so it is called unconditionally — a conditional call would
+                    // discard the state whenever the pool briefly has no active player.
+                    // The instance survives player swaps (remember has no key), and
+                    // coverSurface flips true on promotion and false on the next first
+                    // frame: exactly the crossfade signal, with no extra bookkeeping.
+                    val presentationState = rememberPresentationState(activePlayer)
+                    val videoSize = presentationState.videoSizeDp
+                    // Poster and surface MUST resolve to the same ratio or the crossfade
+                    // reads as a jump. Prefer the decoded size once known; fall back to the
+                    // embed's declared ratio, which is available before any decode (D4).
+                    val settledAspectRatio =
+                        if (videoSize != null && videoSize.width > 0f && videoSize.height > 0f) {
+                            videoSize.width / videoSize.height
+                        } else {
+                            settledItem?.aspectRatio ?: DEFAULT_ASPECT_RATIO
+                        }
+
                     activePlayer?.let { player ->
-                        // Size the surface to the video's own aspect ratio and center it, so
-                        // a landscape/wide clip is letterboxed (black bars) rather than
-                        // stretched to fill the portrait frame. rememberPresentationState
-                        // reports the decoded video size; until it's known we fill (portrait
-                        // is the common case and already matches the frame closely). Blurred
-                        // background fill for the bars is deferred to Slice 3b.
-                        val presentationState = rememberPresentationState(player)
-                        val videoSize = presentationState.videoSizeDp
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             PlayerSurface(
                                 player = player,
+                                surfaceType = FEED_SURFACE_TYPE,
                                 modifier =
-                                    if (videoSize != null && videoSize.width > 0f && videoSize.height > 0f) {
-                                        Modifier.aspectRatio(videoSize.width / videoSize.height)
-                                    } else {
-                                        Modifier.fillMaxSize()
-                                    },
+                                    Modifier
+                                        .aspectRatio(settledAspectRatio)
+                                        // Deferred read: a swipe re-runs only this layer
+                                        // block, never composition or layout. That is what
+                                        // holds the gesture at 120hz.
+                                        .graphicsLayer {
+                                            translationY =
+                                                surfaceTranslationPx(
+                                                    currentPage = pagerState.currentPage,
+                                                    currentPageOffsetFraction = pagerState.currentPageOffsetFraction,
+                                                    settledPage = pagerState.settledPage,
+                                                    pageHeightPx = size.height,
+                                                )
+                                        },
                             )
                         }
                     }
-                    // The pager is a transparent gesture + snapping layer on top; its pages
-                    // carry no content yet (3b), so the surface behind shows through. It owns
-                    // the swipe gesture and reports the settled page to the ViewModel. A stable
-                    // per-item key keeps page state aligned as the feed paginates (appends).
+                    // The pager is a transparent gesture + snapping layer on top. Its pages
+                    // carry the poster (and, from PR2, the chrome), so the surface behind
+                    // shows through wherever the poster has faded out. A stable per-item key
+                    // keeps page state aligned as the feed paginates (appends).
                     VerticalPager(
                         state = pagerState,
                         modifier = Modifier.fillMaxSize().testTag(VideoFeedTestTags.PAGER),
                         key = { index -> status.items[index].post.id },
-                    ) { _ ->
-                        Box(Modifier.fillMaxSize())
+                    ) { page ->
+                        val item = status.items[page]
+                        val isSettled = page == pagerState.settledPage
+                        val targetAlpha =
+                            posterAlphaTarget(
+                                isSettledPage = isSettled,
+                                coverSurface = presentationState.coverSurface,
+                            )
+                        val posterAlpha by animateFloatAsState(
+                            targetValue = targetAlpha,
+                            animationSpec = tween(durationMillis = POSTER_FADE_MS),
+                            label = "VideoFeedPoster-alpha",
+                        )
+                        VideoFeedPage(
+                            posterUrl = item.posterUrl,
+                            aspectRatio = if (isSettled) settledAspectRatio else item.aspectRatio,
+                            posterAlpha = posterAlpha,
+                        )
                     }
                 }
             }
@@ -140,3 +180,22 @@ private suspend fun snapshotFlowSettledPage(
         .distinctUntilChanged()
         .collect(onSettled)
 }
+
+/**
+ * Surface backing for the feed's video.
+ *
+ * `TextureView` composites through the view hierarchy, so it translates and
+ * alpha-blends exactly in step with the pager — a `SurfaceView`'s position is
+ * owned by the window compositor and can visibly lag the app frame during a
+ * drag. The cost is real: full-screen video goes through the GPU every frame
+ * instead of a hardware overlay, which is a battery cost on the surface users
+ * linger on longest. Deliberately isolated here so a battery pass can flip it
+ * back to SURFACE_TYPE_SURFACE_VIEW as a one-line change. See design D1.
+ */
+private const val FEED_SURFACE_TYPE = SURFACE_TYPE_TEXTURE_VIEW
+
+/** Crossfade duration, ms, from full poster to the decoded first frame. */
+private const val POSTER_FADE_MS = 150
+
+/** Fallback frame ratio before any size is known — portrait, the common case. */
+private const val DEFAULT_ASPECT_RATIO = 9f / 16f
