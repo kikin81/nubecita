@@ -16,17 +16,19 @@ import net.kikin.nubecita.data.models.EmbedUi
 import timber.log.Timber
 import javax.inject.Inject
 
-/** A trending-video thumbnail: its poster + its index into the vertical feed. */
+/** A trending-video thumbnail: its poster + the AtUri of the post it opens. */
 data class TrendingVideoThumb(
-    val index: Int,
+    val postUri: String,
     val posterUrl: String?,
 )
 
 /**
- * Loads the first page of trending videos for the Discover carousel. Shares
- * [VideoFeedSource] with the vertical feed, so a thumbnail's [TrendingVideoThumb.index]
- * is exactly the `VideoFeed(startIndex)` to open. Load failure → empty (the
- * carousel simply hides).
+ * Loads the first page of trending videos for the Discover carousel.
+ *
+ * A thumbnail carries the post's AtUri, not its position: the carousel and the
+ * vertical feed fetch this live source independently, so a position taken here
+ * would denote a different post by the time the feed loads (nubecita-zdv8.13).
+ * Load failure → empty (the carousel simply hides).
  *
  * Loading is an explicit [load] call (not `init`) because this ViewModel is
  * scoped to the host `FeedScreen`: it survives feed switches, so the host
@@ -53,9 +55,10 @@ class TrendingVideosViewModel
                         .onSuccess { page ->
                             _thumbs.value =
                                 page.items
-                                    .mapIndexedNotNull { index, post ->
-                                        (post.embed as? EmbedUi.Video)?.let { video -> TrendingVideoThumb(index, video.posterUrl) }
-                                    }.toImmutableList()
+                                    .mapNotNull { post ->
+                                        (post.embed as? EmbedUi.Video)?.let { video -> TrendingVideoThumb(post.id, video.posterUrl) }
+                                    }.distinctBy { it.postUri }
+                                    .toImmutableList()
                         }.onFailure { exception ->
                             Timber.w(exception, "trending videos carousel load failed")
                             _thumbs.value = persistentListOf()

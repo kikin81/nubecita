@@ -174,7 +174,7 @@ internal fun FeedScreen(
             {
                 TrendingVideosCarousel(
                     thumbs = trendingThumbs,
-                    onOpen = { index -> onNavigateTo(VideoFeed(index)) },
+                    onOpen = { postUri -> onNavigateTo(VideoFeed(postUri)) },
                     onDismiss = { trendingDismissed = true },
                 )
             }

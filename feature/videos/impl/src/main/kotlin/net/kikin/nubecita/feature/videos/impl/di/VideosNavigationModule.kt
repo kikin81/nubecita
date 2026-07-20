@@ -16,7 +16,7 @@ import net.kikin.nubecita.feature.videos.impl.VideoFeedViewModel
 /**
  * `@MainShell` provider for the [VideoFeed] full-screen vertical video feed.
  * Pushed onto `MainShell`'s inner back stack (e.g. by the Trending Videos
- * carousel in a later slice) via `navState.add(VideoFeed(index))`; the back
+ * carousel) via `navState.add(VideoFeed(postUri))`; the back
  * gesture / arrow pops the same stack.
  */
 @Module

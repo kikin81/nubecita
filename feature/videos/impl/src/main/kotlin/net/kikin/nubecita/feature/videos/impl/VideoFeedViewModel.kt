@@ -53,7 +53,7 @@ class VideoFeedViewModel
         private val handler: PostInteractionHandler,
         private val postInteractionsCache: PostInteractionsCache,
     ) : MviViewModel<VideoFeedState, VideoFeedEvent, VideoFeedEffect>(
-            VideoFeedState(activeIndex = route.startIndex.coerceAtLeast(0)),
+            VideoFeedState(),
         ),
         PostInteractionHandler by handler {
         @AssistedFactory
@@ -136,11 +136,19 @@ class VideoFeedViewModel
                             cursor = page.cursor
                             endReached = page.cursor == null
                             loaded.clear()
-                            loaded += page.items.mapNotNull { it.toVideoFeedItemOrNull() }
+                            // distinctBy: the appview can return the same post twice, which
+                            // would render duplicated in the carousel AND produce duplicate
+                            // keys in the pager (it keys on post.id) — a lazy layout rejects
+                            // those. See nubecita-zdv8.13.
+                            loaded += page.items.mapNotNull { it.toVideoFeedItemOrNull() }.distinctBy { it.post.id }
                             if (loaded.isEmpty()) {
                                 setState { copy(status = VideoFeedStatus.Error) }
                             } else {
-                                val initialIndex = route.startIndex.coerceIn(0, loaded.lastIndex)
+                                // Resolve by identity, not position: the carousel's page and
+                                // this one are separate fetches of a live feed, so an index
+                                // would denote a different post. A post that has aged out of
+                                // the page opens at the top rather than failing.
+                                val initialIndex = loaded.indexOfFirst { it.post.id == route.startPostUri }.coerceAtLeast(0)
                                 // Merge the cache NOW rather than waiting for the collector's next
                                 // emission: a post already liked on another surface would otherwise
                                 // render unliked for a frame before snapping.
@@ -175,7 +183,15 @@ class VideoFeedViewModel
                             .onSuccess { page ->
                                 cursor = page.cursor
                                 endReached = page.cursor == null
-                                val fresh = page.items.mapNotNull { it.toVideoFeedItemOrNull() }
+                                // Dedupe within the page AND against what is already loaded:
+                                // overlapping pages are normal from the appview, and a repeat
+                                // would duplicate a pager key.
+                                val seenIds = loaded.mapTo(mutableSetOf()) { it.post.id }
+                                val fresh =
+                                    page.items
+                                        .mapNotNull { it.toVideoFeedItemOrNull() }
+                                        .distinctBy { it.post.id }
+                                        .filter { it.post.id !in seenIds }
                                 if (fresh.isNotEmpty()) {
                                     loaded += fresh
                                     val merged = loaded.toImmutableList().applyInteractions(postInteractionsCache.state.value)
