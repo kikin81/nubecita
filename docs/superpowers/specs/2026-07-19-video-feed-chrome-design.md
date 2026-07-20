@@ -204,10 +204,12 @@ a toggle:
 - **One-shot actions** (reply, share, overflow): `Modifier.clickable(role = Role.Button,
   onClickLabel = …)` — the label is the action verb.
 - **Toggles** (like, repost, and the mute control): `Modifier.toggleable(value, role =
-  Role.Switch, onValueChange = …)` — the label is the static **noun** being toggled
-  ("Like", "Mute"), never the inverse verb ("Unlike", "Unmute"), because the on/off
-  state is announced by the switch semantics. `onClickLabel` does not exist on the
-  toggleable path and would be silently dropped.
+  Role.Switch, onValueChange = …)`, with the label carried as the **icon's
+  `contentDescription`** — `Modifier.toggleable` takes no label parameter, so an
+  `onClickLabel` here would be silently dropped. The label is the static **noun**
+  being toggled ("Like", "Mute"), never the inverse verb ("Unlike", "Unmute"): the
+  on/off state comes from the switch semantics, so TalkBack announces
+  "Mute, switch, off".
 
 Note this means the mute control does **not** copy `VideoPlayerChrome`'s pattern of an
 `IconButton` with a `contentDescription` swapped between "Mute"/"Unmute". That surface
