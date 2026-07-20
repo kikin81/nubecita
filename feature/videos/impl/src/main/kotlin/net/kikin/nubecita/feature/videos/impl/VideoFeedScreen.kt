@@ -17,10 +17,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -90,7 +94,18 @@ internal fun VideoFeedScreen(
                         viewModel.handleEvent(VideoFeedEvent.ActiveIndexChanged(settled))
                     }
                 }
-                Box(contentModifier) {
+                // Full-bleed reference for the drag translation below. The surface
+                // itself is letterboxed by `.aspectRatio(settledAspectRatio)`, so its
+                // own `size.height` inside graphicsLayer is SMALLER than the distance
+                // the pager actually scrolls (e.g. a 9:16 video on a taller screen) —
+                // using it would scale the translation down and detach the video from
+                // the finger mid-drag. This outer Box is unclipped and always matches
+                // the pager's true page height, so read from here instead. `by` +
+                // mutableIntStateOf is a deferred state read inside graphicsLayer's
+                // block, not a composition-scope val, so a swipe still costs zero
+                // recompositions.
+                var pageHeightPx by remember { mutableIntStateOf(0) }
+                Box(contentModifier.onSizeChanged { pageHeightPx = it.height }) {
                     // ONE persistent video surface for the whole feed, sitting behind the
                     // pager. Because it is never recreated as the active page changes,
                     // promoting a pooled player only re-binds it — there is no async
@@ -112,7 +127,7 @@ internal fun VideoFeedScreen(
                         if (videoSize != null && videoSize.width > 0f && videoSize.height > 0f) {
                             videoSize.width / videoSize.height
                         } else {
-                            settledItem?.aspectRatio ?: DEFAULT_ASPECT_RATIO
+                            settledItem?.aspectRatio ?: DEFAULT_VIDEO_ASPECT_RATIO
                         }
 
                     activePlayer?.let { player ->
@@ -132,7 +147,7 @@ internal fun VideoFeedScreen(
                                                     currentPage = pagerState.currentPage,
                                                     currentPageOffsetFraction = pagerState.currentPageOffsetFraction,
                                                     settledPage = pagerState.settledPage,
-                                                    pageHeightPx = size.height,
+                                                    pageHeightPx = pageHeightPx.toFloat(),
                                                 )
                                         },
                             )
@@ -196,6 +211,3 @@ private const val FEED_SURFACE_TYPE = SURFACE_TYPE_TEXTURE_VIEW
 
 /** Crossfade duration, ms, from full poster to the decoded first frame. */
 private const val POSTER_FADE_MS = 150
-
-/** Fallback frame ratio before any size is known — portrait, the common case. */
-private const val DEFAULT_ASPECT_RATIO = 9f / 16f

@@ -17,8 +17,15 @@ data class VideoFeedItem(
     val posterUrl: String? get() = (post.embed as? EmbedUi.Video)?.posterUrl
 
     /** Declared frame ratio, available before any decode. Falls back to portrait. */
-    val aspectRatio: Float get() = (post.embed as? EmbedUi.Video)?.aspectRatio ?: (9f / 16f)
+    val aspectRatio: Float get() = (post.embed as? EmbedUi.Video)?.aspectRatio ?: DEFAULT_VIDEO_ASPECT_RATIO
 }
+
+/**
+ * Fallback frame ratio (portrait, the common case) used whenever a real ratio isn't
+ * yet known — before decode, and before any [VideoFeedItem] is available at all.
+ * Single source of truth so the feed's surface/poster never disagree mid-fallback.
+ */
+internal const val DEFAULT_VIDEO_ASPECT_RATIO = 9f / 16f
 
 /** Mutually-exclusive load lifecycle of the vertical video feed. */
 sealed interface VideoFeedStatus {
