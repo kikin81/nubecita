@@ -114,9 +114,7 @@ class VideoFeedViewModel
                 is VideoFeedEvent.ActiveIndexChanged -> onActiveIndexChanged(event.index)
                 VideoFeedEvent.ToggleMute -> toggleMute()
                 VideoFeedEvent.TogglePlayPause -> togglePlayPause()
-                is VideoFeedEvent.DoubleTapLike ->
-                    // Affirmative only — see the event's KDoc.
-                    if (!event.post.viewer.isLikedByViewer) onLike(event.post)
+                is VideoFeedEvent.DoubleTapLike -> doubleTapLike(event.post)
                 VideoFeedEvent.Retry -> loadFirstPage()
                 is VideoFeedEvent.AuthorTapped ->
                     sendEffect(VideoFeedEffect.NavigateTo(Profile(handle = event.post.author.did)))
@@ -213,6 +211,24 @@ class VideoFeedViewModel
                         loadingMore = false
                     }
                 }
+        }
+
+        /**
+         * Affirmative only — never a toggle (see [VideoFeedEvent.DoubleTapLike]).
+         *
+         * The like state is read from CURRENT state by id rather than trusted from
+         * the post the UI passed in. A stale capture at the UI layer would report an
+         * already-liked post as unliked, and `onLike` toggles, so the second double
+         * tap would silently UNLIKE. That happened for real: `pointerInput(Unit)`
+         * never restarts, so it pinned the first lambda and its post forever.
+         */
+        private fun doubleTapLike(post: PostUi) {
+            val current =
+                (uiState.value.status as? VideoFeedStatus.Content)
+                    ?.items
+                    ?.firstOrNull { it.post.id == post.id }
+                    ?.post ?: post
+            if (!current.viewer.isLikedByViewer) onLike(current)
         }
 
         private fun togglePlayPause() {

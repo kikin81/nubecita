@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -92,13 +94,22 @@ internal fun VideoFeedPage(
         // Gesture layer sits ABOVE the poster but BELOW the chrome, so the rail's
         // own clickables win over the page tap instead of being swallowed by it.
         // detectTapGestures does not consume drags, so the pager keeps its swipe.
+        //
+        // rememberUpdatedState is load-bearing: pointerInput(Unit) never restarts, so
+        // it would otherwise capture the FIRST lambdas forever. The double-tap lambda
+        // closes over the page's PostUi, so a stale capture keeps reporting the post
+        // as unliked — and since onLike toggles, the second double tap silently
+        // UNLIKED. Caught on device; a unit test calling handleEvent directly with a
+        // fresh post cannot see it.
+        val currentOnTogglePlayPause by rememberUpdatedState(onTogglePlayPause)
+        val currentOnDoubleTapLike by rememberUpdatedState(onDoubleTapLike)
         Box(
             Modifier
                 .matchParentSize()
                 .pointerInput(Unit) {
                     detectTapGestures(
-                        onDoubleTap = { onDoubleTapLike() },
-                        onTap = { onTogglePlayPause() },
+                        onDoubleTap = { currentOnDoubleTapLike() },
+                        onTap = { currentOnTogglePlayPause() },
                     )
                 },
         )

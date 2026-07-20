@@ -382,17 +382,23 @@ class VideoFeedViewModelTest {
         }
 
     @Test
-    fun doubleTapLike_onAnAlreadyLikedPost_doesNotUnlike() =
+    fun doubleTapLike_onAnAlreadyLikedPost_doesNotUnlike_evenFromAStaleCapture() =
         runTest(mainDispatcher.dispatcher) {
-            // A double tap is an affirmative "like this", never a toggle: a mistimed
-            // second tap must not silently undo an existing like.
+            // Regression for a real device-only bug: pointerInput(Unit) never restarts,
+            // so the page pinned its first lambda and kept reporting an already-liked
+            // post as unliked. onLike toggles, so the second double tap unliked. The VM
+            // now resolves the post from current state rather than trusting the capture.
             coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(listOf(videoPost("a")), cursor = null))
             val viewModel = vm()
             advanceUntilIdle()
-            val base = videoPost("a")
-            val liked = base.copy(viewer = base.viewer.copy(isLikedByViewer = true))
+            cacheState.value =
+                persistentMapOf(
+                    "a" to PostInteractionState(viewerLikeUri = "at://did:plc:fake/app.bsky.feed.like/1", likeCount = 1),
+                )
+            advanceUntilIdle()
 
-            viewModel.handleEvent(VideoFeedEvent.DoubleTapLike(liked))
+            // The UI hands over the ORIGINAL, unliked post — a stale capture.
+            viewModel.handleEvent(VideoFeedEvent.DoubleTapLike(videoPost("a")))
 
             verify(exactly = 0) { handler.onLike(any()) }
         }
