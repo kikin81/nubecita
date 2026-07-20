@@ -37,6 +37,7 @@ internal fun VideoFeedPage(
     aspectRatio: Float,
     posterAlpha: () -> Float,
     modifier: Modifier = Modifier,
+    chrome: @Composable () -> Unit = {},
 ) {
     // One painter instance for all three poster states; ColorPainter is cheap but
     // there is no reason to reallocate it on every composition.
@@ -78,5 +79,8 @@ internal fun VideoFeedPage(
                 fallback = blackPainter,
             )
         }
+        // Chrome draws last so it sits above the poster — and therefore above the
+        // video too, since the poster fades out to reveal the surface behind.
+        chrome()
     }
 }

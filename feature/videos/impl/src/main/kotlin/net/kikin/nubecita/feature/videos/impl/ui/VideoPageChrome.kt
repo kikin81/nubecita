@@ -106,55 +106,62 @@ internal fun VideoPageChrome(
                 testTag = VideoFeedTestTags.MUTE,
             )
         }
-        Column(
-            verticalArrangement = Arrangement.spacedBy(CAPTION_GAP),
-            modifier =
-                Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth(BOTTOM_BLOCK_WIDTH_FRACTION)
-                    .background(
-                        Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = SCRIM_ALPHA))),
-                    ).padding(BOTTOM_BLOCK_PADDING),
+        // The scrim spans the FULL width so it fades out only vertically. Constraining
+        // it to the text's width instead leaves a hard vertical seam down the middle
+        // of the frame where the gradient stops.
+        Box(
+            Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = SCRIM_ALPHA))),
+                ).padding(BOTTOM_BLOCK_PADDING),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(AUTHOR_GAP),
-                modifier =
-                    Modifier.clickable(
-                        role = Role.Button,
-                        onClickLabel = stringResource(R.string.videos_open_profile),
-                        onClick = onAuthorTap,
-                    ),
+            Column(
+                verticalArrangement = Arrangement.spacedBy(CAPTION_GAP),
+                // Text stops short of the rail, which owns the right edge.
+                modifier = Modifier.fillMaxWidth(BOTTOM_BLOCK_WIDTH_FRACTION),
             ) {
-                NubecitaAsyncImage(
-                    model = post.author.avatarUrl,
-                    contentDescription = null,
-                    modifier = Modifier.size(AVATAR_SIZE).clip(CircleShape),
-                )
-                Text(
-                    text = post.author.displayName.ifBlank { post.author.handle },
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (post.text.isNotBlank()) {
-                Text(
-                    text = post.text,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White,
-                    maxLines = if (captionExpanded) Int.MAX_VALUE else CAPTION_COLLAPSED_LINES,
-                    overflow = TextOverflow.Ellipsis,
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(AUTHOR_GAP),
                     modifier =
-                        Modifier
-                            .testTag(VideoFeedTestTags.CAPTION)
-                            .clickable(
-                                role = Role.Button,
-                                onClickLabel = stringResource(R.string.videos_expand_caption),
-                                onClick = onCaptionToggle,
-                            ),
-                )
+                        Modifier.clickable(
+                            role = Role.Button,
+                            onClickLabel = stringResource(R.string.videos_open_profile),
+                            onClick = onAuthorTap,
+                        ),
+                ) {
+                    NubecitaAsyncImage(
+                        model = post.author.avatarUrl,
+                        contentDescription = null,
+                        modifier = Modifier.size(AVATAR_SIZE).clip(CircleShape),
+                    )
+                    Text(
+                        text = post.author.displayName.ifBlank { post.author.handle },
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (post.text.isNotBlank()) {
+                    Text(
+                        text = post.text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White,
+                        maxLines = if (captionExpanded) Int.MAX_VALUE else CAPTION_COLLAPSED_LINES,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier =
+                            Modifier
+                                .testTag(VideoFeedTestTags.CAPTION)
+                                .clickable(
+                                    role = Role.Button,
+                                    onClickLabel = stringResource(R.string.videos_expand_caption),
+                                    onClick = onCaptionToggle,
+                                ),
+                    )
+                }
             }
         }
     }
