@@ -6,11 +6,21 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
+import net.kikin.nubecita.core.postinteractions.PostInteractionState
+import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
+import net.kikin.nubecita.core.postinteractions.mergeInteractionState
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.core.video.playback.DataSaverStatus
 import net.kikin.nubecita.core.video.playback.PlaylistPlaybackState
@@ -19,6 +29,8 @@ import net.kikin.nubecita.core.video.playback.VideoSource
 import net.kikin.nubecita.core.videofeed.VideoFeedSource
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
+import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.videos.api.VideoFeed
 import timber.log.Timber
 
@@ -41,9 +53,12 @@ class VideoFeedViewModel
         private val pool: VerticalVideoPlaylistPlayer,
         private val sharedVideoPlayer: SharedVideoPlayer,
         private val dataSaver: DataSaverStatus,
+        private val handler: PostInteractionHandler,
+        private val postInteractionsCache: PostInteractionsCache,
     ) : MviViewModel<VideoFeedState, VideoFeedEvent, VideoFeedEffect>(
             VideoFeedState(activeIndex = route.startIndex.coerceAtLeast(0)),
-        ) {
+        ),
+        PostInteractionHandler by handler {
         @AssistedFactory
         interface Factory {
             fun create(route: VideoFeed): VideoFeedViewModel
@@ -61,6 +76,22 @@ class VideoFeedViewModel
         private var loadMoreJob: Job? = null
 
         init {
+            handler.bind(PostSurface.Videos, viewModelScope)
+            // READ-merge only: the handler owns writes and tap markers. Without this the
+            // optimistic like/repost state never reaches the rail, so a tap appears to
+            // work and then reverts — a regression that has happened before on a
+            // handler migration, hence its own test.
+            viewModelScope.launch {
+                postInteractionsCache.state
+                    .map { snapshot -> uiState.value.itemsOrEmpty().applyInteractions(snapshot) }
+                    .distinctUntilChanged()
+                    .collect { merged ->
+                        setState {
+                            val current = status
+                            if (current is VideoFeedStatus.Content) copy(status = current.copy(items = merged)) else this
+                        }
+                    }
+            }
             // Free the feed player's decoder for the pool's budget (rebuilds lazily on return).
             sharedVideoPlayer.release()
             // Under Data Saver, don't prefetch the next clip (the active one still plays).
@@ -68,11 +99,27 @@ class VideoFeedViewModel
             loadFirstPage()
         }
 
+        private fun VideoFeedState.itemsOrEmpty(): ImmutableList<VideoFeedItem> = (status as? VideoFeedStatus.Content)?.items ?: persistentListOf()
+
+        private fun ImmutableList<VideoFeedItem>.applyInteractions(
+            interactionMap: PersistentMap<String, PostInteractionState>,
+        ): ImmutableList<VideoFeedItem> =
+            map { item ->
+                interactionMap[item.post.id]
+                    ?.let { state -> item.copy(post = item.post.mergeInteractionState(state)) }
+                    ?: item
+            }.toImmutableList()
+
         override fun handleEvent(event: VideoFeedEvent) {
             when (event) {
                 is VideoFeedEvent.ActiveIndexChanged -> onActiveIndexChanged(event.index)
                 VideoFeedEvent.ToggleMute -> toggleMute()
                 VideoFeedEvent.Retry -> loadFirstPage()
+                is VideoFeedEvent.AuthorTapped ->
+                    sendEffect(VideoFeedEffect.NavigateTo(Profile(handle = event.post.author.did)))
+
+                is VideoFeedEvent.PostTapped ->
+                    sendEffect(VideoFeedEffect.NavigateTo(PostDetailRoute(postUri = event.post.id)))
             }
         }
 
@@ -97,6 +144,7 @@ class VideoFeedViewModel
                                 val initialIndex = route.startIndex.coerceIn(0, loaded.lastIndex)
                                 setState { copy(status = VideoFeedStatus.Content(loaded.toImmutableList()), activeIndex = initialIndex) }
                                 pool.bind(loaded.map { it.source }, startIndex = initialIndex)
+                                postInteractionsCache.seed(loaded.map { it.post })
                             }
                         }.onFailure {
                             Timber.w(it, "video feed first page failed")
@@ -131,6 +179,7 @@ class VideoFeedViewModel
                                     // Re-bind with the appended items so the pool can prewarm past the old tail.
                                     // settle() reuses the active/prewarm slots by index, so this doesn't restart playback.
                                     pool.bind(loaded.map { it.source }, startIndex = uiState.value.activeIndex)
+                                    postInteractionsCache.seed(fresh.map { it.post })
                                 }
                             }.onFailure { Timber.w(it, "video feed page failed") }
                     } finally {

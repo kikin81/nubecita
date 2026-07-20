@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.videos.impl
 
+import androidx.navigation3.runtime.NavKey
 import kotlinx.collections.immutable.ImmutableList
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
@@ -53,7 +54,34 @@ sealed interface VideoFeedEvent : UiEvent {
     data object ToggleMute : VideoFeedEvent
 
     data object Retry : VideoFeedEvent
+
+    /** The author's avatar or display name was tapped — open their profile. */
+    data class AuthorTapped(
+        val post: PostUi,
+    ) : VideoFeedEvent
+
+    /** The post itself was tapped (e.g. the reply affordance) — open the thread. */
+    data class PostTapped(
+        val post: PostUi,
+    ) : VideoFeedEvent
 }
 
-/** No screen-specific effects yet (navigation to author/detail arrives with chrome in a later slice). */
-sealed interface VideoFeedEffect : UiEffect
+/**
+ * Screen-specific effects only.
+ *
+ * Interaction side-effects (share sheet, clipboard, error snackbars, and
+ * composer / report / block navigation) are deliberately NOT routed here: the
+ * shared `rememberPostInteractions` helper observes `handler.interactionEffects`
+ * directly, per the sanctioned delegation contract in CLAUDE.md. Forwarding them
+ * onto this channel would double-handle every effect.
+ */
+sealed interface VideoFeedEffect : UiEffect {
+    /**
+     * Push a sub-route onto the MainShell back stack. The *screen* performs the
+     * push via `LocalMainShellNavState` — a ViewModel can't reach a
+     * CompositionLocal, which is exactly why this is an effect.
+     */
+    data class NavigateTo(
+        val target: NavKey,
+    ) : VideoFeedEffect
+}
