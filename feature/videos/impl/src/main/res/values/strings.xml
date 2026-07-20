@@ -14,6 +14,8 @@
     <string name="videos_expand_caption">Expand caption</string>
     <string name="videos_collapse_caption">Collapse caption</string>
     <string name="videos_paused">Paused</string>
+    <string name="videos_action_play">Play</string>
+    <string name="videos_action_pause">Pause</string>
 
     <!-- Interaction snackbars, surfaced by the shared rememberPostInteractions helper.
          Deliberately not copied verbatim from :feature:feed — its wording says "Pull to

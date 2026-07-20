@@ -18,6 +18,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -103,10 +105,22 @@ internal fun VideoFeedPage(
         // fresh post cannot see it.
         val currentOnTogglePlayPause by rememberUpdatedState(onTogglePlayPause)
         val currentOnDoubleTapLike by rememberUpdatedState(onDoubleTapLike)
+        // detectTapGestures is RAW pointer input and contributes no semantics, unlike
+        // Modifier.clickable. Play/pause exists only as this gesture — there is no rail
+        // cell for it — so without an explicit semantics action a TalkBack user could be
+        // told the video is paused (the glyph carries a contentDescription) with no way
+        // to resume it. The label tracks state so the announcement matches the outcome.
+        val playPauseLabel =
+            stringResource(if (isPaused) R.string.videos_action_play else R.string.videos_action_pause)
         Box(
             Modifier
                 .matchParentSize()
-                .pointerInput(Unit) {
+                .semantics {
+                    onClick(label = playPauseLabel) {
+                        currentOnTogglePlayPause()
+                        true
+                    }
+                }.pointerInput(Unit) {
                     detectTapGestures(
                         onDoubleTap = { currentOnDoubleTapLike() },
                         onTap = { currentOnTogglePlayPause() },

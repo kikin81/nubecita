@@ -11,6 +11,8 @@
     <string name="videos_expand_caption">Expandir descripción</string>
     <string name="videos_collapse_caption">Contraer descripción</string>
     <string name="videos_paused">En pausa</string>
+    <string name="videos_action_play">Reproducir</string>
+    <string name="videos_action_pause">Pausar</string>
 
     <string name="videos_snackbar_error_network">Error de red. Reintenta.</string>
     <string name="videos_snackbar_error_unauthenticated">Sesión expirada. Inicia sesión de nuevo.</string>
