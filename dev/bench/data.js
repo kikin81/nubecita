@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784447861595,
+  "lastUpdate": 1784535640812,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -572,6 +572,64 @@ window.BENCHMARK_DATA = {
             "value": 1185.892,
             "range": "+/- 20.6%",
             "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "72063cf1b5da32174a3fa23d6f2fdfed80d62500",
+          "message": "ci(release): 1.310.0\n\n## [1.310.0](https://github.com/kikin81/nubecita/compare/v1.309.0...v1.310.0) (2026-07-20)\n\n### Documentation\n\n* **videos:** design for vertical feed chrome, poster and presentation polish ([#770](https://github.com/kikin81/nubecita/issues/770)) ([7eb2764](https://github.com/kikin81/nubecita/commit/7eb2764aaef7b2ccee347ee57abebe6ba0bfc863))\n\n### Features\n\n* **videos:** slide the video with the swipe and crossfade a poster ([#771](https://github.com/kikin81/nubecita/issues/771)) ([8671dc1](https://github.com/kikin81/nubecita/commit/8671dc146f770183ddd137fd00dd3cc97098f260))",
+          "timestamp": "2026-07-20T04:44:17Z",
+          "url": "https://github.com/kikin81/nubecita/commit/72063cf1b5da32174a3fa23d6f2fdfed80d62500"
+        },
+        "date": 1784535639109,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 34,
+            "range": "+/- 7%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1612.448,
+            "range": "+/- 2.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1504.864,
+            "range": "+/- 5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1279.829,
+            "range": "+/- 34.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1351.632,
+            "range": "+/- 26.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 294,
+            "range": "+/- 2.9%",
+            "unit": "frames"
           }
         ]
       }
