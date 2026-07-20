@@ -2,6 +2,7 @@ package net.kikin.nubecita.core.video.playback
 
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import io.mockk.every
 import io.mockk.mockk
@@ -198,5 +199,45 @@ class VerticalVideoPlaylistPlayerTest {
 
             assertEquals(0, created.size)
             assertNull(pool.activePlayer.value)
+        }
+
+    @Test
+    fun bind_setsRepeatModeOne_soClipsLoop() =
+        runTest {
+            // A reels-style feed loops. Without this the pool inherits ExoPlayer's
+            // REPEAT_MODE_OFF and a clip plays once then freezes on its last frame,
+            // which reads as a broken page.
+            val pool = pool()
+            pool.bind(sources(2), startIndex = 0)
+
+            created.forEach { verify { it.repeatMode = Player.REPEAT_MODE_ONE } }
+        }
+
+    @Test
+    fun setPaused_pausesActivePlayer_andResumePlaysIt() =
+        runTest {
+            val pool = pool()
+            pool.bind(sources(2), startIndex = 0)
+            val active = created.first()
+
+            pool.setPaused(true)
+            verify { active.pause() }
+
+            pool.setPaused(false)
+            verify(atLeast = 2) { active.play() } // once on settle, once on resume
+        }
+
+    @Test
+    fun swipe_clearsPause_soANewPageAutoPlays() =
+        runTest {
+            // Pause is per-page intent: swiping to the next clip starts it playing
+            // rather than inheriting the previous page's paused state.
+            val pool = pool()
+            pool.bind(sources(3), startIndex = 0)
+            pool.setPaused(true)
+
+            pool.onActiveIndexChanged(1)
+
+            verify { created[1].play() }
         }
 }

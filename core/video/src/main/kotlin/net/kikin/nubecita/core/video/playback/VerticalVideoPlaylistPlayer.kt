@@ -72,6 +72,7 @@ public class VerticalVideoPlaylistPlayer(
         var index: Int? = null
     }
 
+    private var paused = false
     private val mutex = Mutex()
     private val slots = mutableListOf<Slot>()
 
@@ -201,6 +202,19 @@ public class VerticalVideoPlaylistPlayer(
     }
 
     /**
+     * Pause/resume the active playback. Prewarmed slots stay paused regardless.
+     * Must be called on the main thread (the UI already is).
+     *
+     * Per-page intent: [settle] clears the flag, so swiping to another clip starts
+     * it playing rather than inheriting a pause from the page you left.
+     */
+    public fun setPaused(paused: Boolean) {
+        this.paused = paused
+        val active = slots.firstOrNull { it.index == activeIndex }?.player ?: return
+        if (paused) active.pause() else active.play()
+    }
+
+    /**
      * Enable/disable prewarming the next item. Set **before** [bind] (e.g. from a
      * Data Saver check): with prewarm off the pool runs single-player and only
      * loads the clip the user is actually watching. Toggling after a prewarm slot
@@ -252,6 +266,10 @@ public class VerticalVideoPlaylistPlayer(
         // `settle` never observes `slots.size > maxSlots`.
         while (slots.size < neededSlots) {
             val player = playerProvider()
+            // Reels-style loop. Without it the pool inherits REPEAT_MODE_OFF and a
+            // clip plays once then freezes on its last frame — the vertical feed has
+            // no "next" to advance to on its own, so the page just stops.
+            player.repeatMode = Player.REPEAT_MODE_ONE
             // release() may have run while we were suspended in playerProvider() —
             // abort and release the just-built player instead of resurrecting the pool.
             if (released) {
@@ -280,6 +298,7 @@ public class VerticalVideoPlaylistPlayer(
         lastActiveIndex = target
         attachActiveListener(activeSlot.player)
         activeSlot.player.volume = if (muted) 0f else 1f
+        paused = false
         activeSlot.player.play()
         _activePlayer.value = activeSlot.player
     }

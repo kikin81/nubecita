@@ -30,6 +30,23 @@ public class FakeVideoFeedSource
                     videoPost(2, "One more loop", "ivy.jpg", "Ivy"),
                 )
 
+            /**
+             * Real geometry of the bundled clips, so the fixture does not lie to the
+             * layer under test. `aspectRatio` sizes the poster before the video
+             * decodes (design D4), so a wrong value makes every page's poster snap
+             * when the real size arrives — the exact jump D4 exists to prevent.
+             *
+             * clip-1 1280x720, clip-2 1694x720, clip-3 1728x720; 15s, 14s, 15s.
+             */
+            private fun aspectFor(clip: Int): Float =
+                when (clip) {
+                    1 -> 1280f / 720f
+                    2 -> 1694f / 720f
+                    else -> 1728f / 720f
+                }
+
+            private fun durationFor(clip: Int): Int = if (clip == 2) 14 else 15
+
             private fun videoPost(
                 clip: Int,
                 text: String,
@@ -53,8 +70,8 @@ public class FakeVideoFeedSource
                         EmbedUi.Video(
                             posterUrl = "file:///android_asset/img/posts/video-poster-$clip.jpg",
                             playlistUrl = "asset:///video/clip-$clip.mp4",
-                            aspectRatio = 0.5625f,
-                            durationSeconds = 8,
+                            aspectRatio = aspectFor(clip),
+                            durationSeconds = durationFor(clip),
                             altText = null,
                         ),
                     stats = PostStatsUi(),
