@@ -115,9 +115,10 @@ internal fun VideoFeedScreen(
                     // surface-attach race and no black first frame. The pool guarantees
                     // exactly one active player, so a single surface is all the feed needs.
                     val settledItem = status.items.getOrNull(pagerState.settledPage)
-                    // rememberPresentationState accepts a nullable player and re-observes on
-                    // change, so it is called unconditionally — a conditional call would
-                    // discard the state whenever the pool briefly has no active player.
+                    // rememberPresentationState accepts a nullable player, so it is called
+                    // unconditionally rather than inside activePlayer?.let — the surface's
+                    // presentation state must stay observable even in the brief window where
+                    // the pool has no active player.
                     // key(activePlayer) is required: media3 1.10.1's rememberPresentationState
                     // is `remember { PresentationState(...) }`, UNKEYED, so without this the
                     // SAME instance — and its `coverSurface` value — survives a pool

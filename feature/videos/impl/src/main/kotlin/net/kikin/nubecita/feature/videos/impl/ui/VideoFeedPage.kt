@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -37,6 +38,9 @@ internal fun VideoFeedPage(
     posterAlpha: () -> Float,
     modifier: Modifier = Modifier,
 ) {
+    // One painter instance for all three poster states; ColorPainter is cheap but
+    // there is no reason to reallocate it on every composition.
+    val blackPainter = remember { ColorPainter(Color.Black) }
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         // graphicsLayer (not Modifier.alpha) so a crossfade only re-runs the
         // layer block — no recomposition or relayout per frame at 120hz. The
@@ -69,9 +73,9 @@ internal fun VideoFeedPage(
                 contentDescription = null,
                 modifier = posterModifier,
                 contentScale = ContentScale.Fit,
-                placeholder = ColorPainter(Color.Black),
-                error = ColorPainter(Color.Black),
-                fallback = ColorPainter(Color.Black),
+                placeholder = blackPainter,
+                error = blackPainter,
+                fallback = blackPainter,
             )
         }
     }
