@@ -256,6 +256,12 @@ public class VerticalVideoPlaylistPlayer(
 
     private suspend fun settle(target: Int) {
         if (released) return
+        // Captured before `activeIndex` is overwritten below. A swipe lands on a
+        // different page and should always start playing; a foreground restore
+        // (onStart re-settles the SAME page after onStop tore the players down)
+        // must preserve a pause the user set before backgrounding, rather than
+        // silently resuming it.
+        val pageChanged = target != activeIndex
         // Prewarm the next item only when the pool ceiling allows a second
         // player (maxSlots drops to 1 after a decoder-budget degrade).
         val nextIndex = (target + 1).takeIf { it in items.indices && maxSlots > 1 && prewarmEnabled }
@@ -298,8 +304,8 @@ public class VerticalVideoPlaylistPlayer(
         lastActiveIndex = target
         attachActiveListener(activeSlot.player)
         activeSlot.player.volume = if (muted) 0f else 1f
-        paused = false
-        activeSlot.player.play()
+        if (pageChanged) paused = false
+        if (paused) activeSlot.player.pause() else activeSlot.player.play()
         _activePlayer.value = activeSlot.player
     }
 

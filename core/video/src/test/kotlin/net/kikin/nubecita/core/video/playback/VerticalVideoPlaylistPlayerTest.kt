@@ -240,4 +240,23 @@ class VerticalVideoPlaylistPlayerTest {
 
             verify { created[1].play() }
         }
+
+    @Test
+    fun onStart_afterBackgroundingWhilePaused_staysPaused() =
+        runTest {
+            // Pause, background (onStop tears the players down), foreground (onStart
+            // re-settles the SAME page). The restored player must NOT auto-resume a
+            // pause the user set — settle preserves it because the page did not change.
+            val pool = pool()
+            pool.setPrewarmEnabled(false) // single player, so created.last() is unambiguous
+            pool.bind(sources(2), startIndex = 0)
+            pool.setPaused(true)
+
+            pool.onStop()
+            pool.onStart()
+
+            val restored = created.last()
+            verify { restored.pause() }
+            verify(exactly = 0) { restored.play() }
+        }
 }
