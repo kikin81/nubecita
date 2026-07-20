@@ -316,21 +316,31 @@ internal fun VideoFeedPage(
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         // graphicsLayer (not Modifier.alpha) so a crossfade only re-runs the
         // layer block — no recomposition or relayout per frame at 120hz.
-        NubecitaAsyncImage(
-            model = posterUrl,
-            contentDescription = null,
-            modifier =
-                Modifier
-                    .aspectRatio(aspectRatio)
-                    .graphicsLayer { alpha = posterAlpha }
-                    .testTag(VideoFeedTestTags.POSTER),
-            contentScale = ContentScale.Fit,
-        )
+        val posterModifier =
+            Modifier
+                .aspectRatio(aspectRatio)
+                .graphicsLayer { alpha = posterAlpha }
+                .testTag(VideoFeedTestTags.POSTER)
+        if (posterUrl == null) {
+            // Spec D4: a missing poster degrades to flat black, NOT to
+            // NubecitaAsyncImage's fallback painter. That painter is a light
+            // surfaceContainerHighest tile, which on this always-black video
+            // canvas would flash a grey rectangle exactly where the poster
+            // layer exists to prevent one.
+            Box(posterModifier.background(Color.Black))
+        } else {
+            NubecitaAsyncImage(
+                model = posterUrl,
+                contentDescription = null,
+                modifier = posterModifier,
+                contentScale = ContentScale.Fit,
+            )
+        }
     }
 }
 ```
 
-Note: a null `posterUrl` is passed straight through to `NubecitaAsyncImage`, which renders its `fallback` painter. No branch is needed — that is exactly the degraded state the spec calls for.
+Requires the additional imports `androidx.compose.foundation.background` and `androidx.compose.ui.graphics.Color`.
 
 - [ ] **Step 6: Write the screenshot test**
 
@@ -339,64 +349,80 @@ Create `feature/videos/impl/src/screenshotTest/kotlin/net/kikin/nubecita/feature
 ```kotlin
 package net.kikin.nubecita.feature.videos.impl.ui
 
-import android.content.res.Configuration
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
+import net.kikin.nubecita.designsystem.NubecitaTheme
 
 private const val CANVAS_HEIGHT_DP = 600
 
+/**
+ * The feed's canvas is `Color.Black` at every theme — `VideoFeedScreen` sets
+ * `Scaffold(containerColor = Color.Black)` for a full-bleed video surface. So
+ * previews wrap in an explicit black Box rather than NubecitaCanvasPreviewTheme
+ * (which paints the theme's `surface`, i.e. white in light mode and would pin
+ * white letterbox bars that never ship).
+ *
+ * For the same reason there are no dark variants: this surface does not respond
+ * to theme, so a dark baseline would be byte-identical to its light twin.
+ */
+@Composable
+private fun VideoFeedCanvas(content: @Composable () -> Unit) {
+    NubecitaTheme(dynamicColor = false) {
+        Box(Modifier.fillMaxSize().background(Color.Black)) { content() }
+    }
+}
+
 /** Portrait clip, poster fully covering — the state every cold page opens in. */
 @PreviewTest
-@Preview(name = "poster-portrait-light", showBackground = true, heightDp = CANVAS_HEIGHT_DP)
-@Preview(
-    name = "poster-portrait-dark",
-    showBackground = true,
-    heightDp = CANVAS_HEIGHT_DP,
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-)
+@Preview(name = "poster-portrait", showBackground = true, heightDp = CANVAS_HEIGHT_DP)
 @Composable
 private fun VideoFeedPagePortraitPreview() {
-    NubecitaCanvasPreviewTheme {
-        VideoFeedPage(posterUrl = null, aspectRatio = 9f / 16f, posterAlpha = 1f)
+    VideoFeedCanvas {
+        VideoFeedPage(posterUrl = "https://example.invalid/poster.jpg", aspectRatio = 9f / 16f, posterAlpha = 1f)
     }
 }
 
 /** Landscape clip — pins the letterbox bars the deferred blur fill will replace. */
 @PreviewTest
-@Preview(name = "poster-landscape-light", showBackground = true, heightDp = CANVAS_HEIGHT_DP)
-@Preview(
-    name = "poster-landscape-dark",
-    showBackground = true,
-    heightDp = CANVAS_HEIGHT_DP,
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-)
+@Preview(name = "poster-landscape", showBackground = true, heightDp = CANVAS_HEIGHT_DP)
 @Composable
 private fun VideoFeedPageLandscapePreview() {
-    NubecitaCanvasPreviewTheme {
-        VideoFeedPage(posterUrl = null, aspectRatio = 16f / 9f, posterAlpha = 1f)
+    VideoFeedCanvas {
+        VideoFeedPage(posterUrl = "https://example.invalid/poster.jpg", aspectRatio = 16f / 9f, posterAlpha = 1f)
     }
 }
 
 /** Mid-crossfade, so a regression that breaks the alpha plumbing is visible. */
 @PreviewTest
-@Preview(name = "poster-midfade-light", showBackground = true, heightDp = CANVAS_HEIGHT_DP)
-@Preview(
-    name = "poster-midfade-dark",
-    showBackground = true,
-    heightDp = CANVAS_HEIGHT_DP,
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-)
+@Preview(name = "poster-midfade", showBackground = true, heightDp = CANVAS_HEIGHT_DP)
 @Composable
 private fun VideoFeedPageMidFadePreview() {
-    NubecitaCanvasPreviewTheme {
-        VideoFeedPage(posterUrl = null, aspectRatio = 9f / 16f, posterAlpha = 0.5f)
+    VideoFeedCanvas {
+        VideoFeedPage(posterUrl = "https://example.invalid/poster.jpg", aspectRatio = 9f / 16f, posterAlpha = 0.5f)
+    }
+}
+
+/** Missing poster — spec D4's flat-black degrade, invisible against the canvas. */
+@PreviewTest
+@Preview(name = "poster-missing", showBackground = true, heightDp = CANVAS_HEIGHT_DP)
+@Composable
+private fun VideoFeedPageMissingPosterPreview() {
+    VideoFeedCanvas {
+        VideoFeedPage(posterUrl = null, aspectRatio = 9f / 16f, posterAlpha = 1f)
     }
 }
 ```
 
-`posterUrl = null` in every preview is deliberate: layoutlib has no network, so a real URL would render the fallback painter anyway but non-deterministically. Passing null pins the same visual explicitly.
+The three loading previews pass an unreachable `.invalid` URL so Coil renders its
+placeholder painter deterministically (layoutlib has no network). The fourth passes
+null to exercise the separate black-fill branch — these are different code paths and
+must not be collapsed.
 
 - [ ] **Step 7: Generate and inspect the baselines**
 
@@ -404,7 +430,14 @@ private fun VideoFeedPageMidFadePreview() {
 ./gradlew :feature:videos:impl:updateScreenshots
 ```
 
-Then **look at the generated PNGs** under `feature/videos/impl/src/screenshotTestDebug/reference/` before committing. Confirm: portrait fills the frame edge-to-edge, landscape shows black bars top and bottom, mid-fade is visibly translucent. A baseline is only worth committing if it shows what it claims to.
+Then **look at the generated PNGs** under `feature/videos/impl/src/screenshotTestDebug/reference/` before committing. Four baselines, and each must show specifically:
+
+1. `poster-portrait` — the poster tile tall and centred, with **black** bars left and right.
+2. `poster-landscape` — the poster tile wide and centred, with **black** bars above and below.
+3. `poster-midfade` — same geometry as portrait, but the tile visibly darker/dimmer than in (1), because it is half-faded toward the black canvas behind it.
+4. `poster-missing` — **entirely black**, with no tile visible at all. That is the point of spec D4.
+
+If any bar renders white rather than black, the canvas wrapper is wrong — stop and report rather than committing. A baseline is only worth committing if it shows what it claims to.
 
 - [ ] **Step 8: Verify validation passes against the committed baselines**
 
