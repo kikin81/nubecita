@@ -196,9 +196,22 @@ video to present on its own — neither is an error state.
   capture on the Pixel 10 Pro XL for the slide and the crossfade. No automated test
   can assert either — the emulator's goldfish decoder cannot render these clips.
 
-~17 new string keys × 3 locales (13 of them `InteractionStrings`). Action labels are
-set as `onClickLabel`, **not** `contentDescription`, per the established PostCard
-convention.
+~17 new string keys × 3 locales (13 of them `InteractionStrings`).
+
+Accessibility labels follow `PostStat`'s split, which depends on whether the cell is
+a toggle:
+
+- **One-shot actions** (reply, share, overflow): `Modifier.clickable(role = Role.Button,
+  onClickLabel = …)` — the label is the action verb.
+- **Toggles** (like, repost, and the mute control): `Modifier.toggleable(value, role =
+  Role.Switch, onValueChange = …)` — the label is the static **noun** being toggled
+  ("Like", "Mute"), never the inverse verb ("Unlike", "Unmute"), because the on/off
+  state is announced by the switch semantics. `onClickLabel` does not exist on the
+  toggleable path and would be silently dropped.
+
+Note this means the mute control does **not** copy `VideoPlayerChrome`'s pattern of an
+`IconButton` with a `contentDescription` swapped between "Mute"/"Unmute". That surface
+predates the toggle convention; this one follows `PostStat`.
 
 ## Delivery
 
