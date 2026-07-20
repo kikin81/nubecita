@@ -1,11 +1,13 @@
 package net.kikin.nubecita.feature.videos.impl.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -37,15 +39,25 @@ internal fun VideoFeedPage(
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         // graphicsLayer (not Modifier.alpha) so a crossfade only re-runs the
         // layer block — no recomposition or relayout per frame at 120hz.
-        NubecitaAsyncImage(
-            model = posterUrl,
-            contentDescription = null,
-            modifier =
-                Modifier
-                    .aspectRatio(aspectRatio)
-                    .graphicsLayer { alpha = posterAlpha }
-                    .testTag(VideoFeedTestTags.POSTER),
-            contentScale = ContentScale.Fit,
-        )
+        val posterModifier =
+            Modifier
+                .aspectRatio(aspectRatio)
+                .graphicsLayer { alpha = posterAlpha }
+                .testTag(VideoFeedTestTags.POSTER)
+        if (posterUrl == null) {
+            // Spec D4: a missing poster degrades to flat black, NOT to
+            // NubecitaAsyncImage's fallback painter. That painter is a light
+            // surfaceContainerHighest tile, which on this always-black video
+            // canvas would flash a grey rectangle exactly where the poster
+            // layer exists to prevent one.
+            Box(posterModifier.background(Color.Black))
+        } else {
+            NubecitaAsyncImage(
+                model = posterUrl,
+                contentDescription = null,
+                modifier = posterModifier,
+                contentScale = ContentScale.Fit,
+            )
+        }
     }
 }
