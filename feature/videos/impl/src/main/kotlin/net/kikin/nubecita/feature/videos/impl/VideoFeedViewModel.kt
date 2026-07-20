@@ -183,11 +183,15 @@ class VideoFeedViewModel
                             .onSuccess { page ->
                                 cursor = page.cursor
                                 endReached = page.cursor == null
-                                // Filter against what is already loaded as well as within the
-                                // page: overlapping pages are normal, and a repeat would
-                                // duplicate a pager key.
-                                val seen = loaded.mapTo(mutableSetOf()) { it.post.id }
-                                val fresh = page.items.mapNotNull { it.toVideoFeedItemOrNull() }.filter { seen.add(it.post.id) }
+                                // Dedupe within the page AND against what is already loaded:
+                                // overlapping pages are normal from the appview, and a repeat
+                                // would duplicate a pager key.
+                                val seenIds = loaded.mapTo(mutableSetOf()) { it.post.id }
+                                val fresh =
+                                    page.items
+                                        .mapNotNull { it.toVideoFeedItemOrNull() }
+                                        .distinctBy { it.post.id }
+                                        .filter { it.post.id !in seenIds }
                                 if (fresh.isNotEmpty()) {
                                     loaded += fresh
                                     val merged = loaded.toImmutableList().applyInteractions(postInteractionsCache.state.value)
