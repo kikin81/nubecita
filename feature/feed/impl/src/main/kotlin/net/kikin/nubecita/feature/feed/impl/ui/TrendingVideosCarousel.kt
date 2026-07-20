@@ -37,13 +37,13 @@ import net.kikin.nubecita.feature.feed.impl.R
  * only rendered when [thumbs] is non-empty.
  *
  * @param thumbs the trending thumbnails to show.
- * @param onOpen invoked with the tapped video's index (a `VideoFeed(startIndex)`).
+ * @param onOpen invoked with the tapped video's post AtUri (a `VideoFeed(startPostUri)`).
  * @param onDismiss invoked when the user taps the close affordance.
  */
 @Composable
 internal fun TrendingVideosCarousel(
     thumbs: ImmutableList<TrendingVideoThumb>,
-    onOpen: (Int) -> Unit,
+    onOpen: (String) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -69,7 +69,7 @@ internal fun TrendingVideosCarousel(
             contentPadding = PaddingValues(horizontal = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(thumbs, key = { it.index }) { thumb ->
+            items(thumbs, key = { it.postUri }) { thumb ->
                 NubecitaAsyncImage(
                     model = thumb.posterUrl,
                     contentDescription = null,
@@ -79,7 +79,7 @@ internal fun TrendingVideosCarousel(
                             .aspectRatio(0.5625f)
                             .clip(RoundedCornerShape(12.dp))
                             .testTag(FeedTestTags.TRENDING_VIDEO_THUMB)
-                            .clickable { onOpen(thumb.index) },
+                            .clickable { onOpen(thumb.postUri) },
                 )
             }
         }

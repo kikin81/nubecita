@@ -53,7 +53,7 @@ class VideoFeedViewModelTest {
             every { state } returns cacheState
         }
 
-    private fun vm(startIndex: Int = 0) = VideoFeedViewModel(VideoFeed(startIndex), source, pool, shared, dataSaver, handler, interactionsCache)
+    private fun vm(startPostUri: String? = null) = VideoFeedViewModel(VideoFeed(startPostUri), source, pool, shared, dataSaver, handler, interactionsCache)
 
     @Test
     fun init_releasesSharedPlayer_loadsFirstPage_bindsPool() =
@@ -145,18 +145,6 @@ class VideoFeedViewModelTest {
             coVerify { source.loadPage("c1") }
             val status = viewModel.uiState.value.status as VideoFeedStatus.Content
             assertEquals(7, status.items.size)
-        }
-
-    @Test
-    fun startIndex_opensAndBindsAtThatVideo_coercedToBounds() =
-        runTest(mainDispatcher.dispatcher) {
-            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(List(5) { videoPost("v$it") }, cursor = null))
-
-            val viewModel = vm(startIndex = 99) // out of bounds → coerced to lastIndex (4)
-            advanceUntilIdle()
-
-            assertEquals(4, viewModel.uiState.value.activeIndex)
-            coVerify { pool.bind(any(), 4) }
         }
 
     @Test
@@ -277,6 +265,74 @@ class VideoFeedViewModelTest {
             advanceUntilIdle()
 
             verify { interactionsCache.seed(match { posts -> posts.map { it.id } == listOf("a") }) }
+        }
+
+    @Test
+    fun startPostUri_opensTheTappedVideo_evenWithNonVideoPostsInThePage() =
+        runTest(mainDispatcher.dispatcher) {
+            // The original bug: the carousel indexed the UNFILTERED page while the feed
+            // compacted non-video posts away, so one non-video post shifted every index
+            // after it and the wrong clip opened. Addressing by URI makes the filtering
+            // irrelevant.
+            coEvery { source.loadPage(null) } returns
+                Result.success(
+                    VideoFeedPage(listOf(videoPost("v0"), nonVideoPost("x"), videoPost("v1"), videoPost("v2")), cursor = null),
+                )
+
+            val viewModel = vm(startPostUri = "v2")
+            advanceUntilIdle()
+
+            val items = (viewModel.uiState.value.status as VideoFeedStatus.Content).items
+            assertEquals(listOf("v0", "v1", "v2"), items.map { it.post.id })
+            assertEquals(2, viewModel.uiState.value.activeIndex)
+            coVerify { pool.bind(any(), 2) }
+        }
+
+    @Test
+    fun startPostUri_absentFromPage_fallsBackToFirstItem() =
+        runTest(mainDispatcher.dispatcher) {
+            // Trending is live: by the time the feed loads, the tapped post may have
+            // fallen out of the page entirely. That must open at the top, not crash.
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(List(3) { videoPost("v$it") }, cursor = null))
+
+            val viewModel = vm(startPostUri = "gone")
+            advanceUntilIdle()
+
+            assertEquals(0, viewModel.uiState.value.activeIndex)
+            coVerify { pool.bind(any(), 0) }
+        }
+
+    @Test
+    fun duplicatePostsInAPage_collapseToOneItem() =
+        runTest(mainDispatcher.dispatcher) {
+            // Duplicates render twice in the carousel AND produce duplicate keys in the
+            // pager, which keys on post.id — a lazy layout rejects those.
+            coEvery { source.loadPage(null) } returns
+                Result.success(VideoFeedPage(listOf(videoPost("a"), videoPost("b"), videoPost("a")), cursor = null))
+
+            val viewModel = vm()
+            advanceUntilIdle()
+
+            val ids = (viewModel.uiState.value.status as VideoFeedStatus.Content).items.map { it.post.id }
+            assertEquals(listOf("a", "b"), ids)
+            assertEquals(ids.size, ids.toSet().size)
+        }
+
+    @Test
+    fun appendedPage_dropsPostsAlreadyLoaded() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(List(4) { videoPost("v$it") }, cursor = "c1"))
+            // The appended page repeats v3 — an overlap the appview can legitimately return.
+            coEvery { source.loadPage("c1") } returns
+                Result.success(VideoFeedPage(listOf(videoPost("v3"), videoPost("w0")), cursor = null))
+            val viewModel = vm()
+            advanceUntilIdle()
+
+            viewModel.handleEvent(VideoFeedEvent.ActiveIndexChanged(1))
+            advanceUntilIdle()
+
+            val ids = (viewModel.uiState.value.status as VideoFeedStatus.Content).items.map { it.post.id }
+            assertEquals(listOf("v0", "v1", "v2", "v3", "w0"), ids)
         }
 
     // --- fixtures ---

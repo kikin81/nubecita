@@ -29,7 +29,7 @@ class TrendingVideosViewModelTest {
     private val source = mockk<VideoFeedSource>()
 
     @Test
-    fun load_mapsVideoPostsToThumbsWithIndices() =
+    fun load_mapsVideoPostsToThumbsKeyedByPostUri() =
         runTest(mainDispatcher.dispatcher) {
             coEvery { source.loadPage(null) } returns
                 Result.success(VideoFeedPage(listOf(videoPost("a", "poster-a"), videoPost("b", "poster-b")), cursor = "c1"))
@@ -39,8 +39,43 @@ class TrendingVideosViewModelTest {
             advanceUntilIdle()
 
             val thumbs = vm.thumbs.value
-            assertEquals(listOf(0, 1), thumbs.map { it.index })
+            assertEquals(listOf("a", "b"), thumbs.map { it.postUri })
             assertEquals(listOf("poster-a", "poster-b"), thumbs.map { it.posterUrl })
+        }
+
+    @Test
+    fun load_skipsNonVideoPostsWithoutShiftingIdentity() =
+        runTest(mainDispatcher.dispatcher) {
+            // The original bug: a non-video post in the page shifted every index after
+            // it, because the carousel indexed the raw page and the feed compacted it.
+            // Carrying the post's own URI makes the filtering irrelevant.
+            coEvery { source.loadPage(null) } returns
+                Result.success(
+                    VideoFeedPage(listOf(videoPost("a", "poster-a"), nonVideoPost("x"), videoPost("b", "poster-b")), cursor = null),
+                )
+
+            val vm = TrendingVideosViewModel(source)
+            vm.load()
+            advanceUntilIdle()
+
+            assertEquals(listOf("a", "b"), vm.thumbs.value.map { it.postUri })
+        }
+
+    @Test
+    fun load_dedupesRepeatedPosts_soCarouselAndPagerKeysStayUnique() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns
+                Result.success(
+                    VideoFeedPage(listOf(videoPost("a", "poster-a"), videoPost("b", "poster-b"), videoPost("a", "poster-a")), cursor = null),
+                )
+
+            val vm = TrendingVideosViewModel(source)
+            vm.load()
+            advanceUntilIdle()
+
+            val uris = vm.thumbs.value.map { it.postUri }
+            assertEquals(listOf("a", "b"), uris)
+            assertEquals(uris.size, uris.toSet().size)
         }
 
     @Test
@@ -76,6 +111,8 @@ class TrendingVideosViewModelTest {
 
             assertTrue(vm.thumbs.value.isEmpty())
         }
+
+    private fun nonVideoPost(id: String): PostUi = videoPost(id, "unused").copy(embed = EmbedUi.Empty)
 
     private fun videoPost(
         id: String,
