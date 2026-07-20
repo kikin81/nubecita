@@ -9,9 +9,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
+import coil3.compose.AsyncImage
 import net.kikin.nubecita.feature.videos.impl.VideoFeedTestTags
 
 /**
@@ -33,16 +34,19 @@ import net.kikin.nubecita.feature.videos.impl.VideoFeedTestTags
 internal fun VideoFeedPage(
     posterUrl: String?,
     aspectRatio: Float,
-    posterAlpha: Float,
+    posterAlpha: () -> Float,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         // graphicsLayer (not Modifier.alpha) so a crossfade only re-runs the
-        // layer block — no recomposition or relayout per frame at 120hz.
+        // layer block — no recomposition or relayout per frame at 120hz. The
+        // alpha itself is a deferred () -> Float read, not a composition-scope
+        // value, so an in-flight animation invalidates only this layer block,
+        // never VideoFeedPage's composition.
         val posterModifier =
             Modifier
                 .aspectRatio(aspectRatio)
-                .graphicsLayer { alpha = posterAlpha }
+                .graphicsLayer { alpha = posterAlpha() }
                 .testTag(VideoFeedTestTags.POSTER)
         if (posterUrl == null) {
             // Spec D4: a missing poster degrades to flat black, NOT to
@@ -52,11 +56,22 @@ internal fun VideoFeedPage(
             // layer exists to prevent one.
             Box(posterModifier.background(Color.Black))
         } else {
-            NubecitaAsyncImage(
+            // Coil's AsyncImage directly, NOT NubecitaAsyncImage: that wrapper's
+            // placeholder/error/fallback are all a light surfaceContainerHighest
+            // tile, correct on normal app surfaces but wrong here — on this
+            // always-black video canvas it would paint a full-bleed near-white
+            // rectangle for the entire poster download, and again on load
+            // failure, exactly where this layer exists to prevent one. Black
+            // painters keep every poster state (loading, loaded, error) matching
+            // the canvas it degrades onto.
+            AsyncImage(
                 model = posterUrl,
                 contentDescription = null,
                 modifier = posterModifier,
                 contentScale = ContentScale.Fit,
+                placeholder = ColorPainter(Color.Black),
+                error = ColorPainter(Color.Black),
+                fallback = ColorPainter(Color.Black),
             )
         }
     }

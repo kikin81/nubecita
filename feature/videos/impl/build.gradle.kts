@@ -13,11 +13,13 @@ android {
 dependencies {
     api(project(":feature:videos:api"))
 
+    implementation(platform(libs.coil.bom))
     implementation(project(":core:common"))
     implementation(project(":core:video"))
     implementation(project(":core:video-feed"))
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
+    implementation(libs.coil.compose)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.media3.ui.compose)
     implementation(libs.timber)

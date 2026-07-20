@@ -6,8 +6,8 @@ package net.kikin.nubecita.feature.videos.impl.ui
  *
  * The surface is measured against [settledPage] — the page whose player is
  * actually bound — and NOT against `currentPage`, which flips to the next page
- * at the halfway point of a drag and would snap the video a full page sideways
- * mid-gesture.
+ * at the halfway point of a drag and would snap the video a full page
+ * vertically mid-gesture.
  *
  * Negative moves the surface up (dragging toward later pages).
  */

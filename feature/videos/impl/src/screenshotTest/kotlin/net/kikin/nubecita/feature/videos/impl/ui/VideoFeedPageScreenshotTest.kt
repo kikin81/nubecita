@@ -35,7 +35,7 @@ private fun VideoFeedCanvas(content: @Composable () -> Unit) {
 @Composable
 private fun VideoFeedPagePortraitPreview() {
     VideoFeedCanvas {
-        VideoFeedPage(posterUrl = "https://example.invalid/poster.jpg", aspectRatio = 9f / 16f, posterAlpha = 1f)
+        VideoFeedPage(posterUrl = "https://example.invalid/poster.jpg", aspectRatio = 9f / 16f, posterAlpha = { 1f })
     }
 }
 
@@ -45,7 +45,7 @@ private fun VideoFeedPagePortraitPreview() {
 @Composable
 private fun VideoFeedPageLandscapePreview() {
     VideoFeedCanvas {
-        VideoFeedPage(posterUrl = "https://example.invalid/poster.jpg", aspectRatio = 16f / 9f, posterAlpha = 1f)
+        VideoFeedPage(posterUrl = "https://example.invalid/poster.jpg", aspectRatio = 16f / 9f, posterAlpha = { 1f })
     }
 }
 
@@ -55,7 +55,7 @@ private fun VideoFeedPageLandscapePreview() {
 @Composable
 private fun VideoFeedPageMidFadePreview() {
     VideoFeedCanvas {
-        VideoFeedPage(posterUrl = "https://example.invalid/poster.jpg", aspectRatio = 9f / 16f, posterAlpha = 0.5f)
+        VideoFeedPage(posterUrl = "https://example.invalid/poster.jpg", aspectRatio = 9f / 16f, posterAlpha = { 0.5f })
     }
 }
 
@@ -65,6 +65,6 @@ private fun VideoFeedPageMidFadePreview() {
 @Composable
 private fun VideoFeedPageMissingPosterPreview() {
     VideoFeedCanvas {
-        VideoFeedPage(posterUrl = null, aspectRatio = 9f / 16f, posterAlpha = 1f)
+        VideoFeedPage(posterUrl = null, aspectRatio = 9f / 16f, posterAlpha = { 1f })
     }
 }

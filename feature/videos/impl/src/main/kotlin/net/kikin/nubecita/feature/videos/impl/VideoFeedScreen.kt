@@ -3,7 +3,6 @@
 package net.kikin.nubecita.feature.videos.impl
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,12 +10,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -45,8 +46,10 @@ import net.kikin.nubecita.feature.videos.impl.ui.surfaceTranslationPx
  * Full-screen vertical video feed. A snapping [VerticalPager] whose settled page
  * drives the pooled player via the ViewModel; a single persistent `PlayerSurface`
  * sits behind the pager and re-binds to whichever pooled player is active, so it
- * is never recreated across swipes. Overlay chrome (author, caption, interactions,
- * mute control) and the poster underlay land in the next slice.
+ * is never recreated across swipes. Each page renders a poster OVER that surface
+ * — an overlay, not an underlay — that fades out once its player has a decoded
+ * frame. Overlay chrome (author, caption, interactions, mute control) lands in
+ * the next slice.
  */
 @Composable
 internal fun VideoFeedScreen(
@@ -115,10 +118,19 @@ internal fun VideoFeedScreen(
                     // rememberPresentationState accepts a nullable player and re-observes on
                     // change, so it is called unconditionally — a conditional call would
                     // discard the state whenever the pool briefly has no active player.
-                    // The instance survives player swaps (remember has no key), and
-                    // coverSurface flips true on promotion and false on the next first
-                    // frame: exactly the crossfade signal, with no extra bookkeeping.
-                    val presentationState = rememberPresentationState(activePlayer)
+                    // key(activePlayer) is required: media3 1.10.1's rememberPresentationState
+                    // is `remember { PresentationState(...) }`, UNKEYED, so without this the
+                    // SAME instance — and its `coverSurface` value — survives a pool
+                    // promotion. maybeHideSurface only sets coverSurface = true when the
+                    // player has no tracks, or has tracks but no selected video track; a
+                    // prewarmed player already has both, so neither branch fires and
+                    // coverSurface stays false, carried over from the outgoing clip — the
+                    // incoming page's poster reads as transparent while the surface still
+                    // shows the outgoing clip's last frame. key(activePlayer) forces a fresh
+                    // instance on every promotion, which starts at coverSurface = true and
+                    // only clears on EVENT_RENDERED_FIRST_FRAME from the newly attached
+                    // surface — exactly the crossfade signal.
+                    val presentationState = key(activePlayer) { rememberPresentationState(activePlayer) }
                     val videoSize = presentationState.videoSizeDp
                     // Poster and surface MUST resolve to the same ratio or the crossfade
                     // reads as a jump. Prefer the decoded size once known; fall back to the
@@ -169,15 +181,24 @@ internal fun VideoFeedScreen(
                                 isSettledPage = isSettled,
                                 coverSurface = presentationState.coverSurface,
                             )
-                        val posterAlpha by animateFloatAsState(
-                            targetValue = targetAlpha,
-                            animationSpec = tween(durationMillis = POSTER_FADE_MS),
-                            label = "VideoFeedPoster-alpha",
-                        )
+                        // Keep this a State, not a `by`-unwrapped Float: unwrapping at
+                        // composition scope would invalidate this page's composition (and its
+                        // image subtree) on every animation frame. VideoFeedPage reads the
+                        // value inside its graphicsLayer block instead, so a running crossfade
+                        // costs zero recomposition.
+                        val posterAlphaState =
+                            animateFloatAsState(
+                                targetValue = targetAlpha,
+                                // MotionScheme, not a raw tween: defaultEffectsSpec()
+                                // collapses to a short linear tween under reduce-motion — a
+                                // hand-rolled tween() would silently ignore that preference.
+                                animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+                                label = "VideoFeedPoster-alpha",
+                            )
                         VideoFeedPage(
                             posterUrl = item.posterUrl,
                             aspectRatio = if (isSettled) settledAspectRatio else item.aspectRatio,
-                            posterAlpha = posterAlpha,
+                            posterAlpha = { posterAlphaState.value },
                         )
                     }
                 }
@@ -205,9 +226,9 @@ private suspend fun snapshotFlowSettledPage(
  * drag. The cost is real: full-screen video goes through the GPU every frame
  * instead of a hardware overlay, which is a battery cost on the surface users
  * linger on longest. Deliberately isolated here so a battery pass can flip it
- * back to SURFACE_TYPE_SURFACE_VIEW as a one-line change. See design D1.
+ * back to SURFACE_TYPE_SURFACE_VIEW as a one-line change — but flipping back is
+ * not cost-free: it trades the slide-tracking behavior above away, since the
+ * window compositor (not this composable) would then own the surface's
+ * position during a drag. See design D1.
  */
 private const val FEED_SURFACE_TYPE = SURFACE_TYPE_TEXTURE_VIEW
-
-/** Crossfade duration, ms, from full poster to the decoded first frame. */
-private const val POSTER_FADE_MS = 150
