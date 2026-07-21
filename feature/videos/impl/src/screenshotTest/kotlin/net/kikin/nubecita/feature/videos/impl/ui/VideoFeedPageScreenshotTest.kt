@@ -103,6 +103,7 @@ private fun VideoFeedPageMissingPosterPreview() {
 private fun chromePost(
     text: String = "shot this on the ridge at golden hour",
     liked: Boolean = false,
+    bookmarked: Boolean = false,
 ): PostUi =
     PostUi(
         id = "at://did:plc:preview/app.bsky.feed.post/1",
@@ -119,7 +120,7 @@ private fun chromePost(
         facets = persistentListOf(),
         embed = EmbedUi.Empty,
         stats = PostStatsUi(replyCount = 12, repostCount = 48, likeCount = 1234),
-        viewer = ViewerStateUi(isLikedByViewer = liked),
+        viewer = ViewerStateUi(isLikedByViewer = liked, isBookmarked = bookmarked),
         repostedBy = null,
     )
 
@@ -139,6 +140,8 @@ private fun PreviewChrome(
         onRepost = {},
         onReply = {},
         onShare = {},
+        onBookmark = {},
+        onOverflowAction = {},
         onMuteToggle = {},
     )
 }
@@ -206,5 +209,17 @@ private fun VideoPageChromePausedPreview() {
             posterAlpha = { 1f },
             isPaused = true,
         ) { PreviewChrome() }
+    }
+}
+
+/** Bookmarked + liked: pins the filled bookmark cell alongside the other active toggles. */
+@PreviewTest
+@Preview(name = "chrome-bookmarked", showBackground = true, heightDp = CANVAS_HEIGHT_DP)
+@Composable
+private fun VideoPageChromeBookmarkedPreview() {
+    VideoFeedCanvas {
+        VideoFeedPage(posterUrl = POSTER_9X16, aspectRatio = 9f / 16f, posterAlpha = { 1f }) {
+            PreviewChrome(post = chromePost(liked = true, bookmarked = true))
+        }
     }
 }

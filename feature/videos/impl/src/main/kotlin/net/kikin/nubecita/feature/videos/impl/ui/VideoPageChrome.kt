@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
+import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.videos.impl.R
 import net.kikin.nubecita.feature.videos.impl.VideoFeedTestTags
@@ -56,6 +57,8 @@ internal fun VideoPageChrome(
     onRepost: () -> Unit,
     onReply: () -> Unit,
     onShare: () -> Unit,
+    onBookmark: () -> Unit,
+    onOverflowAction: (PostOverflowAction) -> Unit,
     onMuteToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -89,6 +92,15 @@ internal fun VideoPageChrome(
                 testTag = VideoFeedTestTags.RAIL_REPOST,
             )
             VideoRailAction(
+                icon = NubecitaIconName.Bookmark,
+                accessibilityLabel = stringResource(R.string.videos_action_bookmark),
+                onClick = onBookmark,
+                active = post.viewer.isBookmarked,
+                toggleable = true,
+                activeColor = MaterialTheme.colorScheme.primary,
+                testTag = VideoFeedTestTags.RAIL_BOOKMARK,
+            )
+            VideoRailAction(
                 icon = NubecitaIconName.ChatBubble,
                 accessibilityLabel = stringResource(R.string.videos_action_reply),
                 onClick = onReply,
@@ -101,6 +113,26 @@ internal fun VideoPageChrome(
                 onClick = onShare,
                 testTag = VideoFeedTestTags.RAIL_SHARE,
             )
+            Box {
+                // Keyed on post.id so the menu resets when this cell is bound to a
+                // different post. The pager already keys pages on post.id, so today
+                // this is redundant — but it keeps the reset guarantee local to the
+                // cell rather than relying on an ancestor's key, and matches how the
+                // caption's expand state is keyed.
+                var overflowExpanded by remember(post.id) { mutableStateOf(false) }
+                VideoRailAction(
+                    icon = NubecitaIconName.MoreVert,
+                    accessibilityLabel = stringResource(R.string.videos_action_more),
+                    onClick = { overflowExpanded = true },
+                    testTag = VideoFeedTestTags.RAIL_OVERFLOW,
+                )
+                VideoOverflowMenu(
+                    post = post,
+                    expanded = overflowExpanded,
+                    onDismiss = { overflowExpanded = false },
+                    onAction = onOverflowAction,
+                )
+            }
             VideoRailAction(
                 icon = if (isMuted) NubecitaIconName.VolumeOff else NubecitaIconName.VolumeUp,
                 accessibilityLabel = stringResource(R.string.videos_action_mute),

@@ -40,4 +40,10 @@ object VideoFeedTestTags {
 
     /** Centre glyph shown while playback is paused. */
     const val PAUSE_INDICATOR: String = "video_feed_pause_indicator"
+
+    /** Right-rail bookmark toggle cell. */
+    const val RAIL_BOOKMARK: String = "video_feed_bookmark"
+
+    /** Right-rail overflow trigger cell. */
+    const val RAIL_OVERFLOW: String = "video_feed_overflow"
 }
