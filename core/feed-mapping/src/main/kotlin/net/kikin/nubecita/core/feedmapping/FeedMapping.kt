@@ -499,8 +499,10 @@ private fun GalleryView.toGalleryImageUiList(): ImmutableList<ImageUi> =
  * Field-by-field notes:
  * - [posterUrl] is the optional `thumbnail` URL; null when absent.
  * - [aspectRatio] falls back to 16:9 (`1.777f`) when the lexicon's
- *   optional field is absent — the render layer needs a stable measure
- *   before the poster loads.
+ *   optional field is absent OR carries a non-positive dimension — the
+ *   render layer needs a stable, strictly-positive measure before the
+ *   poster loads (a zero/negative dimension yields `0f`/Infinity/NaN and
+ *   crashes `Modifier.aspectRatio`). Mirrors the image path's guard.
  * - [durationSeconds] is hard-coded to `null` in v1: the lexicon does
  *   NOT currently expose duration. Reserved for a future phase that
  *   sources it from a lexicon evolution or HLS manifest parsing
@@ -518,7 +520,9 @@ private fun VideoView.toVideoPayload(): VideoPayload? {
     val playlistUrl = playlist.raw
     if (playlistUrl.isBlank()) return null
     val ratio =
-        aspectRatio?.let { it.width.toFloat() / it.height.toFloat() }
+        aspectRatio
+            ?.takeIf { it.width > 0 && it.height > 0 }
+            ?.let { it.width.toFloat() / it.height.toFloat() }
             ?: VIDEO_FALLBACK_ASPECT_RATIO
     return VideoPayload(
         posterUrl = thumbnail?.raw,
