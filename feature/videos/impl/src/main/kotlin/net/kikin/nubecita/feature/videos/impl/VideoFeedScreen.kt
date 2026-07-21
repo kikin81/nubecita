@@ -42,6 +42,7 @@ import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
 import androidx.media3.ui.compose.state.rememberPresentationState
 import kotlinx.coroutines.flow.distinctUntilChanged
+import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.feature.videos.impl.ui.VideoFeedPage
@@ -85,6 +86,7 @@ internal fun VideoFeedScreen(
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val haptics = rememberPostHaptics()
     val callbacks = rememberVideoFeedInteractions(viewModel, snackbarHostState)
     // The nav state holder is a CompositionLocal, which a ViewModel cannot reach —
     // hence navigation arrives as an effect and the screen performs the push.
@@ -234,7 +236,10 @@ internal fun VideoFeedScreen(
                             // composed neighbour would render the glyph too.
                             isPaused = state.isPaused && isSettled,
                             onTogglePlayPause = { viewModel.handleEvent(VideoFeedEvent.TogglePlayPause) },
-                            onDoubleTapLike = { viewModel.handleEvent(VideoFeedEvent.DoubleTapLike(item.post)) },
+                            onDoubleTapLike = {
+                                if (!item.post.viewer.isLikedByViewer) haptics.likeOn()
+                                viewModel.handleEvent(VideoFeedEvent.DoubleTapLike(item.post))
+                            },
                         ) {
                             VideoPageChrome(
                                 post = item.post,
@@ -243,13 +248,22 @@ internal fun VideoFeedScreen(
                                 onCaptionToggle = { captionExpanded = !captionExpanded },
                                 onAuthorTap = { viewModel.handleEvent(VideoFeedEvent.AuthorTapped(item.post)) },
                                 // Delegation-forwarded: the handler owns the optimistic write.
-                                onLike = { viewModel.onLike(item.post) },
-                                onRepost = { viewModel.onRepost(item.post) },
+                                onLike = {
+                                    if (item.post.viewer.isLikedByViewer) haptics.likeOff() else haptics.likeOn()
+                                    viewModel.onLike(item.post)
+                                },
+                                onRepost = {
+                                    if (item.post.viewer.isRepostedByViewer) haptics.repostOff() else haptics.repostOn()
+                                    viewModel.onRepost(item.post)
+                                },
                                 // Routed through the helper's callbacks so its composer-navigation
                                 // and share-sheet effects fire.
                                 onReply = { callbacks.onReply(item.post) },
                                 onShare = { callbacks.onShare(item.post) },
-                                onBookmark = { callbacks.onBookmark(item.post) },
+                                onBookmark = {
+                                    if (item.post.viewer.isBookmarked) haptics.bookmarkOff() else haptics.bookmarkOn()
+                                    callbacks.onBookmark(item.post)
+                                },
                                 onOverflowAction = { action -> callbacks.onOverflowAction?.invoke(item.post, action) },
                                 onMuteToggle = { viewModel.handleEvent(VideoFeedEvent.ToggleMute) },
                             )

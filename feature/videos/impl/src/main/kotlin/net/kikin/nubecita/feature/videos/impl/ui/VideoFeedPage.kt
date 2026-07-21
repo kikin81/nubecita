@@ -5,10 +5,15 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -16,10 +21,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -56,6 +63,11 @@ internal fun VideoFeedPage(
     // One painter instance for all three poster states; ColorPainter is cheap but
     // there is no reason to reallocate it on every composition.
     val blackPainter = remember { ColorPainter(Color.Black) }
+    // Each double-tap spawns a heart at its touch point; rapid taps stack. Each
+    // self-removes when its animation finishes, so the list drains to empty.
+    val hearts = remember { mutableStateListOf<HeartBurst>() }
+    var nextHeartId by remember { mutableIntStateOf(0) }
+    val heartCenterPx = with(LocalDensity.current) { (HEART_SIZE / 2).roundToPx() }
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         // graphicsLayer (not Modifier.alpha) so a crossfade only re-runs the
         // layer block — no recomposition or relayout per frame at 120hz. The
@@ -122,7 +134,11 @@ internal fun VideoFeedPage(
                     }
                 }.pointerInput(Unit) {
                     detectTapGestures(
-                        onDoubleTap = { currentOnDoubleTapLike() },
+                        onDoubleTap = { offset ->
+                            hearts.add(HeartBurst(id = nextHeartId, position = offset))
+                            nextHeartId++
+                            currentOnDoubleTapLike()
+                        },
                         onTap = { currentOnTogglePlayPause() },
                     )
                 },
@@ -142,6 +158,25 @@ internal fun VideoFeedPage(
         // Chrome draws last so it sits above the poster — and therefore above the
         // video too, since the poster fades out to reveal the surface behind.
         chrome()
+        // Heart bursts draw on top of everything at the touch point. This overlay
+        // has no pointer input, so it never intercepts a tap.
+        Box(Modifier.matchParentSize()) {
+            hearts.forEach { heart ->
+                key(heart.id) {
+                    LikeBurstHeart(
+                        heart = heart,
+                        onFinish = { hearts.remove(heart) },
+                        modifier =
+                            Modifier.offset {
+                                IntOffset(
+                                    x = heart.position.x.toInt() - heartCenterPx,
+                                    y = heart.position.y.toInt() - heartCenterPx,
+                                )
+                            },
+                    )
+                }
+            }
+        }
     }
 }
 
