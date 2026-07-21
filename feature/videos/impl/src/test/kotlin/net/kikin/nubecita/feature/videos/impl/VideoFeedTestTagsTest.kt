@@ -28,6 +28,12 @@ internal class VideoFeedTestTagsTest {
     }
 
     @Test
+    fun `overflow and bookmark tag values are pinned`() {
+        assertEquals("video_feed_bookmark", VideoFeedTestTags.RAIL_BOOKMARK)
+        assertEquals("video_feed_overflow", VideoFeedTestTags.RAIL_OVERFLOW)
+    }
+
+    @Test
     fun `poster tag value is pinned to video_feed_poster`() {
         assertEquals("video_feed_poster", VideoFeedTestTags.POSTER)
     }
