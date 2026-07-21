@@ -223,3 +223,13 @@ private fun VideoPageChromeBookmarkedPreview() {
         }
     }
 }
+
+/** The heart burst mid-life (alpha 1, tilted -12 for id 0) — pins the visual. */
+@PreviewTest
+@Preview(name = "like-burst-heart", showBackground = true, heightDp = 240)
+@Composable
+private fun LikeBurstHeartPreview() {
+    VideoFeedCanvas {
+        LikeBurstHeartContent(progress = { 0.4f }, id = 0)
+    }
+}
