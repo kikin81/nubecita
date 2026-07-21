@@ -7,6 +7,8 @@
     <string name="videos_action_reply">Responder</string>
     <string name="videos_action_share">Compartilhar</string>
     <string name="videos_action_mute">Silenciar</string>
+    <string name="videos_action_bookmark">Salvar</string>
+    <string name="videos_action_more">Mais opções</string>
     <string name="videos_open_profile">Abrir perfil</string>
     <string name="videos_expand_caption">Expandir legenda</string>
     <string name="videos_collapse_caption">Recolher legenda</string>

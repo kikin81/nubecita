@@ -10,6 +10,8 @@
     <string name="videos_action_reply">Reply</string>
     <string name="videos_action_share">Share</string>
     <string name="videos_action_mute">Mute</string>
+    <string name="videos_action_bookmark">Bookmark</string>
+    <string name="videos_action_more">More options</string>
     <string name="videos_open_profile">Open profile</string>
     <string name="videos_expand_caption">Expand caption</string>
     <string name="videos_collapse_caption">Collapse caption</string>
@@ -28,8 +30,7 @@
     <string name="videos_clipboard_label_post_link">Bluesky post link</string>
 
     <!-- Overflow coming-soon messages. Required by InteractionStrings' 13-field
-         contract but currently unreachable: this surface ships no overflow menu
-         (tracked as nubecita-zdv8.12). -->
+         contract, surfaced by the overflow menu (nubecita-zdv8.12). -->
     <string name="videos_snackbar_overflow_report_coming_soon">Report — coming soon</string>
     <string name="videos_snackbar_overflow_mute_coming_soon">Mute — coming soon</string>
     <string name="videos_snackbar_overflow_unmute_coming_soon">Unmute — coming soon</string>

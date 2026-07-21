@@ -249,6 +249,8 @@ internal fun VideoFeedScreen(
                                 // and share-sheet effects fire.
                                 onReply = { callbacks.onReply(item.post) },
                                 onShare = { callbacks.onShare(item.post) },
+                                onBookmark = { callbacks.onBookmark(item.post) },
+                                onOverflowAction = { action -> callbacks.onOverflowAction?.invoke(item.post, action) },
                                 onMuteToggle = { viewModel.handleEvent(VideoFeedEvent.ToggleMute) },
                             )
                         }
