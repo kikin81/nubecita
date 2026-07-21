@@ -232,6 +232,9 @@ internal fun VideoFeedScreen(
                             posterUrl = item.posterUrl,
                             aspectRatio = if (isSettled) settledAspectRatio else item.aspectRatio,
                             posterAlpha = { posterAlphaState.value },
+                            // Resets the page's heart-burst state when this page is
+                            // rebound to a different post (same key the caption uses).
+                            pageKey = item.post.id,
                             // isPaused is screen-level, so gate on isSettled or every
                             // composed neighbour would render the glyph too.
                             isPaused = state.isPaused && isSettled,

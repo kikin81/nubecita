@@ -46,6 +46,12 @@ import net.kikin.nubecita.feature.videos.impl.VideoFeedTestTags
  * [aspectRatio] must be the same ratio the surface is using, or the crossfade
  * reads as a jump rather than a dissolve.
  *
+ * [pageKey] is the stable identity of the post on this page (its id). The
+ * VerticalPager already keys pages on it, so a rebind normally recomposes this
+ * page fresh — but keying the transient heart-burst state on it too keeps the
+ * reset guarantee local to the page rather than depending on the pager's key,
+ * matching how the caption/overflow state is keyed on the post id.
+ *
  * Overlay chrome (author, caption, interactions, mute) lands in PR2 and composes
  * into this Box above the poster.
  */
@@ -55,6 +61,7 @@ internal fun VideoFeedPage(
     aspectRatio: Float,
     posterAlpha: () -> Float,
     modifier: Modifier = Modifier,
+    pageKey: Any = Unit,
     isPaused: Boolean = false,
     onTogglePlayPause: () -> Unit = {},
     onDoubleTapLike: () -> Unit = {},
@@ -65,8 +72,10 @@ internal fun VideoFeedPage(
     val blackPainter = remember { ColorPainter(Color.Black) }
     // Each double-tap spawns a heart at its touch point; rapid taps stack. Each
     // self-removes when its animation finishes, so the list drains to empty.
-    val hearts = remember { mutableStateListOf<HeartBurst>() }
-    var nextHeartId by remember { mutableIntStateOf(0) }
+    // Keyed on pageKey so a page rebound to a different post starts with no
+    // leftover hearts and a fresh id counter (see the [pageKey] doc).
+    val hearts = remember(pageKey) { mutableStateListOf<HeartBurst>() }
+    var nextHeartId by remember(pageKey) { mutableIntStateOf(0) }
     val heartCenterPx = with(LocalDensity.current) { (HEART_SIZE / 2).roundToPx() }
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         // graphicsLayer (not Modifier.alpha) so a crossfade only re-runs the
