@@ -49,6 +49,7 @@ import net.kikin.nubecita.feature.videos.impl.ui.VideoPageChrome
 import net.kikin.nubecita.feature.videos.impl.ui.posterAlphaTarget
 import net.kikin.nubecita.feature.videos.impl.ui.rememberVideoFeedInteractions
 import net.kikin.nubecita.feature.videos.impl.ui.surfaceTranslationPx
+import net.kikin.nubecita.feature.videos.impl.ui.videoFeedSurfaceAspectRatio
 
 /**
  * Full-screen vertical video feed. A snapping [VerticalPager] whose settled page
@@ -158,16 +159,13 @@ internal fun VideoFeedScreen(
                     // only clears on EVENT_RENDERED_FIRST_FRAME from the newly attached
                     // surface — exactly the crossfade signal.
                     val presentationState = key(activePlayer) { rememberPresentationState(activePlayer) }
-                    val videoSize = presentationState.videoSizeDp
-                    // Poster and surface MUST resolve to the same ratio or the crossfade
-                    // reads as a jump. Prefer the decoded size once known; fall back to the
-                    // embed's declared ratio, which is available before any decode (D4).
-                    val settledAspectRatio =
-                        if (videoSize != null && videoSize.width > 0f && videoSize.height > 0f) {
-                            videoSize.width / videoSize.height
-                        } else {
-                            settledItem?.aspectRatio ?: DEFAULT_VIDEO_ASPECT_RATIO
-                        }
+                    // Size the surface from the settled ITEM's declared ratio, NOT the active
+                    // player's decoded videoSizeDp. videoSizeDp is tied to activePlayer, which
+                    // LAGS the pager's settledPage during a swipe — so preferring it sized the
+                    // surface to the OUTGOING clip's ratio for a frame (a 16:9 -> 9:16 swipe
+                    // briefly squished the portrait clip into a landscape box). The poster is
+                    // sized by this same value, so surface and poster never disagree.
+                    val settledAspectRatio = videoFeedSurfaceAspectRatio(settledItem?.aspectRatio)
 
                     activePlayer?.let { player ->
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -228,7 +226,10 @@ internal fun VideoFeedScreen(
                         var captionExpanded by rememberSaveable(item.post.id) { mutableStateOf(false) }
                         VideoFeedPage(
                             posterUrl = item.posterUrl,
-                            aspectRatio = if (isSettled) settledAspectRatio else item.aspectRatio,
+                            // Every page's poster uses its own declared ratio — for the settled
+                            // page this equals the surface's settledAspectRatio, so poster and
+                            // surface always match.
+                            aspectRatio = item.aspectRatio,
                             posterAlpha = { posterAlphaState.value },
                             // isPaused is screen-level, so gate on isSettled or every
                             // composed neighbour would render the glyph too.

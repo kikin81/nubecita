@@ -24,6 +24,10 @@ public class FakeVideoFeedSource
             val ITEMS: List<PostUi> =
                 listOf(
                     videoPost(1, "Trail run this morning", "hugo.jpg", "Hugo"),
+                    // Portrait 9:16 clip, second so a landscape -> portrait swipe is one
+                    // step from the top. Exercises the aspect-ratio transition
+                    // (nubecita aspect-lag bug).
+                    videoPost(4, "Vertical vista", "ivy.jpg", "Ivy"),
                     videoPost(2, "Sunset over the bay", "ivy.jpg", "Ivy"),
                     videoPost(3, "Studio session take 4", "jess.jpg", "Jess"),
                     videoPost(1, "Rewatching the good part", "hugo.jpg", "Hugo"),
@@ -36,16 +40,23 @@ public class FakeVideoFeedSource
              * decodes (design D4), so a wrong value makes every page's poster snap
              * when the real size arrives — the exact jump D4 exists to prevent.
              *
-             * clip-1 1280x720, clip-2 1694x720, clip-3 1728x720; 15s, 14s, 15s.
+             * clip-1 1280x720, clip-2 1694x720, clip-3 1728x720 (landscape); clip-4
+             * 720x1280 (portrait 9:16). Durations 15/14/15/12s.
              */
             private fun aspectFor(clip: Int): Float =
                 when (clip) {
                     1 -> 1280f / 720f
                     2 -> 1694f / 720f
+                    4 -> 720f / 1280f // portrait 9:16
                     else -> 1728f / 720f
                 }
 
-            private fun durationFor(clip: Int): Int = if (clip == 2) 14 else 15
+            private fun durationFor(clip: Int): Int =
+                when (clip) {
+                    2 -> 14
+                    4 -> 12
+                    else -> 15
+                }
 
             private fun videoPost(
                 clip: Int,

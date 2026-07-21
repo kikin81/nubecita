@@ -84,4 +84,19 @@ internal class VideoFeedPresentationTest {
         assertEquals(1f, posterAlphaTarget(isSettledPage = false, coverSurface = false))
         assertEquals(1f, posterAlphaTarget(isSettledPage = false, coverSurface = true))
     }
+
+    @Test
+    fun `surface ratio comes from the settled item, not the lagging decoded size`() {
+        // The aspect-lag bug: the surface was sized from the active player's decoded
+        // videoSizeDp, which lags the pager's settledPage during a swipe. So a
+        // landscape->portrait swipe briefly sized the surface 16:9 for the new
+        // portrait page. The surface must track the settled ITEM's declared ratio.
+        assertEquals(0.5625f, videoFeedSurfaceAspectRatio(9f / 16f), 0.0001f)
+        assertEquals(16f / 9f, videoFeedSurfaceAspectRatio(16f / 9f), 0.0001f)
+    }
+
+    @Test
+    fun `surface ratio falls back to portrait when the item declares none`() {
+        assertEquals(9f / 16f, videoFeedSurfaceAspectRatio(null), 0.0001f)
+    }
 }
