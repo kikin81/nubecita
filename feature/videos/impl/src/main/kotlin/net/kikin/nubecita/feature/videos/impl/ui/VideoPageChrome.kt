@@ -114,7 +114,12 @@ internal fun VideoPageChrome(
                 testTag = VideoFeedTestTags.RAIL_SHARE,
             )
             Box {
-                var overflowExpanded by remember { mutableStateOf(false) }
+                // Keyed on post.id so the menu resets when this cell is bound to a
+                // different post. The pager already keys pages on post.id, so today
+                // this is redundant — but it keeps the reset guarantee local to the
+                // cell rather than relying on an ancestor's key, and matches how the
+                // caption's expand state is keyed.
+                var overflowExpanded by remember(post.id) { mutableStateOf(false) }
                 VideoRailAction(
                     icon = NubecitaIconName.MoreVert,
                     accessibilityLabel = stringResource(R.string.videos_action_more),
