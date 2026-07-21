@@ -54,6 +54,16 @@ public class PostHaptics(
         performToggleOff()
     }
 
+    /** Tap enabled the bookmark — confirmation feel, same envelope as [likeOn]. */
+    public fun bookmarkOn() {
+        perform(modern = HapticFeedbackConstants.CONFIRM, fallback = HapticFeedbackConstants.LONG_PRESS)
+    }
+
+    /** Tap removed the bookmark — same distinct lighter cue as [likeOff]. */
+    public fun bookmarkOff() {
+        performToggleOff()
+    }
+
     /**
      * Tap on the reply / share cell — one-shot action. Light cue;
      * universal across SDKs since `KEYBOARD_TAP` is API 1.
