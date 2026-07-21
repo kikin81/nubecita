@@ -337,7 +337,7 @@ After `chrome()` (so hearts draw on top), render the overlay. It has no pointer 
                 key(heart.id) {
                     LikeBurstHeart(
                         heart = heart,
-                        onFinished = { hearts.remove(heart) },
+                        onFinish = { hearts.remove(heart) },
                         // Center the 100dp heart on the touch point.
                         modifier =
                             Modifier.offset {
