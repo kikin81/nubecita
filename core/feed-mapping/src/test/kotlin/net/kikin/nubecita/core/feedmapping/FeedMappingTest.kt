@@ -105,6 +105,19 @@ internal class FeedMappingTest {
     }
 
     @Test
+    fun `video embed with a non-positive aspect ratio dimension falls back to 16-9`() {
+        // Defensive: a 0 (or negative) width/height would produce 0f/Infinity/NaN
+        // and crash Modifier.aspectRatio. Unlike images (nullable ratio), a video's
+        // ratio is non-null, so the mapper falls back to the 16:9 default rather
+        // than to null — mirroring the image path's guard.
+        val postView = decodePostView(POST_WITH_VIDEO_ZERO_ASPECT)
+        val mapped = postView.toPostUiCore()
+        assertNotNull(mapped)
+        val video = assertInstanceOf(EmbedUi.Video::class.java, mapped!!.embed)
+        assertEquals(16f / 9f, video.aspectRatio, 0.0001f)
+    }
+
+    @Test
     fun `external embed projects to EmbedUi External with parsed display domain`() {
         val postView = decodePostView(POST_WITH_EXTERNAL_EMBED)
         val mapped = postView.toPostUiCore()
@@ -438,6 +451,29 @@ internal class FeedMappingTest {
                 "${'$'}type": "app.bsky.embed.video#view",
                 "cid": "bafkreifake0000000000000000000000000000000000",
                 "playlist": "https://video.bsky.app/watch/did%3Aplc%3Afake/bafkreifake/playlist.m3u8"
+              }
+            }
+        """
+
+        const val POST_WITH_VIDEO_ZERO_ASPECT = """
+            {
+              "uri": "at://did:plc:fake/app.bsky.feed.post/p6",
+              "cid": "bafyreifakecid000000000000000000000000000000000",
+              "author": {
+                "did": "did:plc:fake",
+                "handle": "fake.bsky.social"
+              },
+              "indexedAt": "2026-04-26T12:00:00Z",
+              "record": {
+                "${'$'}type": "app.bsky.feed.post",
+                "text": "video with zero-height aspect",
+                "createdAt": "2026-04-26T12:00:00Z"
+              },
+              "embed": {
+                "${'$'}type": "app.bsky.embed.video#view",
+                "cid": "bafkreifake0000000000000000000000000000000000",
+                "playlist": "https://video.bsky.app/watch/did%3Aplc%3Afake/bafkreifake/playlist.m3u8",
+                "aspectRatio": { "width": 1920, "height": 0 }
               }
             }
         """

@@ -226,10 +226,11 @@ internal fun VideoFeedScreen(
                         var captionExpanded by rememberSaveable(item.post.id) { mutableStateOf(false) }
                         VideoFeedPage(
                             posterUrl = item.posterUrl,
-                            // Every page's poster uses its own declared ratio — for the settled
-                            // page this equals the surface's settledAspectRatio, so poster and
-                            // surface always match.
-                            aspectRatio = item.aspectRatio,
+                            // Every page's poster uses its own declared ratio through the same
+                            // guarded helper as the surface — for the settled page this equals
+                            // settledAspectRatio, so poster and surface always match, and a
+                            // non-positive declared ratio can never reach Modifier.aspectRatio.
+                            aspectRatio = videoFeedSurfaceAspectRatio(item.aspectRatio),
                             posterAlpha = { posterAlphaState.value },
                             // isPaused is screen-level, so gate on isSettled or every
                             // composed neighbour would render the glyph too.

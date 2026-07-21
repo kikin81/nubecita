@@ -96,7 +96,12 @@ internal class VideoFeedPresentationTest {
     }
 
     @Test
-    fun `surface ratio falls back to portrait when the item declares none`() {
+    fun `surface ratio falls back to portrait for a null or non-positive ratio`() {
+        // A 0f/negative ratio would crash Modifier.aspectRatio (requires > 0), so the
+        // render boundary drops it to the portrait default even though the mapper
+        // already guards the source.
         assertEquals(9f / 16f, videoFeedSurfaceAspectRatio(null), 0.0001f)
+        assertEquals(9f / 16f, videoFeedSurfaceAspectRatio(0f), 0.0001f)
+        assertEquals(9f / 16f, videoFeedSurfaceAspectRatio(-1.5f), 0.0001f)
     }
 }
