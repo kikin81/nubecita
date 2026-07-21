@@ -66,10 +66,18 @@ private fun lerp(
     t: Float,
 ): Float = a + (b - a) * t.coerceIn(0f, 1f)
 
-/** Stateless heart visual for a fixed [transform] — the screenshot seam. */
+/**
+ * The heart visual, driven by a deferred [progress] read for [id].
+ *
+ * `progress` is a `() -> Float` read INSIDE `graphicsLayer`, not a value resolved
+ * in composition — so a running burst re-runs only the draw phase, never this
+ * composable, matching the deferred-read pattern the poster crossfade and surface
+ * slide use for 120hz. The screenshot seam passes a constant `{ 0.4f }`.
+ */
 @Composable
 internal fun LikeBurstHeartContent(
-    transform: BurstTransform,
+    progress: () -> Float,
+    id: Int,
     modifier: Modifier = Modifier,
 ) {
     NubecitaIcon(
@@ -80,11 +88,12 @@ internal fun LikeBurstHeartContent(
         opticalSize = HEART_SIZE,
         modifier =
             modifier.graphicsLayer {
-                scaleX = transform.scale
-                scaleY = transform.scale
-                alpha = transform.alpha
-                rotationZ = transform.rotationDegrees
-                translationY = transform.translationYDp.dp.toPx()
+                val t = heartBurstTransform(progress(), id)
+                scaleX = t.scale
+                scaleY = t.scale
+                alpha = t.alpha
+                rotationZ = t.rotationDegrees
+                translationY = t.translationYDp.dp.toPx()
             },
     )
 }
@@ -105,7 +114,9 @@ internal fun LikeBurstHeart(
         progress.animateTo(1f, tween(durationMillis = BURST_DURATION_MS, easing = LinearEasing))
         currentOnFinished()
     }
-    LikeBurstHeartContent(heartBurstTransform(progress.value, heart.id), modifier)
+    // Pass the Animatable as a deferred lambda — composition here does not read
+    // progress.value, so the per-frame ticks touch only the draw phase.
+    LikeBurstHeartContent(progress = { progress.value }, id = heart.id, modifier = modifier)
 }
 
 internal val HEART_SIZE = 100.dp

@@ -230,6 +230,6 @@ private fun VideoPageChromeBookmarkedPreview() {
 @Composable
 private fun LikeBurstHeartPreview() {
     VideoFeedCanvas {
-        LikeBurstHeartContent(transform = heartBurstTransform(progress = 0.4f, id = 0))
+        LikeBurstHeartContent(progress = { 0.4f }, id = 0)
     }
 }
