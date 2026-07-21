@@ -13,7 +13,10 @@ reflecting the active clip's position. Read-only in this slice — no scrubbing.
 - One **screen-level** instance over the pager (not per-page), aligned
   `BottomCenter` inside the feed content `Box`.
 - **Inset + rounded:** ~3dp tall, ~16dp horizontal inset margin, fully rounded
-  caps. `navigationBarsPadding()` so it floats above the system gesture area.
+  caps. An ~8dp lift off the content bottom, below the caption. (No
+  `navigationBarsPadding()`: the `Scaffold` already insets the feed content by
+  `innerPadding`, which includes the nav-bar inset — adding it again double-counts
+  and shoves the bar up into the author/caption block. Verified on device.)
 - On the always-black feed canvas: a **translucent-white track** with a
   **solid-white fill** that grows left→right to the current fraction.
 - Visible while paused too — it simply stops advancing (the driver loop only
