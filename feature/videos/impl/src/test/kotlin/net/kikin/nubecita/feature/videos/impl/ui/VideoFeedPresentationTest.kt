@@ -104,4 +104,25 @@ internal class VideoFeedPresentationTest {
         assertEquals(9f / 16f, videoFeedSurfaceAspectRatio(0f), 0.0001f)
         assertEquals(9f / 16f, videoFeedSurfaceAspectRatio(-1.5f), 0.0001f)
     }
+
+    @Test
+    fun `progress is zero before the player is prepared`() {
+        // Player.duration is TIME_UNSET (-1) until prepared; a naive divide would
+        // yield a negative fraction. It must read as an empty bar, not a full one.
+        assertEquals(0f, progressFraction(positionMs = 0L, durationMs = -1L), 0.0001f)
+        assertEquals(0f, progressFraction(positionMs = 0L, durationMs = 0L), 0.0001f)
+    }
+
+    @Test
+    fun `progress is the position over duration mid clip`() {
+        assertEquals(0.5f, progressFraction(positionMs = 5_000L, durationMs = 10_000L), 0.0001f)
+        assertEquals(0.25f, progressFraction(positionMs = 3_750L, durationMs = 15_000L), 0.0001f)
+    }
+
+    @Test
+    fun `progress is full at the end and never overruns`() {
+        assertEquals(1f, progressFraction(positionMs = 10_000L, durationMs = 10_000L), 0.0001f)
+        // A position transiently past duration at a loop boundary must clamp to 1.
+        assertEquals(1f, progressFraction(positionMs = 11_000L, durationMs = 10_000L), 0.0001f)
+    }
 }

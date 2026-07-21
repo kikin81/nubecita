@@ -58,3 +58,22 @@ internal fun posterAlphaTarget(
  * the decoded refinement costs nothing in practice.)
  */
 internal fun videoFeedSurfaceAspectRatio(itemAspectRatio: Float?): Float = itemAspectRatio?.takeIf { it > 0f } ?: DEFAULT_VIDEO_ASPECT_RATIO
+
+/**
+ * Playback progress in `0f..1f` for the video progress bar.
+ *
+ * Both values come from the Media3 [androidx.media3.common.Player] at render
+ * time — NOT from `EmbedUi.Video.durationSeconds`, which the bench fixture
+ * declares as 8s while the bundled clips run 14–15s (and real posts carry wrong
+ * metadata too), so a metadata-driven bar fills to 100% at ~55% of the clip and
+ * then sits pinned.
+ *
+ * Returns `0f` when [durationMs] is non-positive — the player reports
+ * `TIME_UNSET` (`-1`) until it is prepared, and a raw divide would produce a
+ * negative or `NaN`/`Infinity` fraction that corrupts the draw. The `coerceIn`
+ * clamps a [positionMs] that briefly exceeds [durationMs] at a loop boundary.
+ */
+internal fun progressFraction(
+    positionMs: Long,
+    durationMs: Long,
+): Float = if (durationMs <= 0L) 0f else (positionMs.toFloat() / durationMs).coerceIn(0f, 1f)
