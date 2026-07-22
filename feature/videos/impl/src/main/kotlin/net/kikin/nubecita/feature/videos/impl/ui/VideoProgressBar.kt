@@ -44,6 +44,12 @@ internal fun VideoProgressBar(
 ) {
     var progress by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(player, isPlaying) {
+        // Snap to the CURRENT player's position before the loop (or before parking
+        // on a paused/absent player). This instance persists across swipes, so
+        // without the snap the bar would keep the previous clip's fill: for a frame
+        // on a playing→playing swipe, and indefinitely when the new clip is paused
+        // or still preparing (the loop below never runs to correct it).
+        progress = if (player != null) progressFraction(player.currentPosition, player.duration) else 0f
         if (player != null && isPlaying) {
             while (true) {
                 withFrameNanos { }
