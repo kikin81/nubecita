@@ -92,8 +92,14 @@ if (loaded.isEmpty()) { status = Error } else {
 - The tapped video is **guaranteed to exist** in the `posts_with_video` feed — it
   is a video post by this author, and both feeds are the same reverse-chronological
   author posts under different filters — so the loop terminates on the right item
-  for any real tap. Swipe-up then walks the already-loaded newer videos; swipe-down
-  continues normal forward pagination for older ones.
+  for any real tap.
+- Because the seek loads from the **top**, every video **newer** than the tapped one
+  is already in the list, above the open index: the user can swipe up to reach the
+  author's first (newest) video, and swipe down to paginate through older ones. The
+  tapped video is *not* item 0 — it sits at its true position with its predecessors
+  loaded above it. The feed is **videos-only**, so "the first item" here means the
+  first *video*, not the first Media-grid cell (the grid's photos are filtered out —
+  this is a video player, not the media grid).
 - The stop condition already covers the no-`startPostUri` case: the `do` body runs
   once and the `while` short-circuits on `route.startPostUri != null`, so a null
   start (today's trending/carousel entry with the video in page 1) loads exactly one
