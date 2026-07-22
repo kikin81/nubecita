@@ -37,4 +37,9 @@ internal class VideoFeedTestTagsTest {
     fun `poster tag value is pinned to video_feed_poster`() {
         assertEquals("video_feed_poster", VideoFeedTestTags.POSTER)
     }
+
+    @Test
+    fun `progress bar tag value is pinned`() {
+        assertEquals("video_feed_progress", VideoFeedTestTags.PROGRESS_BAR)
+    }
 }

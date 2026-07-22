@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -47,6 +48,7 @@ import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.feature.videos.impl.ui.VideoFeedPage
 import net.kikin.nubecita.feature.videos.impl.ui.VideoPageChrome
+import net.kikin.nubecita.feature.videos.impl.ui.VideoProgressBar
 import net.kikin.nubecita.feature.videos.impl.ui.posterAlphaTarget
 import net.kikin.nubecita.feature.videos.impl.ui.rememberVideoFeedInteractions
 import net.kikin.nubecita.feature.videos.impl.ui.surfaceTranslationPx
@@ -274,6 +276,24 @@ internal fun VideoFeedScreen(
                             )
                         }
                     }
+                    // Read-only playback progress at the foot of the feed. One
+                    // screen-level instance over the pager, reading the active
+                    // player + isPaused — its withFrameNanos loop advances only
+                    // the draw phase (see VideoProgressBar).
+                    //
+                    // No navigationBarsPadding: the Scaffold already insets this
+                    // content Box by innerPadding (which includes the nav-bar
+                    // inset), so adding it again double-counts and shoves the bar
+                    // up into the caption/author block. An 8dp lift off the
+                    // already-safe content bottom sits it just below the caption.
+                    VideoProgressBar(
+                        player = activePlayer,
+                        isPlaying = !state.isPaused,
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 8.dp),
+                    )
                 }
             }
         }

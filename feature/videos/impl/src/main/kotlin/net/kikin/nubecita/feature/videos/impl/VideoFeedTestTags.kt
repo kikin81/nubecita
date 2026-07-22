@@ -46,4 +46,7 @@ object VideoFeedTestTags {
 
     /** Right-rail overflow trigger cell. */
     const val RAIL_OVERFLOW: String = "video_feed_overflow"
+
+    /** Read-only playback progress bar at the foot of the feed. */
+    const val PROGRESS_BAR: String = "video_feed_progress"
 }
