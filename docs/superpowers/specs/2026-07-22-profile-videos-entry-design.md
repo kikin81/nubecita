@@ -40,15 +40,73 @@ data class VideoFeed(
   `VideoFeed(postUri)` is unchanged and stays trending — fully backward
   compatible).
 - `authorDid != null` → that author's videos.
-- `startPostUri` continues to resolve to an initial index **by identity** in the
-  ViewModel (`indexOfFirst { it.post.id == startPostUri }.coerceAtLeast(0)`). This
-  is why the route carries a URI, not an index: the Media grid shows images +
-  videos interleaved while the author feed is videos-only, so positions differ —
-  identity resolves the tapped video to the correct slot in the video-only feed,
-  and falls back to the top if it aged out.
+- `startPostUri` resolves to an initial index **by identity** in the ViewModel
+  (`indexOfFirst { it.post.id == startPostUri }`). This is why the route carries a
+  URI, not an index: the Media grid shows images + videos interleaved while the
+  author feed is videos-only, so positions differ — identity resolves the tapped
+  video to the correct slot in the video-only feed.
 
 `authorDid` holds whatever actor identifier the profile already has for the
 viewed user (a DID; `getAuthorFeed` accepts a DID as its `actor`).
+
+#### Opening at the tapped video — page-until-found
+
+Identity resolution only searches what is **loaded**, and the feed paginates
+(30 posts/page). The current single-page load is correct only when the tapped
+video falls in page 1; a video deep in a prolific profile would not be found and
+`indexOfFirst` → `-1` would silently open the newest video instead — the exact
+"it just plays the first video" failure this slice must avoid.
+
+So when a `startPostUri` is present, the ViewModel **loads pages from the top and
+accumulates until the tapped URI appears**, then opens the pool at that absolute
+index:
+
+The seek reuses the ViewModel's existing per-page handling — `page.items` →
+`it.toVideoFeedItemOrNull()`, dedup via `distinctBy { it.post.id }` (the appview
+can return a post twice), accumulate into `loaded` — and only wraps it in a loop:
+
+```
+// loaded: the existing MutableList<VideoFeedItem>
+var cursor: String? = null
+var pages = 0
+do {
+    val page = source.loadPage(cursor).getOrElse { /* onFailure → status = Error; return */ }
+    loaded += page.items.mapNotNull { it.toVideoFeedItemOrNull() }
+    // dedup across pages too, not just within one
+    val deduped = loaded.distinctBy { it.post.id }; loaded.clear(); loaded += deduped
+    cursor = page.cursor
+    pages++
+} while (
+    route.startPostUri != null &&
+    loaded.none { it.post.id == route.startPostUri } &&
+    cursor != null &&
+    pages < MAX_SEEK_PAGES
+)
+
+if (loaded.isEmpty()) { status = Error } else {
+    val initialIndex = loaded.indexOfFirst { it.post.id == route.startPostUri }.coerceAtLeast(0)
+    // unchanged: applyInteractions → setState(Content, activeIndex) → pool.bind(startIndex) → cache.seed
+}
+```
+
+- The tapped video is **guaranteed to exist** in the `posts_with_video` feed — it
+  is a video post by this author, and both feeds are the same reverse-chronological
+  author posts under different filters — so the loop terminates on the right item
+  for any real tap. Swipe-up then walks the already-loaded newer videos; swipe-down
+  continues normal forward pagination for older ones.
+- The stop condition already covers the no-`startPostUri` case: the `do` body runs
+  once and the `while` short-circuits on `route.startPostUri != null`, so a null
+  start (today's trending/carousel entry with the video in page 1) loads exactly one
+  page and opens at 0 — behavior unchanged. When a `startPostUri` is set, the loop
+  strengthens **every** entry (trending and profile alike).
+- `MAX_SEEK_PAGES` (e.g. 6 ≈ 180 videos) is a safety bound for pathological depth
+  and bug cases only; hitting it (or a genuinely aged-out post) falls back to index
+  0, matching today's behavior. Real taps resolve in one page for recent videos and
+  a handful for deep ones, behind the existing initial-load indicator.
+
+`loaded`, `VideoFeedItem`, `it.source`, `it.post`, and `toVideoFeedItemOrNull()`
+above are the ViewModel's existing internals; the change is the seek loop plus
+cross-page dedup, not new plumbing.
 
 ### 2. `AuthorVideoSource` (`:core:video-feed`)
 
@@ -156,8 +214,9 @@ Profile Media tab: tap a video cell (MediaCell.isVideo == true)
   → ProfileScreen collector → navState.add(route)
   → VideosNavigationModule entry<VideoFeed> builds VideoFeedViewModel(route)
   → sourceFactory.create(route): authorDid non-null → AuthorVideoSource(actor)
-  → loadPage(null) → getAuthorFeed(actor, filter="posts_with_video")
-  → startPostUri resolves to the tapped video's index; pool binds at that index
+  → seek: loadPage from the top, accumulating pages until post.id == startPostUri
+    (getAuthorFeed(actor, filter="posts_with_video") per page)
+  → pool binds all accumulated videos, startIndex = the tapped video's index
   → immersive vertical feed, that author's videos, opened at the tapped video
 ```
 
@@ -174,6 +233,12 @@ Profile Media tab: tap a video cell (MediaCell.isVideo == true)
 - **`VideoFeedViewModel`** (unit): constructed with a fake factory; a route with
   an `authorDid` drives the author source; the existing trending path (null
   `authorDid`) still works. Existing VM tests updated for the factory injection.
+  **Page-until-found is the key case to cover:** a `startPostUri` whose post is on
+  page 1 opens at its index; a `startPostUri` on page 2+ triggers additional
+  `loadPage` calls and opens at the correct **absolute** index (not 0); a
+  `startPostUri` never present (aged out / past `MAX_SEEK_PAGES`) falls back to 0;
+  no `startPostUri` loads exactly one page. Use a fake source that serves a
+  multi-page video list so the seek loop is actually exercised.
 - **`ProfileViewModel`** (unit): tapping a Media video cell emits
   `NavigateTo(VideoFeed(startPostUri = <uri>, authorDid = <actor>))`; tapping an
   image cell still emits the image-viewer effect.
