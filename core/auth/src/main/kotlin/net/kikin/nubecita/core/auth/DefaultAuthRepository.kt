@@ -27,6 +27,20 @@ internal class DefaultAuthRepository
                     Timber.tag(TAG).w(it, "beginLogin failed")
                 }
 
+        override suspend fun beginSignup(): Result<String> =
+            // Pin the auth server and the prompt=create capability gate explicitly
+            // rather than leaning on the library defaults: signup is only wired for
+            // bsky.social today, and requiring the server to advertise `create` in
+            // `prompt_values_supported` keeps us from opening a Custom Tab onto an
+            // entryway that can't honor the flow. Matches these to the AtOAuth
+            // defaults so an upstream default change can't silently drift behavior.
+            runCatching {
+                atOAuth.beginSignup(
+                    authServer = "bsky.social",
+                    requirePromptCreateSupport = true,
+                )
+            }.onFailure { Timber.tag(TAG).e(it, "beginSignup() failed") }
+
         override suspend fun completeLogin(redirectUri: String): Result<Unit> =
             runCatching {
                 atOAuth.completeLogin(redirectUri)
