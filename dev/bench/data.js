@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784707578063,
+  "lastUpdate": 1784794018837,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -745,6 +745,64 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 588,
             "range": "+/- 1.4%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "41b0c328282f84b9739eaea64bc765d2d37ec9c7",
+          "message": "ci(release): 1.316.0\n\n## [1.316.0](https://github.com/kikin81/nubecita/compare/v1.315.1...v1.316.0) (2026-07-23)",
+          "timestamp": "2026-07-23T04:17:23Z",
+          "url": "https://github.com/kikin81/nubecita/commit/41b0c328282f84b9739eaea64bc765d2d37ec9c7"
+        },
+        "date": 1784794016365,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 28,
+            "range": "+/- 15.3%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1510.542,
+            "range": "+/- 7.1%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1377.237,
+            "range": "+/- 4.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 662.646,
+            "range": "+/- 39.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1063.315,
+            "range": "+/- 23.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 598,
+            "range": "+/- 2.7%",
             "unit": "frames"
           }
         ]
