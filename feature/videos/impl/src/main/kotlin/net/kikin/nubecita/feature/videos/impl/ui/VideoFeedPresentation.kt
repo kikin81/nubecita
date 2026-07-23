@@ -60,6 +60,35 @@ internal fun posterAlphaTarget(
 internal fun videoFeedSurfaceAspectRatio(itemAspectRatio: Float?): Float = itemAspectRatio?.takeIf { it > 0f } ?: DEFAULT_VIDEO_ASPECT_RATIO
 
 /**
+ * The aspect ratio to size the shared video *surface* (the TextureView) to.
+ *
+ * Prefers the active player's DECODED size ([decodedWidthDp] / [decodedHeightDp])
+ * over the declared ratio, falling back to the declared ratio before the first
+ * frame and to [DEFAULT_VIDEO_ASPECT_RATIO] when nothing is known. A TextureView
+ * *fills* its box (it does not letterbox), so it must match the real video size or
+ * the clip stretches — and the declared ratio is unreliable: the
+ * `app.bsky.embed.video` `aspectRatio` field is optional, and when a record omits
+ * it the mapper fabricates 16:9, which would stretch a portrait clip (nubecita-mfac).
+ *
+ * This is the surface counterpart to the 1-arg [videoFeedSurfaceAspectRatio], which
+ * stays declared-only for the *poster*: the poster is a per-page image sized with
+ * `ContentScale.Fit` (it letterboxes, never stretches) and using a per-page declared
+ * ratio is what keeps a swipe from squishing the incoming page (nubecita-opqt). The
+ * decoded size is the ACTIVE player's, so it belongs to whatever clip the surface is
+ * actually showing — no cross-page lag.
+ */
+internal fun videoFeedSurfaceAspectRatio(
+    decodedWidthDp: Float?,
+    decodedHeightDp: Float?,
+    declaredAspectRatio: Float?,
+): Float =
+    if (decodedWidthDp != null && decodedHeightDp != null && decodedWidthDp > 0f && decodedHeightDp > 0f) {
+        decodedWidthDp / decodedHeightDp
+    } else {
+        declaredAspectRatio?.takeIf { it > 0f } ?: DEFAULT_VIDEO_ASPECT_RATIO
+    }
+
+/**
  * Playback progress in `0f..1f` for the video progress bar.
  *
  * Both values come from the Media3 [androidx.media3.common.Player] at render

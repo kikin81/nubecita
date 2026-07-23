@@ -86,23 +86,63 @@ internal class VideoFeedPresentationTest {
     }
 
     @Test
-    fun `surface ratio comes from the settled item, not the lagging decoded size`() {
-        // The aspect-lag bug: the surface was sized from the active player's decoded
-        // videoSizeDp, which lags the pager's settledPage during a swipe. So a
-        // landscape->portrait swipe briefly sized the surface 16:9 for the new
-        // portrait page. The surface must track the settled ITEM's declared ratio.
+    fun `poster ratio comes from the item's declared ratio`() {
+        // The per-page poster uses each item's own declared ratio (NOT a decoded
+        // value) so a swipe never squishes an incoming page's poster into the
+        // outgoing clip's ratio (the nubecita-opqt lag bug).
         assertEquals(0.5625f, videoFeedSurfaceAspectRatio(9f / 16f), 0.0001f)
         assertEquals(16f / 9f, videoFeedSurfaceAspectRatio(16f / 9f), 0.0001f)
     }
 
     @Test
-    fun `surface ratio falls back to portrait for a null or non-positive ratio`() {
+    fun `poster ratio falls back to portrait for a null or non-positive ratio`() {
         // A 0f/negative ratio would crash Modifier.aspectRatio (requires > 0), so the
         // render boundary drops it to the portrait default even though the mapper
         // already guards the source.
         assertEquals(9f / 16f, videoFeedSurfaceAspectRatio(null), 0.0001f)
         assertEquals(9f / 16f, videoFeedSurfaceAspectRatio(0f), 0.0001f)
         assertEquals(9f / 16f, videoFeedSurfaceAspectRatio(-1.5f), 0.0001f)
+    }
+
+    @Test
+    fun `surface prefers the decoded video size over a wrong declared ratio`() {
+        // The stretch bug (nubecita-mfac): a portrait video whose record omits the
+        // optional aspectRatio gets a fabricated 16:9 declared value from the mapper.
+        // The SURFACE (a TextureView that fills, not letterboxes) must follow the
+        // player's DECODED size once known, or a 720x1280 clip stretches into 16:9.
+        assertEquals(
+            0.5625f,
+            videoFeedSurfaceAspectRatio(decodedWidthDp = 720f, decodedHeightDp = 1280f, declaredAspectRatio = 16f / 9f),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun `surface uses the declared ratio until the video decodes`() {
+        // Before the active player reports a size (null decoded), the surface uses the
+        // declared ratio — this is the lag-free path for videos that DO declare a ratio.
+        assertEquals(
+            0.5625f,
+            videoFeedSurfaceAspectRatio(decodedWidthDp = null, decodedHeightDp = null, declaredAspectRatio = 9f / 16f),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun `surface falls back to portrait when nothing is known`() {
+        // No decoded size and no declared ratio (an aspectRatio-less video before its
+        // first frame) → portrait default, never a landscape box that would stretch.
+        assertEquals(
+            9f / 16f,
+            videoFeedSurfaceAspectRatio(decodedWidthDp = null, decodedHeightDp = null, declaredAspectRatio = null),
+            0.0001f,
+        )
+        // A zero/degenerate decoded size is ignored in favour of the declared ratio.
+        assertEquals(
+            9f / 16f,
+            videoFeedSurfaceAspectRatio(decodedWidthDp = 0f, decodedHeightDp = 1280f, declaredAspectRatio = null),
+            0.0001f,
+        )
     }
 
     @Test

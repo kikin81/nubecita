@@ -24,9 +24,13 @@ public class FakeVideoFeedSource
             val ITEMS: List<PostUi> =
                 listOf(
                     videoPost(1, "Trail run this morning", "hugo.jpg", "Hugo"),
-                    // Portrait 9:16 clip, second so a landscape -> portrait swipe is one
-                    // step from the top. Exercises the aspect-ratio transition
-                    // (nubecita aspect-lag bug).
+                    // Portrait clip that LIES about its ratio: the asset is 720x1280 but it
+                    // declares 16:9, simulating a record whose optional aspectRatio is absent
+                    // (the mapper fabricates 16:9). The surface must follow the decoded size,
+                    // not the declared 16:9, or the portrait clip stretches (nubecita-mfac).
+                    videoPost(4, "No aspect ratio in the record", "ivy.jpg", "Lyra", declaredAspectRatio = 16f / 9f),
+                    // Portrait 9:16 clip, so a landscape -> portrait swipe is one step away.
+                    // Exercises the aspect-ratio transition (nubecita aspect-lag bug).
                     videoPost(4, "Vertical vista", "ivy.jpg", "Ivy"),
                     videoPost(2, "Sunset over the bay", "ivy.jpg", "Ivy"),
                     videoPost(3, "Studio session take 4", "jess.jpg", "Jess"),
@@ -63,6 +67,7 @@ public class FakeVideoFeedSource
                 text: String,
                 avatar: String,
                 name: String,
+                declaredAspectRatio: Float = aspectFor(clip),
             ): PostUi =
                 PostUi(
                     id = "at://did:plc:benchvideo/app.bsky.feed.post/vid-$clip-${name.lowercase()}",
@@ -81,7 +86,7 @@ public class FakeVideoFeedSource
                         EmbedUi.Video(
                             posterUrl = "file:///android_asset/img/posts/video-poster-$clip.jpg",
                             playlistUrl = "asset:///video/clip-$clip.mp4",
-                            aspectRatio = aspectFor(clip),
+                            aspectRatio = declaredAspectRatio,
                             durationSeconds = durationFor(clip),
                             altText = null,
                         ),

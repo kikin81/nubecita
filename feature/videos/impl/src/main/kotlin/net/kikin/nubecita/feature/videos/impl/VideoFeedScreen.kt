@@ -163,13 +163,22 @@ internal fun VideoFeedScreen(
                     // only clears on EVENT_RENDERED_FIRST_FRAME from the newly attached
                     // surface — exactly the crossfade signal.
                     val presentationState = key(activePlayer) { rememberPresentationState(activePlayer) }
-                    // Size the surface from the settled ITEM's declared ratio, NOT the active
-                    // player's decoded videoSizeDp. videoSizeDp is tied to activePlayer, which
-                    // LAGS the pager's settledPage during a swipe — so preferring it sized the
-                    // surface to the OUTGOING clip's ratio for a frame (a 16:9 -> 9:16 swipe
-                    // briefly squished the portrait clip into a landscape box). The poster is
-                    // sized by this same value, so surface and poster never disagree.
-                    val settledAspectRatio = videoFeedSurfaceAspectRatio(settledItem?.aspectRatio)
+                    // Size the SURFACE from the active player's DECODED size when known, falling
+                    // back to the settled item's declared ratio before the first frame. The
+                    // TextureView fills its box (no letterbox), so it must match the real video
+                    // or the clip stretches — and the declared ratio is unreliable: the optional
+                    // app.bsky.embed.video aspectRatio is fabricated to 16:9 by the mapper when a
+                    // record omits it, which stretched aspectRatio-less portrait clips
+                    // (nubecita-mfac). The decoded size is the ACTIVE player's, so it belongs to
+                    // whatever clip the surface is showing — no cross-page lag (the poster keeps
+                    // its per-page declared ratio, so a swipe still can't squish it — nubecita-opqt).
+                    val decodedSize = presentationState.videoSizeDp
+                    val settledAspectRatio =
+                        videoFeedSurfaceAspectRatio(
+                            decodedWidthDp = decodedSize?.width,
+                            decodedHeightDp = decodedSize?.height,
+                            declaredAspectRatio = settledItem?.aspectRatio,
+                        )
 
                     activePlayer?.let { player ->
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
