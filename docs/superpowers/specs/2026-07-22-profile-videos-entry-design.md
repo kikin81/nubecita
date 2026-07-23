@@ -188,25 +188,39 @@ directly (only the ViewModel), so the removed binding has no other consumers.
 
 ### 4. Profile entry point
 
-`ProfileViewModel`'s Media-cell tap handling currently emits
-`ProfileEffect.NavigateToVideoPlayer(postUri)` for a video cell (routing to the
-single `@OuterShell` fullscreen `VideoPlayerRoute`). Redirect **only** that
-video-cell branch to the generic, already-wired effect:
+`ProfileViewModel` routes a Media video tap to
+`ProfileEffect.NavigateToVideoPlayer(postUri)` today (the single `@OuterShell`
+fullscreen `VideoPlayerRoute`) from **two** handler branches: the
+`OnMediaCellTapped` video case (`if (event.isVideo) …`) and `OnVideoTapped`.
+Redirect **both** video branches to the generic, already-wired effect:
 
 ```kotlin
-sendEffect(ProfileEffect.NavigateTo(VideoFeed(startPostUri = postUri, authorDid = actor)))
+sendEffect(
+    ProfileEffect.NavigateTo(
+        VideoFeed(startPostUri = event.postUri, authorDid = resolveActor()),
+    ),
+)
 ```
 
-- `actor` is the profile's actor identifier, already held by the ViewModel.
+- **`authorDid` comes from `resolveActor()`, not a field.** `actor` is only a
+  local inside `init` (`val actor = resolveActor()`); it is NOT a ViewModel
+  property, so referencing `actor` in a `handleEvent` branch would not compile.
+  `resolveActor()` (`route.handle ?: session.did`) is the private accessor the tab
+  loads already use, so the video feed resolves to the **same** actor the Media
+  grid was fetched with — which is what guarantees the video-vs-media ordering
+  alignment the page-until-found seek relies on. On a rendered profile it is
+  effectively non-null (a null actor is an error state handled at init); if it were
+  null, `authorDid` would be null and the factory would degrade to the trending
+  feed rather than crash.
 - `ProfileEffect.NavigateTo(key: NavKey)` is the existing canonical "push any
   MainShell sub-route" effect; the screen already maps it to
   `navState.add(key)`. `VideoFeed` is a `@MainShell` route (same shell as
   Profile), so no new host callback, no `@OuterShell` involvement.
-- Image cells (`isVideo == false`) are untouched — they keep routing to the
-  image viewer.
+- Image cells (`OnMediaCellTapped` with `isVideo == false`) are untouched — they
+  keep routing to the image viewer.
 - The `NavigateToVideoPlayer` effect + its host callback stay in place for any
-  other caller (e.g. inline post-card videos); only the Media-cell video branch
-  changes.
+  other caller (e.g. inline post-card videos); only the two Media video branches
+  change.
 
 **Module dependency:** `:feature:profile:impl` gains a dependency on
 `:feature:videos:api` (NavKey only — it already depends on other feature `:api`
@@ -245,9 +259,11 @@ Profile Media tab: tap a video cell (MediaCell.isVideo == true)
   `startPostUri` never present (aged out / past `MAX_SEEK_PAGES`) falls back to 0;
   no `startPostUri` loads exactly one page. Use a fake source that serves a
   multi-page video list so the seek loop is actually exercised.
-- **`ProfileViewModel`** (unit): tapping a Media video cell emits
-  `NavigateTo(VideoFeed(startPostUri = <uri>, authorDid = <actor>))`; tapping an
-  image cell still emits the image-viewer effect.
+- **`ProfileViewModel`** (unit): tapping a Media video cell (both the
+  `OnMediaCellTapped` video case and `OnVideoTapped`) emits
+  `NavigateTo(VideoFeed(startPostUri = <uri>, authorDid = <resolveActor()>))` with
+  the actor matching what the tabs load with; tapping an image cell still emits the
+  image-viewer effect.
 - **Bench:** a bench-flavor `VideoFeedSourceFactory` that returns the existing
   `FakeVideoFeedSource` for any route (keeps the profile-videos path offline);
   ensure the bench profile's Media grid exposes at least one tappable video cell
