@@ -138,6 +138,12 @@ class VideoFeedViewModel
                     cursor = null
                     endReached = false
                     var pages = 0
+                    // seenIds dedups across ALL accumulated pages (the appview can return a
+                    // post twice, which would duplicate pager keys — it keys on post.id) and
+                    // gives an O(1) "have we hit the target yet" check, so the accumulation
+                    // stays O(total items) rather than rebuilding the list each page.
+                    val seenIds = mutableSetOf<String>()
+                    var targetFound = false
                     // Seek: page from the top until the tapped post appears, so it opens at its
                     // ABSOLUTE index (not 0). Both the Media grid and this feed are the same
                     // reverse-chron author posts under different filters, so the target is
@@ -153,18 +159,20 @@ class VideoFeedViewModel
                                 setState { copy(status = VideoFeedStatus.Error) }
                                 return@launch
                             }
-                        loaded += page.items.mapNotNull { it.toVideoFeedItemOrNull() }
-                        // distinctBy across ALL accumulated pages: the appview can return a post
-                        // twice, which would duplicate pager keys (it keys on post.id).
-                        val deduped = loaded.distinctBy { it.post.id }
-                        loaded.clear()
-                        loaded += deduped
+                        page.items.mapNotNull { it.toVideoFeedItemOrNull() }.forEach { item ->
+                            // add() is false for a post already seen on an earlier page → skip it,
+                            // keeping the first occurrence (insertion order preserved).
+                            if (seenIds.add(item.post.id)) {
+                                loaded += item
+                                if (item.post.id == route.startPostUri) targetFound = true
+                            }
+                        }
                         cursor = page.cursor
                         endReached = page.cursor == null
                         pages++
                     } while (
                         route.startPostUri != null &&
-                        loaded.none { it.post.id == route.startPostUri } &&
+                        !targetFound &&
                         cursor != null &&
                         pages < MAX_SEEK_PAGES
                     )
