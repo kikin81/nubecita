@@ -22,6 +22,7 @@ import net.kikin.nubecita.core.video.playback.DataSaverStatus
 import net.kikin.nubecita.core.video.playback.VerticalVideoPlaylistPlayer
 import net.kikin.nubecita.core.videofeed.VideoFeedPage
 import net.kikin.nubecita.core.videofeed.VideoFeedSource
+import net.kikin.nubecita.core.videofeed.VideoFeedSourceFactory
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
@@ -44,6 +45,7 @@ class VideoFeedViewModelTest {
     val mainDispatcher = MainDispatcherExtension()
 
     private val source = mockk<VideoFeedSource>()
+    private val sourceFactory = mockk<VideoFeedSourceFactory> { every { create(any()) } returns source }
     private val pool = mockk<VerticalVideoPlaylistPlayer>(relaxed = true)
     private val shared = mockk<SharedVideoPlayer>(relaxed = true)
     private val dataSaver = mockk<DataSaverStatus>(relaxed = true) // isActive() = false by default → prewarm on
@@ -54,7 +56,10 @@ class VideoFeedViewModelTest {
             every { state } returns cacheState
         }
 
-    private fun vm(startPostUri: String? = null) = VideoFeedViewModel(VideoFeed(startPostUri), source, pool, shared, dataSaver, handler, interactionsCache)
+    private fun vm(
+        startPostUri: String? = null,
+        authorDid: String? = null,
+    ) = VideoFeedViewModel(VideoFeed(startPostUri, authorDid), sourceFactory, pool, shared, dataSaver, handler, interactionsCache)
 
     @Test
     fun init_releasesSharedPlayer_loadsFirstPage_bindsPool() =
@@ -266,6 +271,63 @@ class VideoFeedViewModelTest {
             advanceUntilIdle()
 
             verify { interactionsCache.seed(match { posts -> posts.map { it.id } == listOf("a") }) }
+        }
+
+    @Test
+    fun seek_opensAtAbsoluteIndex_whenTargetIsOnLaterPage() =
+        runTest(mainDispatcher.dispatcher) {
+            // page 1 = a,b,c (cursor c1); page 2 = d,e (cursor null). Target "e" is index 4 overall.
+            coEvery { source.loadPage(null) } returns
+                Result.success(VideoFeedPage(listOf(videoPost("a"), videoPost("b"), videoPost("c")), cursor = "c1"))
+            coEvery { source.loadPage("c1") } returns
+                Result.success(VideoFeedPage(listOf(videoPost("d"), videoPost("e")), cursor = null))
+
+            val viewModel = vm(startPostUri = "e")
+            advanceUntilIdle()
+
+            val status = viewModel.uiState.value.status
+            assertInstanceOf(VideoFeedStatus.Content::class.java, status)
+            assertEquals(5, (status as VideoFeedStatus.Content).items.size) // both pages accumulated
+            assertEquals(4, viewModel.uiState.value.activeIndex) // absolute index of "e", not 0
+            coVerify { source.loadPage("c1") } // it actually paged forward
+        }
+
+    @Test
+    fun seek_stopsAtFirstPage_whenTargetIsThere() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns
+                Result.success(VideoFeedPage(listOf(videoPost("a"), videoPost("b")), cursor = "c1"))
+
+            val viewModel = vm(startPostUri = "b")
+            advanceUntilIdle()
+
+            assertEquals(1, viewModel.uiState.value.activeIndex)
+            coVerify(exactly = 0) { source.loadPage("c1") } // no needless second page
+        }
+
+    @Test
+    fun seek_fallsBackToTop_whenTargetNeverFound() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns
+                Result.success(VideoFeedPage(listOf(videoPost("a"), videoPost("b")), cursor = null))
+
+            val viewModel = vm(startPostUri = "does-not-exist")
+            advanceUntilIdle()
+
+            assertEquals(0, viewModel.uiState.value.activeIndex)
+        }
+
+    @Test
+    fun noStartUri_loadsExactlyOnePage() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns
+                Result.success(VideoFeedPage(listOf(videoPost("a")), cursor = "c1"))
+
+            val viewModel = vm(startPostUri = null)
+            advanceUntilIdle()
+
+            assertEquals(0, viewModel.uiState.value.activeIndex)
+            coVerify(exactly = 0) { source.loadPage("c1") } // seek short-circuits with no target
         }
 
     @Test

@@ -33,4 +33,5 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class VideoFeed(
     val startPostUri: String? = null,
+    val authorDid: String? = null,
 ) : NavKey

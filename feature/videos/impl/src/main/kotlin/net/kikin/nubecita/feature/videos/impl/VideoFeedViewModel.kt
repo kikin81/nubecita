@@ -24,6 +24,7 @@ import net.kikin.nubecita.core.video.playback.PlaylistPlaybackState
 import net.kikin.nubecita.core.video.playback.VerticalVideoPlaylistPlayer
 import net.kikin.nubecita.core.video.playback.VideoSource
 import net.kikin.nubecita.core.videofeed.VideoFeedSource
+import net.kikin.nubecita.core.videofeed.VideoFeedSourceFactory
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
@@ -46,7 +47,7 @@ class VideoFeedViewModel
     @AssistedInject
     constructor(
         @Assisted private val route: VideoFeed,
-        private val source: VideoFeedSource,
+        private val sourceFactory: VideoFeedSourceFactory,
         private val pool: VerticalVideoPlaylistPlayer,
         private val sharedVideoPlayer: SharedVideoPlayer,
         private val dataSaver: DataSaverStatus,
@@ -65,6 +66,7 @@ class VideoFeedViewModel
         val activePlayer: StateFlow<Player?> = pool.activePlayer
         val playbackState: StateFlow<PlaylistPlaybackState> = pool.playbackState
 
+        private val source: VideoFeedSource = sourceFactory.create(route.authorDid)
         private val loaded = mutableListOf<VideoFeedItem>()
         private var cursor: String? = null
         private var endReached = false
@@ -132,37 +134,51 @@ class VideoFeedViewModel
             setState { copy(status = VideoFeedStatus.Loading) }
             loadJob =
                 viewModelScope.launch {
-                    source
-                        .loadPage(null)
-                        .onSuccess { page ->
-                            cursor = page.cursor
-                            endReached = page.cursor == null
-                            loaded.clear()
-                            // distinctBy: the appview can return the same post twice, which
-                            // would render duplicated in the carousel AND produce duplicate
-                            // keys in the pager (it keys on post.id) — a lazy layout rejects
-                            // those. See nubecita-zdv8.13.
-                            loaded += page.items.mapNotNull { it.toVideoFeedItemOrNull() }.distinctBy { it.post.id }
-                            if (loaded.isEmpty()) {
+                    loaded.clear()
+                    cursor = null
+                    endReached = false
+                    var pages = 0
+                    // Seek: page from the top until the tapped post appears, so it opens at its
+                    // ABSOLUTE index (not 0). Both the Media grid and this feed are the same
+                    // reverse-chron author posts under different filters, so the target is
+                    // guaranteed present for a real tap; the loop terminates on it. With no
+                    // startPostUri the do-body runs once and the while short-circuits (today's
+                    // trending behaviour: one page, open at 0). MAX_SEEK_PAGES bounds pathological
+                    // depth / bug cases → fall back to top.
+                    do {
+                        val result = source.loadPage(cursor)
+                        val page =
+                            result.getOrElse {
+                                Timber.w(it, "video feed page load failed")
                                 setState { copy(status = VideoFeedStatus.Error) }
-                            } else {
-                                // Resolve by identity, not position: the carousel's page and
-                                // this one are separate fetches of a live feed, so an index
-                                // would denote a different post. A post that has aged out of
-                                // the page opens at the top rather than failing.
-                                val initialIndex = loaded.indexOfFirst { it.post.id == route.startPostUri }.coerceAtLeast(0)
-                                // Merge the cache NOW rather than waiting for the collector's next
-                                // emission: a post already liked on another surface would otherwise
-                                // render unliked for a frame before snapping.
-                                val merged = loaded.toImmutableList().applyInteractions(postInteractionsCache.state.value)
-                                setState { copy(status = VideoFeedStatus.Content(merged), activeIndex = initialIndex) }
-                                pool.bind(loaded.map { it.source }, startIndex = initialIndex)
-                                postInteractionsCache.seed(loaded.map { it.post })
+                                return@launch
                             }
-                        }.onFailure {
-                            Timber.w(it, "video feed first page failed")
-                            setState { copy(status = VideoFeedStatus.Error) }
-                        }
+                        loaded += page.items.mapNotNull { it.toVideoFeedItemOrNull() }
+                        // distinctBy across ALL accumulated pages: the appview can return a post
+                        // twice, which would duplicate pager keys (it keys on post.id).
+                        val deduped = loaded.distinctBy { it.post.id }
+                        loaded.clear()
+                        loaded += deduped
+                        cursor = page.cursor
+                        endReached = page.cursor == null
+                        pages++
+                    } while (
+                        route.startPostUri != null &&
+                        loaded.none { it.post.id == route.startPostUri } &&
+                        cursor != null &&
+                        pages < MAX_SEEK_PAGES
+                    )
+
+                    if (loaded.isEmpty()) {
+                        setState { copy(status = VideoFeedStatus.Error) }
+                    } else {
+                        // -1 only if genuinely absent (aged out / past MAX_SEEK_PAGES) → open at top.
+                        val initialIndex = loaded.indexOfFirst { it.post.id == route.startPostUri }.coerceAtLeast(0)
+                        val merged = loaded.toImmutableList().applyInteractions(postInteractionsCache.state.value)
+                        setState { copy(status = VideoFeedStatus.Content(merged), activeIndex = initialIndex) }
+                        pool.bind(loaded.map { it.source }, startIndex = initialIndex)
+                        postInteractionsCache.seed(loaded.map { it.post })
+                    }
                 }
         }
 
@@ -266,5 +282,8 @@ class VideoFeedViewModel
         private companion object {
             /** Load the next page once the active index is within this many items of the tail. */
             const val PREFETCH_THRESHOLD = 3
+
+            /** Safety bound for the open-at-tapped seek; a real tap resolves well within this. */
+            const val MAX_SEEK_PAGES = 6
         }
     }
