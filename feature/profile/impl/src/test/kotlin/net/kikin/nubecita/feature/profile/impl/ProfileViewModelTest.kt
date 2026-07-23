@@ -40,8 +40,10 @@ import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.profile.impl.data.ProfileHeaderWithViewer
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
+import net.kikin.nubecita.feature.videos.api.VideoFeed
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -827,26 +829,36 @@ internal class ProfileViewModelTest {
         }
 
     @Test
-    fun `OnMediaCellTapped with isVideo emits NavigateToVideoPlayer instead of MediaViewer`() =
+    fun onMediaCellTapped_video_navigatesToVideoFeedForThisAuthor() =
         runTest(mainDispatcher.dispatcher) {
-            val vm = newVm(repo = FakeProfileRepository())
+            // Own-profile route (handle = null) resolves via resolveActor() to
+            // the signed-in session DID — the same TEST_ACTOR newVm's default
+            // sessionState carries. Mirrors the existing header/tab test setup
+            // (newVm(repo = FakeProfileRepository())) used throughout this file.
+            val viewModel = newVm(repo = FakeProfileRepository())
             advanceUntilIdle()
 
-            vm.effects.test {
-                // Video cells in the grid route around MediaViewer (which
-                // would dead-end on "post has no images") and into the
-                // fullscreen video player route.
-                vm.handleEvent(
-                    ProfileEvent.OnMediaCellTapped(
-                        postUri = "at://did:plc:alice/post/v1",
-                        isVideo = true,
-                    ),
-                )
+            viewModel.effects.test {
+                viewModel.handleEvent(ProfileEvent.OnMediaCellTapped(postUri = "at://post/vid", isVideo = true))
                 val effect = awaitItem()
-                assertEquals(
-                    ProfileEffect.NavigateToVideoPlayer(postUri = "at://did:plc:alice/post/v1"),
-                    effect,
-                )
+                assertInstanceOf(ProfileEffect.NavigateTo::class.java, effect)
+                val key = (effect as ProfileEffect.NavigateTo).key
+                assertInstanceOf(VideoFeed::class.java, key)
+                assertEquals("at://post/vid", (key as VideoFeed).startPostUri)
+                assertEquals(TEST_ACTOR, key.authorDid)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun onMediaCellTapped_image_stillOpensMediaViewer() =
+        runTest(mainDispatcher.dispatcher) {
+            val viewModel = newVm(repo = FakeProfileRepository())
+            advanceUntilIdle()
+
+            viewModel.effects.test {
+                viewModel.handleEvent(ProfileEvent.OnMediaCellTapped(postUri = "at://post/img", isVideo = false))
+                assertInstanceOf(ProfileEffect.NavigateToMediaViewer::class.java, awaitItem())
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -2425,6 +2437,11 @@ internal class ProfileViewModelTest {
         val EMPTY_PAGE = ProfileTabPage(items = persistentListOf(), nextCursor = null)
         const val SAMPLE_FOLLOW_URI = "at://did:plc:viewer123/app.bsky.graph.follow/sample-rkey"
         val SAMPLE_FOLLOWING = ViewerRelationship.Following(followUri = SAMPLE_FOLLOW_URI)
+
+        // resolveActor() for the own-profile route (handle = null, newVm's
+        // default) falls back to the signed-in session DID — newVm's default
+        // sessionState is SessionState.SignedIn(did = "did:plc:viewer123").
+        const val TEST_ACTOR = "did:plc:viewer123"
     }
 
     /**

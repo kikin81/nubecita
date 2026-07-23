@@ -72,6 +72,10 @@ dependencies {
     // a video media-grid cell is tapped (the MediaViewer can't render
     // video embeds, so the route here splits image vs video taps).
     implementation(project(":feature:videoplayer:api"))
+    // VideoFeed NavKey — the Media-tab video-cell tap opens the immersive
+    // vertical video feed (over this author's posts_with_video) instead of
+    // the single fullscreen player (nubecita-zdv8.7).
+    implementation(project(":feature:videos:api"))
     implementation(libs.androidx.browser)
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.atproto.models)
