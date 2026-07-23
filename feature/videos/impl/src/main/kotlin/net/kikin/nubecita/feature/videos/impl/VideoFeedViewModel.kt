@@ -172,7 +172,12 @@ class VideoFeedViewModel
                     if (loaded.isEmpty()) {
                         setState { copy(status = VideoFeedStatus.Error) }
                     } else {
-                        // -1 only if genuinely absent (aged out / past MAX_SEEK_PAGES) → open at top.
+                        // -1 → open at top. Reached only when startPostUri is genuinely
+                        // absent from this feed: aged out, past MAX_SEEK_PAGES, or a Media
+                        // cell that isn't in posts_with_video (a record-with-media video
+                        // counts as a Media video cell but the author-feed filter may omit
+                        // it). The seek already stops at end-of-feed (cursor == null), so the
+                        // fallback is graceful rather than a runaway.
                         val initialIndex = loaded.indexOfFirst { it.post.id == route.startPostUri }.coerceAtLeast(0)
                         val merged = loaded.toImmutableList().applyInteractions(postInteractionsCache.state.value)
                         setState { copy(status = VideoFeedStatus.Content(merged), activeIndex = initialIndex) }

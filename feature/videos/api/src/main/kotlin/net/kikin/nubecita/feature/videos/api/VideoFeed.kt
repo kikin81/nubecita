@@ -33,5 +33,11 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class VideoFeed(
     val startPostUri: String? = null,
+    /**
+     * The author whose videos back this feed, or `null` for the global trending
+     * feed. Named for the common case (a DID) but holds whatever actor identifier
+     * the entry point has — a DID or a handle — since `getAuthorFeed`'s `actor`
+     * accepts either.
+     */
     val authorDid: String? = null,
 ) : NavKey
