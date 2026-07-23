@@ -4,17 +4,16 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import net.kikin.nubecita.core.videofeed.DefaultTrendingVideoSource
-import net.kikin.nubecita.core.videofeed.VideoFeedSource
+import net.kikin.nubecita.core.videofeed.DefaultVideoFeedSourceFactory
+import net.kikin.nubecita.core.videofeed.VideoFeedSourceFactory
 
 /**
- * Binds the MVP [VideoFeedSource] to the trending (`thevids`) source. When the
- * profile-videos entry lands (epic nubecita-zdv8 Slice 6), introduce a
- * qualifier or factory so callers select the source per entry point.
+ * Binds the [VideoFeedSourceFactory] that selects per entry point: trending
+ * (`thevids`) when no author, else an author's `posts_with_video` feed.
  */
 @Module
 @InstallIn(SingletonComponent::class)
 internal interface VideoFeedModule {
     @Binds
-    fun bindTrendingVideoSource(impl: DefaultTrendingVideoSource): VideoFeedSource
+    fun bindVideoFeedSourceFactory(impl: DefaultVideoFeedSourceFactory): VideoFeedSourceFactory
 }

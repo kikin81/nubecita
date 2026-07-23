@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.feed.impl.ui
 
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CompletableDeferred
@@ -10,6 +11,7 @@ import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.core.videofeed.VideoFeedPage
 import net.kikin.nubecita.core.videofeed.VideoFeedSource
+import net.kikin.nubecita.core.videofeed.VideoFeedSourceFactory
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
@@ -27,6 +29,7 @@ class TrendingVideosViewModelTest {
     val mainDispatcher = MainDispatcherExtension()
 
     private val source = mockk<VideoFeedSource>()
+    private val sourceFactory = mockk<VideoFeedSourceFactory> { every { create(any()) } returns source }
 
     @Test
     fun load_mapsVideoPostsToThumbsKeyedByPostUri() =
@@ -34,7 +37,7 @@ class TrendingVideosViewModelTest {
             coEvery { source.loadPage(null) } returns
                 Result.success(VideoFeedPage(listOf(videoPost("a", "poster-a"), videoPost("b", "poster-b")), cursor = "c1"))
 
-            val vm = TrendingVideosViewModel(source)
+            val vm = TrendingVideosViewModel(sourceFactory)
             vm.load()
             advanceUntilIdle()
 
@@ -54,7 +57,7 @@ class TrendingVideosViewModelTest {
                     VideoFeedPage(listOf(videoPost("a", "poster-a"), nonVideoPost("x"), videoPost("b", "poster-b")), cursor = null),
                 )
 
-            val vm = TrendingVideosViewModel(source)
+            val vm = TrendingVideosViewModel(sourceFactory)
             vm.load()
             advanceUntilIdle()
 
@@ -69,7 +72,7 @@ class TrendingVideosViewModelTest {
                     VideoFeedPage(listOf(videoPost("a", "poster-a"), videoPost("b", "poster-b"), videoPost("a", "poster-a")), cursor = null),
                 )
 
-            val vm = TrendingVideosViewModel(source)
+            val vm = TrendingVideosViewModel(sourceFactory)
             vm.load()
             advanceUntilIdle()
 
@@ -87,7 +90,7 @@ class TrendingVideosViewModelTest {
             coEvery { source.loadPage(null) } coAnswers { gate.await() } andThen
                 Result.success(VideoFeedPage(listOf(videoPost("b", "poster-b")), cursor = null))
 
-            val vm = TrendingVideosViewModel(source)
+            val vm = TrendingVideosViewModel(sourceFactory)
             vm.load()
             runCurrent() // let the first load start and park on the gate
             vm.load() // cancels the parked first load, launches the second
@@ -105,7 +108,7 @@ class TrendingVideosViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             coEvery { source.loadPage(null) } returns Result.failure(RuntimeException("boom"))
 
-            val vm = TrendingVideosViewModel(source)
+            val vm = TrendingVideosViewModel(sourceFactory)
             vm.load()
             advanceUntilIdle()
 

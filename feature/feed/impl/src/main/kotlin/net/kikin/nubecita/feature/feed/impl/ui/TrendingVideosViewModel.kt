@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.videofeed.VideoFeedSource
+import net.kikin.nubecita.core.videofeed.VideoFeedSourceFactory
 import net.kikin.nubecita.data.models.EmbedUi
 import timber.log.Timber
 import javax.inject.Inject
@@ -38,8 +39,10 @@ data class TrendingVideoThumb(
 class TrendingVideosViewModel
     @Inject
     constructor(
-        private val source: VideoFeedSource,
+        private val sourceFactory: VideoFeedSourceFactory,
     ) : ViewModel() {
+        private val source: VideoFeedSource = sourceFactory.create(null)
+
         private val _thumbs = MutableStateFlow<ImmutableList<TrendingVideoThumb>>(persistentListOf())
         val thumbs: StateFlow<ImmutableList<TrendingVideoThumb>> = _thumbs.asStateFlow()
 

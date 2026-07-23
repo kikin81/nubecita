@@ -37,6 +37,7 @@ import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
 import net.kikin.nubecita.feature.profile.impl.data.dedupeByKey
+import net.kikin.nubecita.feature.videos.api.VideoFeed
 import java.io.IOException
 
 /**
@@ -187,7 +188,11 @@ internal class ProfileViewModel
                     sendEffect(ProfileEffect.NavigateToPost(event.quotedPostUri))
                 is ProfileEvent.OnMediaCellTapped ->
                     if (event.isVideo) {
-                        sendEffect(ProfileEffect.NavigateToVideoPlayer(event.postUri))
+                        sendEffect(
+                            ProfileEffect.NavigateTo(
+                                VideoFeed(startPostUri = event.postUri, authorDid = resolveActor()),
+                            ),
+                        )
                     } else {
                         sendEffect(ProfileEffect.NavigateToMediaViewer(event.postUri, imageIndex = 0))
                     }
