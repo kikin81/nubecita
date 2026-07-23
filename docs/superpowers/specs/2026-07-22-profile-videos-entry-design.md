@@ -158,24 +158,30 @@ class AuthorVideoSource @AssistedInject constructor(
 
 Injected into `VideoFeedViewModel` **in place of** the direct `VideoFeedSource`:
 
+The factory takes `authorDid: String?`, **not** the `VideoFeed` route — the route
+is a `:feature:videos:api` type and `:core:video-feed` must not depend on a
+feature module (it would be the module tree's only core→feature edge). The
+ViewModel, which owns the route, passes `route.authorDid` through:
+
 ```kotlin
 interface VideoFeedSourceFactory {
-    fun create(route: VideoFeed): VideoFeedSource
+    /** @param authorDid null → trending feed; non-null → that author's videos. */
+    fun create(authorDid: String?): VideoFeedSource
 }
 
 class DefaultVideoFeedSourceFactory @Inject constructor(
     private val trending: Provider<DefaultTrendingVideoSource>,
     private val authorSourceFactory: AuthorVideoSource.Factory,
 ) : VideoFeedSourceFactory {
-    override fun create(route: VideoFeed): VideoFeedSource =
-        route.authorDid
+    override fun create(authorDid: String?): VideoFeedSource =
+        authorDid
             ?.let { authorSourceFactory.create(it) }
             ?: trending.get()
 }
 ```
 
-`VideoFeedViewModel.init` (or wherever `source` is first used) resolves the
-source once: `private val source = sourceFactory.create(route)`. Everything
+`VideoFeedViewModel` resolves the source once from the route:
+`private val source = sourceFactory.create(route.authorDid)`. Everything
 downstream (paging, pool binding, the `startPostUri`→index resolution) is
 unchanged.
 
@@ -188,18 +194,23 @@ directly (only the ViewModel), so the removed binding has no other consumers.
 
 ### 4. Profile entry point
 
-`ProfileViewModel` routes a Media video tap to
-`ProfileEffect.NavigateToVideoPlayer(postUri)` today (the single `@OuterShell`
-fullscreen `VideoPlayerRoute`) from **two** handler branches: the
-`OnMediaCellTapped` video case (`if (event.isVideo) …`) and `OnVideoTapped`.
-Redirect **both** video branches to the generic, already-wired effect:
+The **only** branch to change is the Media-grid video cell:
+`ProfileEvent.OnMediaCellTapped` with `isVideo == true`, which today emits
+`ProfileEffect.NavigateToVideoPlayer(postUri)` (the single `@OuterShell`
+fullscreen `VideoPlayerRoute`). Redirect just that case to the generic,
+already-wired effect:
 
 ```kotlin
-sendEffect(
-    ProfileEffect.NavigateTo(
-        VideoFeed(startPostUri = event.postUri, authorDid = resolveActor()),
-    ),
-)
+is ProfileEvent.OnMediaCellTapped ->
+    if (event.isVideo) {
+        sendEffect(
+            ProfileEffect.NavigateTo(
+                VideoFeed(startPostUri = event.postUri, authorDid = resolveActor()),
+            ),
+        )
+    } else {
+        sendEffect(ProfileEffect.NavigateToMediaViewer(event.postUri, imageIndex = 0))
+    }
 ```
 
 - **`authorDid` comes from `resolveActor()`, not a field.** `actor` is only a
@@ -218,9 +229,9 @@ sendEffect(
   Profile), so no new host callback, no `@OuterShell` involvement.
 - Image cells (`OnMediaCellTapped` with `isVideo == false`) are untouched — they
   keep routing to the image viewer.
-- The `NavigateToVideoPlayer` effect + its host callback stay in place for any
-  other caller (e.g. inline post-card videos); only the two Media video branches
-  change.
+- **`OnVideoTapped` is NOT changed.** Despite the name it is an inline `PostCard`
+  video in the Posts/Replies tabs (per its KDoc), which is out of scope — it keeps
+  routing to `NavigateToVideoPlayer`. Only the Media-grid cell moves.
 
 **Module dependency:** `:feature:profile:impl` gains a dependency on
 `:feature:videos:api` (NavKey only — it already depends on other feature `:api`
@@ -233,7 +244,7 @@ Profile Media tab: tap a video cell (MediaCell.isVideo == true)
   → ProfileViewModel emits NavigateTo(VideoFeed(startPostUri = <uri>, authorDid = <profile actor>))
   → ProfileScreen collector → navState.add(route)
   → VideosNavigationModule entry<VideoFeed> builds VideoFeedViewModel(route)
-  → sourceFactory.create(route): authorDid non-null → AuthorVideoSource(actor)
+  → sourceFactory.create(route.authorDid): non-null → AuthorVideoSource(actor)
   → seek: loadPage from the top, accumulating pages until post.id == startPostUri
     (getAuthorFeed(actor, filter="posts_with_video") per page)
   → pool binds all accumulated videos, startIndex = the tapped video's index
@@ -259,11 +270,13 @@ Profile Media tab: tap a video cell (MediaCell.isVideo == true)
   `startPostUri` never present (aged out / past `MAX_SEEK_PAGES`) falls back to 0;
   no `startPostUri` loads exactly one page. Use a fake source that serves a
   multi-page video list so the seek loop is actually exercised.
-- **`ProfileViewModel`** (unit): tapping a Media video cell (both the
-  `OnMediaCellTapped` video case and `OnVideoTapped`) emits
+- **`ProfileViewModel`** (unit): tapping a Media video cell
+  (`OnMediaCellTapped(isVideo = true)`) emits
   `NavigateTo(VideoFeed(startPostUri = <uri>, authorDid = <resolveActor()>))` with
-  the actor matching what the tabs load with; tapping an image cell still emits the
-  image-viewer effect.
+  the actor matching what the tabs load with; an image cell
+  (`OnMediaCellTapped(isVideo = false)`) still emits the image-viewer effect; and
+  `OnVideoTapped` (inline post-card) still emits `NavigateToVideoPlayer`
+  (unchanged).
 - **Bench:** a bench-flavor `VideoFeedSourceFactory` that returns the existing
   `FakeVideoFeedSource` for any route (keeps the profile-videos path offline);
   ensure the bench profile's Media grid exposes at least one tappable video cell
