@@ -1,6 +1,6 @@
 Obrigado por usar o nubecita! Novidades:
-• Salvos: salve publicações para ler depois e encontre todas em um só lugar no seu perfil.
-• Selos de verificação em perfis, publicações e buscas.
-• GIFs e figurinhas no compositor.
-• Mais estável: corrigimos várias falhas (widgets, navegação) e deixamos a inicialização mais rápida.
+• Vídeos — um feed de vídeo vertical em tela cheia. Deslize pelos clipes em alta, eles repetem sozinhos, toque para pausar e toque duas vezes para curtir.
+• Assista aos vídeos de qualquer conta como um feed vertical infinito, direto do perfil.
+• Salve, compartilhe e modere direto do player.
+• Mais rápido e estável: perfis de inicialização renovados e correções de falhas.
 Obrigado por estar aqui! 💙
