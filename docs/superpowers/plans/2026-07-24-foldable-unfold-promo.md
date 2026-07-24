@@ -33,8 +33,8 @@ Deduplicate the brand tokens and CTA outro out of `Promo.tsx` so `Foldable.tsx` 
 
 **Files:**
 - Create: `promo/remotion/src/shared.tsx`
-- Modify: `promo/remotion/src/Promo.tsx` (imports; delete local palette/font consts; replace inline CTA outro block)
-- Modify: `promo/remotion/src/Root.tsx` (import `Layout` from `./shared` instead of `./Promo`)
+- Modify: `promo/remotion/src/Promo.tsx` (imports; delete local palette/font consts; replace inline CTA outro block; re-export `Layout`)
+- (`Root.tsx` is untouched in this task — its existing `import { Promo, Journey, Layout } from "./Promo"` keeps resolving because `Promo.tsx` re-exports `Layout`.)
 
 **Interfaces:**
 - Produces: `PALETTE: { NAVY; NAVY_2; ACCENT; WHITE }`, `FRAUNCES: string`, `INTER: string`, `type Layout = "vertical" | "square" | "wide"`, `CtaOutro: React.FC<{ layout: Layout; startSec: number }>`.
@@ -148,10 +148,12 @@ import {
   spring,
   Sequence,
 } from "remotion";
-import { PALETTE, FRAUNCES, INTER, Layout, CtaOutro } from "./shared";
+import { PALETTE, FRAUNCES, Layout, CtaOutro } from "./shared";
 
 const { NAVY, NAVY_2, ACCENT, WHITE } = PALETTE;
 ```
+
+(Do NOT import `INTER` here — after the refactor `Promo.tsx` no longer renders the tagline itself, so importing `INTER` would be an unused-import error.)
 
 Then in `Promo.tsx`:
 - **Delete** the two `loadFont` imports, the `const { fontFamily: FRAUNCES } = …` / `INTER` lines, the four `const NAVY … WHITE` lines, and the local `export type Layout = …` line (now imported).
@@ -164,16 +166,17 @@ Then in `Promo.tsx`:
 
 (`INTER` is re-exported for any downstream use; `FRAUNCES`/`ACCENT`/`WHITE`/`NAVY*` remain referenced by `CaptionView`/`geometry`/background.)
 
-- [ ] **Step 4: Point `Root.tsx` at the shared `Layout`**
+- [ ] **Step 4: Re-export `Layout` from `Promo.tsx` (keeps `Root.tsx` unchanged)**
 
-In `Root.tsx`, change `import { Promo, Journey, Layout } from "./Promo";` to:
+Add this line to `Promo.tsx` (e.g. just below its imports) so `Journey`'s
+`Layout` references resolve and `Root.tsx`'s existing
+`import { …, Layout } from "./Promo"` keeps working with no edit:
 
 ```tsx
-import { Promo, Journey } from "./Promo";
-import { Layout } from "./shared";
+export type { Layout } from "./shared";
 ```
 
-(`Promo.tsx` should re-export `Layout` too, OR keep `Journey` importing it — simplest: `Promo.tsx` adds `export type { Layout } from "./shared";` so existing `Journey` references resolve. Add that re-export line to `Promo.tsx`.)
+Do not modify `Root.tsx` in this task.
 
 - [ ] **Step 5: Typecheck**
 
