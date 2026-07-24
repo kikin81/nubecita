@@ -2,6 +2,7 @@ import React from "react";
 import { Composition } from "remotion";
 import { Promo, Journey, Layout } from "./Promo";
 import { Asset, ASSET_SPECS } from "./Assets";
+import { Foldable, FoldableJourney } from "./Foldable";
 
 // Phone captures are 640x1428 (device 1280x2856); tablet captures are 1280x800
 // (device 2560x1600). 60fps. Each journey's captured clip drives one story;
@@ -85,6 +86,28 @@ const JOURNEYS: JourneySpec[] = [
   },
 ];
 
+const COVER_ASPECT = 1080 / 2092; // 0.516
+const INNER_ASPECT = 2208 / 1840; // 1.20
+
+type FoldableSpec = FoldableJourney & { id: string; durationSec: number; layouts: Layout[] };
+
+const FOLDABLE: FoldableSpec = {
+  id: "foldable",
+  coverSrc: "fold_cover.mp4",
+  innerSrc: "fold_inner.mp4",
+  coverAspect: COVER_ASPECT,
+  innerAspect: INNER_ASPECT,
+  foldStartSec: 4.0,
+  foldDurSec: 3.0,
+  outroStartSec: 11.0,
+  durationSec: 15,
+  layouts: ["vertical", "wide"], // 9x16 + 16x9; add "square" for the 1x1 Ads cut
+  captions: [
+    { at: 0.4, dur: 3.4, lead: "Your whole timeline —", accent: "in your pocket." },
+    { at: 7.2, dur: 3.4, lead: "Two panes,", accent: "more context." },
+  ],
+};
+
 const DIMS: Record<Layout, { w: number; h: number; tag: string }> = {
   vertical: { w: 1080, h: 1920, tag: "9x16" },
   square: { w: 1080, h: 1080, tag: "1x1" },
@@ -113,6 +136,22 @@ export const RemotionRoot: React.FC = () => {
           );
         }),
       )}
+
+      {FOLDABLE.layouts.map((layout) => {
+        const d = DIMS[layout];
+        return (
+          <Composition
+            key={`foldable-${d.tag}`}
+            id={`Foldable-${d.tag}`}
+            component={Foldable}
+            durationInFrames={Math.round(FOLDABLE.durationSec * FPS)}
+            fps={FPS}
+            width={d.w}
+            height={d.h}
+            defaultProps={{ layout, journey: FOLDABLE }}
+          />
+        );
+      })}
 
       {/* Static image assets (rendered as stills) */}
       {ASSET_SPECS.map((spec) => (
