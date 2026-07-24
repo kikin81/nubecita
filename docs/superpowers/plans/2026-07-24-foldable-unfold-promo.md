@@ -44,7 +44,7 @@ Deduplicate the brand tokens and CTA outro out of `Promo.tsx` so `Foldable.tsx` 
 
 Render a still of the Tablet CTA-outro frame (Tablet uses `tablet.mp4`, which exists locally):
 
-Run: `npx remotion still Tablet-16x9 ../out/base-outro.png --frame=810`
+Run: `npx remotion still Tablet-16x9 out/base-outro.png --frame=810`
 Expected: PNG written; it shows the "Nubecita / A fast, native Bluesky client / [Play badge]" outro.
 
 - [ ] **Step 2: Create `shared.tsx`**
@@ -187,11 +187,11 @@ Expected: no errors.
 
 Run:
 ```bash
-npx remotion still Tablet-16x9 ../out/after-outro.png --frame=810
+npx remotion still Tablet-16x9 out/after-outro.png --frame=810
 ```
 Then compare bytes/pixels:
 ```bash
-cmp ../out/base-outro.png ../out/after-outro.png && echo "IDENTICAL" || echo "DIFF — inspect both PNGs"
+cmp out/base-outro.png out/after-outro.png && echo "IDENTICAL" || echo "DIFF — inspect both PNGs"
 ```
 Expected: `IDENTICAL` (the refactor is behavior-preserving). If DIFF, open both — any visible change means the outro was altered; reconcile before committing.
 
@@ -309,8 +309,8 @@ Expected: `done: fold_cover_raw.mp4 fold_inner_raw.mp4` and both files present i
 
 Extract a late frame from each and eyeball that the cover feed and the inner **left** pane show the *same* 3rd card, and the inner **right** pane shows that post's thread:
 ```bash
-ffmpeg -y -sseof -2 -i fold_cover_raw.mp4 -frames:v 1 ../out/chk_cover.png
-ffmpeg -y -sseof -2 -i fold_inner_raw.mp4 -frames:v 1 ../out/chk_inner.png
+ffmpeg -y -sseof -2 -i fold_cover_raw.mp4 -frames:v 1 remotion/out/chk_cover.png
+ffmpeg -y -sseof -2 -i fold_inner_raw.mp4 -frames:v 1 remotion/out/chk_inner.png
 ```
 Expected: `chk_cover.png` = single-column feed resting on post N; `chk_inner.png` = two-pane, left list on post N, right pane its thread. If the inner is single-pane (not two-pane), **lower the density** (e.g. `340`) so 2208px reads as a wider dp → expanded, and re-run. If taps missed, adjust `tap`/`drag` coords (device space) and re-run.
 
@@ -558,7 +558,7 @@ Expected: no errors.
 
 - [ ] **Step 4: Render an open-state still**
 
-Run: `npx remotion still Foldable-9x16 ../out/foldable-open.png --frame=540`
+Run: `npx remotion still Foldable-9x16 out/foldable-open.png --frame=540`
 Expected (frame 540 = 9.0s, in the open window): the bezelled two-pane device centered upper-2/3 (left list pane on post N, right its thread), the "Two panes, more context." caption below, on the navy gradient. Inspect the PNG.
 
 - [ ] **Step 5: Commit**
@@ -721,7 +721,7 @@ Tune these constants until it reads as a real Fold (this is expected iteration, 
 
 - [ ] **Step 4: Render the full 9x16 to confirm no dropped frames**
 
-Run: `npx remotion render Foldable-9x16 ../out/foldable-9x16.mp4`
+Run: `npx remotion render Foldable-9x16 out/foldable-9x16.mp4`
 Expected: completes without error; open the mp4 and confirm the unfold plays smoothly.
 
 - [ ] **Step 5: Commit**
@@ -748,7 +748,7 @@ Confirm 16:9 (and optionally 1:1) fit correctly and produce the deliverable rend
 
 - [ ] **Step 1: Render the 16:9 still and check fit**
 
-Run: `npx remotion still Foldable-16x9 ../out/foldable-16x9-open.png --frame=540`
+Run: `npx remotion still Foldable-16x9 out/foldable-16x9-open.png --frame=540`
 Expected: the open near-square device fits within the wide frame without clipping, caption legible. If the device is too tall/short for `wide`, adjust the `maxH`/`maxW` factors in `fitInner` (e.g. gate on a `layout`/aspect argument) — keep `9x16` unchanged (re-render `Foldable-9x16` still to confirm no regression).
 
 - [ ] **Step 2: (Optional) add the 1:1 Ads cut**
@@ -759,10 +759,10 @@ Only if the full Ads trifecta is wanted: change `FOLDABLE.layouts` in `Root.tsx`
 
 Run:
 ```bash
-npx remotion render Foldable-9x16 ../out/foldable-9x16.mp4
-npx remotion render Foldable-16x9 ../out/foldable-16x9.mp4
+npx remotion render Foldable-9x16 out/foldable-9x16.mp4
+npx remotion render Foldable-16x9 out/foldable-16x9.mp4
 ```
-Expected: both complete cleanly. These are the deliverables (git-ignored under `promo/out/`).
+Expected: both complete cleanly. These are the deliverables (git-ignored under `promo/remotion/out/`).
 
 - [ ] **Step 4: Commit any fit/registration tweaks**
 
