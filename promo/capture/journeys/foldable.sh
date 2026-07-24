@@ -68,4 +68,13 @@ tap 700 580; pause 2.8
 SH pkill -INT screenrecord >/dev/null 2>&1 || true; wait "$RID" 2>/dev/null || true; pause 1
 A pull /sdcard/fold_inner.mp4 fold_inner_raw.mp4 >/dev/null
 
-echo "done: fold_cover_raw.mp4  fold_inner_raw.mp4"
+# ---------- Encode raws -> git-ignored public assets ----------
+# Cover is used as a scrolling video; the inner two-pane is used as a STILL
+# (the capture's filled-detail window is only ~1.8s, too short to cover the
+# composition's open phase), extracted from the filled tail of the inner clip.
+echo "[encode] -> remotion/public/"
+ffmpeg -y -i fold_cover_raw.mp4 -c:v libx264 -pix_fmt yuv420p -an remotion/public/fold_cover.mp4 2>/dev/null
+ffmpeg -y -i fold_inner_raw.mp4 -c:v libx264 -pix_fmt yuv420p -an remotion/public/fold_inner.mp4 2>/dev/null
+ffmpeg -y -sseof -1 -i fold_inner_raw.mp4 -frames:v 1 remotion/public/fold_inner.png 2>/dev/null
+
+echo "done: remotion/public/{fold_cover.mp4, fold_inner.mp4, fold_inner.png}"

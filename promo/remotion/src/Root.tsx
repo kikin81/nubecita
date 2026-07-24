@@ -94,17 +94,17 @@ type FoldableSpec = FoldableJourney & { id: string; durationSec: number; layouts
 const FOLDABLE: FoldableSpec = {
   id: "foldable",
   coverSrc: "fold_cover.mp4",
-  innerSrc: "fold_inner.mp4",
+  innerSrc: "fold_inner.png",
   coverAspect: COVER_ASPECT,
   innerAspect: INNER_ASPECT,
-  foldStartSec: 4.0,
-  foldDurSec: 3.0,
+  foldStartSec: 3.6,
+  foldDurSec: 2.6,
   outroStartSec: 11.0,
   durationSec: 15,
   layouts: ["vertical", "wide"], // 9x16 + 16x9; add "square" for the 1x1 Ads cut
   captions: [
-    { at: 0.4, dur: 3.4, lead: "Your whole timeline —", accent: "in your pocket." },
-    { at: 7.2, dur: 3.4, lead: "Two panes,", accent: "more context." },
+    { at: 0.4, dur: 3.0, lead: "Your whole timeline —", accent: "in your pocket." },
+    { at: 6.7, dur: 3.7, lead: "Two panes,", accent: "more context." },
   ],
 };
 
