@@ -1,6 +1,6 @@
 ¡Gracias por usar nubecita! Novedades:
-• Guardados: guarda publicaciones para leerlas más tarde y encuéntralas en un solo lugar en tu perfil.
-• Insignias de verificación en perfiles, publicaciones y búsquedas.
-• GIFs y stickers en el editor.
-• Más estable: corregimos varios fallos (widgets, navegación) e hicimos el inicio más rápido.
+• Videos: un feed de video vertical a pantalla completa. Desliza entre los clips en tendencia, se repiten solos, toca para pausar y toca dos veces para dar me gusta.
+• Mira los videos de cualquier cuenta como su propio feed vertical infinito, directo desde su perfil.
+• Guarda, comparte y modera desde el reproductor.
+• Más rápido y estable: perfiles de inicio renovados y correcciones de fallos.
 ¡Gracias por acompañarnos! 💙

@@ -1,6 +1,6 @@
 Thanks for using nubecita! What's new:
-• Bookmarks — save posts to read later and find them all in one place on your profile.
-• Verified badges on profiles, posts, and search results.
-• GIFs & stickers in the composer.
-• More stable — we fixed several crashes (widgets, navigation) and made cold starts faster.
+• Videos — a full-screen, vertical video feed. Swipe through trending clips, loop and tap to pause, double-tap to like.
+• Watch any account's videos as their own endless vertical feed, straight from their profile.
+• Bookmark, share, and moderate right from the player.
+• Faster and more stable — refreshed startup profiles and crash fixes.
 Thanks for being here. 💙
