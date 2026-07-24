@@ -141,8 +141,8 @@ export const RemotionRoot: React.FC = () => {
         const d = DIMS[layout];
         return (
           <Composition
-            key={`foldable-${d.tag}`}
-            id={`Foldable-${d.tag}`}
+            key={`${FOLDABLE.id}-${d.tag}`}
+            id={`${cap(FOLDABLE.id)}-${d.tag}`}
             component={Foldable}
             durationInFrames={Math.round(FOLDABLE.durationSec * FPS)}
             fps={FPS}

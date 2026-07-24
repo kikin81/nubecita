@@ -7,6 +7,8 @@
 # Bench flavor, all fake/apolitical data. Restores display + demo mode on exit.
 # NOTE: input tap/swipe coords are in the wm-size DEVICE space, not the record size.
 set -euo pipefail
+# All pulls/encodes are relative to promo/ — run from there (guard, like tablet.sh assumes).
+[ -d remotion/public ] || { echo "run this from the promo/ directory"; exit 1; }
 SERIAL="${1:-37201FDHS002UN}"; PKG="net.kikin.nubecita"
 A(){ adb -s "$SERIAL" "$@"; }; SH(){ A shell "$@"; }
 tap(){ SH input tap "$1" "$2"; }
@@ -74,7 +76,8 @@ A pull /sdcard/fold_inner.mp4 fold_inner_raw.mp4 >/dev/null
 # composition's open phase), extracted from the filled tail of the inner clip.
 echo "[encode] -> remotion/public/"
 ffmpeg -y -i fold_cover_raw.mp4 -c:v libx264 -pix_fmt yuv420p -an remotion/public/fold_cover.mp4 2>/dev/null
-ffmpeg -y -i fold_inner_raw.mp4 -c:v libx264 -pix_fmt yuv420p -an remotion/public/fold_inner.mp4 2>/dev/null
+# The inner two-pane is consumed as a STILL (see note above), so only the filled
+# frame is needed — no fold_inner.mp4 encode. Inspect motion from fold_inner_raw.mp4.
 ffmpeg -y -sseof -1 -i fold_inner_raw.mp4 -frames:v 1 remotion/public/fold_inner.png 2>/dev/null
 
-echo "done: remotion/public/{fold_cover.mp4, fold_inner.mp4, fold_inner.png}"
+echo "done: remotion/public/{fold_cover.mp4, fold_inner.png}"
