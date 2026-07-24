@@ -186,6 +186,12 @@ const FoldingDevice: React.FC<{ journey: FoldableJourney; dw: number; dh: number
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+  // glare only flashes DURING the open, 0 at rest — otherwise its tail lingers
+  // in the side margin on wide aspects where the device doesn't fill the frame.
+  const glareOpacity = interpolate(unfold, [0.25, 0.5, 0.8], [0, 1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
   // Split the panels at the app's actual list/detail divider (~52% of the
   // source frame), not at 50% — otherwise the right panel shows a sliver of the
   // list pane at the crease. The crease then falls exactly on the app's gutter.
@@ -261,7 +267,7 @@ const FoldingDevice: React.FC<{ journey: FoldableJourney; dw: number; dh: number
           background: "linear-gradient(105deg, transparent 0%, rgba(255,255,255,0.10) 50%, transparent 100%)",
           transform: `translateX(${glare * dw}px)`,
           mixBlendMode: "screen",
-          opacity: innerOpacity,
+          opacity: glareOpacity,
           borderRadius: radius,
         }}
       />
