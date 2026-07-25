@@ -35,7 +35,7 @@ export const fitInner = (innerAspect: number, w: number, h: number) => {
     dh = maxH;
     dw = dh * innerAspect;
   }
-  return { dw, dh };
+  return { dw: Math.round(dw), dh: Math.round(dh) };
 };
 
 const CaptionView: React.FC<{ lead: string; accent: string; w: number; y: number }> = ({
@@ -174,8 +174,8 @@ const FoldingDevice: React.FC<{ journey: FoldableJourney; dw: number; dh: number
   dh,
   unfold,
 }) => {
-  const radius = dw * 0.045;
-  const bezel = dw * 0.02;
+  const radius = Math.round(dw * 0.045);
+  const bezel = Math.round(dw * 0.02);
   const rightRot = interpolate(unfold, [0, 1], [-155, 0]); // deg, swings on the spine
   const coverOpacity = interpolate(unfold, [0, 0.42], [1, 0], { extrapolateRight: "clamp" });
   const innerOpacity = interpolate(unfold, [0.32, 0.6], [0, 1], {
@@ -195,10 +195,10 @@ const FoldingDevice: React.FC<{ journey: FoldableJourney; dw: number; dh: number
   // Split the panels at the app's actual list/detail divider (~52% of the
   // source frame), not at 50% — otherwise the right panel shows a sliver of the
   // list pane at the crease. The crease then falls exactly on the app's gutter.
-  const crease = dw * 0.004;
+  const crease = Math.round(dw * 0.004);
   const SPLIT = 0.52;
   const contentW = dw - 2 * bezel - 2 * crease; // the two inner screens tile this
-  const leftInnerW = contentW * SPLIT;
+  const leftInnerW = Math.round(contentW * SPLIT);
   const leftW = leftInnerW + bezel + crease;
   const rightW = dw - leftW;
 
