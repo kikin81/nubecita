@@ -90,10 +90,21 @@ limits → compress → upload is therefore not stylistic; re-encoding a 3-minut
 ### D3 — Compress with Media3 Transformer, bitrate derived from duration
 
 ```
-targetBitrate = min(DEFAULT_BITRATE, (SIZE_BUDGET_BYTES * 8) / durationSeconds)
+targetBitrate =
+    if (durationSeconds > 0) min(DEFAULT_BITRATE, (SIZE_BUDGET_BYTES * 8) / durationSeconds)
+    else DEFAULT_BITRATE
 ```
 
 with the longest edge capped at 1080 px, H.264 video, AAC audio.
+
+`durationSeconds` comes from `MediaMetadataRetriever`, which returns null for a
+corrupt or unreadable container — so the divisor must be guarded. But falling
+back to `DEFAULT_BITRATE` silently abandons the size bound this decision exists
+to provide. The guard is therefore paired with a **post-transcode size check**:
+if the encoded file still exceeds the cap, the pipeline fails with
+`CompressionFailed` rather than starting an upload the service will reject.
+That check also turns the bound from *computed* into *enforced*, which is worth
+having even when the duration is known.
 
 The arithmetic is the whole point. 1080p30 phone video runs around 20 Mbps, so three
 minutes is roughly 450 MB against a 100 MB cap — most real recordings fail without
@@ -116,8 +127,17 @@ constructed around a single `baseUrl` with an `HttpClient` that installs OAuth/D
 credentials — sending those to `video.bsky.app` would be wrong even if it were possible.
 
 `getJobStatus` and `getUploadLimits` still go through the SDK, via a second
-`XrpcClient(baseUrl = "https://video.bsky.app")` built on a plain `HttpClient`. They are
-ordinary typed queries and there is no reason to hand-roll them.
+`XrpcClient(baseUrl = "https://video.bsky.app")`. They are ordinary typed queries and
+there is no reason to hand-roll them.
+
+That client is **not** built on a bare `HttpClient`. `getUploadLimits` is documented
+"for the authenticated user" and the video service will reject it unauthenticated, but
+`XrpcClient` takes credentials from its `HttpClient`'s plugins and has no per-call header
+parameter. So the client is constructed with a `defaultRequest` block that attaches
+`Authorization: Bearer <serviceAuthToken>` — the same token minted for the upload leg,
+supplied lazily so a single 30-minute token covers the probe, the upload, and the poll
+loop. It must not reuse the PDS `HttpClient`, whose DPoP-bound OAuth credentials are
+wrong for this host.
 
 So the exception to "all networking goes through the SDK" is exactly one function, and
 `design.md` plus the capability spec both say why. This is deliberate scoping, not drift.

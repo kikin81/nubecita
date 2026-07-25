@@ -106,6 +106,8 @@ The system SHALL allow up to 4 image attachments per composition. Attachments MU
 
 The picker's media-type filter SHALL be `PickVisualMedia.ImageAndVideo` rather than images-only, so a single entry point serves both media kinds. The reducer SHALL route the picker result by MIME type: `video/*` URIs populate the video slot (at most one, subject to the mutual-exclusion rule), and all other URIs populate `attachments` under the existing cap. When a multi-select returns a video alongside images, the reducer SHALL accept the first video and drop the images, because the two cannot coexist in one post.
 
+Dropping the images SHALL NOT be silent. The composer SHALL surface a `ComposerEffect` explaining that a post carries either one video or up to four images, never both. A user who selected six items and sees one appear has been given no way to distinguish a deliberate constraint from a bug, and the same message serves the reverse case (attaching a video that clears existing photos).
+
 #### Scenario: Picker invocation respects the cap
 
 - **WHEN** `state.attachments.size == 2` and the user taps "Add image"
@@ -140,6 +142,11 @@ The picker's media-type filter SHALL be `PickVisualMedia.ImageAndVideo` rather t
 
 - **WHEN** the picker returns one video URI and two image URIs
 - **THEN** `state.video` is populated from the video URI and `state.attachments` remains empty
+
+#### Scenario: Dropping media explains itself
+
+- **WHEN** a picker result or a new video attachment causes existing media to be discarded
+- **THEN** a `ComposerEffect` is emitted stating that a post carries either one video or up to four images, never both
 
 ### Requirement: One embed per post
 

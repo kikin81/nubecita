@@ -3,8 +3,21 @@ package net.kikin.nubecita.core.videoupload
 import io.github.kikin81.atproto.app.bsky.embed.AspectRatio
 import io.github.kikin81.atproto.runtime.Blob
 
-/** Valid range for every `progress` value on this hierarchy. */
-private val PROGRESS_RANGE = 0f..1f
+/**
+ * Clamp a reported fraction into the `0f..1f` that every `progress` field on
+ * this hierarchy promises.
+ *
+ * Producers MUST route through this. `Transformer` and Ktor's `onUpload` both
+ * derive fractions from integer counters, which can land marginally outside the
+ * range, and a video whose duration metadata is unreadable can produce `NaN`.
+ * None of that is worth crashing an upload over — a progress bar is cosmetic,
+ * and the pipeline's correctness does not depend on it.
+ *
+ * `NaN` maps to `0f` rather than being clamped: `Float.NaN.coerceIn(0f, 1f)`
+ * returns `NaN` (every NaN comparison is false), so coercion alone would let it
+ * through to the UI.
+ */
+internal fun Float.asUploadProgress(): Float = if (isNaN()) 0f else coerceIn(0f, 1f)
 
 /**
  * One observable step of the video publishing pipeline.
@@ -17,6 +30,10 @@ private val PROGRESS_RANGE = 0f..1f
  * **before** [Compressing] because transcoding is the most expensive thing this
  * app does to the battery and thermal budget, and both real rejection causes
  * (unverified account email, exhausted daily quota) are knowable up front.
+ *
+ * Every `progress` field is in `0f..1f`. The constructors do not enforce it —
+ * crashing an in-flight upload over a cosmetic value would be a worse outcome
+ * than a clamped bar — so producers normalize through [asUploadProgress].
  */
 sealed interface VideoUploadState {
     /**
@@ -36,11 +53,7 @@ sealed interface VideoUploadState {
      */
     data class Compressing(
         val progress: Float,
-    ) : VideoUploadState {
-        init {
-            require(progress in PROGRESS_RANGE) { "progress must be in 0f..1f, was $progress" }
-        }
-    }
+    ) : VideoUploadState
 
     /**
      * Transmitting the compressed bytes to the video service.
@@ -49,11 +62,7 @@ sealed interface VideoUploadState {
      */
     data class Uploading(
         val progress: Float,
-    ) : VideoUploadState {
-        init {
-            require(progress in PROGRESS_RANGE) { "progress must be in 0f..1f, was $progress" }
-        }
-    }
+    ) : VideoUploadState
 
     /**
      * Uploaded; waiting on the server-side transcode job.
@@ -62,11 +71,7 @@ sealed interface VideoUploadState {
      */
     data class Processing(
         val progress: Float,
-    ) : VideoUploadState {
-        init {
-            require(progress in PROGRESS_RANGE) { "progress must be in 0f..1f, was $progress" }
-        }
-    }
+    ) : VideoUploadState
 
     /**
      * Terminal success. Everything needed to write `app.bsky.embed.video`.

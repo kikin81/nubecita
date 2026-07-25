@@ -39,7 +39,11 @@ This ordering is normative, not incidental: transcoding is the most expensive st
 
 ### Requirement: Compression bounds output size as a function of clip duration
 
-The system SHALL re-encode the source clip with `androidx.media3.transformer.Transformer` before upload, targeting H.264 video and AAC audio with the longest edge capped at 1080 px. The target video bitrate SHALL be computed as `min(defaultBitrate, (SIZE_BUDGET_BYTES * 8) / durationSeconds)` where `SIZE_BUDGET_BYTES` is a margin below the 100 MB service cap, so that output size is bounded by construction rather than by assumption.
+The system SHALL re-encode the source clip with `androidx.media3.transformer.Transformer` before upload, targeting H.264 video and AAC audio with the longest edge capped at 1080 px. For a strictly positive `durationSeconds`, the target video bitrate SHALL be computed as `min(defaultBitrate, (SIZE_BUDGET_BYTES * 8) / durationSeconds)` where `SIZE_BUDGET_BYTES` is a margin below the 100 MB service cap, so that output size is bounded by construction rather than by assumption.
+
+When the duration is non-positive or cannot be read — `MediaMetadataRetriever` returns null for a corrupt container — the system SHALL fall back to `defaultBitrate` rather than dividing.
+
+Because that fallback abandons the computed bound, the system SHALL additionally verify the encoded file against the service cap after transcoding and terminate with `CompressionFailed` if it exceeds it, rather than beginning an upload the service will reject. This check applies on every path, so the size bound is enforced rather than merely computed.
 
 A fixed bitrate SHALL NOT be used: at any bitrate high enough to look acceptable on a short clip, a clip near the duration limit would exceed the cap.
 
@@ -58,9 +62,21 @@ A fixed bitrate SHALL NOT be used: at any bitrate high enough to look acceptable
 - **WHEN** any clip within the accepted duration limit completes compression
 - **THEN** the produced file is no larger than the service's 100 MB cap
 
+#### Scenario: Unreadable duration falls back instead of dividing
+
+- **WHEN** the source's duration metadata is absent, zero, or negative
+- **THEN** the target bitrate is `defaultBitrate` and no division is performed
+
+#### Scenario: An oversized encode fails instead of uploading
+
+- **WHEN** the transcoded file exceeds the service cap, whichever bitrate path produced it
+- **THEN** the pipeline terminates with `Failed(CompressionFailed)` and no upload is attempted
+
 ### Requirement: Aspect ratio accounts for container rotation metadata
 
 The system SHALL derive the `AspectRatio` written to `app.bsky.embed.video` from the source's `METADATA_KEY_VIDEO_WIDTH` and `METADATA_KEY_VIDEO_HEIGHT`, and SHALL swap width and height when `METADATA_KEY_VIDEO_ROTATION` is `90` or `270`.
+
+When either dimension is non-positive or unreadable, the system SHALL **omit** the aspect ratio rather than publishing a placeholder. `app.bsky.embed.video`'s `aspectRatio` is optional (`AtField.Missing`), so omission is representable — and a substituted 1:1 would be a silent lie that every client renders, letterboxing the video exactly as an unrotated value would. An absent ratio lets each client fall back to its own measurement; a wrong one does not.
 
 Portrait phone recordings are commonly stored as landscape frames plus a 90-degree rotation flag. Reporting the unrotated dimensions would make every such video render letterboxed in every AT Protocol client, not only in Nubecita.
 
@@ -73,6 +89,11 @@ Portrait phone recordings are commonly stored as landscape frames plus a 90-degr
 
 - **WHEN** the source reports width 1920, height 1080, rotation 0
 - **THEN** the emitted aspect ratio is width 1920, height 1080
+
+#### Scenario: Unreadable dimensions omit the ratio rather than substituting one
+
+- **WHEN** either reported dimension is zero, negative, or absent
+- **THEN** no aspect ratio is emitted and `app.bsky.embed.video` is written without the field
 
 ### Requirement: The upload leg uses service auth against the video service host
 
