@@ -16,10 +16,9 @@ import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
 import androidx.media3.transformer.VideoEncoderSettings
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -30,6 +29,7 @@ import net.kikin.nubecita.core.videoupload.asUploadProgress
 import net.kikin.nubecita.core.videoupload.targetBitrateBps
 import timber.log.Timber
 import java.io.File
+import java.util.UUID
 import kotlin.coroutines.resume
 
 /**
@@ -55,17 +55,27 @@ internal class Media3VideoCompressor(
     ): CompressionResult {
         val durationMs = sourceProbe.probe(input).durationMs
         val bitrate = targetBitrateBps(durationMs)
-        val output = File(outputDir, "upload-${input.hashCode()}.mp4")
+        // UUID, not input.hashCode(): distinct URIs can collide, and a retry
+        // or a concurrent compose would otherwise reuse the same path. The
+        // caller owns deleting a successful output once it is uploaded.
+        val output = File(outputDir, "upload-${UUID.randomUUID()}.mp4")
 
         Timber.tag(TAG).d("compressing durationMs=%s targetBitrate=%d", durationMs, bitrate)
 
         val result =
-            runCatching { runTransform(input, output, bitrate, onProgress) }
-                .getOrElse { cause ->
-                    output.delete()
-                    Timber.tag(TAG).w(cause, "transcode failed")
-                    return CompressionResult.Failure(VideoUploadError.CompressionFailed(cause.message))
-                }
+            try {
+                runTransform(input, output, bitrate, onProgress)
+            } catch (cancellation: CancellationException) {
+                // Rethrow before the generic branch. runCatching would have
+                // swallowed this and reported a compression failure, breaking
+                // the cancel-on-remove contract the composer depends on.
+                output.delete()
+                throw cancellation
+            } catch (cause: Exception) {
+                output.delete()
+                Timber.tag(TAG).w(cause, "transcode failed")
+                return CompressionResult.Failure(VideoUploadError.CompressionFailed(cause.message))
+            }
 
         if (result != null) {
             output.delete()
@@ -93,29 +103,34 @@ internal class Media3VideoCompressor(
         onProgress: (Float) -> Unit,
     ): VideoUploadError? =
         withContext(Dispatchers.Main) {
-            suspendCancellableCoroutine { continuation ->
-                val transformer = buildTransformer(bitrateBps, continuation)
-                val item =
-                    EditedMediaItem
-                        .Builder(MediaItem.fromUri(input))
-                        .setEffects(
-                            Effects(
-                                // audioProcessors =
-                                emptyList(),
-                                // Cap the longest edge rather than forcing a
-                                // resolution: upscaling a 720p source to 1080p
-                                // would spend bitrate inventing detail.
-                                listOf(Presentation.createForShortSide(MAX_DIMENSION_PX)),
-                            ),
-                        ).build()
+            lateinit var transformer: Transformer
+            withProgressPolling(
+                pollIntervalMs = PROGRESS_POLL_MS,
+                poll = { reportProgress(transformer, onProgress) },
+            ) {
+                suspendCancellableCoroutine { continuation ->
+                    transformer = buildTransformer(bitrateBps, continuation)
+                    val item =
+                        EditedMediaItem
+                            .Builder(MediaItem.fromUri(input))
+                            .setEffects(
+                                Effects(
+                                    // audioProcessors =
+                                    emptyList(),
+                                    // Cap the longest edge rather than forcing a
+                                    // resolution: upscaling a 720p source to 1080p
+                                    // would spend bitrate inventing detail.
+                                    listOf(Presentation.createForShortSide(MAX_DIMENSION_PX)),
+                                ),
+                            ).build()
 
-                continuation.invokeOnCancellation {
-                    // Cancel must also happen on the Looper thread.
-                    CoroutineScope(Dispatchers.Main).launch { transformer.cancel() }
+                    continuation.invokeOnCancellation {
+                        // Cancel must also happen on the Looper thread.
+                        CoroutineScope(Dispatchers.Main).launch { transformer.cancel() }
+                    }
+
+                    transformer.start(item, output.absolutePath)
                 }
-
-                transformer.start(item, output.absolutePath)
-                pollProgress(this, transformer, onProgress)
             }
         }
 
@@ -166,22 +181,17 @@ internal class Media3VideoCompressor(
             ).build()
 
     /**
-     * Poll rather than push: [Transformer] exposes progress only by query, and
-     * the loop dies with the coroutine so a cancelled compress stops reporting.
+     * One progress sample. [Transformer] exposes progress only by query, so
+     * [withProgressPolling] calls this on an interval and owns the loop's
+     * lifecycle — including stopping it when the export finishes.
      */
-    private fun pollProgress(
-        scope: CoroutineScope,
+    private fun reportProgress(
         transformer: Transformer,
         onProgress: (Float) -> Unit,
     ) {
-        scope.launch(Dispatchers.Main) {
-            val holder = ProgressHolder()
-            while (isActive) {
-                if (transformer.getProgress(holder) == Transformer.PROGRESS_STATE_AVAILABLE) {
-                    onProgress((holder.progress / 100f).asUploadProgress())
-                }
-                delay(PROGRESS_POLL_MS)
-            }
+        val holder = ProgressHolder()
+        if (transformer.getProgress(holder) == Transformer.PROGRESS_STATE_AVAILABLE) {
+            onProgress((holder.progress / 100f).asUploadProgress())
         }
     }
 

@@ -49,6 +49,7 @@ internal fun verifyWithinCap(
         null
     } else {
         VideoUploadError.CompressionFailed(
-            "Encoded video is ${sizeBytes / 1024 / 1024}MB, over the ${maxBytes / 1024 / 1024}MB limit",
+            "Encoded video is ${sizeBytes / 1024 / 1024}MB ($sizeBytes bytes), " +
+                "over the ${maxBytes / 1024 / 1024}MB limit ($maxBytes bytes)",
         )
     }

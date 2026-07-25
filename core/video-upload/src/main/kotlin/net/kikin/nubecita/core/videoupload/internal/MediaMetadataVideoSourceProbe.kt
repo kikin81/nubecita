@@ -3,6 +3,7 @@ package net.kikin.nubecita.core.videoupload.internal
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.videoupload.VideoSourceMetadata
@@ -37,8 +38,15 @@ internal class MediaMetadataVideoSourceProbe(
                     rotationDegrees = retriever.intOrNull(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION),
                     durationMs = retriever.longOrNull(MediaMetadataRetriever.METADATA_KEY_DURATION),
                 )
-            } catch (e: RuntimeException) {
-                // setDataSource throws on unreadable or unsupported input.
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (e: Exception) {
+                // setDataSource(Context, Uri) declares only IllegalArgumentException
+                // and SecurityException, but Kotlin does not enforce checked
+                // exceptions, so an undeclared platform throw would escape a
+                // narrower catch. Exception is deliberately broad — with
+                // CancellationException rethrown above, since catching it here
+                // would break the cancel-on-remove contract.
                 // An all-null result is a valid answer here: the callers
                 // already treat missing metadata as "omit the aspect ratio"
                 // and "fall back to the default bitrate", so failing the whole

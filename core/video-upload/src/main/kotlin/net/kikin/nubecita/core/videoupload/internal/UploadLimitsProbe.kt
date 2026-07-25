@@ -2,6 +2,7 @@ package net.kikin.nubecita.core.videoupload.internal
 
 import io.github.kikin81.atproto.app.bsky.video.VideoService
 import io.github.kikin81.atproto.runtime.XrpcClient
+import kotlinx.coroutines.CancellationException
 import net.kikin.nubecita.core.videoupload.VideoUploadError
 import timber.log.Timber
 
@@ -30,32 +31,34 @@ internal class UploadLimitsProbe(
     private val clientFactory: VideoServiceClientFactory,
 ) {
     suspend fun check(): UploadLimitsVerdict =
-        runCatching { VideoService(client()).getUploadLimits() }
-            .fold(
-                onSuccess = { limits ->
-                    if (limits.canUpload) {
-                        Timber.tag(TAG).d(
-                            "getUploadLimits ok — remainingVideos=%s remainingBytes=%s",
-                            limits.remainingDailyVideos,
-                            limits.remainingDailyBytes,
-                        )
-                        UploadLimitsVerdict.Permitted
-                    } else {
-                        // The server's own text, verbatim. The two real causes
-                        // are an unverified email and an exhausted quota, and
-                        // Bluesky phrases those better than a guess would —
-                        // and will keep phrasing new ones we do not know about.
-                        Timber.tag(TAG).i("getUploadLimits refused: %s", limits.error ?: limits.message)
-                        UploadLimitsVerdict.Rejected(
-                            VideoUploadError.NotPermitted(limits.message ?: limits.error),
-                        )
-                    }
-                },
-                onFailure = { cause ->
-                    Timber.tag(TAG).w(cause, "getUploadLimits failed")
-                    UploadLimitsVerdict.Rejected(VideoUploadError.Network(cause.message))
-                },
-            )
+        try {
+            VideoService(client()).getUploadLimits().let { limits ->
+                if (limits.canUpload) {
+                    Timber.tag(TAG).d(
+                        "getUploadLimits ok — remainingVideos=%s remainingBytes=%s",
+                        limits.remainingDailyVideos,
+                        limits.remainingDailyBytes,
+                    )
+                    UploadLimitsVerdict.Permitted
+                } else {
+                    // The server's own text, verbatim. The two real causes
+                    // are an unverified email and an exhausted quota, and
+                    // Bluesky phrases those better than a guess would —
+                    // and will keep phrasing new ones we do not know about.
+                    Timber.tag(TAG).i("getUploadLimits refused: %s", limits.error ?: limits.message)
+                    UploadLimitsVerdict.Rejected(
+                        VideoUploadError.NotPermitted(limits.message ?: limits.error),
+                    )
+                }
+            }
+        } catch (cancellation: CancellationException) {
+            // Rethrow ahead of the generic branch. runCatching swallowed this,
+            // turning "the user removed the video" into a Network error.
+            throw cancellation
+        } catch (cause: Exception) {
+            Timber.tag(TAG).w(cause, "getUploadLimits failed")
+            UploadLimitsVerdict.Rejected(VideoUploadError.Network(cause.message))
+        }
 
     private fun client(): XrpcClient = clientFactory.create()
 
