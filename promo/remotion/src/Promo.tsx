@@ -1,7 +1,6 @@
 import React from "react";
 import {
   AbsoluteFill,
-  Img,
   OffthreadVideo,
   staticFile,
   useCurrentFrame,
@@ -10,19 +9,11 @@ import {
   spring,
   Sequence,
 } from "remotion";
-import { loadFont as loadFraunces } from "@remotion/google-fonts/Fraunces";
-import { loadFont as loadInter } from "@remotion/google-fonts/Inter";
+import { PALETTE, FRAUNCES, Layout, CtaOutro } from "./shared";
 
-const { fontFamily: FRAUNCES } = loadFraunces();
-const { fontFamily: INTER } = loadInter();
+export type { Layout } from "./shared";
 
-// Brand palette (matches the app's dark-navy + periwinkle accent).
-const NAVY = "#0A0E1A";
-const NAVY_2 = "#111731";
-const ACCENT = "#8FA6FF";
-const WHITE = "#F5F7FF";
-
-export type Layout = "vertical" | "square" | "wide";
+const { NAVY, NAVY_2, ACCENT, WHITE } = PALETTE;
 export type DeviceKind = "phone" | "tablet";
 
 export type Caption = { at: number; dur: number; lead: string; accent: string };
@@ -197,12 +188,6 @@ export const Promo: React.FC<{ layout: Layout; journey: Journey }> = ({ layout, 
   const { width, height, fps } = useVideoConfig();
   const g = geometry(layout, journey.device, journey.sourceAspect, width, height);
 
-  const outroStart = journey.outroStartSec * fps;
-  const outro = interpolate(frame, [outroStart, outroStart + 0.5 * fps], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
   return (
     <AbsoluteFill
       style={{ background: `radial-gradient(120% 90% at 50% 12%, ${NAVY_2} 0%, ${NAVY} 62%)` }}
@@ -215,46 +200,7 @@ export const Promo: React.FC<{ layout: Layout; journey: Journey }> = ({ layout, 
         </Sequence>
       ))}
 
-      {/* CTA outro */}
-      <AbsoluteFill
-        style={{
-          opacity: outro,
-          background: `radial-gradient(120% 90% at 50% 40%, ${NAVY_2} 0%, ${NAVY} 70%)`,
-          alignItems: "center",
-          justifyContent: "center",
-          flexDirection: "column",
-          gap: 28,
-        }}
-      >
-        <div
-          style={{
-            fontFamily: FRAUNCES,
-            fontWeight: 600,
-            fontSize: layout === "wide" ? 150 : 128,
-            color: WHITE,
-            letterSpacing: -2,
-          }}
-        >
-          Nubecita
-        </div>
-        <div
-          style={{
-            fontFamily: INTER,
-            fontWeight: 500,
-            fontSize: layout === "wide" ? 46 : 40,
-            color: ACCENT,
-            opacity: 0.95,
-          }}
-        >
-          A fast, native Bluesky client
-        </div>
-        {/* Official Google Play badge — used unmodified (uniform scale only),
-            per the Play badge guidelines. */}
-        <Img
-          src={staticFile("gp_badge.png")}
-          style={{ height: layout === "wide" ? 112 : 100, width: "auto", marginTop: 16 }}
-        />
-      </AbsoluteFill>
+      <CtaOutro layout={layout} startSec={journey.outroStartSec} />
     </AbsoluteFill>
   );
 };

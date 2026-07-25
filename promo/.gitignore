@@ -10,3 +10,5 @@ remotion/public/*.png
 
 # Raw adb captures
 capture/*.mp4
+# Raw captures pulled to the promo/ root by the capture scripts (e.g. *_raw.mp4)
+*_raw.mp4
