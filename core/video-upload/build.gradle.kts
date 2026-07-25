@@ -17,6 +17,7 @@ dependencies {
     api(libs.atproto.runtime)
 
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.ktor.client.core)
     // Client-side transcode. Bluesky caps an uploaded video at 100MB, but
     // 1080p30 phone capture runs ~20 Mbps — three minutes is roughly 450MB —
     // so without re-encoding the feature would reject most real recordings.
@@ -27,5 +28,6 @@ dependencies {
 
     testImplementation(project(":core:testing"))
     testImplementation(libs.junit.jupiter.params)
+    testImplementation(libs.ktor.client.mock)
     testImplementation(libs.kotlinx.coroutines.test)
 }
