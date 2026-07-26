@@ -330,6 +330,12 @@ class ComposerViewModelTypeaheadTest {
                     every { default } returns MutableStateFlow(PostAudience.DEFAULT)
                 },
             externalLinkMetadataRepository = mockk(relaxed = true),
+            videoUploadRepository =
+                object : net.kikin.nubecita.core.videoupload.VideoUploadRepository {
+                    // No video in these fixtures: an empty flow means the slot
+                    // stays untouched, so existing assertions are unaffected.
+                    override fun upload(uri: android.net.Uri) = kotlinx.coroutines.flow.emptyFlow<net.kikin.nubecita.core.videoupload.VideoUploadState>()
+                },
             reviewManager = mockk(relaxed = true),
             sharedMediaStore = mockk(relaxed = true),
             applicationScope = kotlinx.coroutines.CoroutineScope(testDispatcher),

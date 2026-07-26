@@ -76,6 +76,7 @@ import net.kikin.nubecita.feature.composer.impl.internal.ComposerPostButton
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerQuoteSection
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerReplyParentSection
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerSuggestionList
+import net.kikin.nubecita.feature.composer.impl.internal.ComposerVideoCard
 import net.kikin.nubecita.feature.composer.impl.internal.KlipyPicker
 import net.kikin.nubecita.feature.composer.impl.internal.LanguagePicker
 import net.kikin.nubecita.feature.composer.impl.internal.composerCloseAttempt
@@ -153,6 +154,7 @@ internal fun ComposerScreen(
     val genericErrorMessage = stringResource(R.string.composer_error_generic)
     val uploadFailedTemplate = stringResource(R.string.composer_error_upload_failed)
     val audienceSaveErrorMessage = stringResource(R.string.composer_audience_save_error)
+    val videoReplacedMediaMessage = stringResource(R.string.composer_video_replaces_other_media)
 
     // Stabilize the unstable lambda params via rememberUpdatedState so
     // the LaunchedEffect's restart key (Unit) doesn't capture a stale
@@ -236,6 +238,14 @@ internal fun ComposerScreen(
         remember(viewModel) {
             { viewModel.handleEvent(ComposerEvent.RemoveGif) }
         }
+    val onRemoveVideo =
+        remember(viewModel) {
+            { viewModel.handleEvent(ComposerEvent.RemoveVideo) }
+        }
+    val onRetryVideoUpload =
+        remember(viewModel) {
+            { viewModel.handleEvent(ComposerEvent.RetryVideoUpload) }
+        }
 
     // Discard-confirmation gate. The composer is a transient, in-progress
     // surface — leaving it (back-press or toolbar X) while the draft has
@@ -267,11 +277,12 @@ internal fun ComposerScreen(
     var showAudiencePicker by rememberSaveable { mutableStateOf(false) }
     // KLIPY GIF-picker visibility — same shape; KlipyPicker owns its own VM.
     var showGifPicker by rememberSaveable { mutableStateOf(false) }
-    val hasContent by remember(viewModel.textFieldState, state.attachments, state.pickedGif) {
+    val hasContent by remember(viewModel.textFieldState, state.attachments, state.pickedGif, state.video) {
         derivedStateOf {
             viewModel.textFieldState.text.isNotBlank() ||
                 state.attachments.isNotEmpty() ||
-                state.pickedGif != null
+                state.pickedGif != null ||
+                state.video != null
         }
     }
     val isSubmitting = state.submitStatus is ComposerSubmitStatus.Submitting
@@ -313,6 +324,7 @@ internal fun ComposerScreen(
         rememberImagePicker(
             remainingCapacity = remainingCapacity,
             onPick = onAddAttachments,
+            onPickVideo = { uri -> viewModel.handleEvent(ComposerEvent.VideoPicked(uri)) },
         )
 
     LaunchedEffect(Unit) {
@@ -353,6 +365,10 @@ internal fun ComposerScreen(
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = audienceSaveErrorMessage)
                 }
+                ComposerEffect.VideoReplacedOtherMedia -> {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(message = videoReplacedMediaMessage)
+                }
             }
         }
     }
@@ -376,6 +392,8 @@ internal fun ComposerScreen(
         onRemoveQuote = onRemoveQuote,
         onRemoveExternalLink = onRemoveExternalLink,
         onRemoveGif = onRemoveGif,
+        onRemoveVideo = onRemoveVideo,
+        onRetryVideoUpload = onRetryVideoUpload,
         onLanguageChipClick = { showPicker = true },
         onAudienceChipClick = { showAudiencePicker = true },
         onGifChipClick = { showGifPicker = true },
@@ -495,6 +513,8 @@ internal fun ComposerScreenContent(
     onSetAltText: (Int, String) -> Unit = { _, _ -> },
     onRemoveExternalLink: () -> Unit = {},
     onRemoveGif: () -> Unit = {},
+    onRemoveVideo: () -> Unit = {},
+    onRetryVideoUpload: () -> Unit = {},
 ) {
     // Alt editor is a layer within the composer's own surface: when a photo is
     // being described, it replaces the composer body (full-screen on phone, or
@@ -707,6 +727,16 @@ internal fun ComposerScreenContent(
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
+            // Attached video — mutually exclusive with images, GIF and the
+            // link card, so at most one media card renders.
+            state.video?.let { video ->
+                ComposerVideoCard(
+                    video = video,
+                    onRemove = onRemoveVideo,
+                    onRetry = onRetryVideoUpload,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
             // Quote-mode section — renders nothing when not quoting
             // (quotePostLoad == null). Sits at the bottom (below text +
             // attachments), matching the reader's stacked layout: reply
@@ -836,10 +866,16 @@ private fun canPost(
     if (textFieldState.text.isBlank() &&
         state.attachments.isEmpty() &&
         state.pickedGif == null &&
+        state.video == null &&
         !hasQuote
     ) {
         return false
     }
+    // An attached video must finish uploading first. A post must never be
+    // created that silently drops it — if the user attached one, either it
+    // ships or the post does not. Failed stays disabled too, so the retry
+    // affordance is the only way forward.
+    state.video?.let { if (!it.isReady) return false }
     if (state.isOverLimit) return false
     // Gallery (>4 images) requires alt on every photo — mirrors the VM gate.
     if (state.isGalleryMissingAlt) return false

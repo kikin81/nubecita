@@ -61,10 +61,24 @@ internal sealed interface ComposerEffect : UiEffect {
     ) : ComposerEffect
 
     /**
+     * Attaching a video cleared the photos, GIF or link card that were there.
+     *
+     * Not a [ShowError] — nothing went wrong. The composer just did something
+     * the user did not explicitly ask for, and a user who picked six items and
+     * sees one appear cannot otherwise tell a deliberate constraint from a bug.
+     *
+     * A typed variant rather than a string resource, matching how every
+     * [ShowError] cause is resolved: the host pre-resolves the copy at
+     * composition time so locale changes participate in recomposition.
+     */
+    data object VideoReplacedOtherMedia : ComposerEffect
+
+    /**
      * Saving the post-audience as the account default failed. The local audience
      * selection still stands (the picker's choice is applied to this post); only
      * the synced "save for next time" didn't persist. The screen surfaces a
      * non-blocking Snackbar. No payload — a single generic string suffices.
      */
+
     data object ShowAudienceSaveError : ComposerEffect
 }

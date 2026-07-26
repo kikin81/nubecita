@@ -79,4 +79,13 @@
     <string name="klipy_report_nudity">Desnudez</string>
     <string name="klipy_report_violence">Violencia</string>
     <string name="klipy_report_other">Otro</string>
+    <string name="composer_video_replaces_other_media">Una publicación puede tener un video o hasta cuatro fotos, no ambos. Se quitó el otro contenido.</string>
+    <string name="composer_video_remove">Quitar</string>
+    <string name="composer_video_retry">Reintentar</string>
+    <string name="composer_video_checking">Verificando límites de video…</string>
+    <string name="composer_video_compressing">Comprimiendo video…</string>
+    <string name="composer_video_uploading">Subiendo video…</string>
+    <string name="composer_video_processing">Procesando video…</string>
+    <string name="composer_video_ready">Video listo</string>
+    <string name="composer_video_failed">No se pudo subir el video</string>
 </resources>

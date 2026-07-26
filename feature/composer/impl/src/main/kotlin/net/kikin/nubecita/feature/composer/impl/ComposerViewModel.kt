@@ -9,6 +9,7 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.runtime.AtUri
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -17,6 +18,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.mapLatest
@@ -36,6 +38,9 @@ import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.ReplyRefs
 import net.kikin.nubecita.core.posting.SharedMediaStore
 import net.kikin.nubecita.core.review.ReviewManager
+import net.kikin.nubecita.core.videoupload.VideoUploadError
+import net.kikin.nubecita.core.videoupload.VideoUploadRepository
+import net.kikin.nubecita.core.videoupload.VideoUploadState
 import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.data.models.KlipyMediaUi
 import net.kikin.nubecita.data.models.toExternalEmbedUri
@@ -50,11 +55,13 @@ import net.kikin.nubecita.feature.composer.impl.state.ComposerEffect
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
+import net.kikin.nubecita.feature.composer.impl.state.ComposerVideo
 import net.kikin.nubecita.feature.composer.impl.state.ExternalLinkStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.QuoteLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.TypeaheadStatus
 import net.kikin.nubecita.feature.composer.impl.state.isGalleryMissingAlt
+import net.kikin.nubecita.feature.composer.impl.state.readyEmbed
 import timber.log.Timber
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -133,6 +140,7 @@ internal class ComposerViewModel
     constructor(
         @Assisted private val route: ComposerRoute,
         private val postingRepository: PostingRepository,
+        private val videoUploadRepository: VideoUploadRepository,
         private val parentFetchSource: ParentFetchSource,
         private val quotePostFetcher: QuotePostFetcher,
         private val actorRepository: ActorRepository,
@@ -271,6 +279,9 @@ internal class ComposerViewModel
         // a card alongside images).
         private var externalFetchJob: Job? = null
 
+        /** In-flight video upload, cancelled on remove / replace / discard. */
+        private var videoUploadJob: Job? = null
+
         // The typed URL currently backing the card (loading or loaded). Used to
         // `forget` it from the scanner on an image-induced clear so removing the
         // images restores the card; a manual dismiss leaves it memoized.
@@ -404,6 +415,10 @@ internal class ComposerViewModel
                 ComposerEvent.RemoveExternalLink -> if (!submitInFlight) handleRemoveExternalLink()
                 is ComposerEvent.GifPicked -> if (!submitInFlight) handleGifPicked(event.media)
                 ComposerEvent.RemoveGif -> if (!submitInFlight) handleRemoveGif()
+                is ComposerEvent.VideoPicked -> if (!submitInFlight) handleVideoPicked(event.uri)
+                ComposerEvent.RemoveVideo -> if (!submitInFlight) handleRemoveVideo()
+                ComposerEvent.RetryVideoUpload -> if (!submitInFlight) handleRetryVideoUpload()
+                is ComposerEvent.SetVideoAlt -> if (!submitInFlight) handleSetVideoAlt(event.text)
                 is ComposerEvent.TypeaheadResultClicked ->
                     if (!submitInFlight) handleTypeaheadResultClicked(event.actor)
                 is ComposerEvent.LanguageSelectionConfirmed ->
@@ -417,6 +432,10 @@ internal class ComposerViewModel
             // GIF XOR images — the UI disables the add-image affordance while a GIF
             // is attached; this is the defensive backstop.
             if (uiState.value.pickedGif != null) return
+            // Video XOR images, same backstop. A picker result carrying both is
+            // routed by MIME before reaching here, so this covers only a
+            // programmatic path.
+            if (uiState.value.video != null) return
             Timber.tag(TAG).d(
                 "handleAddAttachments() — incoming=%d, currentAttachments=%d",
                 incoming.size,
@@ -667,6 +686,7 @@ internal class ComposerViewModel
                         audience = current.audience,
                         quote = quote,
                         external = external,
+                        video = current.video?.readyEmbed(),
                     )
                 result.fold(
                     onSuccess = { uri ->
@@ -770,12 +790,109 @@ internal class ComposerViewModel
             // GIF XOR images — the UI disables the GIF chip while photos exist;
             // this is the defensive backstop, symmetric with handleAddAttachments.
             if (uiState.value.attachments.isNotEmpty()) return
+            if (uiState.value.video != null) return
             externalFetchJob?.cancel()
             // Forget the carded URL (non-memoizing, like the images-XOR clear) so
             // removing the GIF later re-detects and restores the card.
             cardedLinkText?.let { externalLinkScanner.forget(it) }
             cardedLinkText = null
             setState { copy(pickedGif = media, externalLink = ExternalLinkStatus.Idle) }
+        }
+
+        /**
+         * Attach [uri] and start uploading it immediately.
+         *
+         * Attaching a video clears photos, a GIF and any link card: a post
+         * carries one video or up to four images, never both. The clear is
+         * announced via [ComposerEffect.ShowMessage] rather than done silently
+         * — a user who picked six items and sees one appear cannot otherwise
+         * tell a deliberate constraint from a bug.
+         */
+        private fun handleVideoPicked(uri: android.net.Uri) {
+            val previous = uiState.value
+            val displaced =
+                previous.attachments.isNotEmpty() ||
+                    previous.pickedGif != null ||
+                    previous.externalLink != ExternalLinkStatus.Idle
+
+            externalFetchJob?.cancel()
+            // Non-memoizing, like the images-XOR clear, so removing the video
+            // later re-detects a URL still present in the text.
+            cardedLinkText?.let { externalLinkScanner.forget(it) }
+            cardedLinkText = null
+
+            setState {
+                copy(
+                    video = ComposerVideo(uri = uri),
+                    attachments = persistentListOf(),
+                    pickedGif = null,
+                    externalLink = ExternalLinkStatus.Idle,
+                    altEditTarget = null,
+                )
+            }
+
+            if (displaced) {
+                sendEffect(ComposerEffect.VideoReplacedOtherMedia)
+            }
+            startVideoUpload(uri)
+        }
+
+        private fun handleRemoveVideo() {
+            videoUploadJob?.cancel()
+            videoUploadJob = null
+            setState { copy(video = null) }
+            // A URL still in the text can re-detect its card now the video is
+            // gone; removal doesn't change text, so re-scan explicitly.
+            externalLinkScanner.scan(textFieldState.text.toString())
+        }
+
+        private fun handleRetryVideoUpload() {
+            val uri = uiState.value.video?.uri ?: return
+            setState { copy(video = video?.copy(uploadState = VideoUploadState.CheckingLimits)) }
+            startVideoUpload(uri)
+        }
+
+        private fun handleSetVideoAlt(text: String) {
+            setState { copy(video = video?.copy(alt = text)) }
+        }
+
+        /**
+         * Collect the pipeline into state.
+         *
+         * Scoped to [viewModelScope], so discarding the composer cancels the
+         * transcode and any in-flight request without a bespoke cancel path —
+         * the repository's flow is cold and cancellation-aware. No server-side
+         * cleanup is issued for an abandoned upload: the job expires on its own,
+         * and inventing a cancel request would add a failure mode without
+         * removing one.
+         */
+        private fun startVideoUpload(uri: android.net.Uri) {
+            videoUploadJob?.cancel()
+            videoUploadJob =
+                videoUploadRepository
+                    .upload(uri)
+                    .onEach { state ->
+                        // Guard against a late emission from a job whose video
+                        // was already removed or replaced.
+                        if (uiState.value.video?.uri == uri) {
+                            setState { copy(video = video?.copy(uploadState = state)) }
+                        }
+                    }.catch { cause ->
+                        Timber.tag(TAG).w(cause, "video upload flow failed")
+                        if (uiState.value.video?.uri == uri) {
+                            setState {
+                                copy(
+                                    video =
+                                        video?.copy(
+                                            uploadState =
+                                                VideoUploadState.Failed(
+                                                    VideoUploadError.Network(cause.message),
+                                                ),
+                                        ),
+                                )
+                            }
+                        }
+                    }.launchIn(viewModelScope)
         }
 
         private fun handleRemoveGif() {

@@ -28,6 +28,7 @@ dependencies {
     implementation(project(":core:moderation"))
     implementation(project(":core:posting"))
     implementation(project(":core:review"))
+    implementation(project(":core:video-upload"))
     implementation(libs.androidx.activity.compose)
     // currentWindowAdaptiveInfoV2() + WindowSizeClass — used by
     // ComposerDiscardDialog to branch its visual treatment on width

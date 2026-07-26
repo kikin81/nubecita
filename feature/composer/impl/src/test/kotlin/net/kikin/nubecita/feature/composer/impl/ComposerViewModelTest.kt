@@ -1484,6 +1484,12 @@ class ComposerViewModelTest {
             localeProvider = fixedLocaleProvider(deviceLocaleTag),
             postAudienceDefaultRepository = postAudienceDefaultRepository,
             externalLinkMetadataRepository = externalLinkMetadataRepository,
+            videoUploadRepository =
+                object : net.kikin.nubecita.core.videoupload.VideoUploadRepository {
+                    // No video in these fixtures: an empty flow means the slot
+                    // stays untouched, so existing assertions are unaffected.
+                    override fun upload(uri: android.net.Uri) = kotlinx.coroutines.flow.emptyFlow<net.kikin.nubecita.core.videoupload.VideoUploadState>()
+                },
             reviewManager = mockk(relaxed = true),
             sharedMediaStore = sharedMediaStore,
             applicationScope = kotlinx.coroutines.CoroutineScope(testDispatcher),

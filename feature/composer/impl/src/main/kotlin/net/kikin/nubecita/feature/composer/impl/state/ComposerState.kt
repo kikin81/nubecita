@@ -133,6 +133,12 @@ internal data class ComposerState(
      * `RemoveGif`.
      */
     val pickedGif: KlipyMediaUi? = null,
+    /**
+     * The single attached video, or null. Mutually exclusive with
+     * [attachments], [pickedGif] and [externalLink] — a post carries one video
+     * or up to four images, never both.
+     */
+    val video: ComposerVideo? = null,
 ) : UiState
 
 /**
