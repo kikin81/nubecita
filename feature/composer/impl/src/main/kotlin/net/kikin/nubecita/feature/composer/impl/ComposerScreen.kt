@@ -856,7 +856,7 @@ private fun ComposerAttachmentRow(
  * it onto state — see ComposerViewModel's text-ownership exception
  * Kdoc.
  */
-private fun canPost(
+internal fun canPost(
     state: ComposerState,
     textFieldState: TextFieldState,
 ): Boolean {
