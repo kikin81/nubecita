@@ -42,6 +42,7 @@ import net.kikin.nubecita.core.image.ImageDimensions
 import net.kikin.nubecita.core.image.ImageEncoder
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
+import net.kikin.nubecita.core.posting.ComposerVideoEmbed
 import net.kikin.nubecita.core.posting.ExternalLinkMetadataRepository
 import net.kikin.nubecita.core.posting.LinkPreview
 import net.kikin.nubecita.core.posting.LocaleProvider
@@ -235,6 +236,121 @@ class DefaultPostingRepositoryTest {
             assertTrue(body.contains("app.bsky.embed.recordWithMedia"), "expected recordWithMedia: $body")
             assertTrue(body.contains("app.bsky.embed.gallery"), "expected gallery media: $body")
             assertTrue(body.contains("at://did:plc:alice/app.bsky.feed.post/quoted"), "quote uri missing: $body")
+        }
+
+    @Test
+    fun video_emitsVideoEmbed() =
+        runTest {
+            val body = captureVideoRecordBody(aVideo())
+            assertTrue(body.contains("app.bsky.embed.video"), "expected video embed: $body")
+            assertTrue(body.contains("bafvideoblob"), "video blob missing: $body")
+        }
+
+    @Test
+    fun videoWithQuote_emitsRecordWithMediaVideo() =
+        runTest {
+            val quote =
+                StrongRef(
+                    uri = AtUri("at://did:plc:alice/app.bsky.feed.post/quoted"),
+                    cid = Cid("bafquoted"),
+                )
+            val body = captureVideoRecordBody(aVideo(), quote = quote)
+            assertTrue(body.contains("app.bsky.embed.recordWithMedia"), "expected recordWithMedia: $body")
+            assertTrue(body.contains("app.bsky.embed.video"), "expected video media: $body")
+            assertTrue(body.contains("at://did:plc:alice/app.bsky.feed.post/quoted"), "quote uri missing: $body")
+        }
+
+    /**
+     * Precedence, asserted rather than assumed. The composer's mutual-exclusion
+     * rules make this unreachable through the UI, so the test guards the
+     * resolver directly: if a reachable state ever produced both, silently
+     * dropping the video — the only attachment that cost a transcode and an
+     * upload — is the worst outcome available.
+     */
+    @Test
+    fun videoWithImages_videoWinsTheMediaSlot() =
+        runTest {
+            val body =
+                captureVideoRecordBody(
+                    aVideo(),
+                    attachments = (0 until 4).map { attachment("image/jpeg") },
+                )
+            assertTrue(body.contains("app.bsky.embed.video"), "video must win: $body")
+            assertFalse(body.contains("app.bsky.embed.images"), "images must not take the slot: $body")
+            assertFalse(body.contains("app.bsky.embed.gallery"), "gallery must not take the slot: $body")
+        }
+
+    @Test
+    fun videoAlt_isCarriedThrough() =
+        runTest {
+            val body = captureVideoRecordBody(aVideo(alt = "sunset over the bay"))
+            assertTrue(body.contains("sunset over the bay"), "alt text missing: $body")
+        }
+
+    /** Blank alt omits the key rather than writing an empty string. */
+    @Test
+    fun blankVideoAlt_isOmitted() =
+        runTest {
+            val body = captureVideoRecordBody(aVideo(alt = ""))
+            assertTrue(body.contains("app.bsky.embed.video"), "expected video embed: $body")
+            assertFalse(body.contains("\"alt\""), "blank alt must be omitted: $body")
+        }
+
+    @Test
+    fun videoAspectRatio_isSerializedWhenPresent() =
+        runTest {
+            val body =
+                captureVideoRecordBody(
+                    aVideo(
+                        aspectRatio =
+                            io.github.kikin81.atproto.app.bsky.embed
+                                .AspectRatio(width = 1080, height = 1920),
+                    ),
+                )
+            assertTrue(body.contains("aspectRatio"), "aspectRatio missing: $body")
+            assertTrue(body.contains("1080") && body.contains("1920"), "aspect dims missing: $body")
+        }
+
+    /**
+     * Mirrors imagesWithNonPositiveDimensions_omitAspectRatio. The pipeline
+     * already omits these upstream, but ComposerVideoEmbed is public and this
+     * module cannot rely on an invariant it does not own.
+     */
+    @Test
+    fun videoWithNonPositiveAspectRatio_omitsTheField() =
+        runTest {
+            val zero =
+                captureVideoRecordBody(
+                    aVideo(
+                        aspectRatio =
+                            io.github.kikin81.atproto.app.bsky.embed
+                                .AspectRatio(width = 0, height = 0),
+                    ),
+                )
+            assertTrue(zero.contains("app.bsky.embed.video"), "expected video embed: $zero")
+            assertFalse(zero.contains("aspectRatio"), "zero dims must omit aspectRatio: $zero")
+
+            val negative =
+                captureVideoRecordBody(
+                    aVideo(
+                        aspectRatio =
+                            io.github.kikin81.atproto.app.bsky.embed
+                                .AspectRatio(width = -1080, height = 1920),
+                    ),
+                )
+            assertFalse(negative.contains("aspectRatio"), "negative dims must omit aspectRatio: $negative")
+        }
+
+    /**
+     * Null ratio omits the field. A substituted placeholder would be rendered
+     * by every AT Protocol client; an absent one lets each measure for itself.
+     */
+    @Test
+    fun videoWithoutAspectRatio_omitsTheField() =
+        runTest {
+            val body = captureVideoRecordBody(aVideo(aspectRatio = null))
+            assertTrue(body.contains("app.bsky.embed.video"), "expected video embed: $body")
+            assertFalse(body.contains("aspectRatio"), "null ratio must omit the field: $body")
         }
 
     @Test
@@ -1506,6 +1622,59 @@ class DefaultPostingRepositoryTest {
         assertTrue(result.isSuccess, "createPost failed: ${result.exceptionOrNull()}")
         return capturedBody.await()
     }
+
+    /**
+     * Capture the createRecord body for a post carrying a [video]. Unlike
+     * images there is no uploadBlob leg — the blob arrives already transcoded
+     * by the video service, so the composer hands over a finished result.
+     */
+    private suspend fun captureVideoRecordBody(
+        video: ComposerVideoEmbed,
+        attachments: List<ComposerAttachment> = emptyList(),
+        quote: StrongRef? = null,
+    ): String {
+        val capturedBody = CompletableDeferred<String>()
+        val (_, repo) =
+            newRepo(signedIn = true) { request ->
+                when {
+                    request.url.encodedPath.endsWith("uploadBlob") ->
+                        okJson(
+                            """{"blob":{"ref":{"${'$'}link":"bafblob"},"mimeType":"image/jpeg","size":3,"${'$'}type":"blob"}}""",
+                        )
+                    request.url.encodedPath.endsWith("createRecord") -> {
+                        capturedBody.complete(request.body.toBodyString())
+                        okJson("""{"uri":"at://$testDid/app.bsky.feed.post/x","cid":"bafx"}""")
+                    }
+                    else -> error("Unexpected request: ${request.url}")
+                }
+            }
+        val result =
+            repo.createPost(
+                text = "post",
+                attachments = attachments,
+                replyTo = null,
+                quote = quote,
+                video = video,
+            )
+        assertTrue(result.isSuccess, "createPost failed: ${result.exceptionOrNull()}")
+        return capturedBody.await()
+    }
+
+    private fun aVideo(
+        alt: String = "",
+        aspectRatio: io.github.kikin81.atproto.app.bsky.embed.AspectRatio? = null,
+    ) = ComposerVideoEmbed(
+        blob =
+            io.github.kikin81.atproto.runtime.Blob(
+                ref =
+                    io.github.kikin81.atproto.runtime
+                        .CidLink(link = "bafvideoblob"),
+                mimeType = "video/mp4",
+                size = 4_096L,
+            ),
+        alt = alt,
+        aspectRatio = aspectRatio,
+    )
 
     private suspend fun captureCreatedRecordBody(
         attachments: List<ComposerAttachment>,

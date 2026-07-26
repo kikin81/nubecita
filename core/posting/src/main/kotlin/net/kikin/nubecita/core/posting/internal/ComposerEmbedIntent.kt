@@ -1,5 +1,6 @@
 package net.kikin.nubecita.core.posting.internal
 
+import io.github.kikin81.atproto.app.bsky.embed.AspectRatio
 import io.github.kikin81.atproto.com.atproto.repo.StrongRef
 import io.github.kikin81.atproto.runtime.AtField
 import io.github.kikin81.atproto.runtime.Blob
@@ -33,11 +34,32 @@ internal data class UploadedImage(
  * - [external] — a resolved external link card (thumbnail already uploaded), or `null`.
  *   Mutually exclusive with [images] (images win the media slot); may coexist with
  *   [quote] (emitted as `recordWithMedia`).
+ * - [video] — an already-uploaded video, or `null`. Outranks every other media
+ *   kind; may coexist with [quote] (emitted as `recordWithMedia`).
  */
 internal data class ComposerEmbedIntent(
     val images: List<UploadedImage>,
     val quote: StrongRef?,
     val external: PreparedExternal? = null,
+    val video: UploadedVideo? = null,
+)
+
+/**
+ * A video that has completed the upload pipeline and is ready to embed.
+ *
+ * Unlike images, the blob is produced by an asynchronous server-side transcode
+ * rather than a direct `uploadBlob`, so it arrives here already finished — this
+ * type carries the result, never the work.
+ *
+ * [aspectRatio] is nullable by design. The lexicon makes the field optional, and
+ * a source whose dimensions cannot be read omits it rather than publishing a
+ * placeholder: a substituted 1:1 would be a lie that every AT Protocol client
+ * renders, letterboxing the video everywhere.
+ */
+internal data class UploadedVideo(
+    val blob: Blob,
+    val alt: String,
+    val aspectRatio: AspectRatio?,
 )
 
 /**
