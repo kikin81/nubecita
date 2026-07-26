@@ -50,6 +50,14 @@ internal class FakePostInteractionHandler : PostInteractionHandler {
 
     override fun onShareLongPress(post: PostUi) = Unit
 
+    /** Records the confirmed deletion so tests can assert it was reached. */
+    var confirmedDeletes: List<PostUi> = emptyList()
+        private set
+
+    override fun onConfirmDeletePost(post: PostUi) {
+        confirmedDeletes = confirmedDeletes + post
+    }
+
     override fun onOverflowAction(
         post: PostUi,
         action: PostOverflowAction,

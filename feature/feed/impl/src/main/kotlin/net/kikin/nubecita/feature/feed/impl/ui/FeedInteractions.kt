@@ -30,6 +30,7 @@ import net.kikin.nubecita.feature.feed.impl.R
 import net.kikin.nubecita.feature.feed.impl.video.FeedVideoPlayerCoordinator
 import net.kikin.nubecita.feature.feed.impl.video.createFeedVideoPlayerCoordinator
 import android.net.Uri as AndroidUri
+import net.kikin.nubecita.designsystem.R as DesignSystemR
 
 /**
  * Shared derived state + side-effect cluster for a [FeedViewModel]-backed screen.
@@ -140,6 +141,13 @@ internal fun rememberFeedInteractions(
             muteThreadComingSoon = overflowMuteThreadComingSoon,
             unmuteThreadComingSoon = overflowUnmuteThreadComingSoon,
             textCopied = overflowTextCopied,
+            // Shared from :designsystem so the copy and its es-419 / pt-BR
+            // translations live in one place rather than in each feature.
+            deleteTitle = stringResource(DesignSystemR.string.postcard_delete_dialog_title),
+            deleteBody = stringResource(DesignSystemR.string.postcard_delete_dialog_body),
+            deleteConfirm = stringResource(DesignSystemR.string.postcard_delete_dialog_confirm),
+            deleteCancel = stringResource(DesignSystemR.string.postcard_delete_dialog_cancel),
+            deleteSuccess = stringResource(DesignSystemR.string.postcard_delete_success),
         )
 
     // Wire the shared helper — it collects handler.interactionEffects directly

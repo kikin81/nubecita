@@ -51,4 +51,11 @@
     <string name="media_warning_cat_nudity">Nudez não sexual</string>
     <string name="verification_badge_verified_description">Conta verificada</string>
     <string name="verification_badge_trusted_verifier_description">Verificador confiável</string>
+    <string name="postcard_action_delete_post">Excluir post</string>
+    <string name="postcard_delete_dialog_title">Excluir o post?</string>
+    <string name="postcard_delete_dialog_body">Isso não pode ser desfeito. Seu post será removido do Bluesky.</string>
+    <string name="postcard_delete_dialog_confirm">Excluir</string>
+    <string name="postcard_delete_dialog_cancel">Cancelar</string>
+    <string name="postcard_delete_success">Post excluído</string>
+    <string name="postcard_delete_error">Não foi possível excluir o post</string>
 </resources>

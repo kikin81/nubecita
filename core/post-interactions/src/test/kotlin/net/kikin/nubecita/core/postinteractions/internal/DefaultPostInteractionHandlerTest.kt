@@ -1,6 +1,7 @@
 package net.kikin.nubecita.core.postinteractions.internal
 
 import app.cash.turbine.test
+import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -12,6 +13,7 @@ import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.analytics.Share
 import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.postinteractions.InteractionEffect
+import net.kikin.nubecita.core.postinteractions.PostDeletionRepository
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.data.models.AuthorUi
@@ -22,6 +24,7 @@ import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import kotlin.coroutines.cancellation.CancellationException
@@ -35,11 +38,13 @@ internal class DefaultPostInteractionHandlerTest {
     private val analytics = RecordingAnalyticsClient()
     private val fakeCache = FakePostInteractionsCacheForHandler()
     private val fakeMuteRepo = FakeMuteRepositoryForHandler()
+    private val fakeDeletionRepo = FakePostDeletionRepository()
 
     private fun makeHandler(): DefaultPostInteractionHandler =
         DefaultPostInteractionHandler(
             cache = fakeCache,
             muteRepository = fakeMuteRepo,
+            postDeletionRepository = fakeDeletionRepo,
             analytics = analytics,
         )
 
@@ -489,6 +494,65 @@ internal class DefaultPostInteractionHandlerTest {
     // Surface attribution
     // ──────────────────────────────────────────────────────────────────────────
 
+    /**
+     * The gate that matters most in this file: tapping Delete in the menu must
+     * NOT delete. `deleteRecord` cannot be undone, so the menu action only asks
+     * the surface to confirm; nothing reaches the repository until the user
+     * answers.
+     */
+    @Test
+    fun `DeletePost asks for confirmation and deletes nothing`() =
+        runTest {
+            val handler = makeHandler().also { it.bind(PostSurface.Feed, backgroundScope) }
+            val post = unlikedPost()
+
+            handler.interactionEffects.test {
+                handler.onOverflowAction(post, PostOverflowAction.DeletePost)
+
+                assertEquals(InteractionEffect.ConfirmDeletePost(post), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertTrue(fakeDeletionRepo.deleted.isEmpty(), "the menu action alone must not delete")
+        }
+
+    @Test
+    fun `a confirmed delete removes the record and reports it`() =
+        runTest {
+            val handler = makeHandler().also { it.bind(PostSurface.Feed, backgroundScope) }
+            val post = unlikedPost()
+
+            handler.interactionEffects.test {
+                handler.onConfirmDeletePost(post)
+
+                assertEquals(InteractionEffect.PostDeleted(post), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(listOf(post.id), fakeDeletionRepo.deleted)
+        }
+
+    /**
+     * A failed delete must not report success — a surface acting on
+     * [InteractionEffect.PostDeleted] removes the item outright, so emitting it
+     * on failure would hide a post that is still live on the network.
+     */
+    @Test
+    fun `a failed delete reports an error, not a deletion`() =
+        runTest {
+            fakeDeletionRepo.result = Result.failure(RuntimeException("boom"))
+            val handler = makeHandler().also { it.bind(PostSurface.Feed, backgroundScope) }
+
+            handler.interactionEffects.test {
+                handler.onConfirmDeletePost(unlikedPost())
+
+                val effect = awaitItem()
+                assertTrue(
+                    effect is InteractionEffect.ShowError,
+                    "expected ShowError, got $effect — a surface would have removed a live post",
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
     @Test
     fun `analytics event carries the bound surface`() =
         runTest(mainDispatcher.dispatcher) {
@@ -503,4 +567,19 @@ internal class DefaultPostInteractionHandlerTest {
                 analytics.events,
             )
         }
+}
+
+/**
+ * In-memory [PostDeletionRepository]. Records the URIs it was asked to delete
+ * so a test can assert the confirmed path reached the network boundary, and
+ * can be told to fail so the failure arm is exercised too.
+ */
+private class FakePostDeletionRepository : PostDeletionRepository {
+    val deleted = mutableListOf<String>()
+    var result: Result<Unit> = Result.success(Unit)
+
+    override suspend fun deletePost(postUri: AtUri): Result<Unit> {
+        deleted += postUri.raw
+        return result
+    }
 }

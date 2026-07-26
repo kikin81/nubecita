@@ -1,5 +1,6 @@
 package net.kikin.nubecita.core.postinteractions.internal
 
+import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -19,6 +20,7 @@ import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.postinteractions.InteractionEffect
 import net.kikin.nubecita.core.postinteractions.InteractionError
+import net.kikin.nubecita.core.postinteractions.PostDeletionRepository
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.PostTapMarkers
@@ -66,6 +68,7 @@ internal class DefaultPostInteractionHandler
         private val cache: PostInteractionsCache,
         private val muteRepository: MuteRepository,
         private val analytics: AnalyticsClient,
+        private val postDeletionRepository: PostDeletionRepository,
     ) : PostInteractionHandler {
         // ──────────────────────────────────────────────────────────────────────
         // Binding state — set once per VM lifecycle via bind()
@@ -179,11 +182,28 @@ internal class DefaultPostInteractionHandler
             emit(InteractionEffect.CopyPermalink(post.toShareIntent().permalink))
         }
 
+        override fun onConfirmDeletePost(post: PostUi) {
+            requireScope().launch {
+                postDeletionRepository
+                    .deletePost(AtUri(post.id))
+                    .onSuccess { emit(InteractionEffect.PostDeleted(post)) }
+                    // No optimistic removal to roll back: the post is removed
+                    // only once the PDS has accepted the deletion, so a failure
+                    // leaves it exactly where it was.
+                    .onFailure { emitError(it) }
+            }
+        }
+
         override fun onOverflowAction(
             post: PostUi,
             action: PostOverflowAction,
         ) {
             when (action) {
+                // Confirmation first — deleteRecord cannot be undone, so the
+                // menu action alone must never reach the network.
+                PostOverflowAction.DeletePost ->
+                    emit(InteractionEffect.ConfirmDeletePost(post))
+
                 PostOverflowAction.ReportPost ->
                     emit(InteractionEffect.NavigateToReport(post))
 

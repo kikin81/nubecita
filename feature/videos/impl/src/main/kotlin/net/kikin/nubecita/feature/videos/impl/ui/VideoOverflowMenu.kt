@@ -24,6 +24,10 @@ import net.kikin.nubecita.designsystem.R as DesignSystemR
  */
 internal fun videoOverflowActions(viewer: ViewerStateUi): ImmutableList<PostOverflowAction> =
     persistentListOf(
+        // Own videos only — absent, not disabled, on anybody else's. First so
+        // the destructive action does not sit under actions the user is far
+        // likelier to want.
+        *(if (viewer.isOwnPost) arrayOf(PostOverflowAction.DeletePost) else emptyArray()),
         PostOverflowAction.ReportPost,
         if (viewer.isAuthorMutedByViewer) PostOverflowAction.UnmuteAuthor else PostOverflowAction.MuteAuthor,
         if (viewer.isAuthorBlockedByViewer) PostOverflowAction.UnblockAuthor else PostOverflowAction.BlockAuthor,
@@ -73,4 +77,5 @@ private fun overflowActionLabel(
         // Never rendered — videoOverflowActions omits it — but the when must be exhaustive.
         PostOverflowAction.UnmuteThread -> stringResource(DesignSystemR.string.moderation_action_mute_thread)
         PostOverflowAction.CopyPostText -> stringResource(DesignSystemR.string.moderation_action_copy_post_text)
+        PostOverflowAction.DeletePost -> stringResource(DesignSystemR.string.postcard_action_delete_post)
     }

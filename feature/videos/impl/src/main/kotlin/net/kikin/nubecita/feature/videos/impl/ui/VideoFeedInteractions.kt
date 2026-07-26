@@ -8,6 +8,7 @@ import net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.feature.videos.impl.R
 import net.kikin.nubecita.feature.videos.impl.VideoFeedViewModel
+import net.kikin.nubecita.designsystem.R as DesignSystemR
 
 /**
  * Wires the vertical feed's chrome to the ViewModel's delegated
@@ -43,6 +44,13 @@ internal fun rememberVideoFeedInteractions(
             muteThreadComingSoon = stringResource(R.string.videos_snackbar_overflow_mute_thread_coming_soon),
             unmuteThreadComingSoon = stringResource(R.string.videos_snackbar_overflow_unmute_thread_coming_soon),
             textCopied = stringResource(R.string.videos_snackbar_text_copied),
+            // Shared from :designsystem so the copy and its es-419 / pt-BR
+            // translations live in one place rather than in each feature.
+            deleteTitle = stringResource(DesignSystemR.string.postcard_delete_dialog_title),
+            deleteBody = stringResource(DesignSystemR.string.postcard_delete_dialog_body),
+            deleteConfirm = stringResource(DesignSystemR.string.postcard_delete_dialog_confirm),
+            deleteCancel = stringResource(DesignSystemR.string.postcard_delete_dialog_cancel),
+            deleteSuccess = stringResource(DesignSystemR.string.postcard_delete_success),
         )
     return rememberPostInteractions(
         handler = viewModel,

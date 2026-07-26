@@ -22,6 +22,7 @@ import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
 import net.kikin.nubecita.feature.search.impl.ui.PostsTabContent
 import android.net.Uri as AndroidUri
+import net.kikin.nubecita.designsystem.R as DesignSystemR
 
 /**
  * Stateful entry for the Posts tab. Hoists [SearchPostsViewModel],
@@ -84,6 +85,13 @@ internal fun SearchPostsScreen(
                 stringResource(R.string.search_snackbar_overflow_unmute_thread_coming_soon),
             textCopied =
                 stringResource(R.string.search_snackbar_text_copied),
+            // Shared from :designsystem so the copy and its es-419 / pt-BR
+            // translations live in one place rather than in each feature.
+            deleteTitle = stringResource(DesignSystemR.string.postcard_delete_dialog_title),
+            deleteBody = stringResource(DesignSystemR.string.postcard_delete_dialog_body),
+            deleteConfirm = stringResource(DesignSystemR.string.postcard_delete_dialog_confirm),
+            deleteCancel = stringResource(DesignSystemR.string.postcard_delete_dialog_cancel),
+            deleteSuccess = stringResource(DesignSystemR.string.postcard_delete_success),
         )
 
     // Wire the shared interaction helper — it collects viewModel.interactionEffects

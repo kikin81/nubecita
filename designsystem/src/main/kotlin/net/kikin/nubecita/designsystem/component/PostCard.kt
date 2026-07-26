@@ -734,6 +734,20 @@ private fun PostOverflowAffordance(
             onClick = { expanded = true },
         )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            // Own posts only. A viewer can never delete somebody else's post,
+            // so the row is absent rather than disabled — and the condition is
+            // free: a collapsed DropdownMenu does not compose its content
+            // (pinned by DropdownMenuLazinessTest), so this never runs on the
+            // scroll path.
+            if (post.viewer.isOwnPost) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.postcard_action_delete_post)) },
+                    onClick = {
+                        expanded = false
+                        onAction(PostOverflowAction.DeletePost)
+                    },
+                )
+            }
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.moderation_action_report_post)) },
                 onClick = {
