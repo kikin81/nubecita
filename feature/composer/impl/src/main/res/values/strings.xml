@@ -176,4 +176,5 @@
     <string name="composer_video_error_upload">The video couldn\'t be uploaded. Check your connection and try again.</string>
     <string name="composer_video_error_processing">Bluesky couldn\'t process this video. Try a different clip.</string>
     <string name="composer_video_error_network">Connection lost. Try again.</string>
+    <string name="composer_alt_editor_field_label_video">Describe this video</string>
 </resources>

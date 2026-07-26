@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.composer.impl.internal
 
 import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -66,6 +67,9 @@ internal fun AltEditorLayer(
     onSetAlt: (index: Int, text: String) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    // Hoisted so the video's single-item mode can say "video" rather than
+    // "photo". Defaulted, so every existing image call site is unchanged.
+    @StringRes fieldLabelRes: Int = R.string.composer_alt_editor_field_label,
 ) {
     // Defensive: nothing to describe (shouldn't happen while open) → close.
     if (attachments.isEmpty()) {
@@ -156,7 +160,7 @@ internal fun AltEditorLayer(
             OutlinedTextField(
                 value = current.alt,
                 onValueChange = { onSetAlt(page, it) },
-                label = { Text(stringResource(R.string.composer_alt_editor_field_label)) },
+                label = { Text(stringResource(fieldLabelRes)) },
                 modifier =
                     Modifier
                         .fillMaxWidth()

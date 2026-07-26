@@ -96,4 +96,5 @@
     <string name="composer_video_error_upload">Não foi possível enviar o vídeo. Verifique sua conexão e tente novamente.</string>
     <string name="composer_video_error_processing">O Bluesky não conseguiu processar este vídeo. Tente outro.</string>
     <string name="composer_video_error_network">Conexão perdida. Tente novamente.</string>
+    <string name="composer_alt_editor_field_label_video">Descreva este vídeo</string>
 </resources>

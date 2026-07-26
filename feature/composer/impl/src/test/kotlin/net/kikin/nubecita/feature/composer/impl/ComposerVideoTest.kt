@@ -306,6 +306,64 @@ class ComposerVideoTest {
             assertEquals(0.9f, vm.videoProgress.value, "but the progress flow must see it")
         }
 
+    /**
+     * The alt editor is index-addressed over `attachments`, which is EMPTY
+     * whenever a video is attached — they are mutually exclusive. Opening it
+     * for the video therefore needs a sentinel target, and the screen has to
+     * synthesize a one-element list rather than pass the sentinel through.
+     *
+     * This test exists because the first version shipped without one and the
+     * "Add alt" button was dead: the editor hit its own empty-list guard and
+     * closed immediately.
+     */
+    @Test
+    fun `opening the video alt editor targets the video, not an attachment index`() =
+        runTest {
+            val vm = newVm()
+            vm.handleEvent(ComposerEvent.VideoPicked(uri()))
+
+            vm.handleEvent(ComposerEvent.OpenVideoAltEditor)
+
+            assertEquals(ComposerViewModel.VIDEO_ALT_EDIT_TARGET, vm.uiState.value.altEditTarget)
+            assertTrue(
+                vm.uiState.value.attachments
+                    .isEmpty(),
+                "precondition: a video means no attachments, which is why the sentinel is needed",
+            )
+            assertTrue(
+                ComposerViewModel.VIDEO_ALT_EDIT_TARGET < 0,
+                "the sentinel must be negative so it can never collide with a gallery index",
+            )
+        }
+
+    @Test
+    fun `the video alt editor does not open without a video`() =
+        runTest {
+            val vm = newVm()
+
+            vm.handleEvent(ComposerEvent.OpenVideoAltEditor)
+
+            assertNull(vm.uiState.value.altEditTarget)
+        }
+
+    /** Alt edited after the upload finished must still reach the embed. */
+    @Test
+    fun `alt set after Ready still reaches the embed`() =
+        runTest {
+            val vm = newVm()
+            vm.handleEvent(ComposerEvent.VideoPicked(uri()))
+            uploadStates.emit(readyState)
+
+            vm.handleEvent(ComposerEvent.SetVideoAlt("described after upload"))
+
+            assertEquals(
+                "described after upload",
+                vm.uiState.value.video
+                    ?.readyEmbed()
+                    ?.alt,
+            )
+        }
+
     // ---- mutual exclusion ------------------------------------------------
 
     @Test

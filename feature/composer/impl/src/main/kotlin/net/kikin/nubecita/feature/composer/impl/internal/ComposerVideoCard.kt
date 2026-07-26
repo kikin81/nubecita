@@ -115,7 +115,7 @@ internal fun ComposerVideoCard(
 
             video.error?.let { error ->
                 Text(
-                    text = error.message(),
+                    text = error.resolveMessage(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
@@ -206,7 +206,7 @@ private fun ComposerVideoStage.labelRes(): Int =
  * paraphrase would be worse and would go stale.
  */
 @Composable
-private fun VideoUploadError.message(): String =
+private fun VideoUploadError.resolveMessage(): String =
     when (this) {
         is VideoUploadError.NotPermitted ->
             message ?: stringResource(R.string.composer_video_error_not_permitted)
