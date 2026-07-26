@@ -60,9 +60,10 @@ internal class UploadLimitsProbe(
             UploadLimitsVerdict.Rejected(VideoUploadError.Network(cause.message))
         }
 
-    private fun client(): XrpcClient = clientFactory.create()
+    private fun client(): XrpcClient = clientFactory.create(GET_UPLOAD_LIMITS_LXM)
 
     private companion object {
         const val TAG = "VideoUpload"
+        const val GET_UPLOAD_LIMITS_LXM = "app.bsky.video.getUploadLimits"
     }
 }

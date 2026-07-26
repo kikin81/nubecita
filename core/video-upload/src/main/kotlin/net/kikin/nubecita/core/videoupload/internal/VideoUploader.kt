@@ -10,20 +10,45 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.ByteWriteChannel
 import io.ktor.utils.io.writeFully
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.jsonObject
 import net.kikin.nubecita.core.videoupload.VideoUploadError
 import timber.log.Timber
 import java.io.File
 
-/** `app.bsky.video.uploadVideo`'s response envelope. */
+/**
+ * `app.bsky.video.uploadVideo`'s response envelope, as **declared** by the
+ * lexicon. The live service does not always use it — see [parseJobStatus].
+ */
 @kotlinx.serialization.Serializable
 internal data class UploadVideoResponseBody(
     val jobStatus: JobStatus,
 )
+
+/**
+ * Read a [JobStatus] from an uploadVideo response, accepting either shape.
+ *
+ * The published lexicon declares `{"jobStatus": {…}}`, but the live service
+ * returns a **bare** JobStatus. Verified against production on 2026-07-25:
+ * a successful upload and a 409 both come back unwrapped. Accepting either
+ * costs one branch and means a future move back to the declared shape does not
+ * break us.
+ */
+internal fun parseJobStatus(
+    json: Json,
+    raw: String,
+): JobStatus? =
+    runCatching {
+        val root = json.parseToJsonElement(raw).jsonObject
+        val node = root["jobStatus"] ?: return@runCatching json.decodeFromJsonElement<JobStatus>(root)
+        json.decodeFromJsonElement<JobStatus>(node)
+    }.getOrNull()
 
 /** Either the accepted job, or why the upload was refused. */
 internal sealed interface UploadOutcome {
@@ -63,7 +88,9 @@ internal class VideoUploader(
         did: String,
         onProgress: (Float) -> Unit,
     ): UploadOutcome {
-        val token = serviceAuthProvider.videoServiceToken()
+        // The PDS-addressed token: this authorises the video service to
+        // write a blob into the user's own repository.
+        val token = serviceAuthProvider.blobUploadToken()
 
         val response =
             httpClient.post("$VIDEO_SERVICE_BASE_URL/xrpc/app.bsky.video.uploadVideo") {
@@ -76,22 +103,36 @@ internal class VideoUploader(
                 }
             }
 
+        // Read once: the body is a stream, and consuming it twice would yield
+        // an empty string on the second read.
+        val raw = runCatching { response.body<String>() }.getOrNull().orEmpty()
+
+        val status = parseJobStatus(json, raw)
+
+        // 409 already_exists is NOT a failure. Re-uploading a clip the service
+        // has already processed returns the existing job, so the right move is
+        // to carry on and poll it — treating this as fatal would break retry
+        // for the one case retry exists to serve. Verified against production.
+        if (response.status == HttpStatusCode.Conflict && status?.jobId?.isNotBlank() == true) {
+            Timber.tag(TAG).i("uploadVideo: already processed, reusing job %s", status.jobId)
+            return UploadOutcome.Accepted(status.jobId)
+        }
+
         if (!response.status.isSuccess()) {
-            val body = runCatching { response.body<String>() }.getOrNull()
-            Timber.tag(TAG).w("uploadVideo rejected status=%d", response.status.value)
+            Timber.tag(TAG).w("uploadVideo rejected status=%d body=%s", response.status.value, raw.take(400))
             return UploadOutcome.Failed(
-                VideoUploadError.UploadFailed(response.status.value, body),
+                VideoUploadError.UploadFailed(response.status.value, status?.message ?: raw.take(400)),
             )
         }
 
-        val parsed =
-            runCatching { json.decodeFromString<UploadVideoResponseBody>(response.body<String>()) }
-                .getOrElse { cause ->
-                    Timber.tag(TAG).w(cause, "uploadVideo response unparseable")
-                    return UploadOutcome.Failed(VideoUploadError.UploadFailed(null, cause.message))
-                }
+        if (status == null) {
+            // Log the body, not just a type name. A shape mismatch is
+            // undiagnosable without seeing what actually came back.
+            Timber.tag(TAG).w("uploadVideo response unparseable: %s", raw.take(400))
+            return UploadOutcome.Failed(VideoUploadError.UploadFailed(null, "Unrecognised upload response"))
+        }
 
-        return UploadOutcome.Accepted(parsed.jobStatus.jobId)
+        return UploadOutcome.Accepted(status.jobId)
     }
 
     private companion object {

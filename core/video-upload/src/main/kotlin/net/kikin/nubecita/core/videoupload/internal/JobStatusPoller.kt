@@ -59,7 +59,7 @@ internal class JobStatusPoller(
         jobId: String,
         onProgress: (Float) -> Unit,
     ): JobOutcome {
-        val service = VideoService(clientFactory.create())
+        val service = VideoService(clientFactory.create(GET_JOB_STATUS_LXM))
 
         repeat(maxAttempts) { attempt ->
             val status =
@@ -89,6 +89,7 @@ internal class JobStatusPoller(
 
     private companion object {
         const val TAG = "VideoUpload"
+        const val GET_JOB_STATUS_LXM = "app.bsky.video.getJobStatus"
         const val DEFAULT_POLL_INTERVAL_MS = 1_000L
 
         /** ~5 minutes at the default interval. */

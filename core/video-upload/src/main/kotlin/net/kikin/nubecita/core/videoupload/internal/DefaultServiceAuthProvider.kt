@@ -13,22 +13,33 @@ import net.kikin.nubecita.core.auth.XrpcClientProvider
 import java.net.URI
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
+
+/** The video service's own DID. */
+internal const val VIDEO_SERVICE_DID = "did:web:video.bsky.app"
+
+/** The blob-write method the video service performs on the user's behalf. */
+internal const val UPLOAD_BLOB_LXM = "com.atproto.repo.uploadBlob"
 
 /**
- * Mints the service-auth JWT the Bluesky video service accepts.
+ * Mints the service-auth JWTs the Bluesky video flow needs.
  *
- * Two parameters here are counter-intuitive enough that getting either wrong
- * produces an opaque rejection, so both are asserted by tests:
+ * **There are two different audiences, and using one for both fails.** This
+ * was established against the live service, not from documentation:
  *
- * - **`aud` is the user's own PDS**, as `did:web:<pds-host>` — *not*
- *   `did:web:video.bsky.app`. The token authorises the video service to act
- *   against the user's repository, so the audience is that repository's host.
- * - **`lxm` is `com.atproto.repo.uploadBlob`** — *not*
- *   `app.bsky.video.uploadVideo`. The method being authorised is the blob
- *   write the video service ultimately performs on the user's behalf.
+ * - Calls the video service *answers itself* — `getUploadLimits`,
+ *   `getJobStatus` — need a token addressed to **`did:web:video.bsky.app`**.
+ *   Sending a PDS-addressed token returns
+ *   `invalid_token: invalid token audience "did:web:<pds>", should be the
+ *   video service host did:web:"video.bsky.app"` (HTTP 401).
+ * - The **upload** call needs a token addressed to the user's **own PDS**
+ *   with `lxm = com.atproto.repo.uploadBlob`, because what it authorises is
+ *   the video service writing a blob into the user's repository. This is the
+ *   shape docs.bsky.app documents, and it covers only that one leg.
  *
- * Verified against docs.bsky.app's video tutorial and the reference
- * direct-upload implementation.
+ * Tokens are cached per (audience, method) within their lifetime: a single
+ * upload makes three authenticated calls, and re-minting for each would
+ * triple the PDS round-trips for no benefit.
  */
 internal class DefaultServiceAuthProvider(
     private val xrpcClientProvider: XrpcClientProvider,
@@ -36,51 +47,50 @@ internal class DefaultServiceAuthProvider(
     private val clock: Clock,
 ) : ServiceAuthProvider {
     private val mutex = Mutex()
-    private var cached: CachedToken? = null
+    private val cache = mutableMapOf<TokenKey, CachedToken>()
 
-    override suspend fun videoServiceToken(): String =
+    override suspend fun videoServiceToken(lxm: String): String = token(TokenKey(VIDEO_SERVICE_DID, lxm))
+
+    override suspend fun blobUploadToken(): String = token(TokenKey(audienceForPds(pdsUrl()), UPLOAD_BLOB_LXM))
+
+    private suspend fun token(key: TokenKey): String =
         mutex.withLock {
-            // One upload makes three authenticated calls — limits, upload,
-            // poll. Re-minting for each would triple the PDS round-trips for
-            // no benefit, so the token is reused within its lifetime.
-            cached?.takeIf { it.isUsableAt(clock.now()) }?.let { return@withLock it.token }
+            cache[key]?.takeIf { it.isUsableAt(clock.now()) }?.let { return@withLock it.token }
 
-            val session =
-                sessionStateProvider.state.value as? SessionState.SignedIn
-                    ?: throw NoSessionException()
-
-            val request =
-                GetServiceAuthRequest(
-                    aud = Did(audienceForPds(session.pdsUrl)),
-                    lxm = Nsid(UPLOAD_BLOB_LXM),
-                    exp = clock.now().plus(TOKEN_LIFETIME).epochSeconds,
-                )
-
+            val expiresAt = clock.now().plus(TOKEN_LIFETIME)
             ServerService(xrpcClientProvider.authenticated())
-                .getServiceAuth(request)
-                .token
-                .also { cached = CachedToken(it, clock.now().plus(TOKEN_LIFETIME)) }
+                .getServiceAuth(
+                    GetServiceAuthRequest(
+                        aud = Did(key.audience),
+                        lxm = Nsid(key.lxm),
+                        exp = expiresAt.epochSeconds,
+                    ),
+                ).token
+                .also { cache[key] = CachedToken(it, expiresAt) }
         }
+
+    private fun pdsUrl(): String? =
+        (sessionStateProvider.state.value as? SessionState.SignedIn)?.pdsUrl
+            ?: throw NoSessionException()
+
+    private data class TokenKey(
+        val audience: String,
+        val lxm: String,
+    )
 
     private data class CachedToken(
         val token: String,
-        val expiresAt: kotlin.time.Instant,
+        val expiresAt: Instant,
     ) {
         /**
          * Treated as expired early. A token that passes the check and then
          * expires mid-upload fails a request that has already transferred
          * bytes, so the margin is worth more than the reuse it costs.
          */
-        fun isUsableAt(now: kotlin.time.Instant): Boolean = now < expiresAt.minus(EXPIRY_MARGIN)
+        fun isUsableAt(now: Instant): Boolean = now < expiresAt.minus(EXPIRY_MARGIN)
     }
 
     private companion object {
-        /**
-         * The blob-write method, not the video method. Counter-intuitive but
-         * required — see the class KDoc.
-         */
-        const val UPLOAD_BLOB_LXM = "com.atproto.repo.uploadBlob"
-
         /** 30 minutes, per the reference implementation. */
         val TOKEN_LIFETIME = 1800.seconds
 
@@ -91,10 +101,12 @@ internal class DefaultServiceAuthProvider(
 /**
  * `did:web:<host>` for the account's PDS.
  *
- * The audience is the user's own PDS, not the video service. Extracted as a
- * pure function so the host-parsing edge cases are testable without a session:
- * `pdsUrl` is nullable on a freshly-restored session, and a value without a
- * parseable host cannot produce a valid audience.
+ * Used **only** for the upload leg's token — see [DefaultServiceAuthProvider]
+ * for why the video service's own calls take a different audience.
+ *
+ * Extracted as a pure function so the host-parsing edges are testable without a
+ * session: `pdsUrl` is nullable on a freshly-restored session, and a value
+ * without a parseable host cannot produce a valid audience.
  */
 internal fun audienceForPds(pdsUrl: String?): String {
     val host =

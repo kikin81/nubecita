@@ -16,13 +16,18 @@ internal const val VIDEO_SERVICE_BASE_URL = "https://video.bsky.app"
  */
 internal interface ServiceAuthProvider {
     /**
-     * A service-auth token valid for the video service.
+     * Token for a call the video service answers itself, bound to [lxm].
      *
-     * Implementations SHOULD cache within the token's lifetime — a single
-     * upload makes three authenticated calls (limits, upload, poll) and
-     * re-minting for each would triple the PDS round-trips for no benefit.
+     * Addressed to the video service, not the user's PDS — a PDS-addressed
+     * token is rejected with `invalid_token: invalid token audience`.
      */
-    suspend fun videoServiceToken(): String
+    suspend fun videoServiceToken(lxm: String): String
+
+    /**
+     * Token authorising the video service to write a blob into the user's own
+     * repository. Addressed to the user's PDS with `com.atproto.repo.uploadBlob`.
+     */
+    suspend fun blobUploadToken(): String
 }
 
 /**
@@ -60,10 +65,14 @@ internal class VideoServiceClientFactory(
     private val httpClient: HttpClient,
     private val serviceAuthProvider: ServiceAuthProvider,
 ) {
-    fun create(): XrpcClient =
+    /**
+     * @param lxm the method this client will call. The token is bound to it,
+     *   so a client built for one method cannot be reused for another.
+     */
+    fun create(lxm: String): XrpcClient =
         XrpcClient(
             baseUrl = VIDEO_SERVICE_BASE_URL,
             httpClient = httpClient,
-            authProvider = ServiceAuthTokenAuth { serviceAuthProvider.videoServiceToken() },
+            authProvider = ServiceAuthTokenAuth { serviceAuthProvider.videoServiceToken(lxm) },
         )
 }
