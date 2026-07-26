@@ -15,8 +15,12 @@ import io.ktor.utils.io.ByteReadChannel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.auth.SessionState
+import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -307,6 +311,7 @@ class DefaultSuggestionsRepositoryTest {
         val repo =
             DefaultSuggestionsRepository(
                 xrpcClientProvider = provider,
+                sessionStateProvider = fakeSessionStateProvider(),
                 dispatcher = Dispatchers.Unconfined,
             )
         return engine to repo
@@ -576,3 +581,22 @@ class DefaultSuggestionsRepositoryTest {
             """.trimIndent()
     }
 }
+
+/**
+ * Minimal [SessionStateProvider] for projection tests: only `state.value` is
+ * read (via `viewerDidOrNull`), and `isSelfHosted` is interface-derived.
+ *
+ * @param did the signed-in DID, or null for a signed-out session.
+ */
+private fun fakeSessionStateProvider(did: String? = null): SessionStateProvider =
+    object : SessionStateProvider {
+        override val state: StateFlow<SessionState> =
+            MutableStateFlow(
+                did?.let { SessionState.SignedIn(handle = "tester.bsky.social", did = it) }
+                    ?: SessionState.SignedOut,
+            )
+
+        // No-op: these tests never re-drive the session, they only read
+        // state.value through viewerDidOrNull.
+        override suspend fun refresh() = Unit
+    }
