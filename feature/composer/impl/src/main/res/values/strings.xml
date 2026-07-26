@@ -168,4 +168,12 @@
     <string name="composer_video_processing">Processing video…</string>
     <string name="composer_video_ready">Video ready</string>
     <string name="composer_video_failed">Video upload failed</string>
+    <string name="composer_video_add_alt">Add alt</string>
+    <string name="composer_video_edit_alt">Edit alt</string>
+    <string name="composer_video_error_not_permitted">Your account can\'t upload video right now.</string>
+    <string name="composer_video_error_too_long">Videos must be under %1$d minutes.</string>
+    <string name="composer_video_error_compression">This video couldn\'t be prepared on your device. Try a different clip.</string>
+    <string name="composer_video_error_upload">The video couldn\'t be uploaded. Check your connection and try again.</string>
+    <string name="composer_video_error_processing">Bluesky couldn\'t process this video. Try a different clip.</string>
+    <string name="composer_video_error_network">Connection lost. Try again.</string>
 </resources>

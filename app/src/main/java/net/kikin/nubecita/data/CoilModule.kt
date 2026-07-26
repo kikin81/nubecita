@@ -8,6 +8,7 @@ import coil3.gif.AnimatedImageDecoder
 import coil3.memory.MemoryCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
+import coil3.video.VideoFrameDecoder
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -32,6 +33,11 @@ internal object CoilModule {
                 // minSdk 28 ⇒ the hardware AnimatedImageDecoder (framework
                 // ImageDecoder/AnimatedImageDrawable), not the slow software path.
                 add(AnimatedImageDecoder.Factory())
+                // Poster frames for the composer's attached video. Without
+                // this a `content://` video uri decodes to nothing and the
+                // card shows an empty placeholder — the user cannot tell which
+                // clip they picked while it uploads (nubecita-uu6c.6).
+                add(VideoFrameDecoder.Factory())
             }.memoryCache {
                 MemoryCache
                     .Builder()

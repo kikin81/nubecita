@@ -1,14 +1,10 @@
 package net.kikin.nubecita.feature.composer.impl
 
 import androidx.compose.foundation.text.input.TextFieldState
-import io.github.kikin81.atproto.app.bsky.embed.AspectRatio
-import io.github.kikin81.atproto.runtime.Blob
-import io.github.kikin81.atproto.runtime.CidLink
 import io.mockk.mockk
-import net.kikin.nubecita.core.videoupload.VideoUploadError
-import net.kikin.nubecita.core.videoupload.VideoUploadState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerVideo
+import net.kikin.nubecita.feature.composer.impl.state.ComposerVideoStage
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -22,36 +18,25 @@ import org.junit.jupiter.api.Test
  * the one that keeps the button disabled and the user informed.
  */
 class ComposerVideoSubmitGateTest {
-    private val ready =
-        VideoUploadState.Ready(
-            blob =
-                Blob(
-                    ref = CidLink(link = "bafyreiexamplecidforatestblobreference00000000000000"),
-                    mimeType = "video/mp4",
-                    size = 1_024L,
-                ),
-            aspectRatio = AspectRatio(width = 1080, height = 1920),
-        )
-
-    private fun stateWith(uploadState: VideoUploadState) = ComposerState(video = ComposerVideo(uri = mockk(relaxed = true), uploadState = uploadState))
+    private fun stateWith(stage: ComposerVideoStage) = ComposerState(video = ComposerVideo(uri = mockk(relaxed = true), stage = stage))
 
     /** A video is content in its own right — no text required. */
     @Test
     fun `a ready video alone is postable`() {
-        assertTrue(canPost(stateWith(ready), TextFieldState()))
+        assertTrue(canPost(stateWith(ComposerVideoStage.Ready), TextFieldState()))
     }
 
     @Test
     fun `an in-flight upload blocks posting`() {
         listOf(
-            VideoUploadState.CheckingLimits,
-            VideoUploadState.Compressing(0.1f),
-            VideoUploadState.Uploading(0.99f),
-            VideoUploadState.Processing(0.5f),
-        ).forEach { state ->
+            ComposerVideoStage.CheckingLimits,
+            ComposerVideoStage.Compressing,
+            ComposerVideoStage.Uploading,
+            ComposerVideoStage.Processing,
+        ).forEach { stage ->
             assertFalse(
-                canPost(stateWith(state), TextFieldState("some text")),
-                "${state::class.simpleName} must block submission",
+                canPost(stateWith(stage), TextFieldState("some text")),
+                "$stage must block submission",
             )
         }
     }
@@ -63,7 +48,7 @@ class ComposerVideoSubmitGateTest {
      */
     @Test
     fun `a failed upload blocks posting even with text`() {
-        val failed = stateWith(VideoUploadState.Failed(VideoUploadError.Network("dropped")))
+        val failed = stateWith(ComposerVideoStage.Failed)
 
         assertFalse(canPost(failed, TextFieldState("plenty of text here")))
     }

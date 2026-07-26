@@ -18,6 +18,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
@@ -40,7 +43,6 @@ import net.kikin.nubecita.core.posting.SharedMediaStore
 import net.kikin.nubecita.core.review.ReviewManager
 import net.kikin.nubecita.core.videoupload.VideoUploadError
 import net.kikin.nubecita.core.videoupload.VideoUploadRepository
-import net.kikin.nubecita.core.videoupload.VideoUploadState
 import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.data.models.KlipyMediaUi
 import net.kikin.nubecita.data.models.toExternalEmbedUri
@@ -56,12 +58,15 @@ import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
 import net.kikin.nubecita.feature.composer.impl.state.ComposerVideo
+import net.kikin.nubecita.feature.composer.impl.state.ComposerVideoStage
 import net.kikin.nubecita.feature.composer.impl.state.ExternalLinkStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.QuoteLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.TypeaheadStatus
 import net.kikin.nubecita.feature.composer.impl.state.isGalleryMissingAlt
 import net.kikin.nubecita.feature.composer.impl.state.readyEmbed
+import net.kikin.nubecita.feature.composer.impl.state.stageProgress
+import net.kikin.nubecita.feature.composer.impl.state.withUploadState
 import timber.log.Timber
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -282,6 +287,24 @@ internal class ComposerViewModel
         /** In-flight video upload, cancelled on remove / replace / discard. */
         private var videoUploadJob: Job? = null
 
+        private val _videoProgress = MutableStateFlow<Float?>(null)
+
+        /**
+         * The current stage's completion fraction, or null for stages that have
+         * none.
+         *
+         * Deliberately NOT part of [ComposerState]: it changes about four times
+         * a second, and anything in the state object recomposes the whole
+         * composer body when it does — while the user is typing. Collected by
+         * the progress bar alone, so a tick redraws one composable instead of
+         * the screen.
+         *
+         * Each stage reports its own fraction rather than one global bar:
+         * compression, upload and server-side processing take wildly different
+         * times, so a combined percentage would stall and jump misleadingly.
+         */
+        val videoProgress: StateFlow<Float?> = _videoProgress.asStateFlow()
+
         // The typed URL currently backing the card (loading or loaded). Used to
         // `forget` it from the scanner on an image-induced clear so removing the
         // images restores the card; a manual dismiss leaves it memoized.
@@ -418,6 +441,7 @@ internal class ComposerViewModel
                 is ComposerEvent.VideoPicked -> if (!submitInFlight) handleVideoPicked(event.uri)
                 ComposerEvent.RemoveVideo -> if (!submitInFlight) handleRemoveVideo()
                 ComposerEvent.RetryVideoUpload -> if (!submitInFlight) handleRetryVideoUpload()
+                ComposerEvent.OpenVideoAltEditor -> if (!submitInFlight) handleOpenVideoAltEditor()
                 is ComposerEvent.SetVideoAlt -> if (!submitInFlight) handleSetVideoAlt(event.text)
                 is ComposerEvent.TypeaheadResultClicked ->
                     if (!submitInFlight) handleTypeaheadResultClicked(event.actor)
@@ -840,6 +864,7 @@ internal class ComposerViewModel
         private fun handleRemoveVideo() {
             videoUploadJob?.cancel()
             videoUploadJob = null
+            _videoProgress.value = null
             setState { copy(video = null) }
             // A URL still in the text can re-detect its card now the video is
             // gone; removal doesn't change text, so re-scan explicitly.
@@ -848,8 +873,23 @@ internal class ComposerViewModel
 
         private fun handleRetryVideoUpload() {
             val uri = uiState.value.video?.uri ?: return
-            setState { copy(video = video?.copy(uploadState = VideoUploadState.CheckingLimits)) }
+            _videoProgress.value = null
+            setState {
+                copy(video = video?.copy(stage = ComposerVideoStage.CheckingLimits, error = null, embed = null))
+            }
             startVideoUpload(uri)
+        }
+
+        /**
+         * Reuse the image alt editor for the video.
+         *
+         * The editor is index-addressed for the gallery, so the video borrows a
+         * sentinel index rather than growing a second editor. One editor, one
+         * set of behaviours to keep working.
+         */
+        private fun handleOpenVideoAltEditor() {
+            if (uiState.value.video == null) return
+            setState { copy(altEditTarget = VIDEO_ALT_EDIT_TARGET) }
         }
 
         private fun handleSetVideoAlt(text: String) {
@@ -875,19 +915,20 @@ internal class ComposerViewModel
                         // Guard against a late emission from a job whose video
                         // was already removed or replaced.
                         if (uiState.value.video?.uri == uri) {
-                            setState { copy(video = video?.copy(uploadState = state)) }
+                            _videoProgress.value = state.stageProgress()
+                            setState { copy(video = video?.withUploadState(state)) }
                         }
                     }.catch { cause ->
                         Timber.tag(TAG).w(cause, "video upload flow failed")
                         if (uiState.value.video?.uri == uri) {
+                            _videoProgress.value = null
                             setState {
                                 copy(
                                     video =
                                         video?.copy(
-                                            uploadState =
-                                                VideoUploadState.Failed(
-                                                    VideoUploadError.Network(cause.message),
-                                                ),
+                                            stage = ComposerVideoStage.Failed,
+                                            error = VideoUploadError.Network(cause.message),
+                                            embed = null,
                                         ),
                                 )
                             }
@@ -1047,6 +1088,12 @@ internal class ComposerViewModel
             )
 
         companion object {
+            /**
+             * Sentinel [ComposerState.altEditTarget] for the video slot.
+             * Negative so it can never collide with a gallery index.
+             */
+            const val VIDEO_ALT_EDIT_TARGET = -1
+
             private const val TAG = "ComposerVM"
             private const val GIF_EMBED_TITLE = "GIF"
 

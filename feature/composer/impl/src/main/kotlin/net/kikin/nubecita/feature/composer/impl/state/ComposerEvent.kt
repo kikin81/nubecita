@@ -134,6 +134,9 @@ internal sealed interface ComposerEvent : UiEvent {
     /** Restart the pipeline for the same source after a failure. */
     data object RetryVideoUpload : ComposerEvent
 
+    /** Open the alt editor for the attached video. */
+    data object OpenVideoAltEditor : ComposerEvent
+
     /** Set the video's accessibility description. */
     data class SetVideoAlt(
         val text: String,

@@ -31,6 +31,7 @@ import net.kikin.nubecita.feature.composer.impl.data.ParentFetchSource
 import net.kikin.nubecita.feature.composer.impl.data.QuotePostFetcher
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEffect
 import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
+import net.kikin.nubecita.feature.composer.impl.state.ComposerVideoStage
 import net.kikin.nubecita.feature.composer.impl.state.readyEmbed
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -161,9 +162,9 @@ class ComposerVideoTest {
 
             uploadStates.emit(VideoUploadState.Compressing(0.5f))
             assertEquals(
-                VideoUploadState.Compressing(0.5f),
+                ComposerVideoStage.Compressing,
                 vm.uiState.value.video
-                    ?.uploadState,
+                    ?.stage,
             )
 
             uploadStates.emit(readyState)
@@ -242,7 +243,7 @@ class ComposerVideoTest {
      * `NaN.coerceIn(0f, 1f)` returns NaN.
      */
     @Test
-    fun `stageProgress normalizes out-of-range and NaN before the UI sees it`() =
+    fun `videoProgress normalizes out-of-range and NaN before the UI sees it`() =
         runTest {
             val vm = newVm()
             vm.handleEvent(ComposerEvent.VideoPicked(uri()))
@@ -250,45 +251,59 @@ class ComposerVideoTest {
             uploadStates.emit(VideoUploadState.Uploading(Float.NaN))
             assertEquals(
                 0f,
-                vm.uiState.value.video
-                    ?.stageProgress,
+                vm.videoProgress.value,
                 "NaN must not reach the progress bar",
             )
 
             uploadStates.emit(VideoUploadState.Compressing(1.5f))
             assertEquals(
                 1f,
-                vm.uiState.value.video
-                    ?.stageProgress,
+                vm.videoProgress.value,
                 "above range clamps to 1",
             )
 
             uploadStates.emit(VideoUploadState.Processing(-0.5f))
             assertEquals(
                 0f,
-                vm.uiState.value.video
-                    ?.stageProgress,
+                vm.videoProgress.value,
                 "below range clamps to 0",
             )
         }
 
     @Test
-    fun `stageProgress is null for stages without progress`() =
+    fun `videoProgress is null for stages without progress`() =
         runTest {
             val vm = newVm()
             vm.handleEvent(ComposerEvent.VideoPicked(uri()))
 
             uploadStates.emit(VideoUploadState.CheckingLimits)
             assertNull(
-                vm.uiState.value.video
-                    ?.stageProgress,
+                vm.videoProgress.value,
             )
 
             uploadStates.emit(readyState)
             assertNull(
-                vm.uiState.value.video
-                    ?.stageProgress,
+                vm.videoProgress.value,
             )
+        }
+
+    /**
+     * The whole point of splitting stage from fraction: a tick must not produce
+     * a new ComposerState, or the composer body recomposes ~4x/sec while the
+     * user types.
+     */
+    @Test
+    fun `a progress tick does not change composer state`() =
+        runTest {
+            val vm = newVm()
+            vm.handleEvent(ComposerEvent.VideoPicked(uri()))
+            uploadStates.emit(VideoUploadState.Uploading(0.1f))
+            val afterFirst = vm.uiState.value
+
+            uploadStates.emit(VideoUploadState.Uploading(0.9f))
+
+            assertEquals(afterFirst, vm.uiState.value, "a fraction change must not touch ComposerState")
+            assertEquals(0.9f, vm.videoProgress.value, "but the progress flow must see it")
         }
 
     // ---- mutual exclusion ------------------------------------------------

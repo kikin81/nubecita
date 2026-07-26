@@ -50,6 +50,8 @@ import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.image.PickedImage
 import net.kikin.nubecita.core.image.rememberImagePicker
@@ -246,6 +248,10 @@ internal fun ComposerScreen(
         remember(viewModel) {
             { viewModel.handleEvent(ComposerEvent.RetryVideoUpload) }
         }
+    val onEditVideoAlt =
+        remember(viewModel) {
+            { viewModel.handleEvent(ComposerEvent.OpenVideoAltEditor) }
+        }
 
     // Discard-confirmation gate. The composer is a transient, in-progress
     // surface — leaving it (back-press or toolbar X) while the draft has
@@ -392,8 +398,10 @@ internal fun ComposerScreen(
         onRemoveQuote = onRemoveQuote,
         onRemoveExternalLink = onRemoveExternalLink,
         onRemoveGif = onRemoveGif,
+        videoProgress = viewModel.videoProgress,
         onRemoveVideo = onRemoveVideo,
         onRetryVideoUpload = onRetryVideoUpload,
+        onEditVideoAlt = onEditVideoAlt,
         onLanguageChipClick = { showPicker = true },
         onAudienceChipClick = { showAudiencePicker = true },
         onGifChipClick = { showGifPicker = true },
@@ -513,8 +521,10 @@ internal fun ComposerScreenContent(
     onSetAltText: (Int, String) -> Unit = { _, _ -> },
     onRemoveExternalLink: () -> Unit = {},
     onRemoveGif: () -> Unit = {},
+    videoProgress: StateFlow<Float?> = MutableStateFlow(null),
     onRemoveVideo: () -> Unit = {},
     onRetryVideoUpload: () -> Unit = {},
+    onEditVideoAlt: () -> Unit = {},
 ) {
     // Alt editor is a layer within the composer's own surface: when a photo is
     // being described, it replaces the composer body (full-screen on phone, or
@@ -732,8 +742,12 @@ internal fun ComposerScreenContent(
             state.video?.let { video ->
                 ComposerVideoCard(
                     video = video,
+                    // The flow, not a collected value: the screen must not read
+                    // the fraction or it recomposes four times a second.
+                    progressFlow = videoProgress,
                     onRemove = onRemoveVideo,
                     onRetry = onRetryVideoUpload,
+                    onEditAlt = onEditVideoAlt,
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
