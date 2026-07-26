@@ -93,11 +93,15 @@ internal class DefaultSuggestionsRepository
                     val response =
                         FeedService(client)
                             .getFeed(GetFeedRequest(feed = AtUri(feedUri), limit = limit.toLong()))
+                    // Read once per page, not per post: a session change midway
+                    // through would otherwise mark part of one page as the
+                    // viewer's own and the rest not.
+                    val viewerDid = sessionStateProvider.viewerDidOrNull
                     Result.success(
                         response.feed
                             .take(limit)
                             .mapNotNull { feedViewPost ->
-                                feedViewPost.post.toPostUiCore(sessionStateProvider.viewerDidOrNull)?.let { postUi ->
+                                feedViewPost.post.toPostUiCore(viewerDid)?.let { postUi ->
                                     FeedPreviewPostUi(
                                         authorHandle = postUi.author.handle,
                                         authorAvatarUrl = postUi.author.avatarUrl,

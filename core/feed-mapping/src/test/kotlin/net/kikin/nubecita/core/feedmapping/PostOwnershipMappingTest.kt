@@ -3,7 +3,6 @@ package net.kikin.nubecita.core.feedmapping
 import io.github.kikin81.atproto.app.bsky.feed.PostView
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -35,20 +34,18 @@ internal class PostOwnershipMappingTest {
     fun `a post authored by the viewer is marked own`() {
         val view = decodePostView(POST)
 
-        val post = view.toPostUiCore(viewerDid = "did:plc:fake")
+        val post = requireNotNull(view.toPostUiCore(viewerDid = "did:plc:fake"))
 
-        assertNotNull(post)
-        assertTrue(post!!.viewer.isOwnPost)
+        assertTrue(post.viewer.isOwnPost)
     }
 
     @Test
     fun `a post authored by somebody else is not marked own`() {
         val view = decodePostView(POST)
 
-        val post = view.toPostUiCore(viewerDid = "did:plc:someone-else")
+        val post = requireNotNull(view.toPostUiCore(viewerDid = "did:plc:someone-else"))
 
-        assertNotNull(post)
-        assertFalse(post!!.viewer.isOwnPost)
+        assertFalse(post.viewer.isOwnPost)
     }
 
     /**
@@ -60,10 +57,9 @@ internal class PostOwnershipMappingTest {
     fun `omitting the viewer did fails closed`() {
         val view = decodePostView(POST)
 
-        val post = view.toPostUiCore()
+        val post = requireNotNull(view.toPostUiCore())
 
-        assertNotNull(post)
-        assertFalse(post!!.viewer.isOwnPost)
+        assertFalse(post.viewer.isOwnPost)
     }
 
     /** Signed out: nobody owns anything, so nothing is offered. */
@@ -71,10 +67,9 @@ internal class PostOwnershipMappingTest {
     fun `a null viewer did fails closed`() {
         val view = decodePostView(POST)
 
-        val post = view.toPostUiCore(viewerDid = null)
+        val post = requireNotNull(view.toPostUiCore(viewerDid = null))
 
-        assertNotNull(post)
-        assertFalse(post!!.viewer.isOwnPost)
+        assertFalse(post.viewer.isOwnPost)
     }
 
     /**
@@ -87,10 +82,9 @@ internal class PostOwnershipMappingTest {
     fun `a did that only prefixes the author did is not a match`() {
         val view = decodePostView(POST)
 
-        val post = view.toPostUiCore(viewerDid = "did:plc:fak")
+        val post = requireNotNull(view.toPostUiCore(viewerDid = "did:plc:fak"))
 
-        assertNotNull(post)
-        assertFalse(post!!.viewer.isOwnPost)
+        assertFalse(post.viewer.isOwnPost)
     }
 
     private fun decodePostView(jsonString: String): PostView = json.decodeFromString(PostView.serializer(), jsonString)

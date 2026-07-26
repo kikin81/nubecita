@@ -56,12 +56,16 @@ internal class DefaultBookmarkRepository
                     val response =
                         BookmarkService(xrpcClientProvider.authenticated())
                             .getBookmarks(GetBookmarksRequest(cursor = cursor))
+                    // Read once per page, not per post: a session change midway
+                    // through would otherwise mark part of one page as the
+                    // viewer's own and the rest not.
+                    val viewerDid = sessionStateProvider.viewerDidOrNull
                     BookmarksPage(
                         // Only bookmarked items that resolve to a viewable post are
                         // surfaced; not-found / blocked union members are dropped.
                         posts =
                             response.bookmarks
-                                .mapNotNull { (it.item as? PostView)?.toPostUiCore(sessionStateProvider.viewerDidOrNull) }
+                                .mapNotNull { (it.item as? PostView)?.toPostUiCore(viewerDid) }
                                 .toImmutableList(),
                         cursor = response.cursor,
                     )

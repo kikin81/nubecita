@@ -101,13 +101,17 @@ internal class DefaultNotificationsRepository
             // 50-row page typically produces at most two batches. Parallelizing
             // would shave ~100ms in the worst case while adding async/awaitAll
             // ceremony; not worth it for slice 1.
+            // Read once for the whole hydration, not per post: a session change
+            // midway would otherwise mark part of one page as the viewer's own
+            // and the rest not.
+            val viewerDid = sessionStateProvider.viewerDidOrNull
             for (batch in uris.chunked(GET_POSTS_BATCH_LIMIT)) {
                 val response =
                     feedService.getPosts(
                         GetPostsRequest(uris = batch.map { AtUri(it) }),
                     )
                 for (postView in response.posts) {
-                    val ui = postView.toPostUiCore(sessionStateProvider.viewerDidOrNull) ?: continue
+                    val ui = postView.toPostUiCore(viewerDid) ?: continue
                     map[postView.uri.raw] = ui
                 }
             }
