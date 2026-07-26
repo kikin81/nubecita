@@ -9,7 +9,9 @@ import io.github.kikin81.atproto.runtime.AtIdentifier
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
+import net.kikin.nubecita.core.auth.viewerDidOrNull
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import timber.log.Timber
 
@@ -36,6 +38,7 @@ internal class AuthorVideoSource
     constructor(
         @Assisted private val actor: String,
         private val xrpcClientProvider: XrpcClientProvider,
+        private val sessionStateProvider: SessionStateProvider,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : VideoFeedSource {
         override suspend fun loadPage(cursor: String?): Result<VideoFeedPage> =
@@ -43,7 +46,7 @@ internal class AuthorVideoSource
                 runCatching {
                     val client = xrpcClientProvider.authenticated()
                     val response = FeedService(client).getAuthorFeed(authorVideoFeedRequest(actor, cursor))
-                    VideoFeedPage(items = toVideoPosts(response.feed), cursor = response.cursor)
+                    VideoFeedPage(items = toVideoPosts(response.feed, sessionStateProvider.viewerDidOrNull), cursor = response.cursor)
                 }.onFailure { throwable ->
                     // runCatching also catches CancellationException; rethrow so structured
                     // coroutine cancellation propagates instead of being swallowed into a Result.

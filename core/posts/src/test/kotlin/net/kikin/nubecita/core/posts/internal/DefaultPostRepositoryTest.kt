@@ -8,9 +8,13 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.utils.io.ByteReadChannel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.NoSessionException
+import net.kikin.nubecita.core.auth.SessionState
+import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.posts.PostNotFoundException
 import net.kikin.nubecita.data.models.EmbedUi
@@ -33,7 +37,7 @@ internal class DefaultPostRepositoryTest {
                         httpClient = HttpClient(jsonMockEngine(fixture)),
                     )
                 }
-            val repo = DefaultPostRepository(provider, UnconfinedTestDispatcher(testScheduler))
+            val repo = DefaultPostRepository(provider, fakeSessionStateProvider(), UnconfinedTestDispatcher(testScheduler))
 
             val result = repo.getPost("at://did:plc:oky5czdrnfjpqslsw2a5iclo/app.bsky.feed.post/3mjko6vtdps2b")
 
@@ -55,7 +59,7 @@ internal class DefaultPostRepositoryTest {
                         httpClient = HttpClient(jsonMockEngine(fixture)),
                     )
                 }
-            val repo = DefaultPostRepository(provider, UnconfinedTestDispatcher(testScheduler))
+            val repo = DefaultPostRepository(provider, fakeSessionStateProvider(), UnconfinedTestDispatcher(testScheduler))
 
             val result = repo.getPost("at://did:plc:test/app.bsky.feed.post/missing")
 
@@ -73,7 +77,7 @@ internal class DefaultPostRepositoryTest {
                         httpClient = HttpClient(MockEngine { throw IOException("simulated network failure") }),
                     )
                 }
-            val repo = DefaultPostRepository(provider, UnconfinedTestDispatcher(testScheduler))
+            val repo = DefaultPostRepository(provider, fakeSessionStateProvider(), UnconfinedTestDispatcher(testScheduler))
 
             val result = repo.getPost("at://did:plc:test/app.bsky.feed.post/anything")
 
@@ -86,7 +90,7 @@ internal class DefaultPostRepositoryTest {
         runTest {
             val provider =
                 FakeXrpcClientProvider { throw NoSessionException() }
-            val repo = DefaultPostRepository(provider, UnconfinedTestDispatcher(testScheduler))
+            val repo = DefaultPostRepository(provider, fakeSessionStateProvider(), UnconfinedTestDispatcher(testScheduler))
 
             val result = repo.getPost("at://did:plc:test/app.bsky.feed.post/anything")
 
@@ -116,3 +120,22 @@ private class FakeXrpcClientProvider(
 ) : XrpcClientProvider {
     override suspend fun authenticated(): XrpcClient = factory()
 }
+
+/**
+ * Minimal [SessionStateProvider] for projection tests: only `state.value` is
+ * read (via `viewerDidOrNull`), and `isSelfHosted` is interface-derived.
+ *
+ * @param did the signed-in DID, or null for a signed-out session.
+ */
+private fun fakeSessionStateProvider(did: String? = null): SessionStateProvider =
+    object : SessionStateProvider {
+        override val state: StateFlow<SessionState> =
+            MutableStateFlow(
+                did?.let { SessionState.SignedIn(handle = "tester.bsky.social", did = it) }
+                    ?: SessionState.SignedOut,
+            )
+
+        // No-op: these tests never re-drive the session, they only read
+        // state.value through viewerDidOrNull.
+        override suspend fun refresh() = Unit
+    }

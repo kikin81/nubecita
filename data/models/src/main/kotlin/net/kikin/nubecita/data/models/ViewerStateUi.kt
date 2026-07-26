@@ -86,4 +86,19 @@ public data class ViewerStateUi(
      * detection (a gated post is rejected).
      */
     val canViewerQuote: Boolean = true,
+    /**
+     * Whether this post was authored by the signed-in viewer.
+     *
+     * Unlike its neighbours this is NOT a server-computed flag — the appview
+     * has no "this is yours" bit, so it is derived at projection time by
+     * comparing the post's author DID against the session DID.
+     *
+     * Defaults to `false`, and that direction is deliberate: it is the only
+     * field here that fails **closed**. `canViewerReply` / `canViewerQuote`
+     * default true because wrongly hiding a reply button is a worse outcome
+     * than a request the server refuses. Here the asymmetry inverts — a
+     * projection path that forgets to supply the viewer DID must lose the
+     * Delete affordance, never offer it on somebody else's post.
+     */
+    val isOwnPost: Boolean = false,
 )

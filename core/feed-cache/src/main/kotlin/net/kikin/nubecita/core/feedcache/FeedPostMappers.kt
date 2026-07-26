@@ -80,7 +80,7 @@ fun FeedPostEntity.toPostUi(
     val view =
         runCatching { CacheJson.decodeFromString(PostView.serializer(), blob) }
             .getOrNull() ?: return null
-    val postUi = view.toPostUiCore() ?: return null
+    val postUi = view.toPostUiCore(viewerDid) ?: return null
     return postUi.applyModeration(
         labels = view.labels,
         viewerDid = viewerDid,
@@ -89,7 +89,12 @@ fun FeedPostEntity.toPostUi(
     )
 }
 
-/** Decode the post's `record` to its `text`, or `""` when it can't be decoded. */
+/**
+ * Decode the post's `record` to its `text`, or `""` when it can't be decoded.
+ *
+ * No `viewerDid` on purpose: this reads the record text only and discards the
+ * viewer state, so ownership would be computed and thrown away.
+ */
 private fun PostView.extractRecordText(): String = toPostUiCore()?.text ?: ""
 
 private fun parseInstantOrEpoch(raw: String): Instant = runCatching { Instant.parse(raw) }.getOrDefault(Instant.fromEpochMilliseconds(0))

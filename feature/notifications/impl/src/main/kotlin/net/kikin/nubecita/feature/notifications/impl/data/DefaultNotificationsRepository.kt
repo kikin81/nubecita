@@ -12,7 +12,9 @@ import io.github.kikin81.atproto.runtime.Datetime
 import io.github.kikin81.atproto.runtime.XrpcClient
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
+import net.kikin.nubecita.core.auth.viewerDidOrNull
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import net.kikin.nubecita.data.models.NotificationFilter
@@ -26,6 +28,7 @@ internal class DefaultNotificationsRepository
     @Inject
     constructor(
         private val xrpcClientProvider: XrpcClientProvider,
+        private val sessionStateProvider: SessionStateProvider,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : NotificationsRepository {
         override suspend fun fetchPage(
@@ -98,13 +101,17 @@ internal class DefaultNotificationsRepository
             // 50-row page typically produces at most two batches. Parallelizing
             // would shave ~100ms in the worst case while adding async/awaitAll
             // ceremony; not worth it for slice 1.
+            // Read once for the whole hydration, not per post: a session change
+            // midway would otherwise mark part of one page as the viewer's own
+            // and the rest not.
+            val viewerDid = sessionStateProvider.viewerDidOrNull
             for (batch in uris.chunked(GET_POSTS_BATCH_LIMIT)) {
                 val response =
                     feedService.getPosts(
                         GetPostsRequest(uris = batch.map { AtUri(it) }),
                     )
                 for (postView in response.posts) {
-                    val ui = postView.toPostUiCore() ?: continue
+                    val ui = postView.toPostUiCore(viewerDid) ?: continue
                     map[postView.uri.raw] = ui
                 }
             }

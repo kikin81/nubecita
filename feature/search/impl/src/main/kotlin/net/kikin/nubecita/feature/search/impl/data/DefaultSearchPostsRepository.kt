@@ -6,9 +6,9 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
-import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
+import net.kikin.nubecita.core.auth.viewerDidOrNull
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.core.feedmapping.applyModeration
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
@@ -70,14 +70,14 @@ internal class DefaultSearchPostsRepository
                     // Drop hard-filtered (NSFW) results and cover warned media,
                     // off the render path, against the cached prefs + viewer DID.
                     val prefs = moderationPreferences.prefs.value
-                    val viewerDid = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
+                    val viewerDid = sessionStateProvider.viewerDidOrNull
                     Result.success(
                         SearchPostsPage(
                             items =
                                 response.posts
                                     .mapNotNull { post ->
                                         post
-                                            .toPostUiCore()
+                                            .toPostUiCore(viewerDid)
                                             ?.applyModeration(post.labels, viewerDid, prefs, dropFiltered = true)
                                             ?.let(FeedItemUi::Single)
                                     }.toImmutableList(),

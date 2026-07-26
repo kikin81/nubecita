@@ -7,7 +7,9 @@ import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
+import net.kikin.nubecita.core.auth.viewerDidOrNull
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import net.kikin.nubecita.data.models.EmbedUi
@@ -24,7 +26,10 @@ internal fun List<PostUi>.videoPostsOnly(): List<PostUi> = filter { it.embed is 
  * embed. `thevids` can surface mixed content, so the filter guarantees every
  * item is playable. Pure — unit-tested without a network.
  */
-fun toVideoPosts(feed: List<FeedViewPost>): List<PostUi> = feed.mapNotNull { it.post.toPostUiCore() }.videoPostsOnly()
+fun toVideoPosts(
+    feed: List<FeedViewPost>,
+    viewerDid: String? = null,
+): List<PostUi> = feed.mapNotNull { it.post.toPostUiCore(viewerDid) }.videoPostsOnly()
 
 /**
  * [VideoFeedSource] over Bluesky's official "Video" custom feed
@@ -35,6 +40,7 @@ internal class DefaultTrendingVideoSource
     @Inject
     constructor(
         private val xrpcClientProvider: XrpcClientProvider,
+        private val sessionStateProvider: SessionStateProvider,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : VideoFeedSource {
         override suspend fun loadPage(cursor: String?): Result<VideoFeedPage> =
@@ -49,7 +55,7 @@ internal class DefaultTrendingVideoSource
                                 limit = PAGE_LIMIT,
                             ),
                         )
-                    VideoFeedPage(items = toVideoPosts(response.feed), cursor = response.cursor)
+                    VideoFeedPage(items = toVideoPosts(response.feed, sessionStateProvider.viewerDidOrNull), cursor = response.cursor)
                 }.onFailure { throwable ->
                     // runCatching also catches CancellationException; rethrow it so structured
                     // coroutine cancellation propagates instead of being swallowed into a Result.

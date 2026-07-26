@@ -24,7 +24,7 @@ private fun PostView.toModeratedPostUi(
     prefs: ModerationPrefs,
     viewerDid: String?,
     dropFiltered: Boolean,
-): PostUi? = toPostUiCore()?.applyModeration(labels, viewerDid, prefs, dropFiltered)
+): PostUi? = toPostUiCore(viewerDid)?.applyModeration(labels, viewerDid, prefs, dropFiltered)
 
 /**
  * Maps a [FeedViewPost] (the wire model returned by `app.bsky.feed.getTimeline`)

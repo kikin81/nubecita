@@ -67,7 +67,7 @@ private fun ThreadViewPost.flattenThreadViewPost(
     viewerDid: String?,
 ): ImmutableList<ThreadItem> {
     val focusPost =
-        post.toPostUiCore()?.applyModeration(post.labels, viewerDid, prefs, dropFiltered = false)
+        post.toPostUiCore(viewerDid)?.applyModeration(post.labels, viewerDid, prefs, dropFiltered = false)
             ?: return persistentListOf()
     val out = mutableListOf<ThreadItem>()
     out += collectAncestors(parent, prefs, viewerDid)
@@ -95,7 +95,7 @@ private fun collectAncestors(
         when (val node = cursor) {
             is ThreadViewPost -> {
                 node.post
-                    .toPostUiCore()
+                    .toPostUiCore(viewerDid)
                     ?.applyModeration(node.post.labels, viewerDid, prefs, dropFiltered = false)
                     ?.let { ancestors += ThreadItem.Ancestor(post = it) }
                 cursor = node.parent
@@ -129,7 +129,7 @@ private fun ThreadViewPostRepliesUnion.toReplyItems(
     when (this) {
         is ThreadViewPost -> {
             val replyPost =
-                post.toPostUiCore()?.applyModeration(post.labels, viewerDid, prefs, dropFiltered = false)
+                post.toPostUiCore(viewerDid)?.applyModeration(post.labels, viewerDid, prefs, dropFiltered = false)
             if (replyPost == null) {
                 emptyList()
             } else {

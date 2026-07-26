@@ -12,9 +12,13 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.utils.io.ByteReadChannel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.NoSessionException
+import net.kikin.nubecita.core.auth.SessionState
+import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.data.models.NotificationFilter
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -248,6 +252,7 @@ internal class DefaultNotificationsRepositoryTest {
             val repo =
                 DefaultNotificationsRepository(
                     xrpcClientProvider = FakeXrpcClientProvider { throw NoSessionException() },
+                    sessionStateProvider = fakeSessionStateProvider(),
                     dispatcher = UnconfinedTestDispatcher(testScheduler),
                 )
             val result = repo.fetchPage(NotificationFilter.All, cursor = null)
@@ -370,6 +375,7 @@ internal class DefaultNotificationsRepositoryTest {
                 FakeXrpcClientProvider {
                     XrpcClient(baseUrl = "https://example.test", httpClient = HttpClient(engine))
                 },
+            sessionStateProvider = fakeSessionStateProvider(),
             dispatcher = UnconfinedTestDispatcher(testScheduler),
         )
 }
@@ -528,3 +534,22 @@ private fun postViewJson(
     """.trimIndent()
 
 private fun quote(s: String): String = "\"${s.replace("\"", "\\\"")}\""
+
+/**
+ * Minimal [SessionStateProvider] for projection tests: only `state.value` is
+ * read (via `viewerDidOrNull`), and `isSelfHosted` is interface-derived.
+ *
+ * @param did the signed-in DID, or null for a signed-out session.
+ */
+private fun fakeSessionStateProvider(did: String? = null): SessionStateProvider =
+    object : SessionStateProvider {
+        override val state: StateFlow<SessionState> =
+            MutableStateFlow(
+                did?.let { SessionState.SignedIn(handle = "tester.bsky.social", did = it) }
+                    ?: SessionState.SignedOut,
+            )
+
+        // No-op: these tests never re-drive the session, they only read
+        // state.value through viewerDidOrNull.
+        override suspend fun refresh() = Unit
+    }
