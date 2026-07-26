@@ -34,7 +34,9 @@ class UploadLimitsProbeTest {
                 httpClient = HttpClient(engine),
                 serviceAuthProvider =
                     object : ServiceAuthProvider {
-                        override suspend fun videoServiceToken(): String = token()
+                        override suspend fun videoServiceToken(lxm: String): String = token()
+
+                        override suspend fun blobUploadToken(): String = token()
                     },
             )
         return UploadLimitsProbe(factory)

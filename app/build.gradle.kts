@@ -297,6 +297,9 @@ dependencies {
     implementation(project(":core:review"))
     implementation(project(":core:update"))
     implementation(project(":core:video"))
+    // Aggregated here so Hilt validates the video-upload graph now rather than
+    // when :feature:composer first injects VideoUploadRepository (uu6c.5).
+    implementation(project(":core:video-upload"))
     implementation(project(":core:widget-sync"))
     implementation(project(":designsystem"))
     implementation(project(":feature:bookmarks:api"))
