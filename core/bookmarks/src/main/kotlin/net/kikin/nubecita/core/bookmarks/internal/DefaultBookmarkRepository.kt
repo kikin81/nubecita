@@ -10,7 +10,9 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
+import net.kikin.nubecita.core.auth.viewerDidOrNull
 import net.kikin.nubecita.core.bookmarks.BookmarkRepository
 import net.kikin.nubecita.core.bookmarks.BookmarksPage
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
@@ -29,6 +31,7 @@ internal class DefaultBookmarkRepository
     @Inject
     constructor(
         private val xrpcClientProvider: XrpcClientProvider,
+        private val sessionStateProvider: SessionStateProvider,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : BookmarkRepository {
         override suspend fun bookmark(post: StrongRef): Result<Unit> =
@@ -58,7 +61,7 @@ internal class DefaultBookmarkRepository
                         // surfaced; not-found / blocked union members are dropped.
                         posts =
                             response.bookmarks
-                                .mapNotNull { (it.item as? PostView)?.toPostUiCore() }
+                                .mapNotNull { (it.item as? PostView)?.toPostUiCore(sessionStateProvider.viewerDidOrNull) }
                                 .toImmutableList(),
                         cursor = response.cursor,
                     )

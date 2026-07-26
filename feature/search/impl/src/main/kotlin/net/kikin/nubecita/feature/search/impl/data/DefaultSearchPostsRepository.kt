@@ -77,7 +77,7 @@ internal class DefaultSearchPostsRepository
                                 response.posts
                                     .mapNotNull { post ->
                                         post
-                                            .toPostUiCore()
+                                            .toPostUiCore(viewerDid)
                                             ?.applyModeration(post.labels, viewerDid, prefs, dropFiltered = true)
                                             ?.let(FeedItemUi::Single)
                                     }.toImmutableList(),

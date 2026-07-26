@@ -12,7 +12,9 @@ import io.github.kikin81.atproto.runtime.Datetime
 import io.github.kikin81.atproto.runtime.XrpcClient
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
+import net.kikin.nubecita.core.auth.viewerDidOrNull
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import net.kikin.nubecita.data.models.NotificationFilter
@@ -26,6 +28,7 @@ internal class DefaultNotificationsRepository
     @Inject
     constructor(
         private val xrpcClientProvider: XrpcClientProvider,
+        private val sessionStateProvider: SessionStateProvider,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : NotificationsRepository {
         override suspend fun fetchPage(
@@ -104,7 +107,7 @@ internal class DefaultNotificationsRepository
                         GetPostsRequest(uris = batch.map { AtUri(it) }),
                     )
                 for (postView in response.posts) {
-                    val ui = postView.toPostUiCore() ?: continue
+                    val ui = postView.toPostUiCore(sessionStateProvider.viewerDidOrNull) ?: continue
                     map[postView.uri.raw] = ui
                 }
             }

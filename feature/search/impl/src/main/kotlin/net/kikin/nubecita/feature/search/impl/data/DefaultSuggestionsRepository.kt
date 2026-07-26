@@ -13,7 +13,9 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
+import net.kikin.nubecita.core.auth.viewerDidOrNull
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import net.kikin.nubecita.data.models.EmbedUi
@@ -46,6 +48,7 @@ internal class DefaultSuggestionsRepository
     @Inject
     constructor(
         private val xrpcClientProvider: XrpcClientProvider,
+        private val sessionStateProvider: SessionStateProvider,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : SuggestionsRepository {
         override suspend fun getSuggestedAccounts(limit: Int): Result<List<SuggestedAccountUi>> =
@@ -94,7 +97,7 @@ internal class DefaultSuggestionsRepository
                         response.feed
                             .take(limit)
                             .mapNotNull { feedViewPost ->
-                                feedViewPost.post.toPostUiCore()?.let { postUi ->
+                                feedViewPost.post.toPostUiCore(sessionStateProvider.viewerDidOrNull)?.let { postUi ->
                                     FeedPreviewPostUi(
                                         authorHandle = postUi.author.handle,
                                         authorAvatarUrl = postUi.author.avatarUrl,

@@ -77,7 +77,7 @@ private fun FeedViewPost.toPostTabItemOrNull(
 ): TabItemUi.Post? {
     val core =
         post
-            .toPostUiCore()
+            .toPostUiCore(viewerDid)
             ?.applyModeration(post.labels, viewerDid, prefs, dropFiltered = true)
             ?: return null
     val repost = reason as? ReasonRepost
@@ -92,7 +92,7 @@ private fun FeedViewPost.toMediaCellOrNull(
 ): TabItemUi.MediaCell? {
     val core: PostUi =
         post
-            .toPostUiCore()
+            .toPostUiCore(viewerDid)
             ?.applyModeration(post.labels, viewerDid, prefs, dropFiltered = true)
             ?: return null
     // The grid has no cover affordance, so a covered (warned-but-not-filtered)

@@ -64,7 +64,7 @@ private val recordJson: Json =
  * and isn't visible from a bare [PostView], so it's a feed-layer
  * concern not a core projection concern.
  */
-fun PostView.toPostUiCore(): PostUi? {
+fun PostView.toPostUiCore(viewerDid: String? = null): PostUi? {
     val postRecord =
         runCatching {
             recordJson.decodeFromJsonElement(Post.serializer(), record)
@@ -93,7 +93,7 @@ fun PostView.toPostUiCore(): PostUi? {
                 quoteCount = (quoteCount ?: 0L).toInt(),
                 bookmarkCount = (bookmarkCount ?: 0L).toInt(),
             ),
-        viewer = viewer.toViewerStateUi(authorViewer = author.viewer),
+        viewer = viewer.toViewerStateUi(authorViewer = author.viewer, isOwnPost = author.did.raw == viewerDid),
         repostedBy = null,
     )
 }
@@ -113,7 +113,7 @@ fun PostView.toPostUiCore(): PostUi? {
  * Callers should filter `null` entries at the collection boundary
  * (e.g. `posts.mapNotNull(PostView::toFlatFeedItemUiSingle)`).
  */
-fun PostView.toFlatFeedItemUiSingle(): FeedItemUi.Single? = toPostUiCore()?.let(FeedItemUi::Single)
+fun PostView.toFlatFeedItemUiSingle(viewerDid: String? = null): FeedItemUi.Single? = toPostUiCore(viewerDid)?.let(FeedItemUi::Single)
 
 /**
  * Maps the [PostViewEmbedUnion] open-union variant to PostCard's
@@ -180,7 +180,10 @@ fun ProfileView.toAuthorUi(): AuthorUi =
  * pure-post contexts) pass `authorViewer = null` and get the all-defaults
  * baseline (`false` for the three flags, follow-relationship `false`).
  */
-fun ViewerState?.toViewerStateUi(authorViewer: ActorViewerState? = null): ViewerStateUi =
+fun ViewerState?.toViewerStateUi(
+    authorViewer: ActorViewerState? = null,
+    isOwnPost: Boolean = false,
+): ViewerStateUi =
     ViewerStateUi(
         isLikedByViewer = this?.like != null,
         isRepostedByViewer = this?.repost != null,
@@ -197,6 +200,7 @@ fun ViewerState?.toViewerStateUi(authorViewer: ActorViewerState? = null): Viewer
         canViewerReply = this?.replyDisabled != true,
         // Server-computed postgate result; fail open when absent (no gate).
         canViewerQuote = this?.embeddingDisabled != true,
+        isOwnPost = isOwnPost,
     )
 
 /**
