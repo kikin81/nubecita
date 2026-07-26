@@ -312,6 +312,36 @@ class DefaultPostingRepositoryTest {
         }
 
     /**
+     * Mirrors imagesWithNonPositiveDimensions_omitAspectRatio. The pipeline
+     * already omits these upstream, but ComposerVideoEmbed is public and this
+     * module cannot rely on an invariant it does not own.
+     */
+    @Test
+    fun videoWithNonPositiveAspectRatio_omitsTheField() =
+        runTest {
+            val zero =
+                captureVideoRecordBody(
+                    aVideo(
+                        aspectRatio =
+                            io.github.kikin81.atproto.app.bsky.embed
+                                .AspectRatio(width = 0, height = 0),
+                    ),
+                )
+            assertTrue(zero.contains("app.bsky.embed.video"), "expected video embed: $zero")
+            assertFalse(zero.contains("aspectRatio"), "zero dims must omit aspectRatio: $zero")
+
+            val negative =
+                captureVideoRecordBody(
+                    aVideo(
+                        aspectRatio =
+                            io.github.kikin81.atproto.app.bsky.embed
+                                .AspectRatio(width = -1080, height = 1920),
+                    ),
+                )
+            assertFalse(negative.contains("aspectRatio"), "negative dims must omit aspectRatio: $negative")
+        }
+
+    /**
      * Null ratio omits the field. A substituted placeholder would be rendered
      * by every AT Protocol client; an absent one lets each measure for itself.
      */

@@ -531,7 +531,17 @@ internal class DefaultPostingRepository
             Video(
                 video = blob,
                 alt = if (alt.isBlank()) AtField.Missing else AtField.Defined(alt),
-                aspectRatio = aspectRatio?.let { AtField.Defined(it) } ?: AtField.Missing,
+                // Non-positive dimensions omit the field, matching the images
+                // path above. :core:video-upload's deriveAspectRatio already
+                // returns null for these, but ComposerVideoEmbed is public and
+                // :core:posting does not depend on that module — it cannot rely
+                // on an invariant it does not own. A zero dimension published
+                // here renders as NaN in every client's aspect-ratio maths.
+                aspectRatio =
+                    aspectRatio
+                        ?.takeIf { it.width > 0 && it.height > 0 }
+                        ?.let { AtField.Defined(it) }
+                        ?: AtField.Missing,
             )
 
         /** Build the `app.bsky.embed.external#external` record from a [PreparedExternal]. */
