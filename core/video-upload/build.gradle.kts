@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.nubecita.android.library)
     alias(libs.plugins.nubecita.android.hilt)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -16,7 +17,9 @@ dependencies {
     api(libs.atproto.models)
     api(libs.atproto.runtime)
 
+    implementation(project(":core:auth"))
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.ktor.client.core)
     // Client-side transcode. Bluesky caps an uploaded video at 100MB, but
     // 1080p30 phone capture runs ~20 Mbps — three minutes is roughly 450MB —

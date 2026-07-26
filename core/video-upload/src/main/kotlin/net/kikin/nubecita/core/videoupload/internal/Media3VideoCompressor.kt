@@ -1,10 +1,11 @@
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package net.kikin.nubecita.core.videoupload.internal
 
 import android.content.Context
 import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.Presentation
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.DefaultEncoderFactory
@@ -43,7 +44,6 @@ import kotlin.coroutines.resume
  * The work itself happens on its own threads; only the start/cancel calls and
  * the progress poll need the main thread.
  */
-@UnstableApi
 internal class Media3VideoCompressor(
     private val context: Context,
     private val sourceProbe: VideoSourceProbe,

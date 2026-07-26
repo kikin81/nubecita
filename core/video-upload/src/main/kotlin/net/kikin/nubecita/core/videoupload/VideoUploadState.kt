@@ -81,10 +81,14 @@ sealed interface VideoUploadState {
      * published data that every AT Protocol client renders from — not a local
      * hint — so reporting the unrotated dimensions would letterbox the video
      * everywhere, not just here.
+     *
+     * Null when the source dimensions are unusable. `app.bsky.embed.video`
+     * makes the field optional, and omitting it lets each client measure for
+     * itself — a substituted placeholder would be a lie every client renders.
      */
     data class Ready(
         val blob: Blob,
-        val aspectRatio: AspectRatio,
+        val aspectRatio: AspectRatio?,
     ) : VideoUploadState
 
     /** Terminal failure. See [VideoUploadError] for which failures are retryable. */
