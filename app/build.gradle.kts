@@ -360,6 +360,7 @@ dependencies {
     implementation(libs.coil.core)
     implementation(libs.coil.gif)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.coil.video)
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.appcheck.playintegrity)
     implementation(libs.firebase.crashlytics)

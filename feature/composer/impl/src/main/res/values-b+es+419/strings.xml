@@ -88,4 +88,13 @@
     <string name="composer_video_processing">Procesando video…</string>
     <string name="composer_video_ready">Video listo</string>
     <string name="composer_video_failed">No se pudo subir el video</string>
+    <string name="composer_video_add_alt">Agregar alt</string>
+    <string name="composer_video_edit_alt">Editar alt</string>
+    <string name="composer_video_error_not_permitted">Tu cuenta no puede subir videos en este momento.</string>
+    <string name="composer_video_error_too_long">Los videos deben durar menos de %1$d minutos.</string>
+    <string name="composer_video_error_compression">No se pudo preparar este video en tu dispositivo. Prueba con otro.</string>
+    <string name="composer_video_error_upload">No se pudo subir el video. Revisa tu conexión e inténtalo de nuevo.</string>
+    <string name="composer_video_error_processing">Bluesky no pudo procesar este video. Prueba con otro.</string>
+    <string name="composer_video_error_network">Se perdió la conexión. Inténtalo de nuevo.</string>
+    <string name="composer_alt_editor_field_label_video">Describe este video</string>
 </resources>

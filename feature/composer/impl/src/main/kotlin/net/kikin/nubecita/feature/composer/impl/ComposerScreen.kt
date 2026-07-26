@@ -50,6 +50,8 @@ import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.image.PickedImage
 import net.kikin.nubecita.core.image.rememberImagePicker
@@ -246,6 +248,14 @@ internal fun ComposerScreen(
         remember(viewModel) {
             { viewModel.handleEvent(ComposerEvent.RetryVideoUpload) }
         }
+    val onEditVideoAlt =
+        remember(viewModel) {
+            { viewModel.handleEvent(ComposerEvent.OpenVideoAltEditor) }
+        }
+    val onSetVideoAlt =
+        remember(viewModel) {
+            { text: String -> viewModel.handleEvent(ComposerEvent.SetVideoAlt(text)) }
+        }
 
     // Discard-confirmation gate. The composer is a transient, in-progress
     // surface — leaving it (back-press or toolbar X) while the draft has
@@ -392,8 +402,11 @@ internal fun ComposerScreen(
         onRemoveQuote = onRemoveQuote,
         onRemoveExternalLink = onRemoveExternalLink,
         onRemoveGif = onRemoveGif,
+        videoProgress = viewModel.videoProgress,
         onRemoveVideo = onRemoveVideo,
         onRetryVideoUpload = onRetryVideoUpload,
+        onEditVideoAlt = onEditVideoAlt,
+        onSetVideoAlt = onSetVideoAlt,
         onLanguageChipClick = { showPicker = true },
         onAudienceChipClick = { showAudiencePicker = true },
         onGifChipClick = { showGifPicker = true },
@@ -513,8 +526,14 @@ internal fun ComposerScreenContent(
     onSetAltText: (Int, String) -> Unit = { _, _ -> },
     onRemoveExternalLink: () -> Unit = {},
     onRemoveGif: () -> Unit = {},
+    // remember: a default-parameter expression is evaluated in composition
+    // scope, so a bare MutableStateFlow(null) would allocate on every
+    // recomposition of this composable.
+    videoProgress: StateFlow<Float?> = remember { MutableStateFlow(null) },
     onRemoveVideo: () -> Unit = {},
     onRetryVideoUpload: () -> Unit = {},
+    onEditVideoAlt: () -> Unit = {},
+    onSetVideoAlt: (String) -> Unit = {},
 ) {
     // Alt editor is a layer within the composer's own surface: when a photo is
     // being described, it replaces the composer body (full-screen on phone, or
@@ -522,11 +541,31 @@ internal fun ComposerScreenContent(
     // The composer body's text lives on the VM's TextFieldState, so swapping the
     // subtree out and back loses nothing.
     val altTarget = state.altEditTarget
+    val altVideo = state.video?.takeIf { altTarget == ComposerViewModel.VIDEO_ALT_EDIT_TARGET }
     if (altTarget != null) {
+        // Single-item mode for the video. The editor is index-addressed over
+        // `attachments`, which is EMPTY whenever a video is attached — the two
+        // are mutually exclusive — so passing the sentinel straight through
+        // would hit the editor's empty-list guard and close immediately,
+        // leaving a dead "Add alt" button. Synthesize a one-element list from
+        // the video and route the callback to the video instead of an index.
+        //
+        // The synthesized entry carries the video's own uri, so the editor's
+        // thumbnail renders a real poster frame (VideoFrameDecoder).
+        val entries =
+            altVideo?.let {
+                persistentListOf(ComposerAttachment(uri = it.uri, mimeType = VIDEO_ALT_MIME, alt = it.alt))
+            } ?: state.attachments
         AltEditorLayer(
-            attachments = state.attachments,
-            initialIndex = altTarget,
-            onSetAlt = onSetAltText,
+            attachments = entries,
+            initialIndex = if (altVideo != null) 0 else altTarget,
+            fieldLabelRes =
+                if (altVideo != null) {
+                    R.string.composer_alt_editor_field_label_video
+                } else {
+                    R.string.composer_alt_editor_field_label
+                },
+            onSetAlt = if (altVideo != null) { _, text -> onSetVideoAlt(text) } else onSetAltText,
             onClose = onCloseAltEditor,
             modifier = modifier.fillMaxSize(),
         )
@@ -732,8 +771,12 @@ internal fun ComposerScreenContent(
             state.video?.let { video ->
                 ComposerVideoCard(
                     video = video,
+                    // The flow, not a collected value: the screen must not read
+                    // the fraction or it recomposes four times a second.
+                    progressFlow = videoProgress,
                     onRemove = onRemoveVideo,
                     onRetry = onRetryVideoUpload,
+                    onEditAlt = onEditVideoAlt,
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
@@ -912,3 +955,6 @@ private fun counterContentDescription(state: ComposerState): String {
         pluralStringResource(R.plurals.composer_chars_remaining, remaining, remaining)
     }
 }
+
+/** MIME for the synthesized single-item alt entry. Never uploaded — the video already has a blob. */
+private const val VIDEO_ALT_MIME = "video/mp4"
