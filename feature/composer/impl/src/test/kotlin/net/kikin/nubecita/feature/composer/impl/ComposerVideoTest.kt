@@ -234,6 +234,63 @@ class ComposerVideoTest {
             )
         }
 
+    /**
+     * The state types deliberately do not enforce the progress range — crashing
+     * an in-flight upload over a cosmetic value is worse than a clamped bar —
+     * so unnormalized values are representable and the last step before the
+     * progress bar has to handle them. NaN needs its own branch:
+     * `NaN.coerceIn(0f, 1f)` returns NaN.
+     */
+    @Test
+    fun `stageProgress normalizes out-of-range and NaN before the UI sees it`() =
+        runTest {
+            val vm = newVm()
+            vm.handleEvent(ComposerEvent.VideoPicked(uri()))
+
+            uploadStates.emit(VideoUploadState.Uploading(Float.NaN))
+            assertEquals(
+                0f,
+                vm.uiState.value.video
+                    ?.stageProgress,
+                "NaN must not reach the progress bar",
+            )
+
+            uploadStates.emit(VideoUploadState.Compressing(1.5f))
+            assertEquals(
+                1f,
+                vm.uiState.value.video
+                    ?.stageProgress,
+                "above range clamps to 1",
+            )
+
+            uploadStates.emit(VideoUploadState.Processing(-0.5f))
+            assertEquals(
+                0f,
+                vm.uiState.value.video
+                    ?.stageProgress,
+                "below range clamps to 0",
+            )
+        }
+
+    @Test
+    fun `stageProgress is null for stages without progress`() =
+        runTest {
+            val vm = newVm()
+            vm.handleEvent(ComposerEvent.VideoPicked(uri()))
+
+            uploadStates.emit(VideoUploadState.CheckingLimits)
+            assertNull(
+                vm.uiState.value.video
+                    ?.stageProgress,
+            )
+
+            uploadStates.emit(readyState)
+            assertNull(
+                vm.uiState.value.video
+                    ?.stageProgress,
+            )
+        }
+
     // ---- mutual exclusion ------------------------------------------------
 
     @Test

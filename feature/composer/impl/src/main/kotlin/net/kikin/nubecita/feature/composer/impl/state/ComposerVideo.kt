@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.composer.impl.state
 import android.net.Uri
 import androidx.compose.runtime.Immutable
 import net.kikin.nubecita.core.videoupload.VideoUploadState
+import net.kikin.nubecita.core.videoupload.asUploadProgress
 
 /**
  * The composer's single video attachment.
@@ -44,9 +45,16 @@ data class ComposerVideo(
     val stageProgress: Float?
         get() =
             when (val state = uploadState) {
-                is VideoUploadState.Compressing -> state.progress
-                is VideoUploadState.Uploading -> state.progress
-                is VideoUploadState.Processing -> state.progress
+                // Normalized again at the point of use. The state types do
+                // not enforce the range — that was deliberate, since crashing
+                // an upload over a progress value is worse than a clamped bar —
+                // so the consequence is that unnormalized values are
+                // representable and the last step before a rendering primitive
+                // has to handle them. NaN needs the explicit branch inside
+                // asUploadProgress: NaN.coerceIn(0f, 1f) returns NaN.
+                is VideoUploadState.Compressing -> state.progress.asUploadProgress()
+                is VideoUploadState.Uploading -> state.progress.asUploadProgress()
+                is VideoUploadState.Processing -> state.progress.asUploadProgress()
                 else -> null
             }
 }

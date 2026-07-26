@@ -132,12 +132,20 @@ private fun routePicked(
     onImages: (List<PickedImage>) -> Unit,
     onVideo: ((Uri) -> Unit)?,
 ) {
-    val firstVideo = if (onVideo != null) uris.firstOrNull { resolver.isVideo(it) } else null
-    if (firstVideo != null && onVideo != null) {
+    // One pass. resolver.getType() is a binder call per uri on the main
+    // thread, so partitioning once rather than scanning for a video and then
+    // filtering again halves them in the common (no-video) case.
+    if (onVideo == null) {
+        if (uris.isNotEmpty()) onImages(uris.map { it.toPickedImage(resolver) })
+        return
+    }
+
+    val (videos, images) = uris.partition { resolver.isVideo(it) }
+    val firstVideo = videos.firstOrNull()
+    if (firstVideo != null) {
         onVideo(firstVideo)
         return
     }
-    val images = uris.filterNot { resolver.isVideo(it) }
     if (images.isNotEmpty()) onImages(images.map { it.toPickedImage(resolver) })
 }
 
