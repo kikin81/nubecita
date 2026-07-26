@@ -86,5 +86,6 @@ interface PostingRepository {
         audience: PostAudience = PostAudience.DEFAULT,
         quote: io.github.kikin81.atproto.com.atproto.repo.StrongRef? = null,
         external: LinkPreview? = null,
+        video: ComposerVideoEmbed? = null,
     ): Result<AtUri>
 }

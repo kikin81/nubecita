@@ -10,6 +10,7 @@ import io.github.kikin81.atproto.app.bsky.embed.ImagesImage
 import io.github.kikin81.atproto.app.bsky.embed.Record
 import io.github.kikin81.atproto.app.bsky.embed.RecordWithMedia
 import io.github.kikin81.atproto.app.bsky.embed.RecordWithMediaMediaUnion
+import io.github.kikin81.atproto.app.bsky.embed.Video
 import io.github.kikin81.atproto.app.bsky.feed.Post
 import io.github.kikin81.atproto.app.bsky.feed.PostEmbedUnion
 import io.github.kikin81.atproto.app.bsky.feed.PostReplyRef
@@ -53,6 +54,7 @@ import net.kikin.nubecita.core.image.ImageDimensions
 import net.kikin.nubecita.core.image.ImageEncoder
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
+import net.kikin.nubecita.core.posting.ComposerVideoEmbed
 import net.kikin.nubecita.core.posting.ExternalLinkMetadataRepository
 import net.kikin.nubecita.core.posting.LinkPreview
 import net.kikin.nubecita.core.posting.LocaleProvider
@@ -118,6 +120,7 @@ internal class DefaultPostingRepository
             audience: PostAudience,
             quote: io.github.kikin81.atproto.com.atproto.repo.StrongRef?,
             external: LinkPreview?,
+            video: ComposerVideoEmbed?,
         ): Result<AtUri> =
             withContext(dispatcher) {
                 // `replyTo` is a typed ReplyRefs(parent, root); both
@@ -194,9 +197,16 @@ internal class DefaultPostingRepository
 
                     // Phase 3 — record creation. Only runs after every
                     // blob upload completed successfully.
+                    val uploadedVideo =
+                        video?.let { UploadedVideo(blob = it.blob, alt = it.alt, aspectRatio = it.aspectRatio) }
                     val embed =
                         resolveEmbed(
-                            ComposerEmbedIntent(images = uploaded, quote = quote, external = preparedExternal),
+                            ComposerEmbedIntent(
+                                images = uploaded,
+                                quote = quote,
+                                external = preparedExternal,
+                                video = uploadedVideo,
+                            ),
                         )
                     Timber.tag(TAG).d(
                         "createPost() — building record with embed=%s (images.size=%d)",
@@ -478,8 +488,17 @@ internal class DefaultPostingRepository
             // External all implement RecordWithMediaMediaUnion (and PostEmbedUnion),
             // so the same value serves the standalone and quote+media branches.
             val external = intent.external
+            val video = intent.video
             val media: RecordWithMediaMediaUnion? =
                 when {
+                    // Video outranks everything. The composer's mutual-exclusion
+                    // rules make a conflict unreachable through the UI, so this
+                    // precedence is defence in depth: if a reachable state ever
+                    // produced both, silently dropping the video — the most
+                    // expensive thing the user contributed, and the only one that
+                    // cost a transcode and an upload — is the worst outcome
+                    // available.
+                    video != null -> video.toVideoEmbed()
                     intent.images.size in 1..LEGACY_IMAGES_EMBED_MAX ->
                         Images(images = intent.images.map { it.toImagesImage() })
                     intent.images.isNotEmpty() ->
@@ -500,6 +519,20 @@ internal class DefaultPostingRepository
                 else -> AtField.Missing
             }
         }
+
+        /**
+         * Build the `app.bsky.embed.video` record from an [UploadedVideo].
+         *
+         * `alt` and `aspectRatio` are only written when present — both are
+         * optional in the lexicon, and `AtField.Missing` omits the key entirely
+         * rather than emitting a null the appview would have to interpret.
+         */
+        private fun UploadedVideo.toVideoEmbed(): Video =
+            Video(
+                video = blob,
+                alt = if (alt.isBlank()) AtField.Missing else AtField.Defined(alt),
+                aspectRatio = aspectRatio?.let { AtField.Defined(it) } ?: AtField.Missing,
+            )
 
         /** Build the `app.bsky.embed.external#external` record from a [PreparedExternal]. */
         private fun PreparedExternal.toExternalExternal(): ExternalExternal =
