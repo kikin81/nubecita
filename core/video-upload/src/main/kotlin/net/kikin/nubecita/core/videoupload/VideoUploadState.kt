@@ -7,6 +7,11 @@ import io.github.kikin81.atproto.runtime.Blob
  * Clamp a reported fraction into the `0f..1f` that every `progress` field on
  * this hierarchy promises.
  *
+ * Public because it is the contract, not an implementation detail: the
+ * constructors do not enforce the range (crashing an in-flight upload over a
+ * cosmetic value is worse than a clamped bar), so anything consuming a
+ * `progress` value should normalize at the point of use too.
+ *
  * Producers MUST route through this. `Transformer` and Ktor's `onUpload` both
  * derive fractions from integer counters, which can land marginally outside the
  * range, and a video whose duration metadata is unreadable can produce `NaN`.
@@ -17,7 +22,7 @@ import io.github.kikin81.atproto.runtime.Blob
  * returns `NaN` (every NaN comparison is false), so coercion alone would let it
  * through to the UI.
  */
-internal fun Float.asUploadProgress(): Float = if (isNaN()) 0f else coerceIn(0f, 1f)
+fun Float.asUploadProgress(): Float = if (isNaN()) 0f else coerceIn(0f, 1f)
 
 /**
  * One observable step of the video publishing pipeline.

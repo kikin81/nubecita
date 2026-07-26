@@ -53,6 +53,11 @@ import androidx.compose.ui.platform.LocalContext
 @Composable
 fun rememberImagePicker(
     remainingCapacity: Int,
+    // Declared BEFORE onPick deliberately. Existing call sites pass onPick as a
+    // trailing lambda, so a new function-typed parameter after it would silently
+    // rebind that lambda to this one — a compile error here, but the kind that
+    // would be a runtime bug if the types happened to line up.
+    onPickVideo: ((Uri) -> Unit)? = null,
     onPick: (List<PickedImage>) -> Unit,
 ): () -> Unit {
     val context = LocalContext.current
@@ -61,6 +66,7 @@ fun rememberImagePicker(
     // so a fresh `onPick` from the parent is read on the NEXT
     // emission instead of stale-pinning the first one we see.
     val currentOnPicked by rememberUpdatedState(onPick)
+    val currentOnPickedVideo by rememberUpdatedState(onPickVideo)
 
     if (remainingCapacity <= 0) {
         // No-op action when the caller is at the cap; the calling
@@ -71,12 +77,21 @@ fun rememberImagePicker(
 
     return key(remainingCapacity) {
         // The PickVisualMediaRequest payload is identical for both
-        // single- and multi-pick; only the contract differs. Restrict
-        // to images.
+        // single- and multi-pick; only the contract differs.
+        //
+        // Media type widens to ImageAndVideo only when the caller can accept a
+        // video. A caller without [onPickVideo] stays images-only rather than
+        // showing videos it would silently discard.
+        val allowsVideo = currentOnPickedVideo != null
         val request =
-            remember {
+            remember(allowsVideo) {
                 PickVisualMediaRequest(
-                    mediaType = ActivityResultContracts.PickVisualMedia.ImageOnly,
+                    mediaType =
+                        if (allowsVideo) {
+                            ActivityResultContracts.PickVisualMedia.ImageAndVideo
+                        } else {
+                            ActivityResultContracts.PickVisualMedia.ImageOnly
+                        },
                 )
             }
         if (remainingCapacity == 1) {
@@ -85,7 +100,7 @@ fun rememberImagePicker(
                     contract = ActivityResultContracts.PickVisualMedia(),
                 ) { uri ->
                     if (uri != null) {
-                        currentOnPicked(listOf(uri.toPickedImage(context.contentResolver)))
+                        routePicked(listOf(uri), context.contentResolver, currentOnPicked, currentOnPickedVideo)
                     }
                 }
             remember(launcher) { { launcher.launch(request) } }
@@ -95,14 +110,46 @@ fun rememberImagePicker(
                     contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = remainingCapacity),
                 ) { uris ->
                     if (uris.isNotEmpty()) {
-                        val resolver = context.contentResolver
-                        currentOnPicked(uris.map { it.toPickedImage(resolver) })
+                        routePicked(uris, context.contentResolver, currentOnPicked, currentOnPickedVideo)
                     }
                 }
             remember(launcher) { { launcher.launch(request) } }
         }
     }
 }
+
+/**
+ * Split a picker result by MIME and dispatch each kind to its handler.
+ *
+ * A post carries **either** one video or up to four images, never both, so a
+ * mixed selection cannot be honoured as picked. The video wins and the images
+ * are dropped — it is the costlier choice to re-make, and the composer
+ * announces the drop rather than doing it silently.
+ */
+private fun routePicked(
+    uris: List<Uri>,
+    resolver: ContentResolver,
+    onImages: (List<PickedImage>) -> Unit,
+    onVideo: ((Uri) -> Unit)?,
+) {
+    // One pass. resolver.getType() is a binder call per uri on the main
+    // thread, so partitioning once rather than scanning for a video and then
+    // filtering again halves them in the common (no-video) case.
+    if (onVideo == null) {
+        if (uris.isNotEmpty()) onImages(uris.map { it.toPickedImage(resolver) })
+        return
+    }
+
+    val (videos, images) = uris.partition { resolver.isVideo(it) }
+    val firstVideo = videos.firstOrNull()
+    if (firstVideo != null) {
+        onVideo(firstVideo)
+        return
+    }
+    if (images.isNotEmpty()) onImages(images.map { it.toPickedImage(resolver) })
+}
+
+private fun ContentResolver.isVideo(uri: Uri): Boolean = getType(uri)?.startsWith("video/") == true
 
 private fun Uri.toPickedImage(resolver: ContentResolver): PickedImage =
     PickedImage(

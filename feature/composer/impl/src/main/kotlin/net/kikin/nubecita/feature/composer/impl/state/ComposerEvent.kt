@@ -119,6 +119,27 @@ internal sealed interface ComposerEvent : UiEvent {
     data object RemoveGif : ComposerEvent
 
     /**
+     * A video was chosen from the system picker. Starts the upload immediately
+     * rather than waiting for submit — compression plus upload plus server-side
+     * processing is plausibly a minute, and overlapping it with typing is the
+     * difference between an instant Post and a minute of blocked composer.
+     */
+    data class VideoPicked(
+        val uri: android.net.Uri,
+    ) : ComposerEvent
+
+    /** Detach the video and cancel any in-flight upload. */
+    data object RemoveVideo : ComposerEvent
+
+    /** Restart the pipeline for the same source after a failure. */
+    data object RetryVideoUpload : ComposerEvent
+
+    /** Set the video's accessibility description. */
+    data class SetVideoAlt(
+        val text: String,
+    ) : ComposerEvent
+
+    /**
      * The user tapped a row in the `@`-mention typeahead dropdown.
      * Reducer atomically replaces the active `@`-token substring in
      * the field's text with `@<actor.handle> ` (trailing space) and
