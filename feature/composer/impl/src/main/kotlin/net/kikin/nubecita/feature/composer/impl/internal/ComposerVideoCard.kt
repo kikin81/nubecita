@@ -146,9 +146,14 @@ private fun VideoThumbnail(
                 .clip(RoundedCornerShape(MaterialTheme.spacing.s1)),
         contentAlignment = Alignment.Center,
     ) {
+        // The alt the user typed is not rendered anywhere else on the card —
+        // the button only ever reads "Add alt" / "Edit alt" — so without this a
+        // screen-reader user has no way to hear back what they wrote. Blank
+        // stays null, which keeps the poster decorative rather than announcing
+        // an empty string.
         NubecitaAsyncImage(
             model = video.uri,
-            contentDescription = null,
+            contentDescription = video.alt.takeIf { it.isNotBlank() },
             modifier = Modifier.fillMaxWidth(),
         )
 
