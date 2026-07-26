@@ -130,14 +130,20 @@ credentials — sending those to `video.bsky.app` would be wrong even if it were
 `XrpcClient(baseUrl = "https://video.bsky.app")`. They are ordinary typed queries and
 there is no reason to hand-roll them.
 
-That client is **not** built on a bare `HttpClient`. `getUploadLimits` is documented
-"for the authenticated user" and the video service will reject it unauthenticated, but
-`XrpcClient` takes credentials from its `HttpClient`'s plugins and has no per-call header
-parameter. So the client is constructed with a `defaultRequest` block that attaches
-`Authorization: Bearer <serviceAuthToken>` — the same token minted for the upload leg,
-supplied lazily so a single 30-minute token covers the probe, the upload, and the poll
-loop. It must not reuse the PDS `HttpClient`, whose DPoP-bound OAuth credentials are
-wrong for this host.
+`getUploadLimits` is documented "for the authenticated user", so that client needs
+credentials. It gets them through the SDK's own extension point: `XrpcClient` takes an
+`AuthProvider`, and a small implementation resolves the bearer **per request** rather
+than at construction. The SDK ships `BearerTokenAuth`, but it captures a fixed string,
+and a service-auth JWT expires in 30 minutes and is minted lazily — binding it up front
+would pin a token that may not exist yet. Resolving lazily also lets one token cover the
+probe, the upload and the poll loop.
+
+**Correction (found while implementing 3.1):** an earlier draft of this section said the
+video client must not reuse the PDS `HttpClient` because of its "DPoP-bound OAuth
+credentials". That is wrong. `HttpClientModule` installs only timeouts and debug logging;
+in this SDK auth is an `AuthProvider` on the `XrpcClient`, never a plugin on the
+transport. Sharing the singleton client therefore cannot leak the PDS session to this
+host, and it reuses the connection pool and timeout policy instead of duplicating them.
 
 So the exception to "all networking goes through the SDK" is exactly one function, and
 `design.md` plus the capability spec both say why. This is deliberate scoping, not drift.
