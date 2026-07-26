@@ -15,6 +15,7 @@ import net.kikin.nubecita.core.videoupload.VideoUploadRepository
 import net.kikin.nubecita.core.videoupload.VideoUploadState
 import net.kikin.nubecita.core.videoupload.deriveAspectRatio
 import timber.log.Timber
+import java.io.File
 import javax.inject.Inject
 
 /**
@@ -69,21 +70,32 @@ internal class DefaultVideoUploadRepository
                     return@channelFlow
                 }
 
-                send(VideoUploadState.Compressing(0f))
-                val compressed =
-                    when (val result = compressor.compress(uri) { trySend(VideoUploadState.Compressing(it)) }) {
-                        is CompressionResult.Failure -> {
-                            send(VideoUploadState.Failed(result.error))
-                            return@channelFlow
-                        }
-
-                        is CompressionResult.Success -> result.file
-                    }
-
+                // Declared outside the try so the finally owns the scratch
+                // file from the moment it exists. Not a live leak today —
+                // Media3VideoCompressor deletes its own output on
+                // cancellation, and there is no suspension point between the
+                // assignment and the try — but this makes the cleanup
+                // structural rather than dependent on both of those staying
+                // true.
+                var compressed: File? = null
                 try {
+                    send(VideoUploadState.Compressing(0f))
+                    // A local val for use (it smart-casts), the outer var for
+                    // the finally. Avoids !! entirely.
+                    val compressedFile =
+                        when (val result = compressor.compress(uri) { trySend(VideoUploadState.Compressing(it)) }) {
+                            is CompressionResult.Failure -> {
+                                send(VideoUploadState.Failed(result.error))
+                                return@channelFlow
+                            }
+
+                            is CompressionResult.Success -> result.file
+                        }
+                    compressed = compressedFile
+
                     send(VideoUploadState.Uploading(0f))
                     val accepted =
-                        when (val outcome = uploader.upload(compressed, viewerDid()) { trySend(VideoUploadState.Uploading(it)) }) {
+                        when (val outcome = uploader.upload(compressedFile, viewerDid()) { trySend(VideoUploadState.Uploading(it)) }) {
                             is UploadOutcome.Failed -> {
                                 send(VideoUploadState.Failed(outcome.error))
                                 return@channelFlow
@@ -112,7 +124,7 @@ internal class DefaultVideoUploadRepository
                     // The compressed file is scratch. Deleting it here covers
                     // success, failure and cancellation alike — the caller
                     // never has to know a temp file existed.
-                    if (compressed.delete()) {
+                    if (compressed?.delete() == true) {
                         Timber.tag(TAG).d("removed scratch upload file")
                     }
                 }

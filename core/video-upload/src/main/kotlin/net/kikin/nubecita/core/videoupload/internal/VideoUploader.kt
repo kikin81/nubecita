@@ -3,6 +3,7 @@ package net.kikin.nubecita.core.videoupload.internal
 import io.github.kikin81.atproto.app.bsky.video.JobStatus
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.content.LocalFileContent
 import io.ktor.client.plugins.onUpload
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
@@ -11,10 +12,7 @@ import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.content.OutgoingContent
 import io.ktor.http.isSuccess
-import io.ktor.utils.io.ByteWriteChannel
-import io.ktor.utils.io.writeFully
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonObject
@@ -97,7 +95,11 @@ internal class VideoUploader(
                 parameter("did", did)
                 parameter("name", file.name)
                 header(HttpHeaders.Authorization, "Bearer $token")
-                setBody(StreamedFileBody(file))
+                // Ktor streams this from disk and supplies Content-Length
+                // itself — which onUpload needs a total to report against, and
+                // which the service requires. Reading the file into memory
+                // would hold up to 100MB.
+                setBody(LocalFileContent(file, ContentType.Video.MP4))
                 onUpload { sent, total ->
                     if (total != null && total > 0) onProgress(sent.toFloat() / total)
                 }
@@ -137,31 +139,5 @@ internal class VideoUploader(
 
     private companion object {
         const val TAG = "VideoUpload"
-    }
-}
-
-/**
- * Streams [file] as the request body with an explicit `Content-Length`.
- *
- * Written out rather than using a convenience helper because both properties
- * are load-bearing. Reading the file into memory would hold up to 100MB, and a
- * chunked body would omit the length the service requires — which would also
- * leave Ktor's `onUpload` with no total to report progress against.
- */
-private class StreamedFileBody(
-    private val file: File,
-) : OutgoingContent.WriteChannelContent() {
-    override val contentType: ContentType = ContentType.Video.MP4
-    override val contentLength: Long = file.length()
-
-    override suspend fun writeTo(channel: ByteWriteChannel) {
-        file.inputStream().use { input ->
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            while (true) {
-                val read = input.read(buffer)
-                if (read <= 0) break
-                channel.writeFully(buffer, 0, read)
-            }
-        }
     }
 }

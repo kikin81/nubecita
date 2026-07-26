@@ -68,8 +68,16 @@ internal class JobStatusPoller(
                 } catch (cancellation: kotlinx.coroutines.CancellationException) {
                     throw cancellation
                 } catch (cause: Exception) {
+                    // Keep polling. By this point the video is already fully
+                    // uploaded, so throwing that away over one socket timeout
+                    // or a 503 would waste the most expensive part of the
+                    // pipeline. Only the last attempt gives up.
                     Timber.tag(TAG).w(cause, "getJobStatus failed on attempt %d", attempt)
-                    return JobOutcome.Failed(VideoUploadError.Network(cause.message))
+                    if (attempt == maxAttempts - 1) {
+                        return JobOutcome.Failed(VideoUploadError.Network(cause.message))
+                    }
+                    delay(pollIntervalMs)
+                    return@repeat
                 }
 
             status.progress?.let { onProgress((it / 100f).asUploadProgress()) }

@@ -79,7 +79,12 @@ internal object VideoUploadModule {
             sourceProbe = sourceProbe,
             // Cache dir, not files dir: a transcode is scratch the OS may
             // reclaim. The pipeline deletes it in a finally regardless.
-            outputDir = File(context.cacheDir, "video-upload").apply { mkdirs() },
+            //
+            // Not created here: @Provides runs on whichever thread triggers
+            // injection — the main thread, when the composer ViewModel is
+            // built — and mkdirs() is blocking disk I/O. The compressor
+            // creates it on its IO dispatcher instead.
+            outputDir = File(context.cacheDir, "video-upload"),
         )
 
     @Provides
