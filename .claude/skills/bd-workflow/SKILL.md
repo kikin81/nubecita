@@ -96,23 +96,26 @@ The GitHub Copilot review bot is added via the literal handle `Copilot` (case-se
 
 Schedule a recurring poll via `CronCreate` so CI checks run in the background without blocking a shell or stealing the user's attention. The same poll checks for unresolved review threads: CI going green is not the same as the PR being ready, and a review that lands after the last CI poll is otherwise invisible until the user asks.
 
-```
-CronCreate(cron: "*/3 * * * *", prompt: "For PR #<PR-NUMBER>, check BOTH gates.
+The poll runs two commands. CI:
 
-(1) CI: run `gh pr checks <PR-NUMBER>`.
-
-(2) Unresolved review threads: run
-    gh api graphql -f query='{ repository(owner:\"<OWNER>\",name:\"<REPO>\"){ pullRequest(number:<PR-NUMBER>){ reviewThreads(last:50){ nodes { id isResolved comments(first:1){ nodes { databaseId author{login} path body } } } } } } }' --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false)] | length'
-
-If CI has checks still pending AND the unresolved count is unchanged since the last poll, say nothing and wait.
-
-Otherwise report only what changed:
-- All checks terminal (pass/fail/skipping/cancel) AND zero unresolved threads -> cancel this cron with CronDelete and report `CI passed - N/N green, no open review threads`.
-- Any check failed -> fetch logs via `gh run view <RUN-ID> --log-failed` and propose a fix. Do NOT cancel the cron.
-- Unresolved threads present -> report how many and from whom. Do NOT cancel the cron; the PR is not ready.")
+```bash
+gh pr checks <PR-NUMBER>
 ```
 
-Cancel the cron only when CI is terminal **and** every thread is resolved. A green PR with open threads still blocks merge (see the repo's merge rule that every thread, bots included, must be resolved), so a poll that stops at green trains the wrong reflex.
+Unresolved review threads — note the GraphQL query needs **seven** closing braces, and inside the single-quoted shell argument the inner double quotes are NOT escaped:
+
+```bash
+gh api graphql -f query='{ repository(owner:"<OWNER>",name:"<REPO>"){ pullRequest(number:<PR-NUMBER>){ reviewThreads(last:50){ nodes { id isResolved comments(first:1){ nodes { databaseId author{login} path body } } } } } } }' --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false)] | length'
+```
+
+Pass both to `CronCreate` with this decision logic in the prompt (write the commands into the prompt verbatim from the blocks above — do not add backslash escaping, which reaches the shell as literal backslashes and fails to parse):
+
+- Checks still pending **and** the unresolved count unchanged since the last poll → say nothing, wait for the next poll.
+- All checks terminal (pass / fail / skipping / cancel) **and** zero unresolved threads → cancel the cron with `CronDelete` and report `✅ CI passed — N/N green, no open review threads`.
+- Any check failed → fetch logs via `gh run view <RUN-ID> --log-failed` and propose a fix. Do **not** cancel.
+- Unresolved threads present → report how many, from whom, and a one-line summary of each. Do **not** cancel; the PR is not ready.
+
+Cancel the cron only when CI is terminal **and** every thread is resolved. A green PR with open threads still blocks merge (see the merge rule above — every thread counts, bots included), so a poll that stops at green trains the wrong reflex.
 
 Tell the user once:
 
