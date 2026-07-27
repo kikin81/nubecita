@@ -4,12 +4,18 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Build
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
@@ -18,6 +24,7 @@ import net.kikin.nubecita.core.postinteractions.InteractionError
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostTapMarkers
 import net.kikin.nubecita.core.postinteractions.sharing.launchPostShare
+import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
@@ -64,6 +71,11 @@ data class InteractionStrings(
     val muteThreadComingSoon: String,
     val unmuteThreadComingSoon: String,
     val textCopied: String,
+    val deleteTitle: String,
+    val deleteBody: String,
+    val deleteConfirm: String,
+    val deleteCancel: String,
+    val deleteSuccess: String,
 )
 
 /**
@@ -154,6 +166,12 @@ fun rememberPostInteractions(
 
     val tapMarkers by handler.tapMarkers.collectAsStateWithLifecycle()
 
+    // The post awaiting delete confirmation, or null. Held here rather than in
+    // each screen's UiState so every surface that renders post cards gets the
+    // confirmation without wiring one, and so the destructive call has exactly
+    // one gate in the app.
+    var pendingDelete by remember { mutableStateOf<PostUi?>(null) }
+
     val clipboardManager =
         remember(context) {
             context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -218,6 +236,10 @@ fun rememberPostInteractions(
                             // CopyPostText is handled by the CopyPostText effect above
                             // (it copies), never as a coming-soon; kept for exhaustiveness.
                             PostOverflowAction.CopyPostText -> currentStrings.textCopied
+                            // DeletePost is never a coming-soon: it routes
+                            // through ConfirmDeletePost → onConfirmDeletePost.
+                            // Present only to keep this when exhaustive.
+                            PostOverflowAction.DeletePost -> currentStrings.deleteTitle
                         }
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = message)
@@ -236,8 +258,47 @@ fun rememberPostInteractions(
 
                 is InteractionEffect.NavigateToBlock ->
                     currentNavState.add(Block.forAccount(did = effect.did, handle = effect.handle))
+
+                is InteractionEffect.ConfirmDeletePost -> pendingDelete = effect.post
+
+                // The surface removes the item (or pops, in post detail); this
+                // only confirms it happened. Replace-not-stack, matching the
+                // other confirmations here.
+                is InteractionEffect.PostDeleted -> {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(message = currentStrings.deleteSuccess)
+                }
             }
         }
+    }
+
+    pendingDelete?.let { post ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text(currentStrings.deleteTitle) },
+            text = { Text(currentStrings.deleteBody) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        // Clear first: the dialog must not linger while the
+                        // request is in flight, and a second tap must not be
+                        // able to fire deleteRecord twice.
+                        pendingDelete = null
+                        handler.onConfirmDeletePost(post)
+                    },
+                ) {
+                    Text(
+                        text = currentStrings.deleteConfirm,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) {
+                    Text(currentStrings.deleteCancel)
+                }
+            },
+        )
     }
 
     return PostInteractions(

@@ -6,8 +6,10 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.session.SessionClearable
+import net.kikin.nubecita.core.postinteractions.PostDeletionRepository
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
+import net.kikin.nubecita.core.postinteractions.internal.DefaultPostDeletionRepository
 import net.kikin.nubecita.core.postinteractions.internal.DefaultPostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.internal.DefaultPostInteractionsCache
 import javax.inject.Singleton
@@ -55,6 +57,9 @@ abstract class PostInteractionsModule {
      * singleton component would let one VM's surface bleed into another's
      * analytics attribution at runtime.
      */
+    @Binds
+    internal abstract fun bindPostDeletionRepository(impl: DefaultPostDeletionRepository): PostDeletionRepository
+
     @Binds
     internal abstract fun bindPostInteractionHandler(
         impl: DefaultPostInteractionHandler,

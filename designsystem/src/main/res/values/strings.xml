@@ -135,4 +135,11 @@
     <string name="media_warning_cat_nudity">Non-sexual Nudity</string>
     <string name="verification_badge_verified_description">Verified account</string>
     <string name="verification_badge_trusted_verifier_description">Trusted verifier</string>
+    <string name="postcard_action_delete_post">Delete post</string>
+    <string name="postcard_delete_dialog_title">Delete post?</string>
+    <string name="postcard_delete_dialog_body">This can’t be undone. Your post will be removed from Bluesky.</string>
+    <string name="postcard_delete_dialog_confirm">Delete</string>
+    <string name="postcard_delete_dialog_cancel">Cancel</string>
+    <string name="postcard_delete_success">Post deleted</string>
+    <string name="postcard_delete_error">Couldn’t delete post</string>
 </resources>

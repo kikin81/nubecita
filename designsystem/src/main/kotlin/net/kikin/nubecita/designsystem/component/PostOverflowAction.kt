@@ -37,4 +37,14 @@ sealed interface PostOverflowAction {
     data object UnmuteThread : PostOverflowAction
 
     data object CopyPostText : PostOverflowAction
+
+    /**
+     * Delete the viewer's own post. Emitted only when
+     * `PostUi.viewer.isOwnPost` — the menu omits the row entirely on anybody
+     * else's post rather than showing it disabled, since a viewer can never
+     * delete a post they did not author.
+     *
+     * Irreversible, so the consuming surface confirms before acting.
+     */
+    data object DeletePost : PostOverflowAction
 }

@@ -118,6 +118,29 @@ sealed interface InteractionEffect {
     data class ShowComingSoon(
         val action: PostOverflowAction,
     ) : InteractionEffect
+
+    /**
+     * Ask the surface to confirm deleting [post] before anything is sent.
+     *
+     * The handler does not delete on [PostOverflowAction.DeletePost] alone —
+     * `deleteRecord` cannot be undone, so the confirmation is part of the
+     * contract rather than a courtesy the UI may skip. The surface answers by
+     * calling [PostInteractionHandler.onConfirmDeletePost].
+     */
+    data class ConfirmDeletePost(
+        val post: PostUi,
+    ) : InteractionEffect
+
+    /**
+     * [post] has been deleted on the server and should now leave the UI.
+     *
+     * Emitted only after the PDS accepts the deletion, so a surface acting on
+     * this can remove the item outright — there is nothing to roll back. A
+     * failure arrives as [ShowError] instead and the post stays put.
+     */
+    data class PostDeleted(
+        val post: PostUi,
+    ) : InteractionEffect
 }
 
 /**
@@ -188,6 +211,15 @@ interface PostInteractionHandler {
 
     /** Copy [post]'s permalink to the clipboard (long-press on share). */
     fun onShareLongPress(post: PostUi)
+
+    /**
+     * Perform the deletion the user confirmed in response to
+     * [InteractionEffect.ConfirmDeletePost].
+     *
+     * Separate from [onOverflowAction] so that the destructive call cannot be
+     * reached by emitting the menu action alone.
+     */
+    fun onConfirmDeletePost(post: PostUi)
 
     /**
      * Handle a PostCard overflow-menu selection. Routes each

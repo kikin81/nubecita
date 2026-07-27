@@ -10,9 +10,7 @@ import io.github.kikin81.atproto.runtime.AtIdentifier
 import io.github.kikin81.atproto.runtime.AtUri
 import io.github.kikin81.atproto.runtime.Datetime
 import io.github.kikin81.atproto.runtime.Nsid
-import io.github.kikin81.atproto.runtime.RecordKey
 import io.github.kikin81.atproto.runtime.encodeRecord
-import io.github.kikin81.atproto.runtime.parseOrNull
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.auth.NoSessionException
@@ -89,7 +87,7 @@ internal class DefaultLikeRepostRepository
         ): Result<Unit> =
             withContext(dispatcher) {
                 runCatching {
-                    val (repo, rkey) = parseAtUri(recordUri)
+                    val (repo, rkey) = recordUri.repoAndRkey()
                     val client = xrpcClientProvider.authenticated()
                     RepoService(client).deleteRecord(
                         DeleteRecordRequest(
@@ -123,34 +121,6 @@ internal class DefaultLikeRepostRepository
         }
 
         private fun nowDatetime(): Datetime = Datetime(Clock.System.now().toString())
-
-        // The repository intentionally does NOT validate the collection
-        // segment against the expected NSID — the caller is responsible for
-        // passing a uri that belongs to the right collection (the like uri
-        // to unlike, the repost uri to unrepost). A wrong-collection uri
-        // would be rejected by the PDS and surface as a failure, which is
-        // the right outcome.
-        //
-        // Fragments (`#...`) are stripped by the upstream parser — record
-        // URIs don't address sub-records, and a fragment-bearing rkey would
-        // be rejected by the PDS. Stripping is semantically safe (the same
-        // record is referenced regardless of fragment).
-        //
-        // We use `parseOrNull` + a local require() rather than upstream
-        // `parse()` because parse()'s IllegalArgumentException message
-        // includes the raw URI, which carries the viewer's DID — see the
-        // redaction note on the deleteRecord onFailure log.
-        private fun parseAtUri(uri: AtUri): Pair<AtIdentifier, RecordKey> {
-            val parts =
-                requireNotNull(uri.parseOrNull()) {
-                    "AT URI is not structurally valid"
-                }
-            val rkey =
-                requireNotNull(parts.rkey) {
-                    "AT URI must be exactly at://<repo>/<collection>/<rkey>"
-                }
-            return parts.repo to rkey
-        }
 
         private companion object {
             const val LIKE_NSID = "app.bsky.feed.like"
