@@ -92,18 +92,32 @@ gh api -X POST /repos/<owner>/<repo>/pulls/<pr-number>/requested_reviewers \
 
 The GitHub Copilot review bot is added via the literal handle `Copilot` (case-sensitive). `gh pr edit --add-reviewer copilot-pull-request-reviewer` and the GraphQL `requestReviews` mutation both fail — the REST endpoint with the `Copilot` handle is the only path that works for this repo.
 
-**Post-PR — monitor CI status between turns:**
+**Post-PR — monitor CI status AND review comments between turns:**
 
-Schedule a recurring poll via `CronCreate` so CI checks run in the background without blocking a shell or stealing the user's attention.
+Schedule a recurring poll via `CronCreate` so CI checks run in the background without blocking a shell or stealing the user's attention. The same poll checks for unresolved review threads: CI going green is not the same as the PR being ready, and a review that lands after the last CI poll is otherwise invisible until the user asks.
 
 ```
-CronCreate(cron: "*/3 * * * *", prompt: "Check CI status for PR #<PR-NUMBER>. Run: gh pr checks <PR-NUMBER>. If any check is still pending, say nothing and wait for the next poll. If ALL checks have completed (every line shows pass, fail, skipping, or cancel), cancel this cron job with CronDelete, then report concisely: count of passed/failed checks. If any failed, fetch logs via `gh run view <RUN-ID> --log-failed` and propose a fix.")
+CronCreate(cron: "*/3 * * * *", prompt: "For PR #<PR-NUMBER>, check BOTH gates.
+
+(1) CI: run `gh pr checks <PR-NUMBER>`.
+
+(2) Unresolved review threads: run
+    gh api graphql -f query='{ repository(owner:\"<OWNER>\",name:\"<REPO>\"){ pullRequest(number:<PR-NUMBER>){ reviewThreads(last:50){ nodes { id isResolved comments(first:1){ nodes { databaseId author{login} path body } } } } } } }' --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false)] | length'
+
+If CI has checks still pending AND the unresolved count is unchanged since the last poll, say nothing and wait.
+
+Otherwise report only what changed:
+- All checks terminal (pass/fail/skipping/cancel) AND zero unresolved threads -> cancel this cron with CronDelete and report `CI passed - N/N green, no open review threads`.
+- Any check failed -> fetch logs via `gh run view <RUN-ID> --log-failed` and propose a fix. Do NOT cancel the cron.
+- Unresolved threads present -> report how many and from whom. Do NOT cancel the cron; the PR is not ready.")
 ```
+
+Cancel the cron only when CI is terminal **and** every thread is resolved. A green PR with open threads still blocks merge (see the repo's merge rule that every thread, bots included, must be resolved), so a poll that stops at green trains the wrong reflex.
 
 Tell the user once:
 
 ```
-👀 Monitoring CI for PR #<pr>. I'll report back when all checks reach a terminal state.
+👀 Monitoring PR #<pr> — CI checks and review threads. I'll report back when both are clear.
 ```
 
 Do NOT use `gh pr checks --watch` — reprints the full table each poll, drowns the conversation. Do NOT use a background bash polling loop — blocks a shell and produces noisy output. Do NOT dump the full check list on success: just `✅ CI passed — N/N checks green` (or `❌ N of M failed`, with the failing names).
