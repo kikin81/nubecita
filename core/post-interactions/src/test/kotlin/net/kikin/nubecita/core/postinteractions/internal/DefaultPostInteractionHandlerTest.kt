@@ -6,6 +6,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.analytics.InteractPost
 import net.kikin.nubecita.core.analytics.PostAction
@@ -553,6 +554,27 @@ internal class DefaultPostInteractionHandlerTest {
             }
         }
 
+    /**
+     * Until 8vsx.3 removes the post from the list, a deleted post stays on
+     * screen and a second confirmation is easy to reach. The second call would
+     * get a record-not-found from the PDS and surface an error for a post that
+     * was in fact deleted, so an in-flight repeat is ignored.
+     */
+    @Test
+    fun `a second delete while one is in flight is ignored`() =
+        runTest {
+            fakeDeletionRepo.gate = CompletableDeferred()
+            val handler = makeHandler().also { it.bind(PostSurface.Feed, backgroundScope) }
+            val post = unlikedPost()
+
+            handler.onConfirmDeletePost(post)
+            handler.onConfirmDeletePost(post)
+            fakeDeletionRepo.gate?.complete(Unit)
+            runCurrent()
+
+            assertEquals(listOf(post.id), fakeDeletionRepo.deleted, "the repeat must not reach the network")
+        }
+
     @Test
     fun `analytics event carries the bound surface`() =
         runTest(mainDispatcher.dispatcher) {
@@ -578,8 +600,12 @@ private class FakePostDeletionRepository : PostDeletionRepository {
     val deleted = mutableListOf<String>()
     var result: Result<Unit> = Result.success(Unit)
 
+    /** Set to hold the call open so a concurrent second call can be attempted. */
+    var gate: CompletableDeferred<Unit>? = null
+
     override suspend fun deletePost(postUri: AtUri): Result<Unit> {
         deleted += postUri.raw
+        gate?.await()
         return result
     }
 }

@@ -99,6 +99,7 @@ internal class DefaultPostInteractionHandler
         private val activeLikeJobs = ConcurrentHashMap<String, Job>()
         private val activeRepostJobs = ConcurrentHashMap<String, Job>()
         private val activeBookmarkJobs = ConcurrentHashMap<String, Job>()
+        private val activeDeleteJobs = ConcurrentHashMap<String, Job>()
 
         // ──────────────────────────────────────────────────────────────────────
         // PostInteractionHandler contract
@@ -183,15 +184,30 @@ internal class DefaultPostInteractionHandler
         }
 
         override fun onConfirmDeletePost(post: PostUi) {
-            requireScope().launch {
-                postDeletionRepository
-                    .deletePost(AtUri(post.id))
-                    .onSuccess { emit(InteractionEffect.PostDeleted(post)) }
-                    // No optimistic removal to roll back: the post is removed
-                    // only once the PDS has accepted the deletion, so a failure
-                    // leaves it exactly where it was.
-                    .onFailure { emitError(it) }
-            }
+            // Per-URI guard, same idiom as onLike/onRepost/onBookmark. It
+            // matters more here: until 8vsx.3 removes the post from the list,
+            // it stays on screen after a successful delete, so a second
+            // confirmation is easy to reach. The second call would get a
+            // record-not-found from the PDS and surface an error for a post
+            // that was in fact deleted. Sequential re-taps (after the first
+            // completes) are not covered by an in-flight guard — those go away
+            // with 8vsx.3, which is the actual fix.
+            if (activeDeleteJobs[post.id]?.isActive == true) return
+
+            val job =
+                requireScope().launch {
+                    postDeletionRepository
+                        .deletePost(AtUri(post.id))
+                        .onSuccess { emit(InteractionEffect.PostDeleted(post)) }
+                        // No optimistic removal to roll back: the post is removed
+                        // only once the PDS has accepted the deletion, so a failure
+                        // leaves it exactly where it was.
+                        .onFailure { emitError(it) }
+                }
+            activeDeleteJobs[post.id] = job
+            // Two-arg remove: a completing older job must not evict a newer one
+            // stored under the same URI.
+            job.invokeOnCompletion { activeDeleteJobs.remove(post.id, job) }
         }
 
         override fun onOverflowAction(

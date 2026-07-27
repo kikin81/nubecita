@@ -7,7 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
@@ -23,17 +23,17 @@ import net.kikin.nubecita.designsystem.R as DesignSystemR
  * rendering a DropdownMenu, which layoutlib can't compose deterministically.
  */
 internal fun videoOverflowActions(viewer: ViewerStateUi): ImmutableList<PostOverflowAction> =
-    persistentListOf(
+    buildList {
         // Own videos only — absent, not disabled, on anybody else's. First so
         // the destructive action does not sit under actions the user is far
         // likelier to want.
-        *(if (viewer.isOwnPost) arrayOf(PostOverflowAction.DeletePost) else emptyArray()),
-        PostOverflowAction.ReportPost,
-        if (viewer.isAuthorMutedByViewer) PostOverflowAction.UnmuteAuthor else PostOverflowAction.MuteAuthor,
-        if (viewer.isAuthorBlockedByViewer) PostOverflowAction.UnblockAuthor else PostOverflowAction.BlockAuthor,
-        PostOverflowAction.MuteThread,
-        PostOverflowAction.CopyPostText,
-    )
+        if (viewer.isOwnPost) add(PostOverflowAction.DeletePost)
+        add(PostOverflowAction.ReportPost)
+        add(if (viewer.isAuthorMutedByViewer) PostOverflowAction.UnmuteAuthor else PostOverflowAction.MuteAuthor)
+        add(if (viewer.isAuthorBlockedByViewer) PostOverflowAction.UnblockAuthor else PostOverflowAction.BlockAuthor)
+        add(PostOverflowAction.MuteThread)
+        add(PostOverflowAction.CopyPostText)
+    }.toImmutableList()
 
 /**
  * The vertical feed's overflow menu. PostCard's `PostOverflowAffordance` is private
