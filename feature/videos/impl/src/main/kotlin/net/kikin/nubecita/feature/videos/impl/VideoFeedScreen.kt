@@ -45,6 +45,8 @@ import androidx.media3.ui.compose.state.rememberPresentationState
 import kotlinx.coroutines.flow.distinctUntilChanged
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
+import net.kikin.nubecita.core.common.screen.KeepScreenOnWhile
+import net.kikin.nubecita.core.video.playback.PlaylistPlaybackState
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.feature.videos.impl.ui.VideoFeedPage
 import net.kikin.nubecita.feature.videos.impl.ui.VideoPageChrome
@@ -72,6 +74,12 @@ internal fun VideoFeedScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val activePlayer by viewModel.activePlayer.collectAsStateWithLifecycle()
+    val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()
+
+    // Only while genuinely playing. Buffering is excluded on purpose: a stall
+    // on a dead network would otherwise hold the screen awake indefinitely,
+    // and a real stall is far shorter than any screen timeout.
+    KeepScreenOnWhile(playbackState is PlaylistPlaybackState.Playing)
 
     // Drive the pool's decoder handoff off the surface lifecycle (release on background).
     val lifecycleOwner = LocalLifecycleOwner.current

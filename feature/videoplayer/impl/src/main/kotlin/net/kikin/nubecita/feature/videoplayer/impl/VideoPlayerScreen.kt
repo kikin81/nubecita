@@ -12,6 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.core.common.navigation.LocalPipController
 import net.kikin.nubecita.core.common.navigation.rememberIsInPipMode
+import net.kikin.nubecita.core.common.screen.KeepScreenOnWhile
 import net.kikin.nubecita.feature.paywall.api.PaywallRoute
 import net.kikin.nubecita.feature.paywall.api.PaywallSource
 import net.kikin.nubecita.feature.videoplayer.impl.ui.VideoPlayerContent
@@ -39,6 +40,11 @@ internal fun VideoPlayerScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val player by viewModel.sharedVideoPlayer.player.collectAsStateWithLifecycle()
+
+    // This route runs in PlaybackMode.Fullscreen — the user is watching, not
+    // scrolling past a muted preview, so the screen is held while playing.
+    // Feed previews deliberately get no such treatment.
+    KeepScreenOnWhile(state.isPlaying)
     val navigator = LocalAppNavigator.current
     val currentNavigator by rememberUpdatedState(navigator)
 
