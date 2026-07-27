@@ -105,11 +105,14 @@ class VideoFeedViewModel
         private fun ImmutableList<VideoFeedItem>.applyInteractions(
             interactionMap: PersistentMap<String, PostInteractionState>,
         ): ImmutableList<VideoFeedItem> =
-            map { item ->
-                interactionMap[item.post.id]
-                    ?.let { state -> item.copy(post = item.post.mergeInteractionState(state)) }
-                    ?: item
-            }.toImmutableList()
+            // Deleted posts leave the list entirely — the flag is set only
+            // after the PDS accepted the deletion, so there is nothing to undo.
+            filterNot { interactionMap[it.post.id]?.isDeleted == true }
+                .map { item ->
+                    interactionMap[item.post.id]
+                        ?.let { state -> item.copy(post = item.post.mergeInteractionState(state)) }
+                        ?: item
+                }.toImmutableList()
 
         override fun handleEvent(event: VideoFeedEvent) {
             when (event) {

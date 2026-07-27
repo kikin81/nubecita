@@ -74,6 +74,11 @@ internal class FakePostInteractionsCacheForHandler : PostInteractionsCache {
         return nextToggleBookmarkResult
     }
 
+    /** Marks the post deleted so surfaces filtering on `isDeleted` drop it. */
+    override fun markDeleted(postUri: String) {
+        _state.value = _state.value.put(postUri, (_state.value[postUri] ?: PostInteractionState()).copy(isDeleted = true))
+    }
+
     override fun clear() {
         _state.value = persistentMapOf()
     }

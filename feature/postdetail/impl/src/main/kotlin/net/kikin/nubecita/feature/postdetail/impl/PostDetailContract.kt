@@ -225,6 +225,16 @@ internal sealed interface PostDetailEffect : UiEffect {
         val error: PostDetailError,
     ) : PostDetailEffect
 
+    /**
+     * The focus post was deleted, so this screen has nothing left to show —
+     * pop back to whatever pushed it.
+     *
+     * Only the focus triggers this. A deleted ancestor or reply is filtered
+     * out of the thread instead; popping there would eject the reader from a
+     * thread they are still reading.
+     */
+    data object CloseAfterDelete : PostDetailEffect
+
     /** Push another post-detail screen for the tapped post URI. */
     @Immutable
     data class NavigateToPost(

@@ -24,6 +24,15 @@ package net.kikin.nubecita.core.postinteractions
  * cache's single-flight guard already absorbs double-taps silently.
  */
 data class PostInteractionState(
+    /**
+     * The post was deleted by its author and must not be rendered.
+     *
+     * Terminal and one-way: nothing clears it short of [PostInteractionsCache.clear].
+     * That matters because the appview keeps returning a deleted post for a
+     * while, so a refresh re-seeds it from the wire — without this flag winning
+     * over wire data, a deleted post would reappear on the next page load.
+     */
+    val isDeleted: Boolean = false,
     val viewerLikeUri: String? = null,
     val viewerRepostUri: String? = null,
     val likeCount: Long = 0,

@@ -181,5 +181,8 @@ internal class BookmarksViewModel
 private fun ImmutableList<PostUi>.applyInteractions(
     interactions: PersistentMap<String, PostInteractionState>,
 ): ImmutableList<PostUi> =
-    map { post -> interactions[post.id]?.let { post.mergeInteractionState(it) } ?: post }
+    // Deleted posts leave the list entirely — the flag is set only after the
+    // PDS accepted the deletion, so there is nothing to undo.
+    filterNot { interactions[it.id]?.isDeleted == true }
+        .map { post -> interactions[post.id]?.let { post.mergeInteractionState(it) } ?: post }
         .toImmutableList()
