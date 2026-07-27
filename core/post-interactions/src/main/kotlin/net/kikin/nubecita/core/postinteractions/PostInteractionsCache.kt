@@ -120,6 +120,16 @@ interface PostInteractionsCache {
     ): Result<Unit>
 
     /**
+     * Record that the post at [postUri] was deleted, so every surface holding
+     * it drops it on the next emission — not only the one it was deleted from.
+     *
+     * Called after the PDS accepts the deletion, never optimistically: the
+     * flag is one-way, so setting it for a delete that then failed would hide
+     * a post that still exists.
+     */
+    fun markDeleted(postUri: String)
+
+    /**
      * Reset the cache. Called by `:core/auth/DefaultAuthRepository.signOut`
      * before session revocation so a re-login starts with a fresh
      * canonical state.

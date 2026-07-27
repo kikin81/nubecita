@@ -8,6 +8,7 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.actors.MuteRepository
 import net.kikin.nubecita.core.auth.NoSessionException
@@ -805,6 +806,114 @@ internal class PostDetailViewModelTest {
 
             assertEquals(1, muteRepo.unmuteActorCalls.size)
             assertEquals(authorDid, muteRepo.unmuteActorCalls.first())
+        }
+
+    /**
+     * Deleting the FOCUS leaves this screen with nothing to render, so it
+     * closes rather than showing a thread built around a hole.
+     */
+    @Test
+    fun `deleting the focus post closes the screen`() =
+        runTest {
+            val cache = FakePostInteractionsCache()
+            val items =
+                persistentListOf<ThreadItem>(
+                    ThreadItem.Ancestor(samplePost("at://ancestor")),
+                    ThreadItem.Focus(samplePost("at://focus")),
+                    ThreadItem.Reply(samplePost("at://reply"), depth = 1),
+                )
+            val vm = newVm(FakeRepo(results = listOf(Result.success(items))), postInteractionsCache = cache)
+            vm.handleEvent(PostDetailEvent.Load)
+            runCurrent()
+
+            vm.effects.test {
+                cache.markDeleted("at://focus")
+                runCurrent()
+
+                assertEquals(PostDetailEffect.CloseAfterDelete, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    /**
+     * Deleting a REPLY must not close the screen — popping would eject the
+     * reader from a thread they are still reading. The reply is dropped and
+     * everything else stays.
+     */
+    @Test
+    fun `deleting a reply removes it without closing the screen`() =
+        runTest {
+            val cache = FakePostInteractionsCache()
+            val items =
+                persistentListOf<ThreadItem>(
+                    ThreadItem.Focus(samplePost("at://focus")),
+                    ThreadItem.Reply(samplePost("at://reply"), depth = 1),
+                )
+            val vm = newVm(FakeRepo(results = listOf(Result.success(items))), postInteractionsCache = cache)
+            vm.handleEvent(PostDetailEvent.Load)
+            runCurrent()
+
+            cache.markDeleted("at://reply")
+            runCurrent()
+
+            val remaining = vm.uiState.value.items
+            assertEquals(1, remaining.size, "the reply should be gone")
+            assertEquals(true, remaining.single() is ThreadItem.Focus, "the focus must remain")
+        }
+
+    /**
+     * The gap the collector alone cannot cover, and which my first version of
+     * this slice shipped with.
+     *
+     * If the post was already deleted before this screen loaded — deleted from
+     * the feed, then opened from a notification, say — `seed()` produces an
+     * identical cache entry (deletion outranks wire data), so the StateFlow
+     * does NOT emit and the collector never runs. Relying on it would render
+     * the deleted focus post and leave the screen open.
+     */
+    @Test
+    fun `loading a thread whose focus is already deleted closes the screen`() =
+        runTest {
+            val cache = FakePostInteractionsCache()
+            cache.markDeleted("at://focus")
+            val items =
+                persistentListOf<ThreadItem>(
+                    ThreadItem.Focus(samplePost("at://focus")),
+                    ThreadItem.Reply(samplePost("at://reply"), depth = 1),
+                )
+            val vm = newVm(FakeRepo(results = listOf(Result.success(items))), postInteractionsCache = cache)
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.Load)
+                runCurrent()
+
+                assertEquals(PostDetailEffect.CloseAfterDelete, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    /** The same hole on the refresh path. */
+    @Test
+    fun `refreshing into an already-deleted focus closes the screen`() =
+        runTest {
+            val cache = FakePostInteractionsCache()
+            val items = persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost("at://focus")))
+            val vm =
+                newVm(
+                    FakeRepo(results = listOf(Result.success(items), Result.success(items))),
+                    postInteractionsCache = cache,
+                )
+            vm.handleEvent(PostDetailEvent.Load)
+            runCurrent()
+            cache.markDeleted("at://focus")
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.Refresh)
+                runCurrent()
+
+                assertEquals(PostDetailEffect.CloseAfterDelete, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
         }
 
     @Test

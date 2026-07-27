@@ -83,6 +83,14 @@ internal class PostDetailViewModel
             // propagate to the thread items after the network resolves.
             viewModelScope.launch {
                 postInteractionsCache.state.collect { snapshot ->
+                    // A deleted FOCUS leaves this screen with nothing to show,
+                    // so pop instead of rendering a thread around a hole. Any
+                    // other deleted item is simply filtered out below — the
+                    // reader stays where they are.
+                    if (uiState.value.items.focusIsDeleted(snapshot)) {
+                        sendEffect(PostDetailEffect.CloseAfterDelete)
+                        return@collect
+                    }
                     setState { copy(items = items.applyInteractions(snapshot)) }
                 }
             }
@@ -214,7 +222,23 @@ internal class PostDetailViewModel
                                         ?: (item as? ThreadItem.Reply)?.post
                                 },
                             )
-                            setState { copy(items = items, loadStatus = PostDetailLoadStatus.Idle) }
+                            // Merge synchronously rather than waiting for the
+                            // collector. Seeding a post already marked deleted
+                            // produces an identical cache entry, so the
+                            // StateFlow does not emit and the collector never
+                            // runs — leaving the raw, unfiltered items on
+                            // screen, deleted focus and all.
+                            val snapshot = postInteractionsCache.state.value
+                            if (items.focusIsDeleted(snapshot)) {
+                                sendEffect(PostDetailEffect.CloseAfterDelete)
+                                return@onSuccess
+                            }
+                            setState {
+                                copy(
+                                    items = items.applyInteractions(snapshot),
+                                    loadStatus = PostDetailLoadStatus.Idle,
+                                )
+                            }
                         }
                     }.onFailure { throwable ->
                         setState {
@@ -249,7 +273,23 @@ internal class PostDetailViewModel
                                         ?: (item as? ThreadItem.Reply)?.post
                                 },
                             )
-                            setState { copy(items = items, loadStatus = PostDetailLoadStatus.Idle) }
+                            // Merge synchronously rather than waiting for the
+                            // collector. Seeding a post already marked deleted
+                            // produces an identical cache entry, so the
+                            // StateFlow does not emit and the collector never
+                            // runs — leaving the raw, unfiltered items on
+                            // screen, deleted focus and all.
+                            val snapshot = postInteractionsCache.state.value
+                            if (items.focusIsDeleted(snapshot)) {
+                                sendEffect(PostDetailEffect.CloseAfterDelete)
+                                return@onSuccess
+                            }
+                            setState {
+                                copy(
+                                    items = items.applyInteractions(snapshot),
+                                    loadStatus = PostDetailLoadStatus.Idle,
+                                )
+                            }
                         }
                     }.onFailure { throwable ->
                         // Preserve items on refresh failure; surface as a snackbar.
@@ -334,7 +374,28 @@ private fun ImmutableList<ThreadItem>.updateMutedByAuthor(
  */
 private fun ImmutableList<ThreadItem>.applyInteractions(
     snapshot: PersistentMap<String, PostInteractionState>,
-): ImmutableList<ThreadItem> = map { it.applyInteraction(snapshot) }.toImmutableList()
+): ImmutableList<ThreadItem> =
+    // One pass. Deleted ancestors and replies leave the thread; the focus is
+    // handled by the caller, which pops rather than filtering.
+    mapNotNull { item ->
+        val postId = item.postIdOrNull()
+        if (postId != null && snapshot[postId]?.isDeleted == true) null else item.applyInteraction(snapshot)
+    }.toImmutableList()
+
+/** True when the thread's focus post has been deleted. */
+private fun ImmutableList<ThreadItem>.focusIsDeleted(snapshot: PersistentMap<String, PostInteractionState>): Boolean = any { it is ThreadItem.Focus && snapshot[it.post.id]?.isDeleted == true }
+
+/** The post a thread item renders, or null for the postless placeholders. */
+private fun ThreadItem.postIdOrNull(): String? =
+    when (this) {
+        is ThreadItem.Ancestor -> post.id
+        is ThreadItem.Focus -> post.id
+        is ThreadItem.Reply -> post.id
+        is ThreadItem.Blocked,
+        is ThreadItem.NotFound,
+        is ThreadItem.Fold,
+        -> null
+    }
 
 private fun ThreadItem.applyInteraction(
     snapshot: PersistentMap<String, PostInteractionState>,

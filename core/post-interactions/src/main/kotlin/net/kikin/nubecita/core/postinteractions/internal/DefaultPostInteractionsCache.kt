@@ -58,6 +58,11 @@ internal class DefaultPostInteractionsCache
                     val existing = acc[post.id]
                     val merged =
                         when {
+                            // Deletion outranks everything, including in-flight
+                            // writes. The appview keeps serving a deleted post
+                            // briefly, so without this the next refresh would
+                            // seed it straight back into view.
+                            existing?.isDeleted == true -> existing
                             // In-flight optimistic state takes precedence over wire data.
                             existing?.pendingLikeWrite == PendingState.Pending ||
                                 existing?.pendingRepostWrite == PendingState.Pending ||
@@ -248,6 +253,13 @@ internal class DefaultPostInteractionsCache
                 job.await()
             } finally {
                 bookmarkJobs.remove(postUri)
+            }
+        }
+
+        override fun markDeleted(postUri: String) {
+            _state.update { current ->
+                val existing = current[postUri] ?: PostInteractionState()
+                current.putting(postUri, existing.copy(isDeleted = true))
             }
         }
 

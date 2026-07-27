@@ -561,10 +561,22 @@ private fun List<FeedItemUi>.allPosts(): List<PostUi> =
 private fun ImmutableList<FeedItemUi>.applyInteractions(
     interactionMap: PersistentMap<String, PostInteractionState>,
 ): ImmutableList<FeedItemUi> =
-    map { item ->
+    // One pass. The deletion check keys off `key`, which is the post URI for
+    // Single and the LEAF's URI for ReplyCluster / SelfThreadChain — i.e. "the
+    // post in your timeline", with preceding posts being context (see
+    // FeedItemUi.key). Deleting the leaf removes the item; deleting an ancestor
+    // shown only as context leaves the reply standing, which is what the reader
+    // still wants to see. Such an ancestor disappears on the next fetch.
+    //
+    // The per-post lookups below stay explicit rather than reusing this one.
+    // They are only equal because `key` IS the leaf's id, and making the merge
+    // depend on that identity would put a silent trap under any future change
+    // to what `key` means.
+    mapNotNull { item ->
+        if (interactionMap[item.key]?.isDeleted == true) return@mapNotNull null
         when (item) {
             is FeedItemUi.Single -> {
-                val state = interactionMap[item.post.id] ?: return@map item
+                val state = interactionMap[item.post.id] ?: return@mapNotNull item
                 item.copy(post = item.post.mergeInteractionState(state))
             }
             is FeedItemUi.ReplyCluster -> {

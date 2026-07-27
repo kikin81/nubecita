@@ -417,6 +417,50 @@ internal class DefaultPostInteractionsCacheTest {
         }
 
     @Test
+    fun `markDeleted flags the post`() =
+        runTest {
+            val cache = newCache(FakeLikeRepostRepository())
+            cache.seed(listOf(samplePost(id = "at://post-del-1")))
+
+            cache.markDeleted("at://post-del-1")
+
+            assertEquals(true, cache.state.value["at://post-del-1"]?.isDeleted)
+        }
+
+    /**
+     * The one that matters. The appview keeps serving a deleted post for a
+     * while, so the next page load re-seeds it from the wire. If seed did not
+     * treat deletion as outranking wire data, the post the user just deleted
+     * would reappear on refresh.
+     */
+    @Test
+    fun `seed does not resurrect a deleted post`() =
+        runTest {
+            val cache = newCache(FakeLikeRepostRepository())
+            val post = samplePost(id = "at://post-del-2", likeCount = 1)
+            cache.seed(listOf(post))
+            cache.markDeleted("at://post-del-2")
+
+            // The appview has not caught up and still returns the post.
+            cache.seed(listOf(samplePost(id = "at://post-del-2", likeCount = 9)))
+
+            val state = cache.state.value["at://post-del-2"]
+            assertEquals(true, state?.isDeleted, "a re-seed must not clear the deletion")
+            assertEquals(1L, state?.likeCount, "nor overwrite the rest of the entry")
+        }
+
+    /** Deleting a post never seen before must still register. */
+    @Test
+    fun `markDeleted works for a post absent from the cache`() =
+        runTest {
+            val cache = newCache(FakeLikeRepostRepository())
+
+            cache.markDeleted("at://post-del-3")
+
+            assertEquals(true, cache.state.value["at://post-del-3"]?.isDeleted)
+        }
+
+    @Test
     fun `toggleRepost rolls back state and returns failure on network error`() =
         runTest {
             val networkFailure = IllegalStateException("net down")

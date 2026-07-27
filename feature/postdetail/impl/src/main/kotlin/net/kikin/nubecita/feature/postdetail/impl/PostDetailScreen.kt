@@ -317,6 +317,11 @@ internal fun PostDetailScreen(
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
             when (effect) {
+                // The focus post is gone, so this route has nothing to render.
+                // Reuses the same exit the top-bar back arrow uses, so the
+                // caller keeps owning how this screen is dismissed.
+                PostDetailEffect.CloseAfterDelete -> currentOnBack()
+
                 is PostDetailEffect.ShowError -> {
                     val message =
                         when (effect.error) {

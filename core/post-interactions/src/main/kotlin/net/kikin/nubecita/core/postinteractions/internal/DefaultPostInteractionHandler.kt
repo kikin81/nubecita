@@ -198,7 +198,13 @@ internal class DefaultPostInteractionHandler
                 requireScope().launch {
                     postDeletionRepository
                         .deletePost(AtUri(post.id))
-                        .onSuccess { emit(InteractionEffect.PostDeleted(post)) }
+                        .onSuccess {
+                            // Mark before emitting: the cache is what every
+                            // surface filters on, so a surface reacting to the
+                            // effect must not observe a stale snapshot.
+                            cache.markDeleted(post.id)
+                            emit(InteractionEffect.PostDeleted(post))
+                        }
                         // No optimistic removal to roll back: the post is removed
                         // only once the PDS has accepted the deletion, so a failure
                         // leaves it exactly where it was.
