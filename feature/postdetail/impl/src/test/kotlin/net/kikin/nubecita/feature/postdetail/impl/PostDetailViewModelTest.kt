@@ -861,6 +861,61 @@ internal class PostDetailViewModelTest {
             assertEquals(true, remaining.single() is ThreadItem.Focus, "the focus must remain")
         }
 
+    /**
+     * The gap the collector alone cannot cover, and which my first version of
+     * this slice shipped with.
+     *
+     * If the post was already deleted before this screen loaded — deleted from
+     * the feed, then opened from a notification, say — `seed()` produces an
+     * identical cache entry (deletion outranks wire data), so the StateFlow
+     * does NOT emit and the collector never runs. Relying on it would render
+     * the deleted focus post and leave the screen open.
+     */
+    @Test
+    fun `loading a thread whose focus is already deleted closes the screen`() =
+        runTest {
+            val cache = FakePostInteractionsCache()
+            cache.markDeleted("at://focus")
+            val items =
+                persistentListOf<ThreadItem>(
+                    ThreadItem.Focus(samplePost("at://focus")),
+                    ThreadItem.Reply(samplePost("at://reply"), depth = 1),
+                )
+            val vm = newVm(FakeRepo(results = listOf(Result.success(items))), postInteractionsCache = cache)
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.Load)
+                runCurrent()
+
+                assertEquals(PostDetailEffect.CloseAfterDelete, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    /** The same hole on the refresh path. */
+    @Test
+    fun `refreshing into an already-deleted focus closes the screen`() =
+        runTest {
+            val cache = FakePostInteractionsCache()
+            val items = persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost("at://focus")))
+            val vm =
+                newVm(
+                    FakeRepo(results = listOf(Result.success(items), Result.success(items))),
+                    postInteractionsCache = cache,
+                )
+            vm.handleEvent(PostDetailEvent.Load)
+            runCurrent()
+            cache.markDeleted("at://focus")
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.Refresh)
+                runCurrent()
+
+                assertEquals(PostDetailEffect.CloseAfterDelete, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
     @Test
     fun `OnOverflowAction(UnmuteAuthor) failure rolls back items and emits ShowError`() =
         // Pin (d): when unmuteActor returns failure, items are restored to

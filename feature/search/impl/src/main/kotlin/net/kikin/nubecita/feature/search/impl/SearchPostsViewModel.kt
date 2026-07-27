@@ -255,10 +255,10 @@ internal class SearchPostsViewModel
 private fun ImmutableList<FeedItemUi.Single>.applyInteractions(
     interactionMap: PersistentMap<String, PostInteractionState>,
 ): ImmutableList<FeedItemUi.Single> =
-    // Deleted posts leave the list entirely — the flag is set only after the
-    // PDS accepted the deletion, so there is nothing to undo.
-    filterNot { interactionMap[it.post.id]?.isDeleted == true }
-        .map { item ->
-            val state = interactionMap[item.post.id] ?: return@map item
-            item.copy(post = item.post.mergeInteractionState(state))
-        }.toImmutableList()
+    // One pass: deleted posts drop out (the flag is set only after the PDS
+    // accepted the deletion, so there is nothing to undo), everything else
+    // merges. Single lookup per item.
+    mapNotNull { item ->
+        val state = interactionMap[item.post.id] ?: return@mapNotNull item
+        if (state.isDeleted) null else item.copy(post = item.post.mergeInteractionState(state))
+    }.toImmutableList()

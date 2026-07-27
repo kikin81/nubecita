@@ -222,7 +222,23 @@ internal class PostDetailViewModel
                                         ?: (item as? ThreadItem.Reply)?.post
                                 },
                             )
-                            setState { copy(items = items, loadStatus = PostDetailLoadStatus.Idle) }
+                            // Merge synchronously rather than waiting for the
+                            // collector. Seeding a post already marked deleted
+                            // produces an identical cache entry, so the
+                            // StateFlow does not emit and the collector never
+                            // runs — leaving the raw, unfiltered items on
+                            // screen, deleted focus and all.
+                            val snapshot = postInteractionsCache.state.value
+                            if (items.focusIsDeleted(snapshot)) {
+                                sendEffect(PostDetailEffect.CloseAfterDelete)
+                                return@onSuccess
+                            }
+                            setState {
+                                copy(
+                                    items = items.applyInteractions(snapshot),
+                                    loadStatus = PostDetailLoadStatus.Idle,
+                                )
+                            }
                         }
                     }.onFailure { throwable ->
                         setState {
@@ -257,7 +273,23 @@ internal class PostDetailViewModel
                                         ?: (item as? ThreadItem.Reply)?.post
                                 },
                             )
-                            setState { copy(items = items, loadStatus = PostDetailLoadStatus.Idle) }
+                            // Merge synchronously rather than waiting for the
+                            // collector. Seeding a post already marked deleted
+                            // produces an identical cache entry, so the
+                            // StateFlow does not emit and the collector never
+                            // runs — leaving the raw, unfiltered items on
+                            // screen, deleted focus and all.
+                            val snapshot = postInteractionsCache.state.value
+                            if (items.focusIsDeleted(snapshot)) {
+                                sendEffect(PostDetailEffect.CloseAfterDelete)
+                                return@onSuccess
+                            }
+                            setState {
+                                copy(
+                                    items = items.applyInteractions(snapshot),
+                                    loadStatus = PostDetailLoadStatus.Idle,
+                                )
+                            }
                         }
                     }.onFailure { throwable ->
                         // Preserve items on refresh failure; surface as a snackbar.
@@ -343,11 +375,12 @@ private fun ImmutableList<ThreadItem>.updateMutedByAuthor(
 private fun ImmutableList<ThreadItem>.applyInteractions(
     snapshot: PersistentMap<String, PostInteractionState>,
 ): ImmutableList<ThreadItem> =
-    // Deleted ancestors and replies leave the thread; the focus is handled by
-    // the caller, which pops rather than filtering.
-    filterNot { snapshot[it.postIdOrNull()]?.isDeleted == true }
-        .map { it.applyInteraction(snapshot) }
-        .toImmutableList()
+    // One pass. Deleted ancestors and replies leave the thread; the focus is
+    // handled by the caller, which pops rather than filtering.
+    mapNotNull { item ->
+        val postId = item.postIdOrNull()
+        if (postId != null && snapshot[postId]?.isDeleted == true) null else item.applyInteraction(snapshot)
+    }.toImmutableList()
 
 /** True when the thread's focus post has been deleted. */
 private fun ImmutableList<ThreadItem>.focusIsDeleted(snapshot: PersistentMap<String, PostInteractionState>): Boolean = any { it is ThreadItem.Focus && snapshot[it.post.id]?.isDeleted == true }

@@ -259,7 +259,7 @@ internal class DefaultPostInteractionsCache
         override fun markDeleted(postUri: String) {
             _state.update { current ->
                 val existing = current[postUri] ?: PostInteractionState()
-                current.put(postUri, existing.copy(isDeleted = true))
+                current.putting(postUri, existing.copy(isDeleted = true))
             }
         }
 

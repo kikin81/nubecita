@@ -819,23 +819,24 @@ private fun ProfileScreenViewState.applyInteractions(
         // A deleted pinned post is cleared outright: the profile record still
         // points at it until the next fetch, but the post no longer exists.
         pinnedPost =
-            pinnedPost
-                ?.takeUnless { map[it.id]?.isDeleted == true }
-                ?.let { p -> map[p.id]?.let { p.mergeInteractionState(it) } ?: p },
+            pinnedPost?.let { p ->
+                val state = map[p.id] ?: return@let p
+                if (state.isDeleted) null else p.mergeInteractionState(state)
+            },
     )
 
 private fun TabLoadStatus.applyInteractions(
     map: PersistentMap<String, PostInteractionState>,
 ): TabLoadStatus =
     if (this is TabLoadStatus.Loaded) {
-        // Deleted posts leave the tab entirely. MediaCell is filtered on the
-        // same postUri so a deleted video/image post goes too.
+        // One pass. Deleted posts leave the tab entirely; MediaCell keys off
+        // the same postUri so a deleted video/image post goes too.
         copy(
             items =
                 items
-                    .filterNot { map[it.postUri]?.isDeleted == true }
-                    .map { it.applyInteraction(map) }
-                    .toImmutableList(),
+                    .mapNotNull { item ->
+                        if (map[item.postUri]?.isDeleted == true) null else item.applyInteraction(map)
+                    }.toImmutableList(),
         )
     } else {
         this

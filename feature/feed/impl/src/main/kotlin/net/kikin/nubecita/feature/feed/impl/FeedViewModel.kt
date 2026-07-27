@@ -561,54 +561,59 @@ private fun List<FeedItemUi>.allPosts(): List<PostUi> =
 private fun ImmutableList<FeedItemUi>.applyInteractions(
     interactionMap: PersistentMap<String, PostInteractionState>,
 ): ImmutableList<FeedItemUi> =
-    // Filter on `key`, which is the post URI for Single and the LEAF's URI for
-    // ReplyCluster / SelfThreadChain — i.e. "the post in your timeline", with
-    // preceding posts being context (see FeedItemUi.key). Deleting the leaf
-    // removes the item; deleting an ancestor that is only shown as context
-    // leaves the reply standing, which is what the reader still wants to see.
-    // Such an ancestor disappears on the next fetch.
-    filterNot { interactionMap[it.key]?.isDeleted == true }
-        .map { item ->
-            when (item) {
-                is FeedItemUi.Single -> {
-                    val state = interactionMap[item.post.id] ?: return@map item
-                    item.copy(post = item.post.mergeInteractionState(state))
-                }
-                is FeedItemUi.ReplyCluster -> {
-                    val newRoot = interactionMap[item.root.id]?.let { item.root.mergeInteractionState(it) }
-                    val newParent = interactionMap[item.parent.id]?.let { item.parent.mergeInteractionState(it) }
-                    val newLeaf = interactionMap[item.leaf.id]?.let { item.leaf.mergeInteractionState(it) }
-                    if (newRoot == null && newParent == null && newLeaf == null) {
-                        item
-                    } else {
-                        item.copy(
-                            root = newRoot ?: item.root,
-                            parent = newParent ?: item.parent,
-                            leaf = newLeaf ?: item.leaf,
-                        )
-                    }
-                }
-                is FeedItemUi.SelfThreadChain -> {
-                    var changed = false
-                    val mergedPosts =
-                        item.posts
-                            .map { p ->
-                                val state = interactionMap[p.id]
-                                if (state != null) {
-                                    changed = true
-                                    p.mergeInteractionState(state)
-                                } else {
-                                    p
-                                }
-                            }.toImmutableList()
-                    if (changed) item.copy(posts = mergedPosts) else item
-                }
-                // Tombstones have no interaction state to merge — they carry no
-                // PostUi, no like/repost counters. Pass through unchanged so the
-                // map preserves referential equality for LazyColumn skip-recompose.
-                is FeedItemUi.Blocked, is FeedItemUi.NotFound -> item
+    // One pass. The deletion check keys off `key`, which is the post URI for
+    // Single and the LEAF's URI for ReplyCluster / SelfThreadChain — i.e. "the
+    // post in your timeline", with preceding posts being context (see
+    // FeedItemUi.key). Deleting the leaf removes the item; deleting an ancestor
+    // shown only as context leaves the reply standing, which is what the reader
+    // still wants to see. Such an ancestor disappears on the next fetch.
+    //
+    // The per-post lookups below stay explicit rather than reusing this one.
+    // They are only equal because `key` IS the leaf's id, and making the merge
+    // depend on that identity would put a silent trap under any future change
+    // to what `key` means.
+    mapNotNull { item ->
+        if (interactionMap[item.key]?.isDeleted == true) return@mapNotNull null
+        when (item) {
+            is FeedItemUi.Single -> {
+                val state = interactionMap[item.post.id] ?: return@mapNotNull item
+                item.copy(post = item.post.mergeInteractionState(state))
             }
-        }.toImmutableList()
+            is FeedItemUi.ReplyCluster -> {
+                val newRoot = interactionMap[item.root.id]?.let { item.root.mergeInteractionState(it) }
+                val newParent = interactionMap[item.parent.id]?.let { item.parent.mergeInteractionState(it) }
+                val newLeaf = interactionMap[item.leaf.id]?.let { item.leaf.mergeInteractionState(it) }
+                if (newRoot == null && newParent == null && newLeaf == null) {
+                    item
+                } else {
+                    item.copy(
+                        root = newRoot ?: item.root,
+                        parent = newParent ?: item.parent,
+                        leaf = newLeaf ?: item.leaf,
+                    )
+                }
+            }
+            is FeedItemUi.SelfThreadChain -> {
+                var changed = false
+                val mergedPosts =
+                    item.posts
+                        .map { p ->
+                            val state = interactionMap[p.id]
+                            if (state != null) {
+                                changed = true
+                                p.mergeInteractionState(state)
+                            } else {
+                                p
+                            }
+                        }.toImmutableList()
+                if (changed) item.copy(posts = mergedPosts) else item
+            }
+            // Tombstones have no interaction state to merge — they carry no
+            // PostUi, no like/repost counters. Pass through unchanged so the
+            // map preserves referential equality for LazyColumn skip-recompose.
+            is FeedItemUi.Blocked, is FeedItemUi.NotFound -> item
+        }
+    }.toImmutableList()
 
 /**
  * Result of [mergeChainBoundary]. Two `ImmutableList<FeedItemUi>` fields
