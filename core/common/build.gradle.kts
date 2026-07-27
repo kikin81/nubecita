@@ -22,6 +22,14 @@ dependencies {
     // implementation detail — not exposed in any public signature.
     implementation(libs.androidx.activity.compose)
 
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
+
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.espresso.core)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
 }
