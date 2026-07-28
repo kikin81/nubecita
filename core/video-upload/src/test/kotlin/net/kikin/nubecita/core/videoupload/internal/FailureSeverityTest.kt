@@ -10,7 +10,6 @@ import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import timber.log.Timber
@@ -140,8 +139,11 @@ class FailureSeverityTest {
 
             UploadLimitsProbe(factory).check()
 
-            val severity = severityOf("getUploadLimits refused")
-            assertTrue(severity != null, "the refusal must be logged at all — below WARN reaches nothing")
+            val severity =
+                requireNotNull(severityOf("getUploadLimits refused")) {
+                    "the refusal must be logged at all — below WARN reaches nothing"
+                }
+
             assertEquals(Log.WARN, severity, "a policy answer is not our defect")
         }
 }
