@@ -55,6 +55,19 @@ internal class Media3VideoCompressor(
     ): CompressionResult {
         val durationMs = sourceProbe.probe(input).durationMs
         val bitrate = targetBitrateBps(durationMs)
+        // The muxer opens the output with FileOutputStream, which does NOT
+        // create missing parents — a missing directory surfaces as ENOENT ->
+        // MuxerException -> ExportException(7001), reported to the user as
+        // "this video couldn't be prepared". Since outputDir lives under
+        // cacheDir, it is absent on a fresh install AND can be reclaimed by
+        // the OS at any time, so this is checked on every compress rather
+        // than once at construction.
+        if (!ensureOutputDir()) {
+            Timber.tag(TAG).e("could not create scratch dir %s", outputDir)
+            return CompressionResult.Failure(
+                VideoUploadError.CompressionFailed("scratch directory unavailable"),
+            )
+        }
         // UUID, not input.hashCode(): distinct URIs can collide, and a retry
         // or a concurrent compose would otherwise reuse the same path. The
         // caller owns deleting a successful output once it is uploaded.
@@ -94,6 +107,19 @@ internal class Media3VideoCompressor(
 
         return CompressionResult.Success(output)
     }
+
+    /**
+     * Create the scratch directory if it is missing, off the main thread.
+     *
+     * `mkdirs()` is blocking disk I/O, which is why `VideoUploadModule` does
+     * not do it at injection time — that runs on whichever thread builds the
+     * composer ViewModel, i.e. the main one.
+     *
+     * Returns true when the directory exists afterwards. `mkdirs()` returning
+     * false is not itself failure: it also means "another coroutine created it
+     * first", so the existence check is what decides.
+     */
+    private suspend fun ensureOutputDir(): Boolean = withContext(Dispatchers.IO) { ensureDirectory(outputDir) }
 
     /** Returns null on success, or the error to report. */
     private suspend fun runTransform(

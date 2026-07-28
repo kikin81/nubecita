@@ -82,8 +82,14 @@ internal object VideoUploadModule {
             //
             // Not created here: @Provides runs on whichever thread triggers
             // injection — the main thread, when the composer ViewModel is
-            // built — and mkdirs() is blocking disk I/O. The compressor
-            // creates it on its IO dispatcher instead.
+            // built — and mkdirs() is blocking disk I/O. Media3VideoCompressor
+            // creates it on Dispatchers.IO at the start of every compress().
+            //
+            // Per compress, not once: cacheDir contents can be reclaimed by the
+            // OS at any time, so "created at startup" would not stay true. An
+            // earlier version delegated creation here in a comment and never
+            // implemented it, which broke video upload on every fresh install
+            // (nubecita-3ug0).
             outputDir = File(context.cacheDir, "video-upload"),
         )
 
