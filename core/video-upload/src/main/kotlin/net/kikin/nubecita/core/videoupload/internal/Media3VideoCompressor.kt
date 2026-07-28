@@ -86,7 +86,10 @@ internal class Media3VideoCompressor(
                 throw cancellation
             } catch (cause: Exception) {
                 output.delete()
-                Timber.tag(TAG).w(cause, "transcode failed")
+                // ERROR, not WARN: terminal and unexpected, so it must reach
+                // Crashlytics as a non-fatal rather than a breadcrumb nobody
+                // sees. See CrashlyticsTree for the level convention.
+                Timber.tag(TAG).e(cause, "transcode failed")
                 return CompressionResult.Failure(VideoUploadError.CompressionFailed(cause.message))
             }
 
@@ -101,7 +104,9 @@ internal class Media3VideoCompressor(
         // result. Checking the produced file does.
         verifyWithinCap(output.length())?.let { oversized ->
             output.delete()
-            Timber.tag(TAG).w("encoded file over cap: %d bytes", output.length())
+            // Terminal, and an app-side miscalculation: we chose the bitrate,
+            // so an over-cap encode is our defect to see.
+            Timber.tag(TAG).e("encoded file over cap: %d bytes", output.length())
             return CompressionResult.Failure(oversized)
         }
 
@@ -193,7 +198,12 @@ internal class Media3VideoCompressor(
                     ) {
                         // Device- and codec-specific. Log the configuration so a
                         // field report is diagnosable rather than just "it failed".
-                        Timber.tag(TAG).w(
+                        // The most valuable line in this pipeline: it carries
+                        // the ExportException and its errorCode, which is what
+                        // clusters field failures by cause. It was WARN while
+                        // video upload was broken on every fresh install
+                        // (nubecita-3ug0) and produced no Crashlytics issue.
+                        Timber.tag(TAG).e(
                             exception,
                             "export failed errorCode=%d bitrate=%d",
                             exception.errorCode,

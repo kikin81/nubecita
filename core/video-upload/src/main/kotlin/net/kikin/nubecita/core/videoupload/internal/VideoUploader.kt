@@ -121,7 +121,10 @@ internal class VideoUploader(
         }
 
         if (!response.status.isSuccess()) {
-            Timber.tag(TAG).w("uploadVideo rejected status=%d body=%s", response.status.value, raw.take(400))
+            // Terminal. A policy refusal is supposed to arrive from
+            // getUploadLimits before we ever transcode, so a rejection here is
+            // something we did not predict.
+            Timber.tag(TAG).e("uploadVideo rejected status=%d body=%s", response.status.value, raw.take(400))
             return UploadOutcome.Failed(
                 VideoUploadError.UploadFailed(response.status.value, status?.message ?: raw.take(400)),
             )
@@ -130,7 +133,8 @@ internal class VideoUploader(
         if (status == null) {
             // Log the body, not just a type name. A shape mismatch is
             // undiagnosable without seeing what actually came back.
-            Timber.tag(TAG).w("uploadVideo response unparseable: %s", raw.take(400))
+            // Terminal, and a contract mismatch between us and the service.
+            Timber.tag(TAG).e("uploadVideo response unparseable: %s", raw.take(400))
             return UploadOutcome.Failed(VideoUploadError.UploadFailed(null, "Unrecognised upload response"))
         }
 

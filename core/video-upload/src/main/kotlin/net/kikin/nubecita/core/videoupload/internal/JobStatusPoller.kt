@@ -89,7 +89,9 @@ internal class JobStatusPoller(
         // A job that never resolves is a failure, not an infinite wait. Without
         // this the composer's submit gate would stay disabled forever with no
         // explanation and no retry affordance.
-        Timber.tag(TAG).w("job %s did not complete within %d attempts", jobId, maxAttempts)
+        // Terminal: the video never processed, so the user cannot post. The
+        // per-attempt failures above stay WARN because they are retried.
+        Timber.tag(TAG).e("job %s did not complete within %d attempts", jobId, maxAttempts)
         return JobOutcome.Failed(
             VideoUploadError.ProcessingFailed("Video processing did not finish in time"),
         )

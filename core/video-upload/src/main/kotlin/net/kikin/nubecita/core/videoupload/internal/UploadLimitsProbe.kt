@@ -45,7 +45,12 @@ internal class UploadLimitsProbe(
                     // are an unverified email and an exhausted quota, and
                     // Bluesky phrases those better than a guess would —
                     // and will keep phrasing new ones we do not know about.
-                    Timber.tag(TAG).i("getUploadLimits refused: %s", limits.error ?: limits.message)
+                    // WARN, not INFO: CrashlyticsTree drops anything below
+                    // WARN, so this was reaching nothing. It is the reason a
+                    // user cannot upload, worth having as context on whatever
+                    // fires next — but not ERROR, since a server policy answer
+                    // is not our defect.
+                    Timber.tag(TAG).w("getUploadLimits refused: %s", limits.error ?: limits.message)
                     UploadLimitsVerdict.Rejected(
                         VideoUploadError.NotPermitted(limits.message ?: limits.error),
                     )
