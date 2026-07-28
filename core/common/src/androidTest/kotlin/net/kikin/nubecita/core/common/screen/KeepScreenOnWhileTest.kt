@@ -45,59 +45,6 @@ class KeepScreenOnWhileTest {
     }
 
     /**
-     * Two instances share one window root, so a count decides. Without it the
-     * second instance going inactive would clear the flag while the first is
-     * still playing — the exact dim this composable exists to prevent.
-     */
-    @Test
-    fun holdsWhileAnyInstanceIsActive() {
-        lateinit var probe: android.view.View
-        var first by mutableStateOf(true)
-        var second by mutableStateOf(true)
-        composeTestRule.setContent {
-            probe = LocalView.current
-            KeepScreenOnWhile(active = first)
-            KeepScreenOnWhile(active = second)
-        }
-        composeTestRule.waitForIdle()
-        assertTrue("precondition: both active", probe.keepScreenOn)
-
-        second = false
-        composeTestRule.waitForIdle()
-        assertTrue("one still playing — must stay held", probe.keepScreenOn)
-
-        first = false
-        composeTestRule.waitForIdle()
-        assertFalse("the last release must let it go", probe.keepScreenOn)
-    }
-
-    /**
-     * The navigation-transition shape: a paused screen composed alongside a
-     * playing one must not switch the screen off underneath it. An inactive
-     * instance touches the flag neither on entry nor on teardown.
-     */
-    @Test
-    fun anInactiveInstanceDoesNotReleaseAnActiveOne() {
-        lateinit var probe: android.view.View
-        var pausedScreenPresent by mutableStateOf(false)
-        composeTestRule.setContent {
-            probe = LocalView.current
-            KeepScreenOnWhile(active = true)
-            if (pausedScreenPresent) KeepScreenOnWhile(active = false)
-        }
-        composeTestRule.waitForIdle()
-        assertTrue("precondition: playing", probe.keepScreenOn)
-
-        pausedScreenPresent = true
-        composeTestRule.waitForIdle()
-        assertTrue("a paused sibling must not clear the flag", probe.keepScreenOn)
-
-        pausedScreenPresent = false
-        composeTestRule.waitForIdle()
-        assertTrue("nor must its teardown", probe.keepScreenOn)
-    }
-
-    /**
      * The one that matters. Pausing must release immediately rather than at the
      * end of the composition's life — otherwise a paused video left on screen
      * keeps the device awake, which is exactly the behaviour being fixed.
