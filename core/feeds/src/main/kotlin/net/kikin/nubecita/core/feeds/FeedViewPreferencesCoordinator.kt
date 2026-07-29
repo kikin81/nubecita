@@ -57,10 +57,15 @@ class FeedViewPreferencesCoordinator
                                     throw cancellation
                                 } catch (throwable: Throwable) {
                                     // Keep DEFAULT / last-good prefs; the next session
-                                    // emission retries. Log only the error identity —
-                                    // the response may carry account-shaped data.
+                                    // emission retries.
+                                    //
+                                    // The throwable itself is deliberately NOT passed to
+                                    // Timber: that would log its message and stack trace,
+                                    // and a deserialization failure quotes the offending
+                                    // JSON — i.e. fragments of the viewer's own
+                                    // preferences payload. The class name is enough to
+                                    // tell a transport failure from a decode failure.
                                     Timber.tag(TAG).w(
-                                        throwable,
                                         "feed view prefs refresh failed: %s",
                                         throwable.javaClass.name,
                                     )
