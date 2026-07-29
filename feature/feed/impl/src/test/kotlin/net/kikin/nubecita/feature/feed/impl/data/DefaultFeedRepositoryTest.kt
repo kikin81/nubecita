@@ -16,6 +16,8 @@ import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
+import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
+import net.kikin.nubecita.core.feeds.FeedViewPrefs
 import net.kikin.nubecita.core.moderation.ContentLabel
 import net.kikin.nubecita.core.moderation.LabelVisibility
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
@@ -46,6 +48,29 @@ private val fakeModerationPrefs =
         ) = Unit
     }
 
+// Inert fake: reply filtering is DISABLED here on purpose. These fixtures carry
+// no `author.viewer.following`, so the production default
+// (hideRepliesByUnfollowed = true) would drop every reply in them and turn these
+// wire→PostUi pipeline assertions into assertions about the filter. The filter's
+// own behaviour — including that it is enabled by default and applied to the
+// right feeds — is covered by FeedReplyFilterWiringTest.
+private val fakeFeedViewPrefs =
+    object : FeedViewPreferencesRepository {
+        override val prefs =
+            MutableStateFlow(
+                FeedViewPrefs(
+                    hideReplies = false,
+                    hideRepliesByUnfollowed = false,
+                    hideReposts = false,
+                    hideQuotePosts = false,
+                ),
+            )
+
+        override suspend fun refresh() = Unit
+
+        override fun resetToDefault() = Unit
+    }
+
 private val fakeSessionProvider =
     object : SessionStateProvider {
         override val state = MutableStateFlow<SessionState>(SessionState.SignedOut)
@@ -66,7 +91,7 @@ internal class DefaultFeedRepositoryTest {
                         httpClient = HttpClient(jsonMockEngine(fixture)),
                     )
                 }
-            val repo = DefaultFeedRepository(provider, fakeModerationPrefs, fakeSessionProvider, UnconfinedTestDispatcher(testScheduler))
+            val repo = DefaultFeedRepository(provider, fakeModerationPrefs, fakeFeedViewPrefs, fakeSessionProvider, UnconfinedTestDispatcher(testScheduler))
 
             val result = repo.getTimeline(cursor = null)
 
@@ -87,7 +112,7 @@ internal class DefaultFeedRepositoryTest {
                         httpClient = HttpClient(jsonMockEngine(fixture)),
                     )
                 }
-            val repo = DefaultFeedRepository(provider, fakeModerationPrefs, fakeSessionProvider, UnconfinedTestDispatcher(testScheduler))
+            val repo = DefaultFeedRepository(provider, fakeModerationPrefs, fakeFeedViewPrefs, fakeSessionProvider, UnconfinedTestDispatcher(testScheduler))
 
             val page = repo.getTimeline(cursor = null).getOrThrow()
             // Fixture has 2 entries (1 well-formed, 1 stripped of `text`).
@@ -105,7 +130,7 @@ internal class DefaultFeedRepositoryTest {
                         httpClient = HttpClient(MockEngine { throw IOException("simulated network failure") }),
                     )
                 }
-            val repo = DefaultFeedRepository(provider, fakeModerationPrefs, fakeSessionProvider, UnconfinedTestDispatcher(testScheduler))
+            val repo = DefaultFeedRepository(provider, fakeModerationPrefs, fakeFeedViewPrefs, fakeSessionProvider, UnconfinedTestDispatcher(testScheduler))
 
             val result = repo.getTimeline(cursor = null)
 
@@ -131,7 +156,7 @@ internal class DefaultFeedRepositoryTest {
                             ),
                     )
                 }
-            val repo = DefaultFeedRepository(provider, fakeModerationPrefs, fakeSessionProvider, UnconfinedTestDispatcher(testScheduler))
+            val repo = DefaultFeedRepository(provider, fakeModerationPrefs, fakeFeedViewPrefs, fakeSessionProvider, UnconfinedTestDispatcher(testScheduler))
 
             val result = repo.getTimeline(cursor = null)
             assertTrue(result.isFailure)
@@ -142,7 +167,7 @@ internal class DefaultFeedRepositoryTest {
         runTest {
             val provider =
                 FakeXrpcClientProvider { throw NoSessionException() }
-            val repo = DefaultFeedRepository(provider, fakeModerationPrefs, fakeSessionProvider, UnconfinedTestDispatcher(testScheduler))
+            val repo = DefaultFeedRepository(provider, fakeModerationPrefs, fakeFeedViewPrefs, fakeSessionProvider, UnconfinedTestDispatcher(testScheduler))
 
             val result = repo.getTimeline(cursor = null)
 
@@ -161,7 +186,7 @@ internal class DefaultFeedRepositoryTest {
                         httpClient = HttpClient(jsonMockEngine(fixture)),
                     )
                 }
-            val repo = DefaultFeedRepository(provider, fakeModerationPrefs, fakeSessionProvider, UnconfinedTestDispatcher(testScheduler))
+            val repo = DefaultFeedRepository(provider, fakeModerationPrefs, fakeFeedViewPrefs, fakeSessionProvider, UnconfinedTestDispatcher(testScheduler))
 
             val page = repo.getTimeline(cursor = null).getOrThrow()
             assertNull(page.nextCursor)
@@ -181,7 +206,7 @@ internal class DefaultFeedRepositoryTest {
                         httpClient = HttpClient(jsonMockEngine(fixture)),
                     )
                 }
-            val repo = DefaultFeedRepository(provider, fakeModerationPrefs, fakeSessionProvider, UnconfinedTestDispatcher(testScheduler))
+            val repo = DefaultFeedRepository(provider, fakeModerationPrefs, fakeFeedViewPrefs, fakeSessionProvider, UnconfinedTestDispatcher(testScheduler))
 
             val result =
                 repo.getFeed(
@@ -206,7 +231,7 @@ internal class DefaultFeedRepositoryTest {
                         httpClient = HttpClient(jsonMockEngine(fixture)),
                     )
                 }
-            val repo = DefaultFeedRepository(provider, fakeModerationPrefs, fakeSessionProvider, UnconfinedTestDispatcher(testScheduler))
+            val repo = DefaultFeedRepository(provider, fakeModerationPrefs, fakeFeedViewPrefs, fakeSessionProvider, UnconfinedTestDispatcher(testScheduler))
 
             val result =
                 repo.getListFeed(
@@ -230,7 +255,7 @@ internal class DefaultFeedRepositoryTest {
                         httpClient = HttpClient(MockEngine { throw IOException("simulated network failure") }),
                     )
                 }
-            val repo = DefaultFeedRepository(provider, fakeModerationPrefs, fakeSessionProvider, UnconfinedTestDispatcher(testScheduler))
+            val repo = DefaultFeedRepository(provider, fakeModerationPrefs, fakeFeedViewPrefs, fakeSessionProvider, UnconfinedTestDispatcher(testScheduler))
 
             val result = repo.getFeed(feedUri = "at://did:plc:gen/app.bsky.feed.generator/art", cursor = null)
 

@@ -4,8 +4,10 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import net.kikin.nubecita.core.feeds.DefaultFeedViewPreferencesRepository
 import net.kikin.nubecita.core.feeds.DefaultFeedsDataSource
 import net.kikin.nubecita.core.feeds.DefaultPinnedFeedsRepository
+import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
 import net.kikin.nubecita.core.feeds.FeedsDataSource
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
 import javax.inject.Singleton
@@ -20,4 +22,10 @@ abstract class FeedsModule {
     @Binds
     @Singleton
     internal abstract fun bindFeedsDataSource(impl: DefaultFeedsDataSource): FeedsDataSource
+
+    @Binds
+    @Singleton
+    internal abstract fun bindFeedViewPreferencesRepository(
+        impl: DefaultFeedViewPreferencesRepository,
+    ): FeedViewPreferencesRepository
 }
