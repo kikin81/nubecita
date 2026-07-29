@@ -14,6 +14,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import timber.log.Timber
 import javax.inject.Inject
@@ -23,6 +24,7 @@ class DefaultFeedRepository
     constructor(
         private val xrpcClientProvider: XrpcClientProvider,
         private val moderationPreferences: ModerationPreferencesRepository,
+        private val feedViewPreferences: FeedViewPreferencesRepository,
         private val sessionStateProvider: SessionStateProvider,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : FeedRepository {
@@ -30,11 +32,11 @@ class DefaultFeedRepository
             cursor: String?,
             limit: Int,
         ): Result<TimelinePage> =
-            fetchPage("getTimeline", cursor) {
-                FeedService(it)
+            fetchPage("getTimeline", cursor, followScoped = true) { client, pageCursor ->
+                FeedService(client)
                     .getTimeline(
                         GetTimelineRequest(
-                            cursor = cursor,
+                            cursor = pageCursor,
                             limit = limit.toLong(),
                         ),
                     ).let { response -> response.feed to response.cursor }
@@ -45,12 +47,17 @@ class DefaultFeedRepository
             cursor: String?,
             limit: Int,
         ): Result<TimelinePage> =
-            fetchPage("getFeed", cursor) {
-                FeedService(it)
+            // followScoped = false: a generator curates its own output, so the
+            // viewer's reply/repost/quote tuners must NOT be applied — filtering
+            // them here would strip most of what the algorithm selected. Matches
+            // the official client, which runs these tuners on `following` and
+            // `list...` descriptors only, never on `feedgen...`.
+            fetchPage("getFeed", cursor, followScoped = false) { client, pageCursor ->
+                FeedService(client)
                     .getFeed(
                         GetFeedRequest(
                             feed = AtUri(feedUri),
-                            cursor = cursor,
+                            cursor = pageCursor,
                             limit = limit.toLong(),
                         ),
                     ).let { response -> response.feed to response.cursor }
@@ -61,12 +68,14 @@ class DefaultFeedRepository
             cursor: String?,
             limit: Int,
         ): Result<TimelinePage> =
-            fetchPage("getListFeed", cursor) {
-                FeedService(it)
+            // List feeds share the Following feed's tuners in the official
+            // client, so they are follow-scoped too.
+            fetchPage("getListFeed", cursor, followScoped = true) { client, pageCursor ->
+                FeedService(client)
                     .getListFeed(
                         GetListFeedRequest(
                             list = AtUri(listUri),
-                            cursor = cursor,
+                            cursor = pageCursor,
                             limit = limit.toLong(),
                         ),
                     ).let { response -> response.feed to response.cursor }
@@ -83,18 +92,50 @@ class DefaultFeedRepository
         private suspend fun fetchPage(
             operation: String,
             cursor: String?,
-            block: suspend (client: XrpcClient) -> Pair<List<FeedViewPost>, String?>,
+            followScoped: Boolean,
+            block: suspend (client: XrpcClient, cursor: String?) -> Pair<List<FeedViewPost>, String?>,
         ): Result<TimelinePage> =
             withContext(dispatcher) {
                 runCatching {
                     val client = xrpcClientProvider.authenticated()
-                    val (feed, nextCursor) = block(client)
                     // Read the cached prefs + viewer DID once per page; the
                     // mapper drops hard-filtered timeline posts and covers
                     // warned media off the render path. A cold cache reads the
                     // fail-safe DEFAULT (adult off).
                     val prefs = moderationPreferences.prefs.value
                     val viewerDid = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
+                    val feedViewPrefs = feedViewPreferences.prefs.value
+
+                    val feed = mutableListOf<FeedViewPost>()
+                    var pageCursor = cursor
+                    var nextCursor: String?
+                    var rounds = 0
+                    do {
+                        val (wireFeed, responseCursor) = block(client, pageCursor)
+                        nextCursor = responseCursor
+                        pageCursor = responseCursor
+                        // Apply the viewer's feed-view preferences BEFORE mapping,
+                        // while the wire entries still carry the reply ancestry the
+                        // predicate needs (parent / grandparent / root authors and
+                        // their viewer.following) — that context is lost once an
+                        // entry degrades to a FeedItemUi.Single.
+                        feed +=
+                            if (followScoped) {
+                                wireFeed.filter { it.shouldDisplayInFollowingFeed(feedViewPrefs, viewerDid) }
+                            } else {
+                                wireFeed
+                            }
+                        rounds++
+                        // Top-up: an aggressively filtered page can come back empty
+                        // while the feed still has pages left. Returning that empty
+                        // page would strand the caller — FeedViewModel treats an
+                        // empty initial page as endReached, and an empty appended
+                        // page doesn't grow the list so the near-bottom trigger may
+                        // never re-fire. Keep pulling until something survives.
+                        // Bounded so a viewer whose whole timeline filters out can't
+                        // spin through the entire feed in one call.
+                    } while (feed.isEmpty() && nextCursor != null && rounds < MAX_TOP_UP_ROUNDS)
+
                     TimelinePage(
                         feedItems = feed.toFeedItemsUi(prefs, viewerDid),
                         nextCursor = nextCursor,
@@ -122,5 +163,14 @@ class DefaultFeedRepository
 
         private companion object {
             const val TAG = "FeedRepository"
+
+            /**
+             * Upper bound on extra network round-trips spent looking for a page
+             * that survives filtering. Caps worst-case latency and request count
+             * for a viewer whose timeline filters out almost entirely; if we
+             * still have nothing after this many rounds we return the empty page
+             * and let the next LoadMore continue from the cursor.
+             */
+            const val MAX_TOP_UP_ROUNDS = 3
         }
     }

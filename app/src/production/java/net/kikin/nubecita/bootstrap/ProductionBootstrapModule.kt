@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.BuildConfig
 import net.kikin.nubecita.core.billing.RevenueCatInitializer
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
+import net.kikin.nubecita.core.feeds.FeedViewPreferencesCoordinator
 import net.kikin.nubecita.core.moderation.ModerationPreferencesCoordinator
 import net.kikin.nubecita.core.moderation.PostAudienceDefaultCoordinator
 import net.kikin.nubecita.core.posting.SharedMediaStore
@@ -112,6 +113,18 @@ internal object ProductionBootstrapModule {
     @IntoSet
     fun providePostAudienceDefaultInitializer(
         coordinator: PostAudienceDefaultCoordinator,
+    ): AppInitializer = AppInitializer { coordinator.start() }
+
+    // Refresh the viewer's feed-view preferences (hide replies / replies by
+    // unfollowed / reposts / quote posts) on sign-in, and reset on sign-out so a
+    // second account can't inherit the first one's filters. Until this runs the
+    // repo sits at FeedViewPrefs.DEFAULT, which already matches the official
+    // client's defaults — so the Following feed filters correctly even before the
+    // fetch lands. Production-only, like the coordinators above.
+    @Provides
+    @IntoSet
+    fun provideFeedViewPreferencesInitializer(
+        coordinator: FeedViewPreferencesCoordinator,
     ): AppInitializer = AppInitializer { coordinator.start() }
 
     // Boot-time backstop for the shared-image copy directory: delete orphaned
