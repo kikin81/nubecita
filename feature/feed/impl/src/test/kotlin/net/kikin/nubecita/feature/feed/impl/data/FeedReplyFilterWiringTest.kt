@@ -41,7 +41,9 @@ import org.junit.jupiter.api.Test
 internal class FeedReplyFilterWiringTest {
     private val viewerDid = "did:plc:viewer00000000000000000000"
     private val followed = "did:plc:followed000000000000000000"
+    private val followed2 = "did:plc:followedtwo00000000000000"
     private val stranger = "did:plc:stranger00000000000000000"
+    private val stranger2 = "did:plc:strangertwo00000000000000"
 
     @Test
     fun `getTimeline drops a followed account's reply to a stranger and keeps the plain post`() =
@@ -90,6 +92,28 @@ internal class FeedReplyFilterWiringTest {
             val page = repo.getTimeline(cursor = null).getOrThrow()
 
             assertEquals(listOf(keptPostUri, droppedPostUri), page.feedItems.map { it.leafId() })
+        }
+
+    /**
+     * The full discriminating matrix from `nubecita-1fmx.3`, run through the real
+     * repository in one page.
+     *
+     * Asserting the exact surviving LIST (not a count) is what makes this
+     * meaningful: a filter that drops everything, a filter that drops nothing,
+     * and a filter that drops the wrong subset all fail. Three of these six must
+     * survive and three must go.
+     */
+    @Test
+    fun `the Following feed keeps exactly the entries the predicate allows`() =
+        runTest {
+            val repo = newRepo(fullMatrixFeedJson(), UnconfinedTestDispatcher(testScheduler))
+
+            val page = repo.getTimeline(cursor = null).getOrThrow()
+
+            assertEquals(
+                listOf(plainPostUri, selfThreadLeafUri, followedToFollowedUri, repostedStrangerReplyUri),
+                page.feedItems.map { it.leafId() },
+            )
         }
 
     /**
@@ -201,11 +225,110 @@ internal class FeedReplyFilterWiringTest {
     private val keptPostUri get() = "at://$followed/app.bsky.feed.post/kept"
     private val droppedPostUri get() = "at://$followed/app.bsky.feed.post/dropped"
 
+    // --- full-matrix URIs: the three that must survive ---
+    private val plainPostUri get() = "at://$followed/app.bsky.feed.post/plain"
+    private val selfThreadLeafUri get() = "at://$followed/app.bsky.feed.post/selfthread2"
+    private val followedToFollowedUri get() = "at://$followed/app.bsky.feed.post/f2f"
+    private val repostedStrangerReplyUri get() = "at://$stranger/app.bsky.feed.post/reposted"
+
+    // --- ...and the three that must be dropped ---
+    private val followedToStrangerUri get() = "at://$followed/app.bsky.feed.post/f2s"
+    private val unfollowedAuthorReplyUri get() = "at://$stranger/app.bsky.feed.post/unfollowedreply"
+    private val strangerToStrangerUri get() = "at://$stranger/app.bsky.feed.post/s2s"
+
+    /**
+     * Six entries covering every branch of the predicate, interleaved so a
+     * position-based bug can't accidentally pass.
+     *
+     * MUST SURVIVE:
+     * - plain non-reply by a followed account
+     * - self-thread continuation by a followed account (branch 2)
+     * - followed account replying to another followed account (branch 3)
+     * - a repost of a stranger-to-stranger reply (reposts are exempt)
+     *
+     * MUST DROP:
+     * - followed account replying to a stranger  <- the reported bug (branch 3)
+     * - reply authored by someone not followed (branch 1)
+     * - stranger replying to a stranger (branch 1)
+     */
+    private fun fullMatrixFeedJson(): String =
+        """
+        {
+          "feed": [
+            ${entry(plainPostUri, followed, following = true)},
+            ${
+            entry(
+                followedToStrangerUri,
+                followed,
+                following = true,
+                replyRootUri = "at://$stranger/app.bsky.feed.post/r1",
+                replyParentUri = "at://$stranger/app.bsky.feed.post/p1",
+                replyAuthorDid = stranger,
+            )
+        },
+            ${
+            entry(
+                selfThreadLeafUri,
+                followed,
+                following = true,
+                replyRootUri = "at://$followed/app.bsky.feed.post/selfthread1",
+                replyParentUri = "at://$followed/app.bsky.feed.post/selfthread1",
+                replyAuthorDid = followed,
+                replyAuthorFollowing = true,
+            )
+        },
+            ${
+            entry(
+                unfollowedAuthorReplyUri,
+                stranger,
+                following = false,
+                replyRootUri = "at://$followed/app.bsky.feed.post/r2",
+                replyParentUri = "at://$followed/app.bsky.feed.post/p2",
+                replyAuthorDid = followed,
+                replyAuthorFollowing = true,
+            )
+        },
+            ${
+            entry(
+                followedToFollowedUri,
+                followed,
+                following = true,
+                replyRootUri = "at://$followed2/app.bsky.feed.post/r3",
+                replyParentUri = "at://$followed2/app.bsky.feed.post/p3",
+                replyAuthorDid = followed2,
+                replyAuthorFollowing = true,
+            )
+        },
+            ${
+            entry(
+                strangerToStrangerUri,
+                stranger,
+                following = false,
+                replyRootUri = "at://$stranger2/app.bsky.feed.post/r4",
+                replyParentUri = "at://$stranger2/app.bsky.feed.post/p4",
+                replyAuthorDid = stranger2,
+            )
+        },
+            ${
+            entry(
+                repostedStrangerReplyUri,
+                stranger,
+                following = false,
+                replyRootUri = "at://$stranger2/app.bsky.feed.post/r5",
+                replyParentUri = "at://$stranger2/app.bsky.feed.post/p5",
+                replyAuthorDid = stranger2,
+                reposterDid = followed,
+            )
+        }
+          ]
+        }
+        """.trimIndent()
+
     private fun FeedItemUi.leafId(): String =
         when (this) {
             is FeedItemUi.Single -> post.id
             is FeedItemUi.ReplyCluster -> leaf.id
-            is FeedItemUi.SelfThreadChain -> posts.last().id
+            is FeedItemUi.SelfThreadChain -> posts.lastOrNull()?.id ?: error("SelfThreadChain with no posts")
             else -> error("unexpected item $this")
         }
 
@@ -271,8 +394,13 @@ internal class FeedReplyFilterWiringTest {
         replyRootUri: String? = null,
         replyParentUri: String? = null,
         replyAuthorDid: String? = null,
+        replyAuthorFollowing: Boolean = false,
+        reposterDid: String? = null,
     ): String {
-        val viewerBlock = if (following) """, "viewer": { "following": "at://$viewerDid/app.bsky.graph.follow/x" }""" else ""
+        fun followingBlock(isFollowing: Boolean) =
+            if (isFollowing) """, "viewer": { "following": "at://$viewerDid/app.bsky.graph.follow/x" }""" else ""
+
+        val viewerBlock = followingBlock(following)
         fun postView(
             u: String,
             did: String,
@@ -281,7 +409,7 @@ internal class FeedReplyFilterWiringTest {
               "${'$'}type": "app.bsky.feed.defs#postView",
               "uri": "$u",
               "cid": "bafyreifakecid000000000000000000000000000000000",
-              "author": { "did": "$did", "handle": "x.bsky.social" },
+              "author": { "did": "$did", "handle": "x.bsky.social"${followingBlock(replyAuthorFollowing)} },
               "indexedAt": "2026-04-26T12:00:00Z",
               "record": { "${'$'}type": "app.bsky.feed.post", "text": "t", "createdAt": "2026-04-26T12:00:00Z" }
             }
@@ -296,6 +424,16 @@ internal class FeedReplyFilterWiringTest {
                     replyAuthorDid,
                 )} },"""
             }
+        val reasonBlock =
+            reposterDid?.let {
+                """
+                "reason": {
+                  "${'$'}type": "app.bsky.feed.defs#reasonRepost",
+                  "by": { "did": "$it", "handle": "reposter.bsky.social" },
+                  "indexedAt": "2026-04-26T12:00:00Z"
+                },
+                """.trimIndent()
+            } ?: ""
         return """
             {
               "post": {
@@ -306,6 +444,7 @@ internal class FeedReplyFilterWiringTest {
                 "record": { "${'$'}type": "app.bsky.feed.post", "text": "t", "createdAt": "2026-04-26T12:00:00Z" }
               },
               $replyBlock
+              $reasonBlock
               "indexedAt": "2026-04-26T12:00:00Z"
             }
             """.trimIndent()

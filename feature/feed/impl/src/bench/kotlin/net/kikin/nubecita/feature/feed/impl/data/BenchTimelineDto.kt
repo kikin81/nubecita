@@ -86,11 +86,34 @@ internal data class BenchFeedItemDto(
     // KDoc above.
     val type: Type = Type.Single,
     val post: BenchPostDto? = null,
+    /**
+     * [Type.ReplyCluster] only: the thread root and the post being replied to.
+     * The leaf is [post]. Both are required for a cluster — an entry missing
+     * either degrades to [FeedItemUi.Single] rather than failing, mirroring how
+     * the production mapper handles a non-`PostView` parent.
+     */
+    val root: BenchPostDto? = null,
+    val parent: BenchPostDto? = null,
+    /** [Type.ReplyCluster] only: renders the "View full thread" fold hint. */
+    val hasEllipsis: Boolean = false,
 ) {
     @Serializable
     internal enum class Type {
         @SerialName("Single")
         Single,
+
+        /**
+         * A cross-author reply rendered as root → parent → leaf.
+         *
+         * Note the bench flavor's feed never runs the production reply filter
+         * (`BenchFakeFeedRepository` supplies already-mapped items, so
+         * `toFeedItemsUi` and `shouldDisplayInFollowingFeed` are both bypassed).
+         * Cluster entries here are therefore for RENDERING and Macrobench
+         * scroll-cost coverage only — they prove nothing about filtering. See
+         * `nubecita-1fmx.3`.
+         */
+        @SerialName("ReplyCluster")
+        ReplyCluster,
     }
 }
 

@@ -54,6 +54,40 @@ internal object BenchTimelineMapper {
 
     fun toFeedItems(dto: BenchTimelineDto): List<FeedItemUi> = dto.items.mapNotNull { it.toFeedItemUi() }
 
+    /**
+     * Projects a `ReplyCluster` fixture entry, degrading to
+     * [FeedItemUi.Single] when `root` or `parent` is absent — the same
+     * fallback the production mapper applies to a non-`PostView` parent, so
+     * an incomplete fixture entry still renders instead of vanishing.
+     */
+    private fun BenchFeedItemDto.toReplyClusterOrSingle(): FeedItemUi? {
+        val leaf =
+            post ?: run {
+                Timber.tag(TAG).w("ReplyCluster feed item with null post; skipping")
+                return null
+            }
+        val rootPost = root
+        val parentPost = parent
+        if (rootPost == null || parentPost == null) {
+            // Name the missing field(s): the whole point of this log is to make a
+            // hand-edited fixture debuggable, and "missing root or parent" sends
+            // the reader back to the JSON to work out which.
+            Timber.tag(TAG).w(
+                "ReplyCluster rkey=%s missing root (null=%b) / parent (null=%b); falling back to Single",
+                leaf.id.substringAfterLast('/'),
+                rootPost == null,
+                parentPost == null,
+            )
+            return FeedItemUi.Single(post = leaf.toPostUi())
+        }
+        return FeedItemUi.ReplyCluster(
+            root = rootPost.toPostUi(),
+            parent = parentPost.toPostUi(),
+            leaf = leaf.toPostUi(),
+            hasEllipsis = hasEllipsis,
+        )
+    }
+
     private fun BenchFeedItemDto.toFeedItemUi(): FeedItemUi? =
         runCatching {
             when (type) {
@@ -63,6 +97,8 @@ internal object BenchTimelineMapper {
                             Timber.tag(TAG).w("Single feed item with null post; skipping")
                             null
                         }
+
+                BenchFeedItemDto.Type.ReplyCluster -> toReplyClusterOrSingle()
             }
         }.getOrElse { throwable ->
             // Per-item failure containment: a malformed embed or any
