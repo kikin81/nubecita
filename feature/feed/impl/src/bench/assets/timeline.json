@@ -1034,5 +1034,200 @@
         }
       }
     }
+,
+    {
+      "type": "ReplyCluster",
+      "hasEllipsis": false,
+      "root":
+      {
+        "id": "at://did:plc:carmen0000000000000000000/app.bsky.feed.post/3kfeedrc01",
+        "cid": "bafyreibench3kfeedrc01",
+        "author": {
+          "did": "did:plc:carmen0000000000000000000",
+          "handle": "carmen.codes",
+          "displayName": "Carmen Ortiz",
+          "avatarUrl": "file:///android_asset/img/avatars/carmen.jpg"
+        },
+        "createdAt": "2026-05-26T09:10:00Z",
+        "text": "hot take: the best profiling tool is a slow device. borrow a five-year-old phone and every shortcut you took becomes visible in about ten seconds.",
+        "facets": [],
+        "embed": {
+          "type": "Empty"
+        },
+        "stats": {
+          "replyCount": 9,
+          "repostCount": 6,
+          "likeCount": 134,
+          "quoteCount": 0
+        },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": null,
+          "repostUri": null,
+          "isBookmarkedByViewer": false
+        }
+      },
+      "parent":
+      {
+        "id": "at://did:plc:bob0000000000000000000000/app.bsky.feed.post/3kfeedrc02",
+        "cid": "bafyreibench3kfeedrc02",
+        "author": {
+          "did": "did:plc:bob0000000000000000000000",
+          "handle": "bob.dev",
+          "displayName": "Bob Iglesias",
+          "avatarUrl": "file:///android_asset/img/avatars/bob.jpg"
+        },
+        "createdAt": "2026-05-26T09:24:00Z",
+        "text": "this is why I keep a drawer of old hardware. the emulator lies to you about jank.",
+        "facets": [],
+        "embed": {
+          "type": "Empty"
+        },
+        "stats": {
+          "replyCount": 3,
+          "repostCount": 0,
+          "likeCount": 41,
+          "quoteCount": 0
+        },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": null,
+          "repostUri": null,
+          "isBookmarkedByViewer": false
+        }
+      },
+      "post":
+      {
+        "id": "at://did:plc:elena00000000000000000000/app.bsky.feed.post/3kfeedrc03",
+        "cid": "bafyreibench3kfeedrc03",
+        "author": {
+          "did": "did:plc:elena00000000000000000000",
+          "handle": "elena.draws",
+          "displayName": "Elena Ruiz",
+          "avatarUrl": "file:///android_asset/img/avatars/elena.jpg"
+        },
+        "createdAt": "2026-05-26T09:41:00Z",
+        "text": "the drawer of old hardware is real and it has saved me twice this month.",
+        "facets": [],
+        "embed": {
+          "type": "Empty"
+        },
+        "stats": {
+          "replyCount": 1,
+          "repostCount": 0,
+          "likeCount": 18,
+          "quoteCount": 0
+        },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": null,
+          "repostUri": null,
+          "isBookmarkedByViewer": false
+        }
+      }
+    },
+    {
+      "type": "ReplyCluster",
+      "hasEllipsis": true,
+      "root":
+      {
+        "id": "at://did:plc:carmen0000000000000000000/app.bsky.feed.post/3kfeedrc04",
+        "cid": "bafyreibench3kfeedrc04",
+        "author": {
+          "did": "did:plc:carmen0000000000000000000",
+          "handle": "carmen.codes",
+          "displayName": "Carmen Ortiz",
+          "avatarUrl": "file:///android_asset/img/avatars/carmen.jpg"
+        },
+        "createdAt": "2026-05-25T18:02:00Z",
+        "text": "shipping a design system is 10% components and 90% convincing everyone to use them.",
+        "facets": [],
+        "embed": {
+          "type": "Empty"
+        },
+        "stats": {
+          "replyCount": 27,
+          "repostCount": 19,
+          "likeCount": 302,
+          "quoteCount": 0
+        },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": null,
+          "repostUri": null,
+          "isBookmarkedByViewer": false
+        }
+      },
+      "parent":
+      {
+        "id": "at://did:plc:elena00000000000000000000/app.bsky.feed.post/3kfeedrc05",
+        "cid": "bafyreibench3kfeedrc05",
+        "author": {
+          "did": "did:plc:elena00000000000000000000",
+          "handle": "elena.draws",
+          "displayName": "Elena Ruiz",
+          "avatarUrl": "file:///android_asset/img/avatars/elena.jpg"
+        },
+        "createdAt": "2026-05-25T19:15:00Z",
+        "text": "the convincing part never ends, it just changes audience.",
+        "facets": [],
+        "embed": {
+          "type": "Empty"
+        },
+        "stats": {
+          "replyCount": 5,
+          "repostCount": 0,
+          "likeCount": 64,
+          "quoteCount": 0
+        },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": null,
+          "repostUri": null,
+          "isBookmarkedByViewer": false
+        }
+      },
+      "post":
+      {
+        "id": "at://did:plc:bob0000000000000000000000/app.bsky.feed.post/3kfeedrc06",
+        "cid": "bafyreibench3kfeedrc06",
+        "author": {
+          "did": "did:plc:bob0000000000000000000000",
+          "handle": "bob.dev",
+          "displayName": "Bob Iglesias",
+          "avatarUrl": "file:///android_asset/img/avatars/bob.jpg"
+        },
+        "createdAt": "2026-05-25T20:30:00Z",
+        "text": "wrote the docs three times and people still ask in DMs. worth it anyway.",
+        "facets": [],
+        "embed": {
+          "type": "Empty"
+        },
+        "stats": {
+          "replyCount": 0,
+          "repostCount": 0,
+          "likeCount": 22,
+          "quoteCount": 0
+        },
+        "viewer": {
+          "isLikedByViewer": false,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": null,
+          "repostUri": null,
+          "isBookmarkedByViewer": false
+        }
+      }
+    }
   ]
 }
