@@ -69,7 +69,15 @@ internal object BenchTimelineMapper {
         val rootPost = root
         val parentPost = parent
         if (rootPost == null || parentPost == null) {
-            Timber.tag(TAG).w("ReplyCluster missing root or parent; falling back to Single")
+            // Name the missing field(s): the whole point of this log is to make a
+            // hand-edited fixture debuggable, and "missing root or parent" sends
+            // the reader back to the JSON to work out which.
+            Timber.tag(TAG).w(
+                "ReplyCluster rkey=%s missing root (null=%b) / parent (null=%b); falling back to Single",
+                leaf.id.substringAfterLast('/'),
+                rootPost == null,
+                parentPost == null,
+            )
             return FeedItemUi.Single(post = leaf.toPostUi())
         }
         return FeedItemUi.ReplyCluster(

@@ -328,7 +328,7 @@ internal class FeedReplyFilterWiringTest {
         when (this) {
             is FeedItemUi.Single -> post.id
             is FeedItemUi.ReplyCluster -> leaf.id
-            is FeedItemUi.SelfThreadChain -> posts.last().id
+            is FeedItemUi.SelfThreadChain -> posts.lastOrNull()?.id ?: error("SelfThreadChain with no posts")
             else -> error("unexpected item $this")
         }
 
