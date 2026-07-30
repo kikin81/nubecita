@@ -182,6 +182,36 @@ case drop replies silently — the failure D6 exists to prevent. `Single` theref
 carries it too, rather than being promoted to a cluster variant, which would
 change its rendering for a reason unrelated to its content.
 
+### D7a — The thread-root pass runs BEFORE `dedupeClusterContext`
+
+Surfaced in review of the implementation. The two passes are not commutative,
+and one order loses a post outright.
+
+With `dedupeClusterContext` first, given cluster1 `(root R, leaf L3)`, cluster2
+`(root R, parent L1, leaf L2)` and a standalone `Single(L1)`: the context pass
+drops `Single(L1)` because L1 is cluster2's parent, then the thread-root pass
+drops cluster2 itself for reusing root R. L1 is then rendered nowhere and
+counted nowhere. Measured directly:
+
+```
+current  rendered=[R, R, L3]      counts=[1]
+reversed rendered=[R, R, L3, L1]  counts=[1, 0]
+```
+
+The shape is reachable rather than hypothetical: `FeedViewPostMapper` returns
+`Single(leaf)` for a mid-thread reply on four fallback paths — parent is
+`BlockedPost`/`NotFoundPost`/`Unknown`, root is non-`PostView`, or either
+ancestor fails moderation projection.
+
+Running the thread-root pass first removes the duplicate cluster before its
+parent counts as anyone's context, so the standalone survives. The trade is that
+thread R can then occupy two feed items (the cluster plus the orphaned
+standalone), which is a weaker form of the duplication this change fixes — but
+the two cards show different posts, so the reported symptom (the same post drawn
+repeatedly) does not return. This follows the risk ordering already stated
+below: posts disappearing is "a much worse failure than the duplication being
+fixed".
+
 ### D7 — `SelfThreadChain` root is an approximation
 
 Chains do not retain the wire thread root, so the first chained post's id is
