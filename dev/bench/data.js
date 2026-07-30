@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785312824097,
+  "lastUpdate": 1785398869841,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -1093,6 +1093,64 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 711,
             "range": "+/- 1.4%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "73757cd6aed60ae0f764a346b3c4f57806ede49c",
+          "message": "test(feed): prove the FeedViewPref reply filter works (JVM matrix, on-device, bench fixture) (#808)\n\n* test(feed): full discriminating matrix + FeedViewPreferencesRepository boundary\n\nExtend FeedReplyFilterWiringTest from 2 to all 6 predicate cases in one\npage, asserting the exact surviving LIST rather than a count. Three\nentries must survive (plain post, followed self-thread, followed->followed\nreply, reposted stranger reply) and three must drop (followed->stranger,\nunfollowed author, stranger->stranger).\n\nBoth new tests passed on first run, so each was mutation-checked to prove\nit discriminates:\n- filter always shows        -> 5 wiring tests fail\n- filter drops every reply   -> 2 fail incl. the matrix\n- naive lexicon reading      -> 7 fail incl. the matrix\n  (\"author not followed -> hide\", skipping the ancestor check) — the\n  realistic wrong implementation, and the one that would have shipped\n  without fixing either user report\n- refresh() publish removed  -> 3 boundary tests fail\n- resetToDefault() no-op     -> exactly the reset test fails\n\nAdd FeedViewPreferencesRepositoryBoundaryTest, driving the repository over\nthe real getPreferences decode path. Closes the 0% coverage the CI report\nflagged on PR #805 and covers resetToDefault, the sign-out guard that stops\naccount A's filters applying to account B.\n\nRefs: nubecita-1fmx.3\n\n* test(feed): on-device instrumented proof of the Following-feed reply filter\n\nAdds FeedViewPrefsFilterInstrumentationTest, run on an emulator so the\nsigned-in prod device stays untouched. 4 tests, all green; full module\nsuite is 9/9 so the pre-existing tests still pass.\n\nWhat this covers that the JVM tests cannot: the real Hilt graph provides a\nFeedViewPreferencesRepository seeded with filtering ON, and getTimeline ->\ndecode -> filter works against the production HttpClient configuration. A\nmissing binding, or a default that silently flipped to \"filtering off\",\nfails here and nowhere else.\n\nTwo constraints worked around, both documented in the file:\n- This source set installs TestFeedRepositoryModule, a @TestInstallIn that\n  swaps in FakeFeedRepository for every @HiltAndroidTest here. Injecting\n  FeedRepository would hand back the fake and the test would pass no matter\n  what the filter does, so DefaultFeedRepository is built from injected\n  collaborators instead.\n- refresh() needs a signed-in session the device lacks, and the production\n  auth binding lives in a flavored module this source set can't reference to\n  replace. The headline test therefore drives the INJECTED repository at its\n  seeded default (which is already hideRepliesByUnfollowed = true), so the\n  value reaching the filter is the real DI one. Only the\n  preference-of-false case uses a local stub; the\n  getPreferences -> parse -> publish half is covered on the JVM by\n  FeedViewPreferencesRepositoryBoundaryTest.\n\nMutation-checked: the naive lexicon reading (\"author not followed -> hide\",\nskipping the ancestor check) makes the headline test fail, so it does\ndiscriminate the exact bug users reported.\n\nRefs: nubecita-1fmx.3\n\n* test(feed): render reply clusters in the bench timeline fixture\n\nExtend BenchTimelineDto/BenchTimelineMapper with a ReplyCluster variant\n(root + parent + hasEllipsis) and append two cluster entries to\ntimeline.json.\n\nThis is option b1 from nubecita-1fmx.3: rendering and Macrobench coverage\nonly. The bench feed is served by BenchFakeFeedRepository, which supplies\nalready-mapped FeedItemUi and never calls toFeedItemsUi, so the production\nreply filter is not exercised here and this proves nothing about\nfiltering — stated explicitly in the enum KDoc so nobody mistakes it for\nverification later. What it does close is a real Macrobench blind spot:\nthe fixture previously contained only Single items, so scroll measurements\nnever included ReplyCluster composition cost.\n\nFixture hygiene:\n- Appended at the END, so the hero fold the Play-listing marketing\n  screenshots capture is byte-identical. The diff is append-only.\n- Reuses existing authors/avatars (carmen, bob, elena) with the fixture's\n  canonical DIDs — no new assets, no handle/DID conflicts.\n- Missing root or parent degrades to Single rather than throwing, matching\n  how the production mapper treats a non-PostView parent.\n\nVerified on an emulator: both clusters render root -> parent -> leaf, and\nthe hasEllipsis one shows the \"View full thread\" fold while the other does\nnot, so the new flag demonstrably drives rendering.\n\nScreenshot baselines: :feature:feed:impl 11 failures and\n:feature:search:impl 14 failures are identical on clean main, so this\nchange adds none. Those pre-existing local failures are unrelated and\nuntouched here.\n\nRefs: nubecita-1fmx.3\n\n* fix(feed): name the missing field in the bench ReplyCluster fallback log\n\nTwo review findings from PR #808:\n\n- The fallback log said only \"missing root or parent\", sending the reader\n  back to the JSON to work out which. Name both flags plus the rkey — the\n  whole purpose of this log is making a hand-edited fixture debuggable,\n  matching the neighbouring malformed-item log.\n- Replace posts.last() with lastOrNull() + a named error in the two test\n  leafId() helpers. Note this is readability, not a latent crash fix:\n  SelfThreadChain is only constructed with >= 2 posts (flushChain requires\n  it) and these helpers are test-only, where throwing is the wanted\n  behaviour. A named message just beats NoSuchElementException for whoever\n  debugs a future failure.\n\nRefs: nubecita-1fmx.3",
+          "timestamp": "2026-07-29T23:48:59Z",
+          "url": "https://github.com/kikin81/nubecita/commit/73757cd6aed60ae0f764a346b3c4f57806ede49c"
+        },
+        "date": 1785398868319,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 33,
+            "range": "+/- 23.9%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1476.102,
+            "range": "+/- 5.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1371.673,
+            "range": "+/- 9.1%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 772.844,
+            "range": "+/- 39.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1228.173,
+            "range": "+/- 23.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 591,
+            "range": "+/- 2.6%",
             "unit": "frames"
           }
         ]
