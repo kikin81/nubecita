@@ -71,9 +71,19 @@ internal class DefaultFeedViewPreferencesRepository
         private val _prefs = MutableStateFlow(FeedViewPrefs.DEFAULT)
         override val prefs: StateFlow<FeedViewPrefs> = _prefs.asStateFlow()
 
+        /**
+         * The fetch happens INSIDE [writeMutex], not before it. Fetching outside
+         * the lock allows a stale clobber: this refresh reads state A, a
+         * concurrent [update] then writes B to the server and publishes B, and
+         * this refresh finally takes the lock and overwrites the cache with A —
+         * leaving the UI showing A while the account holds B. Holding the lock
+         * across the round-trip costs nothing user-visible, because [update]
+         * publishes its optimistic value BEFORE contending for the lock.
+         */
         override suspend fun refresh() {
-            val parsed = parseFeedViewPrefs(fetchPreferences())
-            writeMutex.withLock { _prefs.value = parsed }
+            writeMutex.withLock {
+                _prefs.value = parseFeedViewPrefs(fetchPreferences())
+            }
         }
 
         override fun resetToDefault() {

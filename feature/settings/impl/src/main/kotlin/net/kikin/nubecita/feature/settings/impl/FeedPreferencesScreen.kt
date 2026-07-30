@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,6 +31,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -199,12 +201,14 @@ private fun ReplyVisibilityGroup(
     onSelect: (ReplyVisibility) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val options = REPLY_VISIBILITY_ORDER.map { it to stringResource(it.labelRes()) }
+    // The enum -> @StringRes pairing is static, so hoist it out of recomposition;
+    // stringResource must stay in composition because it reads configuration.
+    val options = remember { REPLY_VISIBILITY_ORDER.map { it to it.labelRes() } }
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
     ) {
-        options.forEachIndexed { index, (visibility, label) ->
+        options.forEachIndexed { index, (visibility, labelRes) ->
             ToggleButton(
                 checked = visibility == selected,
                 // Single-select: tapping the active segment fires
@@ -218,7 +222,7 @@ private fun ReplyVisibilityGroup(
                         else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                     },
             ) {
-                Text(label)
+                Text(stringResource(labelRes))
             }
         }
     }
@@ -236,7 +240,15 @@ private fun SwitchRow(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                // toggleable BEFORE padding so the whole padded row is the touch
+                // target, and so TalkBack merges the title, supporting text and
+                // switch state into one announcement. Without it the Switch has
+                // no label at all and reads as a bare "switch, off".
+                .toggleable(
+                    value = checked,
+                    role = Role.Switch,
+                    onValueChange = onCheckedChange,
+                ).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -252,7 +264,8 @@ private fun SwitchRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        // Gesture + semantics live on the Row; a handler here would duplicate both.
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 
