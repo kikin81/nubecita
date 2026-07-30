@@ -153,6 +153,52 @@ internal class FeedItemDedupeTest {
         assertSame(first, deduped[0])
     }
 
+    // ---------- D5: the disputed ordering (nubecita-w9of) ----------
+
+    /**
+     * The ordering `dedupeClusterContext` and thread-root de-duplication
+     * disagree about: a `Single` for post P sitting ABOVE a `ReplyCluster`
+     * rooted at P.
+     *
+     * Chronologically this should be impossible — a reply is always newer than
+     * its parent, so on a newest-first timeline the cluster precedes the
+     * standalone. Measured over 216 live timeline entries, 17 of 18 such pairs
+     * had the cluster first. The single violation was a REPOST: a repost's
+     * feed position reflects the repost time, not the original post's, so a
+     * recently-reposted old post can surface above a reply to it.
+     *
+     * In that case the repost is both the newer event and an explicit
+     * endorsement by someone the viewer follows, so it must survive. Today it
+     * does not: `dedupeClusterContext` has no repost exemption and drops any
+     * `Single` whose id appears as cluster context, so this reposted post
+     * disappears from the feed.
+     */
+    @Test
+    fun `a reposted Single is not dropped when a cluster shares its root`() {
+        val repost = FeedItemUi.Single(samplePost("P").copy(repostedBy = "Someone You Follow"))
+        val clusterRootedAtP = cluster(rootId = "P", parentId = "P", leafId = "reply")
+
+        val deduped = listOf(repost, clusterRootedAtP).dedupeClusterContext()
+
+        assertTrue(
+            deduped.any { it is FeedItemUi.Single && it.post.repostedBy != null },
+            "the repost was dropped; an endorsement by a followed account must survive cluster-context dedupe",
+        )
+    }
+
+    /**
+     * The non-repost half of the same shape stays as it is: a plain standalone
+     * shadowed by cluster context is still the duplicate, and the cluster is
+     * still canonical.
+     */
+    @Test
+    fun `a plain Single shadowed by cluster context is still dropped`() {
+        val deduped = listOf(single("P"), cluster(rootId = "P", parentId = "P", leafId = "reply")).dedupeClusterContext()
+
+        assertEquals(1, deduped.size)
+        assertTrue(deduped.single() is FeedItemUi.ReplyCluster)
+    }
+
     private fun single(id: String): FeedItemUi.Single = FeedItemUi.Single(samplePost(id))
 
     private fun cluster(

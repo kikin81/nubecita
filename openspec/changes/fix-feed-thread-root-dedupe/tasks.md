@@ -1,7 +1,7 @@
 ## 1. Resolve the ordering conflict (design D5)
 
-- [ ] 1.1 Write a failing test for the disputed case: a `Single` for post P appearing ABOVE a `ReplyCluster` whose root is P. Pin whichever rule is chosen so the two passes can never drift apart.
-- [ ] 1.2 Decide whether the new pass subsumes `dedupeClusterContext` entirely (preferred) or runs alongside it, and record the choice in the KDoc.
+- [x] 1.1 Write a failing test for the disputed case: a `Single` for post P appearing ABOVE a `ReplyCluster` whose root is P. Pin whichever rule is chosen so the two passes can never drift apart.
+- [x] 1.2 Decide whether the new pass subsumes `dedupeClusterContext` entirely (preferred) or runs alongside it, and record the choice in the KDoc.
 
 ## 2. Thread-root de-duplication
 

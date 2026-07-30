@@ -19,6 +19,23 @@ import net.kikin.nubecita.data.models.FeedItemUi
  * behavior: a reply with thread context is rendered as one cluster, and
  * the original post does NOT appear separately above the cluster.
  *
+ * **Reposts are exempt.** A reposted Single survives even when its post is
+ * cluster context, because a repost is an explicit endorsement by someone the
+ * viewer follows and is a distinct event from the original post. Dropping it
+ * would silently remove that endorsement from the feed.
+ *
+ * This exemption also resolves decision D5 of
+ * `openspec/changes/fix-feed-thread-root-dedupe`: "the cluster is canonical"
+ * and the thread-root pass's "first wins" disagree only when a Single sits
+ * ABOVE a cluster sharing its root. Chronologically that is impossible — a
+ * reply is newer than its parent, so on a newest-first timeline the cluster
+ * comes first. Measured over 216 live timeline entries, 17 of 18 such pairs had
+ * the cluster first; the single inversion was a repost, whose feed position
+ * reflects the repost time rather than the original post's. With reposts
+ * exempt here, the two rules now agree in every reachable case, so
+ * `dedupeByThreadRoot` can subsume this function as a safe refactor rather than
+ * a behaviour change.
+ *
  * Pure function over `List<FeedItemUi>` so callers (the VM reducers, any
  * future caller) can apply it without coordinating mutable state. O(n) —
  * one pass to collect cluster URIs, one filter pass.
@@ -51,7 +68,7 @@ fun List<FeedItemUi>.dedupeClusterContext(): List<FeedItemUi> {
         }
     if (contextUris.isEmpty()) return this
     return filter { item ->
-        item !is FeedItemUi.Single || item.post.id !in contextUris
+        item !is FeedItemUi.Single || item.post.id !in contextUris || item.post.repostedBy != null
     }
 }
 
