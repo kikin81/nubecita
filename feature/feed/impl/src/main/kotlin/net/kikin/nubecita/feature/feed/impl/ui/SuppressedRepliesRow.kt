@@ -11,9 +11,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.feature.feed.impl.R
+import net.kikin.nubecita.designsystem.R as DesignSystemR
 
 /**
  * "N more replies in this thread" — the affordance for replies the feed
@@ -41,6 +43,11 @@ internal fun SuppressedRepliesRow(
 ) {
     if (count <= 0) return
     val label = pluralStringResource(R.plurals.feed_suppressed_replies, count, count)
+    // TalkBack renders onClickLabel as "double-tap to <label>", so it must be a
+    // VERB phrase. Reusing ThreadFold's string keeps that grammatical ("…to view
+    // full thread") and tells the user the row navigates rather than expanding
+    // inline — which the row's own noun-phrase text does not say.
+    val clickLabel = stringResource(DesignSystemR.string.thread_fold_view_full_thread)
     Row(
         modifier =
             modifier
@@ -50,7 +57,7 @@ internal fun SuppressedRepliesRow(
                 // onClickLabel match ThreadFold, the sibling affordance inside
                 // this same card — without them TalkBack announces the text but
                 // neither identifies it as a button nor describes the action.
-                .clickable(role = Role.Button, onClickLabel = label, onClick = onClick)
+                .clickable(role = Role.Button, onClickLabel = clickLabel, onClick = onClick)
                 .heightIn(min = 48.dp)
                 .padding(start = 56.dp, end = 16.dp, top = 4.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
