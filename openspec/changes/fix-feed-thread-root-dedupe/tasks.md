@@ -14,9 +14,9 @@
 
 ## 3. Wire into the feed
 
-- [ ] 3.1 Apply the pass in `FeedViewModel` alongside the existing dedupe passes in the initial-load, refresh and append reducers, over the accumulated list.
-- [ ] 3.2 Verify cross-page behaviour holds via `loadMore`'s `trimmedExisting + newPage`, and that refresh resets the seen set (design D3).
-- [ ] 3.3 Confirm the existing duplication classes still work: cluster-vs-standalone and repost-vs-original.
+- [x] 3.1 Apply the pass in `FeedViewModel` alongside the existing dedupe passes in the initial-load, refresh and append reducers, over the accumulated list.
+- [x] 3.2 Verify cross-page behaviour holds via `loadMore`'s `trimmedExisting + newPage`, and that refresh resets the seen set (design D3).
+- [x] 3.3 Confirm the existing duplication classes still work: cluster-vs-standalone and repost-vs-original.
 
 ## 4. Suppressed-reply count (design D6)
 
