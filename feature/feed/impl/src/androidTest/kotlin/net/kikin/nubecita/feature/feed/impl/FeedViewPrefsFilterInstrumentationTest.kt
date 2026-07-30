@@ -16,6 +16,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
 import net.kikin.nubecita.core.feeds.FeedViewPrefs
+import net.kikin.nubecita.core.feeds.ReplyVisibility
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.testing.android.MockEngineHandlerHolder
 import net.kikin.nubecita.data.models.FeedItemUi
@@ -183,6 +184,12 @@ class FeedViewPrefsFilterInstrumentationTest {
         override suspend fun refresh() = Unit
 
         override fun resetToDefault() = Unit
+
+        override suspend fun setReplyVisibility(visibility: ReplyVisibility) = Unit
+
+        override suspend fun setHideReposts(hide: Boolean) = Unit
+
+        override suspend fun setHideQuotePosts(hide: Boolean) = Unit
     }
 
     // ---------- helpers ----------

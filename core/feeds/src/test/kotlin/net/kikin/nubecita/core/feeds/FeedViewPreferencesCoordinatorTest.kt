@@ -140,5 +140,11 @@ internal class FeedViewPreferencesCoordinatorTest {
             resetCount++
             _prefs.value = FeedViewPrefs.DEFAULT
         }
+
+        override suspend fun setReplyVisibility(visibility: ReplyVisibility) = Unit
+
+        override suspend fun setHideReposts(hide: Boolean) = Unit
+
+        override suspend fun setHideQuotePosts(hide: Boolean) = Unit
     }
 }

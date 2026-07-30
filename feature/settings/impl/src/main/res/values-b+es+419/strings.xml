@@ -76,4 +76,18 @@
     <string name="content_filters_cat_nudity_desc">Desnudez artística o educativa.</string>
     <string name="content_filters_save_error">No se pudo guardar el cambio. Revisa tu conexión e inténtalo de nuevo.</string>
     <string name="settings_translation_disclosure">Las traducciones a idiomas distintos del inglés se generan con IA y pueden contener imprecisiones.</string>
+    <string name="settings_feed_preferences_label">Preferencias del feed</string>
+    <string name="feed_preferences_title">Preferencias del feed</string>
+    <string name="feed_preferences_back_content_desc">Atr\u00e1s</string>
+    <string name="feed_preferences_description">Elige qu\u00e9 aparece en tu feed Siguiendo y en tus listas. Estos ajustes se guardan en tu cuenta, as\u00ed que te acompa\u00f1an en otras apps.</string>
+    <string name="feed_preferences_replies">Respuestas</string>
+    <string name="feed_preferences_replies_supporting">Las respuestas a personas que no sigues pueden desplazar las publicaciones que te interesan.</string>
+    <string name="feed_preferences_replies_all">Todas</string>
+    <string name="feed_preferences_replies_followed">Personas que sigues</string>
+    <string name="feed_preferences_replies_none">Ninguna</string>
+    <string name="feed_preferences_hide_reposts">Ocultar republicaciones</string>
+    <string name="feed_preferences_hide_reposts_supporting">Mostrar solo publicaciones originales de las personas que sigues.</string>
+    <string name="feed_preferences_hide_quotes">Ocultar publicaciones citadas</string>
+    <string name="feed_preferences_hide_quotes_supporting">Oculta las publicaciones que citan otra publicaci\u00f3n.</string>
+    <string name="feed_preferences_save_error">No se pudo guardar el cambio. Int\u00e9ntalo de nuevo.</string>
 </resources>

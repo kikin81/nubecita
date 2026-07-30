@@ -76,4 +76,18 @@
     <string name="content_filters_cat_nudity_desc">Nudez artística ou educativa.</string>
     <string name="content_filters_save_error">Não foi possível salvar a alteração. Verifique sua conexão e tente de novo.</string>
     <string name="settings_translation_disclosure">As traduções para idiomas além do inglês são geradas por IA e podem conter imprecisões.</string>
+    <string name="settings_feed_preferences_label">Prefer\u00eancias do feed</string>
+    <string name="feed_preferences_title">Prefer\u00eancias do feed</string>
+    <string name="feed_preferences_back_content_desc">Voltar</string>
+    <string name="feed_preferences_description">Escolha o que aparece no seu feed Seguindo e nas suas listas. Essas configura\u00e7\u00f5es ficam salvas na sua conta, ent\u00e3o acompanham voc\u00ea em outros apps.</string>
+    <string name="feed_preferences_replies">Respostas</string>
+    <string name="feed_preferences_replies_supporting">Respostas a pessoas que voc\u00ea n\u00e3o segue podem ocupar o espa\u00e7o das publica\u00e7\u00f5es que voc\u00ea quer ver.</string>
+    <string name="feed_preferences_replies_all">Todas</string>
+    <string name="feed_preferences_replies_followed">Pessoas que voc\u00ea segue</string>
+    <string name="feed_preferences_replies_none">Nenhuma</string>
+    <string name="feed_preferences_hide_reposts">Ocultar reposts</string>
+    <string name="feed_preferences_hide_reposts_supporting">Mostrar apenas publica\u00e7\u00f5es originais de quem voc\u00ea segue.</string>
+    <string name="feed_preferences_hide_quotes">Ocultar cita\u00e7\u00f5es</string>
+    <string name="feed_preferences_hide_quotes_supporting">Oculta publica\u00e7\u00f5es que citam outra publica\u00e7\u00e3o.</string>
+    <string name="feed_preferences_save_error">N\u00e3o foi poss\u00edvel salvar a altera\u00e7\u00e3o. Tente novamente.</string>
 </resources>

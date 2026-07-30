@@ -63,6 +63,7 @@ import net.kikin.nubecita.feature.paywall.api.PaywallRoute
 import net.kikin.nubecita.feature.paywall.api.PaywallSource
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.settings.api.About
+import net.kikin.nubecita.feature.settings.api.FeedPreferences
 import net.kikin.nubecita.feature.settings.api.Moderation
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsHeader
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsRow
@@ -185,6 +186,10 @@ internal fun SettingsScreen(
                 SettingsEffect.OpenModeration ->
                     // Push the Moderation hub sub-route (screen owns the NavKey).
                     currentOnNavigateTo(Moderation)
+
+                SettingsEffect.OpenFeedPreferences ->
+                    // Push the Feed preferences sub-route (screen owns the NavKey).
+                    currentOnNavigateTo(FeedPreferences)
                 is SettingsEffect.OpenManageSubscription -> {
                     // Deep-link to the Play manage-subscription page. The screen
                     // owns the package name; the VM supplied the sku (if known).
@@ -550,10 +555,19 @@ internal fun SettingsContent(
     // row → the Moderation hub (content filters + blocked accounts), keeping
     // the Settings page lean as more moderation tools land.
     val moderationLabel = stringResource(R.string.settings_moderation_label)
+    val feedPreferencesLabel = stringResource(R.string.settings_feed_preferences_label)
     val contentModerationSectionLabel = stringResource(R.string.settings_content_moderation_section)
     val contentModerationRows =
-        remember(moderationLabel) {
+        remember(moderationLabel, feedPreferencesLabel) {
             persistentListOf(
+                // Feed preferences sits above Moderation: it governs what the
+                // timeline shows, which users reach for far more often than the
+                // label/block tools behind the Moderation hub.
+                SettingsRow.Action(
+                    icon = NubecitaIconName.Home,
+                    label = feedPreferencesLabel,
+                    onClick = { currentOnEvent(SettingsEvent.FeedPreferencesTapped) },
+                ),
                 SettingsRow.Action(
                     icon = NubecitaIconName.Flag,
                     label = moderationLabel,

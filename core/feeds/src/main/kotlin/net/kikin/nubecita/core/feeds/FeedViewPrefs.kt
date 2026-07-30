@@ -2,6 +2,7 @@ package net.kikin.nubecita.core.feeds
 
 import io.github.kikin81.atproto.app.bsky.actor.FeedViewPref
 import io.github.kikin81.atproto.app.bsky.actor.GetPreferencesResponsePreferencesUnion
+import io.github.kikin81.atproto.app.bsky.actor.PutPreferencesRequestPreferencesUnion
 
 /**
  * The viewer's `app.bsky.actor.defs#feedViewPref` settings for a feed, as a
@@ -71,4 +72,91 @@ fun parseFeedViewPrefs(preferences: List<GetPreferencesResponsePreferencesUnion>
         hideReposts = home.hideReposts ?: FeedViewPrefs.DEFAULT.hideReposts,
         hideQuotePosts = home.hideQuotePosts ?: FeedViewPrefs.DEFAULT.hideQuotePosts,
     )
+}
+
+/**
+ * How replies appear in a follow-scoped feed, as a single mutually-exclusive
+ * choice.
+ *
+ * The wire format carries two independent booleans — `hideReplies` and
+ * `hideRepliesByUnfollowed` — but they are not independent in behaviour: the
+ * official client branches on them (`hideReplies ? removeReplies :
+ * followedRepliesOnly`), so `hideReplies` wins and the pair
+ * `(hideReplies = true, hideRepliesByUnfollowed = …)` has only one meaning.
+ * Collapsing them into one enum for the UI makes the meaningless combination
+ * unrepresentable, per CLAUDE.md's rule for mutually-exclusive modes.
+ *
+ * [FeedViewPrefs] itself stays wire-faithful — the reply filter reads the
+ * booleans directly and is untouched by this projection.
+ */
+enum class ReplyVisibility {
+    /** Show every reply the feed returns. */
+    ALL,
+
+    /** Only replies involving the viewer or accounts they follow. */
+    FOLLOWED_ONLY,
+
+    /** No replies at all. */
+    NONE,
+}
+
+/**
+ * Reads the reply preference as a single choice. `hideReplies` takes precedence,
+ * matching the official client's branch order, so an account carrying an odd
+ * combination still resolves deterministically.
+ */
+val FeedViewPrefs.replyVisibility: ReplyVisibility
+    get() =
+        when {
+            hideReplies -> ReplyVisibility.NONE
+            hideRepliesByUnfollowed -> ReplyVisibility.FOLLOWED_ONLY
+            else -> ReplyVisibility.ALL
+        }
+
+/**
+ * Applies a reply choice, leaving [FeedViewPrefs.hideReposts] and
+ * [FeedViewPrefs.hideQuotePosts] untouched.
+ *
+ * [ReplyVisibility.NONE] deliberately sets BOTH flags. `hideRepliesByUnfollowed`
+ * is redundant while `hideReplies` is on, but writing it keeps the value
+ * round-tripping through [replyVisibility] and leaves the account in the state
+ * another client would also read as "hide replies".
+ */
+fun FeedViewPrefs.withReplyVisibility(visibility: ReplyVisibility): FeedViewPrefs =
+    when (visibility) {
+        ReplyVisibility.ALL -> copy(hideReplies = false, hideRepliesByUnfollowed = false)
+        ReplyVisibility.FOLLOWED_ONLY -> copy(hideReplies = false, hideRepliesByUnfollowed = true)
+        ReplyVisibility.NONE -> copy(hideReplies = true, hideRepliesByUnfollowed = true)
+    }
+
+/**
+ * Pure merge: produce a new `preferences` array that replaces ONLY the
+ * [FeedViewPrefs.HOME_FEED_KEY] entry while preserving everything else in place.
+ *
+ * The `feed`-keyed filter is load-bearing. Dropping every [FeedViewPref] — or
+ * filtering by type alone — would destroy the viewer's per-generator view
+ * preferences. Foreign preference kinds (saved feeds, moderation, and unmodelled
+ * future kinds carried as the union's `Unknown` member) pass through verbatim via
+ * [asPutPreference]. All four owned fields are written explicitly so the stored
+ * entry is deterministic. No I/O.
+ */
+fun mergeFeedViewPrefs(
+    original: List<GetPreferencesResponsePreferencesUnion>,
+    prefs: FeedViewPrefs,
+): List<PutPreferencesRequestPreferencesUnion> {
+    val preserved =
+        original
+            .filterNot { member -> member is FeedViewPref && member.feed == FeedViewPrefs.HOME_FEED_KEY }
+            .map { it.asPutPreference() }
+
+    val owned =
+        FeedViewPref(
+            feed = FeedViewPrefs.HOME_FEED_KEY,
+            hideReplies = prefs.hideReplies,
+            hideRepliesByUnfollowed = prefs.hideRepliesByUnfollowed,
+            hideReposts = prefs.hideReposts,
+            hideQuotePosts = prefs.hideQuotePosts,
+        )
+
+    return preserved + owned
 }

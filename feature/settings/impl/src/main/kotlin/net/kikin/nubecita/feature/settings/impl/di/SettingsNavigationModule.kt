@@ -12,11 +12,13 @@ import net.kikin.nubecita.core.common.navigation.adaptiveDialog
 import net.kikin.nubecita.feature.settings.api.About
 import net.kikin.nubecita.feature.settings.api.AboutLicenses
 import net.kikin.nubecita.feature.settings.api.ContentFilters
+import net.kikin.nubecita.feature.settings.api.FeedPreferences
 import net.kikin.nubecita.feature.settings.api.Moderation
 import net.kikin.nubecita.feature.settings.api.Settings
 import net.kikin.nubecita.feature.settings.impl.AboutLicensesScreen
 import net.kikin.nubecita.feature.settings.impl.AboutScreen
 import net.kikin.nubecita.feature.settings.impl.ContentFiltersScreen
+import net.kikin.nubecita.feature.settings.impl.FeedPreferencesScreen
 import net.kikin.nubecita.feature.settings.impl.ModerationScreen
 import net.kikin.nubecita.feature.settings.impl.SettingsScreen
 
@@ -73,6 +75,17 @@ internal object SettingsNavigationModule {
             entry<ContentFilters>(metadata = adaptiveDialog()) {
                 val navState = LocalMainShellNavState.current
                 ContentFiltersScreen(
+                    onBack = { navState.removeLast() },
+                    onNavigateTo = { navState.add(it) },
+                )
+            }
+
+            // Feed preferences — a top-level Settings row, not a Moderation
+            // child: these govern what appears in the timeline, whereas
+            // Moderation covers labels and blocks (nubecita-1fmx.2 D2).
+            entry<FeedPreferences>(metadata = adaptiveDialog()) {
+                val navState = LocalMainShellNavState.current
+                FeedPreferencesScreen(
                     onBack = { navState.removeLast() },
                     onNavigateTo = { navState.add(it) },
                 )
