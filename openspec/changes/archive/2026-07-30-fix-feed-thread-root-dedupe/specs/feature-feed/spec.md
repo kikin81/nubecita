@@ -29,6 +29,13 @@ The de-duplication SHALL be a pure function over `List<FeedItemUi>` applied to
 the accumulated list, so that it spans pagination without a stateful tuner and
 resets naturally on refresh.
 
+Thread-root de-duplication SHALL be applied BEFORE cluster-context
+de-duplication. The two passes are not commutative: running cluster-context
+first can drop a `Single` for being some cluster's parent, and if the
+thread-root pass then drops that cluster for reusing an already-seen root, the
+post is rendered nowhere and counted nowhere. No post that reached the timeline
+may be silently lost.
+
 #### Scenario: Two replies to the same thread arrive in one page
 
 - **WHEN** a page contains two `ReplyCluster` items whose `root` is the same post
@@ -59,6 +66,13 @@ resets naturally on refresh.
   already-seen thread has since been posted
 - **THEN** that newer reply SHALL be rendered, because the accumulated list is
   rebuilt and no seen-root state persists across refreshes
+
+#### Scenario: A post rendered only as a dropped cluster's parent is not lost
+
+- **WHEN** the list contains a cluster rooted at R, a second cluster rooted at R
+  whose parent is post L, and a `Single` for L
+- **THEN** the second cluster SHALL be dropped for reusing root R, and the
+  `Single` for L SHALL still be rendered, because nothing else renders L
 
 #### Scenario: Tombstones are never de-duplicated
 
