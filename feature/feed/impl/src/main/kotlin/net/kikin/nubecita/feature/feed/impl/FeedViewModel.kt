@@ -32,6 +32,7 @@ import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
 import net.kikin.nubecita.feature.feed.impl.data.TimelinePage
 import net.kikin.nubecita.feature.feed.impl.data.dedupeByKey
+import net.kikin.nubecita.feature.feed.impl.data.dedupeByThreadRoot
 import net.kikin.nubecita.feature.feed.impl.data.dedupeClusterContext
 import net.kikin.nubecita.feature.feed.impl.data.linksToWire
 import java.io.IOException
@@ -325,6 +326,7 @@ class FeedViewModel
                             val refreshed =
                                 page.feedItems
                                     .dedupeClusterContext()
+                                    .dedupeByThreadRoot()
                                     .dedupeByKey()
                                     .toImmutableList()
                             postInteractionsCache.seed(refreshed.allPosts())
@@ -382,6 +384,7 @@ class FeedViewModel
                             val appended =
                                 (merge.trimmedExisting + merge.pageWithAbsorbedHead.filter { seen.add(it.key) })
                                     .dedupeClusterContext()
+                                    .dedupeByThreadRoot()
                                     .dedupeByKey()
                                     .toImmutableList()
                             postInteractionsCache.seed(page.feedItems.allPosts())
@@ -423,6 +426,7 @@ class FeedViewModel
             val deduped =
                 page.feedItems
                     .dedupeClusterContext()
+                    .dedupeByThreadRoot()
                     .dedupeByKey()
                     .toImmutableList()
             postInteractionsCache.seed(deduped.allPosts())

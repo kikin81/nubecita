@@ -266,6 +266,91 @@ internal class FeedViewModelTest {
         }
 
     @Test
+    fun `thread-root dedupe spans pagination via the accumulated list`() =
+        // The reported bug (nubecita-w9of): two replies into the same thread
+        // arriving one page apart each render that thread's root, so the same
+        // post is drawn twice. This is the reason the dedupe passes run over
+        // `trimmedExisting + newPage` rather than the fresh page — a per-page
+        // pass would never see the pair.
+        runTest(mainDispatcher.dispatcher) {
+            val page1 = TimelinePage(feedItems = threadReply(rootId = "R", leafId = "newer"), nextCursor = "c1")
+            val page2 = TimelinePage(feedItems = threadReply(rootId = "R", leafId = "older"), nextCursor = null)
+            val repo = FakeFeedRepository(pages = listOf(Result.success(page1), Result.success(page2)))
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler())
+
+            vm.handleEvent(FeedEvent.Bind(feedUri = "", kind = FeedKind.Following))
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+            vm.handleEvent(FeedEvent.LoadMore)
+            advanceUntilIdle()
+
+            // The older sibling is dropped; only the newer reply survives.
+            assertEquals(1, vm.uiState.value.feedItems.size)
+            assertEquals(
+                "newer",
+                (
+                    vm.uiState.value.feedItems
+                        .single() as FeedItemUi.ReplyCluster
+                ).leaf.id,
+            )
+        }
+
+    @Test
+    fun `thread-root dedupe applies within a single initial page`() =
+        runTest(mainDispatcher.dispatcher) {
+            val siblings =
+                (threadReply(rootId = "R", leafId = "a") + threadReply(rootId = "R", leafId = "b")).toImmutableList()
+            val repo =
+                FakeFeedRepository(
+                    pages = listOf(Result.success(TimelinePage(feedItems = siblings, nextCursor = null))),
+                )
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler())
+
+            vm.handleEvent(FeedEvent.Bind(feedUri = "", kind = FeedKind.Following))
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            assertEquals(1, vm.uiState.value.feedItems.size)
+        }
+
+    @Test
+    fun `refresh resets the seen thread roots`() =
+        // The seen set is implicit in the accumulated list, so a refresh that
+        // rebuilds that list must let a thread surface again. Without this,
+        // pulling to refresh would keep suppressing a thread forever.
+        runTest(mainDispatcher.dispatcher) {
+            val firstLoad = TimelinePage(feedItems = threadReply(rootId = "R", leafId = "first"), nextCursor = null)
+            // Two siblings on the refresh page, so the assertion needs the
+            // dedupe to run AND needs thread R to be allowed to surface again.
+            // With one item per page the test would pass either way.
+            val afterRefresh =
+                TimelinePage(
+                    feedItems =
+                        (threadReply(rootId = "R", leafId = "second") + threadReply(rootId = "R", leafId = "third"))
+                            .toImmutableList(),
+                    nextCursor = null,
+                )
+            val repo = FakeFeedRepository(pages = listOf(Result.success(firstLoad), Result.success(afterRefresh)))
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler())
+
+            vm.handleEvent(FeedEvent.Bind(feedUri = "", kind = FeedKind.Following))
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            vm.handleEvent(FeedEvent.Refresh)
+            advanceUntilIdle()
+
+            assertEquals(1, vm.uiState.value.feedItems.size)
+            assertEquals(
+                "second",
+                (
+                    vm.uiState.value.feedItems
+                        .single() as FeedItemUi.ReplyCluster
+                ).leaf.id,
+            )
+        }
+
+    @Test
     fun `re-Bind to a different feed resets the loaded slice`() =
         runTest(mainDispatcher.dispatcher) {
             val following = TimelinePage(feedItems = feedItems("f1", "f2"), nextCursor = "fc")
@@ -2090,6 +2175,20 @@ private fun ChainEntrySpec.toJson(): String {
 }
 
 private fun feedItems(vararg ids: String): ImmutableList<FeedItemUi> = ids.map { FeedItemUi.Single(samplePost(it)) }.toImmutableList()
+
+/** One `ReplyCluster` rooted at [rootId]; the shape that duplicates in the wild. */
+private fun threadReply(
+    rootId: String,
+    leafId: String,
+): ImmutableList<FeedItemUi> =
+    persistentListOf(
+        FeedItemUi.ReplyCluster(
+            root = samplePost(rootId),
+            parent = samplePost(rootId),
+            leaf = samplePost(leafId),
+            hasEllipsis = false,
+        ),
+    )
 
 private fun samplePost(
     id: String,
