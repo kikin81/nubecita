@@ -59,4 +59,8 @@
     <string name="feed_view_snackbar_pin_error">No se pudo actualizar — vuelve a intentarlo</string>
     <string name="feed_trending_videos_title">Videos populares</string>
     <string name="feed_trending_videos_dismiss">Descartar</string>
+    <plurals name="feed_suppressed_replies">
+        <item quantity="one">%1$d respuesta m\u00e1s en este hilo</item>
+        <item quantity="other">%1$d respuestas m\u00e1s en este hilo</item>
+    </plurals>
 </resources>

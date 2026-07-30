@@ -84,6 +84,13 @@ fun ThreadCluster(
     lastRepostTapPostUri: String? = null,
     revealedMedia: ImmutableSet<String> = persistentSetOf(),
     onRevealMedia: (postId: String) -> Unit = {},
+    /**
+     * Optional trailing content rendered inside the cluster's own `Surface`,
+     * below the leaf. Used by the feed for the "N more replies in this thread"
+     * affordance so it reads as part of this card rather than floating between
+     * cards. Null renders nothing.
+     */
+    footer: (@Composable () -> Unit)? = null,
 ) {
     // When the reply is direct to the root post, replyRef.parent and
     // replyRef.root point to the SAME post. Without this collapse the
@@ -146,6 +153,7 @@ fun ThreadCluster(
                 isMediaRevealed = leaf.id in revealedMedia,
                 onRevealMedia = { onRevealMedia(leaf.id) },
             )
+            footer?.invoke()
         }
     }
 }

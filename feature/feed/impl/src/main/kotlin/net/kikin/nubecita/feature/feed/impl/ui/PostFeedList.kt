@@ -268,18 +268,24 @@ internal fun PostFeedList(
                             shape = cardShape,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            PostCard(
-                                post = item.post,
-                                callbacks = callbacks,
-                                videoEmbedSlot = videoSlot,
-                                quotedVideoEmbedSlot = quotedVideoSlot,
-                                onImageClick = { idx -> onImageTap(item.post, idx) },
-                                onQuotedImageClick = onQuotedImageTap,
-                                animateLikeTap = item.post.id == lastLikeTapPostUri,
-                                animateRepostTap = item.post.id == lastRepostTapPostUri,
-                                isMediaRevealed = item.post.id in revealedMedia,
-                                onRevealMedia = { revealedMedia = revealedMedia.adding(item.post.id) },
-                            )
+                            Column {
+                                PostCard(
+                                    post = item.post,
+                                    callbacks = callbacks,
+                                    videoEmbedSlot = videoSlot,
+                                    quotedVideoEmbedSlot = quotedVideoSlot,
+                                    onImageClick = { idx -> onImageTap(item.post, idx) },
+                                    onQuotedImageClick = onQuotedImageTap,
+                                    animateLikeTap = item.post.id == lastLikeTapPostUri,
+                                    animateRepostTap = item.post.id == lastRepostTapPostUri,
+                                    isMediaRevealed = item.post.id in revealedMedia,
+                                    onRevealMedia = { revealedMedia = revealedMedia.adding(item.post.id) },
+                                )
+                                SuppressedRepliesRow(
+                                    count = item.suppressedReplyCount,
+                                    onClick = { callbacks.onTap(item.post) },
+                                )
+                            }
                         }
                     is FeedItemUi.ReplyCluster ->
                         ThreadCluster(
@@ -305,6 +311,12 @@ internal fun PostFeedList(
                             lastRepostTapPostUri = lastRepostTapPostUri,
                             revealedMedia = revealedMedia,
                             onRevealMedia = { id -> revealedMedia = revealedMedia.adding(id) },
+                            footer = {
+                                SuppressedRepliesRow(
+                                    count = item.suppressedReplyCount,
+                                    onClick = { callbacks.onTap(item.leaf) },
+                                )
+                            },
                         )
                     is FeedItemUi.SelfThreadChain -> {
                         // Same-author chain: render N PostCards stacked
@@ -346,6 +358,10 @@ internal fun PostFeedList(
                                         onRevealMedia = { revealedMedia = revealedMedia.adding(chainPost.id) },
                                     )
                                 }
+                                SuppressedRepliesRow(
+                                    count = item.suppressedReplyCount,
+                                    onClick = { callbacks.onTap(item.posts.last()) },
+                                )
                             }
                         }
                     }
