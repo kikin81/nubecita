@@ -40,30 +40,35 @@ import sys
 NOISE_MAX_DELTA = 3
 
 try:
-    from PIL import Image
+    from PIL import Image, ImageChops
 except ImportError:
     sys.exit("Pillow is required: pip install pillow")
 
 
 def compare(rendered, reference):
-    """Return (differing_pixel_count, max_channel_delta, size) or None if unreadable."""
-    a = Image.open(rendered).convert("RGB")
-    b = Image.open(reference).convert("RGB")
-    if a.size != b.size:
-        return None, None, (a.size, b.size)
-    pa, pb = a.load(), b.load()
-    w, h = a.size
-    count = 0
-    worst = 0
-    for y in range(h):
-        for x in range(w):
-            p, q = pa[x, y], pb[x, y]
-            d = max(abs(p[0] - q[0]), abs(p[1] - q[1]), abs(p[2] - q[2]))
-            if d:
-                count += 1
-                if d > worst:
-                    worst = d
-    return count, worst, (w, h)
+    """Return (differing_pixel_count, max_channel_delta, size) or None if unreadable.
+
+    Vectorised through Pillow's C paths — a Python-level pixel loop over the
+    repo's ~90 baselines took over three minutes.
+    """
+    with Image.open(rendered) as raw_a, Image.open(reference) as raw_b:
+        a = raw_a.convert("RGB")
+        b = raw_b.convert("RGB")
+        if a.size != b.size:
+            return None, None, (a.size, b.size)
+        diff = ImageChops.difference(a, b)
+        # getextrema() is per-band (min, max); the max across bands is the
+        # largest single-channel delta, which is what separates host-render
+        # noise (<= 3) from a real change.
+        worst = max(band_max for _, band_max in diff.getextrema())
+        if worst == 0:
+            return 0, 0, a.size
+        # Collapse the three bands to a per-pixel max, so a pixel differing on
+        # any channel counts exactly once.
+        red, green, blue = diff.split()
+        merged = ImageChops.lighter(ImageChops.lighter(red, green), blue)
+        count = sum(merged.histogram()[1:])
+        return count, worst, a.size
 
 
 def modules(argv):
@@ -85,7 +90,7 @@ def main():
             continue
         base, ref_root = rendered_dirs[0], reference_dirs[0]
         for rendered in glob.glob(base + "/**/*.png", recursive=True):
-            rel = rendered[len(base) + 1:]
+            rel = os.path.relpath(rendered, base)
             reference = os.path.join(ref_root, rel)
             name = rel.split("/")[-1]
             if not os.path.exists(reference):
