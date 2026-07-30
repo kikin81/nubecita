@@ -121,4 +121,18 @@
          UI translations are machine/AI-generated (both the in-repo ones and any
          Play Console Gemini translations), for transparency / legal cover. -->
     <string name="settings_translation_disclosure">Translations into languages other than English are AI-generated and may contain inaccuracies.</string>
+    <string name="settings_feed_preferences_label">Feed preferences</string>
+    <string name="feed_preferences_title">Feed preferences</string>
+    <string name="feed_preferences_back_content_desc">Back</string>
+    <string name="feed_preferences_description">Choose what appears in your Following feed and your lists. These settings are saved to your account, so they follow you to other apps.</string>
+    <string name="feed_preferences_replies">Replies</string>
+    <string name="feed_preferences_replies_supporting">Replies to people you don\'t follow can crowd out the posts you came for.</string>
+    <string name="feed_preferences_replies_all">All</string>
+    <string name="feed_preferences_replies_followed">People you follow</string>
+    <string name="feed_preferences_replies_none">None</string>
+    <string name="feed_preferences_hide_reposts">Hide reposts</string>
+    <string name="feed_preferences_hide_reposts_supporting">Only show original posts from the people you follow.</string>
+    <string name="feed_preferences_hide_quotes">Hide quote posts</string>
+    <string name="feed_preferences_hide_quotes_supporting">Hide posts that quote another post.</string>
+    <string name="feed_preferences_save_error">Couldn\'t save your change. Try again.</string>
 </resources>

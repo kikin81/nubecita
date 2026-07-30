@@ -149,6 +149,7 @@ internal class SettingsViewModel
                     sendEffect(SettingsEffect.OpenAbout)
                 SettingsEvent.ModerationTapped ->
                     sendEffect(SettingsEffect.OpenModeration)
+                SettingsEvent.FeedPreferencesTapped -> sendEffect(SettingsEffect.OpenFeedPreferences)
             }
         }
 

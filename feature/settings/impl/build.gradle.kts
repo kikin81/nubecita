@@ -24,6 +24,8 @@ dependencies {
     // (restore, plan-price lookup) for the "Nubecita Pro" settings section.
     implementation(project(":core:billing"))
     implementation(project(":core:common"))
+    // FeedViewPreferencesRepository — backs the Feed preferences screen.
+    implementation(project(":core:feeds"))
     // ModerationPreferencesRepository — backs the Content filters screen.
     implementation(project(":core:moderation"))
     implementation(project(":core:preferences"))

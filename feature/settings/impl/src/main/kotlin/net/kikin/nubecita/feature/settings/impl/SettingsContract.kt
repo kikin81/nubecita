@@ -190,6 +190,13 @@ sealed interface SettingsEvent : UiEvent {
      * NavKey (content filters + blocked accounts) onto the inner back stack.
      */
     data object ModerationTapped : SettingsEvent
+
+    /**
+     * User tapped "Feed preferences". The VM re-emits
+     * [SettingsEffect.OpenFeedPreferences]; the screen pushes the
+     * `FeedPreferences` sub-route.
+     */
+    data object FeedPreferencesTapped : SettingsEvent
 }
 
 /**
@@ -280,4 +287,7 @@ sealed interface SettingsEffect : UiEffect {
      * the screen collects this and calls `onNavigateTo(Moderation)`.
      */
     data object OpenModeration : SettingsEffect
+
+    /** Push the Feed preferences sub-route. */
+    data object OpenFeedPreferences : SettingsEffect
 }
