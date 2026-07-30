@@ -176,35 +176,47 @@ fun List<FeedItemUi>.dedupeByThreadRoot(): List<FeedItemUi> {
     // most often the thread root, which the surviving item renders as context,
     // and in the reported reproduction the dropped cluster's leaf, which is the
     // survivor's parent.
-    val visible = survivors.flatMapTo(HashSet()) { it.renderedPostIds() }
+    val visible = HashSet<String>(survivors.size * 3)
+    for (survivor in survivors) survivor.addRenderedPostIdsTo(visible)
     droppedByRoot.forEach { (root, dropped) ->
         val index = ownerIndexByRoot[root] ?: return@forEach
-        val count = dropped.sumOf { d -> d.suppressedReplyIds().count { it !in visible } }
+        val count = dropped.sumOf { d -> d.countSuppressedRepliesNotIn(visible) }
         if (count > 0) survivors[index] = survivors[index].withSuppressedReplyCount(count)
     }
     return survivors
 }
 
-/** Every post this item puts on screen — what the viewer can already see. */
-private fun FeedItemUi.renderedPostIds(): List<String> =
+/**
+ * Adds every post this item puts on screen — what the viewer can already see.
+ *
+ * Writes into [destination] rather than returning a list: this runs once per
+ * survivor, and the intermediate lists were pure garbage.
+ */
+private fun FeedItemUi.addRenderedPostIdsTo(destination: MutableCollection<String>) {
     when (this) {
-        is FeedItemUi.ReplyCluster -> listOf(root.id, parent.id, leaf.id)
-        is FeedItemUi.SelfThreadChain -> posts.map { it.id }
-        is FeedItemUi.Single -> listOf(post.id)
-        is FeedItemUi.Blocked, is FeedItemUi.NotFound -> emptyList()
+        is FeedItemUi.ReplyCluster -> {
+            destination.add(root.id)
+            destination.add(parent.id)
+            destination.add(leaf.id)
+        }
+        is FeedItemUi.SelfThreadChain -> for (post in posts) destination.add(post.id)
+        is FeedItemUi.Single -> destination.add(post.id)
+        is FeedItemUi.Blocked, is FeedItemUi.NotFound -> Unit
     }
+}
 
 /**
- * The posts a dropped item would have contributed as REPLIES — the unit the
- * affordance is counted in. A cluster's root and parent are ancestors shown for
- * context, so only its leaf counts; a chain contributes every post in it.
+ * How many posts a dropped item would have contributed as REPLIES that are not
+ * already on screen — the unit the affordance is counted in. A cluster's root
+ * and parent are ancestors shown for context, so only its leaf counts; a chain
+ * contributes every post in it.
  */
-private fun FeedItemUi.suppressedReplyIds(): List<String> =
+private fun FeedItemUi.countSuppressedRepliesNotIn(visible: Set<String>): Int =
     when (this) {
-        is FeedItemUi.ReplyCluster -> listOf(leaf.id)
-        is FeedItemUi.SelfThreadChain -> posts.map { it.id }
-        is FeedItemUi.Single -> listOf(post.id)
-        is FeedItemUi.Blocked, is FeedItemUi.NotFound -> emptyList()
+        is FeedItemUi.ReplyCluster -> if (leaf.id !in visible) 1 else 0
+        is FeedItemUi.SelfThreadChain -> posts.count { it.id !in visible }
+        is FeedItemUi.Single -> if (post.id !in visible) 1 else 0
+        is FeedItemUi.Blocked, is FeedItemUi.NotFound -> 0
     }
 
 private fun FeedItemUi.withSuppressedReplyCount(count: Int): FeedItemUi =
