@@ -59,4 +59,8 @@
     <string name="feed_view_snackbar_pin_error">Não foi possível atualizar — tente de novo</string>
     <string name="feed_trending_videos_title">Vídeos em alta</string>
     <string name="feed_trending_videos_dismiss">Dispensar</string>
+    <plurals name="feed_suppressed_replies">
+        <item quantity="one">Mais %1$d resposta neste t\u00f3pico</item>
+        <item quantity="other">Mais %1$d respostas neste t\u00f3pico</item>
+    </plurals>
 </resources>

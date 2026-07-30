@@ -84,4 +84,8 @@
     <string name="feed_view_snackbar_pin_error">Couldn\'t update pin — try again</string>
     <string name="feed_trending_videos_title">Trending Videos</string>
     <string name="feed_trending_videos_dismiss">Dismiss</string>
+    <plurals name="feed_suppressed_replies">
+        <item quantity="one">%1$d more reply in this thread</item>
+        <item quantity="other">%1$d more replies in this thread</item>
+    </plurals>
 </resources>

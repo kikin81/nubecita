@@ -307,6 +307,49 @@ private fun fixtureFeedItems(count: Int): ImmutableList<FeedItemUi> =
  * [FeedItemUi.Single]. Locks the visual contrast between standalone posts
  * and clusters in the screen-level capture.
  */
+@PreviewTest
+@Preview(name = "loaded-with-suppressed-replies-light", showBackground = true)
+@Preview(name = "loaded-with-suppressed-replies-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun FeedScreenSuppressedRepliesScreenshot() {
+    // Thread-root de-duplication collapses N replies into one card, so the
+    // survivor reports what was hidden ("N more replies in this thread").
+    // Pairs with loaded-with-cluster, which is the SAME shapes at count = 0 —
+    // the two baselines differ only by the affordance, which is what makes
+    // them worth committing.
+    NubecitaCanvasPreviewTheme {
+        FeedScreenScreenshotHost(
+            viewState =
+                FeedScreenViewState.Loaded(
+                    feedItems = fixtureFeedItemsWithSuppressedReplies(),
+                    isAppending = false,
+                    isRefreshing = false,
+                ),
+        )
+    }
+}
+
+/**
+ * The same shapes as [fixtureFeedItemsWithCluster] but with non-zero
+ * suppressed-reply counts, including the singular case (1) so the plural
+ * selection is covered by a baseline rather than assumed.
+ */
+private fun fixtureFeedItemsWithSuppressedReplies(): ImmutableList<FeedItemUi> =
+    persistentListOf<FeedItemUi>(
+        FeedItemUi.Single(
+            post = fixturePost("1", text = "Standalone post that reserved a thread root."),
+            suppressedReplyCount = 1,
+        ),
+        FeedItemUi.ReplyCluster(
+            root = fixturePost("root", text = "Root post that started a busy thread."),
+            parent = fixturePost("parent", text = "Immediate parent — child of an elided post above."),
+            leaf = fixturePost("leaf", text = "Leaf reply — surfaced into the timeline."),
+            hasEllipsis = true,
+            suppressedReplyCount = 5,
+        ),
+        FeedItemUi.Single(post = fixturePost("3", text = "Trailing standalone with nothing suppressed.")),
+    )
+
 private fun fixtureFeedItemsWithCluster(): ImmutableList<FeedItemUi> =
     persistentListOf<FeedItemUi>(
         FeedItemUi.Single(post = fixturePost("1", text = "First standalone post in the screenshot fixture.")),
