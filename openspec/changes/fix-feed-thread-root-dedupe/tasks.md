@@ -31,5 +31,5 @@
 
 - [x] 5.1 `:app:assembleProductionDebug`, `:app:assembleBenchDebug`, `:feature:feed:impl:lintDebug`, `validateProductionDebugScreenshotTest`.
 - [x] 5.2 Run the compose-expert review if the diff adds `@Composable` lines.
-- [ ] 5.3 Device pass on the Pixel Fold against the production account: scroll Following and confirm no repeated thread roots, the affordance appears where siblings were suppressed, and unrelated posts are still present.
-- [ ] 5.4 Re-run the temporary wire probe from the design if the device pass is ambiguous, and revert it before committing.
+- [x] 5.3 Device pass on the Pixel Fold against the production account: scroll Following and confirm no repeated thread roots, the affordance appears where siblings were suppressed, and unrelated posts are still present.
+- [x] 5.4 Re-run the temporary wire probe from the design if the device pass is ambiguous, and revert it before committing.
