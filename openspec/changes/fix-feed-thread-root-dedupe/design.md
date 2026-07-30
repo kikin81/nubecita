@@ -151,6 +151,22 @@ affordance into the thread.
 This is the one intentional divergence in this change, and it exists precisely
 because dropping is otherwise lossy.
 
+Two details, both surfaced in review of this spec:
+
+**The count is in posts, not feed items.** A dropped `SelfThreadChain` carries N
+posts but is a single item; counting items would under-report. The viewer reading
+"N more replies" has no notion of our internal grouping, so the unit must be the
+one they recognise. A suppressed post already rendered elsewhere — typically a
+`Single` dropped because it is the surviving item's `root` context — is not
+counted, because the viewer can already see it.
+
+**Every surviving variant carries the count, including `Single`.** A standalone
+post can reserve a thread root (D1's derivation) and suppress later replies into
+that thread. Putting the count only on cluster variants would let exactly that
+case drop replies silently — the failure D6 exists to prevent. `Single` therefore
+carries it too, rather than being promoted to a cluster variant, which would
+change its rendering for a reason unrelated to its content.
+
 ### D7 — `SelfThreadChain` root is an approximation
 
 Chains do not retain the wire thread root, so the first chained post's id is

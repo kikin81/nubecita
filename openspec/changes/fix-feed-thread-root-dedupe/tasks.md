@@ -20,8 +20,9 @@
 
 ## 4. Suppressed-reply count (design D6)
 
-- [ ] 4.1 Add a suppressed-sibling count to the relevant `FeedItemUi` variants in `:data:models`, defaulting to zero.
-- [ ] 4.2 Populate it from `dedupeByThreadRoot` as siblings are dropped.
+- [ ] 4.1 Add a suppressed-sibling count to every `FeedItemUi` variant that can survive de-duplication in `:data:models` — `Single` included, not just the cluster variants — defaulting to zero.
+- [ ] 4.2 Populate it from `dedupeByThreadRoot`, counting POSTS not items: a dropped `SelfThreadChain` contributes `posts.size`, a dropped `ReplyCluster` contributes one, and a dropped post already rendered elsewhere (e.g. a `Single` that is the survivor's `root` context) contributes zero.
+- [ ] 4.2a Test the two counting edge cases directly: a dropped `SelfThreadChain` of three posts, and a dropped `Single` already visible as context.
 - [ ] 4.3 Render the affordance on the surviving card, routing to the thread; render nothing when the count is zero.
 - [ ] 4.4 Add strings in en, es-419 and pt-BR in the same commit, and verify with `:feature:feed:impl:lintDebug` — `:app` lint does not catch `MissingTranslation`.
 - [ ] 4.5 Add screenshot baselines covering zero-count and non-zero-count, and confirm the pair hashes distinctly.

@@ -68,9 +68,8 @@ resets naturally on refresh.
 
 ### Requirement: A de-duplicated feed item reports how many sibling replies were suppressed
 
-A surviving feed item SHALL carry the number of sibling replies dropped from its
-thread, and the feed SHALL surface that count as an affordance leading to the
-full thread.
+A surviving feed item SHALL carry a suppressed-reply count, and the feed SHALL
+surface that count as an affordance leading to the full thread.
 
 Dropping sibling replies hides real content — one thread root was observed with
 seven replies on a production account — so the count exists to keep that content
@@ -78,10 +77,39 @@ discoverable rather than silently lost.
 
 This is a deliberate divergence from the official client, which drops silently.
 
-#### Scenario: Suppressed siblings are counted on the surviving item
+The count SHALL be measured in **posts, not feed items**, because the affordance
+is read by a viewer who has no notion of the app's internal grouping. A dropped
+`SelfThreadChain` therefore contributes each of its posts, not one.
 
-- **WHEN** three replies into the same thread are reduced to one rendered item
-- **THEN** the rendered item SHALL report a suppressed-reply count of two
+A suppressed post that is already rendered elsewhere in the list SHALL NOT be
+counted. In particular, when a `Single` is dropped because its post is already
+shown as the surviving item's `root` or `parent` context, the viewer can already
+see it, so the count SHALL NOT increase.
+
+The count SHALL be carried by every rendered variant that can survive
+de-duplication, including `Single`. A standalone post can reserve a thread root
+and suppress later replies into that thread; without a count on `Single` those
+replies would be hidden with no affordance, which is the exact failure this
+requirement exists to prevent.
+
+#### Scenario: Suppressed siblings are counted in posts, not items
+
+- **WHEN** two items into the same thread are dropped, one a `ReplyCluster` and
+  one a `SelfThreadChain` of three posts
+- **THEN** the surviving item SHALL report a suppressed-reply count of four
+
+#### Scenario: A dropped standalone already visible as context is not counted
+
+- **WHEN** a `Single` for post P is dropped because P is already rendered as the
+  surviving item's `root` or `parent`
+- **THEN** the suppressed-reply count SHALL NOT include P
+
+#### Scenario: A surviving standalone post carries the count
+
+- **WHEN** a `Single` for post P reserves thread root P and a later
+  `ReplyCluster` rooted at P is dropped
+- **THEN** the `Single` SHALL report a suppressed-reply count of one and SHALL
+  render the affordance
 
 #### Scenario: An item with no suppressed siblings shows no affordance
 

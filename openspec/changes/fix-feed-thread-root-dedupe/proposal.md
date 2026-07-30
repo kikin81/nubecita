@@ -67,8 +67,8 @@ _None._
   absorption of `dedupeClusterContext`.
 - `feature/feed/impl/.../FeedViewModel.kt` — apply the pass alongside existing
   ones in the initial-load, refresh and append reducers.
-- `data/models/.../FeedItemUi.kt` — a suppressed-reply count on the cluster
-  variants.
+- `data/models/.../FeedItemUi.kt` — a suppressed-reply count on every rendered
+  variant that can survive de-duplication, `Single` included.
 - `:feature:feed:impl` screenshot baselines for the new affordance.
 - No dependency, DI, or database changes. Stays within the MVI / Compose
   baseline; the pass is a pure `List<FeedItemUi>` function, consistent with the
