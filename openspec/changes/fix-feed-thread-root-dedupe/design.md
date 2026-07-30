@@ -141,6 +141,21 @@ thread root as its own id already covers the standalone-vs-context case, the
 preferred resolution is for the new pass to **subsume** `dedupeClusterContext`,
 leaving one rule instead of two that can drift apart.
 
+**Resolved during implementation (task 1).** The disputed ordering was tested
+against the 216-entry sample: 17 of 18 pairs had the cluster first, and the one
+inversion was a **repost** (`root=3mruntiqtyc2v`, single@134 above cluster@146).
+That is the only mechanism that can invert the order, since a repost's feed
+position reflects the repost time rather than the original post's.
+
+In that case `dedupeClusterContext` gave the wrong answer: it dropped the
+repost — the newer event, and an explicit endorsement by a followed account — to
+keep an older reply cluster. It had no repost exemption at all, so this was a
+live bug losing reposts from the feed, independent of this change.
+
+Adding the exemption makes the two rules agree in every reachable case, so
+`dedupeByThreadRoot` subsuming `dedupeClusterContext` is now a safe refactor
+rather than a behaviour change. **Decision: subsume.**
+
 ### D6 — Surface the suppressed count (divergence from official)
 
 The official client drops silently. With seven replies observed on one root, that
