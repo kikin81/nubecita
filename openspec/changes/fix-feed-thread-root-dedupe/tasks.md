@@ -5,12 +5,12 @@
 
 ## 2. Thread-root de-duplication
 
-- [ ] 2.1 Add `List<FeedItemUi>.dedupeByThreadRoot()` to `FeedItemDedupe.kt` as a pure first-wins pass, with the root derivation from the spec (`ReplyCluster` → `root.id`, `SelfThreadChain` → `posts.first().id`, `Single` → `post.id`, tombstones → no root).
-- [ ] 2.2 Exempt items whose leaf carries `repostedBy` from the drop while still registering their root.
-- [ ] 2.3 Document the newest-first assumption in the KDoc (design D2 / risks) so a future non-chronological feed surface does not inherit the rule silently.
-- [ ] 2.4 Unit-test every scenario in the spec: same-page pair, cross-page pair, standalone-reserves-root, repost exemption, tombstones retained.
-- [ ] 2.5 Add the negative test that matters most — unrelated items are NEVER dropped — using the real 216-entry shape from the design as the fixture basis.
-- [ ] 2.6 Mutation-check the suite: a pass keyed on the leaf instead of the root MUST fail, and dropping the repost exemption MUST fail.
+- [x] 2.1 Add `List<FeedItemUi>.dedupeByThreadRoot()` to `FeedItemDedupe.kt` as a pure first-wins pass, with the root derivation from the spec (`ReplyCluster` → `root.id`, `SelfThreadChain` → `posts.first().id`, `Single` → `post.id`, tombstones → no root).
+- [x] 2.2 Exempt items whose leaf carries `repostedBy` from the drop while still registering their root.
+- [x] 2.3 Document the newest-first assumption in the KDoc (design D2 / risks) so a future non-chronological feed surface does not inherit the rule silently.
+- [x] 2.4 Unit-test every scenario in the spec: same-page pair, cross-page pair, standalone-reserves-root, repost exemption, tombstones retained.
+- [x] 2.5 Add the negative test that matters most — unrelated items are NEVER dropped — using the real 216-entry shape from the design as the fixture basis.
+- [x] 2.6 Mutation-check the suite: a pass keyed on the leaf instead of the root MUST fail, and dropping the repost exemption MUST fail.
 
 ## 3. Wire into the feed
 

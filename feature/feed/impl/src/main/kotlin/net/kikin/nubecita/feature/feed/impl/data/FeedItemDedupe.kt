@@ -102,3 +102,74 @@ fun List<FeedItemUi>.dedupeByKey(): List<FeedItemUi> {
     val seen = HashSet<String>(size)
     return filter { item -> seen.add(item.key) }
 }
+
+/**
+ * Keeps at most one item per thread root, retaining the FIRST occurrence.
+ *
+ * The timeline returns entries in post time order, so several replies into the
+ * same thread arrive as separate entries. Each becomes its own
+ * [FeedItemUi.ReplyCluster] and re-renders that thread's root as context, so the
+ * same post is drawn once per reply. Measured on a production account, 6 of 180
+ * thread roots duplicated this way — the worst with seven replies spread across
+ * three pages.
+ *
+ * Port of `FeedTuner.dedupThreads` from bluesky-social/social-app: keyed on the
+ * thread root rather than the leaf, and dropping the whole item rather than just
+ * the repeated context.
+ *
+ * **Assumes a newest-first list.** "First wins" is only chronologically
+ * meaningful because the timeline is reverse-chronological, which makes the
+ * retained item the newest reply and every dropped sibling strictly older. A
+ * feed surface that ever presents items in another order would silently get an
+ * arbitrary winner instead. Applied today only to follow-scoped feeds.
+ *
+ * Thread root per variant:
+ * - [FeedItemUi.ReplyCluster] — the root post's id.
+ * - [FeedItemUi.SelfThreadChain] — the first chained post's id. An
+ *   approximation: chains do not retain the wire thread root, so if that post is
+ *   itself a reply the true root is higher and this under-matches. Accepted —
+ *   the observed duplication is cluster-driven.
+ * - [FeedItemUi.Single] — the post's own id, so a standalone reserves its
+ *   thread. This is what subsumes [dedupeClusterContext]'s case.
+ * - Tombstones carry no post, so they have no thread root and are never dropped.
+ *
+ * Reposts are exempt from the drop but still register their root, matching the
+ * official rule: a repost is an explicit endorsement by someone the viewer
+ * follows and carries its own signal even when the thread has already been seen.
+ *
+ * Pure and O(n) — one pass with a `HashSet` of seen roots. Applied to the
+ * ACCUMULATED list by the VM, which makes it span pagination without a stateful
+ * tuner and reset naturally on refresh.
+ *
+ * Design: `openspec/changes/fix-feed-thread-root-dedupe`. Tracked as
+ * `nubecita-w9of`.
+ */
+fun List<FeedItemUi>.dedupeByThreadRoot(): List<FeedItemUi> {
+    if (size < 2) return this
+    val seenRoots = HashSet<String>(size)
+    return filter { item ->
+        val root = item.threadRootId() ?: return@filter true
+        // Register the root either way; a repost must not let later plain
+        // replies into the same thread stack on top of it.
+        val firstTimeSeen = seenRoots.add(root)
+        firstTimeSeen || item.isRepost()
+    }
+}
+
+/** The thread this item belongs to, or null for tombstones (see [dedupeByThreadRoot]). */
+private fun FeedItemUi.threadRootId(): String? =
+    when (this) {
+        is FeedItemUi.ReplyCluster -> root.id
+        is FeedItemUi.SelfThreadChain -> posts.first().id
+        is FeedItemUi.Single -> post.id
+        is FeedItemUi.Blocked, is FeedItemUi.NotFound -> null
+    }
+
+/** Whether this item reached the feed as a repost, which exempts it from the drop. */
+private fun FeedItemUi.isRepost(): Boolean =
+    when (this) {
+        is FeedItemUi.ReplyCluster -> leaf.repostedBy != null
+        is FeedItemUi.SelfThreadChain -> posts.last().repostedBy != null
+        is FeedItemUi.Single -> post.repostedBy != null
+        is FeedItemUi.Blocked, is FeedItemUi.NotFound -> false
+    }
