@@ -146,15 +146,74 @@ fun List<FeedItemUi>.dedupeByKey(): List<FeedItemUi> {
  */
 fun List<FeedItemUi>.dedupeByThreadRoot(): List<FeedItemUi> {
     if (size < 2) return this
-    val seenRoots = HashSet<String>(size)
-    return filter { item ->
-        val root = item.threadRootId() ?: return@filter true
+
+    val survivors = ArrayList<FeedItemUi>(size)
+    // Which survivor owns each thread, so a count lands on exactly one item
+    // even when a repost survives alongside the first entry for that root.
+    val ownerIndexByRoot = HashMap<String, Int>(size)
+    val droppedByRoot = HashMap<String, MutableList<FeedItemUi>>()
+
+    for (item in this) {
+        val root = item.threadRootId()
+        if (root == null) {
+            survivors += item
+            continue
+        }
         // Register the root either way; a repost must not let later plain
         // replies into the same thread stack on top of it.
-        val firstTimeSeen = seenRoots.add(root)
-        firstTimeSeen || item.isRepost()
+        val firstTimeSeen = !ownerIndexByRoot.containsKey(root)
+        if (firstTimeSeen || item.isRepost()) {
+            if (firstTimeSeen) ownerIndexByRoot[root] = survivors.size
+            survivors += item
+        } else {
+            droppedByRoot.getOrPut(root) { mutableListOf() } += item
+        }
     }
+
+    if (droppedByRoot.isEmpty()) return survivors
+
+    // A suppressed post the viewer can already see is not "more replies" —
+    // most often the thread root, which the surviving item renders as context,
+    // and in the reported reproduction the dropped cluster's leaf, which is the
+    // survivor's parent.
+    val visible = survivors.flatMapTo(HashSet()) { it.renderedPostIds() }
+    droppedByRoot.forEach { (root, dropped) ->
+        val index = ownerIndexByRoot[root] ?: return@forEach
+        val count = dropped.sumOf { d -> d.suppressedReplyIds().count { it !in visible } }
+        if (count > 0) survivors[index] = survivors[index].withSuppressedReplyCount(count)
+    }
+    return survivors
 }
+
+/** Every post this item puts on screen — what the viewer can already see. */
+private fun FeedItemUi.renderedPostIds(): List<String> =
+    when (this) {
+        is FeedItemUi.ReplyCluster -> listOf(root.id, parent.id, leaf.id)
+        is FeedItemUi.SelfThreadChain -> posts.map { it.id }
+        is FeedItemUi.Single -> listOf(post.id)
+        is FeedItemUi.Blocked, is FeedItemUi.NotFound -> emptyList()
+    }
+
+/**
+ * The posts a dropped item would have contributed as REPLIES — the unit the
+ * affordance is counted in. A cluster's root and parent are ancestors shown for
+ * context, so only its leaf counts; a chain contributes every post in it.
+ */
+private fun FeedItemUi.suppressedReplyIds(): List<String> =
+    when (this) {
+        is FeedItemUi.ReplyCluster -> listOf(leaf.id)
+        is FeedItemUi.SelfThreadChain -> posts.map { it.id }
+        is FeedItemUi.Single -> listOf(post.id)
+        is FeedItemUi.Blocked, is FeedItemUi.NotFound -> emptyList()
+    }
+
+private fun FeedItemUi.withSuppressedReplyCount(count: Int): FeedItemUi =
+    when (this) {
+        is FeedItemUi.ReplyCluster -> copy(suppressedReplyCount = count)
+        is FeedItemUi.SelfThreadChain -> copy(suppressedReplyCount = count)
+        is FeedItemUi.Single -> copy(suppressedReplyCount = count)
+        is FeedItemUi.Blocked, is FeedItemUi.NotFound -> this
+    }
 
 /** The thread this item belongs to, or null for tombstones (see [dedupeByThreadRoot]). */
 private fun FeedItemUi.threadRootId(): String? =
