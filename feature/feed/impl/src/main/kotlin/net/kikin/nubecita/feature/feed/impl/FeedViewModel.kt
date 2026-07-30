@@ -325,8 +325,8 @@ class FeedViewModel
                             // when the entire feed fits in one page).
                             val refreshed =
                                 page.feedItems
-                                    .dedupeClusterContext()
                                     .dedupeByThreadRoot()
+                                    .dedupeClusterContext()
                                     .dedupeByKey()
                                     .toImmutableList()
                             postInteractionsCache.seed(refreshed.allPosts())
@@ -383,8 +383,8 @@ class FeedViewModel
                             val seen = merge.trimmedExisting.mapTo(HashSet()) { it.key }
                             val appended =
                                 (merge.trimmedExisting + merge.pageWithAbsorbedHead.filter { seen.add(it.key) })
-                                    .dedupeClusterContext()
                                     .dedupeByThreadRoot()
+                                    .dedupeClusterContext()
                                     .dedupeByKey()
                                     .toImmutableList()
                             postInteractionsCache.seed(page.feedItems.allPosts())
@@ -425,8 +425,8 @@ class FeedViewModel
             analytics.log(ViewFeed(boundKind.toAnalyticsFeedType(boundFeedUri)))
             val deduped =
                 page.feedItems
-                    .dedupeClusterContext()
                     .dedupeByThreadRoot()
+                    .dedupeClusterContext()
                     .dedupeByKey()
                     .toImmutableList()
             postInteractionsCache.seed(deduped.allPosts())

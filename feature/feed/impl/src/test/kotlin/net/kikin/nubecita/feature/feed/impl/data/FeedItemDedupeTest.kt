@@ -213,6 +213,61 @@ internal class FeedItemDedupeTest {
             hasEllipsis = false,
         )
 
+    // ---------- pass ORDER: no post may be silently lost ----------
+
+    /**
+     * The two passes are not commutative, and one order loses a post entirely.
+     *
+     * `L1` is a mid-thread post that reached the timeline as a `Single` — which
+     * `FeedViewPostMapper` produces on four fallback paths (blocked parent,
+     * not-found root, or either failing moderation projection), so this shape is
+     * reachable, not hypothetical.
+     *
+     * Running `dedupeClusterContext` FIRST drops `Single(L1)` because L1 is the
+     * parent of cluster2 — and then `dedupeByThreadRoot` drops cluster2 itself
+     * for reusing root R. L1 is now rendered nowhere AND counted nowhere.
+     *
+     * Running `dedupeByThreadRoot` FIRST removes cluster2 before L1 is anyone's
+     * context, so L1 survives as a standalone. The design names silent loss as a
+     * strictly worse failure than duplication ("unrelated posts disappear from
+     * the feed — a much worse failure than the duplication being fixed"), so the
+     * thread-root pass runs first.
+     */
+    @Test
+    fun `a post rendered only as a dropped clusters parent is not lost`() {
+        val cluster1 = cluster(rootId = "R", parentId = "R", leafId = "L3")
+        val cluster2 = cluster(rootId = "R", parentId = "L1", leafId = "L2")
+        val orphan = FeedItemUi.Single(samplePost("L1"))
+        val items = listOf(cluster1, cluster2, orphan)
+
+        val deduped = items.dedupeByThreadRoot().dedupeClusterContext().dedupeByKey()
+
+        val rendered = deduped.flatMap { it.renderedIds() }
+        assertTrue("L1" in rendered, "L1 vanished from the feed: rendered=$rendered")
+    }
+
+    /**
+     * The order must not regress the case the cluster-context pass exists for:
+     * a standalone post that IS a surviving cluster's context still gets dropped.
+     */
+    @Test
+    fun `a standalone that is a surviving clusters parent is still dropped`() {
+        val cluster = cluster(rootId = "R", parentId = "P", leafId = "L")
+        val standalone = FeedItemUi.Single(samplePost("P"))
+
+        val deduped = listOf(cluster, standalone).dedupeByThreadRoot().dedupeClusterContext()
+
+        assertEquals(listOf(cluster.key), deduped.map { it.key })
+    }
+
+    private fun FeedItemUi.renderedIds(): List<String> =
+        when (this) {
+            is FeedItemUi.ReplyCluster -> listOf(root.id, parent.id, leaf.id)
+            is FeedItemUi.SelfThreadChain -> posts.map { it.id }
+            is FeedItemUi.Single -> listOf(post.id)
+            is FeedItemUi.Blocked, is FeedItemUi.NotFound -> emptyList()
+        }
+
     private fun samplePost(id: String): PostUi =
         PostUi(
             id = id,

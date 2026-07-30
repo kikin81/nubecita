@@ -36,6 +36,17 @@ import net.kikin.nubecita.data.models.FeedItemUi
  * `dedupeByThreadRoot` can subsume this function as a safe refactor rather than
  * a behaviour change.
  *
+ * **Runs AFTER [dedupeByThreadRoot].** The two passes are not commutative. Run
+ * first, this one drops a `Single` because it is some cluster's parent — and if
+ * the thread-root pass then drops that cluster for reusing an already-seen root,
+ * the post is rendered nowhere and counted nowhere. A mid-thread post can reach
+ * the timeline as a `Single` (`FeedViewPostMapper` falls back to `Single(leaf)`
+ * when the parent is blocked/not-found or either ancestor fails moderation
+ * projection), so the shape is reachable. Letting the thread-root pass go first
+ * removes the cluster before its parent counts as context, and the standalone
+ * survives. The design names silent loss as strictly worse than duplication.
+ * Pinned by `a post rendered only as a dropped clusters parent is not lost`.
+ *
  * Pure function over `List<FeedItemUi>` so callers (the VM reducers, any
  * future caller) can apply it without coordinating mutable state. O(n) —
  * one pass to collect cluster URIs, one filter pass.
@@ -140,6 +151,9 @@ fun List<FeedItemUi>.dedupeByKey(): List<FeedItemUi> {
  * Pure and O(n) — one pass with a `HashSet` of seen roots. Applied to the
  * ACCUMULATED list by the VM, which makes it span pagination without a stateful
  * tuner and reset naturally on refresh.
+ *
+ * **Runs BEFORE [dedupeClusterContext]** — see that function's KDoc for why the
+ * reverse order silently loses posts.
  *
  * Design: `openspec/changes/fix-feed-thread-root-dedupe`. Tracked as
  * `nubecita-w9of`.
