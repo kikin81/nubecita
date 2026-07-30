@@ -60,8 +60,26 @@ public sealed interface FeedItemUi {
      */
     public val key: String
 
+    /**
+     * How many replies into this item's thread were suppressed by feed
+     * de-duplication, or `0` when none were.
+     *
+     * At most one item per thread root is rendered, so N replies into one
+     * thread collapse to a single card. Counting what was dropped keeps that
+     * content discoverable instead of silently lost — the renderer surfaces it
+     * as an affordance into the full thread. Measured in POSTS, not feed items:
+     * a dropped self-thread chain contributes each of its posts, and a
+     * suppressed post the viewer can already see (typically the thread root,
+     * rendered as this item's context) contributes nothing.
+     *
+     * A deliberate divergence from the official client, which drops silently.
+     * See `openspec/changes/fix-feed-thread-root-dedupe` decision D6.
+     */
+    public val suppressedReplyCount: Int
+
     public data class Single(
         val post: PostUi,
+        override val suppressedReplyCount: Int = 0,
     ) : FeedItemUi {
         override val key: String get() = post.id
     }
@@ -71,6 +89,7 @@ public sealed interface FeedItemUi {
         val parent: PostUi,
         val leaf: PostUi,
         val hasEllipsis: Boolean,
+        override val suppressedReplyCount: Int = 0,
     ) : FeedItemUi {
         override val key: String get() = leaf.id
     }
@@ -88,6 +107,7 @@ public sealed interface FeedItemUi {
      */
     public data class SelfThreadChain(
         val posts: ImmutableList<PostUi>,
+        override val suppressedReplyCount: Int = 0,
     ) : FeedItemUi {
         override val key: String get() = posts.last().id
     }
@@ -113,6 +133,9 @@ public sealed interface FeedItemUi {
         val authorDid: String,
     ) : FeedItemUi {
         override val key: String get() = "blocked:$uri"
+
+        // A tombstone has no thread root, so it is never a de-dup survivor.
+        override val suppressedReplyCount: Int get() = 0
     }
 
     /**
@@ -125,5 +148,8 @@ public sealed interface FeedItemUi {
         val uri: String,
     ) : FeedItemUi {
         override val key: String get() = "notfound:$uri"
+
+        // A tombstone has no thread root, so it is never a de-dup survivor.
+        override val suppressedReplyCount: Int get() = 0
     }
 }

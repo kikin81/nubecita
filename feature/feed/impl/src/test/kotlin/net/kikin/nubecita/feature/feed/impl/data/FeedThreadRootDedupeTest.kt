@@ -37,7 +37,7 @@ internal class FeedThreadRootDedupeTest {
 
         val deduped = listOf(first, second).dedupeByThreadRoot()
 
-        assertEquals(listOf(first), deduped)
+        assertEquals(listOf(first.key), deduped.map { it.key })
     }
 
     /**
@@ -52,7 +52,7 @@ internal class FeedThreadRootDedupeTest {
 
         val deduped = (listOf(page1) + listOf(page2)).dedupeByThreadRoot()
 
-        assertEquals(listOf(page1), deduped)
+        assertEquals(listOf(page1.key), deduped.map { it.key })
     }
 
     @Test
@@ -62,7 +62,7 @@ internal class FeedThreadRootDedupeTest {
         val deduped = items.dedupeByThreadRoot()
 
         assertEquals(1, deduped.size)
-        assertEquals(items.first(), deduped.single())
+        assertEquals(items.first().key, deduped.single().key)
     }
 
     // ---------- root derivation ----------
@@ -74,7 +74,7 @@ internal class FeedThreadRootDedupeTest {
 
         val deduped = listOf(standalone, laterReply).dedupeByThreadRoot()
 
-        assertEquals(listOf(standalone), deduped)
+        assertEquals(listOf(standalone.key), deduped.map { it.key })
     }
 
     @Test
@@ -84,7 +84,7 @@ internal class FeedThreadRootDedupeTest {
 
         val deduped = listOf(chain, laterReply).dedupeByThreadRoot()
 
-        assertEquals(listOf(chain), deduped)
+        assertEquals(listOf(chain.key), deduped.map { it.key })
     }
 
     // ---------- repost exemption (design D4) ----------
@@ -96,7 +96,7 @@ internal class FeedThreadRootDedupeTest {
 
         val deduped = listOf(firstReply, repost).dedupeByThreadRoot()
 
-        assertEquals(listOf(firstReply, repost), deduped)
+        assertEquals(listOf(firstReply.key, repost.key), deduped.map { it.key })
     }
 
     /**
@@ -110,7 +110,7 @@ internal class FeedThreadRootDedupeTest {
 
         val deduped = listOf(repost, laterReply).dedupeByThreadRoot()
 
-        assertEquals(listOf(repost), deduped)
+        assertEquals(listOf(repost.key), deduped.map { it.key })
     }
 
     // ---------- tombstones ----------
@@ -159,12 +159,102 @@ internal class FeedThreadRootDedupeTest {
 
         val deduped = listOf(first, unrelated, sibling).dedupeByThreadRoot()
 
-        assertEquals(listOf(first, unrelated), deduped)
+        assertEquals(listOf(first.key, unrelated.key), deduped.map { it.key })
     }
 
     @Test
     fun `an empty list is returned unchanged`() {
         assertTrue(emptyList<FeedItemUi>().dedupeByThreadRoot().isEmpty())
+    }
+
+    // ---------- suppressed-reply count (design D6) ----------
+
+    @Test
+    fun `the survivor counts the replies that were suppressed`() {
+        val items = (1..7).map { cluster(rootId = "R", parentId = "R", leafId = "reply$it") }
+
+        val deduped = items.dedupeByThreadRoot()
+
+        assertEquals(6, deduped.single().suppressedReplyCount)
+    }
+
+    @Test
+    fun `an item with no suppressed siblings reports zero`() {
+        val deduped = listOf(single("a"), cluster(rootId = "r", parentId = "r", leafId = "l")).dedupeByThreadRoot()
+
+        assertTrue(deduped.all { it.suppressedReplyCount == 0 })
+    }
+
+    /**
+     * Spec edge case 1: the count is in POSTS, not feed items. A dropped
+     * `SelfThreadChain` carries three replies, so it contributes three — not
+     * one — even though it is a single item.
+     */
+    @Test
+    fun `a dropped self-thread chain contributes each of its posts`() {
+        val survivor = cluster(rootId = "R", parentId = "R", leafId = "first")
+        val droppedChain = FeedItemUi.SelfThreadChain(posts = listOf(samplePost("R"), samplePost("c2"), samplePost("c3")).toImmutableList())
+
+        val deduped = listOf(survivor, droppedChain).dedupeByThreadRoot()
+
+        // R is already rendered as the survivor's root, so only c2 and c3 are new.
+        assertEquals(2, deduped.single().suppressedReplyCount)
+    }
+
+    /**
+     * Spec edge case 2: a suppressed post already rendered elsewhere is not
+     * counted. A dropped `Single` is always the thread root, which the
+     * survivor already renders — so it adds nothing.
+     */
+    @Test
+    fun `a dropped standalone already visible as context is not counted`() {
+        val survivor = cluster(rootId = "P", parentId = "P", leafId = "reply")
+        val droppedStandalone = single("P")
+
+        val deduped = listOf(survivor, droppedStandalone).dedupeByThreadRoot()
+
+        assertEquals(0, deduped.single().suppressedReplyCount)
+    }
+
+    /**
+     * The live reproduction, which is exactly this case: the dropped cluster's
+     * LEAF is the survivor's PARENT, so the viewer can already see it and the
+     * count must stay at zero rather than promising a reply they are already
+     * looking at.
+     */
+    @Test
+    fun `a dropped cluster whose leaf is the survivors parent is not counted`() {
+        val survivor = cluster(rootId = "R", parentId = "P1", leafId = "L1")
+        val dropped = cluster(rootId = "R", parentId = "P0", leafId = "P1")
+
+        val deduped = listOf(survivor, dropped).dedupeByThreadRoot()
+
+        assertEquals(0, deduped.single().suppressedReplyCount)
+    }
+
+    @Test
+    fun `a surviving standalone carries the count for replies it suppressed`() {
+        val standalone = single("P")
+        val droppedReply = cluster(rootId = "P", parentId = "P", leafId = "reply")
+
+        val deduped = listOf(standalone, droppedReply).dedupeByThreadRoot()
+
+        assertEquals(1, deduped.single().suppressedReplyCount)
+    }
+
+    /**
+     * A repost survives alongside the first item for the same root. The count
+     * must land on ONE of them, not be double-reported on both.
+     */
+    @Test
+    fun `the count is not double-reported when a repost also survives`() {
+        val first = cluster(rootId = "R", parentId = "R", leafId = "l1")
+        val repost = FeedItemUi.Single(samplePost("R").copy(repostedBy = "Someone"))
+        val droppedSibling = cluster(rootId = "R", parentId = "R", leafId = "l2")
+
+        val deduped = listOf(first, repost, droppedSibling).dedupeByThreadRoot()
+
+        assertEquals(1, deduped.sumOf { it.suppressedReplyCount.toLong() })
     }
 
     // ---------- helpers ----------
