@@ -50,14 +50,17 @@ __pycache__/
 *.db
 .beads-credential-key
 
-# Claude Code: share skills + slash commands, ignore local settings/logs.
-# (Overrides a global .claude/ ignore that would otherwise hide everything.)
+# Claude Code: share skills, slash commands + workflows, ignore local
+# settings/logs. (Overrides a global .claude/ ignore that would otherwise hide
+# everything.)
 !.claude/
 .claude/*
 !.claude/skills/
 !.claude/skills/**
 !.claude/commands/
 !.claude/commands/**
+!.claude/workflows/
+!.claude/workflows/**
 
 # Cached upstream variable font for scripts/update_material_symbols.sh.
 # The 14.9 MB font lives here; only the ~50 KB subset under
