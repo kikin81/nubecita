@@ -580,3 +580,274 @@ The system SHALL render every in-app icon through the `NubecitaIcon` composable 
 
 - **WHEN** the project's module `build.gradle.kts` files are inspected
 - **THEN** none SHALL declare `androidx.compose.material:material-icons-extended` (or any artifact under `androidx.compose.material.icons.*`); the version-catalog entry MUST also be absent
+
+### Requirement: `:designsystem` provides a `NubecitaLogomark` composable
+
+`:designsystem/component/NubecitaLogo.kt` SHALL expose a public `@Composable fun NubecitaLogomark(modifier: Modifier = Modifier, tint: Color = MaterialTheme.colorScheme.primary)` that renders the brand cloud-only mark (no wordmark) backed by the `nubecita_logomark.xml` vector drawable.
+
+The vector drawable SHALL be a single-color rendering of the cloud silhouette ported from `openspec/references/design-system/assets/logomark-mono.svg` — 3 circles + 1 rounded rect, all with `android:fillColor="#FFFFFFFF"`. The composable SHALL apply `ColorFilter.tint(tint)` so the rendered color matches the `tint` parameter. The default tint of `MaterialTheme.colorScheme.primary` resolves to brand sky blue (`#0A7AFF`) under the static palette and to the user's wallpaper-derived primary under dynamic color.
+
+The composable SHALL set `contentDescription = stringResource(R.string.logomark_content_description)` (value: `"Nubecita"`) so screen readers announce the brand name when the mark is used as the sole content of a tappable container.
+
+The intrinsic aspect of the underlying vector SHALL be 1:1 (square). Callers control absolute size via the `modifier` parameter (`Modifier.size(...)` or layout-driven sizing).
+
+#### Scenario: Logomark renders with default tint under static palette
+
+- **WHEN** `NubecitaTheme(dynamicColor = false) { NubecitaLogomark(modifier = Modifier.size(96.dp)) }` is composed
+- **THEN** a 96dp × 96dp white-cloud image SHALL render tinted to brand sky blue (`#0A7AFF`)
+
+#### Scenario: Logomark accepts a custom tint
+
+- **WHEN** `NubecitaLogomark(tint = Color.White)` is composed inside `NubecitaTheme`
+- **THEN** the cloud SHALL render in pure white regardless of the active palette
+
+#### Scenario: Logomark exposes its accessible label
+
+- **WHEN** TalkBack focuses on a `NubecitaLogomark` composable
+- **THEN** TalkBack SHALL announce `"Nubecita"` (from `R.string.logomark_content_description`)
+
+### Requirement: Logomark content-description string
+
+`:designsystem/src/main/res/values/strings.xml` SHALL define a string resource used as the `contentDescription` for the brand-mark composable:
+
+- `<string name="logomark_content_description">Nubecita</string>`
+
+The string SHALL be `translatable="true"` (default). When the app gains localized resources for additional locales, the brand name MAY be transliterated per the conventions of that locale.
+
+#### Scenario: String resolves to the brand name in the default locale
+
+- **WHEN** `stringResource(R.string.logomark_content_description)` is read inside a Composable on a device set to the default locale
+- **THEN** the call SHALL return `"Nubecita"`
+
+### Requirement: `NubecitaIconName` exposes glyphs required by the notifications surface
+
+`NubecitaIconName` SHALL include entries for the following Material Symbols glyphs:
+
+- `AlternateEmail` (codepoint ``) — the `@` glyph
+- `ExpandMore` (codepoint ``) — chevron-down
+- `FormatQuote` (codepoint ``) — curly double-quote
+- `Verified` (codepoint ``) — verified-badge mark
+
+The existing `Notifications` entry's codepoint SHALL be corrected from `` (`notifications_none`) to `` (`notifications`) so the variable font's FILL axis renders the activity dot on FILL=1.
+
+#### Scenario: New icons render via NubecitaIcon
+
+- **WHEN** any of the new icon names is passed to `NubecitaIcon(name = …)`
+- **THEN** the icon SHALL render correctly in both `filled = true` and `filled = false` states using the shipped subset font
+
+#### Scenario: Notifications icon shows the activity dot when filled
+
+- **WHEN** `NubecitaIcon(name = NubecitaIconName.Notifications, filled = true)` is rendered
+- **THEN** the rendered glyph SHALL be the canonical filled bell with the activity dot (codepoint `` with FILL=1)
+
+### Requirement: Material Symbols subset font is regenerated after adding new icons
+
+After adding entries to `NubecitaIconName`, the `./scripts/update_material_symbols.sh` script SHALL be re-run so the subset font under `designsystem/src/main/res/font/` includes the new glyphs. The committed font file SHALL include all codepoints referenced by `NubecitaIconName`.
+
+#### Scenario: Unit test guards codepoint validity
+
+- **WHEN** `./gradlew :designsystem:testDebugUnitTest` runs
+- **THEN** `NubecitaIconNameTest.every_codepoint_isASingleScalar` SHALL pass for every entry, confirming each codepoint is a single Unicode scalar value
+
+### Requirement: `NotificationReasonIcon` composable maps `NotificationReason` to icon + tint
+
+`:designsystem` SHALL expose a `NotificationReasonIcon(reason: NotificationReason, modifier: Modifier = Modifier)` composable that renders the correct glyph + tint pair for each reason. The mapping SHALL be:
+
+| Reason | Icon | Tint |
+|---|---|---|
+| `Like`, `LikeViaRepost` | `Favorite` (filled) | extended `likeAccent` token (or `colorScheme.error` fallback) |
+| `Repost`, `RepostViaRepost` | `Repeat` | extended `repostAccent` token (or `colorScheme.tertiary` fallback) |
+| `Follow`, `ContactMatch`, `StarterpackJoined` | `PersonAdd` | `colorScheme.primary` |
+| `Reply` | `Reply` | `colorScheme.onSurfaceVariant` |
+| `Mention` | `AlternateEmail` | `colorScheme.onSurfaceVariant` |
+| `Quote` | `FormatQuote` | `colorScheme.onSurfaceVariant` |
+| `Verified` | `Verified` (filled) | `colorScheme.primary` |
+| `Unverified` | `Verified` (unfilled) | `colorScheme.onSurfaceVariant` |
+| `SubscribedPost` | `Article` | `colorScheme.onSurfaceVariant` |
+| `Unknown` | `Notifications` (unfilled) | `colorScheme.onSurfaceVariant` |
+
+The composable SHALL be exhaustive over `NotificationReason` so adding a new enum value SHALL produce a compile error in `:designsystem` until the mapping is updated.
+
+#### Scenario: Like reason renders the heart with like-accent tint
+
+- **WHEN** `NotificationReasonIcon(reason = NotificationReason.Like)` is rendered
+- **THEN** the icon SHALL be the filled `Favorite` glyph tinted with the `likeAccent` extended token
+
+#### Scenario: Adding a new reason fails compilation until mapped
+
+- **WHEN** a new value is added to `NotificationReason` and `NotificationReasonIcon` is rebuilt without an updated mapping
+- **THEN** the Kotlin compiler SHALL flag a non-exhaustive `when` expression in `NotificationReasonIcon`'s implementation
+
+### Requirement: `NotificationReasonIcon` ships `@Preview` and screenshot tests
+
+`:designsystem` SHALL include a `@Preview`-annotated showcase composable rendering `NotificationReasonIcon` for every `NotificationReason` value, plus a corresponding `@PreviewTest`. Baselines SHALL be committed under `designsystem/src/screenshotTestDebug/reference/`.
+
+#### Scenario: Showcase preview renders all reasons
+
+- **WHEN** the design-system screenshot test job runs
+- **THEN** the `NotificationReasonIcon` showcase SHALL render at least one row per `NotificationReason` value and match the committed baseline
+
+### Requirement: `PostCard` accepts `connectAbove` / `connectBelow` parameters
+
+`PostCard` SHALL accept two new `Boolean` parameters: `connectAbove: Boolean = false` and `connectBelow: Boolean = false`, defaulted to `false`. When either flag is `true`, `PostCard`'s root `Modifier` chain SHALL apply `Modifier.threadConnector(connectAbove, connectBelow, color = MaterialTheme.colorScheme.outlineVariant)` from `:designsystem/component/ThreadConnector.kt`. When both flags are `false` (the default), no `threadConnector` modifier SHALL be applied.
+
+This unblocks `nubecita-m28.2` Section A's "PostCard integration" sub-scope which was deferred from PR #77's primitives-only landing.
+
+#### Scenario: PostCard with both flags false is unchanged
+
+- **WHEN** `PostCard(post = ..., connectAbove = false, connectBelow = false)` is composed
+- **THEN** the rendered output is pixel-identical to the pre-change `PostCard(post = ...)` — no threadConnector applied
+
+#### Scenario: PostCard with connectAbove + connectBelow draws full connector
+
+- **WHEN** `PostCard(post = ..., connectAbove = true, connectBelow = true)` is composed
+- **THEN** the rendered output applies `Modifier.threadConnector(connectAbove = true, connectBelow = true, color = MaterialTheme.colorScheme.outlineVariant)` to the post's outer container, drawing connector lines above and below the avatar
+
+### Requirement: `:designsystem` provides a `ThreadCluster` composable
+
+`:designsystem/component/ThreadCluster.kt` SHALL expose a public `@Composable fun ThreadCluster(...)` that renders a feed-level reply cluster: root post on top, optional `ThreadFold` between root and parent, parent post, leaf post — joined by avatar-gutter connector lines.
+
+The signature SHALL be (parameter order per the project's Compose convention used by `PostCard` and `ThreadFold` — required params first, then `modifier`, then other defaulted params, then trailing lambdas):
+
+```kotlin
+@Composable
+fun ThreadCluster(
+    root: PostUi,
+    parent: PostUi,
+    leaf: PostUi,
+    modifier: Modifier = Modifier,
+    callbacks: PostCallbacks = PostCallbacks.None,
+    hasEllipsis: Boolean = false,
+    leafVideoEmbedSlot: (@Composable (EmbedUi.Video) -> Unit)? = null,
+    leafQuotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null,
+    onFoldTap: () -> Unit = {},
+)
+```
+
+Internal layout SHALL be a `Column`:
+
+| Position | Composable | `connectAbove` | `connectBelow` | `videoEmbedSlot` |
+|---|---|---|---|---|
+| top | `PostCard(root)` | false | true | null |
+| (when `hasEllipsis`) | `ThreadFold(onClick = onFoldTap)` | — | — | — |
+| middle | `PostCard(parent)` | true | true | null |
+| bottom | `PostCard(leaf)` | true | false | `leafVideoEmbedSlot` |
+
+`PostCallbacks` SHALL be passed through to all three `PostCard`s. Tap targets on root, parent, leaf, and fold MAY all be no-ops in v1 (post-detail navigation lands later); the `onFoldTap` parameter exists so callers can wire it when post-detail is available without an API change.
+
+#### Scenario: ThreadCluster without ellipsis renders three PostCards in a Column
+
+- **WHEN** `ThreadCluster(root, parent, leaf, callbacks, hasEllipsis = false)` is composed
+- **THEN** the rendered output is a `Column` containing `PostCard(root, connectBelow = true)` + `PostCard(parent, connectAbove = true, connectBelow = true)` + `PostCard(leaf, connectAbove = true)`
+- **AND** no `ThreadFold` is rendered
+
+#### Scenario: ThreadCluster with ellipsis inserts a ThreadFold between root and parent
+
+- **WHEN** `ThreadCluster(root, parent, leaf, callbacks, hasEllipsis = true)` is composed
+- **THEN** the rendered output is a `Column` containing `PostCard(root, connectBelow = true)` + `ThreadFold(onClick = onFoldTap)` + `PostCard(parent, connectAbove = true, connectBelow = true)` + `PostCard(leaf, connectAbove = true)`
+
+#### Scenario: ThreadCluster collapses the parent slot when parent equals root
+
+- **WHEN** `ThreadCluster(root, parent, leaf, callbacks, hasEllipsis = false)` is composed AND `parent.id == root.id` (i.e., the leaf is a direct reply to the root post — common for self-threads or any direct reply)
+- **THEN** the rendered output is a `Column` containing `PostCard(root, connectBelow = true)` + `PostCard(leaf, connectAbove = true)` only — the `parent` slot is NOT rendered (rendering it would visually duplicate the root post)
+- **AND** no `ThreadFold` is rendered
+
+#### Scenario: ThreadCluster passes leaf-only video slot
+
+- **WHEN** the caller supplies a non-null `leafVideoEmbedSlot`
+- **THEN** the leaf `PostCard` receives the slot
+- **AND** root + parent `PostCard` receive `videoEmbedSlot = null` (their video embeds, if any, render via the static-poster fallback in PostCard)
+
+### Requirement: Fraunces variable font with `SOFT` axis is bundled and exposed via Typography
+
+`:designsystem` SHALL ship the Fraunces variable font as a bundled font asset (`:designsystem/src/main/res/font/fraunces.ttf` or equivalent) and SHALL expose at least one Typography style that uses the variable font with the `SOFT` variable axis configurable. The display-name style used by the profile hero MUST set `SOFT = 70`. The font MUST be loaded via the standard Compose `FontFamily` API — no reflection, no manual `Typeface` construction. The font asset MUST NOT be downloaded at runtime; it MUST be embedded in the APK at build time.
+
+#### Scenario: Display style uses Fraunces with `SOFT = 70`
+
+- **WHEN** any consumer renders a `Text` with the profile-display-name style sourced from `:designsystem`'s Typography
+- **THEN** the resolved `TextStyle` carries `FontFamily(Font(R.font.fraunces, FontVariation.Settings(FontVariation.Setting("SOFT", 70f), …)))`; the rendered glyph metrics differ measurably from the default-`SOFT` Fraunces rendering when verified on a real device
+
+#### Scenario: Fraunces is bundled in the APK
+
+- **WHEN** the debug APK is built and inspected (`./gradlew :app:assembleDebug` followed by `aapt2 dump resources`)
+- **THEN** the Fraunces font file is present under `res/font/`; no network request is made to fetch the font during APK install or at first render
+
+### Requirement: JetBrains Mono variable font is bundled and exposed via Typography
+
+`:designsystem` SHALL ship JetBrains Mono as a bundled variable font asset and SHALL expose a monospace Typography style suitable for rendering user handles at 13 sp. The font MUST be loaded via the standard Compose `FontFamily` API and MUST be embedded in the APK at build time (no runtime download).
+
+#### Scenario: Handle style uses JetBrains Mono at 13 sp
+
+- **WHEN** any consumer renders a `Text` with the handle style sourced from `:designsystem`'s Typography
+- **THEN** the resolved `TextStyle` carries `FontFamily(Font(R.font.jetbrains_mono, …))` and `fontSize = 13.sp`
+
+### Requirement: `BoldHeroGradient` composable owns Palette extraction and avatarHue fallback
+
+`:designsystem` SHALL ship a `BoldHeroGradient(banner: String?, avatarHue: Int, modifier: Modifier = Modifier, content: @Composable () -> Unit)` composable (or equivalent surface API). The `banner` parameter is a nullable URL string — matching what `app.bsky.actor.defs#profileViewDetailed.banner` returns from the atproto SDK and what the existing `NubecitaAsyncImage(model: Any?)` Coil wrapper accepts. The composable MAY internally wrap the string into Coil's `ImageRequest.Builder` and is not required to expose a richer model parameter unless a future consumer surfaces. The composable MUST decode the `banner` image off the main thread via Coil's image-loader pipeline (no direct `BitmapFactory.decodeStream` in the design system or any consumer), pass the decoded bitmap to `androidx.palette.graphics.Palette.from(bitmap).generate()` on a background coroutine context, cache the resulting `Palette` keyed on the banner URL or blob `cid`, and render a 2-stop gradient derived from the cached palette. When `banner == null`, the gradient MUST be derived deterministically from `avatarHue` (an integer hue in `0..360`). The feature module that consumes `BoldHeroGradient` MUST NOT import `androidx.palette.*` or `androidx.compose.ui.graphics.Brush` for gradient construction — both are encapsulated by this composable.
+
+#### Scenario: Palette extraction runs off the main thread
+
+- **WHEN** `BoldHeroGradient` is composed with a non-null `banner` URL whose image has not been previously palette-extracted
+- **THEN** the Palette extraction runs on `Dispatchers.Default` (or equivalent off-main dispatcher); the main thread is not blocked during decode + extraction; the composable initially renders the `avatarHue`-derived fallback gradient and swaps to the palette-derived gradient when extraction completes
+
+#### Scenario: Palette result is cached per banner
+
+- **WHEN** `BoldHeroGradient` is composed twice in succession with the same `banner` URL (e.g., navigating away from a profile and back)
+- **THEN** the second composition retrieves the cached `Palette` synchronously on first composition; no re-decode of the banner bitmap occurs; the gradient renders without a fallback flicker
+
+#### Scenario: Null banner uses avatarHue fallback deterministically
+
+- **WHEN** `BoldHeroGradient` is composed with `banner = null` and `avatarHue = 217`
+- **THEN** the rendered gradient is derived deterministically from `avatarHue = 217`; the same `avatarHue` always produces the same gradient; no `Palette` call is made
+
+#### Scenario: Minimum-contrast adjustment for very-light banners
+
+- **WHEN** `BoldHeroGradient` is composed with a banner whose extracted palette returns swatches with luminance above the contrast threshold needed for WCAG AA against white text overlays
+- **THEN** the composable darkens the dominant stop of the gradient until contrast clears; the rendered gradient is dark enough to maintain AA contrast for white text overlays at the hero's name + handle positions
+
+### Requirement: `ProfilePillTabs` composable wraps `PrimaryTabRow` with M3 Expressive pill chrome
+
+`:designsystem` SHALL ship a `ProfilePillTabs(tabs: List<PillTab>, selectedTab: PillTab, onTabSelect: (PillTab) -> Unit, modifier: Modifier = Modifier)` composable that renders pill-shaped tabs. Each pill MUST be 36 dp tall. The active tab MUST have `MaterialTheme.colorScheme.primary` container fill and `onPrimary` content color; inactive tabs MUST have a transparent container and `onSurface` content color. Each tab's icon (when present) MUST render via `NubecitaIcon` with the `FILL` variable axis at 1 when active and 0 when inactive. The composable MUST be implemented as a thin wrapper around `androidx.compose.material3.PrimaryTabRow` (or equivalent M3 tab primitive) — no hand-rolled `Row` of buttons, no custom `Indicator` that draws outside the M3 vocabulary.
+
+#### Scenario: Active tab renders with primary container fill and filled icon
+
+- **WHEN** `ProfilePillTabs` is composed with `tabs = [Posts, Replies, Media]` and `selectedTab = Posts`
+- **THEN** the rendered Posts pill has `Color = MaterialTheme.colorScheme.primary` as its container fill, the Posts icon renders with `FontVariation.Setting("FILL", 1f)` applied via `NubecitaIcon`, and the Replies + Media pills render with transparent container fills and `FILL = 0`
+
+#### Scenario: Tab selection invokes onTabSelect with the new tab
+
+- **WHEN** the user taps the Replies pill while Posts is currently active
+- **THEN** `onTabSelect(Replies)` is invoked exactly once; the composable does NOT internally re-render with `selectedTab = Replies` until the parent passes the new `selectedTab` parameter (state hoisting is preserved)
+
+### Requirement: PostCard renders multi-image embeds via `HorizontalMultiBrowseCarousel`
+
+The `PostCard` composable in `:designsystem` SHALL conditionally swap its image-embed rendering branch based on the count of images in the embed. When `EmbedUi.Images.images.size > 1`, PostCard MUST delegate to `androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel` from the M3 carousel API. When `images.size == 1`, the existing single-image rendering path MUST be preserved byte-for-byte — the swap MUST NOT change the rendering of single-image posts in any consuming feature (feed, post detail, future profile / search / notifications surfaces).
+
+The carousel MUST use M3's default `preferredItemWidth` token (do NOT attempt to clone the single-image embed's `fillMaxWidth() + heightIn(max = EMBED_HEIGHT)` sizing — single-image and carousel are not equivalent surfaces, and asking the carousel to "match the single-image preferred width" produces a sizing rule with no concrete target). Carousel slide aspect ratios MUST be per-slide (the carousel's default behavior); mixed-aspect-ratio posts (portrait + landscape in the same embed) MUST NOT be normalized via letterboxing.
+
+The swap MUST live inside PostCard's existing image-embed branch — no new public composable, no new public API. PostCard's caller-facing signature MAY be extended with **additive, backwards-compatible** parameters (e.g. `onImageClick: (imageIndex: Int) -> Unit = {}` with a default no-op so existing call sites compile unchanged), but MUST NOT remove or change the meaning of any existing parameter. The post-detail feature requires the per-image-index click callback to dispatch its `NavigateToMediaViewer(imageIndex)` effect; consumers that don't pass the callback (the feed, future profile / search surfaces) keep their current behavior — the default no-op makes the swap a no-op for them.
+
+#### Scenario: Multi-image post renders the carousel
+
+- **WHEN** `PostCard` is composed with an `EmbedUi.Images` value whose `images.size == 3`
+- **THEN** the resulting layout contains a `HorizontalMultiBrowseCarousel` rendering three slides, each loaded via the existing Coil image pipeline, and the carousel's snap and spring behavior is the M3 default
+
+#### Scenario: Single-image post path is unchanged
+
+- **WHEN** `PostCard` is composed with an `EmbedUi.Images` value whose `images.size == 1`
+- **THEN** the rendered output matches the pre-change single-image PostCard byte-for-byte at the screenshot level — no carousel container, no slide chrome, no preferred-item-width sizing logic
+
+#### Scenario: Existing call sites compile unchanged
+
+- **WHEN** any consumer that did NOT pass `onImageClick` (FeedScreen, future profile / search surfaces) is recompiled against the updated PostCard
+- **THEN** the call site compiles without modification — the new parameter has a default no-op value, and no behavioral change is observable in single-image OR multi-image posts in those surfaces (multi-image posts get the carousel rendering but tapping a slide is a no-op when no callback was passed)
+
+#### Scenario: Post-detail wires the per-index callback
+
+- **WHEN** `PostDetailScreen` composes the Focus PostCard
+- **THEN** the call passes `onImageClick = { index -> /* dispatch NavigateToMediaViewer */ }`, and tapping a slide invokes the callback with the slide's index
+
+#### Scenario: Mixed-aspect carousel does not letterbox
+
+- **WHEN** `PostCard` renders a multi-image embed whose three images include one portrait and two landscape
+- **THEN** the carousel slides size per-slide using the carousel's default sizing — no slide is letterboxed to match a tallest-or-widest target
