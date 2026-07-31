@@ -3,6 +3,8 @@ package net.kikin.nubecita.designsystem.component
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ListItemDefaults
@@ -43,8 +45,16 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  * / `onSurfaceVariant`). Empty [items] renders nothing — caption included — so a
  * not-yet-populated group leaves no stray label.
  *
+ * Set [singleSelect] when the rows are single-select (i.e. [row] emits
+ * [NubecitaListItem]s with `onSelect`). It applies `Modifier.selectableGroup()`,
+ * which is what makes a screen reader announce the rows as one group ("1 of 3")
+ * instead of N unrelated radio buttons. The group cannot infer this — [row] is
+ * caller-supplied, so the group never sees which mode the rows chose.
+ *
  * @param items the group's rows, in display order.
  * @param label optional section caption shown above the group.
+ * @param singleSelect true when [row] emits single-select rows; adds the radio
+ *   group semantics.
  * @param row renders one item's row given its segment [ListItemShapes] (forward it
  *   into [NubecitaListItem]).
  */
@@ -54,6 +64,7 @@ fun <T> NubecitaListGroup(
     items: ImmutableList<T>,
     modifier: Modifier = Modifier,
     label: String? = null,
+    singleSelect: Boolean = false,
     row: @Composable (item: T, shapes: ListItemShapes) -> Unit,
 ) {
     if (items.isEmpty()) return
@@ -66,7 +77,12 @@ fun <T> NubecitaListGroup(
                 modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp),
             )
         }
-        Column(verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
+        Column(
+            // selectableGroup() goes on the row container, not the outer Column,
+            // so the optional caption stays outside the group's semantics.
+            modifier = if (singleSelect) Modifier.selectableGroup() else Modifier,
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+        ) {
             items.forEachIndexed { index, item ->
                 row(item, ListItemDefaults.segmentedShapes(index = index, count = items.size))
             }
@@ -88,6 +104,18 @@ fun <T> NubecitaListGroup(
  *   screen reader announces on/off, and any [trailingContent] switch should be
  *   **display-only** (`onCheckedChange = null`) so there is a single
  *   interactive node, not two.
+ * - A non-null [onSelect] renders a **single-select** segment via
+ *   `Modifier.selectable(role = Role.RadioButton)`, for one-of-N choices. Same
+ *   ownership rule: the row owns the gesture and the state, so the
+ *   [leadingContent] radio must be **display-only** (`onClick = null`). Wrap the
+ *   group in [NubecitaListGroup] with `singleSelect = true` so the rows announce
+ *   as one group rather than N loose radio buttons.
+ *
+ *   Note [onSelect] takes no argument and fires on **every** tap, including on
+ *   the already-selected row — unlike a toggle, re-selecting is not a state
+ *   change. If acting on it is expensive (a network write, say), guard on the
+ *   current value in the ViewModel; a UI-side guard is easy to lose when the
+ *   control is swapped.
  * - Otherwise a non-null [onClick] renders the interactive (button-role) segment.
  * - Otherwise the non-interactive overload — announced as text, not a disabled
  *   button — for read-only rows.
@@ -101,6 +129,8 @@ fun NubecitaListItem(
     onClick: (() -> Unit)? = null,
     checked: Boolean = false,
     onCheckedChange: ((Boolean) -> Unit)? = null,
+    selected: Boolean = false,
+    onSelect: (() -> Unit)? = null,
     leadingContent: (@Composable () -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null,
     supportingContent: (@Composable () -> Unit)? = null,
@@ -130,6 +160,29 @@ fun NubecitaListItem(
                             value = checked,
                             role = Role.Switch,
                             onValueChange = onCheckedChange,
+                        ),
+                content = headlineContent,
+            )
+        onSelect != null ->
+            // Single-select sibling of the toggleable branch above, and the same
+            // reasoning: Modifier.selectable puts Role.RadioButton plus the
+            // selected state on the ONE interactive node, so a screen reader
+            // announces the label with its state and the leading radio stays
+            // display-only. Clip to the segment shape so the ripple matches the
+            // rounded corners.
+            SegmentedListItem(
+                shapes = shapes,
+                colors = colors,
+                leadingContent = leadingContent,
+                trailingContent = trailingContent,
+                supportingContent = supportingContent,
+                modifier =
+                    modifier
+                        .clip(shapes.shape)
+                        .selectable(
+                            selected = selected,
+                            role = Role.RadioButton,
+                            onClick = onSelect,
                         ),
                 content = headlineContent,
             )
