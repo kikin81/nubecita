@@ -45,6 +45,14 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  * / `onSurfaceVariant`). Empty [items] renders nothing — caption included — so a
  * not-yet-populated group leaves no stray label.
  *
+ * **Renders eagerly — do not use for unbounded lists.** Every item is composed up
+ * front inside a `Column`; there is no lazy variant. That is correct for the
+ * bounded, hand-authored groups this exists for (a settings section, a handful of
+ * options), and wrong for anything list-shaped: `AboutLicensesScreen` renders ~149
+ * dependencies and stays a `LazyColumn` for exactly this reason, since composing
+ * them all up front would break the 120hz scrolling requirement. If the item count
+ * is data-driven and unbounded, reach for `LazyColumn`, not this.
+ *
  * Set [singleSelect] when the rows are single-select (i.e. [row] emits
  * [NubecitaListItem]s with `onSelect`). It applies `Modifier.selectableGroup()`,
  * which is what makes a screen reader announce the rows as one group ("1 of 3")
