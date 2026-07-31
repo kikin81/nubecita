@@ -62,7 +62,7 @@ class ContentFiltersSemanticsInstrumentationTest {
         // Not Role.Switch / an unqualified checkable: the role is what makes a
         // screen reader describe this as a one-of-N choice.
         composeTestRule
-            .onAllNodesWithText(SHOW_LABEL)
+            .onAllNodesWithText(showLabel)
             .onFirst()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
     }
@@ -73,9 +73,9 @@ class ContentFiltersSemanticsInstrumentationTest {
         // through. Four categories share these labels, so this asserts the FIRST
         // picker — Adult Content — whose ModerationPrefs default is HIDE, not the
         // WARN that the other categories default to.
-        composeTestRule.onAllNodesWithText(HIDE_LABEL).onFirst().assertIsSelected()
-        composeTestRule.onAllNodesWithText(SHOW_LABEL).onFirst().assertIsNotSelected()
-        composeTestRule.onAllNodesWithText(WARN_LABEL).onFirst().assertIsNotSelected()
+        composeTestRule.onAllNodesWithText(hideLabel).onFirst().assertIsSelected()
+        composeTestRule.onAllNodesWithText(showLabel).onFirst().assertIsNotSelected()
+        composeTestRule.onAllNodesWithText(warnLabel).onFirst().assertIsNotSelected()
     }
 
     @Test
@@ -88,9 +88,16 @@ class ContentFiltersSemanticsInstrumentationTest {
             .assertIsDisplayed()
     }
 
-    private companion object {
-        const val SHOW_LABEL = "Show"
-        const val WARN_LABEL = "Warn"
-        const val HIDE_LABEL = "Hide"
-    }
+    // Resolved from resources, not hardcoded: the app ships es-419 and pt-BR, so a
+    // device or emulator in either locale renders "Mostrar" / "Avisar" / "Ocultar"
+    // and literal English would fail for a reason that has nothing to do with the
+    // semantics under test. Matches SettingsNotificationsRowInstrumentationTest.
+    private val showLabel: String
+        get() = composeTestRule.activity.getString(R.string.content_filters_show)
+
+    private val warnLabel: String
+        get() = composeTestRule.activity.getString(R.string.content_filters_warn)
+
+    private val hideLabel: String
+        get() = composeTestRule.activity.getString(R.string.content_filters_hide)
 }
