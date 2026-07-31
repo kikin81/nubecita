@@ -23,19 +23,30 @@ TBD - created by archiving change add-adaptive-navigation-shell. Update Purpose 
 
 ### Requirement: Top-level destination icons follow Material Symbols
 
-The four top-level destinations SHALL use Material Symbols icons:
+The five top-level destinations SHALL use Material Symbols icons:
 
 - Feed → `Home`
 - Search → `Search`
+- Notifications → `Notifications`
 - Chats → `ChatBubbleOutline` (unselected) / `ChatBubble` (selected)
 - You → `Person`
 
-The selected state of each item SHALL be derived from `mainShellNavState.topLevelKey`.
+The selected state of each item SHALL be derived from `mainShellNavState.topLevelKey`. The Notifications icon SHALL be wrapped in a `BadgedBox` whose badge renders when the injected `NotificationsUnreadCountStore.unreadCount` `StateFlow<Int>` value is greater than zero.
 
 #### Scenario: Selected tab icon reflects active top-level key
 
 - **WHEN** `mainShellNavState.topLevelKey == Search`
-- **THEN** the Search nav item SHALL be in selected state and the other three items SHALL be unselected
+- **THEN** the Search nav item SHALL be in selected state and the other four items SHALL be unselected
+
+#### Scenario: Notifications icon shows badge when unread count is positive
+
+- **WHEN** the injected unread-count StateFlow emits a value greater than zero
+- **THEN** the Notifications nav item's icon SHALL be wrapped in a visible `BadgedBox` displaying the count
+
+#### Scenario: Notifications icon hides badge when unread count is zero
+
+- **WHEN** the injected unread-count StateFlow emits zero
+- **THEN** the `BadgedBox` SHALL render without a visible badge
 
 ### Requirement: Adaptive chrome swaps `NavigationBar` ↔ `NavigationRail` based on `WindowSizeClass`
 
@@ -127,12 +138,24 @@ Tapping an interactive element inside one tab whose target is a `NavKey` registe
 
 ### Requirement: Empty tabs render `:app`-side placeholder Composables
 
-Until each of `:feature:search:impl`, `:feature:chats:impl`, and `:feature:profile:impl` exists, `:app` SHALL provide internal `@MainShell`-qualified `EntryProviderInstaller` bindings that register placeholder Composables for the corresponding top-level destinations. Each placeholder SHALL identify the destination and indicate that the feature is not yet implemented (e.g. "Search — coming soon").
+Until each of `:feature:search:impl` and `:feature:chats:impl` exists, `:app` SHALL provide internal `@MainShell`-qualified `EntryProviderInstaller` bindings that register placeholder Composables for the corresponding top-level destinations. Each placeholder SHALL identify the destination and indicate that the feature is not yet implemented (e.g. "Search — coming soon").
+
+`:feature:profile:impl` ships in the `add-profile-feature` change and provides its own `@MainShell` `EntryProviderInstaller` bindings for both `Profile(handle: String? = null)` (covering both own profile and other-user profile in a single provider) and the `Settings` sub-route (rendering a one-screen stub with a Sign Out affordance). When `:feature:profile:impl` is present in the build, `:app` MUST NOT register placeholders for `Profile` or `Settings` — both are owned by `:feature:profile:impl`. The placeholder mechanism remains in place for Search and Chats until their respective `:impl` modules graduate.
 
 #### Scenario: Search tab without :impl renders placeholder
 
 - **WHEN** `:feature:search:impl` does not exist in the build and the user activates the Search tab
 - **THEN** `MainShell` SHALL render a placeholder Composable provided by `:app` that visually identifies the Search destination
+
+#### Scenario: You tab renders the profile feature, not a placeholder
+
+- **WHEN** `:feature:profile:impl` is present in the build and the user activates the You top-level tab
+- **THEN** `MainShell` SHALL render `:feature:profile:impl`'s `Profile(handle = null)` provider; `:app`'s `MainShellPlaceholderModule` MUST NOT register a placeholder `EntryProviderInstaller` for the `Profile` NavKey
+
+#### Scenario: Settings sub-route renders the profile-feature stub, not a placeholder
+
+- **WHEN** any caller pushes the `Settings` `NavKey` onto `LocalMainShellNavState` and `:feature:profile:impl` is present in the build
+- **THEN** `MainShell` SHALL render `:feature:profile:impl`'s `Settings` provider (the one-screen stub with Sign Out); `:app`'s `MainShellPlaceholderModule` MUST NOT register a placeholder for the `Settings` NavKey
 
 ### Requirement: Logout clears MainShell state with no residue
 
@@ -249,3 +272,21 @@ This requirement governs all `@MainShell` list-detail surfaces (Feed, Search, Ch
 - **GIVEN** a Compact window with the active stack `[Feed, PostDetail(p)]` rendered single-pane (PostDetail full-screen)
 - **WHEN** the user taps the post author, pushing `Profile(…)`
 - **THEN** `Profile(…)` SHALL render full-screen as the top of the single-pane stack, and Back SHALL return to `PostDetail(p)` — behavior unchanged from today
+
+### Requirement: Notifications tab is registered as the 3rd top-level destination
+
+`TopLevelDestinations` SHALL list exactly five entries in order: Feed (start), Search, Notifications, Chats, Profile. The Notifications entry's `NavKey` SHALL be `net.kikin.nubecita.feature.notifications.api.NotificationsTab`. The order is load-bearing: the inner `NavDisplay`'s flattened back stack uses Feed as the start route per "exit through home", and the navigation suite renders items in iteration order.
+
+#### Scenario: Five-tab order
+
+- **WHEN** `MainShellChrome` renders the navigation suite
+- **THEN** the items SHALL appear in this exact order: Feed, Search, Notifications, Chats, You
+
+### Requirement: `MainShell` injects `NotificationsUnreadCountStore` from Hilt for the badge
+
+`MainShell` SHALL obtain the singleton `NotificationsUnreadCountStore` via the existing `NavigationEntryPoint` (or an additive `MainShellEntryPoint`) and read `unreadCount` as a `StateFlow<Int>`. The composable SHALL collect it via `collectAsStateWithLifecycle()` and pass the value to `MainShellChrome` so the chrome layer remains preview-friendly without standing up Hilt.
+
+#### Scenario: Chrome is preview-friendly
+
+- **WHEN** `MainShellChrome` is exercised in a preview or screenshot test
+- **THEN** the unread count SHALL be supplied as a plain `Int` parameter — no Hilt entry point required to render the bar/rail

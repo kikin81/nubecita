@@ -1,5 +1,8 @@
-## ADDED Requirements
+# share-target Specification
 
+## Purpose
+Nubecita as an inbound Android share target (`ACTION_SEND`) for text/links and a single image. The entry point is treated as untrusted and validated, and a shared image is copied into app-owned storage with a bounded, cleaned-up lifecycle.
+## Requirements
 ### Requirement: Nubecita is an Android share target for text/links and a single image
 
 Nubecita SHALL declare `ACTION_SEND` `<intent-filter>`s on `MainActivity` for `text/plain` and `image/*` (single item), so it appears in the system share sheet when another app shares a URL, text, or an image. When selected, it SHALL open the post composer prefilled with the shared content. `ACTION_SEND_MULTIPLE` and `video/*` are out of scope for v1.
@@ -91,14 +94,3 @@ A shared image SHALL be copied into a dedicated `filesDir/composer_shares/` subd
 
 - **WHEN** the composer is restored (e.g. after process death) but the copied file is gone
 - **THEN** the attachment degrades to an "image unavailable" state; the app does not crash.
-
-## MODIFIED Requirements
-
-### Requirement: `ComposerRoute` supports prefill of shared content
-
-`ComposerRoute` SHALL gain two optional params — `sharedText: String?` and `sharedImageUri: String?` (both default null) — carried on the serialized `NavKey` so Compose Navigation restores them across process death. `ComposerViewModel` SHALL seed its `TextFieldState` from `sharedText` and dispatch `AddAttachments` from `sharedImageUri`. Existing `replyToUri` / `quotePostUri` / `mentionHandle` behavior and all existing call sites are unchanged (new params default null).
-
-#### Scenario: Existing composer entry points unaffected
-
-- **WHEN** the composer is opened from the feed FAB, a reply, a quote, or a mention (no shared params)
-- **THEN** behavior is identical to before this change; `sharedText`/`sharedImageUri` are null and ignored.

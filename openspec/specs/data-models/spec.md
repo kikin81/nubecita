@@ -279,3 +279,109 @@ When future lexicon evolution introduces another composite embed type that conta
 
 - **WHEN** `quotedRecord` is read on `EmbedUi.Empty`, `EmbedUi.Images`, `EmbedUi.Video`, `EmbedUi.External`, `EmbedUi.RecordUnavailable`, or `EmbedUi.Unsupported`
 - **THEN** the result is `null` for every case
+
+### Requirement: `NotificationItemUi` is a sealed Single / Aggregated type in `:data:models`
+
+`:data:models` SHALL expose `NotificationItemUi` as an `@Stable sealed interface` with two variants:
+
+- `Single` — exactly one actor; carries `subjectPost: PostUi?` (null for follow / verified / starterpack-joined / unverified reasons).
+- `Aggregated` — two or more actors collapsed from same-reason events on the same `reasonSubject` (or same calendar day for `follow`); carries the same `subjectPost: PostUi?` plus the full `actors: ImmutableList<AuthorUi>`.
+
+Both variants SHALL expose: `itemKey: String` (stable LazyColumn key), `reason: NotificationReason`, `indexedAt: kotlin.time.Instant`, `isRead: Boolean`, `actors: ImmutableList<AuthorUi>`.
+
+#### Scenario: Single carries one actor
+
+- **WHEN** a `NotificationItemUi.Single` is constructed
+- **THEN** `actors.size` SHALL equal 1
+
+#### Scenario: Aggregated carries two or more actors
+
+- **WHEN** a `NotificationItemUi.Aggregated` is constructed
+- **THEN** `actors.size` SHALL be greater than or equal to 2
+
+### Requirement: `NotificationReason` enum covers known lexicon values plus `Unknown`
+
+`:data:models` SHALL expose `NotificationReason` as a Kotlin `enum class` with values: `Like`, `Repost`, `Follow`, `Mention`, `Reply`, `Quote`, `StarterpackJoined`, `Verified`, `Unverified`, `LikeViaRepost`, `RepostViaRepost`, `SubscribedPost`, `ContactMatch`, and `Unknown`. The `Unknown` value SHALL be assigned to any reason string the mapper does not recognize, preserving forward compatibility when the lexicon adds new values.
+
+#### Scenario: Unknown reason maps to Unknown
+
+- **WHEN** the mapper encounters a `reason` string not in the known list (e.g. `"future-reason"`)
+- **THEN** the mapper SHALL set `NotificationReason.Unknown` and the row SHALL still render with a fallback icon
+
+### Requirement: `NotificationFilter` enum exposes the slice-1 filter chip set
+
+`:data:models` SHALL expose `NotificationFilter` as a Kotlin `enum class` with exactly the values `All`, `Mentions`, `Reposts`, `Follows`, `Likes`. Each value SHALL expose a public `reasons: ImmutableList<String>?` property that maps to the lexicon `reasons[]` request parameter (null for `All`). The property is `public` because cross-module consumers (`:feature:notifications:impl`) need to read it, and `ImmutableList` matches the data-models capability's immutable-collections convention.
+
+#### Scenario: Mentions filter maps to three reason values
+
+- **WHEN** `NotificationFilter.Mentions.reasons` is read
+- **THEN** the returned list SHALL equal `["mention", "reply", "quote"]`
+
+### Requirement: `NotificationItemUi` ships fixture factories for previews and tests
+
+`:data:models` SHALL provide a `NotificationItemUiFixtures` object exposing factory functions for `singleLike`, `aggregatedLikes(actorCount)`, `singleFollow`, `aggregatedFollows(actorCount)`, `singleReply`, `singleQuote`, `singleMention`, and at least one fixture per other known reason. Fixtures SHALL be usable from any module that depends on `:data:models` (previews, screenshot tests, unit tests).
+
+#### Scenario: Fixture is consumable from a preview
+
+- **WHEN** a `@Preview` composable in `:designsystem` or `:feature:notifications:impl` references `NotificationItemUiFixtures.aggregatedLikes(3)`
+- **THEN** the fixture SHALL return a valid `NotificationItemUi.Aggregated` with three actors and a non-null `subjectPost`
+
+### Requirement: `:data:models` provides a `FeedItemUi` sealed type for feed projections
+
+`:data:models` SHALL expose a public `FeedItemUi` sealed interface as the projection target for feed mappers (timeline, future profile-feed, future search-feed). The interface SHALL have exactly two variants:
+
+- `data class Single(val post: PostUi) : FeedItemUi` — a standalone feed entry. The wire-level `app.bsky.feed.defs#feedViewPost` carries no `reply`, or carries one whose `parent` cannot be projected to a `PostUi` (lexicon `BlockedPost` / `NotFoundPost`).
+- `data class ReplyCluster(val root: PostUi, val parent: PostUi, val leaf: PostUi, val hasEllipsis: Boolean) : FeedItemUi` — a cross-author or cross-time reply. `leaf` is the post that lives in the user's timeline; `parent` is `replyRef.parent`; `root` is `replyRef.root`. `hasEllipsis = true` indicates that intermediate posts were elided between root and parent.
+
+`FeedItemUi` SHALL NOT carry per-feed metadata (e.g. repost-attribution, feed-context-string from the `app.bsky.feed.getFeed` response). That metadata SHALL remain on the leaf `PostUi` (`repostedBy` and similar fields). The sealed type's job is to express cluster-vs-single rendering shape, not to enrich per-post metadata.
+
+`FeedItemUi` SHALL be `@Stable` so Compose can skip recomposition of feed item containers when the wrapping projection doesn't change.
+
+#### Scenario: Single variant carries one PostUi
+
+- **WHEN** a feed entry's `feedViewPost.reply` is null (or `replyRef.parent` is `BlockedPost`/`NotFoundPost`)
+- **THEN** the mapper produces `FeedItemUi.Single(leaf)` with the leaf's `PostUi` projection
+
+#### Scenario: ReplyCluster variant carries root + parent + leaf
+
+- **WHEN** a feed entry's `feedViewPost.reply.parent` is a renderable `PostView` and `replyRef.root` is a renderable `PostView`
+- **THEN** the mapper produces `FeedItemUi.ReplyCluster(root, parent, leaf, hasEllipsis)` where `root`, `parent`, `leaf` are full `PostUi` projections and `hasEllipsis` follows the heuristic in the `feature-feed` capability
+
+#### Scenario: FeedItemUi is exhaustive at compile time
+
+- **WHEN** Kotlin compiles a `when (item: FeedItemUi)` expression in a render dispatch (e.g. `FeedScreen.LoadedFeedContent`)
+- **THEN** the compiler SHALL warn if any variant is unhandled — the sealed-interface declaration enables exhaustive `when` checking
+
+### Requirement: `FeedItemUi` exposes a `SelfThreadChain` sealed variant for same-author chains
+
+The system SHALL extend the `net.kikin.nubecita.data.models.FeedItemUi` sealed interface with a third variant `SelfThreadChain` carrying an `ImmutableList<PostUi>` of same-author posts in chronological order. The variant MUST satisfy:
+
+- `posts.size >= 2` — a single-post chain is a `Single`, not a `SelfThreadChain`. Construction sites that produce `posts.size < 2` are programmer errors.
+- All elements of `posts` MUST share the same `author.did`. Mixed-author "chains" are not legal `SelfThreadChain` instances; the producer (the feed mapper) is responsible for upholding this.
+- Posts MUST be ordered root-most first. `posts[0]` is the chain's root post; `posts.last()` is the leaf the user thinks of as "this entry in my timeline".
+- `key: String` MUST equal `posts.last().id` — leaf-anchored, matching `ReplyCluster`'s pagination contract.
+- `SelfThreadChain` MUST NOT carry per-feed metadata (no `repostedBy` field on the chain itself). Per-feed metadata stays on individual `PostUi` elements where applicable; for chains, the `repostedBy` field on every `PostUi` is `null` because reposted entries are excluded from chain links by the producer (see `feature-feed` spec).
+
+#### Scenario: A 3-post chain has size 3 and ends on the leaf
+
+- **WHEN** the feed mapper produces a `SelfThreadChain` from three consecutive same-author self-replies whose URIs form `root.uri → reply1.uri → reply2.uri`
+- **THEN** the resulting `SelfThreadChain.posts` has size 3, `posts[0].id == root.uri`, `posts[1].id == reply1.uri`, `posts[2].id == reply2.uri`, and `key == reply2.uri`.
+
+#### Scenario: All chain posts share the same author DID
+
+- **WHEN** any `SelfThreadChain` value is inspected
+- **THEN** `posts.distinctBy { it.author.did }.size == 1` — the chain MUST be pure same-author by construction.
+
+#### Scenario: Sealed-interface exhaustiveness propagates to consumers
+
+- **WHEN** any consumer of `FeedItemUi` is recompiled after `SelfThreadChain` is introduced
+- **THEN** every `when (item: FeedItemUi)` block without an `is FeedItemUi.SelfThreadChain ->` branch SHALL fail compilation with a non-exhaustive-when warning treated as an error (Kotlin sealed-interface contract).
+
+### Requirement: `SelfThreadChain` MUST NOT introduce new module-level dependencies
+
+The addition of the `SelfThreadChain` variant SHALL NOT change the dependency graph of `:data:models`. The variant uses only types already exposed by the module: `PostUi`, `kotlinx.collections.immutable.ImmutableList`, `androidx.compose.runtime.Stable`. No new `atproto-*` dependencies, no new Compose dependencies, no Hilt.
+
+#### Scenario: No new dependency lines
+
+- **WHEN** `:data:models/build.gradle.kts` is diffed before/after this change
+- **THEN** the `dependencies { ... }` block SHALL be unchanged.
