@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785398869841,
+  "lastUpdate": 1785486011920,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -1151,6 +1151,64 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 591,
             "range": "+/- 2.6%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "72309d4f5d4d52bd3ac97add3516a5fc45a2019e",
+          "message": "chore(settings): migrate Content filters to NubecitaListGroup (#823)\n\nReplace the hand-rolled AdultContentToggleRow (a Row split off by a\nHorizontalDivider on the bare surface canvas) with the design system's\nM3 Expressive segmented list, so tapping Settings -> Content filters is\nno longer a visual downgrade from the Settings home.\n\nGrouped by meaning rather than one flat run: the account-level\n\"Enable adult content\" gate becomes its own single-row group, and the\nfour per-category Show/Warn/Hide pickers stay LabelVisibilityGroup\nconnected button groups with their title/description in a nested 4dp\nColumn above, mirroring FeedPreferencesScreen's RepliesBlock. The\nbutton group is deliberately kept - its labels are short, comparable\nand equal-width-friendly in all three locales, unlike the reply\npicker's \"People you follow\" that forced the radio-list switch.\n\nAccessibility improves: the row now owns the gesture via\nNubecitaListItem's onCheckedChange mode (Role.Switch) and carries the\nlabel, so a screen reader announces \"Enable adult content, switch, off\"\ninstead of the bare \"switch, off\" the old detached Switch produced. The\ntrailing Switch is display-only, leaving one interactive node.\n\nNo strings added or changed, and no ViewModel-side guards touched - the\nper-category `enabled` greying and the ToggleButton re-tap filter both\nstay exactly where they were.\n\nRefs: nubecita-1ow5.3",
+          "timestamp": "2026-07-31T05:27:18Z",
+          "url": "https://github.com/kikin81/nubecita/commit/72309d4f5d4d52bd3ac97add3516a5fc45a2019e"
+        },
+        "date": 1785486010011,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 33,
+            "range": "+/- 3.9%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1473.054,
+            "range": "+/- 8.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1357.026,
+            "range": "+/- 10%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1157.661,
+            "range": "+/- 35.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1185.998,
+            "range": "+/- 32.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 656,
+            "range": "+/- 2.5%",
             "unit": "frames"
           }
         ]
