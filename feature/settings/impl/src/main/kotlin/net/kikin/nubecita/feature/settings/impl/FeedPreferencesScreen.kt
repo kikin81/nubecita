@@ -143,18 +143,25 @@ internal fun FeedPreferencesContent(
             // which would strand the explanation BELOW the options where it reads
             // as though it belonged to the next group. Reading order is heading,
             // then why it matters, then the choice.
-            Text(
-                text = stringResource(R.string.feed_preferences_replies),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-            Text(
-                text = stringResource(R.string.feed_preferences_replies_supporting),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 4.dp),
-            )
+            // Nested Column at 4dp: as direct children of the outer 8dp Column the
+            // caption sat as far from its own description as the groups sit from
+            // each other, so the pair did not read as one unit — which is the exact
+            // grouping problem this migration is meant to fix.
+            Column(
+                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.feed_preferences_replies),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = stringResource(R.string.feed_preferences_replies_supporting),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             // The three reply options are one mutually-exclusive choice, so they
             // form a single-select group: `singleSelect = true` adds
@@ -184,7 +191,14 @@ internal fun FeedPreferencesContent(
             // string in three locales for a styling change, and mixed
             // captioned/uncaptioned groups is what SettingsContent already does.
             NubecitaListGroup(items = FILTER_TOGGLES) { toggle, shapes ->
-                val checked = if (toggle == FilterToggle.Reposts) state.hideReposts else state.hideQuotePosts
+                // Exhaustive `when`, matching the one in onCheckedChange below: a
+                // third toggle must fail to compile rather than silently fall into
+                // an `else`.
+                val checked =
+                    when (toggle) {
+                        FilterToggle.Reposts -> state.hideReposts
+                        FilterToggle.QuotePosts -> state.hideQuotePosts
+                    }
                 NubecitaListItem(
                     shapes = shapes,
                     headlineContent = { Text(stringResource(toggle.titleRes)) },
