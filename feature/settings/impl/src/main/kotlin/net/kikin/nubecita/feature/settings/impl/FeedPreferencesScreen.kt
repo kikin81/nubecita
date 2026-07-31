@@ -7,21 +7,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -164,8 +164,17 @@ internal fun FeedPreferencesContent(
 }
 
 /**
- * The reply choice: one connected button group over the three mutually
- * exclusive options, mirroring `ContentFiltersScreen`'s `LabelVisibilityGroup`.
+ * The reply choice: a single-select radio list over the three mutually
+ * exclusive options.
+ *
+ * Deliberately NOT a connected button group (which is what
+ * `ContentFiltersScreen`'s `LabelVisibilityGroup` uses). A button group gives
+ * every segment equal width, so the longest label decides the layout: "People
+ * you follow" wrapped to two lines while "All" and "None" stayed on one,
+ * leaving the group ragged and the middle segment visually dominant.
+ * Shortening the English label would not fix it — pt-BR is "Pessoas que você
+ * segue", longer still. A button group is for short, comparable labels; a
+ * radio list has a full row per option and is indifferent to label length.
  */
 @Composable
 private fun RepliesBlock(
@@ -174,27 +183,27 @@ private fun RepliesBlock(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier.fillMaxWidth(),
     ) {
-        Text(
-            text = stringResource(R.string.feed_preferences_replies),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Text(
-            text = stringResource(R.string.feed_preferences_replies_supporting),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Column(
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.feed_preferences_replies),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = stringResource(R.string.feed_preferences_replies_supporting),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         ReplyVisibilityGroup(selected = selected, onSelect = onSelect)
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ReplyVisibilityGroup(
     selected: ReplyVisibility,
@@ -204,27 +213,51 @@ private fun ReplyVisibilityGroup(
     // The enum -> @StringRes pairing is static, so hoist it out of recomposition;
     // stringResource must stay in composition because it reads configuration.
     val options = remember { REPLY_VISIBILITY_ORDER.map { it to it.labelRes() } }
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+    Column(
+        // selectableGroup() makes TalkBack announce these as one radio group
+        // ("1 of 3") rather than three unrelated radio buttons.
+        modifier = modifier.fillMaxWidth().selectableGroup(),
     ) {
-        options.forEachIndexed { index, (visibility, labelRes) ->
-            ToggleButton(
-                checked = visibility == selected,
-                // Single-select: tapping the active segment fires
-                // onCheckedChange(false), which we ignore (no "none selected").
-                onCheckedChange = { newChecked -> if (newChecked) onSelect(visibility) },
-                modifier = Modifier.weight(1f),
-                shapes =
-                    when (index) {
-                        0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                        options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                        else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                    },
-            ) {
-                Text(stringResource(labelRes))
-            }
+        options.forEach { (visibility, labelRes) ->
+            ReplyVisibilityRow(
+                label = stringResource(labelRes),
+                selected = visibility == selected,
+                onSelect = { onSelect(visibility) },
+            )
         }
+    }
+}
+
+@Composable
+private fun ReplyVisibilityRow(
+    label: String,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                // selectable BEFORE padding so the whole padded row is the touch
+                // target, and so TalkBack merges the label and selected state into
+                // one announcement — same ownership rule as SwitchRow below.
+                .selectable(
+                    selected = selected,
+                    role = Role.RadioButton,
+                    onClick = onSelect,
+                ).padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        // Gesture + semantics live on the Row; a handler here would duplicate both.
+        RadioButton(selected = selected, onClick = null)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
