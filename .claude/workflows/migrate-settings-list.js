@@ -49,7 +49,12 @@ const DEFAULT_TARGETS = [
   },
 ]
 
-const targets = Array.isArray(args) && args.length ? args : DEFAULT_TARGETS
+// `typeof` guard: the runtime documents `args` as declared-and-undefined when
+// not passed, which Array.isArray handles safely — but an UNdeclared reference
+// would throw a ReferenceError on line one, before any work happens. Cheap
+// insurance against a runtime that does not match its contract.
+const targets =
+  typeof args !== 'undefined' && Array.isArray(args) && args.length ? args : DEFAULT_TARGETS
 
 // ---------------------------------------------------------------------------
 // Repo rules every agent must follow. Encoded here so a drifting agent cannot
@@ -228,7 +233,16 @@ report honestly rather than pushing something half-done.`,
 
   (migration, target) => {
     if (!migration || !migration.pushed) {
-      return { screen: target.screen, behaviourPreserved: false, findings: [], notes: 'not pushed — nothing to verify', skipped: true }
+      // NOT `behaviourPreserved: false` — that reads identically to "verified
+      // and found broken". Nothing was verified, so the answer is unknown.
+      return {
+        screen: target.screen,
+        behaviourPreserved: null,
+        findings: [],
+        skipped: true,
+        blocked: (migration && migration.blocked) || 'agent returned no result',
+        notes: 'not pushed — nothing to verify',
+      }
     }
     return agent(
       `Adversarially review the migration of \`${target.screen}\` to NubecitaListGroup.
@@ -265,17 +279,26 @@ const critical = done.flatMap((r) =>
   (r.findings || []).filter((f) => f.severity === 'critical').map((f) => ({ screen: r.screen, ...f })),
 )
 
-log(`${done.length} screen(s) processed, ${critical.length} critical finding(s)`)
+// A screen that never shipped must be impossible to mistake for one that
+// passed review. The agents are asked to explain themselves via `blocked`;
+// surfacing it here is the only thing that makes that explanation reach a human.
+const unfinished = done.filter((r) => r.skipped).map((r) => ({ screen: r.screen, blocked: r.blocked }))
+
+log(
+  `${done.length} screen(s) processed, ${unfinished.length} unfinished, ${critical.length} critical finding(s)`,
+)
 
 return {
   screens: done.map((r) => ({
     screen: r.screen,
     prUrl: r.migration && r.migration.prUrl,
+    // true / false / null — null means verification never ran.
     behaviourPreserved: r.behaviourPreserved,
     groups: r.migration && r.migration.groupsCreated,
     deviations: r.migration && r.migration.deviations,
     findings: r.findings,
   })),
+  unfinished,
   critical,
   humanFollowUp: [
     'Device pass each PR on the Pixel Fold (one device, serial) before merging.',
