@@ -5,6 +5,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
@@ -19,6 +20,9 @@ import java.security.GeneralSecurityException
 
 class DefaultSessionStateProviderTest {
     private val telemetry = mockk<SessionTelemetry>(relaxed = true)
+
+    /** Mirrors `DefaultSessionStateProvider.RETRY_DELAYS_MILLIS.size`. */
+    private val boundedRetryCount = 3
 
     /**
      * The store stream defaults to [emptyFlow] so the pull-path tests below
@@ -89,6 +93,69 @@ class DefaultSessionStateProviderTest {
                 assertEquals(SessionState.SignedOut, awaitItem())
             }
             verify(exactly = 1) { telemetry.onSessionReadErrorTerminal(any()) }
+        }
+
+    @Test
+    fun `a successful refresh revives an observer killed by a terminal read error`() =
+        runTest {
+            // A terminal storage failure completes the collector rather than
+            // looping — an unbounded retry would spin forever against a
+            // permanently invalidated Keystore. refresh() is what revives it, so
+            // the app doesn't spend the rest of the process blind to SDK clears.
+            var streamAttempts = 0
+            val session = sampleSession()
+            val store = MutableStateFlow<SessionLoadResult>(SessionLoadResult.Loaded(session))
+            val stream =
+                flow {
+                    // Fail the initial collection AND all three bounded retries so
+                    // the collector goes terminal; succeed once refresh() revives it.
+                    if (streamAttempts++ <= boundedRetryCount) throw IOException("disk unreadable")
+                    emitAll(store)
+                }
+            val provider = provider(stream = stream) { SessionLoadResult.Loaded(session) }
+
+            provider.state.test {
+                assertEquals(SessionState.Loading, awaitItem())
+                assertEquals(SessionState.SignedOut, awaitItem(), "terminal read error routes to Login")
+
+                // The store is readable again — refresh() must restart the observer.
+                provider.refresh()
+                assertTrue(awaitItem() is SessionState.SignedIn)
+
+                store.value = SessionLoadResult.Absent // a later SDK clear()
+
+                assertEquals(
+                    SessionState.SignedOut,
+                    awaitItem(),
+                    "the revived observer must still see clears it did not initiate",
+                )
+            }
+        }
+
+    @Test
+    fun `a refresh that still fails does not re-arm a doomed observer`() =
+        runTest {
+            var streamAttempts = 0
+            val stream =
+                flow<SessionLoadResult> {
+                    streamAttempts++
+                    throw IOException("disk unreadable")
+                }
+            val provider = provider(stream = stream) { SessionLoadResult.ReadError(IOException("still broken")) }
+
+            provider.state.test {
+                assertEquals(SessionState.Loading, awaitItem())
+                assertEquals(SessionState.SignedOut, awaitItem())
+                val afterFirstCollection = streamAttempts
+
+                provider.refresh() // store is still unreadable
+
+                assertEquals(
+                    afterFirstCollection,
+                    streamAttempts,
+                    "a failing refresh must not restart the collector — that is the hot-loop we avoid",
+                )
+            }
         }
 
     @Test
