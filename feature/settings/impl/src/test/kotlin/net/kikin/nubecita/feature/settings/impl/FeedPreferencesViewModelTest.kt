@@ -62,6 +62,44 @@ internal class FeedPreferencesViewModelTest {
             assertEquals(listOf(ReplyVisibility.ALL), repo.replyWrites)
         }
 
+    /**
+     * Re-selecting the active option must not write. `update()` in the
+     * repository has no short-circuit — it always does a getPreferences +
+     * putPreferences round-trip — so an unguarded re-tap costs two network
+     * calls to store the value already stored.
+     *
+     * Regression guard: the old connected-button-group UI filtered this out
+     * via `onCheckedChange { if (newChecked) ... }`, but `selectable` fires
+     * `onClick` unconditionally, so the guard has to live here.
+     */
+    @Test
+    fun `re-selecting the active reply visibility does not write`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeRepo(FeedViewPrefs.DEFAULT)
+            val vm = FeedPreferencesViewModel(repo)
+            val current = vm.uiState.value.replyVisibility
+
+            vm.handleEvent(FeedPreferencesEvent.ReplyVisibilitySelected(current))
+            advanceUntilIdle()
+
+            assertEquals(emptyList<ReplyVisibility>(), repo.replyWrites)
+        }
+
+    @Test
+    fun `selecting a different reply visibility still writes after a re-select`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeRepo(FeedViewPrefs.DEFAULT)
+            val vm = FeedPreferencesViewModel(repo)
+            val current = vm.uiState.value.replyVisibility
+            val other = ReplyVisibility.entries.first { it != current }
+
+            vm.handleEvent(FeedPreferencesEvent.ReplyVisibilitySelected(current))
+            vm.handleEvent(FeedPreferencesEvent.ReplyVisibilitySelected(other))
+            advanceUntilIdle()
+
+            assertEquals(listOf(other), repo.replyWrites)
+        }
+
     @Test
     fun `toggling reposts writes it through the repository`() =
         runTest(mainDispatcher.dispatcher) {
