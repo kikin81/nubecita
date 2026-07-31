@@ -11,8 +11,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItemShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -27,7 +27,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -35,10 +34,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.moderation.LabelVisibility
 import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.component.NubecitaListGroup
+import net.kikin.nubecita.designsystem.component.NubecitaListItem
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 
@@ -94,6 +96,28 @@ internal fun ContentFiltersScreen(
 /**
  * Stateless Content filters body. Extracted so preview / screenshot-test
  * composables can drive the layout without a Hilt graph.
+ *
+ * The master "Enable adult content" switch renders through the design system's
+ * M3 Expressive grouped list ([NubecitaListGroup] + [NubecitaListItem]) — the
+ * same components the Settings home uses — instead of a hand-rolled `Row` split
+ * off by a `HorizontalDivider`.
+ *
+ * The screen holds two kinds of control, so it is grouped by meaning rather
+ * than emitted as one flat run:
+ *
+ *  1. **The master gate** — a single-row group. It is an account-level on/off
+ *     switch, the same shape as every other Settings toggle, so it gets the
+ *     segmented list treatment and its own visual block.
+ *  2. **The per-category pickers** — one [CategoryBlock] each. These are
+ *     three-way Show/Warn/Hide choices, not list rows, so they stay
+ *     [LabelVisibilityGroup] connected button groups (short, comparable,
+ *     equal-width labels are exactly what a button group is for) with their
+ *     title and description above, mirroring `FeedPreferencesScreen`'s
+ *     `RepliesBlock`.
+ *
+ * No new section captions were invented: the pre-existing per-category titles
+ * already label their own picker, and a caption on the one-row gate group would
+ * need a brand-new string (plus es-419 / pt-BR) for what is a styling change.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,6 +128,9 @@ internal fun ContentFiltersContent(
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
+    // Stable reference for the row lambdas, so a fresh `{ onEvent(...) }` per
+    // recomposition doesn't defeat skipping (same reasoning as AboutContent).
+    val currentOnEvent by rememberUpdatedState(onEvent)
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surface,
@@ -128,82 +155,105 @@ internal fun ContentFiltersContent(
                     .padding(innerPadding)
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(bottom = 16.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
                 text = stringResource(R.string.content_filters_description),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             )
 
-            AdultContentToggleRow(
-                enabled = state.adultContentEnabled,
-                onToggle = { onEvent(ContentFiltersEvent.AdultContentToggled(it)) },
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            // One-row group: the account-level adult-content gate. The group's
+            // single item IS the checked value, so the row slot receives it
+            // directly and no separate row model is needed.
+            NubecitaListGroup(items = persistentListOf(state.adultContentEnabled)) { checked, shapes ->
+                AdultGateRowContent(
+                    checked = checked,
+                    shapes = shapes,
+                    onToggle = { currentOnEvent(ContentFiltersEvent.AdultContentToggled(it)) },
+                )
+            }
 
             state.categories.forEach { row ->
                 CategoryBlock(
                     row = row,
-                    onSelect = { onEvent(ContentFiltersEvent.VisibilitySelected(row.label, it)) },
+                    onSelect = { currentOnEvent(ContentFiltersEvent.VisibilitySelected(row.label, it)) },
                 )
             }
         }
     }
 }
 
+/**
+ * The "Enable adult content" master switch as an M3 Expressive segmented row.
+ *
+ * The row itself owns the toggle (via [NubecitaListItem]'s `onCheckedChange`
+ * mode, which applies `Modifier.toggleable(role = Role.Switch)`), so a screen
+ * reader announces the label together with the on/off state. The trailing
+ * [Switch] is display-only (`onCheckedChange = null`) — one interactive node,
+ * not two. The pre-migration row had the gesture on the bare `Switch` with no
+ * label attached to it at all, so this also fixes a "switch, off" announcement.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun AdultContentToggleRow(
-    enabled: Boolean,
+private fun AdultGateRowContent(
+    checked: Boolean,
+    shapes: ListItemShapes,
     onToggle: (Boolean) -> Unit,
 ) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
+    NubecitaListItem(
+        shapes = shapes,
+        headlineContent = {
             Text(
                 text = stringResource(R.string.content_filters_enable_adult),
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
             )
+        },
+        checked = checked,
+        onCheckedChange = onToggle,
+        supportingContent = {
             Text(
                 text = stringResource(R.string.content_filters_enable_adult_supporting),
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-        Switch(checked = enabled, onCheckedChange = onToggle)
-    }
+        },
+        trailingContent = { Switch(checked = checked, onCheckedChange = null) },
+    )
 }
 
+/**
+ * One content-label category: its title and description in a nested 4dp Column
+ * ABOVE the picker, then the Show/Warn/Hide [LabelVisibilityGroup].
+ *
+ * The text is deliberately NOT the group's caption slot and not a list row: the
+ * description explains the choice that follows it, and a caption drawn
+ * immediately above the segments would strand it where it reads as belonging to
+ * the next block. Same layout as `FeedPreferencesScreen`'s `RepliesBlock`.
+ */
 @Composable
 private fun CategoryBlock(
     row: CategoryRowUi,
     onSelect: (LabelVisibility) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(
-            text = stringResource(row.titleRes),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Text(
-            text = stringResource(row.descriptionRes),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = stringResource(row.titleRes),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = stringResource(row.descriptionRes),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         LabelVisibilityGroup(
             selected = row.visibility,
             enabled = row.enabled,
@@ -219,6 +269,14 @@ private fun CategoryBlock(
  * as one joined control. Tapping the already-selected segment is a no-op; every
  * segment is disabled (greyed) when [enabled] is false (an adult category with
  * the master gate off).
+ *
+ * Deliberately kept a button group through the `NubecitaListGroup` migration.
+ * `FeedPreferencesScreen`'s reply picker became a radio list because "People you
+ * follow" wrapped to two lines against "All" / "None" (and pt-BR is longer
+ * still), leaving the equal-width segments ragged. Show / Warn / Hide are short
+ * and comparable in all three locales, which is precisely what a connected
+ * button group is for — and its per-segment `enabled` greying is the affordance
+ * that communicates the master gate.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
