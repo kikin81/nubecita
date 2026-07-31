@@ -128,9 +128,6 @@ internal fun ContentFiltersContent(
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
-    // Stable reference for the row lambdas, so a fresh `{ onEvent(...) }` per
-    // recomposition doesn't defeat skipping (same reasoning as AboutContent).
-    val currentOnEvent by rememberUpdatedState(onEvent)
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surface,
@@ -171,14 +168,14 @@ internal fun ContentFiltersContent(
                 AdultGateRowContent(
                     checked = checked,
                     shapes = shapes,
-                    onToggle = { currentOnEvent(ContentFiltersEvent.AdultContentToggled(it)) },
+                    onToggle = { onEvent(ContentFiltersEvent.AdultContentToggled(it)) },
                 )
             }
 
             state.categories.forEach { row ->
                 CategoryBlock(
                     row = row,
-                    onSelect = { currentOnEvent(ContentFiltersEvent.VisibilitySelected(row.label, it)) },
+                    onSelect = { onEvent(ContentFiltersEvent.VisibilitySelected(row.label, it)) },
                 )
             }
         }
@@ -250,7 +247,10 @@ private fun CategoryBlock(
             )
             Text(
                 text = stringResource(row.descriptionRes),
-                style = MaterialTheme.typography.bodySmall,
+                // bodyMedium, matching the gate row above: the segmented row takes
+                // M3's default supporting-text size, and leaving these at bodySmall
+                // made one description on the screen visibly larger than the rest.
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
