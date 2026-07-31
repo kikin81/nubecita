@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,6 +30,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -288,17 +293,36 @@ private fun LabelVisibilityGroup(
 ) {
     val options = VISIBILITY_ORDER.map { it to stringResource(it.labelRes()) }
     Row(
-        modifier = modifier.fillMaxWidth(),
+        // selectableGroup() so the three segments are announced as ONE
+        // single-select group ("2 of 3") instead of three unrelated toggle
+        // buttons. Purely semantic — no visual change, which the unchanged
+        // screenshot baselines pin.
+        modifier = modifier.fillMaxWidth().selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
     ) {
         options.forEachIndexed { index, (visibility, label) ->
+            val isSelected = visibility == selected
             ToggleButton(
-                checked = visibility == selected,
+                checked = isSelected,
                 // Single-select: tapping the active segment fires
                 // onCheckedChange(false), which we ignore (no "none selected").
                 onCheckedChange = { newChecked -> if (newChecked) onSelect(visibility) },
                 enabled = enabled,
-                modifier = Modifier.weight(1f),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        // ToggleButton reports itself as an independent checkable
+                        // control. This is a one-of-N choice, so override the role
+                        // and expose `selected` — that plus selectableGroup() is
+                        // what turns three toggles into one radio group.
+                        .semantics {
+                            role = Role.RadioButton
+                            // `this.` is load-bearing: the enclosing composable has a
+                            // `selected: LabelVisibility` parameter, so a bare
+                            // `selected =` resolves to that instead of the semantics
+                            // property and fails to compile.
+                            this.selected = isSelected
+                        },
                 shapes =
                     when (index) {
                         0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
