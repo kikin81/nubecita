@@ -299,16 +299,24 @@ private fun ThanksRowContent(
     NubecitaListItem(
         shapes = shapes,
         headlineContent = {
+            // The headline falls back to the handle when a contributor has no
+            // display name, so rendering "@handle" underneath unconditionally
+            // printed it twice ("zenos00.bsky.social" / "@zenos00.bsky.social").
+            // isNullOrBlank rather than a null check: displayName is hydrated
+            // from the profile later and an empty string is not a name.
+            val displayName = row.displayName?.takeIf { it.isNotBlank() }
             Column {
                 Text(
-                    text = row.displayName ?: row.handle,
+                    text = displayName ?: row.handle,
                     style = MaterialTheme.typography.bodyLarge,
                 )
-                Text(
-                    text = "@${row.handle}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                if (displayName != null) {
+                    Text(
+                        text = "@${row.handle}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = stringResource(row.blurbRes),
