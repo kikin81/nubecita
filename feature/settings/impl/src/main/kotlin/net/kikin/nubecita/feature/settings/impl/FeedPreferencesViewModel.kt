@@ -56,7 +56,16 @@ internal class FeedPreferencesViewModel
         override fun handleEvent(event: FeedPreferencesEvent) {
             when (event) {
                 is FeedPreferencesEvent.ReplyVisibilitySelected ->
-                    persist(REPLIES_KEY) { repository.setReplyVisibility(event.visibility) }
+                    // Re-selecting the active option is a no-op for the user but not
+                    // for the network: the repository's update() has no short-circuit,
+                    // so it would still do a getPreferences + putPreferences round-trip
+                    // to store the value already stored. Guarded here rather than in the
+                    // radio list so any caller is covered — the previous button-group UI
+                    // filtered this out itself, and swapping the control silently
+                    // dropped that guard.
+                    if (event.visibility != uiState.value.replyVisibility) {
+                        persist(REPLIES_KEY) { repository.setReplyVisibility(event.visibility) }
+                    }
                 is FeedPreferencesEvent.HideRepostsToggled ->
                     persist(REPOSTS_KEY) { repository.setHideReposts(event.hide) }
                 is FeedPreferencesEvent.HideQuotePostsToggled ->
