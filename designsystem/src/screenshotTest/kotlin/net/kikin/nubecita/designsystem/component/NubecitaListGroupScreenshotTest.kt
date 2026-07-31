@@ -1,6 +1,7 @@
 package net.kikin.nubecita.designsystem.component
 
 import android.content.res.Configuration
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
@@ -65,6 +66,32 @@ private fun NubecitaListGroupSingleRowScreenshot() {
             onClick = {},
             leadingContent = {
                 NubecitaIcon(name = item.icon, contentDescription = null, opticalSize = 24.dp)
+            },
+        )
+    }
+}
+
+/**
+ * The single-select mode: a group of one-of-N rows with a display-only leading
+ * radio. Covers both states in one fixture — the selected row and unselected
+ * siblings — so a regression that stops painting selection is visible.
+ */
+@PreviewTest
+@Preview(name = "single-select-light", showBackground = true)
+@Preview(name = "single-select-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
+@Composable
+private fun NubecitaListGroupSingleSelectScreenshot() {
+    val options = persistentListOf("All", "People you follow", "None")
+    NubecitaListGroup(items = options, label = "Replies", singleSelect = true) { option, shapes ->
+        NubecitaListItem(
+            shapes = shapes,
+            headlineContent = { Text(option) },
+            selected = option == "People you follow",
+            onSelect = {},
+            leadingContent = {
+                // Display-only: the row owns the gesture and the semantics.
+                RadioButton(selected = option == "People you follow", onClick = null)
             },
         )
     }
