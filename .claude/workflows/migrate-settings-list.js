@@ -49,12 +49,56 @@ const DEFAULT_TARGETS = [
   },
 ]
 
-// `typeof` guard: the runtime documents `args` as declared-and-undefined when
-// not passed, which Array.isArray handles safely — but an UNdeclared reference
-// would throw a ReferenceError on line one, before any work happens. Cheap
-// insurance against a runtime that does not match its contract.
-const targets =
-  typeof args !== 'undefined' && Array.isArray(args) && args.length ? args : DEFAULT_TARGETS
+// Target selection is FAIL-LOUD on purpose.
+//
+// The first live run of this workflow migrated all three default screens when
+// only one was asked for, because `args` did not arrive as an array and the
+// old guard quietly fell back to DEFAULT_TARGETS. "Caller asked for something
+// specific but I could not read it" and "caller asked for nothing" are
+// completely different situations, and defaulting the first one to *migrate
+// everything* is the most destructive choice available. So: absent args means
+// the defaults, malformed args is an error.
+//
+// The `typeof` check stays because an UNdeclared reference would throw a bare
+// ReferenceError on line one, which is a much worse diagnostic than this.
+function resolveTargets() {
+  const raw = typeof args === 'undefined' ? undefined : args
+  if (raw === undefined || raw === null) return DEFAULT_TARGETS
+
+  // The Workflow tool wants real JSON, but a stringified array is the easy
+  // mistake to make; recover from it rather than migrating the wrong screens.
+  let value = raw
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value)
+    } catch (e) {
+      throw new Error(
+        `args was a string that is not JSON (${JSON.stringify(raw.slice(0, 80))}). ` +
+          'Pass a real JSON array of target objects, not a stringified one.',
+      )
+    }
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error(
+      `args must be an array of target objects, got ${typeof value}. ` +
+        'Omit args entirely to migrate the default set.',
+    )
+  }
+  if (!value.length) {
+    throw new Error('args was an empty array. Omit args entirely to migrate the default set.')
+  }
+
+  const bad = value.filter((t) => !t || !t.bdId || !t.screen || !t.slug)
+  if (bad.length) {
+    throw new Error(
+      `${bad.length} target(s) missing a required field (bdId, screen, slug): ${JSON.stringify(bad).slice(0, 200)}`,
+    )
+  }
+  return value.map((t) => ({ handRolled: [], notes: [], ...t }))
+}
+
+const targets = resolveTargets()
 
 // ---------------------------------------------------------------------------
 // Repo rules every agent must follow. Encoded here so a drifting agent cannot
@@ -198,7 +242,13 @@ const VERDICT_SCHEMA = {
 // then reviews the PUSHED diff, which needs no worktree — so the review is
 // genuinely independent of the agent that wrote the code.
 // ---------------------------------------------------------------------------
-log(`Migrating ${targets.length} Settings screen(s) to NubecitaListGroup`)
+// Name the screens, not just the count. The first live run spawned three
+// agents when one was expected, and a bare count would not have made that
+// obvious until worktrees appeared.
+log(
+  `Migrating ${targets.length} screen(s)${typeof args === 'undefined' || args === null ? ' (DEFAULT set — no args passed)' : ''}: ` +
+    targets.map((t) => `${t.screen} [${t.bdId}]`).join(', '),
+)
 
 const results = await pipeline(
   targets,
