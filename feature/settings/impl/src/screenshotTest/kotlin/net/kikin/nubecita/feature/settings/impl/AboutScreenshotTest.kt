@@ -42,6 +42,15 @@ private fun aboutState(): AboutState =
                     avatarUrl = null,
                     blurbRes = R.string.about_thanks_zenos,
                 ),
+                ThanksRowUi(
+                    did = "did:plc:cameronbanga",
+                    handle = "cameronbanga.com",
+                    // Lowercase, no space — this is the account's actual Bluesky
+                    // display name as observed on device, not a tidied version.
+                    displayName = "cameronbanga",
+                    avatarUrl = null,
+                    blurbRes = R.string.about_thanks_cameronbanga,
+                ),
             ),
     )
 
