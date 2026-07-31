@@ -6,10 +6,8 @@ import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import androidx.browser.customtabs.CustomTabsIntent
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,19 +15,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItemShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -43,6 +42,8 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.review.PlayStoreLauncher
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaAvatar
+import net.kikin.nubecita.designsystem.component.NubecitaListGroup
+import net.kikin.nubecita.designsystem.component.NubecitaListItem
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.profile.api.Profile
@@ -108,6 +109,17 @@ internal fun AboutScreen(
 /**
  * Stateless About body. Extracted so preview / screenshot-test composables can
  * drive the layout without a Hilt graph.
+ *
+ * Rows render through the design system's M3 Expressive grouped list
+ * ([NubecitaListGroup] + [NubecitaListItem]), the same components the Settings
+ * home uses, rather than hand-rolled `Row`s split by `HorizontalDivider`. The
+ * flat run is split into three groups by purpose:
+ *
+ *  1. **App links** — "Source on GitHub" and "Rate Nubecita", the two rows that
+ *     leave the app for an external destination.
+ *  2. **Special thanks** — the contributor roster, captioned with the existing
+ *     `about_thanks_section` string (previously a hand-rolled section header).
+ *  3. **Legal** — "Open source licenses" on its own, an in-app sub-route push.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -118,6 +130,42 @@ internal fun AboutContent(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Stable reference for the row lambdas: AboutLinkRow captures its onClick in
+    // structural equality, so a fresh `{ onEvent(...) }` per recomposition would
+    // defeat @Immutable skipping (same reasoning as SettingsContent).
+    val currentOnEvent by rememberUpdatedState(onEvent)
+    val sourceLabel = stringResource(R.string.about_source_label)
+    val sourceContentDesc = stringResource(R.string.about_source_content_desc)
+    val rateLabel = stringResource(R.string.about_rate_label)
+    val rateContentDesc = stringResource(R.string.about_rate_content_desc)
+    val licensesLabel = stringResource(R.string.about_licenses_label)
+
+    val appLinkRows =
+        remember(sourceLabel, sourceContentDesc, rateLabel, rateContentDesc) {
+            persistentListOf(
+                AboutLinkRow(
+                    label = sourceLabel,
+                    trailingContentDescription = sourceContentDesc,
+                    onClick = { currentOnEvent(AboutEvent.SourceTapped) },
+                ),
+                AboutLinkRow(
+                    label = rateLabel,
+                    trailingContentDescription = rateContentDesc,
+                    onClick = { currentOnEvent(AboutEvent.RateAppTapped) },
+                ),
+            )
+        }
+    val legalRows =
+        remember(licensesLabel) {
+            persistentListOf(
+                AboutLinkRow(
+                    label = licensesLabel,
+                    trailingContentDescription = null,
+                    onClick = { currentOnEvent(AboutEvent.LicensesTapped) },
+                ),
+            )
+        }
+
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surface,
@@ -140,40 +188,39 @@ internal fun AboutContent(
                 Modifier
                     .padding(innerPadding)
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             AboutHeader(versionLabel = versionLabel)
 
-            NavRow(
-                label = stringResource(R.string.about_source_label),
-                contentDescription = stringResource(R.string.about_source_content_desc),
-                onClick = { onEvent(AboutEvent.SourceTapped) },
-            )
-            NavRow(
-                label = stringResource(R.string.about_rate_label),
-                contentDescription = stringResource(R.string.about_rate_content_desc),
-                onClick = { onEvent(AboutEvent.RateAppTapped) },
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-            SectionHeader(text = stringResource(R.string.about_thanks_section))
-            state.thanks.forEach { row ->
-                ThanksRow(row = row, onClick = { onEvent(AboutEvent.ThanksRowTapped(row.did)) })
+            NubecitaListGroup(items = appLinkRows) { row, shapes ->
+                AboutLinkRowContent(row = row, shapes = shapes)
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-            NavRow(
-                label = stringResource(R.string.about_licenses_label),
-                contentDescription = null,
-                onClick = { onEvent(AboutEvent.LicensesTapped) },
-            )
+            NubecitaListGroup(
+                items = state.thanks,
+                label = stringResource(R.string.about_thanks_section),
+            ) { row, shapes ->
+                ThanksRowContent(
+                    row = row,
+                    shapes = shapes,
+                    onClick = { currentOnEvent(AboutEvent.ThanksRowTapped(row.did)) },
+                )
+            }
+
+            NubecitaListGroup(items = legalRows) { row, shapes ->
+                AboutLinkRowContent(row = row, shapes = shapes)
+            }
         }
     }
 }
 
 @Composable
 private fun AboutHeader(versionLabel: String) {
-    Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
+    // 8dp on top of the content Column's 16dp inset keeps the header's 24dp
+    // gutter from before the grouped-list migration.
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 16.dp)) {
         Text(
             text = stringResource(R.string.about_app_name),
             style = MaterialTheme.typography.headlineSmall,
@@ -194,75 +241,75 @@ private fun AboutHeader(versionLabel: String) {
     }
 }
 
+/**
+ * One "navigate away" row in an About group. The trailing chevron keeps its own
+ * [trailingContentDescription] so the row still announces the destination
+ * ("Open the Nubecita source code on GitHub") alongside its label, exactly as
+ * the pre-migration hand-rolled row did.
+ */
+@Immutable
+private data class AboutLinkRow(
+    val label: String,
+    val trailingContentDescription: String?,
+    val onClick: () -> Unit,
+)
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun SectionHeader(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
+private fun AboutLinkRowContent(
+    row: AboutLinkRow,
+    shapes: ListItemShapes,
+) {
+    NubecitaListItem(
+        shapes = shapes,
+        headlineContent = {
+            Text(text = row.label, style = MaterialTheme.typography.bodyLarge)
+        },
+        onClick = row.onClick,
+        trailingContent = {
+            NubecitaIcon(
+                name = NubecitaIconName.ChevronRight,
+                contentDescription = row.trailingContentDescription,
+            )
+        },
     )
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun NavRow(
-    label: String,
-    contentDescription: String?,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
-        )
-        NubecitaIcon(name = NubecitaIconName.ChevronRight, contentDescription = contentDescription)
-    }
-}
-
-@Composable
-private fun ThanksRow(
+private fun ThanksRowContent(
     row: ThanksRowUi,
+    shapes: ListItemShapes,
     onClick: () -> Unit,
 ) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        NubecitaAvatar(model = row.avatarUrl, contentDescription = null, size = 40.dp)
-        Column(modifier = Modifier.weight(1f)) {
+    NubecitaListItem(
+        shapes = shapes,
+        headlineContent = {
             Text(
                 text = row.displayName ?: row.handle,
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
             )
-            Text(
-                text = "@${row.handle}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = stringResource(row.blurbRes),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
+        },
+        onClick = onClick,
+        leadingContent = {
+            NubecitaAvatar(model = row.avatarUrl, contentDescription = null, size = 40.dp)
+        },
+        supportingContent = {
+            Column {
+                Text(
+                    text = "@${row.handle}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = stringResource(row.blurbRes),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+    )
 }
 
 // Runtime-read versionName + versionCode via PackageManager (the module has no
