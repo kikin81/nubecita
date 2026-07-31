@@ -1,6 +1,7 @@
 Thanks for using nubecita! What's new:
-• Videos — a full-screen, vertical video feed. Swipe through trending clips, loop and tap to pause, double-tap to like.
-• Watch any account's videos as their own endless vertical feed, straight from their profile.
-• Bookmark, share, and moderate right from the player.
-• Faster and more stable — refreshed startup profiles and crash fixes.
+• Post videos — add a clip in the composer, with alt text and clear upload errors.
+• Feed preferences — choose whether replies, reposts and quote posts appear in Following.
+• A calmer Following feed — a busy thread shows once, with a tap to see the replies it collapsed.
+• Delete your own posts from the overflow menu.
+• Refreshed Settings, plus battery and stability fixes.
 Thanks for being here. 💙

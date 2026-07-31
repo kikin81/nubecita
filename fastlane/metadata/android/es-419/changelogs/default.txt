@@ -1,6 +1,7 @@
 ¡Gracias por usar nubecita! Novedades:
-• Videos: un feed de video vertical a pantalla completa. Desliza entre los clips en tendencia, se repiten solos, toca para pausar y toca dos veces para dar me gusta.
-• Mira los videos de cualquier cuenta como su propio feed vertical infinito, directo desde su perfil.
-• Guarda, comparte y modera desde el reproductor.
-• Más rápido y estable: perfiles de inicio renovados y correcciones de fallos.
+• Publica videos: agrega un clip desde el editor, con texto alternativo y errores de subida claros.
+• Preferencias del feed: elige si las respuestas, republicaciones y citas aparecen en Siguiendo.
+• Un feed Siguiendo más tranquilo: un hilo activo aparece una sola vez; toca para ver las respuestas agrupadas.
+• Elimina tus propias publicaciones desde el menú.
+• Ajustes renovados, con mejoras de batería y estabilidad.
 ¡Gracias por acompañarnos! 💙
