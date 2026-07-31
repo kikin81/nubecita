@@ -89,11 +89,34 @@ function resolveTargets() {
     throw new Error('args was an empty array. Omit args entirely to migrate the default set.')
   }
 
-  const bad = value.filter((t) => !t || !t.bdId || !t.screen || !t.slug)
-  if (bad.length) {
-    throw new Error(
-      `${bad.length} target(s) missing a required field (bdId, screen, slug): ${JSON.stringify(bad).slice(0, 200)}`,
-    )
+  // Validate at the boundary and name the offending field. The alternative is a
+  // TypeError deep in the pipeline — `"NavRow".join()` — which surfaces only
+  // after agents have already spawned and cost a worktree each.
+  const problems = []
+  value.forEach((t, i) => {
+    const at = `args[${i}]`
+    if (!t || typeof t !== 'object') {
+      problems.push(`${at} is not an object`)
+      return
+    }
+    for (const field of ['bdId', 'screen', 'slug']) {
+      const v = t[field]
+      // Truthiness alone lets a number through, which then builds a branch
+      // name like `chore/123-…` rather than failing.
+      if (typeof v !== 'string' || !v.trim()) {
+        problems.push(`${at}.${field} must be a non-empty string, got ${JSON.stringify(v)}`)
+      }
+    }
+    for (const field of ['handRolled', 'notes']) {
+      // These have defaults below, but a spread lets a caller's wrong-typed
+      // value REPLACE the default rather than fall back to it.
+      if (t[field] !== undefined && !Array.isArray(t[field])) {
+        problems.push(`${at}.${field} must be an array if provided, got ${typeof t[field]}`)
+      }
+    }
+  })
+  if (problems.length) {
+    throw new Error(`Invalid args:\n  - ${problems.join('\n  - ')}`)
   }
   return value.map((t) => ({ handRolled: [], notes: [], ...t }))
 }
