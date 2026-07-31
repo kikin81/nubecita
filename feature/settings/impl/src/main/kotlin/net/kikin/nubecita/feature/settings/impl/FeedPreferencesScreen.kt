@@ -1,18 +1,14 @@
 package net.kikin.nubecita.feature.settings.impl
 
 import android.content.res.Configuration
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -28,19 +24,20 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.feeds.FeedViewPrefs
 import net.kikin.nubecita.core.feeds.ReplyVisibility
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.component.NubecitaListGroup
+import net.kikin.nubecita.designsystem.component.NubecitaListItem
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 
@@ -130,181 +127,102 @@ internal fun FeedPreferencesContent(
                     .padding(innerPadding)
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp)
                     .padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
                 text = stringResource(R.string.feed_preferences_description),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                modifier = Modifier.padding(vertical = 12.dp),
             )
 
-            RepliesBlock(
-                selected = state.replyVisibility,
-                onSelect = { onEvent(FeedPreferencesEvent.ReplyVisibilitySelected(it)) },
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-            SwitchRow(
-                title = stringResource(R.string.feed_preferences_hide_reposts),
-                supporting = stringResource(R.string.feed_preferences_hide_reposts_supporting),
-                checked = state.hideReposts,
-                onCheckedChange = { onEvent(FeedPreferencesEvent.HideRepostsToggled(it)) },
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-            SwitchRow(
-                title = stringResource(R.string.feed_preferences_hide_quotes),
-                supporting = stringResource(R.string.feed_preferences_hide_quotes_supporting),
-                checked = state.hideQuotePosts,
-                onCheckedChange = { onEvent(FeedPreferencesEvent.HideQuotePostsToggled(it)) },
-            )
-        }
-    }
-}
-
-/**
- * The reply choice: a single-select radio list over the three mutually
- * exclusive options.
- *
- * Deliberately NOT a connected button group (which is what
- * `ContentFiltersScreen`'s `LabelVisibilityGroup` uses). A button group gives
- * every segment equal width, so the longest label decides the layout: "People
- * you follow" wrapped to two lines while "All" and "None" stayed on one,
- * leaving the group ragged and the middle segment visually dominant.
- * Shortening the English label would not fix it — pt-BR is "Pessoas que você
- * segue", longer still. A button group is for short, comparable labels; a
- * radio list has a full row per option and is indifferent to label length.
- */
-@Composable
-private fun RepliesBlock(
-    selected: ReplyVisibility,
-    onSelect: (ReplyVisibility) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        Column(
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
+            // Caption + explanation are rendered here rather than via the group's
+            // `label` slot: the group draws its caption immediately above the rows,
+            // which would strand the explanation BELOW the options where it reads
+            // as though it belonged to the next group. Reading order is heading,
+            // then why it matters, then the choice.
             Text(
                 text = stringResource(R.string.feed_preferences_replies),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp),
             )
             Text(
                 text = stringResource(R.string.feed_preferences_replies_supporting),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 4.dp),
             )
-        }
-        ReplyVisibilityGroup(selected = selected, onSelect = onSelect)
-    }
-}
 
-@Composable
-private fun ReplyVisibilityGroup(
-    selected: ReplyVisibility,
-    onSelect: (ReplyVisibility) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    // The enum -> @StringRes pairing is static, so hoist it out of recomposition;
-    // stringResource must stay in composition because it reads configuration.
-    val options = remember { REPLY_VISIBILITY_ORDER.map { it to it.labelRes() } }
-    Column(
-        // selectableGroup() makes TalkBack announce these as one radio group
-        // ("1 of 3") rather than three unrelated radio buttons.
-        modifier = modifier.fillMaxWidth().selectableGroup(),
-    ) {
-        options.forEach { (visibility, labelRes) ->
-            ReplyVisibilityRow(
-                label = stringResource(labelRes),
-                selected = visibility == selected,
-                onSelect = { onSelect(visibility) },
-            )
-        }
-    }
-}
+            // The three reply options are one mutually-exclusive choice, so they
+            // form a single-select group: `singleSelect = true` adds
+            // selectableGroup(), which is what makes a screen reader announce
+            // "1 of 3" rather than three unrelated radio buttons.
+            NubecitaListGroup(items = REPLY_VISIBILITY_ORDER, singleSelect = true) { visibility, shapes ->
+                NubecitaListItem(
+                    shapes = shapes,
+                    headlineContent = { Text(stringResource(visibility.labelRes())) },
+                    selected = visibility == state.replyVisibility,
+                    // Fires on EVERY tap, including the already-selected row. The
+                    // ViewModel drops the no-op write; deliberately not guarded
+                    // here, because a UI-side guard is what vanished when this
+                    // control last changed (nubecita-239m).
+                    onSelect = { onEvent(FeedPreferencesEvent.ReplyVisibilitySelected(visibility)) },
+                    leadingContent = {
+                        // Display-only: the row owns the gesture and the state.
+                        RadioButton(selected = visibility == state.replyVisibility, onClick = null)
+                    },
+                )
+            }
 
-@Composable
-private fun ReplyVisibilityRow(
-    label: String,
-    selected: Boolean,
-    onSelect: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                // selectable BEFORE padding so the whole padded row is the touch
-                // target, and so TalkBack merges the label and selected state into
-                // one announcement — same ownership rule as SwitchRow below.
-                .selectable(
-                    selected = selected,
-                    role = Role.RadioButton,
-                    onClick = onSelect,
-                ).padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        // Gesture + semantics live on the Row; a handler here would duplicate both.
-        RadioButton(selected = selected, onClick = null)
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
-
-@Composable
-private fun SwitchRow(
-    title: String,
-    supporting: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                // toggleable BEFORE padding so the whole padded row is the touch
-                // target, and so TalkBack merges the title, supporting text and
-                // switch state into one announcement. Without it the Switch has
-                // no label at all and reads as a bare "switch, off".
-                .toggleable(
-                    value = checked,
-                    role = Role.Switch,
-                    onValueChange = onCheckedChange,
-                ).padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = supporting,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // Reposts and quote posts are independent toggles, so they are a
+            // second group rather than more rows in the first — the split is
+            // what carries "these are separate decisions".
+            // Uncaptioned: inventing a section name would mean a new user-facing
+            // string in three locales for a styling change, and mixed
+            // captioned/uncaptioned groups is what SettingsContent already does.
+            NubecitaListGroup(items = FILTER_TOGGLES) { toggle, shapes ->
+                val checked = if (toggle == FilterToggle.Reposts) state.hideReposts else state.hideQuotePosts
+                NubecitaListItem(
+                    shapes = shapes,
+                    headlineContent = { Text(stringResource(toggle.titleRes)) },
+                    supportingContent = { Text(stringResource(toggle.supportingRes)) },
+                    checked = checked,
+                    onCheckedChange = { hide ->
+                        onEvent(
+                            when (toggle) {
+                                FilterToggle.Reposts -> FeedPreferencesEvent.HideRepostsToggled(hide)
+                                FilterToggle.QuotePosts -> FeedPreferencesEvent.HideQuotePostsToggled(hide)
+                            },
+                        )
+                    },
+                    trailingContent = {
+                        // Display-only: the row owns the toggle, so there is one
+                        // interactive node rather than two.
+                        Switch(checked = checked, onCheckedChange = null)
+                    },
+                )
+            }
         }
-        // Gesture + semantics live on the Row; a handler here would duplicate both.
-        Switch(checked = checked, onCheckedChange = null)
     }
 }
 
 /** Least-filtered to most-filtered, so the group reads as an intensity scale. */
 private val REPLY_VISIBILITY_ORDER =
-    listOf(ReplyVisibility.ALL, ReplyVisibility.FOLLOWED_ONLY, ReplyVisibility.NONE)
+    persistentListOf(ReplyVisibility.ALL, ReplyVisibility.FOLLOWED_ONLY, ReplyVisibility.NONE)
+
+/** The two independent hide-toggles, as one group. */
+private enum class FilterToggle(
+    @param:StringRes val titleRes: Int,
+    @param:StringRes val supportingRes: Int,
+) {
+    Reposts(R.string.feed_preferences_hide_reposts, R.string.feed_preferences_hide_reposts_supporting),
+    QuotePosts(R.string.feed_preferences_hide_quotes, R.string.feed_preferences_hide_quotes_supporting),
+}
+
+private val FILTER_TOGGLES = persistentListOf(FilterToggle.Reposts, FilterToggle.QuotePosts)
 
 @androidx.annotation.StringRes
 private fun ReplyVisibility.labelRes(): Int =
