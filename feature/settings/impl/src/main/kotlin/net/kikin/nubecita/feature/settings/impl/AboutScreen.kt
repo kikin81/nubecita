@@ -282,20 +282,28 @@ private fun ThanksRowContent(
     shapes: ListItemShapes,
     onClick: () -> Unit,
 ) {
+    // All three lines live in headlineContent with NO supportingContent, which
+    // is load-bearing rather than stylistic.
+    //
+    // M3's list-item measure policy picks the three-line item type from
+    // `isSupportingMultiline` — whether the SUPPORTING placeable's first and
+    // last baselines differ. A Column of two Texts always differs, so putting
+    // the handle and blurb there forced every roster row to the three-line
+    // minimum height with top-aligned content, no matter how short its blurb.
+    // Rows with a one-line blurb ended up with roughly twice as much space
+    // below the text as above (nubecita-1ow5.8).
+    //
+    // With no supporting slot the row is measured against its actual content,
+    // so short and long entries pad evenly and the avatar centres against the
+    // text block — which is how the roster read before the list migration.
     NubecitaListItem(
         shapes = shapes,
         headlineContent = {
-            Text(
-                text = row.displayName ?: row.handle,
-                style = MaterialTheme.typography.bodyLarge,
-            )
-        },
-        onClick = onClick,
-        leadingContent = {
-            NubecitaAvatar(model = row.avatarUrl, contentDescription = null, size = 40.dp)
-        },
-        supportingContent = {
             Column {
+                Text(
+                    text = row.displayName ?: row.handle,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
                 Text(
                     text = "@${row.handle}",
                     style = MaterialTheme.typography.bodySmall,
@@ -308,6 +316,10 @@ private fun ThanksRowContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        },
+        onClick = onClick,
+        leadingContent = {
+            NubecitaAvatar(model = row.avatarUrl, contentDescription = null, size = 40.dp)
         },
     )
 }
