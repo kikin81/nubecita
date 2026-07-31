@@ -13,24 +13,32 @@ private fun aboutState(): AboutState =
         isLoadingThanks = false,
         thanks =
             persistentListOf(
+                // Display names mirror LIVE data, not what reads nicely. `toRow`
+                // sets `displayName = profile?.displayName` with no curated
+                // fallback, and the stavfx.com / vmlara.bsky.social accounts have
+                // no Bluesky display name — so a fixture giving them "Stav" and
+                // "V. M. Lara" pinned a screen no user ever sees. That skew is why
+                // the duplicate-handle bug (nubecita-1ow5.9) looked like one edge
+                // case here while affecting half the live rows. Keep the majority
+                // handle-only.
                 ThanksRowUi(
                     did = "did:plc:stavfx",
                     handle = "stavfx.com",
-                    displayName = "Stav",
+                    displayName = null,
                     avatarUrl = null,
                     blurbRes = R.string.about_thanks_stavfx,
                 ),
                 ThanksRowUi(
                     did = "did:plc:vmlara",
                     handle = "vmlara.bsky.social",
-                    displayName = "V. M. Lara",
+                    displayName = null,
                     avatarUrl = null,
                     blurbRes = R.string.about_thanks_vmlara,
                 ),
                 ThanksRowUi(
                     did = "did:plc:zenos",
                     handle = "zenos00.bsky.social",
-                    displayName = null,
+                    displayName = "Zen008",
                     avatarUrl = null,
                     blurbRes = R.string.about_thanks_zenos,
                 ),
