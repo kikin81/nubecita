@@ -3,7 +3,12 @@ package net.kikin.nubecita.core.auth
 import app.cash.turbine.test
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -15,13 +20,76 @@ import java.security.GeneralSecurityException
 class DefaultSessionStateProviderTest {
     private val telemetry = mockk<SessionTelemetry>(relaxed = true)
 
-    private fun provider(reader: SessionReader) = DefaultSessionStateProvider(reader, telemetry)
+    /**
+     * The store stream defaults to [emptyFlow] so the pull-path tests below
+     * exercise `refresh()` in isolation; the reactive tests pass an explicit
+     * stream. [scope] is the test's `backgroundScope` so the init collector is
+     * torn down with the test rather than leaking across cases.
+     */
+    private fun TestScope.provider(
+        stream: Flow<SessionLoadResult> = emptyFlow(),
+        reader: SessionReader,
+    ) = DefaultSessionStateProvider(reader, telemetry, { stream }, backgroundScope)
 
     @Test
-    fun `initial state is Loading before any refresh`() {
-        val provider = provider { SessionLoadResult.Absent }
-        assertEquals(SessionState.Loading, provider.state.value)
-    }
+    fun `initial state is Loading before any refresh`() =
+        runTest {
+            val provider = provider { SessionLoadResult.Absent }
+            assertEquals(SessionState.Loading, provider.state.value)
+        }
+
+    @Test
+    fun `a session cleared by the SDK flips the state to SignedOut without any refresh call`() =
+        runTest {
+            // Regression for nubecita-kzsd. DpopAuthProvider.failRefresh clears
+            // the store on invalid_grant; no app code initiates that write, so
+            // with a pull-only provider the app kept reporting SignedIn and the
+            // user went on tapping like/follow against a revoked token until
+            // something happened to call refresh() (next cold start / a worker).
+            val store = MutableStateFlow<SessionLoadResult>(SessionLoadResult.Loaded(sampleSession()))
+            val provider =
+                provider(stream = store) { error("refresh() must not be needed to observe a clear") }
+
+            provider.state.test {
+                assertEquals(SessionState.Loading, awaitItem())
+                assertTrue(awaitItem() is SessionState.SignedIn, "the stored session must surface as SignedIn")
+
+                store.value = SessionLoadResult.Absent // the SDK's clear()
+
+                assertEquals(SessionState.SignedOut, awaitItem(), "a clear must route to Login immediately")
+            }
+        }
+
+    @Test
+    fun `a transient stream read error is retried and never surfaces as SignedOut`() =
+        runTest {
+            var attempts = 0
+            val flaky =
+                flow {
+                    if (attempts++ < 2) throw IOException("disk contention")
+                    emit(SessionLoadResult.Loaded(sampleSession()))
+                }
+            val provider = provider(stream = flaky) { error("unused") }
+
+            provider.state.test {
+                assertEquals(SessionState.Loading, awaitItem())
+                assertTrue(awaitItem() is SessionState.SignedIn, "the retry must recover, not sign the user out")
+            }
+            verify(exactly = 0) { telemetry.onSessionReadErrorTerminal(any()) }
+        }
+
+    @Test
+    fun `a stream read error surviving every retry records terminal telemetry and signs out`() =
+        runTest {
+            val alwaysFails = flow<SessionLoadResult> { throw GeneralSecurityException("keystore gone") }
+            val provider = provider(stream = alwaysFails) { error("unused") }
+
+            provider.state.test {
+                assertEquals(SessionState.Loading, awaitItem())
+                assertEquals(SessionState.SignedOut, awaitItem())
+            }
+            verify(exactly = 1) { telemetry.onSessionReadErrorTerminal(any()) }
+        }
 
     @Test
     fun `refresh with a loaded session emits SignedIn carrying handle and did`() =
