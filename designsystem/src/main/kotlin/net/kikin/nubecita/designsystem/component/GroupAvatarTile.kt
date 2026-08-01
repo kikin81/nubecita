@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -16,9 +15,15 @@ import kotlinx.collections.immutable.ImmutableList
 import net.kikin.nubecita.data.models.AuthorUi
 
 /**
- * A **fixed-footprint** avatar tile for a group, laid out as quadrants of one
- * square: 1 member fills it, 2 split it, 3 sit two-over-one, and 4-or-more fill
- * all four quadrants.
+ * A **fixed-footprint** avatar tile for a group: one square, laid out as
+ * quadrants. A single member fills the whole tile; from two members up the
+ * geometry is always the same 2x2 grid and only the filled cells change — two
+ * take the diagonal, three take three cells, four or more fill it.
+ *
+ * The diagonal for a pair is not decoration. A single top row would leave the
+ * bottom half empty, so a two-member tile would read as top-heavy beside a full
+ * one, and the first two faces would jump vertically the moment a third member
+ * joined. Sharing one grid keeps `members[0]` in the top-left at every count.
  *
  * Why this exists alongside [AvatarGroup]: the facepile's width is a function of
  * member count, so in a list's leading slot every row indents its text by a
@@ -58,34 +63,44 @@ fun GroupAvatarTile(
             modifier
         }
 
-    Box(modifier = tileModifier.size(size), contentAlignment = Alignment.Center) {
-        when (faces.size) {
-            0 -> Unit
-            1 -> Face(faces[0], size)
-            else -> {
-                // Quadrant size, not half the tile: the gap has to come out of the
-                // faces or the grid overflows its fixed footprint — which is the
-                // whole point of the tile.
-                val quadrant = (size - QUADRANT_GAP) / 2
-                Column(verticalArrangement = Arrangement.spacedBy(QUADRANT_GAP)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(QUADRANT_GAP)) {
-                        Face(faces[0], quadrant)
-                        Face(faces[1], quadrant)
-                    }
-                    if (faces.size > 2) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(QUADRANT_GAP)) {
-                            Face(faces[2], quadrant)
-                            // Three members leave the fourth quadrant empty rather
-                            // than re-centring the bottom row: a stable grid makes
-                            // the tile read as one object across counts, which a
-                            // shifting third face would undo.
-                            if (faces.size > 3) Face(faces[3], quadrant)
-                        }
-                    }
-                }
+    Box(modifier = tileModifier.size(size)) {
+        if (faces.isEmpty()) return@Box
+        if (faces.size == 1) {
+            Face(faces[0], size)
+            return@Box
+        }
+        // Every count of two or more uses the SAME 2x2 geometry; only which
+        // quadrants are filled changes. Two members take the diagonal so the tile
+        // still reads as balanced in a square instead of a top-heavy single row,
+        // and face[0] stays in the top-left at every count — a face does not move
+        // just because someone joined the group.
+        //
+        //   2 -> TL . / . BR      3 -> TL TR / BL .      4+ -> TL TR / BL BR
+        val quadrant = (size - QUADRANT_GAP) / 2
+        val isPair = faces.size == 2
+        val topRight = if (isPair) null else faces[1]
+        val bottomLeft = if (isPair) null else faces.getOrNull(2)
+        val bottomRight = if (isPair) faces[1] else faces.getOrNull(3)
+        Column(verticalArrangement = Arrangement.spacedBy(QUADRANT_GAP)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(QUADRANT_GAP)) {
+                Quadrant(faces[0], quadrant)
+                Quadrant(topRight, quadrant)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(QUADRANT_GAP)) {
+                Quadrant(bottomLeft, quadrant)
+                Quadrant(bottomRight, quadrant)
             }
         }
     }
+}
+
+/** One grid cell: a face, or an empty box holding the slot open. */
+@Composable
+private fun Quadrant(
+    member: AuthorUi?,
+    size: Dp,
+) {
+    if (member == null) Box(Modifier.size(size)) else Face(member, size)
 }
 
 @Composable
