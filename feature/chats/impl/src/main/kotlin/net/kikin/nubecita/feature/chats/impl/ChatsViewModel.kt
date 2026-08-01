@@ -175,13 +175,21 @@ class ChatsViewModel
          */
         private fun acceptRequestFromRow(convoId: String) {
             if (convoId in uiState.value.acceptInFlight) return
-            setState { copy(acceptInFlight = (acceptInFlight + convoId).toPersistentSet()) }
+            setState { copy(acceptInFlight = acceptInFlight.adding(convoId)) }
             viewModelScope.launch {
-                val result = repository.acceptConvo(convoId)
-                setState { copy(acceptInFlight = (acceptInFlight - convoId).toPersistentSet()) }
-                result.onFailure { throwable ->
-                    if (throwable is CancellationException) throw throwable
-                    sendEffect(ChatsEffect.ShowActionError(throwable.toChatsError()))
+                // finally, not a plain sequential clear: acceptConvo suspends, and a
+                // cancellation there (screen teardown) would otherwise skip the
+                // cleanup and leave the row spinning and un-tappable for the rest of
+                // this VM's life.
+                try {
+                    repository
+                        .acceptConvo(convoId)
+                        .onFailure { throwable ->
+                            if (throwable is CancellationException) throw throwable
+                            sendEffect(ChatsEffect.ShowActionError(throwable.toChatsError()))
+                        }
+                } finally {
+                    setState { copy(acceptInFlight = acceptInFlight.removing(convoId)) }
                 }
             }
         }

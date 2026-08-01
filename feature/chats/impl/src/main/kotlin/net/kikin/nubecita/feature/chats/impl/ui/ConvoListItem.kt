@@ -23,6 +23,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -309,19 +310,24 @@ private fun RequestRowActions(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Set the CLICK ACTION label, not contentDescription: these buttons
+        // already have visible text, and a contentDescription would replace their
+        // accessible name rather than describe the action. Naming the conversation
+        // in the action label is what lets a screen reader moving down the list
+        // tell one "Accept" from the next.
         val declineDesc = declineLabel(who)
         val acceptDesc = acceptLabel(who)
         TextButton(
             onClick = onDecline,
             enabled = !inFlight,
-            modifier = Modifier.semantics { contentDescription = declineDesc },
+            modifier = Modifier.semantics { onClick(label = declineDesc) { false } },
         ) {
             Text(stringResource(R.string.chats_action_decline))
         }
         FilledTonalButton(
             onClick = onAccept,
             enabled = !inFlight,
-            modifier = Modifier.semantics { contentDescription = acceptDesc },
+            modifier = Modifier.semantics { onClick(label = acceptDesc) { false } },
         ) {
             if (inFlight) {
                 // nubecita-allow-raw-progress: in-button micro-spinner, matching JoinRequestRow

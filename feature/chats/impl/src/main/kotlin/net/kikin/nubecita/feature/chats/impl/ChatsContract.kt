@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.navigation3.runtime.NavKey
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
@@ -52,7 +53,7 @@ data class ChatsScreenViewState(
      * others (nubecita-1ts5.3). Decline is not tracked here: it is optimistic and
      * hides the row immediately via the existing deferred-undo leave.
      */
-    val acceptInFlight: ImmutableSet<String> = persistentSetOf(),
+    val acceptInFlight: PersistentSet<String> = persistentSetOf(),
 ) : UiState
 
 /** The two top-level segments of the Chats tab home. */
