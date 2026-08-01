@@ -9,7 +9,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toPersistentList
 import net.kikin.nubecita.core.common.time.LocalClock
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
@@ -45,6 +47,32 @@ private fun sampleItem(
         isRequest = isRequest,
     )
 
+private fun sampleGroupItem(
+    convoId: String,
+    name: String,
+    memberCount: Int,
+    isRequest: Boolean = false,
+): ConvoRowUi =
+    ConvoRowUi.Group(
+        convoId = convoId,
+        name = name,
+        members =
+            (1..memberCount)
+                .map {
+                    AuthorUi(
+                        did = "did:plc:$convoId$it",
+                        handle = "member$it.bsky.social",
+                        displayName = "Member $it",
+                        avatarUrl = null,
+                    )
+                }.toPersistentList(),
+        lastMessageSnippet = "So it \u201cshould\u201d background poll for new posts",
+        lastMessageFromViewer = false,
+        lastMessageIsAttachment = false,
+        sentAt = FIXTURE_NOW - 3.hours,
+        isRequest = isRequest,
+    )
+
 private val LOADED_STATE =
     ChatsScreenViewState(
         status =
@@ -69,6 +97,12 @@ private val REQUESTS_LOADED_STATE =
                         // isRequest = true is what puts Accept / Decline on the row.
                         sampleItem("dave", "Dave", "hey, mind if I message you?", FIXTURE_NOW - 5.minutes, isRequest = true),
                         sampleItem("erin", "Erin", "saw your post about feeds", FIXTURE_NOW - 3.hours, isRequest = true),
+                        // A GROUP request, and specifically one big enough to
+                        // overflow the old facepile. Its absence is why the clipped
+                        // Accept button in nubecita-mpgs shipped green: every
+                        // request fixture here was a direct convo, whose leading
+                        // avatar is a single circle.
+                        sampleGroupItem("skyline", "Skyline Beta Users", memberCount = 6, isRequest = true),
                     ),
             ),
         activeSegment = ChatsSegment.Requests,

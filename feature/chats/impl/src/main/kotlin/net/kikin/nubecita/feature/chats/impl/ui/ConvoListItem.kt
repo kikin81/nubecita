@@ -30,7 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.core.common.time.rememberChatRelativeTimeText
-import net.kikin.nubecita.designsystem.component.AvatarGroup
+import net.kikin.nubecita.designsystem.component.GroupAvatarTile
 import net.kikin.nubecita.designsystem.component.NubecitaAvatar
 import net.kikin.nubecita.designsystem.component.avatarFallbackFor
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
@@ -171,12 +171,17 @@ private fun Avatar(
                     ),
             )
         is ConvoRowUi.Group ->
-            AvatarGroup(
+            // GroupAvatarTile, not AvatarGroup: the facepile's width grows with
+            // member count, so every row indented its text differently and a wide
+            // group starved the supporting slot badly enough to clip an action
+            // button out of existence (nubecita-mpgs). The tile is a fixed square,
+            // matching the direct row's avatar, so the remaining width is the same
+            // on every row.
+            GroupAvatarTile(
                 members = item.members,
                 // The headline carries the group name; avoid double-announcing it.
                 contentDescription = null,
                 modifier = modifier,
-                avatarSize = 48.dp,
             )
     }
 }
