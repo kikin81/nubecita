@@ -53,6 +53,22 @@ internal class FirebaseAnalyticsClient
         }
     }
 
+/**
+ * GA4 **custom dimensions are text-only**: a parameter written with `putLong` /
+ * `putDouble` reaches Firebase but its registered dimension reports `(not set)`
+ * forever — numeric parameters can only surface through a custom *metric*.
+ *
+ * Booleans are therefore written as `"true"` / `"false"` strings rather than
+ * `1` / `0`, so `autoplay`, `has_media`, `is_reply`, `is_quote`, `has_external`
+ * and `from_recent` actually report. They were silently blank on every event
+ * while they were sent as longs (nubecita-z2z6). The property declares no
+ * custom metrics, so nothing consumed the numeric form.
+ *
+ * [LongVal] / [DoubleVal] stay numeric on purpose — `ttff_ms`, `rebuffer_ms`,
+ * `play_ms` and friends are real measurements that want a custom metric, not a
+ * high-cardinality text dimension. A count that must also be *segmented* should
+ * be bucketed into a [Str] at the event definition instead (see `SessionCleared`).
+ */
 private fun Map<String, AnalyticsValue>.toBundle(): Bundle {
     val bundle = Bundle(size)
     for ((key, value) in this) {
@@ -60,7 +76,7 @@ private fun Map<String, AnalyticsValue>.toBundle(): Bundle {
             is Str -> bundle.putString(key, value.value)
             is LongVal -> bundle.putLong(key, value.value)
             is DoubleVal -> bundle.putDouble(key, value.value)
-            is BoolVal -> bundle.putLong(key, if (value.value) 1L else 0L)
+            is BoolVal -> bundle.putString(key, value.value.toString())
         }
     }
     return bundle
