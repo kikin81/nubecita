@@ -16,6 +16,7 @@ import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import java.io.IOException
 import java.net.URI
 import java.security.GeneralSecurityException
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 
 internal class DefaultSessionStateProvider
@@ -33,13 +34,17 @@ internal class DefaultSessionStateProvider
         private var observerJob: Job? = null
 
         /**
-         * Bumped every time the observer publishes. [refresh] samples it before its
-         * read and skips its own write if the observer published in the meantime —
-         * the observer's value is then at least as fresh, and a pull-path write
-         * would be a stale clobber the store has no reason to correct.
+         * Claimed by the observer immediately before each publish. [refresh]
+         * samples it before its read and skips its own write if it moved in the
+         * meantime — the observer's value is then at least as fresh, and a
+         * pull-path write would be a stale clobber the store has no reason to
+         * correct (DataStore only re-emits on the next write).
+         *
+         * `AtomicLong` rather than a `@Volatile Long`: `++` is a read-modify-write,
+         * and while only the collector increments it, relying on that leaves the
+         * single-writer invariant to be re-derived by every future reader.
          */
-        @Volatile
-        private var observerGeneration = 0L
+        private val observerGeneration = AtomicLong(0)
 
         init {
             scope.launch { startObserving() }
@@ -91,15 +96,25 @@ internal class DefaultSessionStateProvider
                                 // No ReadError arrives here: the stream throws on a
                                 // storage failure rather than emitting one, and the
                                 // catch above converts a terminal failure to Absent.
+                                //
+                                // Claim the generation BEFORE publishing, never
+                                // after. Ordered this way the two possible
+                                // interleavings with refresh() are both safe:
+                                // it either sees the bump and defers to us, or
+                                // checks before the bump — in which case we have
+                                // not written yet and our fresher value lands on
+                                // top of its. Bumping after the write leaves a
+                                // window where refresh() sees a stale generation
+                                // and clobbers a clear we already published.
+                                observerGeneration.incrementAndGet()
                                 _state.value = result.toSessionState()
-                                observerGeneration++
                             }
                     }
             }
         }
 
         override suspend fun refresh() {
-            val generationAtReadStart = observerGeneration
+            val generationAtReadStart = observerGeneration.get()
             val result = loadWithBoundedRetry()
             if (result is SessionLoadResult.ReadError) {
                 // Every bounded retry failed. Route to Login rather than
@@ -122,7 +137,7 @@ internal class DefaultSessionStateProvider
             // Without this, an SDK clear landing mid-read would be overwritten with
             // the SignedIn we read just before it — reinstating exactly the zombie
             // session this class exists to prevent.
-            if (observerGeneration == generationAtReadStart) {
+            if (observerGeneration.get() == generationAtReadStart) {
                 _state.value = result.toSessionState()
             }
 
