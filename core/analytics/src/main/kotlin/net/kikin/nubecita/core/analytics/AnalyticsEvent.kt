@@ -151,6 +151,13 @@ enum class SessionClearReason(
  * [daysSinceLogin] separates legitimate ~14-day public-client session expiry
  * from premature, spurious logouts; omitted when no login timestamp exists
  * (e.g. logins that predate this event).
+ *
+ * The age is sent **bucketed as a string**, not as the raw number. GA4 custom
+ * dimensions are text-only, so the numeric form reported `(not set)` on every
+ * event since the dimension was registered (nubecita-z2z6) — the one signal
+ * this event exists to provide was never actually queryable. Buckets also suit
+ * the question better than a raw count: what matters is which side of the
+ * ~2-week public-client expiry a clear falls on, not whether it was day 4 or 5.
  */
 data class SessionCleared(
     val reason: SessionClearReason,
@@ -160,9 +167,27 @@ data class SessionCleared(
     override val params: Map<String, AnalyticsValue> =
         buildMap {
             put("reason", Str(reason.wire))
-            if (daysSinceLogin != null) put("days_since_login", LongVal(daysSinceLogin))
+            if (daysSinceLogin != null) put("days_since_login", Str(bucketDaysSinceLogin(daysSinceLogin)))
         }
 }
+
+/**
+ * Buckets a session age (in whole days) for the `days_since_login` dimension.
+ *
+ * Boundaries are chosen around the ~2-week public-client refresh-token lifetime:
+ * `0` and `1` are unambiguously premature losses, `14_plus` is consistent with
+ * natural expiry, and the middle buckets show where the distribution actually
+ * sits. Negative input is clamped — the caller already clamps a future login
+ * timestamp to zero, and this keeps a clock change from minting a junk bucket.
+ */
+internal fun bucketDaysSinceLogin(days: Long): String =
+    when {
+        days <= 0L -> "0"
+        days == 1L -> "1"
+        days < 7L -> "2_6"
+        days < 14L -> "7_13"
+        else -> "14_plus"
+    }
 
 /** Which storage layer failed while reading the persisted session. */
 enum class SessionReadErrorCause(

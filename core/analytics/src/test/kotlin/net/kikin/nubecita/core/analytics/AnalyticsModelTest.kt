@@ -275,14 +275,38 @@ class AnalyticsModelTest {
         assertEquals("session_cleared", event.name)
         assertEquals(
             mapOf(
+                // A Str, NOT a LongVal: GA4 custom dimensions are text-only, and a
+                // numeric param reports (not set) on every event forever.
                 "reason" to Str("invalid_grant"),
-                "days_since_login" to LongVal(3),
+                "days_since_login" to Str("2_6"),
             ),
             event.params,
         )
         assertEquals("user_sign_out", SessionClearReason.UserSignOut.wire)
         assertEquals("unknown", SessionClearReason.Unknown.wire)
         AnalyticsValidator.requireValid(event)
+    }
+
+    @Test
+    fun `days_since_login buckets split around the two-week public-client expiry`() {
+        // The boundary that matters: 13 days is still a premature loss, 14 is
+        // consistent with natural expiry. Getting this edge wrong would make a
+        // spurious-logout regression look like normal token ageing.
+        assertEquals("0", bucketDaysSinceLogin(0))
+        assertEquals("1", bucketDaysSinceLogin(1))
+        assertEquals("2_6", bucketDaysSinceLogin(2))
+        assertEquals("2_6", bucketDaysSinceLogin(6))
+        assertEquals("7_13", bucketDaysSinceLogin(7))
+        assertEquals("7_13", bucketDaysSinceLogin(13))
+        assertEquals("14_plus", bucketDaysSinceLogin(14))
+        assertEquals("14_plus", bucketDaysSinceLogin(365))
+    }
+
+    @Test
+    fun `a negative session age clamps to the zero bucket`() {
+        // Defence against a device clock moving backwards between login and
+        // clear; a raw negative would mint a junk dimension value.
+        assertEquals("0", bucketDaysSinceLogin(-1))
     }
 
     @Test
