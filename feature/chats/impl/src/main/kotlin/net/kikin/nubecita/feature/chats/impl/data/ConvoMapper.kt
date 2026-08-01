@@ -119,17 +119,17 @@ internal fun ConvoView.toChatHeader(viewerDid: String): ChatHeader =
  *    treat as a member (fail-open).
  *  - lock: only a GroupConvo whose lockStatus is explicitly "locked" blocks posting.
  *    Any other/unknown lockStatus value leaves posting enabled (send-error fallback).
- *  - request: a convo the viewer has not accepted yet blocks posting. This one is
- *    not a guess — the server rejects sends into a pending request — so the thread
- *    shows the accept surface instead of a composer (see [isRequestConvo]).
+ *
+ * Deliberately ORTHOGONAL to [isRequestConvo]: a pending request is not postable
+ * either, but folding that in here would lose the lock/membership answer the
+ * moment the request is accepted. The thread checks the request flag first and
+ * falls back to this, so accepting a locked group correctly lands on the
+ * cannot-post notice rather than an enabled composer.
  */
 internal fun ConvoView.canViewerPost(viewerDid: String): Boolean {
     val isMember = members.isEmpty() || members.any { it.did.raw == viewerDid }
     val locked = (kind as? GroupConvo)?.lockStatus == GROUP_LOCK_STATUS_LOCKED
-    // A pending request is the one case that is NOT fail-open: the server will
-    // reject a send until the request is accepted, so leaving the composer
-    // enabled just invites a message that bounces (nubecita-1ts5).
-    return isMember && !locked && !isRequestConvo()
+    return isMember && !locked
 }
 
 /**

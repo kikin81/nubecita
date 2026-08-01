@@ -20,11 +20,18 @@ import java.io.File
 class BenchChatsFixtureTest {
     private val json = Json { ignoreUnknownKeys = true }
 
-    private fun fixture(): BenchConvoListDto =
-        json.decodeFromString(
-            BenchConvoListDto.serializer(),
-            File("src/bench/assets/chats.json").readText(),
-        )
+    private fun fixture(): BenchConvoListDto {
+        // Probe module-relative and repo-root-relative: the working directory
+        // differs between a Gradle run and an IDE run. Same shape as
+        // BenchTimelineFixtureTest.
+        val file =
+            listOf(
+                File("src/bench/assets/chats.json"),
+                File("feature/chats/impl/src/bench/assets/chats.json"),
+            ).firstOrNull { it.exists() }
+                ?: error("bench chats.json not found from ${File("").absolutePath}")
+        return json.decodeFromString(BenchConvoListDto.serializer(), file.readText())
+    }
 
     @Test
     fun `the bench fixture parses`() {

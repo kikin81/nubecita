@@ -1119,15 +1119,17 @@ internal class ChatViewModelTest {
                     ChatConvo(
                         convoId = "c1",
                         header = ChatHeader.Direct(did = "did:plc:x", handle = "x.test", displayName = null, avatarUrl = null),
-                        canPost = false,
+                        // Postable on membership/lock grounds; the request flag is
+                        // what hides the composer. The two are orthogonal so the
+                        // lock answer survives being accepted.
+                        canPost = true,
                         isRequest = true,
                     ),
                 )
             val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo)
             advanceUntilIdle()
 
-            assertTrue(vm.uiState.value.isRequest)
-            assertEquals(false, vm.uiState.value.canPost)
+            assertTrue(vm.uiState.value.isRequest, "the accept surface, not the composer, is shown")
         }
 
     @Test
@@ -1139,7 +1141,7 @@ internal class ChatViewModelTest {
                     ChatConvo(
                         convoId = "c1",
                         header = ChatHeader.Direct(did = "did:plc:x", handle = "x.test", displayName = null, avatarUrl = null),
-                        canPost = false,
+                        canPost = true,
                         isRequest = true,
                     ),
                 )
@@ -1167,7 +1169,7 @@ internal class ChatViewModelTest {
                     ChatConvo(
                         convoId = "c1",
                         header = ChatHeader.Direct(did = "did:plc:x", handle = "x.test", displayName = null, avatarUrl = null),
-                        canPost = false,
+                        canPost = true,
                         isRequest = true,
                     ),
                 )
@@ -1181,7 +1183,6 @@ internal class ChatViewModelTest {
 
                 assertEquals(ChatEffect.ShowAcceptError, awaitItem())
                 assertTrue(vm.uiState.value.isRequest, "the request must stay pending")
-                assertEquals(false, vm.uiState.value.canPost)
                 assertEquals(false, vm.uiState.value.isAcceptInFlight, "the button must be tappable again")
                 cancelAndIgnoreRemainingEvents()
             }
@@ -1196,7 +1197,7 @@ internal class ChatViewModelTest {
                     ChatConvo(
                         convoId = "c1",
                         header = ChatHeader.Direct(did = "did:plc:x", handle = "x.test", displayName = null, avatarUrl = null),
-                        canPost = false,
+                        canPost = true,
                         isRequest = true,
                     ),
                 )
@@ -1210,5 +1211,35 @@ internal class ChatViewModelTest {
             // Double-accepting is harmless server-side, but a duplicate call would
             // still be a bug the loading state exists to prevent.
             assertEquals(listOf("c1"), repo.acceptCalls)
+        }
+
+    @Test
+    fun `accepting a locked group request does not enable the composer`() =
+        runTest {
+            // A request to an announcement-only group: accepting joins it, but the
+            // viewer still cannot post. Flipping canPost on accept would enable a
+            // composer whose every send bounces off the server.
+            val repo = FakeChatRepository()
+            repo.getConvoResult =
+                Result.success(
+                    ChatConvo(
+                        convoId = "c1",
+                        header = ChatHeader.Group(name = "Announcements", members = persistentListOf()),
+                        canPost = false,
+                        isRequest = true,
+                    ),
+                )
+            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo)
+            advanceUntilIdle()
+
+            vm.handleEvent(ChatEvent.AcceptRequest)
+            advanceUntilIdle()
+
+            assertEquals(false, vm.uiState.value.isRequest, "the accept surface must give way")
+            assertEquals(
+                false,
+                vm.uiState.value.canPost,
+                "a locked group stays unpostable after accept — the cannot-post notice shows, not a composer",
+            )
         }
 }

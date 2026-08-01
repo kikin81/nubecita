@@ -289,25 +289,28 @@ internal class ConvoMapperTest {
     }
 
     @Test
-    fun `a pending request cannot post`() {
+    fun `postability is orthogonal to request status`() {
         val members =
             listOf(
                 sampleMember(did = VIEWER_DID, handle = "me.bsky.social", displayName = "Me"),
                 sampleMember(did = "did:plc:alice", handle = "alice.bsky.social", displayName = "Alice"),
             )
 
-        // A request is not postable even though the viewer IS a member and the
-        // convo is unlocked — the two pre-existing gates would both pass here.
-        assertFalse(
+        // canViewerPost answers membership + lock ONLY. The thread gates the
+        // composer on isRequest first and falls back to this, so the lock answer
+        // survives being accepted — folding request status in here would lose it
+        // the moment the request is accepted and wrongly enable the composer on a
+        // locked group.
+        assertTrue(
             sampleConvoView(members = members, status = "request").canViewerPost(VIEWER_DID),
         )
-        // ...and the new gate must not swallow the old ones.
         assertFalse(
             sampleConvoView(
                 members = members,
-                status = "accepted",
+                status = "request",
                 kind = sampleGroupConvo(lockStatus = "locked"),
             ).canViewerPost(VIEWER_DID),
+            "a locked group is unpostable whether or not it is still a request",
         )
         assertTrue(
             sampleConvoView(members = members, status = "accepted").canViewerPost(VIEWER_DID),

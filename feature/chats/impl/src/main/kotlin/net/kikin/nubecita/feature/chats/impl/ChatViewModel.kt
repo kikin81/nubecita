@@ -145,10 +145,13 @@ class ChatViewModel
          * Accept the pending request this thread is showing, then hand the user a
          * working composer without a round trip through the list.
          *
-         * `canPost` is flipped locally rather than re-fetched: the repository has
+         * Only the request flag is cleared — `canPost` is left alone. It already
+         * carries the membership/lock answer from load, so accepting a LOCKED group
+         * correctly lands on the cannot-post notice instead of an enabled composer
+         * whose every send would bounce. Nothing is re-fetched: the repository has
          * already moved the convo between its caches by the time `acceptConvo`
-         * returns, and re-running `getConvo` just to read back a status we know
-         * would put a network hop between the tap and the composer appearing.
+         * returns, and a `getConvo` round trip would put a network hop between the
+         * tap and the composer appearing.
          *
          * An accept that fails leaves the surface exactly as it was — the request
          * is still pending, so re-tapping is the correct retry — and reports
@@ -162,8 +165,7 @@ class ChatViewModel
                 repository
                     .acceptConvo(id)
                     .onSuccess {
-                        setState { copy(isRequest = false, canPost = true, isAcceptInFlight = false) }
-                        canPostFlow.value = true
+                        setState { copy(isRequest = false, isAcceptInFlight = false) }
                     }.onFailure { throwable ->
                         if (throwable is CancellationException) throw throwable
                         setState { copy(isAcceptInFlight = false) }

@@ -68,9 +68,8 @@ internal class BenchFakeChatRepository
         private val requestConvoIds = ConcurrentHashMap.newKeySet<String>()
 
         private fun sortedRows(ids: (String) -> Boolean): ImmutableList<ConvoRowUi> =
-            convosCache
-                .filterKeys(ids)
-                .values
+            convosCache.values
+                .filter { ids(it.convoId) }
                 .sortedWith(compareByDescending<ConvoRowUi> { it.sentAt }.thenBy { it.convoId })
                 .toImmutableList()
 
@@ -133,10 +132,14 @@ internal class BenchFakeChatRepository
 
         override suspend fun leaveConvo(convoId: String): Result<Unit> {
             convosCache.remove(convoId)
-            // Leaving is also how a request is declined, so drop it from both.
+            // Leaving is also how a request is declined. A row lives in exactly one
+            // of the two published flows, so republish only the one it was in.
             val wasRequest = requestConvoIds.remove(convoId)
-            if (convosFlow.value != null) publishConvos()
-            if (wasRequest && requestConvosFlow.value != null) publishRequestConvos()
+            if (wasRequest) {
+                if (requestConvosFlow.value != null) publishRequestConvos()
+            } else {
+                if (convosFlow.value != null) publishConvos()
+            }
             return Result.success(Unit)
         }
 
