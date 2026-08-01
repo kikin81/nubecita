@@ -6,13 +6,9 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
@@ -32,8 +28,9 @@ import kotlin.time.Duration.Companion.milliseconds
 /**
  * Presenter for the new-group creation picker.
  *
- * Forks [AddGroupMembersViewModel]'s merge/debounce/flatMapLatest search
- * pipeline and multi-select model (a [NewGroupViewState.selected] chip set,
+ * Shares [recipientSearchResults] with the other two recipient pickers, and
+ * mirrors [AddGroupMembersViewModel]'s multi-select model (a
+ * [NewGroupViewState.selected] chip set,
  * capacity enforcement against [GROUP_MAX_MEMBERS], self-exclusion). It differs
  * in three ways: it is a plain `@Inject` VM (no route — a brand-new group has no
  * convoId and no existing roster to load); it owns a second editor field
@@ -86,34 +83,22 @@ class NewGroupViewModel
                 }.launchIn(viewModelScope)
 
             val rawStatusFlow =
-                merge(
-                    snapshotFlow { queryFieldState.text.toString() },
-                    retryTrigger.map { queryFieldState.text.toString() },
-                ).flatMapLatest { raw ->
-                    val q = raw.trim()
-                    if (q.isEmpty()) {
-                        actorRepository
-                            .recentActors(selfDid)
-                            .map<List<ActorUi>, NewGroupStatus> { actors ->
-                                NewGroupStatus.Recent(actors.toImmutableList())
-                            }.catch { emit(NewGroupStatus.Error) } // recent cache read failed; pipeline survives
-                    } else {
-                        flow {
-                            emit(NewGroupStatus.Searching)
-                            delay(DEBOUNCE)
-                            emit(
-                                actorRepository.searchTypeahead(q).fold(
-                                    onSuccess = { actors ->
-                                        if (actors.isEmpty()) {
-                                            NewGroupStatus.NoResults
-                                        } else {
-                                            NewGroupStatus.Results(actors.toImmutableList())
-                                        }
-                                    },
-                                    onFailure = { NewGroupStatus.Error },
-                                ),
-                            )
-                        }
+                recipientSearchResults(
+                    queries =
+                        merge(
+                            snapshotFlow { queryFieldState.text.toString() },
+                            retryTrigger.map { queryFieldState.text.toString() },
+                        ),
+                    actorRepository = actorRepository,
+                    selfDid = selfDid,
+                    debounce = DEBOUNCE,
+                ).map { result ->
+                    when (result) {
+                        is RecipientSearchResult.Recent -> NewGroupStatus.Recent(result.actors)
+                        RecipientSearchResult.Searching -> NewGroupStatus.Searching
+                        is RecipientSearchResult.Results -> NewGroupStatus.Results(result.actors)
+                        RecipientSearchResult.NoResults -> NewGroupStatus.NoResults
+                        RecipientSearchResult.Error -> NewGroupStatus.Error
                     }
                 }
 

@@ -9,13 +9,9 @@ import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
@@ -34,7 +30,7 @@ import kotlin.time.Duration.Companion.milliseconds
 /**
  * Presenter for the add-group-members recipient picker.
  *
- * Forks [NewChatViewModel]'s merge/debounce/flatMapLatest search pipeline and
+ * Shares [recipientSearchResults] with the other two recipient pickers, and
  * adds a multi-select model: a [AddGroupMembersViewState.selected] chip set,
  * capacity enforcement against [GROUP_MAX_MEMBERS] (existing roster + picked),
  * exclusion of existing members from the candidate lists, and an Add action that
@@ -93,34 +89,22 @@ class AddGroupMembersViewModel
             }
 
             val rawStatusFlow =
-                merge(
-                    snapshotFlow { queryFieldState.text.toString() },
-                    retryTrigger.map { queryFieldState.text.toString() },
-                ).flatMapLatest { raw ->
-                    val q = raw.trim()
-                    if (q.isEmpty()) {
-                        actorRepository
-                            .recentActors(selfDid)
-                            .map<List<ActorUi>, AddMembersStatus> { actors ->
-                                AddMembersStatus.Recent(actors.toImmutableList())
-                            }.catch { emit(AddMembersStatus.Error) } // recent cache read failed; pipeline survives
-                    } else {
-                        flow {
-                            emit(AddMembersStatus.Searching)
-                            delay(DEBOUNCE)
-                            emit(
-                                actorRepository.searchTypeahead(q).fold(
-                                    onSuccess = { actors ->
-                                        if (actors.isEmpty()) {
-                                            AddMembersStatus.NoResults
-                                        } else {
-                                            AddMembersStatus.Results(actors.toImmutableList())
-                                        }
-                                    },
-                                    onFailure = { AddMembersStatus.Error },
-                                ),
-                            )
-                        }
+                recipientSearchResults(
+                    queries =
+                        merge(
+                            snapshotFlow { queryFieldState.text.toString() },
+                            retryTrigger.map { queryFieldState.text.toString() },
+                        ),
+                    actorRepository = actorRepository,
+                    selfDid = selfDid,
+                    debounce = DEBOUNCE,
+                ).map { result ->
+                    when (result) {
+                        is RecipientSearchResult.Recent -> AddMembersStatus.Recent(result.actors)
+                        RecipientSearchResult.Searching -> AddMembersStatus.Searching
+                        is RecipientSearchResult.Results -> AddMembersStatus.Results(result.actors)
+                        RecipientSearchResult.NoResults -> AddMembersStatus.NoResults
+                        RecipientSearchResult.Error -> AddMembersStatus.Error
                     }
                 }
 
