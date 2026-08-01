@@ -42,8 +42,15 @@
           "text": "Pushed the new spacing tokens — take a look 🎨",
           "sentAt": "2026-05-27T17:30:00Z",
           "reactions": [
-            { "emoji": "👍", "count": 2 },
-            { "emoji": "❤️", "count": 1, "reactedByViewer": true }
+            {
+              "emoji": "👍",
+              "count": 2
+            },
+            {
+              "emoji": "❤️",
+              "count": 1,
+              "reactedByViewer": true
+            }
           ]
         },
         {
@@ -70,7 +77,10 @@
           "text": "view + send both working end to end in here now.",
           "sentAt": "2026-05-27T17:06:00Z",
           "reactions": [
-            { "emoji": "🎉", "count": 1 }
+            {
+              "emoji": "🎉",
+              "count": 1
+            }
           ]
         },
         {
@@ -247,6 +257,60 @@
           "senderDid": "did:plc:hugo00000000000000000000",
           "text": "We should treat the room before buying new monitors.",
           "sentAt": "2026-05-27T07:01:00Z"
+        }
+      ]
+    },
+    {
+      "convoId": "convo_request_priya",
+      "status": "request",
+      "otherUserDid": "did:plc:priya0000000000000000000",
+      "otherUserHandle": "priya.bsky.social",
+      "displayName": "Priya Raman",
+      "lastMessageSnippet": "Hi! Saw your post about Compose performance — mind if I ask a question?",
+      "lastMessageFromViewer": false,
+      "lastMessageIsAttachment": false,
+      "sentAt": "2026-05-27T09:12:00Z",
+      "messages": [
+        {
+          "id": "msg_request_priya_1",
+          "senderDid": "did:plc:priya0000000000000000000",
+          "text": "Hi! Saw your post about Compose performance — mind if I ask a question?",
+          "sentAt": "2026-05-27T09:12:00Z"
+        }
+      ]
+    },
+    {
+      "convoId": "convo_request_kotlin_mx",
+      "kind": "group",
+      "status": "request",
+      "name": "Kotlin MX",
+      "members": [
+        {
+          "did": "did:plc:tomas000000000000000000",
+          "handle": "tomas.bsky.social",
+          "displayName": "Tomás Ruiz"
+        },
+        {
+          "did": "did:plc:lucia000000000000000000",
+          "handle": "lucia.bsky.social",
+          "displayName": "Lucía Márquez"
+        },
+        {
+          "did": "did:plc:mateo000000000000000000",
+          "handle": "mateo.bsky.social",
+          "displayName": "Mateo Silva"
+        }
+      ],
+      "lastMessageSnippet": "Tomás added you to Kotlin MX",
+      "lastMessageFromViewer": false,
+      "lastMessageIsAttachment": false,
+      "sentAt": "2026-05-27T08:40:00Z",
+      "messages": [
+        {
+          "id": "msg_request_kotlin_mx_1",
+          "senderDid": "did:plc:tomas000000000000000000",
+          "text": "Hey! Adding you to the Kotlin MX group — we do a monthly meetup.",
+          "sentAt": "2026-05-27T08:40:00Z"
         }
       ]
     }

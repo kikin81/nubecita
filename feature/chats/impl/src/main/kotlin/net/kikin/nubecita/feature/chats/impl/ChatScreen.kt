@@ -46,6 +46,7 @@ internal fun ChatScreen(
     val messagesDisabledErrorMsg = stringResource(R.string.chat_send_error_messages_disabled)
     val genericErrorMsg = stringResource(R.string.chat_send_error_generic)
     val reactionErrorMsg = stringResource(R.string.chat_reaction_error)
+    val acceptErrorMsg = stringResource(R.string.chat_request_accept_error)
 
     LaunchedEffect(Unit) {
         // The effect collector drains a single stream that carries both
@@ -59,6 +60,11 @@ internal fun ChatScreen(
             when (effect) {
                 is ChatEffect.NavigateToPost -> currentOnNavigateToPost(effect.postUri)
                 is ChatEffect.NavigateToGroupDetails -> currentOnNavigateToGroupDetails(effect.convoId)
+                ChatEffect.ShowAcceptError ->
+                    effectScope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(acceptErrorMsg)
+                    }
                 is ChatEffect.ShowSendError -> {
                     val message =
                         when (effect.error) {

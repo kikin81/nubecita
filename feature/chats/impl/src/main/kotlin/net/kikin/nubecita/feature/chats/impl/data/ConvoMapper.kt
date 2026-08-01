@@ -51,6 +51,7 @@ fun ConvoView.toConvoRowUi(viewerDid: String): ConvoRowUi {
     // Wire `unreadCount` is a Long; UI counts are small (badge caps at
     // 99+), so narrow to Int, clamped non-negative defensively.
     val unread = unreadCount.toInt().coerceAtLeast(0)
+    val request = isRequestConvo()
     return when (val k = kind) {
         is GroupConvo ->
             ConvoRowUi.Group(
@@ -63,6 +64,7 @@ fun ConvoView.toConvoRowUi(viewerDid: String): ConvoRowUi {
                 sentAt = at,
                 unreadCount = unread,
                 muted = muted,
+                isRequest = request,
             )
         else -> {
             val other =
@@ -81,6 +83,7 @@ fun ConvoView.toConvoRowUi(viewerDid: String): ConvoRowUi {
                 sentAt = at,
                 unreadCount = unread,
                 muted = muted,
+                isRequest = request,
             )
         }
     }
@@ -116,12 +119,33 @@ internal fun ConvoView.toChatHeader(viewerDid: String): ChatHeader =
  *    treat as a member (fail-open).
  *  - lock: only a GroupConvo whose lockStatus is explicitly "locked" blocks posting.
  *    Any other/unknown lockStatus value leaves posting enabled (send-error fallback).
+ *
+ * Deliberately ORTHOGONAL to [isRequestConvo]: a pending request is not postable
+ * either, but folding that in here would lose the lock/membership answer the
+ * moment the request is accepted. The thread checks the request flag first and
+ * falls back to this, so accepting a locked group correctly lands on the
+ * cannot-post notice rather than an enabled composer.
  */
 internal fun ConvoView.canViewerPost(viewerDid: String): Boolean {
     val isMember = members.isEmpty() || members.any { it.did.raw == viewerDid }
     val locked = (kind as? GroupConvo)?.lockStatus == GROUP_LOCK_STATUS_LOCKED
     return isMember && !locked
 }
+
+/**
+ * Whether this conversation is a pending message request awaiting acceptance.
+ *
+ * `convoStatus` is an open string in the lexicon, so only the exact `"request"`
+ * sentinel counts. An unrecognised future value reads as accepted on purpose:
+ * a wrongly-enabled composer surfaces a send error the user can retry past,
+ * whereas a wrongly-pending conversation strands them behind an accept surface
+ * for a request the server does not think exists.
+ */
+internal fun ConvoView.isRequestConvo(): Boolean = status == CONVO_STATUS_REQUEST
+
+// chat.bsky.convo.defs#convoStatus sentinel for a conversation the viewer has
+// not accepted yet. Opaque String in the SDK; the sibling value is "accepted".
+internal const val CONVO_STATUS_REQUEST: String = "request"
 
 // chat.bsky lexicon GroupConvo.lockStatus sentinel for a locked group (admins-only posting).
 // Opaque String in the SDK; this is the conservative known-locked value — see canViewerPost.

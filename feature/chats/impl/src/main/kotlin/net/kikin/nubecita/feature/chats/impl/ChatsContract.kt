@@ -130,6 +130,13 @@ sealed interface ConvoRowUi {
     val unreadCount: Int
     val muted: Boolean
 
+    /**
+     * Whether this is a pending message request awaiting acceptance. Drives the
+     * per-row accept/decline actions in the Requests segment; always false for
+     * rows in the Chats segment (nubecita-1ts5).
+     */
+    val isRequest: Boolean
+
     /** A 1:1 conversation: the row's identity is the single other user. */
     @Immutable
     data class Direct(
@@ -144,6 +151,7 @@ sealed interface ConvoRowUi {
         override val sentAt: Instant?,
         override val unreadCount: Int = 0,
         override val muted: Boolean = false,
+        override val isRequest: Boolean = false,
     ) : ConvoRowUi
 
     /** A group conversation: rendered as its name + a member facepile. */
@@ -158,6 +166,7 @@ sealed interface ConvoRowUi {
         override val sentAt: Instant?,
         override val unreadCount: Int = 0,
         override val muted: Boolean = false,
+        override val isRequest: Boolean = false,
     ) : ConvoRowUi
 }
 

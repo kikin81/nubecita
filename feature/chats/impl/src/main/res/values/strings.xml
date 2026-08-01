@@ -205,4 +205,13 @@
     <string name="group_join_error_follow_required">Only people the group\'s owner follows can join.</string>
     <string name="group_join_error_cannot_rejoin">You can\'t rejoin a group you were removed from.</string>
     <string name="group_join_error_generic">Couldn\'t join the group. Please try again.</string>
+    <string name="chat_request_title">Message request</string>
+    <string name="chat_request_body_direct">Accepting lets them message you and shows that you\'ve seen this.</string>
+    <string name="chat_request_body_group">Accepting adds you to this group and shows that you\'ve seen this.</string>
+    <string name="chat_request_accept">Accept</string>
+    <string name="chat_request_accept_group">Accept and join</string>
+    <string name="chat_request_accept_error">Couldn\'t accept this request. Try again.</string>
+    <string name="chats_action_decline">Decline</string>
+    <string name="chats_row_accept_a11y">Accept request from %1$s</string>
+    <string name="chats_row_decline_a11y">Decline request from %1$s</string>
 </resources>

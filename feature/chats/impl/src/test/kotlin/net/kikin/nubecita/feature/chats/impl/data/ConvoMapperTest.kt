@@ -263,6 +263,60 @@ internal class ConvoMapperTest {
         )
     }
 
+    // --- convo status → request flag (nubecita-1ts5) ---
+
+    @Test
+    fun `only the literal request status marks a convo as a request`() {
+        // convoStatus is an open string in the lexicon, so an unrecognised value
+        // must fail toward "accepted". Failing the other way would strand a
+        // normal conversation behind an accept surface with no way out.
+        assertTrue(sampleConvoView(status = "request").isRequestConvo())
+        assertFalse(sampleConvoView(status = "accepted").isRequestConvo())
+        assertFalse(sampleConvoView(status = null).isRequestConvo())
+        assertFalse(sampleConvoView(status = "some-future-status").isRequestConvo())
+    }
+
+    @Test
+    fun `the request flag reaches both row variants`() {
+        val direct = sampleConvoView(status = "request").toConvoRowUi(VIEWER_DID)
+        assertTrue(direct.isRequest, "a direct request row must be marked")
+
+        val group =
+            sampleConvoView(status = "request", kind = sampleGroupConvo()).toConvoRowUi(VIEWER_DID)
+        assertTrue(group.isRequest, "a group request row must be marked")
+
+        assertFalse(sampleConvoView(status = "accepted").toConvoRowUi(VIEWER_DID).isRequest)
+    }
+
+    @Test
+    fun `postability is orthogonal to request status`() {
+        val members =
+            listOf(
+                sampleMember(did = VIEWER_DID, handle = "me.bsky.social", displayName = "Me"),
+                sampleMember(did = "did:plc:alice", handle = "alice.bsky.social", displayName = "Alice"),
+            )
+
+        // canViewerPost answers membership + lock ONLY. The thread gates the
+        // composer on isRequest first and falls back to this, so the lock answer
+        // survives being accepted — folding request status in here would lose it
+        // the moment the request is accepted and wrongly enable the composer on a
+        // locked group.
+        assertTrue(
+            sampleConvoView(members = members, status = "request").canViewerPost(VIEWER_DID),
+        )
+        assertFalse(
+            sampleConvoView(
+                members = members,
+                status = "request",
+                kind = sampleGroupConvo(lockStatus = "locked"),
+            ).canViewerPost(VIEWER_DID),
+            "a locked group is unpostable whether or not it is still a request",
+        )
+        assertTrue(
+            sampleConvoView(members = members, status = "accepted").canViewerPost(VIEWER_DID),
+        )
+    }
+
     private companion object {
         const val VIEWER_DID = "did:plc:viewer123"
     }
@@ -308,6 +362,7 @@ internal class ConvoMapperTest {
         unreadCount: Long = 0L,
         muted: Boolean = false,
         kind: ConvoViewKindUnion? = null,
+        status: String? = null,
     ): ConvoView {
         val adjustedMembers =
             if (otherDid != null || otherHandle != null) {
@@ -340,6 +395,7 @@ internal class ConvoMapperTest {
                 rev = "0",
                 unreadCount = unreadCount,
                 lastMessage = lastMessage,
+                status = status,
             )
         } else {
             ConvoView(
@@ -350,6 +406,7 @@ internal class ConvoMapperTest {
                 unreadCount = unreadCount,
                 lastMessage = lastMessage,
                 kind = kind,
+                status = status,
             )
         }
     }

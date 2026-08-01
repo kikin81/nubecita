@@ -201,6 +201,10 @@ internal class DefaultChatRepository
                         convoId = convo.id,
                         header = convo.toChatHeader(viewerDid),
                         canPost = convo.canViewerPost(viewerDid),
+                        // Read from the convo itself rather than passed in by the
+                        // caller, so a deep link or notification tap into a pending
+                        // request renders the accept surface too (design D2).
+                        isRequest = convo.isRequestConvo(),
                     )
                 }.onFailure { throwable ->
                     if (throwable is CancellationException) throw throwable

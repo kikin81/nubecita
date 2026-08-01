@@ -54,9 +54,13 @@ M3 Expressive's connected button group is the idiomatic choice for a two-action 
 
 There is no shared banner or callout component in `:designsystem` to reuse for the surrounding surface — the closest precedents are all feature-private (`ChatReplyBanner`, `CannotPostNotice`, `GroupJoinPreviewCard`). The accept surface therefore starts feature-private in `feature/chats/impl`, matching `CannotPostNotice`'s existing placement. Promoting it to `:designsystem` is deferred until a second surface needs it.
 
-### D5 — Decline reuses the deferred-undo leave
+### D5 — Decline lives on the list row, not in the thread (revised during implementation)
 
-Decline maps to the existing `leaveConvo` path with its 5s optimistic undo, already specified in `feature-chats`. No second destructive path is introduced, and declining a request is recoverable for the same window as leaving a conversation.
+Originally this said the thread's decline would reuse the existing deferred-undo leave. Implementation showed that is not reusable from there: the undo is ~60 lines inside `ChatsViewModel` — supersede tokens, a VM-owned timer, application-scope commit, and a pending-hide set that filters the published cache. The thread is a different presenter, so honouring it would mean either a second copy of that machinery or handing a deferred action across screens.
+
+Both were rejected. A second copy is a bug farm on a destructive path, and cross-screen deferral is its own feature. Making the thread's decline *immediate* instead was also rejected: the same action being undoable from the list and irreversible from the thread is a worse contract than the action existing in one place.
+
+So the thread offers accept only, and decline stays on the request row where the undo already works. The thread's non-committing exit is the back button, which is what it already was.
 
 ### D6 — Success is signalled by the composer arriving
 

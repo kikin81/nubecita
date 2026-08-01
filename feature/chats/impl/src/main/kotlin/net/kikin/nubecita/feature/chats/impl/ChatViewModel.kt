@@ -10,6 +10,7 @@ import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -133,9 +134,43 @@ class ChatViewModel
                 is ChatEvent.QuotedPostTapped ->
                     sendEffect(ChatEffect.NavigateToPost(event.quotedPostUri))
                 ChatEvent.GroupDetailsTapped -> onGroupDetailsTapped()
+                ChatEvent.AcceptRequest -> onAcceptRequest()
                 is ChatEvent.ToggleReaction -> onToggleReaction(event.messageId, event.emoji)
                 is ChatEvent.ReplyTo -> onReplyTo(event.messageId)
                 ChatEvent.CancelReply -> setState { copy(replyingTo = null) }
+            }
+        }
+
+        /**
+         * Accept the pending request this thread is showing, then hand the user a
+         * working composer without a round trip through the list.
+         *
+         * Only the request flag is cleared — `canPost` is left alone. It already
+         * carries the membership/lock answer from load, so accepting a LOCKED group
+         * correctly lands on the cannot-post notice instead of an enabled composer
+         * whose every send would bounce. Nothing is re-fetched: the repository has
+         * already moved the convo between its caches by the time `acceptConvo`
+         * returns, and a `getConvo` round trip would put a network hop between the
+         * tap and the composer appearing.
+         *
+         * An accept that fails leaves the surface exactly as it was — the request
+         * is still pending, so re-tapping is the correct retry — and reports
+         * through the screen's existing effect channel.
+         */
+        private fun onAcceptRequest() {
+            if (uiState.value.isAcceptInFlight) return
+            val id = convoId ?: return
+            setState { copy(isAcceptInFlight = true) }
+            viewModelScope.launch {
+                repository
+                    .acceptConvo(id)
+                    .onSuccess {
+                        setState { copy(isRequest = false, isAcceptInFlight = false) }
+                    }.onFailure { throwable ->
+                        if (throwable is CancellationException) throw throwable
+                        setState { copy(isAcceptInFlight = false) }
+                        sendEffect(ChatEffect.ShowAcceptError)
+                    }
             }
         }
 
@@ -441,7 +476,13 @@ class ChatViewModel
                                     (convo.header as? ChatHeader.Group)?.members?.forEach {
                                         senderProfiles[it.did] = it
                                     }
-                                    setState { copy(header = convo.header, canPost = convo.canPost) }
+                                    setState {
+                                        copy(
+                                            header = convo.header,
+                                            canPost = convo.canPost,
+                                            isRequest = convo.isRequest,
+                                        )
+                                    }
                                     // Group headers seed only a partial member preview (getConvo
                                     // returns ~7); fetch the full roster once to show the accurate
                                     // "N members" count. Fire-and-forget + best-effort: a failure
