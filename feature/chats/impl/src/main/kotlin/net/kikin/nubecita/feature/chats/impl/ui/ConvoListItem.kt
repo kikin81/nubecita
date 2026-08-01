@@ -2,13 +2,18 @@ package net.kikin.nubecita.feature.chats.impl.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Badge
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -18,6 +23,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -73,6 +79,11 @@ internal fun ConvoListItem(
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
     selected: Boolean = false,
+    // Request-row actions. Null on the Chats segment, where a conversation has
+    // nothing to accept — passing them is what turns a row into a request row.
+    onAccept: (() -> Unit)? = null,
+    onDecline: (() -> Unit)? = null,
+    acceptInFlight: Boolean = false,
 ) {
     // Long-press a11y action label — describes the gesture's effect ("enter
     // selection"), surfaced to TalkBack via SegmentedListItem.onLongClickLabel.
@@ -108,7 +119,24 @@ internal fun ConvoListItem(
                 selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
             ),
         leadingContent = { Avatar(item = item) },
-        supportingContent = { SubtitleText(item = item) },
+        supportingContent = {
+            // Actions live under the snippet rather than in trailingContent so the
+            // row keeps its timestamp / unread meta, and so two buttons are not
+            // squeezed into a slot sized for a short label on a phone.
+            if (item.isRequest && onAccept != null && onDecline != null) {
+                Column {
+                    SubtitleText(item = item)
+                    RequestRowActions(
+                        item = item,
+                        inFlight = acceptInFlight,
+                        onAccept = onAccept,
+                        onDecline = onDecline,
+                    )
+                }
+            } else {
+                SubtitleText(item = item)
+            }
+        },
         trailingContent = { TrailingMeta(item = item) },
         // Stable tag for the screengrab marketing journey to tap into a DM
         // thread; every row shares it, the journey taps the first match.
@@ -243,4 +271,64 @@ private fun TrailingTimestamp(item: ConvoRowUi) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 1,
     )
+}
+
+/**
+ * Per-row Accept / Decline for a pending request, so accepting one no longer
+ * requires long-pressing into multi-select first — which is what made the
+ * existing accept action undiscoverable.
+ *
+ * Shape mirrors the group-join [JoinRequestRow] already in this module: decline
+ * as a low-emphasis text button, accept as the filled-tonal affirmative, and
+ * both disabled while the accept call is outstanding.
+ */
+@Composable
+private fun acceptLabel(who: String): String = stringResource(R.string.chats_row_accept_a11y, who)
+
+@Composable
+private fun declineLabel(who: String): String = stringResource(R.string.chats_row_decline_a11y, who)
+
+@Composable
+private fun RequestRowActions(
+    item: ConvoRowUi,
+    inFlight: Boolean,
+    onAccept: () -> Unit,
+    onDecline: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Name the conversation in each action's label: a screen reader moving
+    // through the list would otherwise hear "Accept, Decline" repeated with no
+    // way to tell which request is which.
+    val who =
+        when (item) {
+            is ConvoRowUi.Direct -> item.displayName ?: item.otherUserHandle
+            is ConvoRowUi.Group -> item.name
+        }
+    Row(
+        modifier = modifier.padding(top = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val declineDesc = declineLabel(who)
+        val acceptDesc = acceptLabel(who)
+        TextButton(
+            onClick = onDecline,
+            enabled = !inFlight,
+            modifier = Modifier.semantics { contentDescription = declineDesc },
+        ) {
+            Text(stringResource(R.string.chats_action_decline))
+        }
+        FilledTonalButton(
+            onClick = onAccept,
+            enabled = !inFlight,
+            modifier = Modifier.semantics { contentDescription = acceptDesc },
+        ) {
+            if (inFlight) {
+                // nubecita-allow-raw-progress: in-button micro-spinner, matching JoinRequestRow
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+            } else {
+                Text(stringResource(R.string.chats_action_accept))
+            }
+        }
+    }
 }

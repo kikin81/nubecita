@@ -29,10 +29,10 @@ Land once; both UI tasks depend on it. Keeping it in one task is what prevents t
 
 ## 4. Requests list row actions (`nubecita-1ts5.3`)
 
-- [ ] 4.1 Extend `ConvoListItem` with an actions slot shown only for request rows, following the existing `JoinRequestRow` shape (`request, inFlight, onApprove, onReject`) rather than inventing a new pattern. Test: screenshot tests of a request row and an accepted row proving the actions appear only on the former.
-- [ ] 4.2 Add per-row accept and decline events to `ChatsContract` / `ChatsViewModel`, reusing the existing bulk accept and deferred-undo leave paths so there is one implementation of each action. Test: `ChatsViewModelTest` for row accept moving the convo between segments, and row decline deferring with undo.
-- [ ] 4.3 Track per-row in-flight state so a row's actions disable while its call is outstanding and other rows stay interactive. Test: `ChatsViewModelTest` asserting two concurrent row actions track independently.
-- [ ] 4.4 Give each row action an accessibility label naming the action and its conversation. Test: `ConvoListItem` unit/screenshot test asserting the labels, following the existing convention of matching the on-click label rather than the content description.
+- [x] 4.1 Extend `ConvoListItem` with an actions slot shown only for request rows, following the existing `JoinRequestRow` shape (`request, inFlight, onApprove, onReject`) rather than inventing a new pattern. Test: screenshot tests of a request row and an accepted row proving the actions appear only on the former.
+- [x] 4.2 Add per-row accept and decline events to `ChatsContract` / `ChatsViewModel`, reusing the existing bulk accept and deferred-undo leave paths so there is one implementation of each action. Test: `ChatsViewModelTest` for row accept moving the convo between segments, and row decline deferring with undo.
+- [x] 4.3 Track per-row in-flight state so a row's actions disable while its call is outstanding and other rows stay interactive. Test: `ChatsViewModelTest` asserting two concurrent row actions track independently.
+- [x] 4.4 Give each row action an accessibility label naming the action and its conversation. Test: `ConvoListItem` unit/screenshot test asserting the labels, following the existing convention of matching the on-click label rather than the content description.
 
 ## 5. Verification
 

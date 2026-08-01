@@ -209,6 +209,7 @@ internal fun ChatsScreenContent(
                                     onEvent = onEvent,
                                     selectedConvoId = selectedConvoId,
                                     selectedOtherUserDid = selectedOtherUserDid,
+                                    acceptInFlight = state.acceptInFlight,
                                 )
                             }
                         }
@@ -434,6 +435,7 @@ private fun LoadedBody(
     onEvent: (ChatsEvent) -> Unit,
     selectedConvoId: String?,
     selectedOtherUserDid: String?,
+    acceptInFlight: ImmutableSet<String>,
 ) {
     // Arrangement.spacedBy(ListItemDefaults.SegmentedGap) — the framework's
     // canonical gap between rows in a segmented section. Lets the rounded-
@@ -472,6 +474,22 @@ private fun LoadedBody(
                     }
                 },
                 onLongClick = { onEvent(ChatsEvent.ConvoLongPressed(item.convoId)) },
+                // Row actions only outside selection mode: while multi-selecting,
+                // a tap means "toggle this row", so per-row buttons would compete
+                // with the gesture the user is mid-way through.
+                onAccept =
+                    if (item.isRequest && !inSelection) {
+                        { onEvent(ChatsEvent.AcceptRequestTapped(item.convoId)) }
+                    } else {
+                        null
+                    },
+                onDecline =
+                    if (item.isRequest && !inSelection) {
+                        { onEvent(ChatsEvent.DeclineRequestTapped(item.convoId)) }
+                    } else {
+                        null
+                    },
+                acceptInFlight = item.convoId in acceptInFlight,
                 // Highlight by membership while selecting; otherwise reflect the
                 // tablet list-detail open thread — by convoId (convo-list path) or,
                 // for a profile-initiated DM (opened by did, convoId still null), by
