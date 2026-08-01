@@ -3,6 +3,8 @@ package net.kikin.nubecita.core.auth
 import app.cash.turbine.test
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emitAll
@@ -154,6 +156,46 @@ class DefaultSessionStateProviderTest {
                     afterFirstCollection,
                     streamAttempts,
                     "a failing refresh must not restart the collector — that is the hot-loop we avoid",
+                )
+            }
+        }
+
+    @Test
+    fun `a clear observed mid-refresh is not overwritten by the stale read`() =
+        runTest {
+            // The dangerous ordering: refresh() reads SignedIn, the SDK clears the
+            // session while that read is in flight, the observer publishes
+            // SignedOut — and then refresh() writes its stale SignedIn back on top.
+            // DataStore only re-emits on the next write, so nothing would correct
+            // it: the app is signed-in against a cleared store, which is precisely
+            // the zombie session this class exists to prevent.
+            val store = MutableStateFlow<SessionLoadResult>(SessionLoadResult.Loaded(sampleSession()))
+            val readStarted = CompletableDeferred<Unit>()
+            val provider =
+                provider(stream = store) {
+                    readStarted.complete(Unit)
+                    // Suspend inside the read so the observer can publish a clear
+                    // before refresh() gets to its own write.
+                    delay(50)
+                    SessionLoadResult.Loaded(sampleSession()) // stale by the time it lands
+                }
+
+            provider.state.test {
+                assertEquals(SessionState.Loading, awaitItem())
+                assertTrue(awaitItem() is SessionState.SignedIn)
+
+                val refreshing = launch { provider.refresh() }
+                readStarted.await()
+                store.value = SessionLoadResult.Absent // the SDK's clear(), mid-read
+                assertEquals(SessionState.SignedOut, awaitItem(), "the observer must publish the clear")
+
+                refreshing.join()
+
+                expectNoEvents()
+                assertEquals(
+                    SessionState.SignedOut,
+                    provider.state.value,
+                    "refresh() must not resurrect a session the observer already saw cleared",
                 )
             }
         }

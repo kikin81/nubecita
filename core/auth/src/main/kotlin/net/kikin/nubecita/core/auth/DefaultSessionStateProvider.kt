@@ -32,6 +32,15 @@ internal class DefaultSessionStateProvider
         private val observerMutex = Mutex()
         private var observerJob: Job? = null
 
+        /**
+         * Bumped every time the observer publishes. [refresh] samples it before its
+         * read and skips its own write if the observer published in the meantime —
+         * the observer's value is then at least as fresh, and a pull-path write
+         * would be a stale clobber the store has no reason to correct.
+         */
+        @Volatile
+        private var observerGeneration = 0L
+
         init {
             scope.launch { startObserving() }
         }
@@ -83,12 +92,14 @@ internal class DefaultSessionStateProvider
                                 // storage failure rather than emitting one, and the
                                 // catch above converts a terminal failure to Absent.
                                 _state.value = result.toSessionState()
+                                observerGeneration++
                             }
                     }
             }
         }
 
         override suspend fun refresh() {
+            val generationAtReadStart = observerGeneration
             val result = loadWithBoundedRetry()
             if (result is SessionLoadResult.ReadError) {
                 // Every bounded retry failed. Route to Login rather than
@@ -97,12 +108,29 @@ internal class DefaultSessionStateProvider
                 // terminal event first: this is the user-visible spurious
                 // logout the retries exist to prevent (epic nubecita-09xt).
                 telemetry.onSessionReadErrorTerminal(result.cause)
-            } else {
+            }
+
+            // Publish BEFORE (re)starting the observer. startObserving() launches
+            // the collector on another coroutine; if it published first, the
+            // assignment below would overwrite its fresher value with the one read
+            // above, and DataStore only re-emits on the next write — so nothing
+            // would correct it.
+            //
+            // The generation check closes the same hole against an already-running
+            // collector: if it published anything while loadWithBoundedRetry() was
+            // suspended, its value is at least as fresh as ours, so leave it alone.
+            // Without this, an SDK clear landing mid-read would be overwritten with
+            // the SignedIn we read just before it — reinstating exactly the zombie
+            // session this class exists to prevent.
+            if (observerGeneration == generationAtReadStart) {
+                _state.value = result.toSessionState()
+            }
+
+            if (result !is SessionLoadResult.ReadError) {
                 // The store just read cleanly, so a collector killed by an earlier
                 // terminal failure can be revived without risking a hot loop.
                 startObserving()
             }
-            _state.value = result.toSessionState()
         }
 
         private fun SessionLoadResult.toSessionState(): SessionState =
