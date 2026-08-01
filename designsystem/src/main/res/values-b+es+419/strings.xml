@@ -58,4 +58,6 @@
     <string name="postcard_delete_dialog_cancel">Cancelar</string>
     <string name="postcard_delete_success">Publicación eliminada</string>
     <string name="postcard_delete_error">No se pudo eliminar la publicación</string>
+    <!-- Handle prefix; identical in every locale (the @ is not translated). -->
+    <string name="nubecita_actor_handle">@%1$s</string>
 </resources>
