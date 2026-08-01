@@ -3,7 +3,6 @@ package net.kikin.nubecita.feature.chats.impl.data
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,16 +59,27 @@ internal class BenchFakeChatRepository
         // live on send just like production. null = not yet refreshed.
         private val convosFlow = MutableStateFlow<ImmutableList<ConvoRowUi>?>(null)
 
-        // Bench has no message-request fixtures; the Requests segment renders its
-        // empty state. Published as an empty (not null) list so it reads as loaded.
         private val requestConvosFlow =
-            MutableStateFlow<ImmutableList<ConvoRowUi>?>(persistentListOf())
+            MutableStateFlow<ImmutableList<ConvoRowUi>?>(null)
+
+        // Which convos in [convosCache] are pending requests. Requests stay in the
+        // same cache rather than a separate one so getConvo/resolveConvo can still
+        // open a request thread — the thread is where a request gets accepted.
+        private val requestConvoIds = ConcurrentHashMap.newKeySet<String>()
+
+        private fun sortedRows(ids: (String) -> Boolean): ImmutableList<ConvoRowUi> =
+            convosCache
+                .filterKeys(ids)
+                .values
+                .sortedWith(compareByDescending<ConvoRowUi> { it.sentAt }.thenBy { it.convoId })
+                .toImmutableList()
 
         private fun publishConvos() {
-            convosFlow.value =
-                convosCache.values
-                    .sortedWith(compareByDescending<ConvoRowUi> { it.sentAt }.thenBy { it.convoId })
-                    .toImmutableList()
+            convosFlow.value = sortedRows { it !in requestConvoIds }
+        }
+
+        private fun publishRequestConvos() {
+            requestConvosFlow.value = sortedRows { it in requestConvoIds }
         }
 
         private suspend fun ensureLoaded() =
@@ -85,6 +95,7 @@ internal class BenchFakeChatRepository
                                 JSON.decodeFromStream(BenchConvoListDto.serializer(), input)
                             }
                         val viewerDid = currentViewerDid()
+                        requestConvoIds.addAll(dto.convos.requestConvoIds())
                         dto.convos.forEach { convoDto ->
                             val convoItem = BenchChatsMapper.toConvoListItem(convoDto)
                             convosCache[convoDto.convoId] = convoItem
@@ -114,16 +125,33 @@ internal class BenchFakeChatRepository
 
         override fun observeRequestConvos(): StateFlow<ImmutableList<ConvoRowUi>?> = requestConvosFlow.asStateFlow()
 
-        override suspend fun refreshRequestConvos(): Result<Unit> = Result.success(Unit)
-
-        override suspend fun leaveConvo(convoId: String): Result<Unit> {
-            convosCache.remove(convoId)
-            if (convosFlow.value != null) publishConvos()
+        override suspend fun refreshRequestConvos(): Result<Unit> {
+            ensureLoaded()
+            publishRequestConvos()
             return Result.success(Unit)
         }
 
-        // Bench seeds no message requests, so there's nothing to accept — success no-op.
-        override suspend fun acceptConvo(convoId: String): Result<Unit> = Result.success(Unit)
+        override suspend fun leaveConvo(convoId: String): Result<Unit> {
+            convosCache.remove(convoId)
+            // Leaving is also how a request is declined, so drop it from both.
+            val wasRequest = requestConvoIds.remove(convoId)
+            if (convosFlow.value != null) publishConvos()
+            if (wasRequest && requestConvosFlow.value != null) publishRequestConvos()
+            return Result.success(Unit)
+        }
+
+        /**
+         * Moves a pending request into the accepted segment, mirroring what
+         * production's `acceptConvo` cache patch does. Accepting an unknown or
+         * already-accepted convo is a no-op success — production treats an absent
+         * `rev` in the response the same way.
+         */
+        override suspend fun acceptConvo(convoId: String): Result<Unit> {
+            if (!requestConvoIds.remove(convoId)) return Result.success(Unit)
+            if (convosFlow.value != null) publishConvos()
+            if (requestConvosFlow.value != null) publishRequestConvos()
+            return Result.success(Unit)
+        }
 
         override suspend fun setMuted(
             convoId: String,

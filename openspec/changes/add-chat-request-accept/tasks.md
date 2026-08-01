@@ -2,9 +2,13 @@
 
 Prerequisite: no bench fixture models a request-status conversation today, so nothing below is screenshot- or bench-verifiable until this lands.
 
-- [ ] 1.1 Add a request-status field to `BenchConvoDto` and seed `chats.json` with one **direct** and one **group** request conversation. The group case is required — it is the only thing that exercises the "Accept and join" label variant. Test: extend the existing bench DTO parsing test to assert both fixtures deserialize with the new field.
-- [ ] 1.2 Split `BenchFakeChatRepository.ensureLoaded()` so request-status rows publish to `requestConvosFlow` instead of the accepted flow, replacing the hard-coded empty list. Test: bench-flavor unit test asserting the Requests flow emits exactly the seeded requests and the Chats flow excludes them.
-- [ ] 1.3 Implement `BenchFakeChatRepository.acceptConvo` to move a row from the request flow to the front of the accepted flow, replacing today's success no-op. Test: unit test asserting a row moves between the two flows and the accepted flow's ordering puts it first.
+- [x] 1.1 Add a request-status field to `BenchConvoDto` and seed `chats.json` with one **direct** and one **group** request conversation. The group case is required — it is the only thing that exercises the "Accept and join" label variant. Test: `BenchChatsFixtureTest` in a new `src/testBench` source set — there was no existing bench DTO test, and `src/test` is shared with the production flavor where `BenchConvoDto` does not exist. Request fixtures omit `avatarUrl`: no matching avatar assets exist, and reusing another person's would put one face on two identities in screenshots.
+- [x] 1.2 Route request-status rows to `requestConvosFlow`. Requests stay in the single `convosCache` with a separate id set rather than a second cache, so `getConvo`/`resolveConvo` can still open a request thread — which is where task 3 accepts one. `refreshRequestConvos` now actually publishes instead of returning a no-op, and the flow starts `null` (not loaded) rather than an empty list. Test: `BenchChatsFixtureTest` pins the routing rule against the real fixture, so a mistyped status is caught.
+- [x] 1.3 Implement `BenchFakeChatRepository.acceptConvo` to move a row from the request flow to the accepted flow, and make `leaveConvo` drop a declined request from both. Accepting an unknown or already-accepted convo is a no-op success, matching how production treats a response with no `rev`.
+
+  Two deviations from this task as originally written, both deliberate:
+  - **Ordering.** Production prepends an accepted convo to the accepted cache; the bench fake publishes a map sorted by `sentAt`, so an accepted request lands by recency rather than first. Matching production would mean tracking accept order in a fixture whose purpose is determinism. Not worth it — noted so the difference is not mistaken for a bug.
+  - **Test.** Instantiating `BenchFakeChatRepository` needs an Android `Context` for `assets`, and the repo has no Robolectric. The routing rule is unit-tested; the actual move between flows is covered by the device pass in 5.4.
 
 ## 2. Shared mapper: carry convo status (`nubecita-1ts5.2` / `nubecita-1ts5.3`)
 
