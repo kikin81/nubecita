@@ -12,4 +12,5 @@
     <string name="login_error_no_browser">Nenhum navegador disponível para entrar. Instale ou ative um navegador e tente de novo.</string>
     <string name="login_signup_cta_supporting">Não tem uma conta?</string>
     <string name="login_signup_cta_label">Crie uma no Bluesky</string>
+    <string name="login_suggestion_network_bluesky">Bluesky Social</string>
 </resources>

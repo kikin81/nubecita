@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeoutOrNull
+import net.kikin.nubecita.core.actors.PublicActorSearch
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.AnalyticsEvent
 import net.kikin.nubecita.core.analytics.Login
@@ -760,13 +761,14 @@ internal class LoginViewModelTest {
         }
 }
 
-private fun newViewModel(
+internal fun newViewModel(
     authRepository: AuthRepository = FakeAuthRepository(),
     broker: OAuthRedirectBroker = FakeOAuthRedirectBroker(),
     notificationsPromptDecider: NotificationsPromptDecider =
         NotificationsPromptDecider(NoopPromptStore, sdkInt = 0),
     analytics: AnalyticsClient = NoOpAnalyticsClient(),
     crashReporter: CrashReporter = RecordingCrashReporter(),
+    publicActorSearch: PublicActorSearch = FakePublicActorSearch(),
 ): LoginViewModel =
     LoginViewModel(
         authRepository = authRepository,
@@ -774,6 +776,7 @@ private fun newViewModel(
         analytics = analytics,
         crashReporter = crashReporter,
         broker = broker,
+        publicActorSearch = publicActorSearch,
     )
 
 /** Records crash-seam calls so tests can assert structured non-fatals + keys. */

@@ -142,7 +142,7 @@ private fun ProfileView.toActorUi(): ActorUi =
         verifiedBadge = verification.toVerifiedBadge(),
     )
 
-private fun ProfileViewBasic.toActorUi(): ActorUi =
+internal fun ProfileViewBasic.toActorUi(): ActorUi =
     ActorUi(
         did = did.raw,
         handle = handle.raw,

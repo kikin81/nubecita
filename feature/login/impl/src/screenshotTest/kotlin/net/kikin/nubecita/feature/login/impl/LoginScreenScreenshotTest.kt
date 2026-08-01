@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
+import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 import net.kikin.nubecita.designsystem.preview.PreviewNubecitaScreenPreviews
 
@@ -132,6 +133,57 @@ private fun LoginScreenBrowserUnavailableErrorScreenshot() {
     NubecitaCanvasPreviewTheme {
         LoginScreen(
             state = LoginState(handle = "alice.bsky.social", errorMessage = LoginError.BrowserUnavailable),
+            onEvent = {},
+        )
+    }
+}
+
+private val SUGGESTIONS =
+    persistentListOf(
+        HandleSuggestion(
+            did = "did:plc:a",
+            handle = "franciscovelazquez.com",
+            displayName = "Francisco",
+            avatarUrl = null,
+            // Resolved: a custom domain that is still hosted on Bluesky. This is
+            // the case that makes resolution worth doing rather than deriving the
+            // network from the handle's domain.
+            pdsHost = "russula.us-west.host.bsky.network",
+        ),
+        HandleSuggestion(
+            did = "did:plc:b",
+            handle = "franciscovdp.bsky.social",
+            displayName = "FranciscoVdP",
+            avatarUrl = null,
+            pdsHost = "morel.us-east.host.bsky.network",
+        ),
+        HandleSuggestion(
+            did = "did:plc:c",
+            handle = "francisco.selfhost.dev",
+            displayName = "Francisco Self-Hosted",
+            avatarUrl = null,
+            // The only case the network line actually informs.
+            pdsHost = "pds.selfhost.dev",
+        ),
+        HandleSuggestion(
+            did = "did:plc:d",
+            handle = "franciscovila.bsky.social",
+            // No display name, and host not resolved yet — the normal first state
+            // for a freshly rendered row.
+            displayName = null,
+            avatarUrl = null,
+            pdsHost = null,
+        ),
+    )
+
+@PreviewTest
+@Preview(name = "login-typeahead-light", showBackground = true, heightDp = 900)
+@Preview(name = "login-typeahead-dark", showBackground = true, heightDp = 900, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun LoginTypeaheadScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        LoginScreen(
+            state = LoginState(handle = "franciscov", suggestions = SUGGESTIONS),
             onEvent = {},
         )
     }

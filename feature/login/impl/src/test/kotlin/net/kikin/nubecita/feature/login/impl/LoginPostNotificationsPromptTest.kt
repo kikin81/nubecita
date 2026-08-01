@@ -192,6 +192,7 @@ private fun newViewModel(
         analytics = NoOpAnalyticsClient(),
         crashReporter = NoOpCrashReporter(),
         broker = broker,
+        publicActorSearch = FakePublicActorSearch(),
     )
 
 private class PromptTestAuthRepository(

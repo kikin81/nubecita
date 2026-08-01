@@ -14,6 +14,8 @@ android {
 }
 
 dependencies {
+    implementation(libs.kotlinx.collections.immutable)
+    implementation(project(":core:actors"))
     api(project(":feature:login:api"))
 
     implementation(project(":core:analytics"))

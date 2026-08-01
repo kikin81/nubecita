@@ -6,9 +6,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -19,9 +21,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -41,13 +47,17 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.collections.immutable.ImmutableList
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.component.NubecitaAvatar
 import net.kikin.nubecita.designsystem.component.NubecitaPrimaryButton
+import net.kikin.nubecita.designsystem.component.avatarFallbackFor
 import net.kikin.nubecita.designsystem.spacing
 import timber.log.Timber
 
@@ -205,6 +215,24 @@ internal fun LoginScreen(
                             .semantics { contentType = ContentType.Username + ContentType.EmailAddress },
                 )
 
+                // Suggestions sit BELOW the field as a sibling — deliberately not
+                // an ExposedDropdownMenuBox, which wraps the field and rewrites its
+                // semantics. That would break LoginHandleAutofillTest, which asserts
+                // the field's ContentType and finds it via hasSetTextAction() on the
+                // assumption there is exactly one editable field. A plain sibling
+                // leaves the field untouched, and suggestion rows are not editable.
+                LoginSuggestions(
+                    suggestions = state.suggestions,
+                    onSelect = { onEvent(LoginEvent.SuggestionSelected(it)) },
+                    // weight(fill = false) instead of a fixed max height: the form
+                    // Column is fillMaxHeight and does not scroll, so the list must
+                    // take only the space left after the title, field, button and
+                    // links are measured. A dp cap is a guess that clips the CTA on
+                    // some screen / keyboard combination; this is correct on all of
+                    // them, and shrinks as the IME opens.
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+
                 AnimatedVisibility(visible = errorText != null) {
                     errorText?.let {
                         Text(
@@ -323,3 +351,96 @@ private fun LoginScreenGenericErrorPreview() {
         )
     }
 }
+
+/**
+ * Account suggestions for what has been typed so far. Hidden entirely when
+ * empty — including while a query is in flight — so the list does not flicker
+ * in and out on every keystroke.
+ */
+@Composable
+private fun LoginSuggestions(
+    suggestions: ImmutableList<HandleSuggestion>,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    AnimatedVisibility(visible = suggestions.isNotEmpty(), modifier = modifier) {
+        OutlinedCard(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                suggestions.forEachIndexed { index, suggestion ->
+                    if (index > 0) HorizontalDivider()
+                    LoginSuggestionRow(suggestion = suggestion, onClick = { onSelect(suggestion.handle) })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LoginSuggestionRow(
+    suggestion: HandleSuggestion,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        NubecitaAvatar(
+            model = suggestion.avatarUrl,
+            // The row's text carries the identity; a label here would make a
+            // screen reader announce the account twice.
+            contentDescription = null,
+            fallback =
+                avatarFallbackFor(
+                    did = suggestion.did,
+                    handle = suggestion.handle,
+                    displayName = suggestion.displayName,
+                ),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = suggestion.displayName?.takeUnless { it.isBlank() } ?: suggestion.handle,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "@${suggestion.handle}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            // Resolved after the row is already on screen, so its absence is the
+            // normal first state rather than an error.
+            suggestion.pdsHost?.let { host ->
+                Text(
+                    text = networkLabelFor(host),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Bluesky-operated PDS hosts are internal shard names — shiitake, morel,
+ * russula — that mean nothing to a user and differ arbitrarily between accounts
+ * on the same service. Collapse them to one label; show a real host only when
+ * it is genuinely somewhere else, which is the only case the line informs.
+ */
+@Composable
+private fun networkLabelFor(host: String): String =
+    if (host == "bsky.social" || host == "host.bsky.network" || host.endsWith(".host.bsky.network")) {
+        stringResource(R.string.login_suggestion_network_bluesky)
+    } else {
+        host
+    }
