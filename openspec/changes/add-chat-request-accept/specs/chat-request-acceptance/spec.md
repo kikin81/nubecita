@@ -22,7 +22,7 @@ The conversation thread SHALL determine whether it is showing a pending request 
 
 ### Requirement: A pending request replaces the composer with an accept surface
 
-While a conversation is a pending request, the thread SHALL NOT present a message composer. The bottom bar SHALL instead present an accept surface offering a primary accept action plus decline and block actions. Because no text field is presented, sending a message into an unaccepted conversation SHALL be unrepresentable in the UI.
+While a conversation is a pending request, the thread SHALL NOT present a message composer. The bottom bar SHALL instead present an accept surface offering a primary accept action plus a decline action. Because no text field is presented, sending a message into an unaccepted conversation SHALL be unrepresentable in the UI.
 
 #### Scenario: Opening a request shows the accept surface
 
