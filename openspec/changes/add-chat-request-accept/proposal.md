@@ -7,7 +7,7 @@ Opening a request is worse than a missing button. The thread renders a normal, f
 ## What Changes
 
 - A conversation the server reports as a pending request SHALL replace its composer with a dedicated accept surface, so a request cannot be replied to before it is accepted. This holds for every entry point — the Requests segment, a notification tap, or a deep link — because the status is read from the conversation itself rather than passed in by the caller.
-- The accept surface offers **Accept** (direct) or **Accept and join** (group), plus a decline action that reuses the existing recoverable undo.
+- The accept surface offers **Accept** (direct) or **Accept and join** (group) as its only committing action. Declining is offered on the request's row in the list, where the existing deferred-undo leave already makes it recoverable.
 - Accepting from the thread transitions in place to the real composer; the conversation moves to the Chats segment without a manual refresh.
 - The Requests segment gains a per-row Accept / Decline action, so accepting one request no longer requires entering multi-select.
 - `ConvoView.status` is carried through the conversation mapper to both the list row and the thread, replacing today's status-blind mapping.
@@ -18,7 +18,7 @@ No breaking changes. No SDK change: `chat.bsky.convo.acceptConvo` is already exp
 ## Capabilities
 
 ### New Capabilities
-- `chat-request-acceptance`: How a pending conversation request is presented and accepted from inside the conversation thread — request detection from convo status, replacing the composer with the accept surface, the accept and decline actions, direct-vs-group labelling, and the transition to a live composer on success.
+- `chat-request-acceptance`: How a pending conversation request is presented and accepted from inside the conversation thread — request detection from convo status, replacing the composer with the accept surface, the accept action, direct-vs-group labelling, and the transition to a live composer on success.
 
 ### Modified Capabilities
 - `feature-chats`: The Requests segment gains a direct per-row Accept / Decline affordance. Today accepting requires entering multi-select first; the existing multi-select bulk path is retained, not replaced.

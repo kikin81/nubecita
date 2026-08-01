@@ -234,11 +234,16 @@ internal class BenchFakeChatRepository
                     null ->
                         return Result.failure(NoSuchElementException("Unknown convoId: $convoId"))
                 }
+            // A pending request is not postable and drives the thread's accept
+            // surface — without this the bench build would render a composer for a
+            // request and the flow would be untestable off-device.
+            val isRequest = convoId in requestConvoIds
             return Result.success(
                 ChatConvo(
                     convoId = convoId,
                     header = header,
-                    canPost = true,
+                    canPost = !isRequest,
+                    isRequest = isRequest,
                 ),
             )
         }

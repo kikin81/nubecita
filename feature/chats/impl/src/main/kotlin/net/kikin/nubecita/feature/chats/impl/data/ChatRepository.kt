@@ -276,6 +276,11 @@ data class ChatConvo(
     val convoId: String,
     val header: ChatHeader,
     val canPost: Boolean,
+    /**
+     * A pending message request: the thread replaces its composer with the
+     * accept surface rather than inviting a reply the server will reject.
+     */
+    val isRequest: Boolean = false,
 )
 
 data class ConvoResolution(

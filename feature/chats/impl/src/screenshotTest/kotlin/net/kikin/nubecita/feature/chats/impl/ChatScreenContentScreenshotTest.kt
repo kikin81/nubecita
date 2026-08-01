@@ -610,3 +610,90 @@ private fun ChatScreenGroupCannotPostScreenshot() {
         ChatScreenContent(state = GROUP_CANNOT_POST_STATE, onEvent = {}, textFieldState = TextFieldState())
     }
 }
+
+// --- pending message request (nubecita-1ts5) ---
+// The composer is replaced by the accept surface. Both kinds are pinned because
+// the label differs: accepting a group request joins the group, which is a
+// different commitment from letting one person message you.
+
+private val REQUEST_DIRECT_STATE =
+    ChatScreenViewState(
+        header = DIRECT_HEADER,
+        canPost = false,
+        isRequest = true,
+        status =
+            ChatLoadStatus.Loaded(
+                items =
+                    persistentListOf(
+                        ThreadItem.Message(
+                            message =
+                                mu(
+                                    "r1",
+                                    isOutgoing = false,
+                                    text = "Hi! Saw your post about Compose performance \u2014 mind if I ask a question?",
+                                    sentAt = "2026-05-14T17:00:00Z",
+                                ),
+                            runIndex = 0,
+                            runCount = 1,
+                            showAvatar = true,
+                        ),
+                    ),
+            ),
+    )
+
+private val REQUEST_GROUP_STATE =
+    ChatScreenViewState(
+        header = GROUP_HEADER,
+        canPost = false,
+        isRequest = true,
+        status =
+            ChatLoadStatus.Loaded(
+                items =
+                    persistentListOf(
+                        ThreadItem.Message(
+                            message =
+                                mu(
+                                    "r2",
+                                    isOutgoing = false,
+                                    text = "Hey! Adding you to the group \u2014 we do a monthly meetup.",
+                                    sentAt = "2026-05-14T17:00:00Z",
+                                ),
+                            runIndex = 0,
+                            runCount = 1,
+                            showAvatar = true,
+                        ),
+                    ),
+            ),
+    )
+
+private val REQUEST_ACCEPTING_STATE = REQUEST_DIRECT_STATE.copy(isAcceptInFlight = true)
+
+@PreviewTest
+@Preview(name = "chat-request-direct-light", showBackground = true, heightDp = 700)
+@Preview(name = "chat-request-direct-dark", showBackground = true, heightDp = 700, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ChatScreenRequestDirectScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        ChatScreenContent(state = REQUEST_DIRECT_STATE, onEvent = {}, textFieldState = TextFieldState())
+    }
+}
+
+@PreviewTest
+@Preview(name = "chat-request-group-light", showBackground = true, heightDp = 700)
+@Preview(name = "chat-request-group-dark", showBackground = true, heightDp = 700, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ChatScreenRequestGroupScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        ChatScreenContent(state = REQUEST_GROUP_STATE, onEvent = {}, textFieldState = TextFieldState())
+    }
+}
+
+@PreviewTest
+@Preview(name = "chat-request-accepting-light", showBackground = true, heightDp = 700)
+@Preview(name = "chat-request-accepting-dark", showBackground = true, heightDp = 700, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ChatScreenRequestAcceptingScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        ChatScreenContent(state = REQUEST_ACCEPTING_STATE, onEvent = {}, textFieldState = TextFieldState())
+    }
+}

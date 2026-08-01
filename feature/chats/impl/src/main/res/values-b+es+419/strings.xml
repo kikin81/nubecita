@@ -176,4 +176,13 @@
     <string name="group_join_error_follow_required">Solo pueden unirse las personas a las que sigue el propietario del grupo.</string>
     <string name="group_join_error_cannot_rejoin">No puedes volver a unirte a un grupo del que fuiste eliminado.</string>
     <string name="group_join_error_generic">No se pudo unir al grupo. Inténtalo de nuevo.</string>
+    <string name="chat_request_title">Solicitud de mensaje</string>
+    <string name="chat_request_body_direct">Al aceptar, esta persona podrá enviarte mensajes y verá que lo viste.</string>
+    <string name="chat_request_body_group">Al aceptar, te unirás a este grupo y se mostrará que lo viste.</string>
+    <string name="chat_request_accept">Aceptar</string>
+    <string name="chat_request_accept_group">Aceptar y unirse</string>
+    <string name="chat_request_accept_error">No se pudo aceptar la solicitud. Inténtalo de nuevo.</string>
+    <string name="chats_action_decline">Rechazar</string>
+    <string name="chats_row_accept_a11y">Aceptar la solicitud de %1$s</string>
+    <string name="chats_row_decline_a11y">Rechazar la solicitud de %1$s</string>
 </resources>

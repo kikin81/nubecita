@@ -176,4 +176,13 @@
     <string name="group_join_error_follow_required">Só podem entrar pessoas que o proprietário do grupo segue.</string>
     <string name="group_join_error_cannot_rejoin">Você não pode voltar a um grupo do qual foi removido.</string>
     <string name="group_join_error_generic">Não foi possível entrar no grupo. Tente novamente.</string>
+    <string name="chat_request_title">Solicitação de mensagem</string>
+    <string name="chat_request_body_direct">Ao aceitar, essa pessoa poderá te enviar mensagens e verá que você viu isto.</string>
+    <string name="chat_request_body_group">Ao aceitar, você entrará neste grupo e será mostrado que você viu isto.</string>
+    <string name="chat_request_accept">Aceitar</string>
+    <string name="chat_request_accept_group">Aceitar e participar</string>
+    <string name="chat_request_accept_error">Não foi possível aceitar a solicitação. Tente novamente.</string>
+    <string name="chats_action_decline">Recusar</string>
+    <string name="chats_row_accept_a11y">Aceitar a solicitação de %1$s</string>
+    <string name="chats_row_decline_a11y">Recusar a solicitação de %1$s</string>
 </resources>

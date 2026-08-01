@@ -1107,4 +1107,108 @@ internal class ChatViewModelTest {
                 canPost = true,
             ),
         )
+
+    // --- pending message requests (nubecita-1ts5) ---
+
+    @Test
+    fun `a request convo shows the accept surface instead of a composer`() =
+        runTest {
+            val repo = FakeChatRepository()
+            repo.getConvoResult =
+                Result.success(
+                    ChatConvo(
+                        convoId = "c1",
+                        header = ChatHeader.Direct(did = "did:plc:x", handle = "x.test", displayName = null, avatarUrl = null),
+                        canPost = false,
+                        isRequest = true,
+                    ),
+                )
+            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo)
+            advanceUntilIdle()
+
+            assertTrue(vm.uiState.value.isRequest)
+            assertEquals(false, vm.uiState.value.canPost)
+        }
+
+    @Test
+    fun `accepting a request hands back a usable composer without re-fetching`() =
+        runTest {
+            val repo = FakeChatRepository()
+            repo.getConvoResult =
+                Result.success(
+                    ChatConvo(
+                        convoId = "c1",
+                        header = ChatHeader.Direct(did = "did:plc:x", handle = "x.test", displayName = null, avatarUrl = null),
+                        canPost = false,
+                        isRequest = true,
+                    ),
+                )
+            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo)
+            advanceUntilIdle()
+            val fetchesBeforeAccept = repo.getConvoCalls.get()
+
+            vm.handleEvent(ChatEvent.AcceptRequest)
+            advanceUntilIdle()
+
+            assertEquals(listOf("c1"), repo.acceptCalls)
+            assertEquals(false, vm.uiState.value.isRequest, "the accept surface must give way")
+            assertTrue(vm.uiState.value.canPost, "the composer must be usable immediately")
+            assertEquals(false, vm.uiState.value.isAcceptInFlight)
+            // A re-fetch would put a network hop between the tap and the composer.
+            assertEquals(fetchesBeforeAccept, repo.getConvoCalls.get(), "accept must not re-fetch the convo")
+        }
+
+    @Test
+    fun `a failed accept leaves the request pending so the retry is just tapping again`() =
+        runTest {
+            val repo = FakeChatRepository()
+            repo.getConvoResult =
+                Result.success(
+                    ChatConvo(
+                        convoId = "c1",
+                        header = ChatHeader.Direct(did = "did:plc:x", handle = "x.test", displayName = null, avatarUrl = null),
+                        canPost = false,
+                        isRequest = true,
+                    ),
+                )
+            repo.nextAcceptResult = Result.failure(RuntimeException("boom"))
+            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(ChatEvent.AcceptRequest)
+                advanceUntilIdle()
+
+                assertEquals(ChatEffect.ShowAcceptError, awaitItem())
+                assertTrue(vm.uiState.value.isRequest, "the request must stay pending")
+                assertEquals(false, vm.uiState.value.canPost)
+                assertEquals(false, vm.uiState.value.isAcceptInFlight, "the button must be tappable again")
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `a second accept tap while one is in flight is ignored`() =
+        runTest {
+            val repo = FakeChatRepository()
+            repo.getConvoResult =
+                Result.success(
+                    ChatConvo(
+                        convoId = "c1",
+                        header = ChatHeader.Direct(did = "did:plc:x", handle = "x.test", displayName = null, avatarUrl = null),
+                        canPost = false,
+                        isRequest = true,
+                    ),
+                )
+            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo)
+            advanceUntilIdle()
+
+            vm.handleEvent(ChatEvent.AcceptRequest)
+            vm.handleEvent(ChatEvent.AcceptRequest)
+            advanceUntilIdle()
+
+            // Double-accepting is harmless server-side, but a duplicate call would
+            // still be a bug the loading state exists to prevent.
+            assertEquals(listOf("c1"), repo.acceptCalls)
+        }
 }

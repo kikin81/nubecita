@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -62,6 +63,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.designsystem.component.AvatarGroup
 import net.kikin.nubecita.designsystem.component.NubecitaAvatar
+import net.kikin.nubecita.designsystem.component.NubecitaPrimaryButton
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.component.avatarFallbackFor
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -204,7 +206,21 @@ internal fun ChatScreenContent(
             // each windowInsetsPadding consumes the previous: closed → nav-bar height;
             // open → full IME (which already subsumes the nav-bar area).
             if (state.status is ChatLoadStatus.Loaded) {
-                if (state.canPost) {
+                if (state.isRequest) {
+                    // Ordered before canPost on purpose: a request is never postable,
+                    // and the accept surface is the more specific — and actionable —
+                    // presentation of that same fact. Same single inset owner as the
+                    // composer it replaces.
+                    ChatRequestAcceptBar(
+                        isGroup = state.header is ChatHeader.Group,
+                        isAccepting = state.isAcceptInFlight,
+                        onAccept = { onEvent(ChatEvent.AcceptRequest) },
+                        modifier =
+                            Modifier
+                                .navigationBarsPadding()
+                                .imePadding(),
+                    )
+                } else if (state.canPost) {
                     // Banner + composer share one inset owner (this Column carries the
                     // nav-bar + IME padding) so there's still exactly one IME layer.
                     Column(
@@ -403,6 +419,64 @@ private fun ChatReplyBanner(
                     contentDescription = stringResource(R.string.chat_reply_cancel_content_description),
                 )
             }
+        }
+    }
+}
+
+/**
+ * Replaces the composer while the conversation is a pending message request.
+ *
+ * Structural, not advisory: there is no text field here, so "reply before
+ * accept" cannot be expressed in the UI at all and the send path needs no extra
+ * guard. Lives in the same inset-owning slot the composer occupies, so the
+ * bottom bar remains the single IME owner.
+ *
+ * Stacked rather than an M3 connected button group: "Accept and join" localises
+ * to "Aceptar y unirse" / "Aceitar e participar", and a two-up group has
+ * overflowed on strings this long before — a failure that is invisible when
+ * reviewing in English. A full-width button is immune to the label growing.
+ */
+@Composable
+private fun ChatRequestAcceptBar(
+    isGroup: Boolean,
+    isAccepting: Boolean,
+    onAccept: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.chat_request_title),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                // States the consequence rather than the mechanism: accepting a
+                // group request joins the group, which is a different commitment
+                // from letting one person message you.
+                text =
+                    stringResource(
+                        if (isGroup) R.string.chat_request_body_group else R.string.chat_request_body_direct,
+                    ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            NubecitaPrimaryButton(
+                onClick = onAccept,
+                text =
+                    stringResource(
+                        if (isGroup) R.string.chat_request_accept_group else R.string.chat_request_accept,
+                    ),
+                isLoading = isAccepting,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }

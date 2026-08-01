@@ -94,25 +94,22 @@ Accepting SHALL call `chat.bsky.convo.acceptConvo` for the conversation. On succ
 - **WHEN** the conversation was already accepted on another device and the user activates accept
 - **THEN** the call is treated as successful and the composer is shown
 
-### Requirement: A request can be declined from the thread
+### Requirement: The thread offers accept only; declining is a list action
 
-The accept surface SHALL offer a decline action alongside accept. Declining SHALL use the same recoverable deferred-undo mechanism as leaving a conversation, so a decline can be reversed within the undo window.
+The accept surface SHALL offer accept as its only committing action. It SHALL NOT offer decline or block.
 
-The surface SHALL NOT offer a block action. Blocking has no single meaning for a group request, and the Requests segment does not offer it today; safety actions against an individual remain available through the existing profile surface.
+Declining is offered on the conversation row in the Requests segment, where it is recoverable through the existing deferred-undo leave. Offering it in the thread as well would mean either duplicating that undo machinery in a second presenter or handing a deferred action across screens; a decline that is undoable from one surface and immediate from another is worse than a decline that lives in one place.
 
-#### Scenario: Declining a request
+Blocking is likewise not offered: it has no single meaning for a group request, and the Requests segment does not offer it today. Safety actions against an individual remain available through the existing profile surface.
 
-- **WHEN** the user declines a pending request
-- **THEN** the conversation is removed from the Requests segment
-- **AND** an undo affordance is offered for the same window as leaving a conversation
+#### Scenario: The thread does not commit a decline
 
-#### Scenario: Undoing a decline
+- **WHEN** a pending request is open in the thread
+- **THEN** no decline or block action is presented
+- **AND** the user can leave the request untouched by navigating back
 
-- **WHEN** the user undoes a decline within the undo window
-- **THEN** the conversation is restored to the Requests segment
-- **AND** no network call to leave the conversation is made
+#### Scenario: Declining is reachable from the list
 
-#### Scenario: Decline is offered for both conversation kinds
-
-- **WHEN** the pending request is a direct conversation or a group conversation
-- **THEN** decline is offered and behaves identically in both cases
+- **WHEN** the user wants to decline a request
+- **THEN** the decline action on the request's row in the Requests segment performs it
+- **AND** it is recoverable for the same window as leaving a conversation

@@ -47,6 +47,15 @@ sealed interface ChatHeader {
 data class ChatScreenViewState(
     val header: ChatHeader? = null,
     val canPost: Boolean = true,
+    /**
+     * A pending message request: the bottom bar shows the accept surface instead
+     * of the composer, so a reply cannot be sent before the request is accepted.
+     * Read from the loaded convo's status, never from the caller that navigated
+     * here, so a deep link or notification tap is correct too (nubecita-1ts5).
+     */
+    val isRequest: Boolean = false,
+    /** An `acceptConvo` call is outstanding; the accept button shows its loading state. */
+    val isAcceptInFlight: Boolean = false,
     val status: ChatLoadStatus = ChatLoadStatus.Loading,
     val isSendEnabled: Boolean = false,
     // The message the composer is currently replying to (from a long-press "Reply"),
@@ -260,6 +269,9 @@ sealed interface ChatEvent : UiEvent {
     /** User tapped "Group details" in the thread overflow menu (group convos only). */
     data object GroupDetailsTapped : ChatEvent
 
+    /** Accept the pending message request this thread is showing. */
+    data object AcceptRequest : ChatEvent
+
     /** Toggle the viewer's [emoji] reaction on the message with [messageId] (chip tap or picker pick). */
     data class ToggleReaction(
         val messageId: String,
@@ -299,6 +311,13 @@ sealed interface ChatEffect : UiEffect {
     data class ShowSendError(
         val error: ChatError,
     ) : ChatEffect
+
+    /**
+     * Accepting the pending request failed. Transient snackbar only — the accept
+     * surface stays exactly as it was, so re-tapping accept IS the retry and no
+     * sticky error state is needed.
+     */
+    data object ShowAcceptError : ChatEffect
 
     /** An add/remove-reaction call failed; the optimistic change was rolled back. Surface a transient snackbar. */
     data object ShowReactionError : ChatEffect
