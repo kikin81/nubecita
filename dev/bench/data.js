@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785486011920,
+  "lastUpdate": 1785571426124,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -1209,6 +1209,64 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 656,
             "range": "+/- 2.5%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d85af9a4fed1bdc4b361f16368f716bc53c539d4",
+          "message": "docs(chats): propose the chat-request accept flow (#835)\n\n* docs(chats): propose the chat-request accept flow\n\nA user with pending message requests has no discoverable way to accept them.\nThe only path is long-press a row to enter multi-select and use the contextual\nbar, while the segment's own empty state promises \"...for you to accept or\nignore\". Opening a request is worse: the thread renders a normal enabled\ncomposer, so the UI invites a reply the server will reject.\n\nCause is one omission — ConvoMapper drops ConvoView.status, so canViewerPost\nreturns true for a request and both surfaces render it as accepted.\n\nNo SDK work: acceptConvo ships in the pinned 9.9.2 and\nDefaultChatRepository.acceptConvo is already implemented, cache patching\nincluded.\n\nNew capability chat-request-acceptance (thread-side accept surface replacing\nthe composer) plus a feature-chats delta (per-row accept/decline). Additive\ndelta rather than MODIFIED — multi-select behaviour is unchanged.\n\nDeferred: listConvoRequests. Its second union member is an OUTBOUND group join\nrequest, withdrawable not acceptable, sharing only convoId with convoView.\nTracked as nubecita-pygz.\n\nRefs: nubecita-1ts5\n\n* docs(chats): remove the last Block references and unscope the entry point\n\nReview catch on #835. Dropping Block per D9 was incomplete — the requirement\ntext and the capability summary both still advertised a block action while a\nlater requirement said SHALL NOT offer one. A spec that contradicts itself is\nworse than one that picks the wrong option.\n\nAlso unscoped \"opened from the Requests segment\": D2 derives request status\nfrom the thread's own getConvo precisely so notification taps and deep links\nare correct too, and the proposal was narrower than the requirement it\nsummarises.\n\nRefs: nubecita-1ts5",
+          "timestamp": "2026-08-01T06:00:01Z",
+          "url": "https://github.com/kikin81/nubecita/commit/d85af9a4fed1bdc4b361f16368f716bc53c539d4"
+        },
+        "date": 1785571424314,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 36,
+            "range": "+/- 41.2%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1273.064,
+            "range": "+/- 5.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1279.459,
+            "range": "+/- 7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1037.4,
+            "range": "+/- 18.1%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 570.715,
+            "range": "+/- 49.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 722,
+            "range": "+/- 3.8%",
             "unit": "frames"
           }
         ]
