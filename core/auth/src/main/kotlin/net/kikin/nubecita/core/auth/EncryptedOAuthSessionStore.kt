@@ -4,7 +4,9 @@ import androidx.datastore.core.DataStore
 import io.github.kikin81.atproto.oauth.OAuthSession
 import io.github.kikin81.atproto.oauth.OAuthSessionStore
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.SerializationException
 import java.io.IOException
 import java.security.GeneralSecurityException
@@ -22,7 +24,23 @@ internal class EncryptedOAuthSessionStore
         private val dataStore: DataStore<OAuthSession?>,
         private val telemetry: SessionTelemetry,
     ) : OAuthSessionStore,
-        SessionReader {
+        SessionReader,
+        SessionResultStream {
+        /**
+         * Continuous projection of the session DataStore. Deliberately does NOT
+         * catch storage failures the way [loadResult] does: the collector owns
+         * the bounded retry, and swallowing here would collapse a transient
+         * read error into an indistinguishable [SessionLoadResult.Absent] —
+         * the exact conflation epic nubecita-09xt removed.
+         */
+        override fun results(): Flow<SessionLoadResult> =
+            dataStore.data.map { session ->
+                when (session) {
+                    null -> SessionLoadResult.Absent
+                    else -> SessionLoadResult.Loaded(session)
+                }
+            }
+
         /**
          * App-internal read that distinguishes "no session" from "read failed"
          * (epic nubecita-09xt). Storage-layer failures — IO, AEAD decrypt, JSON

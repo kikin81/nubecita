@@ -1,6 +1,9 @@
 package net.kikin.nubecita.core.auth
 
 import io.mockk.mockk
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -97,5 +100,9 @@ class IsSelfHostedPdsTest {
             assertFalse(provider.isSelfHosted.first())
         }
 
-    private fun provider(reader: SessionReader) = DefaultSessionStateProvider(reader, mockk(relaxed = true))
+    // These cases drive the pull path only. The init collector does run — the
+    // scope defaults to Dispatchers.Default — but it collects emptyFlow(), which
+    // completes immediately without emitting, so it never publishes a state and
+    // everything asserted below comes from refresh().
+    private fun provider(reader: SessionReader) = DefaultSessionStateProvider(reader, mockk(relaxed = true), { emptyFlow() }, CoroutineScope(Job()))
 }

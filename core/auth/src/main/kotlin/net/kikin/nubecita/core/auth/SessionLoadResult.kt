@@ -1,6 +1,7 @@
 package net.kikin.nubecita.core.auth
 
 import io.github.kikin81.atproto.oauth.OAuthSession
+import kotlinx.coroutines.flow.Flow
 
 /**
  * App-internal result of reading the persisted session, distinguishing the two
@@ -22,6 +23,21 @@ internal sealed interface SessionLoadResult {
     data class ReadError(
         val cause: Throwable,
     ) : SessionLoadResult
+}
+
+/**
+ * Continuous view of the persisted session, as opposed to [SessionReader]'s
+ * one-shot read. Emits on every write to the session DataStore — including the
+ * `clear()` the SDK's `DpopAuthProvider.failRefresh` performs on `invalid_grant`,
+ * which no app code initiates and therefore no app code can remember to
+ * announce (nubecita-kzsd).
+ *
+ * Storage failures are NOT swallowed here: they propagate so the collector can
+ * apply the same bounded retry a cold-start read gets, rather than latching a
+ * transient disk error into a logout.
+ */
+internal fun interface SessionResultStream {
+    fun results(): Flow<SessionLoadResult>
 }
 
 /**
