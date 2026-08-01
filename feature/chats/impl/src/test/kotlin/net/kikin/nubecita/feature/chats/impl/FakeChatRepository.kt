@@ -87,7 +87,7 @@ internal class FakeChatRepository(
         )
 
     private val convos = MutableStateFlow<ImmutableList<ConvoRowUi>?>(null)
-    private val requestConvos = MutableStateFlow<ImmutableList<ConvoRowUi>?>(null)
+    val requestConvos = MutableStateFlow<ImmutableList<ConvoRowUi>?>(null)
 
     override fun observeConvos(): StateFlow<ImmutableList<ConvoRowUi>?> = convos.asStateFlow()
 
@@ -118,8 +118,23 @@ internal class FakeChatRepository(
         }
     }
 
+    /** Hold acceptConvo open so a test can observe the in-flight state. */
+    var gateAccept: Boolean = false
+    private var gate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+
+    /** Release a gated acceptConvo by cancelling it, as a screen teardown would. */
+    fun cancelGate() {
+        gate?.cancel()
+        gate = null
+    }
+
     override suspend fun acceptConvo(convoId: String): Result<Unit> {
         acceptCalls += convoId
+        if (gateAccept) {
+            val d = kotlinx.coroutines.CompletableDeferred<Unit>()
+            gate = d
+            d.await()
+        }
         return nextAcceptResult.onSuccess {
             val (accepted, requests) = patchConvosOnAccept(convos.value, requestConvos.value, convoId)
             convos.value = accepted

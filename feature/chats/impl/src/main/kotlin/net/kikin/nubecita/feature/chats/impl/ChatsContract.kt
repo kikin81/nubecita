@@ -4,7 +4,9 @@ import androidx.compose.runtime.Immutable
 import androidx.navigation3.runtime.NavKey
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
@@ -45,6 +47,13 @@ data class ChatsScreenViewState(
      * invalid combinations are unrepresentable. Coexists with `status.Loaded`.
      */
     val selection: ImmutableSet<String>? = null,
+    /**
+     * Convo ids whose per-row Accept is in flight. Tracked per row rather than as
+     * a single flag so accepting one request never disables the actions on the
+     * others (nubecita-1ts5.3). Decline is not tracked here: it is optimistic and
+     * hides the row immediately via the existing deferred-undo leave.
+     */
+    val acceptInFlight: PersistentSet<String> = persistentSetOf(),
 ) : UiState
 
 /** The two top-level segments of the Chats tab home. */
@@ -216,6 +225,19 @@ sealed interface ChatsEvent : UiEvent {
     data object ToggleMuteSelected : ChatsEvent
 
     data object AcceptSelected : ChatsEvent
+
+    /**
+     * Accept a single request straight from its row, without entering selection
+     * mode first. The bulk [AcceptSelected] path is unchanged.
+     */
+    data class AcceptRequestTapped(
+        val convoId: String,
+    ) : ChatsEvent
+
+    /** Decline a single request from its row, via the same deferred-undo leave. */
+    data class DeclineRequestTapped(
+        val convoId: String,
+    ) : ChatsEvent
 
     /** Profile/Report/Block are single-select only (the overflow hides at 2+). */
     data object ProfileSelected : ChatsEvent

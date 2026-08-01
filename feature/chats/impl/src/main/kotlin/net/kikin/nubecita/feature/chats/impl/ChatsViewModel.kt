@@ -8,6 +8,7 @@ import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toPersistentSet
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -138,6 +139,8 @@ class ChatsViewModel
                 ChatsEvent.ClearSelection -> selection.value = null
                 ChatsEvent.LeaveSelected -> startLeaveWithUndo()
                 ChatsEvent.AcceptSelected -> runBulkAction { repository.acceptConvo(it) }
+                is ChatsEvent.AcceptRequestTapped -> acceptRequestFromRow(event.convoId)
+                is ChatsEvent.DeclineRequestTapped -> startLeaveWithUndo(setOf(event.convoId))
                 ChatsEvent.ToggleMuteSelected -> toggleMuteSelected()
                 ChatsEvent.ProfileSelected -> navigateSingle { Profile(handle = it.otherUserHandle) }
                 ChatsEvent.ReportSelected -> navigateSingle { Report.forAccount(it.otherUserDid) }
@@ -159,6 +162,36 @@ class ChatsViewModel
         private fun selectedConvos(): List<ConvoRowUi> {
             val ids = selection.value ?: return emptyList()
             return activeList().filter { it.convoId in ids }
+        }
+
+        /**
+         * Accept one request straight from its row. Reuses the same
+         * `repository.acceptConvo` the bulk path calls, so there is a single
+         * implementation of accepting; only the entry point differs.
+         *
+         * In-flight state is per convo id, so accepting one request leaves the
+         * other rows interactive. On success the row leaves the Requests segment
+         * because the repository patches both caches — nothing to do here.
+         */
+        private fun acceptRequestFromRow(convoId: String) {
+            if (convoId in uiState.value.acceptInFlight) return
+            setState { copy(acceptInFlight = acceptInFlight.adding(convoId)) }
+            viewModelScope.launch {
+                // finally, not a plain sequential clear: acceptConvo suspends, and a
+                // cancellation there (screen teardown) would otherwise skip the
+                // cleanup and leave the row spinning and un-tappable for the rest of
+                // this VM's life.
+                try {
+                    repository
+                        .acceptConvo(convoId)
+                        .onFailure { throwable ->
+                            if (throwable is CancellationException) throw throwable
+                            sendEffect(ChatsEffect.ShowActionError(throwable.toChatsError()))
+                        }
+                } finally {
+                    setState { copy(acceptInFlight = acceptInFlight.removing(convoId)) }
+                }
+            }
         }
 
         /**
@@ -205,8 +238,11 @@ class ChatsViewModel
          * the window is a pure un-hide. Any prior pending batch commits immediately
          * (single-batch / Gmail supersede).
          */
-        private fun startLeaveWithUndo() {
-            val ids = selectedConvos().map { it.convoId }.toPersistentSet()
+        private fun startLeaveWithUndo(convoIds: Set<String>? = null) {
+            // convoIds is supplied by the per-row decline; the bulk path passes
+            // null and falls back to the current selection. One implementation of
+            // the undo window either way.
+            val ids = (convoIds ?: selectedConvos().map { it.convoId }).toPersistentSet()
             if (ids.isEmpty()) return
             selection.value = null
             // Cancel the prior batch's timer FIRST, then commit it (supersede). Doing

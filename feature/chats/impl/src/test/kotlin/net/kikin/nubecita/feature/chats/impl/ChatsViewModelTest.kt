@@ -13,6 +13,8 @@ import net.kikin.nubecita.feature.moderation.api.Block
 import net.kikin.nubecita.feature.moderation.api.Report
 import net.kikin.nubecita.feature.profile.api.Profile
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -627,6 +629,9 @@ internal class ChatsViewModelTest {
             assertEquals(setOf("c1", "c2"), vm.uiState.value.selection)
         }
 
+    /** A pending request row for the Requests segment. */
+    private fun requestRow(convoId: String): ConvoRowUi.Direct = sampleItem(convoId).copy(isRequest = true)
+
     /** convoIds of the currently-displayed (Loaded) list — assumes Loaded. */
     private fun loadedIds(vm: ChatsViewModel): List<String> = (vm.uiState.value.status as ChatsLoadStatus.Loaded).items.map { it.convoId }
 
@@ -673,4 +678,110 @@ internal class ChatsViewModelTest {
             unreadCount = 0,
             muted = false,
         )
+
+    // --- per-row request actions (nubecita-1ts5.3) ---
+
+    @Test
+    fun `accepting from a row needs no selection mode and reuses acceptConvo`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.requestConvos.value = persistentListOf(requestRow("r1"), requestRow("r2"))
+            val vm = ChatsViewModel(repository = repo, applicationScope = backgroundScope)
+            vm.handleEvent(ChatsEvent.SegmentSelected(ChatsSegment.Requests))
+            advanceUntilIdle()
+
+            vm.handleEvent(ChatsEvent.AcceptRequestTapped("r1"))
+            advanceUntilIdle()
+
+            assertEquals(listOf("r1"), repo.acceptCalls)
+            // The whole point: no long-press, so selection mode never opens.
+            assertNull(vm.uiState.value.selection, "accepting from a row must not enter selection mode")
+            assertFalse("r1" in vm.uiState.value.acceptInFlight, "in-flight must clear once the call settles")
+        }
+
+    @Test
+    fun `two rows accepting at once track their in-flight state independently`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.requestConvos.value = persistentListOf(requestRow("r1"), requestRow("r2"))
+            val vm = ChatsViewModel(repository = repo, applicationScope = backgroundScope)
+            vm.handleEvent(ChatsEvent.SegmentSelected(ChatsSegment.Requests))
+            advanceUntilIdle()
+
+            repo.gateAccept = true
+            vm.handleEvent(ChatsEvent.AcceptRequestTapped("r1"))
+            advanceUntilIdle()
+
+            // r1 is busy; r2 must stay interactive so one slow request does not
+            // freeze the whole list.
+            assertTrue("r1" in vm.uiState.value.acceptInFlight)
+            assertFalse("r2" in vm.uiState.value.acceptInFlight)
+        }
+
+    @Test
+    fun `a second tap on an already-accepting row is ignored`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.requestConvos.value = persistentListOf(requestRow("r1"))
+            val vm = ChatsViewModel(repository = repo, applicationScope = backgroundScope)
+            vm.handleEvent(ChatsEvent.SegmentSelected(ChatsSegment.Requests))
+            advanceUntilIdle()
+
+            repo.gateAccept = true
+            vm.handleEvent(ChatsEvent.AcceptRequestTapped("r1"))
+            vm.handleEvent(ChatsEvent.AcceptRequestTapped("r1"))
+            advanceUntilIdle()
+
+            assertEquals(listOf("r1"), repo.acceptCalls)
+        }
+
+    @Test
+    fun `a cancelled accept still clears the row's in-flight state`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Without a finally, a cancellation mid-call (screen teardown) would
+            // leave the row spinning and un-tappable for the VM's lifetime.
+            val repo = FakeChatRepository()
+            repo.requestConvos.value = persistentListOf(requestRow("r1"))
+            val vm = ChatsViewModel(repository = repo, applicationScope = backgroundScope)
+            vm.handleEvent(ChatsEvent.SegmentSelected(ChatsSegment.Requests))
+            advanceUntilIdle()
+
+            repo.gateAccept = true
+            vm.handleEvent(ChatsEvent.AcceptRequestTapped("r1"))
+            advanceUntilIdle()
+            assertTrue("r1" in vm.uiState.value.acceptInFlight)
+
+            repo.cancelGate()
+            advanceUntilIdle()
+
+            assertFalse(
+                "r1" in vm.uiState.value.acceptInFlight,
+                "a cancelled accept must not leave the row permanently disabled",
+            )
+        }
+
+    @Test
+    fun `declining from a row defers the leave and undo cancels it`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.requestConvos.value = persistentListOf(requestRow("r1"))
+            val vm = ChatsViewModel(repository = repo, applicationScope = backgroundScope)
+            vm.handleEvent(ChatsEvent.SegmentSelected(ChatsSegment.Requests))
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(ChatsEvent.DeclineRequestTapped("r1"))
+                val undo = awaitItem()
+                assertInstanceOf(ChatsEffect.ShowLeaveUndo::class.java, undo)
+                // Deferred, not fired: the row hides optimistically and the network
+                // call only happens if the undo window elapses.
+                assertTrue(repo.leaveCalls.isEmpty(), "decline must not call leaveConvo immediately")
+
+                vm.handleEvent(ChatsEvent.UndoLeaveTapped((undo as ChatsEffect.ShowLeaveUndo).token))
+                advanceUntilIdle()
+
+                assertTrue(repo.leaveCalls.isEmpty(), "undo must cancel the leave with zero network")
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
 }

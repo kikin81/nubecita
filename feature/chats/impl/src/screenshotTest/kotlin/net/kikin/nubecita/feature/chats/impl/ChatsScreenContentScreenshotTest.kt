@@ -30,6 +30,7 @@ private fun sampleItem(
     displayName: String?,
     snippet: String,
     sentAt: Instant?,
+    isRequest: Boolean = false,
 ): ConvoRowUi =
     ConvoRowUi.Direct(
         convoId = convoId,
@@ -41,6 +42,7 @@ private fun sampleItem(
         lastMessageFromViewer = false,
         lastMessageIsAttachment = false,
         sentAt = sentAt,
+        isRequest = isRequest,
     )
 
 private val LOADED_STATE =
@@ -64,8 +66,9 @@ private val REQUESTS_LOADED_STATE =
             ChatsLoadStatus.Loaded(
                 items =
                     persistentListOf(
-                        sampleItem("dave", "Dave", "hey, mind if I message you?", FIXTURE_NOW - 5.minutes),
-                        sampleItem("erin", "Erin", "saw your post about feeds", FIXTURE_NOW - 3.hours),
+                        // isRequest = true is what puts Accept / Decline on the row.
+                        sampleItem("dave", "Dave", "hey, mind if I message you?", FIXTURE_NOW - 5.minutes, isRequest = true),
+                        sampleItem("erin", "Erin", "saw your post about feeds", FIXTURE_NOW - 3.hours, isRequest = true),
                     ),
             ),
         activeSegment = ChatsSegment.Requests,
@@ -271,5 +274,23 @@ private fun ChatsScreenNetworkErrorScreenshot() {
 private fun ChatsScreenNotEnrolledScreenshot() {
     NubecitaCanvasPreviewTheme {
         ChatsScreenContent(state = NOT_ENROLLED_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {}, onNewChat = {}, onNewGroup = {})
+    }
+}
+
+// One row mid-accept: its actions disable and Accept shows the in-button spinner
+// while the other row stays interactive, which is the point of tracking in-flight
+// state per convo id rather than as a single screen-wide flag.
+private val REQUESTS_ACCEPTING_STATE =
+    REQUESTS_LOADED_STATE.copy(acceptInFlight = persistentSetOf("dave"))
+
+@PreviewTest
+@Preview(name = "chats-requests-accepting-light", showBackground = true, heightDp = 600)
+@Preview(name = "chats-requests-accepting-dark", showBackground = true, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ChatsRequestsAcceptingScreenshot() {
+    CompositionLocalProvider(LocalClock provides FixtureClock) {
+        NubecitaCanvasPreviewTheme {
+            ChatsScreenContent(state = REQUESTS_ACCEPTING_STATE, snackbarHostState = remember { SnackbarHostState() }, onEvent = {}, onNewChat = {}, onNewGroup = {})
+        }
     }
 }
