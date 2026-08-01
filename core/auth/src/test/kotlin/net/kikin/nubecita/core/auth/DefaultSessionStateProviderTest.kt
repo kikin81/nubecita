@@ -27,10 +27,12 @@ class DefaultSessionStateProviderTest {
     private val boundedRetryCount = 3
 
     /**
-     * The store stream defaults to [emptyFlow] so the pull-path tests below
-     * exercise `refresh()` in isolation; the reactive tests pass an explicit
-     * stream. [scope] is the test's `backgroundScope` so the init collector is
-     * torn down with the test rather than leaking across cases.
+     * The store stream defaults to [emptyFlow], which completes immediately
+     * without emitting — the init collector still runs, it just never publishes,
+     * so the pull-path tests below exercise `refresh()` in isolation. The
+     * reactive tests pass an explicit stream. The collector is launched on
+     * `backgroundScope` so it is torn down with the test rather than leaking
+     * across cases.
      */
     private fun TestScope.provider(
         stream: Flow<SessionLoadResult> = emptyFlow(),

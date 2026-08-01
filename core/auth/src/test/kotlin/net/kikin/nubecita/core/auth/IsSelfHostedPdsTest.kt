@@ -100,7 +100,9 @@ class IsSelfHostedPdsTest {
             assertFalse(provider.isSelfHosted.first())
         }
 
-    // These cases drive the pull path only, so the store stream is empty and the
-    // init collector is parked on a scope that never runs.
+    // These cases drive the pull path only. The init collector does run — the
+    // scope defaults to Dispatchers.Default — but it collects emptyFlow(), which
+    // completes immediately without emitting, so it never publishes a state and
+    // everything asserted below comes from refresh().
     private fun provider(reader: SessionReader) = DefaultSessionStateProvider(reader, mockk(relaxed = true), { emptyFlow() }, CoroutineScope(Job()))
 }
