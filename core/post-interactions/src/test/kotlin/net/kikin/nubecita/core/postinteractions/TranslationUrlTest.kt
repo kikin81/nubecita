@@ -47,4 +47,39 @@ internal class TranslationUrlTest {
         val url = googleTranslateUrl("a".repeat(300), targetLanguage = "en")
         assertTrue(url.length < 2000, "url was ${url.length} chars")
     }
+
+    @Test
+    fun `an uppercase language code is folded to lowercase`() {
+        assertTrue(googleTranslateUrl("hola", targetLanguage = "EN").contains("tl=en"))
+    }
+
+    @Test
+    fun `a region-qualified tag is reduced to its language`() {
+        // Locale.getDefault().language never carries a region, but a caller
+        // passing a full BCP-47 tag should not produce tl=es-419.
+        assertTrue(googleTranslateUrl("hi", targetLanguage = "es-419").contains("tl=es"))
+    }
+
+    @Test
+    fun `superseded ISO codes map to what the translator expects`() {
+        // Android's Locale reports iw / in / ji for these; Google Translate
+        // wants he / id / yi. Passing the legacy tag straight through would
+        // translate into the wrong language, or none at all.
+        assertTrue(googleTranslateUrl("hi", targetLanguage = "iw").contains("tl=he"))
+        assertTrue(googleTranslateUrl("hi", targetLanguage = "in").contains("tl=id"))
+        assertTrue(googleTranslateUrl("hi", targetLanguage = "ji").contains("tl=yi"))
+    }
+
+    @Test
+    fun `a language that merely looks legacy is left alone`() {
+        // "is" (Icelandic) and "it" (Italian) are real codes, not aliases —
+        // a too-eager map would break them.
+        assertTrue(googleTranslateUrl("hi", targetLanguage = "is").contains("tl=is"))
+        assertTrue(googleTranslateUrl("hi", targetLanguage = "it").contains("tl=it"))
+    }
+
+    @Test
+    fun `whitespace around the tag does not reach the url`() {
+        assertTrue(googleTranslateUrl("hi", targetLanguage = "  en  ").contains("tl=en&"))
+    }
 }

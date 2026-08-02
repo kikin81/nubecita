@@ -232,9 +232,14 @@ fun rememberPostInteractions(
                     try {
                         CustomTabsIntent.Builder().build().launchUrl(currentContext, effect.url.toUri())
                     } catch (notFound: ActivityNotFoundException) {
-                        // No browser / Custom Tabs provider on the device. Same
-                        // recoverable path the login screen takes rather than
-                        // crashing on a VIEW intent nothing handles.
+                        // No browser / Custom Tabs provider on the device.
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(message = currentStrings.translationUnavailable)
+                    } catch (denied: SecurityException) {
+                        // A managed or hardened device can refuse the VIEW intent
+                        // outright rather than simply having nothing to handle it.
+                        // Same recoverable outcome for the user either way, so it
+                        // takes the same path rather than crashing.
                         snackbarHostState.currentSnackbarData?.dismiss()
                         snackbarHostState.showSnackbar(message = currentStrings.translationUnavailable)
                     }

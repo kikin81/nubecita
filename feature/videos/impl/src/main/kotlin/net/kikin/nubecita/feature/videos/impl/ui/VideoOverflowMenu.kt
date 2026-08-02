@@ -81,8 +81,9 @@ private fun overflowActionLabel(
         PostOverflowAction.BlockAuthor -> stringResource(DesignSystemR.string.moderation_action_block_author, handle)
         PostOverflowAction.UnblockAuthor -> stringResource(DesignSystemR.string.moderation_action_unblock_author, handle)
         PostOverflowAction.MuteThread -> stringResource(DesignSystemR.string.moderation_action_mute_thread)
-        // Never rendered — videoOverflowActions omits it — but the when must be exhaustive.
-        PostOverflowAction.UnmuteThread -> stringResource(DesignSystemR.string.moderation_action_mute_thread)
+        // Never rendered — videoOverflowActions omits it — but the when must be
+        // exhaustive, and a wrong label here would surface the moment it is.
+        PostOverflowAction.UnmuteThread -> stringResource(DesignSystemR.string.moderation_action_unmute_thread)
         PostOverflowAction.CopyPostText -> stringResource(DesignSystemR.string.moderation_action_copy_post_text)
         PostOverflowAction.TranslatePost -> stringResource(DesignSystemR.string.moderation_action_translate_post)
         PostOverflowAction.DeletePost -> stringResource(DesignSystemR.string.postcard_action_delete_post)
