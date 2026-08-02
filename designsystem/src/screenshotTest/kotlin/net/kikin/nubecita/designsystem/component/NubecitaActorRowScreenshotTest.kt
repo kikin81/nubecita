@@ -63,6 +63,38 @@ private fun NubecitaActorRowFixtures() {
     }
 }
 
+/**
+ * The same three accounts at both densities, stacked so the height difference
+ * is the thing you see. Compact is what the login typeahead uses to fit twice
+ * as many accounts above the keyboard.
+ */
+@Composable
+private fun NubecitaActorRowDensityFixtures() {
+    Column {
+        Text("Comfortable", style = MaterialTheme.typography.labelSmall)
+        listOf("alice.bsky.social" to "Alice Chen", "bob.bsky.social" to "Bob Nakamura").forEach { (h, n) ->
+            NubecitaActorRow(actor = actor(h, n), onClick = {})
+        }
+        Text("Compact", style = MaterialTheme.typography.labelSmall)
+        listOf("alice.bsky.social" to "Alice Chen", "bob.bsky.social" to "Bob Nakamura").forEach { (h, n) ->
+            NubecitaActorRow(
+                actor = actor(h, n),
+                onClick = {},
+                density = NubecitaActorRowDensity.Compact,
+            )
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "actor-row-density-light", showBackground = true)
+@Preview(name = "actor-row-density-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
+@Composable
+private fun NubecitaActorRowDensityPreview() {
+    NubecitaActorRowDensityFixtures()
+}
+
 @PreviewTest
 @Preview(name = "actor-row-light", showBackground = true)
 @Preview(name = "actor-row-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)

@@ -54,6 +54,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.ImmutableList
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaActorRow
+import net.kikin.nubecita.designsystem.component.NubecitaActorRowDensity
 import net.kikin.nubecita.designsystem.component.NubecitaPrimaryButton
 import net.kikin.nubecita.designsystem.spacing
 import timber.log.Timber
@@ -164,17 +165,31 @@ internal fun LoginScreen(
                     ),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
-                    text = stringResource(R.string.login_title),
-                    style = MaterialTheme.typography.headlineLarge,
-                )
-                Text(
-                    text = stringResource(R.string.login_subtitle),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                // The title block yields the screen to the results while the user
+                // is choosing an account. It is worth about three rows, and with
+                // the keyboard up there is only half a screen to divide — the
+                // heading orients someone arriving at the screen, not someone
+                // already mid-search. It returns as soon as the list closes.
+                AnimatedVisibility(visible = state.suggestions.isEmpty()) {
+                    // Same spacing the outer Column applied to these children before
+                    // they were grouped, so the un-collapsed screen is unchanged.
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s4),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.login_title),
+                            style = MaterialTheme.typography.headlineLarge,
+                        )
+                        Text(
+                            text = stringResource(R.string.login_subtitle),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
 
-                Spacer(Modifier.height(MaterialTheme.spacing.s2))
+                        Spacer(Modifier.height(MaterialTheme.spacing.s2))
+                    }
+                }
 
                 OutlinedTextField(
                     value = state.handle,
@@ -394,6 +409,9 @@ private fun LoginSuggestionRow(
         // Pre-login rows are mostly strangers to the user, so an initial beats an
         // empty circle for telling two similar handles apart.
         showAvatarFallback = true,
+        // The list shares the screen with the keyboard; comfortable density fits
+        // only two accounts before scrolling.
+        density = NubecitaActorRowDensity.Compact,
     ) {
         // Resolved after the row is already on screen, so its absence is the
         // normal first state rather than an error.
