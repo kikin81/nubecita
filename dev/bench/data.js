@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785571426124,
+  "lastUpdate": 1785657911077,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -1267,6 +1267,64 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 722,
             "range": "+/- 3.8%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "16765780dc14cb20abe452ebbdb5473ed3aa875e",
+          "message": "ci(release): 1.333.0\n\n## [1.333.0](https://github.com/kikin81/nubecita/compare/v1.332.3...v1.333.0) (2026-08-02)\n\n### Features\n\n* **login:** account typeahead on the sign-in screen ([#842](https://github.com/kikin81/nubecita/issues/842)) ([eb16a29](https://github.com/kikin81/nubecita/commit/eb16a2937a5858c30b5b5c7fa21307dfdc61d89b)), closes [kikin81/atproto-kotlin#182](https://github.com/kikin81/atproto-kotlin/issues/182) [#840](https://github.com/kikin81/nubecita/issues/840)",
+          "timestamp": "2026-08-02T05:47:36Z",
+          "url": "https://github.com/kikin81/nubecita/commit/16765780dc14cb20abe452ebbdb5473ed3aa875e"
+        },
+        "date": 1785657909317,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 31,
+            "range": "+/- 6.9%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1415.581,
+            "range": "+/- 4.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1353.582,
+            "range": "+/- 6.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1099.924,
+            "range": "+/- 19.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1115.519,
+            "range": "+/- 28.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 634,
+            "range": "+/- 1.1%",
             "unit": "frames"
           }
         ]
