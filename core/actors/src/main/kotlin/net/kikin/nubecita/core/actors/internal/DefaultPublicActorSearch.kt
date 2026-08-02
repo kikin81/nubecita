@@ -57,20 +57,27 @@ internal class DefaultPublicActorSearch
         }
 
         override suspend fun resolvePdsHost(did: String): String? {
-            pdsHostCache[did]?.let { return it }
+            pdsHostCache[did]?.let { return it.takeUnless { cached -> cached == UNRESOLVED } }
             return withContext(dispatcher) {
                 try {
                     // One hop. DiscoveryChain.resolve() would also yield the PDS but
                     // runs the full handle -> DID -> PDS -> auth-server -> metadata
                     // chain, which is four extra round trips per row.
                     val host = URI(discovery.resolvePds(did)).host
-                    host?.also { pdsHostCache[did] = it }
+                    // Failures are cached too, under a sentinel. Without it every
+                    // keystroke re-attempts a 300-1100ms fetch for a DID that just
+                    // failed, which is the expensive half of this call repeated for
+                    // no new information. Scoped to one sign-in attempt, so a
+                    // transient failure is not remembered for long.
+                    pdsHostCache[did] = host ?: UNRESOLVED
+                    host
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (t: Throwable) {
                     // Decoration only: the row stays selectable and login still
                     // works, so a failure here is not worth surfacing.
                     Timber.tag(TAG).d(t, "resolvePdsHost(%s) failed", did)
+                    pdsHostCache[did] = UNRESOLVED
                     null
                 }
             }
@@ -78,5 +85,8 @@ internal class DefaultPublicActorSearch
 
         private companion object {
             const val TAG = "PublicActorSearch"
+
+            /** Cache entry meaning "asked, got nothing" — not a real host. */
+            const val UNRESOLVED = ""
         }
     }

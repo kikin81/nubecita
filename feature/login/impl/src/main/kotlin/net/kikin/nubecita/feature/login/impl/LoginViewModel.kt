@@ -6,6 +6,7 @@ import io.github.kikin81.atproto.oauth.OAuthDiscoveryException
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.BufferOverflow
@@ -75,6 +76,10 @@ class LoginViewModel
         // Deliberately a separate flow rather than deriving from uiState.handle:
         // selecting a suggestion also writes the handle, and that write must NOT
         // kick off a fresh search for the row the user just picked.
+        // Cancelled and replaced on every new set of suggestions; see the comment
+        // at its assignment for why host lookups cannot run inline.
+        private var hostResolutionJob: Job? = null
+
         private val queryFlow =
             MutableSharedFlow<String>(
                 replay = 1,
@@ -154,10 +159,16 @@ class LoginViewModel
                     }
                 }.onEach { suggestions ->
                     setState { copy(suggestions = suggestions) }
-                    // Resolve hosts only after the rows are on screen. Each costs a
-                    // DID-document fetch, so blocking the list on them would make
-                    // the typeahead feel broken.
-                    if (suggestions.isNotEmpty()) resolveHosts(suggestions)
+                    // Resolved in a job of its own, NOT inline here. mapLatest is a
+                    // ChannelFlow, so this onEach runs in the downstream consumer and
+                    // is not cancelled when a newer query supersedes the old one —
+                    // awaiting a DID-document fetch (300-1100ms) inline would leave
+                    // the next keystroke's results stuck behind it. Cancelled on the
+                    // next emission so a stale lookup stops costing anything.
+                    hostResolutionJob?.cancel()
+                    if (suggestions.isNotEmpty()) {
+                        hostResolutionJob = viewModelScope.launch { resolveHosts(suggestions) }
+                    }
                 }.launchIn(viewModelScope)
         }
 

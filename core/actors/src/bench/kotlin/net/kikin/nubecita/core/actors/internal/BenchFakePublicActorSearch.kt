@@ -2,6 +2,7 @@ package net.kikin.nubecita.core.actors.internal
 
 import net.kikin.nubecita.core.actors.PublicActorSearch
 import net.kikin.nubecita.data.models.ActorUi
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -22,7 +23,7 @@ internal class BenchFakePublicActorSearch
             query: String,
             limit: Int,
         ): Result<List<ActorUi>> {
-            val q = query.trim().removePrefix("@").lowercase()
+            val q = query.trim().removePrefix("@").lowercase(Locale.ROOT)
             if (q.isEmpty()) return Result.success(emptyList())
             return Result.success(
                 ROSTER
@@ -30,7 +31,7 @@ internal class BenchFakePublicActorSearch
                         it.handle.contains(q) ||
                             it.displayName
                                 .orEmpty()
-                                .lowercase()
+                                .lowercase(Locale.ROOT)
                                 .contains(q)
                     }.take(limit),
             )

@@ -5,6 +5,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.actors.PublicActorSearch
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.data.models.ActorUi
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -221,5 +222,72 @@ internal class LoginViewModelTypeaheadTest {
             advanceUntilIdle()
 
             assertEquals("alice.bsky.social", auth.lastBeginLoginHandle)
+        }
+
+    @Test
+    fun `a slow host lookup does not hold up the next query's suggestions`() =
+        runTest(mainDispatcher.dispatcher) {
+            val hostGate = CompletableDeferred<Unit>()
+            val search =
+                object : PublicActorSearch {
+                    var result: Result<List<ActorUi>> = Result.success(emptyList())
+
+                    override suspend fun searchTypeahead(
+                        query: String,
+                        limit: Int,
+                    ) = result
+
+                    override suspend fun resolvePdsHost(did: String): String? {
+                        hostGate.await()
+                        return "example.host"
+                    }
+                }
+            search.result = Result.success(listOf(actor("did:plc:1", "alice.bsky.social")))
+            val vm = newViewModel(publicActorSearch = search)
+
+            vm.handleEvent(LoginEvent.HandleChanged("alice"))
+            advanceUntilIdle()
+            assertEquals(
+                listOf("alice.bsky.social"),
+                vm.uiState.value.suggestions
+                    .map { it.handle },
+            )
+
+            // Host resolution for the first result is still hanging. A newer query's
+            // results must still reach the screen — the network line is decoration
+            // and must never gate the list.
+            search.result = Result.success(listOf(actor("did:plc:2", "bob.bsky.social")))
+            vm.handleEvent(LoginEvent.HandleChanged("bob"))
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf("bob.bsky.social"),
+                vm.uiState.value.suggestions
+                    .map { it.handle },
+                "a hanging host lookup must not block the next query's suggestions",
+            )
+            hostGate.complete(Unit)
+        }
+
+    @Test
+    fun `the search waits for the full debounce window and not a millisecond less`() =
+        runTest(mainDispatcher.dispatcher) {
+            val search = FakePublicActorSearch()
+            val vm = newViewModel(publicActorSearch = search)
+
+            vm.handleEvent(LoginEvent.HandleChanged("alice"))
+            testScheduler.runCurrent()
+            assertEquals(emptyList<String>(), search.queries, "no request before the window opens")
+
+            // One millisecond short — a shorter debounce fails here.
+            advanceTimeBy(199.milliseconds)
+            assertEquals(emptyList<String>(), search.queries)
+
+            // Crossing the window — a LONGER debounce fails here, because time is
+            // advanced by hand. advanceUntilIdle would skip to whatever delay is
+            // pending and pass for any duration at all, which is why the other
+            // tests in this file cannot stand in for this one.
+            advanceTimeBy(2.milliseconds)
+            assertEquals(listOf("alice"), search.queries)
         }
 }
