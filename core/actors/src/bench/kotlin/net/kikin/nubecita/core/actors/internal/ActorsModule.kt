@@ -7,6 +7,7 @@ import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.core.actors.ActorRepository
 import net.kikin.nubecita.core.actors.BlockRepository
 import net.kikin.nubecita.core.actors.MuteRepository
+import net.kikin.nubecita.core.actors.PublicActorSearch
 import javax.inject.Singleton
 
 /**
@@ -43,4 +44,8 @@ abstract class ActorsModule {
     @Binds
     @Singleton
     internal abstract fun bindMuteRepository(impl: BenchFakeMuteRepository): MuteRepository
+
+    @Binds
+    @Singleton
+    internal abstract fun bindPublicActorSearch(impl: BenchFakePublicActorSearch): PublicActorSearch
 }

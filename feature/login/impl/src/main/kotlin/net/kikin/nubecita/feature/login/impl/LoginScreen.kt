@@ -19,9 +19,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -41,12 +45,16 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.collections.immutable.ImmutableList
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.component.NubecitaActorRow
+import net.kikin.nubecita.designsystem.component.NubecitaActorRowDensity
 import net.kikin.nubecita.designsystem.component.NubecitaPrimaryButton
 import net.kikin.nubecita.designsystem.spacing
 import timber.log.Timber
@@ -157,17 +165,31 @@ internal fun LoginScreen(
                     ),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
-                    text = stringResource(R.string.login_title),
-                    style = MaterialTheme.typography.headlineLarge,
-                )
-                Text(
-                    text = stringResource(R.string.login_subtitle),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                // The title block yields the screen to the results while the user
+                // is choosing an account. It is worth about three rows, and with
+                // the keyboard up there is only half a screen to divide — the
+                // heading orients someone arriving at the screen, not someone
+                // already mid-search. It returns as soon as the list closes.
+                AnimatedVisibility(visible = state.suggestions.isEmpty()) {
+                    // Same spacing the outer Column applied to these children before
+                    // they were grouped, so the un-collapsed screen is unchanged.
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s4),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.login_title),
+                            style = MaterialTheme.typography.headlineLarge,
+                        )
+                        Text(
+                            text = stringResource(R.string.login_subtitle),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
 
-                Spacer(Modifier.height(MaterialTheme.spacing.s2))
+                        Spacer(Modifier.height(MaterialTheme.spacing.s2))
+                    }
+                }
 
                 OutlinedTextField(
                     value = state.handle,
@@ -203,6 +225,25 @@ internal fun LoginScreen(
                         Modifier
                             .fillMaxWidth()
                             .semantics { contentType = ContentType.Username + ContentType.EmailAddress },
+                )
+
+                // Suggestions sit BELOW the field as a sibling — deliberately not
+                // an ExposedDropdownMenuBox, which wraps the field and rewrites its
+                // semantics. That would break LoginHandleAutofillTest, which asserts
+                // the field's ContentType and finds it via hasSetTextAction() on the
+                // assumption there is exactly one editable field. A plain sibling
+                // leaves the field untouched, and suggestion rows are not editable.
+                LoginSuggestions(
+                    suggestions = state.suggestions,
+                    query = state.handle,
+                    onSelect = { onEvent(LoginEvent.SuggestionSelected(it)) },
+                    // weight(fill = false) instead of a fixed max height: the form
+                    // Column is fillMaxHeight and does not scroll, so the list must
+                    // take only the space left after the title, field, button and
+                    // links are measured. A dp cap is a guess that clips the CTA on
+                    // some screen / keyboard combination; this is correct on all of
+                    // them, and shrinks as the IME opens.
+                    modifier = Modifier.weight(1f, fill = false),
                 )
 
                 AnimatedVisibility(visible = errorText != null) {
@@ -323,3 +364,79 @@ private fun LoginScreenGenericErrorPreview() {
         )
     }
 }
+
+/**
+ * Account suggestions for what has been typed so far. Hidden entirely when
+ * empty — including while a query is in flight — so the list does not flicker
+ * in and out on every keystroke.
+ */
+@Composable
+private fun LoginSuggestions(
+    suggestions: ImmutableList<HandleSuggestion>,
+    query: String,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Highlight what the user actually typed, normalized the same way the query
+    // to the AppView was — otherwise a leading "@" would match nothing.
+    val match = query.trim().removePrefix("@")
+    AnimatedVisibility(visible = suggestions.isNotEmpty(), modifier = modifier) {
+        OutlinedCard(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                suggestions.forEachIndexed { index, suggestion ->
+                    if (index > 0) HorizontalDivider()
+                    LoginSuggestionRow(
+                        suggestion = suggestion,
+                        query = match,
+                        onClick = { onSelect(suggestion.handle) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LoginSuggestionRow(
+    suggestion: HandleSuggestion,
+    query: String,
+    onClick: () -> Unit,
+) {
+    NubecitaActorRow(
+        actor = suggestion.actor,
+        onClick = onClick,
+        query = query,
+        // Pre-login rows are mostly strangers to the user, so an initial beats an
+        // empty circle for telling two similar handles apart.
+        showAvatarFallback = true,
+        // The list shares the screen with the keyboard; comfortable density fits
+        // only two accounts before scrolling.
+        density = NubecitaActorRowDensity.Compact,
+    ) {
+        // Resolved after the row is already on screen, so its absence is the
+        // normal first state rather than an error.
+        suggestion.pdsHost?.let { host ->
+            Text(
+                text = networkLabelFor(host),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/**
+ * Bluesky-operated PDS hosts are internal shard names — shiitake, morel,
+ * russula — that mean nothing to a user and differ arbitrarily between accounts
+ * on the same service. Collapse them to one label; show a real host only when
+ * it is genuinely somewhere else, which is the only case the line informs.
+ */
+@Composable
+private fun networkLabelFor(host: String): String =
+    if (host == "bsky.social" || host == "host.bsky.network" || host.endsWith(".host.bsky.network")) {
+        stringResource(R.string.login_suggestion_network_bluesky)
+    } else {
+        host
+    }

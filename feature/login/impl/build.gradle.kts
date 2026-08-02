@@ -16,11 +16,13 @@ android {
 dependencies {
     api(project(":feature:login:api"))
 
+    implementation(project(":core:actors"))
     implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
     implementation(project(":core:logging"))
     implementation(project(":core:push"))
     implementation(libs.androidx.browser)
+    implementation(libs.kotlinx.collections.immutable)
     implementation(libs.timber)
 
     debugImplementation(libs.androidx.compose.ui.test.manifest)

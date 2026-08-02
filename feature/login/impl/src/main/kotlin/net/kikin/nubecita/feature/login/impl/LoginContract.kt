@@ -1,14 +1,24 @@
 package net.kikin.nubecita.feature.login.impl
 
 import androidx.compose.runtime.Immutable
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.data.models.ActorUi
 
 @Immutable
 data class LoginState(
     val handle: String = "",
     val isLoading: Boolean = false,
+    /**
+     * Account suggestions for what has been typed so far. Empty hides the
+     * dropdown — there is no separate "querying" state on purpose, so the list
+     * does not flicker in and out on every keystroke while a request is in
+     * flight (the same choice the composer's typeahead makes).
+     */
+    val suggestions: ImmutableList<HandleSuggestion> = persistentListOf(),
     val errorMessage: LoginError? = null,
 ) : UiState
 
@@ -73,6 +83,11 @@ sealed interface LoginEvent : UiEvent {
 
     data object SubmitLogin : LoginEvent
 
+    /** A suggestion was tapped: adopt its handle and sign in with it. */
+    data class SuggestionSelected(
+        val handle: String,
+    ) : LoginEvent
+
     data object ClearError : LoginEvent
 
     /**
@@ -119,4 +134,25 @@ sealed interface LoginEffect : UiEffect {
     data class LoginSucceeded(
         val requestPostNotificationsPermission: Boolean,
     ) : LoginEffect
+}
+
+/**
+ * One row of the login typeahead.
+ *
+ * Wraps [ActorUi] rather than copying its fields: the row is rendered by the
+ * shared `NubecitaActorRow`, which takes an actor, and duplicating did / handle
+ * / displayName / avatarUrl here would be four fields to keep in step for no
+ * gain. [pdsHost] is the only thing the AppView response does not carry.
+ *
+ * [pdsHost] is resolved separately and arrives after the row is already on
+ * screen — resolving a DID document costs 300-1100ms, far too long to hold the
+ * list back — so it is nullable and the row renders without it.
+ */
+data class HandleSuggestion(
+    val actor: ActorUi,
+    val pdsHost: String? = null,
+) {
+    val did: String get() = actor.did
+
+    val handle: String get() = actor.handle
 }

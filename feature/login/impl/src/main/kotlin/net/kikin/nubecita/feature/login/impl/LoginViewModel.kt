@@ -3,8 +3,22 @@ package net.kikin.nubecita.feature.login.impl
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.oauth.OAuthDiscoveryException
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.actors.PublicActorSearch
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.Login
 import net.kikin.nubecita.core.analytics.LoginErrorReason
@@ -23,6 +37,7 @@ import java.io.IOException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
 
 // The unauthenticated bsky.app SPA shows "Create account" + "Sign in" buttons
 // directly; `bsky.app/signup` is NOT a real path (it 404s as of 2026-05-20).
@@ -36,12 +51,43 @@ class LoginViewModel
     @Inject
     constructor(
         private val authRepository: AuthRepository,
+        private val publicActorSearch: PublicActorSearch,
         private val notificationsPromptDecider: NotificationsPromptDecider,
         private val analytics: AnalyticsClient,
         private val crashReporter: CrashReporter,
         broker: OAuthRedirectBroker,
     ) : MviViewModel<LoginState, LoginEvent, LoginEffect>(LoginState()) {
+        // Declared ABOVE init: init calls startTypeaheadPipeline(), which
+        // collects this flow. Kotlin initializes properties in declaration
+        // order, so below init it would still be null and every construction
+        // would NPE — and the compiler cannot see it through the call.
+        // The login field routes keystrokes through handleEvent rather than a
+        // TextFieldState, so the pipeline is fed here instead of from a
+        // snapshotFlow.
+        //
+        // replay = 1 is load-bearing, not a buffer-size guess: the collector is
+        // launched from init but does not actually subscribe until the coroutine
+        // is dispatched, and a SharedFlow with no replay silently DROPS anything
+        // emitted before then. Without it the very first keystroke can vanish.
+        //
+        // DROP_OLDEST: only the newest query matters, and emitting must never
+        // suspend the UI event handler.
+        //
+        // Deliberately a separate flow rather than deriving from uiState.handle:
+        // selecting a suggestion also writes the handle, and that write must NOT
+        // kick off a fresh search for the row the user just picked.
+        // Cancelled and replaced on every new set of suggestions; see the comment
+        // at its assignment for why host lookups cannot run inline.
+        private var hostResolutionJob: Job? = null
+
+        private val queryFlow =
+            MutableSharedFlow<String>(
+                replay = 1,
+                onBufferOverflow = BufferOverflow.DROP_OLDEST,
+            )
+
         init {
+            startTypeaheadPipeline()
             // Long-running collection of redirect URIs published by MainActivity.
             // Cancels automatically when the VM is cleared. Each emission triggers
             // completeLogin; success → single LoginSucceeded effect carrying the
@@ -91,9 +137,82 @@ class LoginViewModel
             }
         }
 
+        private fun startTypeaheadPipeline() {
+            queryFlow
+                .distinctUntilChanged()
+                .mapLatest { raw ->
+                    val query = raw.trim().removePrefix("@")
+                    if (query.length < MIN_QUERY_LENGTH) {
+                        persistentListOf()
+                    } else {
+                        // The delay sits INSIDE mapLatest, not in an upstream
+                        // .debounce(): that way a newer keystroke cancels both the
+                        // in-flight request AND a still-pending debounce, so a stale
+                        // result cannot land after a newer one. Same reasoning as
+                        // the composer's typeahead.
+                        delay(TYPEAHEAD_DEBOUNCE)
+                        publicActorSearch
+                            .searchTypeahead(query, limit = SUGGESTION_LIMIT)
+                            .getOrDefault(emptyList())
+                            .map { HandleSuggestion(actor = it) }
+                            .toPersistentList()
+                    }
+                }.onEach { suggestions ->
+                    setState { copy(suggestions = suggestions) }
+                    // Resolved in a job of its own, NOT inline here. mapLatest is a
+                    // ChannelFlow, so this onEach runs in the downstream consumer and
+                    // is not cancelled when a newer query supersedes the old one —
+                    // awaiting a DID-document fetch (300-1100ms) inline would leave
+                    // the next keystroke's results stuck behind it. Cancelled on the
+                    // next emission so a stale lookup stops costing anything.
+                    hostResolutionJob?.cancel()
+                    if (suggestions.isNotEmpty()) {
+                        hostResolutionJob = viewModelScope.launch { resolveHosts(suggestions) }
+                    }
+                }.launchIn(viewModelScope)
+        }
+
+        /**
+         * Fills in each suggestion's network line as it resolves, so the list
+         * fills in progressively instead of appearing all at once. Runs in the
+         * pipeline's coroutine, so a newer query cancels these too.
+         */
+        private suspend fun resolveHosts(suggestions: List<HandleSuggestion>) {
+            coroutineScope {
+                suggestions
+                    .map { suggestion ->
+                        async {
+                            val host = publicActorSearch.resolvePdsHost(suggestion.did) ?: return@async
+                            setState {
+                                copy(
+                                    suggestions =
+                                        this.suggestions
+                                            .map { if (it.did == suggestion.did) it.copy(pdsHost = host) else it }
+                                            .toPersistentList(),
+                                )
+                            }
+                        }
+                    }.awaitAll()
+            }
+        }
+
+        /**
+         * Adopt a tapped suggestion and sign in with it. The handle still goes
+         * through the same normalization a typed one does — the suggestion list is
+         * a convenience, not a second code path into beginLogin.
+         */
+        private fun onSuggestionSelected(handle: String) {
+            setState { copy(handle = handle, suggestions = persistentListOf(), errorMessage = null) }
+            submitLogin()
+        }
+
         override fun handleEvent(event: LoginEvent) {
             when (event) {
-                is LoginEvent.HandleChanged -> setState { copy(handle = event.handle, errorMessage = null) }
+                is LoginEvent.HandleChanged -> {
+                    setState { copy(handle = event.handle, errorMessage = null) }
+                    queryFlow.tryEmit(event.handle)
+                }
+                is LoginEvent.SuggestionSelected -> onSuggestionSelected(event.handle)
                 LoginEvent.ClearError -> setState { copy(errorMessage = null) }
                 LoginEvent.SubmitLogin -> submitLogin()
                 LoginEvent.OpenSignup -> sendEffect(LoginEffect.LaunchCustomTab(BLUESKY_SIGNUP_URL))
@@ -337,3 +456,7 @@ private fun Throwable.isNetworkError(): Boolean {
     }
     return false
 }
+
+private const val MIN_QUERY_LENGTH = 2
+private const val SUGGESTION_LIMIT = 6
+private val TYPEAHEAD_DEBOUNCE = 200.milliseconds

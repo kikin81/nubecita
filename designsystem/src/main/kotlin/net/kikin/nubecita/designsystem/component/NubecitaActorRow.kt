@@ -18,6 +18,23 @@ import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.designsystem.R
 
 /**
+ * How much vertical room a [NubecitaActorRow] is allowed to take.
+ *
+ * [Comfortable] is the People tab's long-standing sizing and stays the default,
+ * so adding this enum changed nothing that already shipped.
+ *
+ * [Compact] exists for lists that compete with the keyboard: the login
+ * typeahead has roughly half a screen to work with, and at comfortable density
+ * only two accounts fit before scrolling. It trims the padding, drops the name
+ * one type step, and shrinks the avatar — about a quarter of the row height,
+ * which is the difference between two visible accounts and four.
+ */
+enum class NubecitaActorRowDensity {
+    Comfortable,
+    Compact,
+}
+
+/**
  * One account in a list of accounts: avatar, name line with verification
  * badge, `@handle`, and an optional supporting line.
  *
@@ -39,6 +56,8 @@ import net.kikin.nubecita.designsystem.R
  * @param supportingContent an optional third line under the handle — the login
  *   typeahead uses it for the network hosting the account. Rendered inside the
  *   text column, so it wraps and ellipsizes with the rest.
+ * @param density see [NubecitaActorRowDensity]. Defaults to
+ *   [NubecitaActorRowDensity.Comfortable], the People tab's sizing.
  * @param showAvatarFallback draws the deterministic hue-and-initial placeholder
  *   when the actor has no avatar, instead of an empty circle. Defaults to off
  *   because the People tab ships the empty circle today and turning it on there
@@ -51,14 +70,19 @@ fun NubecitaActorRow(
     modifier: Modifier = Modifier,
     query: String? = null,
     showAvatarFallback: Boolean = false,
+    density: NubecitaActorRowDensity = NubecitaActorRowDensity.Comfortable,
     supportingContent: @Composable (ColumnScope.() -> Unit)? = null,
 ) {
+    val compact = density == NubecitaActorRowDensity.Compact
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                .padding(
+                    horizontal = if (compact) 16.dp else 20.dp,
+                    vertical = if (compact) 8.dp else 12.dp,
+                ),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -70,6 +94,7 @@ fun NubecitaActorRow(
         NubecitaAvatar(
             model = actor.avatarUrl,
             contentDescription = displayName ?: actor.handle,
+            size = if (compact) COMPACT_AVATAR_SIZE else DEFAULT_AVATAR_SIZE,
             fallback =
                 if (showAvatarFallback) {
                     avatarFallbackFor(did = actor.did, handle = actor.handle, displayName = displayName)
@@ -89,7 +114,12 @@ fun NubecitaActorRow(
                     modifier = Modifier.weight(1f, fill = false),
                     text = displayName ?: actor.handle,
                     match = query?.takeIf { it.isNotBlank() },
-                    style = MaterialTheme.typography.titleMedium,
+                    style =
+                        if (compact) {
+                            MaterialTheme.typography.titleSmall
+                        } else {
+                            MaterialTheme.typography.titleMedium
+                        },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -111,3 +141,6 @@ fun NubecitaActorRow(
         }
     }
 }
+
+/** Keeps the compact row's avatar in proportion with its reduced type. */
+private val COMPACT_AVATAR_SIZE = 36.dp
