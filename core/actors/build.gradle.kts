@@ -26,9 +26,9 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:database"))
     implementation(project(":core:profile"))
+    implementation(libs.atproto.models)
     // DiscoveryChain.resolvePds — DID -> PDS for the pre-login typeahead's network line.
     implementation(libs.atproto.oauth)
-    implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.kotlinx.coroutines.core)
