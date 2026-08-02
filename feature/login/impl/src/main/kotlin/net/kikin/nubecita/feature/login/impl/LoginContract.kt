@@ -6,6 +6,7 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.data.models.ActorUi
 
 @Immutable
 data class LoginState(
@@ -138,14 +139,20 @@ sealed interface LoginEffect : UiEffect {
 /**
  * One row of the login typeahead.
  *
+ * Wraps [ActorUi] rather than copying its fields: the row is rendered by the
+ * shared `NubecitaActorRow`, which takes an actor, and duplicating did / handle
+ * / displayName / avatarUrl here would be four fields to keep in step for no
+ * gain. [pdsHost] is the only thing the AppView response does not carry.
+ *
  * [pdsHost] is resolved separately and arrives after the row is already on
  * screen — resolving a DID document costs 300-1100ms, far too long to hold the
  * list back — so it is nullable and the row renders without it.
  */
 data class HandleSuggestion(
-    val did: String,
-    val handle: String,
-    val displayName: String?,
-    val avatarUrl: String?,
+    val actor: ActorUi,
     val pdsHost: String? = null,
-)
+) {
+    val did: String get() = actor.did
+
+    val handle: String get() = actor.handle
+}

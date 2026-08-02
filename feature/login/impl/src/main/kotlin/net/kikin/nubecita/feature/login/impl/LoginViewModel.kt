@@ -149,14 +149,8 @@ class LoginViewModel
                         publicActorSearch
                             .searchTypeahead(query, limit = SUGGESTION_LIMIT)
                             .getOrDefault(emptyList())
-                            .map {
-                                HandleSuggestion(
-                                    did = it.did,
-                                    handle = it.handle,
-                                    displayName = it.displayName,
-                                    avatarUrl = it.avatarUrl,
-                                )
-                            }.toPersistentList()
+                            .map { HandleSuggestion(actor = it) }
+                            .toPersistentList()
                     }
                 }.onEach { suggestions ->
                     setState { copy(suggestions = suggestions) }

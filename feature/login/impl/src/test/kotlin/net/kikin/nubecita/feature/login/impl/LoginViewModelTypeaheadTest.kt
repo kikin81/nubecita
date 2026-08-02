@@ -181,13 +181,14 @@ internal class LoginViewModelTypeaheadTest {
         }
 
     @Test
-    fun `selecting a suggestion puts the handle in the field and clears the list`() =
+    fun `selecting a suggestion fills the field, closes the list, and begins login`() =
         runTest(mainDispatcher.dispatcher) {
             val search =
                 FakePublicActorSearch().apply {
                     result = Result.success(listOf(actor("did:plc:1", "alice.bsky.social", "Alice")))
                 }
-            val vm = newViewModel(publicActorSearch = search)
+            val auth = FakeAuthRepository()
+            val vm = newViewModel(authRepository = auth, publicActorSearch = search)
 
             vm.handleEvent(LoginEvent.HandleChanged("alice"))
             advanceUntilIdle()
@@ -201,5 +202,24 @@ internal class LoginViewModelTypeaheadTest {
                     .isEmpty(),
                 "the list must close on selection",
             )
+            // Picking your own account means "go" — the tap starts OAuth rather
+            // than making the user reach for the button. This is the part that
+            // actually launches a browser, so it is asserted, not assumed.
+            assertEquals(1, auth.beginLoginInvocations)
+            assertEquals("alice.bsky.social", auth.lastBeginLoginHandle)
+        }
+
+    @Test
+    fun `a selected handle is normalized before it reaches beginLogin`() =
+        runTest(mainDispatcher.dispatcher) {
+            val auth = FakeAuthRepository()
+            val vm = newViewModel(authRepository = auth, publicActorSearch = FakePublicActorSearch())
+
+            // Handles come back from the AppView clean, but selection shares
+            // submitLogin with the typed path, so the normalization must hold here too.
+            vm.handleEvent(LoginEvent.SuggestionSelected("@Alice.BSKY.social"))
+            advanceUntilIdle()
+
+            assertEquals("alice.bsky.social", auth.lastBeginLoginHandle)
         }
 }

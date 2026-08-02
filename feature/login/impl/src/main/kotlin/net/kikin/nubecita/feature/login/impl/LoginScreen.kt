@@ -6,11 +6,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -55,9 +53,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.ImmutableList
 import net.kikin.nubecita.designsystem.NubecitaTheme
-import net.kikin.nubecita.designsystem.component.NubecitaAvatar
+import net.kikin.nubecita.designsystem.component.NubecitaActorRow
 import net.kikin.nubecita.designsystem.component.NubecitaPrimaryButton
-import net.kikin.nubecita.designsystem.component.avatarFallbackFor
 import net.kikin.nubecita.designsystem.spacing
 import timber.log.Timber
 
@@ -223,6 +220,7 @@ internal fun LoginScreen(
                 // leaves the field untouched, and suggestion rows are not editable.
                 LoginSuggestions(
                     suggestions = state.suggestions,
+                    query = state.handle,
                     onSelect = { onEvent(LoginEvent.SuggestionSelected(it)) },
                     // weight(fill = false) instead of a fixed max height: the form
                     // Column is fillMaxHeight and does not scroll, so the list must
@@ -360,15 +358,23 @@ private fun LoginScreenGenericErrorPreview() {
 @Composable
 private fun LoginSuggestions(
     suggestions: ImmutableList<HandleSuggestion>,
+    query: String,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Highlight what the user actually typed, normalized the same way the query
+    // to the AppView was — otherwise a leading "@" would match nothing.
+    val match = query.trim().removePrefix("@")
     AnimatedVisibility(visible = suggestions.isNotEmpty(), modifier = modifier) {
         OutlinedCard(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 suggestions.forEachIndexed { index, suggestion ->
                     if (index > 0) HorizontalDivider()
-                    LoginSuggestionRow(suggestion = suggestion, onClick = { onSelect(suggestion.handle) })
+                    LoginSuggestionRow(
+                        suggestion = suggestion,
+                        query = match,
+                        onClick = { onSelect(suggestion.handle) },
+                    )
                 }
             }
         }
@@ -378,55 +384,27 @@ private fun LoginSuggestions(
 @Composable
 private fun LoginSuggestionRow(
     suggestion: HandleSuggestion,
+    query: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    NubecitaActorRow(
+        actor = suggestion.actor,
+        onClick = onClick,
+        query = query,
+        // Pre-login rows are mostly strangers to the user, so an initial beats an
+        // empty circle for telling two similar handles apart.
+        showAvatarFallback = true,
     ) {
-        NubecitaAvatar(
-            model = suggestion.avatarUrl,
-            // The row's text carries the identity; a label here would make a
-            // screen reader announce the account twice.
-            contentDescription = null,
-            fallback =
-                avatarFallbackFor(
-                    did = suggestion.did,
-                    handle = suggestion.handle,
-                    displayName = suggestion.displayName,
-                ),
-        )
-        Column(modifier = Modifier.weight(1f)) {
+        // Resolved after the row is already on screen, so its absence is the
+        // normal first state rather than an error.
+        suggestion.pdsHost?.let { host ->
             Text(
-                text = suggestion.displayName?.takeUnless { it.isBlank() } ?: suggestion.handle,
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = "@${suggestion.handle}",
-                style = MaterialTheme.typography.bodySmall,
+                text = networkLabelFor(host),
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            // Resolved after the row is already on screen, so its absence is the
-            // normal first state rather than an error.
-            suggestion.pdsHost?.let { host ->
-                Text(
-                    text = networkLabelFor(host),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
         }
     }
 }

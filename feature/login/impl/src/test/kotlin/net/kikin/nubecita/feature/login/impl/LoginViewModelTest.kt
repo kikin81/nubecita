@@ -812,7 +812,7 @@ private object NoopPromptStore : NotificationsPromptShownStore {
     override suspend fun markShown() = Unit
 }
 
-private class FakeAuthRepository(
+internal class FakeAuthRepository(
     private val beginLoginResult: Result<String> = Result.success("ignored"),
     private val completeLoginResult: Result<Unit> = Result.success(Unit),
     // Optional gates: when set, the call suspends until completed, letting tests
