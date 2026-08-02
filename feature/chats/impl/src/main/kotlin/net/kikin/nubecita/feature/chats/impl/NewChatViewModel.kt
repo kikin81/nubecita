@@ -4,13 +4,8 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
@@ -19,9 +14,7 @@ import net.kikin.nubecita.core.actors.ActorRepository
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.mvi.MviViewModel
-import net.kikin.nubecita.data.models.ActorUi
 import javax.inject.Inject
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Presenter for the NewChat recipient-picker screen.
@@ -58,40 +51,25 @@ class NewChatViewModel
         private val retryTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
         init {
-            merge(
-                snapshotFlow { queryFieldState.text.toString() },
-                retryTrigger.map { queryFieldState.text.toString() },
-            ).flatMapLatest { raw ->
-                val q = raw.trim()
-                if (q.isEmpty()) {
-                    actorRepository
-                        .recentActors(selfDid)
-                        .map<List<ActorUi>, NewChatStatus> { actors ->
-                            // Non-messageable actors are NOT filtered out — the picker shows
-                            // them disabled with a "can't be messaged" label (RecipientRow
-                            // reads ActorUi.canMessage), matching the official client.
-                            NewChatStatus.Recent(actors.toImmutableList())
-                        }.catch { emit(NewChatStatus.Error) } // recent cache read failed; pipeline survives
-                } else {
-                    flow {
-                        emit(NewChatStatus.Searching)
-                        delay(DEBOUNCE)
-                        emit(
-                            actorRepository.searchTypeahead(q).fold(
-                                onSuccess = { actors ->
-                                    // Only self is filtered out; non-messageable actors stay in the
-                                    // list and render disabled (see RecipientRow / ActorUi.canMessage).
-                                    val filtered = actors.filter { it.did != selfDid }
-                                    if (filtered.isEmpty()) {
-                                        NewChatStatus.NoResults
-                                    } else {
-                                        NewChatStatus.Results(filtered.toImmutableList())
-                                    }
-                                },
-                                onFailure = { NewChatStatus.Error },
-                            ),
-                        )
-                    }
+            recipientSearchResults(
+                queries =
+                    merge(
+                        snapshotFlow { queryFieldState.text.toString() },
+                        retryTrigger.map { queryFieldState.text.toString() },
+                    ),
+                actorRepository = actorRepository,
+                selfDid = selfDid,
+                // Messaging yourself is not a thing, so self is dropped from the
+                // 1:1 picker's results. The group pickers keep self in the list
+                // and filter it at selection time instead.
+                excludeSelfFromResults = true,
+            ).map { result ->
+                when (result) {
+                    is RecipientSearchResult.Recent -> NewChatStatus.Recent(result.actors)
+                    RecipientSearchResult.Searching -> NewChatStatus.Searching
+                    is RecipientSearchResult.Results -> NewChatStatus.Results(result.actors)
+                    RecipientSearchResult.NoResults -> NewChatStatus.NoResults
+                    RecipientSearchResult.Error -> NewChatStatus.Error
                 }
             }.onEach { status -> setState { copy(status = status) } }
                 .launchIn(viewModelScope)
@@ -102,9 +80,5 @@ class NewChatViewModel
                 is NewChatEvent.RecipientSelected -> sendEffect(NewChatEffect.OpenChat(event.otherUserDid))
                 NewChatEvent.RetryClicked -> retryTrigger.tryEmit(Unit)
             }
-        }
-
-        private companion object {
-            val DEBOUNCE = 250.milliseconds
         }
     }
