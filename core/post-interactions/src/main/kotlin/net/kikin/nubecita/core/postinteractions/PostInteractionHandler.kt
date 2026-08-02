@@ -82,6 +82,16 @@ sealed interface InteractionEffect {
     ) : InteractionEffect
 
     /**
+     * Open [url] in a Custom Tab to translate a post externally.
+     *
+     * Carries a finished URL rather than the raw text so the string-building
+     * and escaping stay in one unit-tested place; see `googleTranslateUrl`.
+     */
+    data class OpenTranslation(
+        val url: String,
+    ) : InteractionEffect
+
+    /**
      * Open the composer pre-filled for a reply (when [replyToUri] is
      * non-null) or a quote-post (when [quoteUri] is non-null). Exactly one
      * of the two is non-null per emission.

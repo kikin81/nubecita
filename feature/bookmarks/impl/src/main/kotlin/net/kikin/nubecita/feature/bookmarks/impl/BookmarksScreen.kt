@@ -88,6 +88,7 @@ internal fun BookmarksScreen(
             deleteConfirm = stringResource(DesignSystemR.string.postcard_delete_dialog_confirm),
             deleteCancel = stringResource(DesignSystemR.string.postcard_delete_dialog_cancel),
             deleteSuccess = stringResource(DesignSystemR.string.postcard_delete_success),
+            translationUnavailable = stringResource(DesignSystemR.string.postcard_translation_unavailable),
         )
 
     // Wire the shared interaction helper — it collects viewModel.interactionEffects
