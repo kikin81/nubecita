@@ -142,4 +142,6 @@
     <string name="postcard_delete_dialog_cancel">Cancel</string>
     <string name="postcard_delete_success">Post deleted</string>
     <string name="postcard_delete_error">Couldn’t delete post</string>
+    <!-- Handle prefix; identical in every locale (the @ is not translated). -->
+    <string name="nubecita_actor_handle">\@%1$s</string>
 </resources>
