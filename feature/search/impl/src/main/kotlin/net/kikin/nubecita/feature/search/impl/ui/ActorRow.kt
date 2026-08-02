@@ -7,23 +7,17 @@ import androidx.compose.ui.tooling.preview.Preview
 import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.data.models.VerifiedBadge
 import net.kikin.nubecita.designsystem.NubecitaTheme
-import net.kikin.nubecita.designsystem.component.HighlightedText
 import net.kikin.nubecita.designsystem.component.NubecitaActorRow
 
 /**
  * Single-actor row for the People tab.
  *
- * Renders: leading avatar, primary line (displayName or fallback to
- * handle), secondary line (`@handle`) only when displayName is non-null.
- * Both lines support case-insensitive query-substring highlighting via
- * the `:designsystem`'s [HighlightedText].
- *
- * Stateless. Click dispatch is via [onClick]; the parent
- * [PeopleTabContent] wires it to a `SearchActorsEvent.ActorTapped`.
- *
- * Not in `:designsystem` because composer's typeahead uses a similar
- * but distinct row (`OutlinedCard`-wrapped, no highlight); promotion
- * happens when a third consumer surfaces — see spec A2.
+ * A thin adapter over [NubecitaActorRow], which is where the rendering lives
+ * since nubecita-qt71.3 — the login typeahead was the third consumer the
+ * original "promote when a third surfaces" note was waiting for. Kept as a
+ * named wrapper so the People tab's call sites and previews read in terms of
+ * the tab's own vocabulary, and so `query` stays required here (a People row
+ * always has a query to highlight) while it is optional on the shared row.
  */
 @Composable
 internal fun ActorRow(

@@ -62,12 +62,17 @@ fun NubecitaActorRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // A whitespace-only display name would otherwise render an empty title
+        // with the handle stranded below it — and announce an empty string to a
+        // screen reader. avatarFallbackFor already treats blank as absent; match
+        // that everywhere the name is read.
+        val displayName = actor.displayName?.takeIf { it.isNotBlank() }
         NubecitaAvatar(
             model = actor.avatarUrl,
-            contentDescription = actor.displayName ?: actor.handle,
+            contentDescription = displayName ?: actor.handle,
             fallback =
                 if (showAvatarFallback) {
-                    avatarFallbackFor(did = actor.did, handle = actor.handle, displayName = actor.displayName)
+                    avatarFallbackFor(did = actor.did, handle = actor.handle, displayName = displayName)
                 } else {
                     null
                 },
@@ -82,7 +87,7 @@ fun NubecitaActorRow(
             ) {
                 HighlightedText(
                     modifier = Modifier.weight(1f, fill = false),
-                    text = actor.displayName ?: actor.handle,
+                    text = displayName ?: actor.handle,
                     match = query?.takeIf { it.isNotBlank() },
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
@@ -92,7 +97,7 @@ fun NubecitaActorRow(
             }
             // Only when a display name occupies the line above — otherwise the
             // handle is already the title and would render twice.
-            if (actor.displayName != null) {
+            if (displayName != null) {
                 HighlightedText(
                     text = stringResource(R.string.nubecita_actor_handle, actor.handle),
                     match = query?.takeIf { it.isNotBlank() },

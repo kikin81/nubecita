@@ -26,7 +26,7 @@ private fun actor(
 
 /**
  * Every shape the row has to hold: a display name plus handle, a handle-only
- * actor (whose handle must NOT render twice), a verified badge competing with a
+ * actor (whose handle must NOT render twice), a whitespace-only name, a verified badge competing with a
  * long name for the same line, an active query highlight, and the supporting
  * slot the login typeahead uses for its network line.
  */
@@ -35,6 +35,9 @@ private fun NubecitaActorRowFixtures() {
     Column {
         NubecitaActorRow(actor = actor("alice.bsky.social", "Alice Chen"), onClick = {})
         NubecitaActorRow(actor = actor("handleonly.bsky.social"), onClick = {})
+        // A whitespace-only display name must behave exactly like a missing one:
+        // handle as the title, no empty line above it and no handle repeated below.
+        NubecitaActorRow(actor = actor("blankname.bsky.social", "   "), onClick = {})
         NubecitaActorRow(
             actor =
                 actor(
