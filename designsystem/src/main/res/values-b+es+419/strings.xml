@@ -60,4 +60,6 @@
     <string name="postcard_delete_error">No se pudo eliminar la publicación</string>
     <!-- Handle prefix; identical in every locale (the @ is not translated). -->
     <string name="nubecita_actor_handle">\@%1$s</string>
+    <string name="moderation_action_translate_post">Traducir publicación</string>
+    <string name="postcard_translation_unavailable">No hay una app disponible para abrir el traductor</string>
 </resources>

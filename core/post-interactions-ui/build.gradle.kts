@@ -13,8 +13,10 @@ dependencies {
     implementation(project(":designsystem"))
     implementation(project(":feature:composer:api"))
     implementation(project(":feature:moderation:api"))
+    implementation(libs.androidx.browser)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.runtime)
+    implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.navigation3.runtime)
 }

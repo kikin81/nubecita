@@ -22,7 +22,10 @@ import net.kikin.nubecita.designsystem.R as DesignSystemR
  * Pure so the mute-vs-unmute / block-vs-unblock branching is unit-tested without
  * rendering a DropdownMenu, which layoutlib can't compose deterministically.
  */
-internal fun videoOverflowActions(viewer: ViewerStateUi): ImmutableList<PostOverflowAction> =
+internal fun videoOverflowActions(
+    viewer: ViewerStateUi,
+    hasText: Boolean = true,
+): ImmutableList<PostOverflowAction> =
     buildList {
         // Own videos only — absent, not disabled, on anybody else's. First so
         // the destructive action does not sit under actions the user is far
@@ -33,6 +36,10 @@ internal fun videoOverflowActions(viewer: ViewerStateUi): ImmutableList<PostOver
         add(if (viewer.isAuthorBlockedByViewer) PostOverflowAction.UnblockAuthor else PostOverflowAction.BlockAuthor)
         add(PostOverflowAction.MuteThread)
         add(PostOverflowAction.CopyPostText)
+        // A video's caption is as translatable as any other post's text, so the
+        // action is offered here too — but omitted on a caption-less video,
+        // matching PostCard.
+        if (hasText) add(PostOverflowAction.TranslatePost)
     }.toImmutableList()
 
 /**
@@ -50,7 +57,7 @@ internal fun VideoOverflowMenu(
     modifier: Modifier = Modifier,
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, modifier = modifier) {
-        videoOverflowActions(post.viewer).forEach { action ->
+        videoOverflowActions(post.viewer, hasText = post.text.isNotBlank()).forEach { action ->
             DropdownMenuItem(
                 text = { Text(overflowActionLabel(action, post.author.handle)) },
                 onClick = {
@@ -77,5 +84,6 @@ private fun overflowActionLabel(
         // Never rendered — videoOverflowActions omits it — but the when must be exhaustive.
         PostOverflowAction.UnmuteThread -> stringResource(DesignSystemR.string.moderation_action_mute_thread)
         PostOverflowAction.CopyPostText -> stringResource(DesignSystemR.string.moderation_action_copy_post_text)
+        PostOverflowAction.TranslatePost -> stringResource(DesignSystemR.string.moderation_action_translate_post)
         PostOverflowAction.DeletePost -> stringResource(DesignSystemR.string.postcard_action_delete_post)
     }

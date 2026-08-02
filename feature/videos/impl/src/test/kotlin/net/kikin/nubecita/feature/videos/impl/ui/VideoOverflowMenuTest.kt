@@ -17,9 +17,18 @@ internal class VideoOverflowMenuTest {
                 PostOverflowAction.BlockAuthor,
                 PostOverflowAction.MuteThread,
                 PostOverflowAction.CopyPostText,
+                PostOverflowAction.TranslatePost,
             ),
             videoOverflowActions(ViewerStateUi()),
         )
+    }
+
+    @Test
+    fun `a caption-less video omits Translate rather than offering a dead action`() {
+        val actions = videoOverflowActions(ViewerStateUi(), hasText = false)
+        assertFalse(actions.contains(PostOverflowAction.TranslatePost))
+        // Everything else still there — only the text-dependent action goes.
+        assertTrue(actions.contains(PostOverflowAction.CopyPostText))
     }
 
     @Test

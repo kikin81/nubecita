@@ -39,6 +39,20 @@ sealed interface PostOverflowAction {
     data object CopyPostText : PostOverflowAction
 
     /**
+     * Hand the post's text to an external translator.
+     *
+     * The menu omits this row on a post with no text (an image- or
+     * video-only post), rather than showing it disabled — there is nothing
+     * to translate and the row would be a dead end.
+     *
+     * Deliberately external for now: it opens a translator in a Custom Tab
+     * rather than translating in place. In-place translation, language
+     * detection and facet-preserving rendering are a separate epic
+     * (nubecita-s6xk); this is the version that was actually asked for.
+     */
+    data object TranslatePost : PostOverflowAction
+
+    /**
      * Delete the viewer's own post. Emitted only when
      * `PostUi.viewer.isOwnPost` — the menu omits the row entirely on anybody
      * else's post rather than showing it disabled, since a viewer can never

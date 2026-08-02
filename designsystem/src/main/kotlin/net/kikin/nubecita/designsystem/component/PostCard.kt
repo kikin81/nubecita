@@ -834,6 +834,18 @@ private fun PostOverflowAffordance(
                     onAction(PostOverflowAction.CopyPostText)
                 },
             )
+            // Omitted entirely on an image- or video-only post: there is no
+            // text to translate, so the row would open a translator on an
+            // empty string.
+            if (post.text.isNotBlank()) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.moderation_action_translate_post)) },
+                    onClick = {
+                        expanded = false
+                        onAction(PostOverflowAction.TranslatePost)
+                    },
+                )
+            }
         }
     }
 }

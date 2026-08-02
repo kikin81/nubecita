@@ -144,4 +144,6 @@
     <string name="postcard_delete_error">Couldn’t delete post</string>
     <!-- Handle prefix; identical in every locale (the @ is not translated). -->
     <string name="nubecita_actor_handle">\@%1$s</string>
+    <string name="moderation_action_translate_post">Translate post</string>
+    <string name="postcard_translation_unavailable">No app available to open the translator</string>
 </resources>

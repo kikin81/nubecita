@@ -85,6 +85,50 @@
     {
       "type": "Single",
       "post": {
+        "id": "at://did:plc:ivy00000000000000000000000/app.bsky.feed.post/3kfeed0029",
+        "cid": "bafyreiivy000000000000000000000000000000000000000000000029",
+        "author": {
+          "did": "did:plc:ivy00000000000000000000000",
+          "handle": "ivy.fpv",
+          "displayName": "Ivy Park",
+          "avatarUrl": "file:///android_asset/img/avatars/ivy.jpg"
+        },
+        "createdAt": "2026-05-26T19:42:00Z",
+        "text": "",
+        "facets": [],
+        "embed": {
+          "type": "Images",
+          "items": [
+            {
+              "fullsizeUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+              "thumbUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+              "altText": "A pour-over coffee dripper on a wooden countertop, morning light through a window.",
+              "aspectRatio": 1.333
+            }
+          ]
+        },
+        "stats": {
+          "replyCount": 5,
+          "repostCount": 2,
+          "likeCount": 41,
+          "quoteCount": 0
+        },
+        "viewer": {
+          "isLikedByViewer": true,
+          "isRepostedByViewer": false,
+          "isFollowingAuthor": true,
+          "likeUri": "at://did:plc:viewer00000000000000000000/app.bsky.feed.like/3kviewerlike1",
+          "repostUri": null,
+          "isAuthorMutedByViewer": false,
+          "isAuthorBlockedByViewer": false,
+          "isAuthorBlockingViewer": false
+        },
+        "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
         "id": "at://did:plc:ivyf00000000000000000000/app.bsky.feed.post/3kfeed1601",
         "cid": "bafyreiivyf00000000000000000000000000000000000000000001",
         "author": {
@@ -509,7 +553,7 @@
           "avatarUrl": "file:///android_asset/img/avatars/gabe.jpg"
         },
         "createdAt": "2026-05-27T05:50:00Z",
-        "text": "good long read on the architecture tradeoffs behind a popular embedded database. mostly think about the WAL section \u2014 surprised by how much of the perf budget goes into fsync batching.",
+        "text": "good long read on the architecture tradeoffs behind a popular embedded database. mostly think about the WAL section — surprised by how much of the perf budget goes into fsync batching.",
         "facets": [],
         "embed": {
           "type": "External",
@@ -877,7 +921,7 @@
           "avatarUrl": "file:///android_asset/img/avatars/fede.jpg"
         },
         "createdAt": "2026-05-27T16:20:00Z",
-        "text": "boosting this \u2014 Alice's frame pacing thread is the clearest explanation I have read of what Choreographer is actually doing under the hood.",
+        "text": "boosting this — Alice's frame pacing thread is the clearest explanation I have read of what Choreographer is actually doing under the hood.",
         "facets": [],
         "embed": {
           "type": "Empty"
@@ -1033,13 +1077,11 @@
           "contentWarningOverridable": true
         }
       }
-    }
-,
+    },
     {
       "type": "ReplyCluster",
       "hasEllipsis": false,
-      "root":
-      {
+      "root": {
         "id": "at://did:plc:carmen0000000000000000000/app.bsky.feed.post/3kfeedrc01",
         "cid": "bafyreibench3kfeedrc01",
         "author": {
@@ -1069,8 +1111,7 @@
           "isBookmarkedByViewer": false
         }
       },
-      "parent":
-      {
+      "parent": {
         "id": "at://did:plc:bob0000000000000000000000/app.bsky.feed.post/3kfeedrc02",
         "cid": "bafyreibench3kfeedrc02",
         "author": {
@@ -1100,8 +1141,7 @@
           "isBookmarkedByViewer": false
         }
       },
-      "post":
-      {
+      "post": {
         "id": "at://did:plc:elena00000000000000000000/app.bsky.feed.post/3kfeedrc03",
         "cid": "bafyreibench3kfeedrc03",
         "author": {
@@ -1135,8 +1175,7 @@
     {
       "type": "ReplyCluster",
       "hasEllipsis": true,
-      "root":
-      {
+      "root": {
         "id": "at://did:plc:carmen0000000000000000000/app.bsky.feed.post/3kfeedrc04",
         "cid": "bafyreibench3kfeedrc04",
         "author": {
@@ -1166,8 +1205,7 @@
           "isBookmarkedByViewer": false
         }
       },
-      "parent":
-      {
+      "parent": {
         "id": "at://did:plc:elena00000000000000000000/app.bsky.feed.post/3kfeedrc05",
         "cid": "bafyreibench3kfeedrc05",
         "author": {
@@ -1197,8 +1235,7 @@
           "isBookmarkedByViewer": false
         }
       },
-      "post":
-      {
+      "post": {
         "id": "at://did:plc:bob0000000000000000000000/app.bsky.feed.post/3kfeedrc06",
         "cid": "bafyreibench3kfeedrc06",
         "author": {

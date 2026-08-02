@@ -24,6 +24,7 @@ import net.kikin.nubecita.core.postinteractions.PostDeletionRepository
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.PostTapMarkers
+import net.kikin.nubecita.core.postinteractions.googleTranslateUrl
 import net.kikin.nubecita.core.postinteractions.sharing.toShareIntent
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
@@ -257,6 +258,9 @@ internal class DefaultPostInteractionHandler
 
                 PostOverflowAction.CopyPostText ->
                     emit(InteractionEffect.CopyPostText(post.text))
+
+                PostOverflowAction.TranslatePost ->
+                    emit(InteractionEffect.OpenTranslation(googleTranslateUrl(post.text)))
 
                 // These actions are not yet implemented on the server side
                 // (block removal, thread muting). Surface a coming-soon snackbar.
