@@ -25,7 +25,6 @@ import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.feature.chats.api.AddGroupMembers
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.toMemberMgmtError
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Presenter for the add-group-members recipient picker.
@@ -97,7 +96,6 @@ class AddGroupMembersViewModel
                         ),
                     actorRepository = actorRepository,
                     selfDid = selfDid,
-                    debounce = DEBOUNCE,
                 ).map { result ->
                     when (result) {
                         is RecipientSearchResult.Recent -> AddMembersStatus.Recent(result.actors)
@@ -194,8 +192,4 @@ class AddGroupMembersViewModel
          * already-selected recipients (they appear as chips, not in the list).
          */
         private fun List<ActorUi>.pickable(selectedDids: Set<String>): List<ActorUi> = filter { it.did != selfDid && it.did !in existingDids && it.did !in selectedDids }
-
-        private companion object {
-            val DEBOUNCE = 250.milliseconds
-        }
     }

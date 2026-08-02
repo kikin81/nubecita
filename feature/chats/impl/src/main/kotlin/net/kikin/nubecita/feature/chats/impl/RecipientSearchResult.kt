@@ -12,6 +12,18 @@ import kotlinx.coroutines.flow.map
 import net.kikin.nubecita.core.actors.ActorRepository
 import net.kikin.nubecita.data.models.ActorUi
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+
+/**
+ * How long to wait after the last keystroke before searching.
+ *
+ * One value rather than three per-screen constants: the three pickers are the
+ * same surface wearing different hats, and they had all independently picked
+ * 250ms. Tuning the picker's feel should be one edit, not three that can drift.
+ * The composer's typeahead is a different surface with its own 150ms and is
+ * deliberately not folded in here.
+ */
+private val DEFAULT_RECIPIENT_SEARCH_DEBOUNCE = 250.milliseconds
 
 /**
  * The outcome of a recipient-picker search, before a screen maps it onto its
@@ -75,7 +87,7 @@ internal fun recipientSearchResults(
     queries: Flow<String>,
     actorRepository: ActorRepository,
     selfDid: String?,
-    debounce: Duration,
+    debounce: Duration = DEFAULT_RECIPIENT_SEARCH_DEBOUNCE,
     excludeSelfFromResults: Boolean = false,
 ): Flow<RecipientSearchResult> =
     queries.flatMapLatest { raw ->

@@ -23,7 +23,6 @@ import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.toMemberMgmtError
 import javax.inject.Inject
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Presenter for the new-group creation picker.
@@ -91,7 +90,6 @@ class NewGroupViewModel
                         ),
                     actorRepository = actorRepository,
                     selfDid = selfDid,
-                    debounce = DEBOUNCE,
                 ).map { result ->
                     when (result) {
                         is RecipientSearchResult.Recent -> NewGroupStatus.Recent(result.actors)
@@ -192,8 +190,4 @@ class NewGroupViewModel
          * members, so there is no roster to exclude.
          */
         private fun List<ActorUi>.pickable(selectedDids: Set<String>): List<ActorUi> = filter { it.did != selfDid && it.did !in selectedDids }
-
-        private companion object {
-            val DEBOUNCE = 250.milliseconds
-        }
     }

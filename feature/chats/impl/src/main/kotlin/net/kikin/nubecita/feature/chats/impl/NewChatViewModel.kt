@@ -15,7 +15,6 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import javax.inject.Inject
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Presenter for the NewChat recipient-picker screen.
@@ -60,7 +59,6 @@ class NewChatViewModel
                     ),
                 actorRepository = actorRepository,
                 selfDid = selfDid,
-                debounce = DEBOUNCE,
                 // Messaging yourself is not a thing, so self is dropped from the
                 // 1:1 picker's results. The group pickers keep self in the list
                 // and filter it at selection time instead.
@@ -82,9 +80,5 @@ class NewChatViewModel
                 is NewChatEvent.RecipientSelected -> sendEffect(NewChatEffect.OpenChat(event.otherUserDid))
                 NewChatEvent.RetryClicked -> retryTrigger.tryEmit(Unit)
             }
-        }
-
-        private companion object {
-            val DEBOUNCE = 250.milliseconds
         }
     }
