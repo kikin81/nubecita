@@ -46,6 +46,7 @@ change):
 | **interact_post / video / paywall surface, paywall source** | `customEvent:source_surface` (not `surface`) |
 | **interact_feed action** | `customEvent:feed_action` |
 | **search_perform scope** | `customEvent:search_scope` |
+| **session_cleared age bucket** | `customEvent:days_since_login` (§1a — text buckets, usable from 1.333.0) |
 | paywall plan | `customEvent:plan` |
 | paywall_restore outcome | `customEvent:outcome` |
 | pip outcome | `customEvent:pip_outcome` |
@@ -160,8 +161,8 @@ builds is not mistaken for a regression:
 
 **Amplification check.** One logout should produce **one** clear. Crashlytics
 groups the clear non-fatal with events / impacted users / sessions counts — if
-events ≈ sessions, the coalescing fix is holding; if events run several times
-sessions, something is duplicate-clearing again. This was ~4:1 before 9.9.2 and
+events ≈ sessions, the coalescing fix is holding; if the event count is several
+times the session count, something is duplicate-clearing again. This was ~4:1 before 9.9.2 and
 is the fastest way to spot a regression of it.
 
 **The cancellation signature.** The root cause found on 2026-08-02: a refresh
