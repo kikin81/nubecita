@@ -124,13 +124,21 @@ jobs:
       # The long pole — its own job so it runs in parallel with `lint-checks`.
       # spotless is NOT re-run here (the pre-commit spotless hook in
       # `lint-checks` is the single enforcement — dedup, nubecita-yz7o).
-      # `:app:lintProductionDebug` is explicit because :app's `environment`
-      # flavor dimension makes the unflavored `:app:lint` alias to
-      # `:app:lintBenchDebug` (AGP picks the alphabetically-first flavor), which
-      # would lint only the ~5-file bench shim and miss app/src/production/. The
-      # top-level `lint` aggregator task still covers every non-flavored module.
+      # Two tasks, because `lint` alone does NOT cover production code.
+      #
+      # AGP aliases an unflavored `lint` to the alphabetically-first flavor,
+      # which here is `bench`. That was already known for :app — hence the
+      # explicit production task — but the `environment` dimension is applied by
+      # the convention plugins, so **22 library modules inherit it too**. For all
+      # of them `lint` was analysing src/bench/ (the fakes) and never
+      # src/production/ (the real repositories, network and auth code). The
+      # production sources of those modules had not been linted since 2026-07-04.
+      #
+      # `lintProductionDebug` runs in exactly the projects that declare the
+      # flavor — the 22 libraries plus :app — while `lint` continues to cover the
+      # unflavored modules. Neither is redundant; dropping either loses coverage.
       - name: Android Lint
-        run: ./gradlew lint :app:lintProductionDebug
+        run: ./gradlew lint lintProductionDebug
 
   # Aggregator: preserves the "Lint" status-check name and fails if either
   # parallel lint job genuinely FAILED. `if: always()` runs it even when a dep

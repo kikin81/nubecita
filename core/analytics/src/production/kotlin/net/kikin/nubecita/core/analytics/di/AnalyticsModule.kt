@@ -1,5 +1,6 @@
 package net.kikin.nubecita.core.analytics.di
 
+import android.annotation.SuppressLint
 import android.content.Context
 import com.google.firebase.analytics.FirebaseAnalytics
 import dagger.Binds
@@ -39,6 +40,13 @@ abstract class AnalyticsModule {
     ): AnalyticsInstanceIdProvider
 
     companion object {
+        // Lint sees a call requiring INTERNET / ACCESS_NETWORK_STATE / WAKE_LOCK
+        // from a library module that declares no manifest of its own, so it
+        // cannot know the permissions exist — they are merged in from the
+        // Firebase AARs at the :app level, where the same check passes against
+        // the merged manifest. Suppressed here rather than declaring permissions
+        // on a library that only ever ships inside :app.
+        @SuppressLint("MissingPermission")
         @Provides
         @Singleton
         fun provideFirebaseAnalytics(
