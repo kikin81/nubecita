@@ -105,6 +105,11 @@ shouldn't?
   Report *that* rate. `oauth_config` is a server/config problem (act on it);
   `network` is usually user-side. Ignore `reason=(not set)` rows — those are older
   builds before the dimension was populated.
+- **Check impacted *users*, not just event count.** One user in a retry loop can
+  dominate the total: 138 `login_error` events landed on 1.330.2 on 2026-08-02
+  from a very small number of users. A big count from one user is a support
+  question; a small count spread across many is a product problem. They need
+  opposite responses, and the raw number cannot tell them apart.
 - Login success per active user is a fine coarse "are people getting in" check.
 - **Auth redirect funnel** (`run_funnel_report`, ordered):
   `login_redirect_launched` → `login_redirect_returned` → `login`. Big drop
@@ -115,6 +120,82 @@ shouldn't?
   sustained rise is 🔴 — it means real users are being kicked out. Pair with
   `session_read_error_terminal` and `auth_keyset_regenerated` (both should be
   near-zero; a rise signals the encrypted-session path is failing).
+
+### 1a. Spurious logouts — read this before judging the number
+
+**ALWAYS split `session_cleared` by `appVersion`. The aggregate is
+meaningless.** Old builds stay in the wild for weeks and carry mechanisms that
+are already fixed, and they dominate the totals. Reading the aggregate makes a
+healthy release look broken. Measured 2026-08-02: 1.317.0 alone produced 8–14
+invalid_grant clears in a day while the current build produced **one**. The
+version split is not a refinement — it is the control group.
+
+Query shape:
+
+```
+event: session_cleared
+dimensions: date, appVersion, customEvent:reason, customEvent:days_since_login
+metric: eventCount
+```
+
+**`days_since_login` is the discriminator**, and it only became usable in
+**1.333.0** — earlier builds report `(not set)` or empty, because the value was
+sent numerically and GA4 custom dimensions are text-only (fixed in nubecita
+#834). It arrives bucketed: `0`, `1`, `2_6`, `7_13`, `14_plus`.
+
+| bucket | reading |
+|---|---|
+| `14_plus` | legitimate — public-client refresh tokens expire around two weeks |
+| `2_6` / `7_13` | suspicious, worth watching |
+| `0` / `1` | **a healthy session was rejected.** Not expiry. Token reuse. |
+
+**Known mechanisms and the versions that fixed them** — so residue from old
+builds is not mistaken for a regression:
+
+| mechanism | fixed in |
+|---|---|
+| Zombie session: app kept serving a session the SDK had cleared | nubecita 1.330.3 |
+| Terminal `invalid_grant` replayed by coalesced waiters (~4 clears per logout) | atproto 9.9.2 |
+| Rotation orphaned by caller cancellation (see below) | atproto 9.10.1 / nubecita 1.334.1 |
+
+**Amplification check.** One logout should produce **one** clear. Crashlytics
+groups the clear non-fatal with events / impacted users / sessions counts — if
+events ≈ sessions, the coalescing fix is holding; if events run several times
+sessions, something is duplicate-clearing again. This was ~4:1 before 9.9.2 and
+is the fastest way to spot a regression of it.
+
+**The cancellation signature.** The root cause found on 2026-08-02: a refresh
+runs inside whatever coroutine needed a token, and `DmPollWorker` (a
+`CoroutineWorker` polling `chat.bsky.convo.getLog` every 15 min) is stopped by
+WorkManager on Doze / constraint loss / execution limit. A stop landing after
+the token endpoint consumed the refresh token but before the replacement was
+persisted leaves the store holding a **consumed** token; the next refresh is
+rejected as reuse. In the breadcrumbs it looks like this:
+
+```
+[ChatRepository] getLog failed: Job was cancelled     <-- minutes earlier
+session_start                                          <-- app reopened
+session cleared - invalid_grant, days_since_login=1
+```
+
+A `Job was cancelled` from a background poller shortly before a clear is the
+tell. **If short-age (`0`/`1`) invalid_grant clears keep appearing on builds
+≥ 1.334.1, this is NOT that bug** — the remaining suspect is process death
+between rotation and persist, which needs durability work rather than another
+cancellation fix. Escalate rather than re-fixing cancellation.
+
+**Two dead ends — do not re-walk them.** (1) nubecita *does* wire the SDK's
+persist-failure callback; it is `onSessionPersistFailure` on `AtOAuth`, not the
+SDK's inner `onPersistFailure` name. (2) A cancelled persist can never be
+observed app-side: `DpopAuthProvider` rethrows `CancellationException` without
+invoking the callback, so `SessionPersistFailedException` non-fatals only ever
+represent *non-cancellation* durability failures. Zero of them does not mean
+zero lost rotations.
+
+**Crashlytics beats GA4 here.** For any clear worth investigating, pull the
+sample event: `customKeys.session_clear_reason` carries the reason GA4 may show
+as `(not set)`, and the breadcrumb trail carries the preceding minutes. Filter
+`topIssues` on NON_FATAL and look for `EncryptedOAuthSessionStore.clear`.
 
 ---
 

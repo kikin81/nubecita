@@ -92,6 +92,13 @@ specifies for BOTH the current and prior windows. The four areas:
 1. **Auth & login** — success vs error rate, error by reason/stage, the redirect
    funnel, and the spurious-logout signals (`session_cleared` invalid_grant,
    `session_read_error*`).
+   **Split `session_cleared` by `appVersion` — never report the aggregate.**
+   Old builds linger for weeks carrying already-fixed logout mechanisms and
+   dominate the totals, so the aggregate makes a healthy release look broken.
+   Pair it with `days_since_login` (usable from 1.333.0 on): `14_plus` is
+   ordinary expiry, `0`/`1` means a healthy session was rejected. Catalog
+   §1a has the fixed-in versions, the amplification check, and the breadcrumb
+   signature to look for — read it before calling a logout number good or bad.
 2. **Engagement** — active users + the interaction events (feed views, post/actor
    interactions, posting, search, video, share, PiP).
 3. **Paywall & Pro** — the GA paywall funnel *paired with RevenueCat actuals*
@@ -125,6 +132,8 @@ things to fix — that's what the reader wants first. Every 🔴/🟡 needs a on
 ### 5. Emit outputs
 
 - **Terminal**: the health summary + the top-3 fix list + any 🔴s. Concise.
+  When a spurious-logout number moves, say which app versions moved — "up 40%"
+  without the version split is not a finding.
 - **File**: the full report to `health-reports/<YYYY-MM-DD>.md` (the run date).
 
 ## Report template
