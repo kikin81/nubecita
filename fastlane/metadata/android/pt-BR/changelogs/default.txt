@@ -1,7 +1,7 @@
 Obrigado por usar o nubecita! Novidades:
-• Publique vídeos: adicione um clipe pelo editor, com texto alternativo e erros de envio claros.
-• Preferências do feed: escolha se respostas, republicações e citações aparecem em Seguindo.
-• Um feed Seguindo mais calmo: uma conversa movimentada aparece uma vez; toque para ver as respostas agrupadas.
-• Exclua suas próprias publicações pelo menu.
-• Configurações renovadas, além de melhorias de bateria e estabilidade.
+• Você continua conectado: corrigimos o erro que desconectava sua conta sem motivo.
+• Solicitações de mensagem: aceite ou recuse um convite pela lista de chats ou dentro da conversa.
+• Entre mais rápido: digite seu usuário e escolha sua conta na lista.
+• Traduza uma publicação pelo menu dela.
+• Corrigimos um travamento ao responder ou citar.
 Obrigado por estar aqui! 💙
