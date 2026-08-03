@@ -1,7 +1,7 @@
 Thanks for using nubecita! What's new:
-• Post videos — add a clip in the composer, with alt text and clear upload errors.
-• Feed preferences — choose whether replies, reposts and quote posts appear in Following.
-• A calmer Following feed — a busy thread shows once, with a tap to see the replies it collapsed.
-• Delete your own posts from the overflow menu.
-• Refreshed Settings, plus battery and stability fixes.
+• You stay signed in — fixed a bug that could sign you out for no reason.
+• Message requests — accept or decline an invite from your chat list or inside the conversation.
+• Faster sign-in — start typing your handle and pick your account from the list.
+• Translate a post from its menu.
+• Fixed a crash when replying or quoting in Spanish and Portuguese.
 Thanks for being here. 💙
