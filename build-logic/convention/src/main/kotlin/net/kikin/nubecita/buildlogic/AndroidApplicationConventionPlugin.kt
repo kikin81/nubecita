@@ -68,6 +68,16 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                     // strings can't ship untranslated (the translations are repo-owned, not
                     // Play-cloud). Modules with no locale folders are unaffected.
                     error += "MissingTranslation"
+                    // A translation that drops the conversion from a positional
+                    // specifier ("%1" for "%1$s") makes String.format throw at
+                    // runtime — a hard crash for that locale only, invisible to
+                    // anyone developing in English. Lint already detected exactly
+                    // this and reported it as a WARNING, so it shipped
+                    // (nubecita: composer reply/quote headers, es-419 + pt-BR).
+                    // Warnings do not fail builds; these must.
+                    error += "StringFormatCount"
+                    error += "StringFormatInvalid"
+                    error += "StringFormatMatches"
                 }
             }
 

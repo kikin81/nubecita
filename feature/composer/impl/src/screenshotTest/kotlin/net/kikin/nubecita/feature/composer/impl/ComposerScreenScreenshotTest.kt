@@ -205,6 +205,61 @@ private fun ComposerScreenTypeaheadSuggestionsScreenshot() {
     }
 }
 
+/**
+ * The reply and quote headers rendered in a NON-DEFAULT locale.
+ *
+ * Regression for a FATAL shipped in 1.330.2: both translations of
+ * `composer_reply_header` / `composer_quote_header` had dropped the conversion
+ * from their positional specifier (`%1` instead of `%1$s`), so
+ * `stringResource(id, displayName)` threw `UnknownFormatConversionException` for
+ * every es-419 and pt-BR user opening the composer in reply or quote mode.
+ *
+ * Nothing in the default-locale suite could catch it — English was correct, and
+ * every other screenshot renders in `en`. This one renders the same path in
+ * es-419, so a malformed translation crashes the screenshot run rather than a
+ * user's phone. (Lint's StringFormatCount, now promoted to an error in the
+ * convention plugins, is the broader net; this pins the actual render path.)
+ */
+@PreviewTest
+@Preview(name = "reply-mode-es419", showBackground = true, locale = "b+es+419")
+@Composable
+private fun ComposerScreenReplyModeLocalizedScreenshot() {
+    val parentRef = StrongRef(uri = AtUri("at://did:plc:alice/app.bsky.feed.post/abc"), cid = Cid("bafabc"))
+    NubecitaCanvasPreviewTheme {
+        ComposerScreenContent(
+            state =
+                ComposerState(
+                    replyToUri = parentRef.uri.raw,
+                    replyParentLoad =
+                        ParentLoadStatus.Loaded(
+                            ParentPostUi(
+                                parentRef = parentRef,
+                                rootRef = parentRef,
+                                authorHandle = "alice.bsky.social",
+                                authorDisplayName = "Alice",
+                                text = "Una publicación de prueba para el encabezado de respuesta.",
+                                avatarUrl = null,
+                                thumbnailUrl = null,
+                            ),
+                        ),
+                ),
+            textFieldState = remember { TextFieldState() },
+            snackbarHostState = remember { SnackbarHostState() },
+            onSubmit = {},
+            onCloseClick = {},
+            onAddImageClick = {},
+            onRemoveAttachment = {},
+            onSuggestionClick = {},
+            deviceLocaleTag = "es-419",
+            onRetryParentLoad = {},
+            onRetryQuoteLoad = {},
+            onRemoveQuote = {},
+            onLanguageChipClick = {},
+            onAudienceChipClick = {},
+        )
+    }
+}
+
 @PreviewTest
 @Preview(name = "reply-mode-loaded-light", showBackground = true)
 @Preview(name = "reply-mode-loaded-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
