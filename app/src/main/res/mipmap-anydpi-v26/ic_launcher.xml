@@ -2,5 +2,11 @@
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/ic_launcher_background" />
     <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <!--
+        Deliberately still the launcher foreground, NOT ic_stat_nubecita. A
+        themed icon is masked by the launcher exactly like the adaptive
+        foreground, so it needs that safe margin; the notification asset fills
+        its box on purpose and would be cropped here.
+    -->
     <monochrome android:drawable="@drawable/ic_launcher_foreground" />
 </adaptive-icon>

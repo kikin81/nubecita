@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    Notification small icon.
+
+    NOT ic_launcher_foreground. An adaptive-icon foreground carries a large
+    built-in safe-zone margin — ours draws its artwork at 0.7 scale inside a
+    108dp canvas, so the glyph covers only ~54% of the box. Android renders a
+    small icon by taking the ALPHA channel and drawing it at 24dp, margin and
+    all, which is why the launcher foreground shows up visibly shrunken in the
+    status bar next to apps that ship a real notification asset.
+
+    This is the same artwork re-fitted: the bounding box (x 9.8..92.9,
+    y 3.4..79.1) is scaled 1.107x and re-centred to fill 92% of the viewport,
+    leaving only a small optical margin.
+
+    Every path is #FFFFFF because colour is discarded — the system keeps the
+    alpha and tints the result (white in the status bar, the channel/accent
+    colour in the shade). The eye cut-outs come from the clip-path, so they stay
+    transparent rather than becoming white blobs, which is what keeps the mark
+    readable at 24dp.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <group
+        android:translateX="-6.85"
+        android:translateY="4.33"
+        android:scaleX="1.1071"
+        android:scaleY="1.1071">
+        <clip-path
+            android:pathData="M0,0 h100 v100 h-100 z M37.44,46.94 A1.5,1.5 0 0 0 39.56,49.06 Q42,46.44 44.44,49.06 A1.5,1.5 0 0 0 46.56,46.94 Q42,42.56 37.44,46.94 Z M53.44,46.94 A1.5,1.5 0 0 0 55.56,49.06 Q58,46.44 60.44,49.06 A1.5,1.5 0 0 0 62.56,46.94 Q58,42.56 53.44,46.94 Z" />
+        <!-- Cloud body -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M47.8,16.6c.3-.8-.3-.7-4 .2-8.3 2-15.3 8.9-17.4 16.9-.3 1.3-.9 2.3-1.3 2.3s-2 .5-3.6 1.1c-4 1.5-8.6 6.1-10.1 10.2-1.6 4.2-1.3 10.3.6 14.3 2.4 5.2 7.7 9.3 13.3 10.2 1.2.2 2.1.5 2.1.8s.8 1.4 1.8 2.5c3.5 3.8 2.7 3.7 24 3.9 12.9.1 19.8 0 21.2-.4 3.6-1 8-6 8-9.2 0-.5 1.1-2.1 2.5-3.5 3.6-3.8 4.7-6.2 5-11.1.3-4.8-.6-8-2.9-10.8-1.3-1.6-1.7-1.8-3-1.5-3.8.8-9.6-3.9-12.4-9.8-2.4-5-2.6-5.1-8.1-3.7-4.1 1.1-9.4.7-12.3-.7-4.6-2.4-5.6-5.9-3.3-11.5" />
+        <!-- Bow knot -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M73.1,18.7c-4.3-1.9-5.4-1.6-6.6 1.4-.9 2.3.1 3.7 3.2 5.1 1.5.7 3.2 1.2 3.7 1.2 1.2 0 3-2.3 3-3.8 0-2.1-.6-2.8-3.4-4" />
+        <!-- Bow, right flap -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M88.3,17.5c-1.8-.5-3.8-.425-5.3-.2c-2 .3-5.5 1.3-5.5 1.5 0 .1.4.8.8 1.4 1.7 2.6-.5 7.7-3.7 8.5-1.4.3-1.4.2-.1 2.8 1.5 2.9 5.2 6.8 7.2 7.4 4.3 1.4 7.1-2.6 5.5-7.7-.4-1.4-.8-2.5-.8-2.5s.9-.3 2-.6c2.7-.8 4.5-3.1 4.5-5.6 0-1.6-.3-2.2-1.8-3.5-1-.9-2.3-1.35-2.8-1.5" />
+        <!-- Bow, left flap -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M61.9,5.2c-4.7-1.8-8 2.2-6.1 7.5.5 1.3.6 2.3.3 2.4-4.2 1.4-7 4.8-6.1 7.4 1.1 3.2 5.9 4.7 11.7 3.7l3.4-.6-.8-1.7c-.5-1.1-.7-2.2-.5-3.4.4-2.3 2.8-4.8 4.5-4.8 1.6 0 1.7-.8.1-3.9-1.4-2.7-4.4-5.8-6.5-6.6" />
+    </group>
+</vector>

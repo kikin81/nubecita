@@ -1,5 +1,6 @@
 package net.kikin.nubecita.data
 
+import androidx.annotation.DrawableRes
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -10,7 +11,7 @@ import net.kikin.nubecita.feature.chats.impl.worker.DmNotificationSmallIcon
 /**
  * `:app`-side binding for `:feature:chats:impl`'s branding-dependent config:
  * `@DmNotificationSmallIcon` is the status-bar icon for background DM
- * notifications. Reuses `ic_launcher_foreground` (same as `@PushSmallIconRes`);
+ * notifications. Uses `ic_stat_nubecita` (same as `@PushSmallIconRes`);
  * kept in `:app` so the feature module carries no branding.
  */
 @Module
@@ -18,5 +19,6 @@ import net.kikin.nubecita.feature.chats.impl.worker.DmNotificationSmallIcon
 object ChatsAppModule {
     @Provides
     @DmNotificationSmallIcon
-    fun provideDmNotificationSmallIconRes(): Int = R.drawable.ic_launcher_foreground
+    @DrawableRes
+    fun provideDmNotificationSmallIconRes(): Int = R.drawable.ic_stat_nubecita
 }
