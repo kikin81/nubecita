@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785745784651,
+  "lastUpdate": 1785831111929,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -1383,6 +1383,64 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 693,
             "range": "+/- 1.1%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "fdabb7b383a0c43f740cb60dc8361eea0092d7b7",
+          "message": "ci(release): 1.334.3\n\n## [1.334.3](https://github.com/kikin81/nubecita/compare/v1.334.2...v1.334.3) (2026-08-04)\n\n### Miscellaneous\n\n* **release:** refresh Play notes for the 1.334.x promotion ([#850](https://github.com/kikin81/nubecita/issues/850)) ([1e532a9](https://github.com/kikin81/nubecita/commit/1e532a960c9c6fde7b1177428a3457fd54574be1))\n\n### Bug Fixes\n\n* **push:** ship a real notification icon instead of the launcher foreground ([#851](https://github.com/kikin81/nubecita/issues/851)) ([8f82305](https://github.com/kikin81/nubecita/commit/8f82305671502e80b62ccfbe6e49f34b7eb37c41))",
+          "timestamp": "2026-08-04T05:08:09Z",
+          "url": "https://github.com/kikin81/nubecita/commit/fdabb7b383a0c43f740cb60dc8361eea0092d7b7"
+        },
+        "date": 1785831109938,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 34,
+            "range": "+/- 4.9%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1295.956,
+            "range": "+/- 13.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1219.06,
+            "range": "+/- 4.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1129.415,
+            "range": "+/- 24.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1000.459,
+            "range": "+/- 39.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 698,
+            "range": "+/- 1.8%",
             "unit": "frames"
           }
         ]
