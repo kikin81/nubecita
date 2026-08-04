@@ -73,13 +73,19 @@ internal fun FeedErrorState(
         )
         // The upstream's own error text, quoted verbatim beneath our copy so
         // a viewer reporting the outage can repeat what the server said.
-        // Server-supplied and untranslated by design — de-emphasised to
-        // bodySmall/outline so it reads as a machine detail, not as our voice.
+        // Server-supplied and untranslated by design.
+        //
+        // De-emphasised by TYPE SIZE only (bodySmall against the body's
+        // bodyMedium), not by colour: it reuses onSurfaceVariant. The obvious
+        // "even dimmer" choice, colorScheme.outline, measures 4.40:1 on the
+        // light surface and 4.14:1 on the dark one — under the 4.5:1 WCAG AA
+        // floor for text this size. onSurfaceVariant is 9.13:1 / 10.96:1, and
+        // M3 scopes `outline` to decorative borders rather than text anyway.
         copy.serverMessage?.let { serverMessage ->
             Text(
                 text = stringResource(R.string.feed_error_server_message, serverMessage),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.outline,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
         }
