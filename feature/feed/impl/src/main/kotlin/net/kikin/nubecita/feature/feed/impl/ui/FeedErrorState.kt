@@ -71,6 +71,24 @@ internal fun FeedErrorState(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
+        // The upstream's own error text, quoted verbatim beneath our copy so
+        // a viewer reporting the outage can repeat what the server said.
+        // Server-supplied and untranslated by design.
+        //
+        // De-emphasised by TYPE SIZE only (bodySmall against the body's
+        // bodyMedium), not by colour: it reuses onSurfaceVariant. The obvious
+        // "even dimmer" choice, colorScheme.outline, measures 4.40:1 on the
+        // light surface and 4.14:1 on the dark one — under the 4.5:1 WCAG AA
+        // floor for text this size. onSurfaceVariant is 9.13:1 / 10.96:1, and
+        // M3 scopes `outline` to decorative borders rather than text anyway.
+        copy.serverMessage?.let { serverMessage ->
+            Text(
+                text = stringResource(R.string.feed_error_server_message, serverMessage),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
         Button(onClick = onRetry) {
             Text(stringResource(R.string.feed_error_action))
         }
@@ -82,6 +100,12 @@ private data class ErrorCopy(
     val iconDescriptionResId: Int,
     val titleResId: Int,
     val bodyResId: Int,
+    /**
+     * Raw upstream message to quote under [bodyResId], or null to render
+     * nothing. Only [FeedError.FeedOffline] carries one — the other
+     * variants are diagnosed entirely on our side.
+     */
+    val serverMessage: String? = null,
 )
 
 private fun FeedError.toCopy(): ErrorCopy =
@@ -99,6 +123,26 @@ private fun FeedError.toCopy(): ErrorCopy =
                 iconDescriptionResId = R.string.feed_error_unauthenticated_icon_description,
                 titleResId = R.string.feed_error_unauthenticated_title,
                 bodyResId = R.string.feed_error_unauthenticated_body,
+            )
+        // Both feed-generator variants reuse the generic Error glyph: the
+        // icon font ships no cloud-off / feed-off symbol, and vendoring one
+        // means regenerating the whole font for a single codepoint. The
+        // title and body carry the distinction, and the icon's
+        // contentDescription still names the specific state for TalkBack.
+        is FeedError.FeedOffline ->
+            ErrorCopy(
+                icon = NubecitaIconName.Error,
+                iconDescriptionResId = R.string.feed_error_feed_offline_icon_description,
+                titleResId = R.string.feed_error_feed_offline_title,
+                bodyResId = R.string.feed_error_feed_offline_body,
+                serverMessage = serverMessage,
+            )
+        FeedError.FeedNotFound ->
+            ErrorCopy(
+                icon = NubecitaIconName.Error,
+                iconDescriptionResId = R.string.feed_error_feed_not_found_icon_description,
+                titleResId = R.string.feed_error_feed_not_found_title,
+                bodyResId = R.string.feed_error_feed_not_found_body,
             )
         is FeedError.Unknown ->
             ErrorCopy(
@@ -135,5 +179,36 @@ private fun FeedErrorStateUnauthenticatedPreview() {
 private fun FeedErrorStateUnknownPreview() {
     NubecitaTheme {
         FeedErrorState(error = FeedError.Unknown(cause = null), onRetry = {})
+    }
+}
+
+@Preview(name = "Feed offline — light", showBackground = true)
+@Preview(name = "Feed offline — dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun FeedErrorStateFeedOfflinePreview() {
+    NubecitaTheme {
+        FeedErrorState(error = FeedError.FeedOffline(serverMessage = "feed unavailable"), onRetry = {})
+    }
+}
+
+@Preview(name = "Feed offline, no server message — light", showBackground = true)
+@Preview(
+    name = "Feed offline, no server message — dark",
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun FeedErrorStateFeedOfflineNoMessagePreview() {
+    NubecitaTheme {
+        FeedErrorState(error = FeedError.FeedOffline(serverMessage = null), onRetry = {})
+    }
+}
+
+@Preview(name = "Feed not found — light", showBackground = true)
+@Preview(name = "Feed not found — dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun FeedErrorStateFeedNotFoundPreview() {
+    NubecitaTheme {
+        FeedErrorState(error = FeedError.FeedNotFound, onRetry = {})
     }
 }

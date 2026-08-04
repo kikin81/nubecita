@@ -103,6 +103,31 @@ sealed interface FeedError {
     @Immutable
     data object Unauthenticated : FeedError
 
+    /**
+     * The feed generator backing this feed is unreachable — the appview
+     * answered `UpstreamFailure` or `UpstreamTimeout`. Transient and not
+     * our fault: the viewer should retry later or tell the feed's owner.
+     *
+     * [serverMessage] is the upstream's own `message` field, rendered
+     * verbatim under the body copy (the way bsky.app does) so a viewer
+     * reporting the outage can quote what the server actually said. It is
+     * server-supplied English and deliberately NOT translated; null when
+     * the upstream sent no message.
+     */
+    @Immutable
+    data class FeedOffline(
+        val serverMessage: String?,
+    ) : FeedError
+
+    /**
+     * The feed generator record does not exist — the appview answered
+     * `UnknownFeed`. Permanent, unlike [FeedOffline]: retrying will not
+     * bring back a deleted generator, so the copy points at removing the
+     * feed instead of waiting it out.
+     */
+    @Immutable
+    data object FeedNotFound : FeedError
+
     /** Anything else (server 5xx, decode failure, unexpected throwable). */
     @Immutable
     data class Unknown(

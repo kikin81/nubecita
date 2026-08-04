@@ -17,6 +17,16 @@
     <string name="feed_error_unknown_body">Ocurrió un error inesperado al cargar tu cronología.</string>
     <string name="feed_error_unknown_icon_description">Error desconocido</string>
 
+    <string name="feed_error_feed_offline_title">El servidor del feed no responde</string>
+    <string name="feed_error_feed_offline_body">El servidor de este feed no está respondiendo. Vuelve a intentarlo más tarde o avísale a quien lo administra.</string>
+    <string name="feed_error_feed_offline_icon_description">Servidor del feed fuera de servicio</string>
+
+    <string name="feed_error_feed_not_found_title">Feed no encontrado</string>
+    <string name="feed_error_feed_not_found_body">Este feed ya no existe. Es posible que quien lo administra lo haya eliminado.</string>
+    <string name="feed_error_feed_not_found_icon_description">Feed no encontrado</string>
+
+    <string name="feed_error_server_message">Mensaje del servidor: %1$s</string>
+
     <string name="feed_error_action">Reintentar</string>
 
     <string name="feed_host_snackbar_feeds_fallback">No se pudieron cargar tus feeds: mostrando los predeterminados</string>
@@ -24,6 +34,8 @@
     <string name="feed_snackbar_error_network">Error de red. Desliza para reintentar.</string>
     <string name="feed_snackbar_error_unauthenticated">Sesión expirada. Inicia sesión de nuevo.</string>
     <string name="feed_snackbar_error_unknown">No se pudo actualizar. Reintenta.</string>
+    <string name="feed_snackbar_error_feed_offline">El servidor del feed no responde. Reintenta más tarde.</string>
+    <string name="feed_snackbar_error_feed_not_found">Este feed ya no existe.</string>
 
     <string name="feed_snackbar_link_copied">Enlace copiado al portapapeles</string>
     <string name="feed_clipboard_label_post_link">Enlace de publicación de Bluesky</string>
