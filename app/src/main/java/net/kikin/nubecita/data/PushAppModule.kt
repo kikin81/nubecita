@@ -19,9 +19,12 @@ import javax.inject.Singleton
  *   `registerPush` body's `appId` field. Kept out of `:core:push` so the
  *   module stays free of `:app`'s BuildConfig.
  * - `@PushSmallIconRes` is the drawable rendered in the status bar /
- *   shade. v1 reuses `ic_launcher_foreground` — Phase-2 polish item to
- *   add a dedicated monochrome push icon if the launcher foreground
- *   renders poorly tinted by the OS.
+ *   shade. This is `ic_stat_nubecita`, a dedicated 24dp asset — the
+ *   Phase-2 item this comment used to defer. It stopped being optional:
+ *   `ic_launcher_foreground` carries an adaptive-icon safe margin
+ *   (artwork at 0.7 scale in a 108dp canvas, ~54% coverage) and Android
+ *   draws a small icon from the alpha channel margin included, so it
+ *   rendered visibly shrunken beside apps shipping a real asset.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -32,5 +35,5 @@ object PushAppModule {
 
     @Provides
     @PushSmallIconRes
-    fun providePushSmallIconRes(): Int = R.drawable.ic_launcher_foreground
+    fun providePushSmallIconRes(): Int = R.drawable.ic_stat_nubecita
 }
