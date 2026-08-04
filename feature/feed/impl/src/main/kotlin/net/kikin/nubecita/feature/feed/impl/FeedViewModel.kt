@@ -450,6 +450,10 @@ class FeedViewModel
          * `message`, which is human-facing prose the appview is free to
          * reword. Ordering matters: `XrpcError` is a `RuntimeException`, so it
          * would otherwise fall through to [FeedError.Unknown].
+         *
+         * A blank upstream message normalises to null so the screen has one
+         * "nothing to quote" signal instead of two — otherwise a `"message":
+         * ""` body would render a dangling "Message from server:" label.
          */
         private fun Throwable.toFeedError(): FeedError =
             when (this) {
@@ -457,7 +461,8 @@ class FeedViewModel
                 is IOException -> FeedError.Network
                 is XrpcError ->
                     when (errorName) {
-                        UPSTREAM_FAILURE, UPSTREAM_TIMEOUT -> FeedError.FeedOffline(serverMessage = errorMessage)
+                        UPSTREAM_FAILURE, UPSTREAM_TIMEOUT ->
+                            FeedError.FeedOffline(serverMessage = errorMessage?.ifBlank { null })
                         UNKNOWN_FEED -> FeedError.FeedNotFound
                         else -> FeedError.Unknown(cause = message)
                     }

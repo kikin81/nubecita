@@ -890,6 +890,32 @@ internal class FeedViewModelTest {
         }
 
     @Test
+    fun `a blank upstream message is normalised to no message at all`() =
+        // Pin: FeedOffline.serverMessage == null is the "render nothing"
+        // signal, so a whitespace-only message must collapse to it rather
+        // than reaching the screen and printing a dangling "Message from
+        // server:" label with nothing after it. XrpcErrorBody.message is a
+        // nullable String, so "" and "   " are both representable on the wire
+        // and distinct from absent.
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeFeedRepository(
+                    pages = listOf(Result.failure(XrpcError.Unknown("UpstreamFailure", "   ", 502))),
+                )
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler())
+
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            val status = vm.uiState.value.loadStatus
+            assertTrue(status is FeedLoadStatus.InitialError, "expected InitialError, got $status")
+            assertEquals(
+                FeedError.FeedOffline(serverMessage = null),
+                (status as FeedLoadStatus.InitialError).error,
+            )
+        }
+
+    @Test
     fun `UnknownFeed maps to InitialError(FeedNotFound)`() =
         // Pin: a deleted / nonexistent generator is permanent, not transient
         // — distinct copy from FeedOffline so we don't tell the viewer to
