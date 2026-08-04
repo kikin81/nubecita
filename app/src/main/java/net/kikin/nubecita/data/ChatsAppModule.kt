@@ -1,5 +1,6 @@
 package net.kikin.nubecita.data
 
+import androidx.annotation.DrawableRes
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -18,5 +19,6 @@ import net.kikin.nubecita.feature.chats.impl.worker.DmNotificationSmallIcon
 object ChatsAppModule {
     @Provides
     @DmNotificationSmallIcon
+    @DrawableRes
     fun provideDmNotificationSmallIconRes(): Int = R.drawable.ic_stat_nubecita
 }

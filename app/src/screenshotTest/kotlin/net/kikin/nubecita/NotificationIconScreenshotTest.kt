@@ -17,6 +17,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.android.tools.screenshot.PreviewTest
+import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 
 /**
  * The notification small icon at the size the status bar actually draws it.
@@ -30,6 +31,11 @@ import com.android.tools.screenshot.PreviewTest
  */
 @Composable
 private fun NotificationIconComparison() {
+    // The dark box and white tint are hard-coded rather than taken from the
+    // theme on purpose: a small icon is drawn by SystemUI on the status bar,
+    // not on an app surface, so a themed background would show something the
+    // user never sees. The wrapper is here for consistency with the module's
+    // other fixtures and for stable baseline sizing.
     Row(
         horizontalArrangement = Arrangement.spacedBy(24.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -55,8 +61,10 @@ private fun NotificationIconComparison() {
 }
 
 @PreviewTest
-@Preview(name = "notification-icon", showBackground = true)
+@Preview(name = "notification-icon", widthDp = 320, heightDp = 150)
 @Composable
 private fun NotificationIconPreview() {
-    NotificationIconComparison()
+    NubecitaCanvasPreviewTheme {
+        NotificationIconComparison()
+    }
 }

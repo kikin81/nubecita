@@ -1,5 +1,6 @@
 package net.kikin.nubecita.data
 
+import androidx.annotation.DrawableRes
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -35,5 +36,6 @@ object PushAppModule {
 
     @Provides
     @PushSmallIconRes
+    @DrawableRes
     fun providePushSmallIconRes(): Int = R.drawable.ic_stat_nubecita
 }
