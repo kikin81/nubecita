@@ -105,6 +105,8 @@ internal fun rememberFeedInteractions(
     val networkErrorMessage = stringResource(R.string.feed_snackbar_error_network)
     val unauthErrorMessage = stringResource(R.string.feed_snackbar_error_unauthenticated)
     val unknownErrorMessage = stringResource(R.string.feed_snackbar_error_unknown)
+    val feedOfflineErrorMessage = stringResource(R.string.feed_snackbar_error_feed_offline)
+    val feedNotFoundErrorMessage = stringResource(R.string.feed_snackbar_error_feed_not_found)
     val linkCopiedMessage = stringResource(R.string.feed_snackbar_link_copied)
     val clipLabel = stringResource(R.string.feed_clipboard_label_post_link)
     val postPublishedMessage = stringResource(R.string.feed_snackbar_post_published)
@@ -353,6 +355,13 @@ internal fun rememberFeedInteractions(
                         when (effect.error) {
                             FeedError.Network -> networkErrorMessage
                             FeedError.Unauthenticated -> unauthErrorMessage
+                            // The snackbar path (refresh / append failure with
+                            // posts already on screen) has no room for the
+                            // upstream's own message — that detail belongs to
+                            // the full-screen FeedErrorState. Here the viewer
+                            // only needs to know the feed, not the app, is down.
+                            is FeedError.FeedOffline -> feedOfflineErrorMessage
+                            FeedError.FeedNotFound -> feedNotFoundErrorMessage
                             is FeedError.Unknown -> unknownErrorMessage
                         }
                     haptics.rejected()

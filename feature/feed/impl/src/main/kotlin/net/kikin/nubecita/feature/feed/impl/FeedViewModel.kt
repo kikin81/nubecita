@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.feed.impl
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.app.bsky.feed.FeedViewPost
+import io.github.kikin81.atproto.runtime.XrpcError
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
@@ -440,12 +441,39 @@ class FeedViewModel
             }
         }
 
+        /**
+         * Collapse a repository throwable into the UI-resolvable category the
+         * error screen renders.
+         *
+         * The feed-generator cases discriminate on [XrpcError.errorName], the
+         * parsed `error` field of the XRPC error body — never on the rendered
+         * `message`, which is human-facing prose the appview is free to
+         * reword. Ordering matters: `XrpcError` is a `RuntimeException`, so it
+         * would otherwise fall through to [FeedError.Unknown].
+         */
         private fun Throwable.toFeedError(): FeedError =
             when (this) {
                 is NoSessionException -> FeedError.Unauthenticated
                 is IOException -> FeedError.Network
+                is XrpcError ->
+                    when (errorName) {
+                        UPSTREAM_FAILURE, UPSTREAM_TIMEOUT -> FeedError.FeedOffline(serverMessage = errorMessage)
+                        UNKNOWN_FEED -> FeedError.FeedNotFound
+                        else -> FeedError.Unknown(cause = message)
+                    }
                 else -> FeedError.Unknown(cause = message)
             }
+
+        private companion object {
+            /** Appview could not reach the feed generator at all. */
+            const val UPSTREAM_FAILURE = "UpstreamFailure"
+
+            /** Generator answered too slowly for the appview's budget. */
+            const val UPSTREAM_TIMEOUT = "UpstreamTimeout"
+
+            /** No generator record exists at the requested AT URI. */
+            const val UNKNOWN_FEED = "UnknownFeed"
+        }
     }
 
 /**

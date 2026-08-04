@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.feed.impl
 
 import app.cash.turbine.test
 import io.github.kikin81.atproto.app.bsky.feed.GetTimelineResponse
+import io.github.kikin81.atproto.runtime.XrpcError
 import io.mockk.mockk
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -838,6 +839,97 @@ internal class FeedViewModelTest {
             val status = vm.uiState.value.loadStatus
             assertTrue(status is FeedLoadStatus.InitialError)
             assertEquals(FeedError.Unauthenticated, (status as FeedLoadStatus.InitialError).error)
+        }
+
+    @Test
+    fun `UpstreamFailure maps to InitialError(FeedOffline) carrying the server message`() =
+        // Pin: a feed generator being offline is NOT "something went wrong on
+        // our side". The appview answers 502 {"error":"UpstreamFailure",
+        // "message":"feed unavailable"} (reproduced against Discover /
+        // whats-hot on 2026-08-04), and the screen must say so and pass the
+        // server's own message through verbatim, the way bsky.app does.
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeFeedRepository(
+                    pages = listOf(Result.failure(XrpcError.Unknown("UpstreamFailure", "feed unavailable", 502))),
+                )
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler())
+
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            val status = vm.uiState.value.loadStatus
+            assertTrue(status is FeedLoadStatus.InitialError, "expected InitialError, got $status")
+            assertEquals(
+                FeedError.FeedOffline(serverMessage = "feed unavailable"),
+                (status as FeedLoadStatus.InitialError).error,
+            )
+        }
+
+    @Test
+    fun `UpstreamTimeout maps to InitialError(FeedOffline)`() =
+        // Pin: a generator that is up but too slow for the appview's ~10s
+        // budget is the same user-visible situation as one that is down —
+        // same copy, same retry affordance.
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeFeedRepository(
+                    pages = listOf(Result.failure(XrpcError.Unknown("UpstreamTimeout", null, 502))),
+                )
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler())
+
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            val status = vm.uiState.value.loadStatus
+            assertTrue(status is FeedLoadStatus.InitialError, "expected InitialError, got $status")
+            assertEquals(
+                FeedError.FeedOffline(serverMessage = null),
+                (status as FeedLoadStatus.InitialError).error,
+            )
+        }
+
+    @Test
+    fun `UnknownFeed maps to InitialError(FeedNotFound)`() =
+        // Pin: a deleted / nonexistent generator is permanent, not transient
+        // — distinct copy from FeedOffline so we don't tell the viewer to
+        // wait for a feed that is never coming back.
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeFeedRepository(
+                    pages = listOf(Result.failure(XrpcError.Unknown("UnknownFeed", "could not find feed", 400))),
+                )
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler())
+
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            val status = vm.uiState.value.loadStatus
+            assertTrue(status is FeedLoadStatus.InitialError, "expected InitialError, got $status")
+            assertEquals(FeedError.FeedNotFound, (status as FeedLoadStatus.InitialError).error)
+        }
+
+    @Test
+    fun `an unmapped XrpcError still maps to InitialError(Unknown)`() =
+        // Pin: the three named error variants are additive — every other
+        // XRPC error name keeps falling through to the generic bucket
+        // rather than being mis-attributed to the feed generator.
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeFeedRepository(
+                    pages = listOf(Result.failure(XrpcError.Unknown("InvalidRequest", "bad cursor", 400))),
+                )
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler())
+
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            val status = vm.uiState.value.loadStatus
+            assertTrue(status is FeedLoadStatus.InitialError, "expected InitialError, got $status")
+            assertTrue(
+                (status as FeedLoadStatus.InitialError).error is FeedError.Unknown,
+                "expected Unknown, got ${status.error}",
+            )
         }
 
     // ---------- interaction dispatch + routing tests ----------

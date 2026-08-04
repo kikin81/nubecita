@@ -19,6 +19,18 @@
     <string name="feed_error_unknown_body">An unexpected error occurred while loading your timeline.</string>
     <string name="feed_error_unknown_icon_description">Unknown error</string>
 
+    <string name="feed_error_feed_offline_title">Feed server is offline</string>
+    <string name="feed_error_feed_offline_body">This feed\'s server isn\'t responding. Try again later, or let the feed owner know.</string>
+    <string name="feed_error_feed_offline_icon_description">Feed server offline</string>
+
+    <string name="feed_error_feed_not_found_title">Feed not found</string>
+    <string name="feed_error_feed_not_found_body">This feed no longer exists. Its owner may have deleted it.</string>
+    <string name="feed_error_feed_not_found_icon_description">Feed not found</string>
+
+    <!-- Prefix for the upstream server's own error text, shown verbatim
+         under the body copy. %1$s is server-supplied and untranslated. -->
+    <string name="feed_error_server_message">Message from server: %1$s</string>
+
     <string name="feed_error_action">Try again</string>
 
     <!-- Snackbar shown when the pinned-feed directory couldn't be loaded
@@ -29,6 +41,8 @@
     <string name="feed_snackbar_error_network">Network error. Pull to retry.</string>
     <string name="feed_snackbar_error_unauthenticated">Sign-in expired. Sign in again.</string>
     <string name="feed_snackbar_error_unknown">Couldn\'t refresh. Try again.</string>
+    <string name="feed_snackbar_error_feed_offline">Feed server is offline. Try again later.</string>
+    <string name="feed_snackbar_error_feed_not_found">This feed no longer exists.</string>
 
     <!-- Long-press on the share button copies the post permalink to the clipboard. -->
     <string name="feed_snackbar_link_copied">Link copied to clipboard</string>
