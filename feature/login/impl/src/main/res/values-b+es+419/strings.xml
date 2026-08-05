@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="login_title">Inicia sesión en Bluesky</string>
-    <string name="login_subtitle">Ingresa tu handle para continuar.</string>
+    <string name="login_subtitle">Ingresa tu handle, sea cual sea tu servidor.</string>
     <string name="login_handle_label">Handle</string>
     <string name="login_handle_placeholder">alice.bsky.social</string>
     <string name="login_submit">Iniciar sesión con Bluesky</string>
