@@ -5,12 +5,14 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.github.kikin81.atproto.oauth.OAuthSessionStore
+import io.github.kikin81.atproto.oauth.PendingAuthStore
 import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.DefaultAuthRepository
 import net.kikin.nubecita.core.auth.DefaultOAuthRedirectBroker
 import net.kikin.nubecita.core.auth.DefaultSessionStateProvider
 import net.kikin.nubecita.core.auth.DefaultXrpcClientProvider
 import net.kikin.nubecita.core.auth.EncryptedOAuthSessionStore
+import net.kikin.nubecita.core.auth.EncryptedPendingAuthStore
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
 import net.kikin.nubecita.core.auth.SessionReader
 import net.kikin.nubecita.core.auth.SessionResultStream
@@ -35,6 +37,12 @@ abstract class AuthBindingsModule {
     @Binds
     @Singleton
     internal abstract fun bindOAuthSessionStore(impl: EncryptedOAuthSessionStore): OAuthSessionStore
+
+    // Durable, not the SDK's in-memory default: the Custom Tab roundtrip
+    // outlives this process on low-memory devices (nubecita-nzec).
+    @Binds
+    @Singleton
+    internal abstract fun bindPendingAuthStore(impl: EncryptedPendingAuthStore): PendingAuthStore
 
     @Binds
     @Singleton

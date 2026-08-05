@@ -6,6 +6,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.github.kikin81.atproto.oauth.AtOAuth
 import io.github.kikin81.atproto.oauth.OAuthSessionStore
+import io.github.kikin81.atproto.oauth.PendingAuthStore
 import io.ktor.client.HttpClient
 import net.kikin.nubecita.core.auth.SessionPersistFailureReporter
 import javax.inject.Singleton
@@ -28,6 +29,7 @@ internal object AtOAuthModule {
         @OAuthRedirectUri redirectUri: String,
         @OAuthScope scope: String,
         sessionStore: OAuthSessionStore,
+        pendingStore: PendingAuthStore,
         httpClient: HttpClient,
         persistFailureReporter: SessionPersistFailureReporter,
     ): AtOAuth =
@@ -41,5 +43,11 @@ internal object AtOAuthModule {
             // the new session even after its retry — the precursor of a
             // cold-start invalid_grant logout (epic nubecita-09xt).
             onSessionPersistFailure = persistFailureReporter::report,
+            // MUST be the durable store, not the SDK's in-memory default: the
+            // authorization step runs in a Custom Tab, and Android reaps this
+            // process under memory pressure while it is foregrounded. With the
+            // default, the returning callback fails "No pending login" and the
+            // user cannot sign in at all (nubecita-nzec).
+            pendingStore = pendingStore,
         )
 }
