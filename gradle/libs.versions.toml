@@ -3,9 +3,7 @@ aboutlibraries = "15.0.0-b03"
 androidGradlePlugin = "9.3.1"
 androidxBenchmark = "1.5.0-beta01"
 androidxUiAutomator = "2.4.0"
-atproto = "9.10.1"
-# TEMPORARY: local build of the pending-auth fix (nubecita-nzec). Revert to version.ref = "atproto" once released.
-atprotoOauthLocal = "9.11.0-local1"
+atproto = "9.11.0"
 androidxCore = "1.19.0"
 androidxLifecycle = "2.11.0"
 androidxActivity = "1.13.0"
@@ -83,7 +81,7 @@ sortDependencies-gradlePlugin = { group = "com.squareup.sort-dependencies", name
 atproto-compose = { module = "io.github.kikin81.atproto:compose", version.ref = "atproto" }
 atproto-compose-material3 = { module = "io.github.kikin81.atproto:compose-material3", version.ref = "atproto" }
 atproto-models = { module = "io.github.kikin81.atproto:models", version.ref = "atproto" }
-atproto-oauth = { module = "io.github.kikin81.atproto:oauth", version.ref = "atprotoOauthLocal" }
+atproto-oauth = { module = "io.github.kikin81.atproto:oauth", version.ref = "atproto" }
 atproto-runtime = { module = "io.github.kikin81.atproto:runtime", version.ref = "atproto" }
 androidx-activity = { module = "androidx.activity:activity", version.ref = "androidxActivity" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidxActivity" }
