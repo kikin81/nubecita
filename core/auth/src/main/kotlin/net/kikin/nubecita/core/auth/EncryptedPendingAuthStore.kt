@@ -3,7 +3,6 @@ package net.kikin.nubecita.core.auth
 import androidx.datastore.core.DataStore
 import io.github.kikin81.atproto.oauth.PendingAuth
 import io.github.kikin81.atproto.oauth.PendingAuthStore
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.serialization.SerializationException
 import timber.log.Timber
@@ -53,6 +52,13 @@ internal class EncryptedPendingAuthStore
          * [EncryptedOAuthSessionStore] classifies as read errors — IO, AEAD
          * decrypt / Keystore invalidation, and JSON decode. Anything else is a
          * programming error and propagates.
+         *
+         * One `catch` per type rather than `catch (Exception)` plus a `when`:
+         * this way the swallow list is the catch list, so it cannot drift out
+         * of sync with itself. It also means [CancellationException] needs no
+         * explicit rethrow — it extends `IllegalStateException` and so matches
+         * none of these — instead of structured concurrency depending on a
+         * guard clause that a later edit could quietly drop.
          */
         private suspend fun <T> runStorage(
             operation: String,
@@ -60,20 +66,21 @@ internal class EncryptedPendingAuthStore
         ): T? =
             try {
                 block()
-            } catch (cause: CancellationException) {
-                throw cause
-            } catch (cause: Exception) {
-                when (cause) {
-                    is IOException,
-                    is GeneralSecurityException,
-                    is SerializationException,
-                    -> {
-                        Timber.tag(TAG).w(cause, "pending-auth %s failed; treating as no pending login", operation)
-                        null
-                    }
-                    else -> throw cause
-                }
+            } catch (cause: IOException) {
+                degradeToNoPendingLogin(operation, cause)
+            } catch (cause: GeneralSecurityException) {
+                degradeToNoPendingLogin(operation, cause)
+            } catch (cause: SerializationException) {
+                degradeToNoPendingLogin(operation, cause)
             }
+
+        private fun degradeToNoPendingLogin(
+            operation: String,
+            cause: Exception,
+        ): Nothing? {
+            Timber.tag(TAG).w(cause, "pending-auth %s failed; treating as no pending login", operation)
+            return null
+        }
 
         private companion object {
             const val TAG = "PendingAuthStore"

@@ -2,6 +2,7 @@ package net.kikin.nubecita.core.auth
 
 import androidx.datastore.core.DataStore
 import io.github.kikin81.atproto.oauth.PendingAuth
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
@@ -69,6 +70,19 @@ class EncryptedPendingAuthStoreTest {
             // storage failure is a bug and must not be silently hidden.
             val store = EncryptedPendingAuthStore(ThrowingPendingDataStore(IllegalStateException("bug")))
             assertThrows<IllegalStateException> { store.load() }
+        }
+
+    @Test
+    fun `cancellation propagates rather than being swallowed`() =
+        runTest {
+            // Structured concurrency: a cancelled load must cancel, not report
+            // "no pending login". This holds structurally — CancellationException
+            // extends IllegalStateException and so matches none of the storage
+            // catches — but pin it, because the property is invisible at the
+            // call site and a future edit widening those catches would break it
+            // silently.
+            val store = EncryptedPendingAuthStore(ThrowingPendingDataStore(CancellationException("cancelled")))
+            assertThrows<CancellationException> { store.load() }
         }
 
     private fun samplePending() =
