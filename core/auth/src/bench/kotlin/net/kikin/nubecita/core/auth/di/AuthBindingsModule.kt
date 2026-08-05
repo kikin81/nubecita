@@ -2,9 +2,12 @@ package net.kikin.nubecita.core.auth.di
 
 import dagger.Binds
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import io.github.kikin81.atproto.oauth.InMemoryPendingAuthStore
 import io.github.kikin81.atproto.oauth.OAuthSessionStore
+import io.github.kikin81.atproto.oauth.PendingAuthStore
 import net.kikin.nubecita.core.auth.AuthRepository
 import net.kikin.nubecita.core.auth.FakeAuthRepository
 import net.kikin.nubecita.core.auth.FakeOAuthRedirectBroker
@@ -59,4 +62,16 @@ abstract class AuthBindingsModule {
     @Binds
     @Singleton
     internal abstract fun bindXrpcClientProvider(impl: FakeXrpcClientProvider): XrpcClientProvider
+
+    companion object {
+        /**
+         * The bench flavor never runs a real OAuth roundtrip (sign-in is
+         * skipped entirely), so the SDK's in-memory store is sufficient — and
+         * keeps bench builds from touching the Keystore or DataStore at all.
+         * The production flavor binds the encrypted, durable store.
+         */
+        @Provides
+        @Singleton
+        fun providePendingAuthStore(): PendingAuthStore = InMemoryPendingAuthStore()
+    }
 }
