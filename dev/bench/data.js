@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785917611237,
+  "lastUpdate": 1786010159336,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -1499,6 +1499,64 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 693,
             "range": "+/- 1.1%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "d98536784d8ec063755acec7832d50e315f1183e",
+          "message": "ci(release): 1.334.7\n\n## [1.334.7](https://github.com/kikin81/nubecita/compare/v1.334.6...v1.334.7) (2026-08-05)\n\n### Bug Fixes\n\n* **login:** say that any server works, not just bsky.social ([#854](https://github.com/kikin81/nubecita/issues/854)) ([cc8c187](https://github.com/kikin81/nubecita/commit/cc8c187352e01569bcdd253af8f80e96b090e6f6))",
+          "timestamp": "2026-08-05T16:01:45Z",
+          "url": "https://github.com/kikin81/nubecita/commit/d98536784d8ec063755acec7832d50e315f1183e"
+        },
+        "date": 1786010157132,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 32,
+            "range": "+/- 7.3%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1362.98,
+            "range": "+/- 4.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1264.524,
+            "range": "+/- 5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1131.956,
+            "range": "+/- 25.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1148.036,
+            "range": "+/- 6.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 700,
+            "range": "+/- 1.3%",
             "unit": "frames"
           }
         ]
