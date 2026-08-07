@@ -3,6 +3,8 @@ package net.kikin.nubecita.core.preferences
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import app.cash.turbine.test
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -71,11 +73,11 @@ internal class DefaultUserPreferencesRepositoryTest {
         }
 
     @Test
-    fun `themePreference defaults to SYSTEM on a fresh store`() =
+    fun `themePreference defaults to DYNAMIC on a fresh store`() =
         runTest {
             val repo = DefaultUserPreferencesRepository(newDataStore(this))
 
-            assertEquals(ThemePreference.SYSTEM, repo.themePreference.first())
+            assertEquals(ThemePreference.DYNAMIC, repo.themePreference.first())
         }
 
     @Test
@@ -84,10 +86,38 @@ internal class DefaultUserPreferencesRepositoryTest {
             val repo = DefaultUserPreferencesRepository(newDataStore(this))
 
             repo.themePreference.test {
-                assertEquals(ThemePreference.SYSTEM, awaitItem())
+                assertEquals(ThemePreference.DYNAMIC, awaitItem())
                 repo.setThemePreference(ThemePreference.DARK)
                 assertEquals(ThemePreference.DARK, awaitItem())
             }
+        }
+
+    // The picker (nubecita-wqb8) renamed the follow-the-OS constant SYSTEM ->
+    // DYNAMIC. Nothing had ever written the preference, so no install actually
+    // holds "SYSTEM" — but this fallback IS the migration for any that might,
+    // and for any value a NEWER build (e.g. a future custom theme) writes and
+    // this one can't parse. Pinned so a refactor can't quietly drop the
+    // runCatching and start throwing on an unknown string.
+    @Test
+    fun `themePreference falls back to DYNAMIC for an unrecognized stored value`() =
+        runTest {
+            val dataStore = newDataStore(this)
+            dataStore.edit { prefs -> prefs[stringPreferencesKey("theme_preference")] = "SYSTEM" }
+
+            val repo = DefaultUserPreferencesRepository(dataStore)
+
+            assertEquals(ThemePreference.DYNAMIC, repo.themePreference.first())
+        }
+
+    @Test
+    fun `themePreference falls back to DYNAMIC for a value written by a newer build`() =
+        runTest {
+            val dataStore = newDataStore(this)
+            dataStore.edit { prefs -> prefs[stringPreferencesKey("theme_preference")] = "CUSTOM_MIDNIGHT" }
+
+            val repo = DefaultUserPreferencesRepository(dataStore)
+
+            assertEquals(ThemePreference.DYNAMIC, repo.themePreference.first())
         }
 
     @JvmField

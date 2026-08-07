@@ -57,12 +57,16 @@ internal class DefaultUserPreferencesRepository
         }
 
         // Same IOException recovery as above. Stored as the enum name; an absent
-        // or unrecognized value maps to SYSTEM (the app's current follow-OS default).
+        // or unrecognized value maps to DYNAMIC (Material You following the OS —
+        // the app's behavior before a picker existed). The runCatching is load-
+        // bearing, not defensive padding: it is what lets this build read a value
+        // written by a newer one (a future custom theme) and degrade to DYNAMIC
+        // instead of throwing. Covered by DefaultUserPreferencesRepositoryTest.
         override val themePreference: Flow<ThemePreference> =
             dataStore.data
                 .catch { error ->
                     if (error is IOException) {
-                        Timber.w(error, "Failed to read user preferences; defaulting themePreference to SYSTEM")
+                        Timber.w(error, "Failed to read user preferences; defaulting themePreference to DYNAMIC")
                         emit(emptyPreferences())
                     } else {
                         throw error
@@ -70,7 +74,7 @@ internal class DefaultUserPreferencesRepository
                 }.map { prefs ->
                     prefs[Keys.THEME_PREFERENCE]
                         ?.let { stored -> runCatching { ThemePreference.valueOf(stored) }.getOrNull() }
-                        ?: ThemePreference.SYSTEM
+                        ?: ThemePreference.DYNAMIC
                 }
 
         override suspend fun setThemePreference(preference: ThemePreference) {

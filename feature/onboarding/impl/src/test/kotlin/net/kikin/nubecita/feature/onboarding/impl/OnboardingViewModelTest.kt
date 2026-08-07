@@ -87,7 +87,7 @@ internal class OnboardingViewModelTest {
 
         override suspend fun setLastSelectedFeedUri(uri: String) = Unit
 
-        override val themePreference: Flow<ThemePreference> = flowOf(ThemePreference.SYSTEM)
+        override val themePreference: Flow<ThemePreference> = flowOf(ThemePreference.DYNAMIC)
 
         override suspend fun setThemePreference(preference: ThemePreference) = Unit
     }
@@ -106,7 +106,7 @@ internal class OnboardingViewModelTest {
 
         override suspend fun setLastSelectedFeedUri(uri: String) = Unit
 
-        override val themePreference: Flow<ThemePreference> = flowOf(ThemePreference.SYSTEM)
+        override val themePreference: Flow<ThemePreference> = flowOf(ThemePreference.DYNAMIC)
 
         override suspend fun setThemePreference(preference: ThemePreference) = Unit
     }
