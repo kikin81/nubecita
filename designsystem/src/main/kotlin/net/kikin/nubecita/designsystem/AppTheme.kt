@@ -35,9 +35,19 @@ enum class AppTheme {
  * Only [AppTheme.Dynamic] does; choosing an explicit brightness means choosing
  * the brand palette. On Android 11 and earlier the dynamic color API is
  * unavailable and [NubecitaTheme] falls back to the brand palette regardless.
+ *
+ * Spelled as an exhaustive `when` rather than `this == Dynamic` so that adding a
+ * future `Custom` theme is a compile error here — under equality it would
+ * silently default to "not dynamic", which may well be wrong for a custom
+ * palette that wants to blend with the wallpaper.
  */
 val AppTheme.usesDynamicColor: Boolean
-    get() = this == AppTheme.Dynamic
+    get() =
+        when (this) {
+            AppTheme.Dynamic -> true
+            AppTheme.Light -> false
+            AppTheme.Dark -> false
+        }
 
 /**
  * The darkness this theme pins, or `null` when it defers to the OS setting.

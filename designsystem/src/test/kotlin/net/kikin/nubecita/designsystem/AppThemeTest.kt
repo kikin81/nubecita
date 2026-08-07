@@ -52,16 +52,14 @@ class AppThemeTest {
     }
 
     @Test
-    fun everyThemeIsCoveredByBothResolutions() {
-        // AppTheme.entries drives this, so adding Custom without extending the
-        // when-expressions fails here as well as at compile time.
-        AppTheme.entries.forEach { theme ->
-            assertEquals(
-                theme == AppTheme.Dynamic,
-                theme.usesDynamicColor,
-                "usesDynamicColor undefined or wrong for $theme",
-            )
-        }
-        assertEquals(3, AppTheme.entries.size)
+    fun theOptionListIsExactlyTheThreeSpecifiedThemes() {
+        // The picker renders AppTheme.entries in order, so this pins both the
+        // set and the order the Appearance screen presents. Adding Custom is
+        // meant to fail here, as a prompt to extend the screen's baselines and
+        // the ThemePreference mapping in :app rather than a bare count bump.
+        assertEquals(
+            listOf(AppTheme.Dynamic, AppTheme.Light, AppTheme.Dark),
+            AppTheme.entries.toList(),
+        )
     }
 }
