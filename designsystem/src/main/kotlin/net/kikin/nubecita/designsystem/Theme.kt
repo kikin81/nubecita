@@ -24,6 +24,29 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
+/**
+ * Applies the brand theme for a user-selected [AppTheme].
+ *
+ * This is the overload the composition root uses; it resolves [appTheme] to the
+ * `darkTheme` / `dynamicColor` pair and delegates, so the contrast and
+ * reduce-motion handling below has exactly one implementation.
+ *
+ * The two-argument overload is deliberately left intact for `@Preview` and
+ * screenshot fixtures, which pass `dynamicColor = false` to pin deterministic
+ * brand colors.
+ */
+@Composable
+fun NubecitaTheme(
+    appTheme: AppTheme,
+    content: @Composable () -> Unit,
+) {
+    NubecitaTheme(
+        darkTheme = appTheme.resolvesToDark(),
+        dynamicColor = appTheme.usesDynamicColor,
+        content = content,
+    )
+}
+
 // SuppressLint: the Build.VERSION.SDK_INT >= S guard directly wraps the dynamic*
 // calls, but AGP 9.2.0 lint's NewApi detector doesn't trace the guard through the
 // nested-if structure. The runtime check is provably correct; the baseline
