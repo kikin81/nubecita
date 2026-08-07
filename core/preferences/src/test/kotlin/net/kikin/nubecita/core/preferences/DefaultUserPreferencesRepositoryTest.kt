@@ -97,7 +97,7 @@ internal class DefaultUserPreferencesRepositoryTest {
     // holds "SYSTEM" — but this fallback IS the migration for any that might,
     // and for any value a NEWER build (e.g. a future custom theme) writes and
     // this one can't parse. Pinned so a refactor can't quietly drop the
-    // runCatching and start throwing on an unknown string.
+    // name lookup and start throwing on an unknown string.
     @Test
     fun `themePreference falls back to DYNAMIC for an unrecognized stored value`() =
         runTest {
