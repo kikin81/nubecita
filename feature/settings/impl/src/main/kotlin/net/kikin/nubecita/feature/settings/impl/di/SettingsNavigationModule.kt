@@ -11,12 +11,14 @@ import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.core.common.navigation.adaptiveDialog
 import net.kikin.nubecita.feature.settings.api.About
 import net.kikin.nubecita.feature.settings.api.AboutLicenses
+import net.kikin.nubecita.feature.settings.api.Appearance
 import net.kikin.nubecita.feature.settings.api.ContentFilters
 import net.kikin.nubecita.feature.settings.api.FeedPreferences
 import net.kikin.nubecita.feature.settings.api.Moderation
 import net.kikin.nubecita.feature.settings.api.Settings
 import net.kikin.nubecita.feature.settings.impl.AboutLicensesScreen
 import net.kikin.nubecita.feature.settings.impl.AboutScreen
+import net.kikin.nubecita.feature.settings.impl.AppearanceScreen
 import net.kikin.nubecita.feature.settings.impl.ContentFiltersScreen
 import net.kikin.nubecita.feature.settings.impl.FeedPreferencesScreen
 import net.kikin.nubecita.feature.settings.impl.ModerationScreen
@@ -80,6 +82,16 @@ internal object SettingsNavigationModule {
                 )
             }
 
+            // Appearance — the theme picker, and where future look-and-feel
+            // options land. adaptiveDialog() so it coalesces into the Settings
+            // dialog on tablet, like the other sub-routes.
+            entry<Appearance>(metadata = adaptiveDialog()) {
+                val navState = LocalMainShellNavState.current
+                AppearanceScreen(
+                    onBack = { navState.removeLast() },
+                    onNavigateTo = { navState.add(it) },
+                )
+            }
             // Feed preferences — a top-level Settings row, not a Moderation
             // child: these govern what appears in the timeline, whereas
             // Moderation covers labels and blocks (nubecita-1fmx.2 D2).

@@ -135,4 +135,15 @@
     <string name="feed_preferences_hide_quotes">Hide quote posts</string>
     <string name="feed_preferences_hide_quotes_supporting">Hide posts that quote another post.</string>
     <string name="feed_preferences_save_error">Couldn\'t save your change. Try again.</string>
+
+    <!-- Appearance screen (nubecita-wqb8) -->
+    <string name="appearance_title">Appearance</string>
+    <string name="appearance_back_content_desc">Back</string>
+    <string name="appearance_description">Choose how Nubecita looks.</string>
+    <string name="appearance_theme_dynamic">Dynamic</string>
+    <string name="appearance_theme_dynamic_supporting">Follows your system light or dark setting, with colours from your wallpaper.</string>
+    <string name="appearance_theme_light">Light</string>
+    <string name="appearance_theme_dark">Dark</string>
+    <string name="appearance_row_label">Appearance</string>
+    <string name="appearance_save_error">Couldn\'t save your change. Try again.</string>
 </resources>
