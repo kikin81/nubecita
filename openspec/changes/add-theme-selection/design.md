@@ -50,7 +50,7 @@ Constraints that shape the work:
 
 *Alternative considered — a single enum shared by both.* It would have to live in `:core:preferences` (the persistence owner) and be imported by `:designsystem`, adding a flavored dependency to the design system — the constraint above. Putting it in `:designsystem` instead and having `:core:preferences` depend on it inverts the layering.
 
-The duplication is real but small, and it mirrors the pattern already in the codebase for `PrefsThemePreference` ↔ `AnalyticsThemePreference`. The mapping is a single `when` with exhaustive compile-time checking, so adding `Custom` later fails the build at every mapping site rather than silently defaulting.
+The duplication is real but small, and it mirrors a split the codebase already carries: `:core:preferences`'s `ThemePreference` (storage) and `:core:analytics`'s same-named `ThemePreference` (GA4 wire values) are separate types that `ProAnalyticsCoordinator` maps between, disambiguating them at the import site with the `PrefsThemePreference` / `AnalyticsThemePreference` aliases. The mapping is a single `when` with exhaustive compile-time checking, so adding `Custom` later fails the build at every mapping site rather than silently defaulting.
 
 ### D3 — Rename `SYSTEM` to `DYNAMIC` rather than adding a fourth constant
 
@@ -88,7 +88,7 @@ Doing the `stateIn` inside the Activity would reset the flow to `null` on every 
 
 `enableEdgeToEdge()`'s default `SystemBarStyle.auto(...)` decides icon polarity from the OS `uiMode` configuration. With app theme `Dark` on an OS in light mode, that draws dark icons over the app's dark status bar area — invisible icons. This is the single most likely user-visible defect in this change and is not caught by unit or screenshot tests.
 
-`MainActivity` re-invokes `enableEdgeToEdge` with explicit `SystemBarStyle.dark(...)` / `SystemBarStyle.light(...)` chosen from the *resolved* dark-ness (i.e. `AppTheme.Dark`, or `AppTheme.Dynamic` while the OS is dark), from an effect keyed on that resolved boolean so a runtime theme change re-applies it. `enableEdgeToEdge` is idempotent and designed to be called again.
+`MainActivity` re-invokes `enableEdgeToEdge` with explicit `SystemBarStyle.dark(...)` / `SystemBarStyle.light(...)` chosen from whether the theme *resolves to dark* (i.e. `AppTheme.Dark`, or `AppTheme.Dynamic` while the OS is dark), from an effect keyed on that resolved boolean so a runtime theme change re-applies it. `enableEdgeToEdge` is idempotent and designed to be called again.
 
 The existing `window.isNavigationBarContrastEnforced = false` line is preserved.
 

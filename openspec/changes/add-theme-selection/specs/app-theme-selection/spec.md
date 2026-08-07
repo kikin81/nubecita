@@ -4,6 +4,8 @@
 
 The app MUST offer the user a single mutually-exclusive choice among three themes — `Dynamic`, `Light`, and `Dark` — modeled as `net.kikin.nubecita.designsystem.AppTheme`. Exactly one is active at any time; there is no separate "use wallpaper colors" control, and no combination of options is reachable.
 
+Two distinct types carry this choice, and requirements below name whichever one they constrain: `AppTheme` (in `:designsystem`) is the **rendering** identity whose constants are `Dynamic` / `Light` / `Dark`; `ThemePreference` (in `:core:preferences`) is the **persisted** identity whose constants are `DYNAMIC` / `LIGHT` / `DARK`. The composition root maps the latter to the former.
+
 - `Dynamic` MUST resolve to Material You wallpaper-derived color with light/dark following the OS setting.
 - `Light` MUST resolve to the Nubecita brand palette in its light variant, regardless of the OS light/dark setting.
 - `Dark` MUST resolve to the Nubecita brand palette in its dark variant, regardless of the OS light/dark setting.
@@ -59,7 +61,7 @@ Selecting a theme MUST persist it via `UserPreferencesRepository.setThemePrefere
 #### Scenario: Re-tapping the already-selected theme is inert
 
 - **WHEN** the user taps the row that is already selected
-- **THEN** the selection and the rendered theme are unchanged and no redundant write is required to be observable.
+- **THEN** the selection and the rendered theme are unchanged, and the ViewModel MUST NOT call `setThemePreference` — a re-tap performs no repository write at all.
 
 ### Requirement: The chosen theme is rendered on the first frame
 
@@ -143,7 +145,7 @@ The `Appearance` NavKey MUST be registered on `@MainShell` and tagged with `adap
 
 ### Requirement: The theme choice is reported to analytics without a new wire value
 
-The `theme_preference` GA4 user property MUST continue to be set from the stored preference. `DYNAMIC` MUST map to the existing analytics wire value `"system"` so historical GA4 data for this property stays continuous — the option was renamed, not redefined.
+The `theme_preference` GA4 user property MUST continue to be set from the stored preference. `ThemePreference.DYNAMIC` MUST map to the existing analytics wire value `"system"` so historical GA4 data for this property stays continuous — the option was renamed, not redefined.
 
 #### Scenario: Selecting a theme updates the user property
 
@@ -152,7 +154,7 @@ The `theme_preference` GA4 user property MUST continue to be set from the stored
 
 #### Scenario: Dynamic reports as system
 
-- **WHEN** the active theme is `DYNAMIC`
+- **WHEN** the stored preference is `ThemePreference.DYNAMIC`
 - **THEN** the `theme_preference` user property is set to `"system"`.
 
 ### Requirement: Existing accessibility behavior applies to every theme
@@ -171,9 +173,9 @@ The contrast-level handling (`ContrastLevel.Standard` / `Medium` / `High`) and t
 
 ### Requirement: The theme model is extensible to future custom themes
 
-`AppTheme` and the persisted `ThemePreference` MUST be shaped so a future custom theme is added as an additional option in the same single list, without restructuring the picker, the persistence format, or the composition-root mapping. The persisted representation MUST remain a forward-compatible string whose unknown values fall back to `Dynamic`.
+`AppTheme` and the persisted `ThemePreference` MUST be shaped so a future custom theme is added as an additional option in the same single list, without restructuring the picker, the persistence format, or the composition-root mapping. The persisted representation MUST remain a forward-compatible string whose unknown values fall back to `ThemePreference.DYNAMIC`.
 
 #### Scenario: An older build tolerates a newer stored value
 
 - **WHEN** a build that does not know about a custom theme reads a stored preference written by a build that does
-- **THEN** it falls back to `Dynamic` and renders normally rather than crashing.
+- **THEN** it falls back to `ThemePreference.DYNAMIC` and renders normally rather than crashing.
