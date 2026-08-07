@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -180,9 +180,17 @@ class MainActivity : ComponentActivity() {
                 // dark icons over a dark surface and they'd vanish. Keyed on the
                 // resolved darkness so a runtime theme change re-applies it;
                 // enableEdgeToEdge is idempotent and designed to be re-called.
+                //
+                // DisposableEffect, not LaunchedEffect: the latter's body is
+                // dispatched through AndroidUiDispatcher and first runs on the
+                // *next* frame, so the bars would lag the theme by a frame —
+                // precisely the wrong-polarity flash this is here to prevent.
+                // DisposableEffect runs in the commit phase, before the frame is
+                // drawn. Matches the enableEdgeToEdge pattern in Now in Android.
                 val isDark = resolved.resolvesToDark()
-                LaunchedEffect(isDark) {
+                DisposableEffect(isDark) {
                     applySystemBarStyle(isDark)
+                    onDispose {}
                 }
 
                 // testTagsAsResourceId surfaces Compose `Modifier.testTag(...)`
