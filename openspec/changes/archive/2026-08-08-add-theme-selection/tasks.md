@@ -65,7 +65,7 @@ Follow-up to 5.2, which shipped the Appearance row icon-less because adding a gl
 - [x] 7.2 Regenerate the subset font with `scripts/update_material_symbols.sh` (fontTools via a throwaway venv on `PATH`; pip is PEP-668-blocked under pyenv). Cache hit — no upstream re-fetch, which is what keeps the blast radius small.
 - [x] 7.3 **Verify the blast radius instead of assuming it.** Diffed `getCoordinates` per shared codepoint between the committed font and the regenerated one: **51 shared glyphs, 0 drifted outlines, 1 added (`U+E3B7`), 0 removed.** So no existing baseline can legitimately move; only the icon showcase and the Settings rows that now draw an icon.
 - [x] 7.4 Point the Settings Appearance row at `NubecitaIconName.Palette`, replacing `icon = null`.
-- [ ] 7.5 Regenerate baselines **on CI via the `update-baselines` label**, not locally — macOS re-introduces the logomark vector drift, which would ride along in the commit and fail CI for an unrelated reason. Apply the label only after every visual change is pushed; the workflow fires on `labeled` only and force-fails if the branch moves under it.
+- [x] 7.5 Baselines regenerated **on CI via the `update-baselines` label**, not locally. The workflow committed `1a958a6d` and removed its own label. It touched exactly 16 files — 6 `NubecitaIconShowcase` (the showcase renders `NubecitaIconName.entries`) and 10 Settings root — and **no logomark baselines**, which is the practical confirmation of the 0-drift font check in 7.3.
 
 ## 8. Full end-to-end on the emulator (`Pixel_10_Pro`, stack top incl. the glyph)
 
