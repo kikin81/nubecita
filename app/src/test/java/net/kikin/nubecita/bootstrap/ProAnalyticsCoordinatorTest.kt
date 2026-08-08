@@ -41,7 +41,7 @@ class ProAnalyticsCoordinatorTest {
             coordinatorWith(
                 analytics = analytics,
                 isPro = MutableStateFlow(false),
-                theme = MutableStateFlow(PrefsThemePreference.SYSTEM),
+                theme = MutableStateFlow(PrefsThemePreference.DYNAMIC),
                 selfHosted = MutableStateFlow(false),
                 notificationsEnabled = MutableStateFlow(false),
             ).start()
@@ -57,7 +57,7 @@ class ProAnalyticsCoordinatorTest {
     fun `theme preference is mapped to the analytics wire enum and tracks changes`() =
         runTest(UnconfinedTestDispatcher()) {
             val analytics = RecordingAnalyticsClient()
-            val theme = MutableStateFlow(PrefsThemePreference.SYSTEM)
+            val theme = MutableStateFlow(PrefsThemePreference.DYNAMIC)
             coordinatorWith(analytics = analytics, theme = theme).start()
             runCurrent()
 
@@ -75,6 +75,12 @@ class ProAnalyticsCoordinatorTest {
                 ),
                 themes.map { it.preference },
             )
+            // Pin the wire strings, not just the enum constants. DYNAMIC keeps the
+            // pre-existing "system" value so historical theme_preference reporting
+            // stays continuous; asserting only the constant would let someone
+            // retitle it to "dynamic" in :core:analytics and silently split the
+            // GA4 dimension.
+            assertEquals(listOf("system", "dark", "light"), themes.map { it.value })
         }
 
     @Test
@@ -105,7 +111,7 @@ class ProAnalyticsCoordinatorTest {
     private fun kotlinx.coroutines.test.TestScope.coordinatorWith(
         analytics: AnalyticsClient,
         isPro: MutableStateFlow<Boolean> = MutableStateFlow(false),
-        theme: MutableStateFlow<PrefsThemePreference> = MutableStateFlow(PrefsThemePreference.SYSTEM),
+        theme: MutableStateFlow<PrefsThemePreference> = MutableStateFlow(PrefsThemePreference.DYNAMIC),
         selfHosted: MutableStateFlow<Boolean> = MutableStateFlow(false),
         notificationsEnabled: MutableStateFlow<Boolean> = MutableStateFlow(false),
     ): ProAnalyticsCoordinator {

@@ -1,11 +1,13 @@
 package net.kikin.nubecita
 
 import android.content.Intent
+import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
@@ -16,11 +18,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation3.runtime.deeplink.DeepLinkRequest
 import androidx.navigation3.runtime.deeplink.invoke
@@ -47,13 +52,16 @@ import net.kikin.nubecita.core.push.PushPayload
 import net.kikin.nubecita.core.update.InAppUpdateController
 import net.kikin.nubecita.core.video.PipController
 import net.kikin.nubecita.core.video.SharedVideoPlayer
+import net.kikin.nubecita.designsystem.AppTheme
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.resolvesToDark
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.login.api.Login
 import net.kikin.nubecita.feature.onboarding.api.Onboarding
 import net.kikin.nubecita.feature.postdetail.api.PostDeepLinkKey
 import net.kikin.nubecita.feature.postdetail.api.toPostDetailRoute
 import net.kikin.nubecita.pip.ActivityPipBridge
+import net.kikin.nubecita.theme.AppThemeState
 import net.kikin.nubecita.update.InAppUpdateHost
 import timber.log.Timber
 import javax.inject.Inject
@@ -90,6 +98,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var sharedMediaStore: SharedMediaStore
 
+    @Inject
+    lateinit var appThemeState: AppThemeState
+
     /**
      * Activity-scoped launcher for the in-app-update confirmation flow (Play's
      * IntentSender-based UI). Registered in [onCreate] before the Activity is
@@ -118,21 +129,24 @@ class MainActivity : ComponentActivity() {
 
         // setKeepOnScreenCondition is invoked on every platform frame callback (not a
         // coroutine), so the lambda reads state.value synchronously off the StateFlow.
-        splashScreen.setKeepOnScreenCondition { sessionStateProvider.state.value is SessionState.Loading }
-
-        enableEdgeToEdge()
-        // `enableEdgeToEdge` flips `isNavigationBarContrastEnforced` to `true`
-        // by default, which has the system paint a translucent scrim under the
-        // gesture-bar handle. With our `NavigationSuiteScaffold` already drawing
-        // a `surfaceContainer` background to that region, the scrim layers on
-        // top and creates a visible gap between the nav-suite labels and the
-        // bottom edge of the screen. Disable it on API 29+ so the bottom-bar
-        // surface extends fully to the gesture handle (per the edge-to-edge
-        // skill checklist for any Activity hosting a `NavigationBar` /
-        // `NavigationSuiteScaffold` bottom bar).
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.isNavigationBarContrastEnforced = false
+        //
+        // The theme is a second not-ready condition: it is read asynchronously from
+        // DataStore, and drawing before it resolves would flash a light first frame
+        // at anyone who chose Dark. Holding the splash is the right lever — blocking
+        // the main thread on the read instead would cost startup TTID, which is a
+        // tracked metric. In practice the session restore dominates, so this adds no
+        // measurable splash time. AppThemeState is a @Singleton started eagerly, so
+        // this only ever gates the first Activity of the process.
+        splashScreen.setKeepOnScreenCondition {
+            sessionStateProvider.state.value is SessionState.Loading ||
+                appThemeState.appTheme.value == null
         }
+
+        // Edge-to-edge with the OS-derived default polarity, so the window is set
+        // up before the first frame. The composition re-applies it via
+        // applySystemBarStyle once the app's own theme resolves — see setContent.
+        enableEdgeToEdge()
+        disableNavigationBarContrast()
 
         // Activity PiP bridge: mirrors system PiP mode into PipController and
         // services the in-window play/pause action. Inert until the Compose
@@ -152,7 +166,33 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch { inAppUpdateController.checkAndMaybePrompt(updateLauncher) }
 
         setContent {
-            NubecitaTheme {
+            // Null until DataStore answers; the splash predicate above holds the
+            // first frame back until then, so this only ever composes with a
+            // resolved theme. The elvis is a formality for the type system —
+            // reaching it would mean the splash gate was removed.
+            val appTheme by appThemeState.appTheme.collectAsStateWithLifecycle()
+            val resolved = appTheme ?: AppTheme.Dynamic
+
+            NubecitaTheme(appTheme = resolved) {
+                // System bar icon polarity must follow the *app's* theme, not the
+                // OS. enableEdgeToEdge's default SystemBarStyle.auto reads the OS
+                // uiMode, so an app themed Dark on an OS in light mode would draw
+                // dark icons over a dark surface and they'd vanish. Keyed on the
+                // resolved darkness so a runtime theme change re-applies it;
+                // enableEdgeToEdge is idempotent and designed to be re-called.
+                //
+                // DisposableEffect, not LaunchedEffect: the latter's body is
+                // dispatched through AndroidUiDispatcher and first runs on the
+                // *next* frame, so the bars would lag the theme by a frame —
+                // precisely the wrong-polarity flash this is here to prevent.
+                // DisposableEffect runs in the commit phase, before the frame is
+                // drawn. Matches the enableEdgeToEdge pattern in Now in Android.
+                val isDark = resolved.resolvesToDark()
+                DisposableEffect(isDark) {
+                    applySystemBarStyle(isDark)
+                    onDispose {}
+                }
+
                 // testTagsAsResourceId surfaces Compose `Modifier.testTag(...)`
                 // values to UIAutomator as Android resource ids — required so
                 // the :benchmark Macrobenchmark module can locate Compose
@@ -276,6 +316,55 @@ class MainActivity : ComponentActivity() {
         super.onUserLeaveHint()
         // API 26–30 manual-entry fallback (no setAutoEnterEnabled); no-op on 31+.
         pipBridge.onUserLeaveHint()
+    }
+
+    /**
+     * Re-declares edge-to-edge with the system bar polarity pinned to the app's
+     * own theme rather than the OS's.
+     *
+     * The default `SystemBarStyle.auto` reads the OS `uiMode`, so with the app
+     * themed [AppTheme.Dark] on an OS in light mode the platform draws dark
+     * status-bar icons over our dark surface and they disappear. Passing
+     * `dark`/`light` explicitly makes the icon polarity follow what the user
+     * actually chose.
+     *
+     * Safe to call repeatedly — `enableEdgeToEdge` is idempotent by design.
+     */
+    private fun applySystemBarStyle(isDark: Boolean) {
+        enableEdgeToEdge(
+            statusBarStyle =
+                if (isDark) {
+                    SystemBarStyle.dark(Color.TRANSPARENT)
+                } else {
+                    SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+                },
+            navigationBarStyle =
+                if (isDark) {
+                    SystemBarStyle.dark(NAVIGATION_BAR_DARK_SCRIM)
+                } else {
+                    SystemBarStyle.light(NAVIGATION_BAR_LIGHT_SCRIM, NAVIGATION_BAR_DARK_SCRIM)
+                },
+        )
+        // enableEdgeToEdge resets this to true on every call, so it has to be
+        // re-applied here or the re-declaration would silently reintroduce the
+        // gesture-handle scrim this Activity deliberately disables.
+        disableNavigationBarContrast()
+    }
+
+    /**
+     * `enableEdgeToEdge` flips `isNavigationBarContrastEnforced` to `true` by
+     * default, which has the system paint a translucent scrim under the
+     * gesture-bar handle. With our `NavigationSuiteScaffold` already drawing a
+     * `surfaceContainer` background to that region, the scrim layers on top and
+     * creates a visible gap between the nav-suite labels and the bottom edge of
+     * the screen. Disable it on API 29+ so the bottom-bar surface extends fully
+     * to the gesture handle (per the edge-to-edge skill checklist for any
+     * Activity hosting a `NavigationBar` / `NavigationSuiteScaffold` bottom bar).
+     */
+    private fun disableNavigationBarContrast() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
     }
 
     override fun onDestroy() {
@@ -576,6 +665,14 @@ class MainActivity : ComponentActivity() {
         private const val SHARE_TEXT_MAX_LENGTH = 10_000
     }
 }
+
+// Mirrors the (private) scrim defaults `enableEdgeToEdge` applies to the
+// navigation bar, so re-declaring edge-to-edge with an explicit polarity keeps
+// the platform's own three-button/gesture-nav fallback appearance on API < 29
+// rather than silently switching it to transparent. The status bar keeps
+// TRANSPARENT on both sides, matching the androidx default there.
+private const val NAVIGATION_BAR_LIGHT_SCRIM = 0xE6FFFFFF.toInt()
+private const val NAVIGATION_BAR_DARK_SCRIM = 0x801B1B1B.toInt()
 
 private fun android.net.Uri.redactForLog(): String {
     val scheme = scheme.orEmpty()

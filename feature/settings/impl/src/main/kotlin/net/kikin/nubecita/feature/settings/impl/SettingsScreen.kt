@@ -63,6 +63,7 @@ import net.kikin.nubecita.feature.paywall.api.PaywallRoute
 import net.kikin.nubecita.feature.paywall.api.PaywallSource
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.settings.api.About
+import net.kikin.nubecita.feature.settings.api.Appearance
 import net.kikin.nubecita.feature.settings.api.FeedPreferences
 import net.kikin.nubecita.feature.settings.api.Moderation
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsHeader
@@ -190,6 +191,10 @@ internal fun SettingsScreen(
                 SettingsEffect.OpenFeedPreferences ->
                     // Push the Feed preferences sub-route (screen owns the NavKey).
                     currentOnNavigateTo(FeedPreferences)
+
+                SettingsEffect.OpenAppearance ->
+                    // Push the Appearance sub-route (screen owns the NavKey).
+                    currentOnNavigateTo(Appearance)
                 is SettingsEffect.OpenManageSubscription -> {
                     // Deep-link to the Play manage-subscription page. The screen
                     // owns the package name; the VM supplied the sku (if known).
@@ -557,6 +562,24 @@ internal fun SettingsContent(
     val moderationLabel = stringResource(R.string.settings_moderation_label)
     val feedPreferencesLabel = stringResource(R.string.settings_feed_preferences_label)
     val contentModerationSectionLabel = stringResource(R.string.settings_content_moderation_section)
+    // "Display" — slot 2 of the canonical roster, previously unfilled. The row
+    // captions itself with the active theme so the setting is legible without
+    // opening the sub-page.
+    val displaySectionLabel = stringResource(R.string.settings_display_section)
+    val appearanceLabel = stringResource(R.string.appearance_row_label)
+    val appearanceValue = stringResource(state.theme.labelRes())
+    val displayRows =
+        remember(appearanceLabel, appearanceValue) {
+            persistentListOf(
+                SettingsRow.Action(
+                    icon = NubecitaIconName.Palette,
+                    label = appearanceLabel,
+                    supportingText = appearanceValue,
+                    onClick = { currentOnEvent(SettingsEvent.AppearanceTapped) },
+                ),
+            )
+        }
+
     val contentModerationRows =
         remember(moderationLabel, feedPreferencesLabel) {
             persistentListOf(
@@ -608,7 +631,7 @@ internal fun SettingsContent(
         // section caption rule from the spec is satisfied:
         //
         //   1. Open links & sharing — filled by nubecita-ajty
-        //   2. Display              — filled by nubecita-37to.3
+        //   2. Display              — Appearance / theme (nubecita-wqb8)
         //   3. Notifications        — system-settings deep-link today
         //                              (v1 content); in-app per-reason
         //                              toggles arrive in a later epic.
@@ -617,6 +640,7 @@ internal fun SettingsContent(
         //   6. Account               — Delete account + Sign Out (destructive)
         //   7. Data usage           — filled by nubecita-37to.8
         // (Version renders as a footer caption below the cards, not a row.)
+        SettingsSection(rows = displayRows, label = displaySectionLabel)
         SettingsSection(rows = notificationsRows)
         SettingsSection(rows = contentModerationRows, label = contentModerationSectionLabel)
         // About & legal above the destructive Account card, which sits last.

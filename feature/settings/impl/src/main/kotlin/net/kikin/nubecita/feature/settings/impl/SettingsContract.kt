@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.settings.impl
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.core.preferences.ThemePreference
 import net.kikin.nubecita.data.models.BillingPeriod
 
 /**
@@ -76,6 +77,18 @@ data class SettingsViewState(
      * Notifications-section Switch row.
      */
     val messageCheckingEnabled: Boolean = true,
+    /**
+     * The active theme, mirrored from `UserPreferencesRepository.themePreference`
+     * so the Appearance row can show the current choice as its caption — the
+     * setting is then visible without opening the sub-page.
+     *
+     * Kept as the enum rather than a pre-built label because the VM has no
+     * `Context`; the screen resolves the localized string. Defaults to
+     * [ThemePreference.DYNAMIC], matching the repository's own default, so the
+     * one-frame window before the first emission shows the right caption for
+     * everyone who has never changed it.
+     */
+    val theme: ThemePreference = ThemePreference.DYNAMIC,
 ) : UiState
 
 /**
@@ -197,6 +210,13 @@ sealed interface SettingsEvent : UiEvent {
      * `FeedPreferences` sub-route.
      */
     data object FeedPreferencesTapped : SettingsEvent
+
+    /**
+     * User tapped "Appearance". The VM re-emits
+     * [SettingsEffect.OpenAppearance]; the screen pushes the `Appearance`
+     * sub-route.
+     */
+    data object AppearanceTapped : SettingsEvent
 }
 
 /**
@@ -290,4 +310,7 @@ sealed interface SettingsEffect : UiEffect {
 
     /** Push the Feed preferences sub-route. */
     data object OpenFeedPreferences : SettingsEffect
+
+    /** Push the `Appearance` sub-route (theme picker). */
+    data object OpenAppearance : SettingsEffect
 }
