@@ -53,8 +53,8 @@ Tracked by beads epic **`nubecita-wqb8`**. Each task group below maps to one chi
 
 ## 6. Final verification
 
-- [ ] 6.1 Run the full local gate: `./gradlew spotlessCheck lint checkSortDependencies`, `./gradlew jacocoTestReportAggregated`, and the two `validateDebugScreenshotTest` tasks.
-- [ ] 6.2 Run the `compose-expert` skill over the diff (it adds `@Composable` lines, so the Compose review gate applies) and address its findings.
+- [x] 6.1 Root gate green: `spotlessCheck lint checkSortDependencies` (root task — the `:app`-scoped `checkSortDependencies` misses every other module) and `jacocoTestReportAggregated` (what CI runs; the root `testDebugUnitTest` skips flavored modules like `:core:preferences`). Both `validateDebugScreenshotTest` tasks pass on CI.
+- [x] 6.2 Ran the `compose-expert` skill over the diff (Review Mode, 18 files): **0 critical, 3 suggestions**. None blocking. The one worth acting on is pre-existing and adjacent — `MainActivity`'s root `Surface` uses `colorScheme.background` where the design-system contract says `surface`; left for a separate cleanup rather than widening this stack. Also surfaced that `NubecitaSpacing` is referenced 0 times across feature modules, which is a codebase-wide question, not this change's.
 - [x] 6.3 **Bench smoke — done in `.5`, and the fixture had to be fixed first.** `FakeUserPreferencesRepository.setThemePreference` was a **no-op** with a constant `flowOf(DYNAMIC)`, so this check could never have passed: tapping a theme in a bench build changed nothing. Made the fake stateful (in-memory `MutableStateFlow`, still starting at `DYNAMIC` so benchmark journeys are unaffected). Then ran the full journey on the emulator with the OS in **light** mode: Profile → gear → Settings → Appearance → tap `Dark`. The app repainted dark instantly without leaving the screen, status-bar icons went white and legible, and the Settings row re-captioned from `Dynamic` to `Dark`.
 
 ## 7. Theme glyph (`nubecita-wqb8.8`)
