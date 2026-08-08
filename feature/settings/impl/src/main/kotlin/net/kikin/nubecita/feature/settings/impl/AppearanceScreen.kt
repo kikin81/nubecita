@@ -184,7 +184,7 @@ internal fun ThemePreference.labelRes(): Int =
 /**
  * Only `Dynamic` carries supporting text — it is the one option whose behaviour
  * isn't obvious from its label, since it means both "follow the system" and
- * "take colours from the wallpaper". Explaining `Light` and `Dark` would be
+ * "take colors from the wallpaper". Explaining `Light` and `Dark` would be
  * noise.
  */
 @StringRes
