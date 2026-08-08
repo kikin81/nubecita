@@ -66,3 +66,16 @@ Follow-up to 5.2, which shipped the Appearance row icon-less because adding a gl
 - [x] 7.3 **Verify the blast radius instead of assuming it.** Diffed `getCoordinates` per shared codepoint between the committed font and the regenerated one: **51 shared glyphs, 0 drifted outlines, 1 added (`U+E3B7`), 0 removed.** So no existing baseline can legitimately move; only the icon showcase and the Settings rows that now draw an icon.
 - [x] 7.4 Point the Settings Appearance row at `NubecitaIconName.Palette`, replacing `icon = null`.
 - [ ] 7.5 Regenerate baselines **on CI via the `update-baselines` label**, not locally — macOS re-introduces the logomark vector drift, which would ride along in the commit and fail CI for an unrelated reason. Apply the label only after every visual change is pushed; the workflow fires on `labeled` only and force-fails if the branch moves under it.
+
+## 8. Full end-to-end on the emulator (`Pixel_10_Pro`, stack top incl. the glyph)
+
+Driven entirely through the UI on the bench build, except the persistence row — bench preferences are in-memory by design, so process-death persistence can only be shown on the production build against a real DataStore.
+
+- [x] 8.1 Palette glyph renders on the Settings Appearance row, and the row's text now aligns with the icon-bearing rows below it.
+- [x] 8.2 `Dynamic → Light`: applies instantly, screen stays open, Settings row re-captions to `Light`.
+- [x] 8.3 **`Light` held while the OS flipped to dark.** An OS uiMode change recreates the Activity, so this is the override surviving a real reconfiguration, not just a repaint. Icons stayed dark-on-light.
+- [x] 8.4 `Light → Dark` with the OS dark: applies instantly, row re-captions to `Dark`.
+- [x] 8.5 **Re-tapping the selected row is inert** — the before/after screenshots are byte-identical (`md5` match). The no-write half is covered by the ViewModel test's `coVerify(exactly = 0)`.
+- [x] 8.6 `Dynamic` restored: follows the OS in both directions (dark under a dark OS, and the lavender dynamic-tinted light under a light OS — visibly the dynamic palette, not the brand one).
+- [x] 8.7 **Persistence across process death** (production build, real DataStore, OS light): `DARK` survives two force-stop + cold-start cycles, screenshots byte-identical between them, ~800 ms to first frame, status-bar icons white and legible each time.
+- [ ] 8.8 **Fold/unfold display hand-off — still not verified.** The Fold is unplugged; driving the transition with `cmd device_state` drops the device off ADB mid-switch. Rotation covers the same Activity-recreation path (verified on both the emulator and the Fold earlier), so the gap is the gesture, not the mechanism.
