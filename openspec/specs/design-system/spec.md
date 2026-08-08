@@ -4,7 +4,7 @@
 The brand's Material 3 Expressive design system: theming, tokens, and the
 shared components every feature renders through.
 
-Owns `NubecitaTheme` as the single entry point for brand styling (colour scheme,
+Owns `NubecitaTheme` as the single entry point for brand styling (color scheme,
 typography, shape, motion, and the extended token set), the `AppTheme` rendering
 identity the composition root passes it, and the canonical component library —
 `PostCard` and its embeds, list groups, avatars, shimmer, and the Material

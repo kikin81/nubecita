@@ -8,7 +8,7 @@ and defaulted, how it is applied without a wrong-theme frame at cold start, how
 it drives system bar appearance, and the Settings surface that presents it.
 
 The axis is deliberately single: `Dynamic` / `Light` / `Dark` are mutually
-exclusive, with no separate "use wallpaper colours" control, so a future custom
+exclusive, with no separate "use wallpaper colors" control, so a future custom
 theme is one more entry in the same list rather than a second dimension. Two
 types carry the choice — `ThemePreference` (`:core:preferences`) persists it and
 `AppTheme` (`:designsystem`) renders it; see the `design-system` capability for
