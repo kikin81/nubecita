@@ -49,6 +49,13 @@ internal class AppearanceViewModel
             // every re-tap would be a redundant DataStore write.
             if (theme == uiState.value.selected) return
             viewModelScope.launch {
+                // Broad catch, deliberately. `IOException` does cover DataStore's
+                // realistic failure surface, and narrowing to it would drop the
+                // CancellationException rethrow — but the consequence is
+                // asymmetric: anything unexpected escaping here crashes the app
+                // on a tap, and failing to save a cosmetic preference should
+                // never do that. Matches the shape in `FeedPreferencesViewModel`
+                // and the one-shot-command idiom in CLAUDE.md.
                 try {
                     userPreferencesRepository.setThemePreference(theme)
                 } catch (e: CancellationException) {

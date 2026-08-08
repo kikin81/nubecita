@@ -53,10 +53,12 @@ class AppThemeTest {
 
     @Test
     fun theOptionListIsExactlyTheThreeSpecifiedThemes() {
-        // The picker renders AppTheme.entries in order, so this pins both the
-        // set and the order the Appearance screen presents. Adding Custom is
-        // meant to fail here, as a prompt to extend the screen's baselines and
-        // the ThemePreference mapping in :app rather than a bare count bump.
+        // Pins the rendering-side option set and its order. The Appearance
+        // picker actually renders ThemePreference.entries — it edits storage —
+        // so the value of this test is that the two enums cannot drift apart:
+        // :app maps between them with exhaustive `when`s, and adding Custom to
+        // one without the other would break that mapping. Failing here is the
+        // prompt to extend both, plus the screen's baselines.
         assertEquals(
             listOf(AppTheme.Dynamic, AppTheme.Light, AppTheme.Dark),
             AppTheme.entries.toList(),
