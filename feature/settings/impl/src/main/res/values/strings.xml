@@ -137,6 +137,7 @@
     <string name="feed_preferences_save_error">Couldn\'t save your change. Try again.</string>
 
     <!-- Appearance screen (nubecita-wqb8) -->
+    <string name="settings_display_section">Display</string>
     <string name="appearance_title">Appearance</string>
     <string name="appearance_back_content_desc">Back</string>
     <string name="appearance_description">Choose how Nubecita looks.</string>

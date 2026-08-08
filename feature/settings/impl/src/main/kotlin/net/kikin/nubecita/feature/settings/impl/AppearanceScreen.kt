@@ -168,8 +168,13 @@ internal fun AppearanceContent(
 
 private val THEME_OPTIONS = ThemePreference.entries.toImmutableList()
 
+/**
+ * The option's display label. `internal` rather than private because the
+ * Settings root's Appearance row captions itself with the active theme, and two
+ * copies of this mapping would be free to drift.
+ */
 @StringRes
-private fun ThemePreference.labelRes(): Int =
+internal fun ThemePreference.labelRes(): Int =
     when (this) {
         ThemePreference.DYNAMIC -> R.string.appearance_theme_dynamic
         ThemePreference.LIGHT -> R.string.appearance_theme_light

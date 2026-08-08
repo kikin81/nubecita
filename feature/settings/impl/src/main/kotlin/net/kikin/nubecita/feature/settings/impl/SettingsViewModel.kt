@@ -16,6 +16,7 @@ import net.kikin.nubecita.core.billing.EntitlementRepository
 import net.kikin.nubecita.core.billing.RestoreResult
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.preferences.MessageCheckingPreference
+import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import net.kikin.nubecita.core.profile.ActorProfileRepository
 import net.kikin.nubecita.data.models.ActiveSubscription
 import net.kikin.nubecita.data.models.SubscriptionPlanId
@@ -52,6 +53,7 @@ internal class SettingsViewModel
         private val entitlementRepository: EntitlementRepository,
         private val billingRepository: BillingRepository,
         private val messageCheckingPreference: MessageCheckingPreference,
+        userPreferencesRepository: UserPreferencesRepository,
     ) : MviViewModel<SettingsViewState, SettingsEvent, SettingsEffect>(
             SettingsViewState(),
         ) {
@@ -89,6 +91,12 @@ internal class SettingsViewModel
 
             // Mirror the message-checking toggle into flat state for the
             // Notifications-section Switch. Default-on Flow; never throws.
+            // Mirror the theme so the Appearance row can caption itself with the
+            // active choice. Read-only here — the Appearance screen owns writes.
+            userPreferencesRepository.themePreference
+                .onEach { theme -> setState { copy(theme = theme) } }
+                .launchIn(viewModelScope)
+
             messageCheckingPreference.enabled
                 .onEach { enabled -> setState { copy(messageCheckingEnabled = enabled) } }
                 .launchIn(viewModelScope)
@@ -150,6 +158,7 @@ internal class SettingsViewModel
                 SettingsEvent.ModerationTapped ->
                     sendEffect(SettingsEffect.OpenModeration)
                 SettingsEvent.FeedPreferencesTapped -> sendEffect(SettingsEffect.OpenFeedPreferences)
+                SettingsEvent.AppearanceTapped -> sendEffect(SettingsEffect.OpenAppearance)
             }
         }
 

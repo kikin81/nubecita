@@ -47,12 +47,12 @@ Tracked by beads epic **`nubecita-wqb8`**. Each task group below maps to one chi
 
 ## 5. Settings root entry point
 
-- [ ] 5.1 Add the current theme to `SettingsState` and have `SettingsViewModel` observe `userPreferences.themePreference`. **Tests:** unit-test that the state field tracks repository emissions.
-- [ ] 5.2 Add the Appearance row to `SettingsScreen`'s section list with the active theme's localized label as supporting text, pushing via `onNavigateTo(Appearance)`. Place it deliberately within the canonical section order. Add the row-label string with its `es-419` / `pt-BR` translations **in this same commit**, and re-run `:feature:settings:impl:lint`.
-- [ ] 5.3 Regenerate the Settings root screenshot baselines (the added row shifts them) and **inspect the diffs** rather than accepting them wholesale.
+- [x] 5.1 Add the current theme to `SettingsState` and have `SettingsViewModel` observe `userPreferences.themePreference`. **Tests:** unit-test that the state field tracks repository emissions.
+- [x] 5.2 Add the Appearance row to `SettingsScreen`'s section list with the active theme's localized label as supporting text, pushing via `onNavigateTo(Appearance)`. Place it deliberately within the canonical section order. Add the row-label string with its `es-419` / `pt-BR` translations **in this same commit**, and re-run `:feature:settings:impl:lint`.
+- [x] 5.3 Regenerated the Settings root baselines — exactly the 10 root fixtures changed, nothing unrelated (checked, after `.2`'s clobbering incident). Inspected the diff: the new **Display** section renders between Nubecita Pro and Notifications, captioned with the active theme.
 
 ## 6. Final verification
 
 - [ ] 6.1 Run the full local gate: `./gradlew spotlessCheck lint checkSortDependencies`, `./gradlew jacocoTestReportAggregated`, and the two `validateDebugScreenshotTest` tasks.
 - [ ] 6.2 Run the `compose-expert` skill over the diff (it adds `@Composable` lines, so the Compose review gate applies) and address its findings.
-- [ ] 6.3 Bench-flavor smoke: `./gradlew :app:assembleBenchDebug`, install, open Settings → Appearance, toggle to `Dark`, and confirm the persisted change is visible in a screenshot — a missed tap yields a false pass.
+- [x] 6.3 **Bench smoke — done in `.5`, and the fixture had to be fixed first.** `FakeUserPreferencesRepository.setThemePreference` was a **no-op** with a constant `flowOf(DYNAMIC)`, so this check could never have passed: tapping a theme in a bench build changed nothing. Made the fake stateful (in-memory `MutableStateFlow`, still starting at `DYNAMIC` so benchmark journeys are unaffected). Then ran the full journey on the emulator with the OS in **light** mode: Profile → gear → Settings → Appearance → tap `Dark`. The app repainted dark instantly without leaving the screen, status-bar icons went white and legible, and the Settings row re-captioned from `Dynamic` to `Dark`.
