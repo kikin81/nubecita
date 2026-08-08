@@ -34,9 +34,10 @@ interface UserPreferencesRepository {
     suspend fun setLastSelectedFeedUri(uri: String)
 
     /**
-     * The user's theme choice. Defaults to [ThemePreference.SYSTEM] (the app
-     * follows the OS theme today; see [ThemePreference]). Backs the
-     * `theme_preference` analytics user property.
+     * The user's theme choice. Defaults to [ThemePreference.DYNAMIC], and falls
+     * back to it for any stored value this build can't parse (see
+     * [ThemePreference]). Read by the composition root to drive `NubecitaTheme`,
+     * and backs the `theme_preference` analytics user property.
      */
     val themePreference: Flow<ThemePreference>
 

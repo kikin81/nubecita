@@ -57,20 +57,29 @@ internal class DefaultUserPreferencesRepository
         }
 
         // Same IOException recovery as above. Stored as the enum name; an absent
-        // or unrecognized value maps to SYSTEM (the app's current follow-OS default).
+        // or unrecognized value maps to DYNAMIC (Material You following the OS —
+        // the app's behavior before a picker existed). That name lookup is load-
+        // bearing, not defensive padding: it is what lets this build read a value
+        // written by a newer one (a future custom theme) and degrade to DYNAMIC
+        // instead of throwing. Covered by DefaultUserPreferencesRepositoryTest.
+        //
+        // Matched against `entries` rather than `valueOf` in a runCatching: an
+        // unknown string is an expected input here, not an exception-worthy one,
+        // and runCatching would also swallow a CancellationException inside this
+        // Flow operator if valueOf ever grew a suspension point.
         override val themePreference: Flow<ThemePreference> =
             dataStore.data
                 .catch { error ->
                     if (error is IOException) {
-                        Timber.w(error, "Failed to read user preferences; defaulting themePreference to SYSTEM")
+                        Timber.w(error, "Failed to read user preferences; defaulting themePreference to DYNAMIC")
                         emit(emptyPreferences())
                     } else {
                         throw error
                     }
                 }.map { prefs ->
                     prefs[Keys.THEME_PREFERENCE]
-                        ?.let { stored -> runCatching { ThemePreference.valueOf(stored) }.getOrNull() }
-                        ?: ThemePreference.SYSTEM
+                        ?.let { stored -> ThemePreference.entries.find { it.name == stored } }
+                        ?: ThemePreference.DYNAMIC
                 }
 
         override suspend fun setThemePreference(preference: ThemePreference) {

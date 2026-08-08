@@ -59,9 +59,8 @@ internal class ProAnalyticsCoordinator
             entitlementRepository.isPro
                 .onEach { analyticsClient.setUserProperty(IsPro(it)) }
                 .launchIn(scope)
-            // Mirror the persisted theme choice. Reads SYSTEM for everyone until a
-            // theme picker lands (see ThemePreference KDoc), but the observer is
-            // wired now so the property tracks the moment a picker writes a value.
+            // Mirror the persisted theme choice, which the Appearance screen
+            // (nubecita-wqb8) now lets the user actually change.
             userPreferencesRepository.themePreference
                 .onEach { analyticsClient.setUserProperty(Theme(it.toAnalyticsPreference())) }
                 .launchIn(scope)
@@ -80,9 +79,15 @@ internal class ProAnalyticsCoordinator
         }
     }
 
+// DYNAMIC deliberately keeps the pre-existing "system" wire value rather than
+// gaining a "dynamic" one: the option was renamed, not redefined (it still means
+// "follows the system"), and a new value would split the theme_preference GA4
+// dimension into pre- and post-release buckets that mean the same thing,
+// breaking every existing report. Revisit only if a custom theme makes "which
+// color source" a question analytics needs to answer.
 private fun PrefsThemePreference.toAnalyticsPreference(): AnalyticsThemePreference =
     when (this) {
         PrefsThemePreference.LIGHT -> AnalyticsThemePreference.Light
         PrefsThemePreference.DARK -> AnalyticsThemePreference.Dark
-        PrefsThemePreference.SYSTEM -> AnalyticsThemePreference.System
+        PrefsThemePreference.DYNAMIC -> AnalyticsThemePreference.System
     }
