@@ -16,6 +16,8 @@ import net.kikin.nubecita.core.billing.BillingRepository
 import net.kikin.nubecita.core.billing.EntitlementRepository
 import net.kikin.nubecita.core.billing.RestoreResult
 import net.kikin.nubecita.core.preferences.MessageCheckingPreference
+import net.kikin.nubecita.core.preferences.ThemePreference
+import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import net.kikin.nubecita.core.profile.ActorProfile
 import net.kikin.nubecita.core.profile.ActorProfileRepository
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
@@ -66,6 +68,10 @@ internal class SettingsViewModelTest {
             mockk(relaxed = true) {
                 every { enabled } returns MutableStateFlow(true)
             },
+        userPreferences: UserPreferencesRepository =
+            mockk(relaxed = true) {
+                every { themePreference } returns MutableStateFlow(ThemePreference.DYNAMIC)
+            },
     ) = SettingsViewModel(
         authRepository = auth,
         sessionStateProvider = session,
@@ -73,7 +79,40 @@ internal class SettingsViewModelTest {
         entitlementRepository = entitlement,
         billingRepository = billing,
         messageCheckingPreference = messageChecking,
+        userPreferencesRepository = userPreferences,
     )
+
+    @Test
+    fun `the active theme is mirrored from the preference for the Appearance row caption`() =
+        runTest(mainDispatcher.dispatcher) {
+            val prefs = MutableStateFlow(ThemePreference.DYNAMIC)
+            val repo =
+                mockk<UserPreferencesRepository>(relaxed = true) {
+                    every { themePreference } returns prefs
+                }
+            val vm = createVm(auth = mockk(relaxed = true), userPreferences = repo)
+            advanceUntilIdle()
+            assertEquals(ThemePreference.DYNAMIC, vm.uiState.value.theme)
+
+            // Keeps observing: changing the theme from the Appearance screen must
+            // re-caption the row behind it, not just on first open.
+            prefs.value = ThemePreference.DARK
+            advanceUntilIdle()
+
+            assertEquals(ThemePreference.DARK, vm.uiState.value.theme)
+        }
+
+    @Test
+    fun `tapping Appearance emits the open-appearance effect`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = createVm(auth = mockk(relaxed = true))
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(SettingsEvent.AppearanceTapped)
+                assertEquals(SettingsEffect.OpenAppearance, awaitItem())
+            }
+        }
 
     @Test
     fun `message-checking enabled is mirrored from the preference`() =
