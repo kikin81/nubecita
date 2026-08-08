@@ -572,11 +572,7 @@ internal fun SettingsContent(
         remember(appearanceLabel, appearanceValue) {
             persistentListOf(
                 SettingsRow.Action(
-                    // No icon: the roster has no theme/palette glyph, and adding
-                    // one means regenerating the whole icon font — a change with
-                    // its own baseline fallout, disproportionate to one row.
-                    // Icon-less rows are already used elsewhere on this screen.
-                    icon = null,
+                    icon = NubecitaIconName.Palette,
                     label = appearanceLabel,
                     supportingText = appearanceValue,
                     onClick = { currentOnEvent(SettingsEvent.AppearanceTapped) },

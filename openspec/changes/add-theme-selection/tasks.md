@@ -56,3 +56,13 @@ Tracked by beads epic **`nubecita-wqb8`**. Each task group below maps to one chi
 - [ ] 6.1 Run the full local gate: `./gradlew spotlessCheck lint checkSortDependencies`, `./gradlew jacocoTestReportAggregated`, and the two `validateDebugScreenshotTest` tasks.
 - [ ] 6.2 Run the `compose-expert` skill over the diff (it adds `@Composable` lines, so the Compose review gate applies) and address its findings.
 - [x] 6.3 **Bench smoke — done in `.5`, and the fixture had to be fixed first.** `FakeUserPreferencesRepository.setThemePreference` was a **no-op** with a constant `flowOf(DYNAMIC)`, so this check could never have passed: tapping a theme in a bench build changed nothing. Made the fake stateful (in-memory `MutableStateFlow`, still starting at `DYNAMIC` so benchmark journeys are unaffected). Then ran the full journey on the emulator with the OS in **light** mode: Profile → gear → Settings → Appearance → tap `Dark`. The app repainted dark instantly without leaving the screen, status-bar icons went white and legible, and the Settings row re-captioned from `Dynamic` to `Dark`.
+
+## 7. Theme glyph (`nubecita-wqb8.8`)
+
+Follow-up to 5.2, which shipped the Appearance row icon-less because adding a glyph is a dedicated design-system change that owns its baseline regen.
+
+- [x] 7.1 Confirm the codepoint from the **cached upstream's cmap** with fontTools rather than reading it off the website: `palette` = `U+E3B7`. Add `Palette("\uE3B7")` to `NubecitaIconName` in alphabetical order.
+- [x] 7.2 Regenerate the subset font with `scripts/update_material_symbols.sh` (fontTools via a throwaway venv on `PATH`; pip is PEP-668-blocked under pyenv). Cache hit — no upstream re-fetch, which is what keeps the blast radius small.
+- [x] 7.3 **Verify the blast radius instead of assuming it.** Diffed `getCoordinates` per shared codepoint between the committed font and the regenerated one: **51 shared glyphs, 0 drifted outlines, 1 added (`U+E3B7`), 0 removed.** So no existing baseline can legitimately move; only the icon showcase and the Settings rows that now draw an icon.
+- [x] 7.4 Point the Settings Appearance row at `NubecitaIconName.Palette`, replacing `icon = null`.
+- [ ] 7.5 Regenerate baselines **on CI via the `update-baselines` label**, not locally — macOS re-introduces the logomark vector drift, which would ride along in the commit and fail CI for an unrelated reason. Apply the label only after every visual change is pushed; the workflow fires on `labeled` only and force-fails if the branch moves under it.

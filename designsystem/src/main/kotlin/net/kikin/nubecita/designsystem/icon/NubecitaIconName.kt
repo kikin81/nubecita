@@ -72,6 +72,7 @@ enum class NubecitaIconName(
     // `filled = true`, matching the notifications-surface design intent.
     Notifications("\uE7F7"),
     NotificationsOff("\uE7F6"),
+    Palette("\uE3B7"),
     Pause("\uE034"),
     Person("\uF0D3"),
     PersonAdd("\uEA4D"),
