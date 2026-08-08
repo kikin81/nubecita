@@ -90,4 +90,15 @@
     <string name="feed_preferences_hide_quotes">Ocultar publicaciones citadas</string>
     <string name="feed_preferences_hide_quotes_supporting">Oculta las publicaciones que citan otra publicaci\u00f3n.</string>
     <string name="feed_preferences_save_error">No se pudo guardar el cambio. Int\u00e9ntalo de nuevo.</string>
+
+    <!-- Appearance screen (nubecita-wqb8) -->
+    <string name="appearance_title">Apariencia</string>
+    <string name="appearance_back_content_desc">Atr\u00e1s</string>
+    <string name="appearance_description">Elige c\u00f3mo se ve Nubecita.</string>
+    <string name="appearance_theme_dynamic">Din\u00e1mico</string>
+    <string name="appearance_theme_dynamic_supporting">Sigue el modo claro u oscuro del sistema, con los colores de tu fondo de pantalla.</string>
+    <string name="appearance_theme_light">Claro</string>
+    <string name="appearance_theme_dark">Oscuro</string>
+    <string name="appearance_row_label">Apariencia</string>
+    <string name="appearance_save_error">No se pudo guardar el cambio. Int\u00e9ntalo de nuevo.</string>
 </resources>
