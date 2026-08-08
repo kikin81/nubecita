@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786091158962,
+  "lastUpdate": 1786176183708,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -1615,6 +1615,64 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 711,
             "range": "+/- 2.2%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "d5fa0ca349bd8edd1a4e785d21effbef361162d9",
+          "message": "ci(release): 1.335.0\n\n## [1.335.0](https://github.com/kikin81/nubecita/compare/v1.334.7...v1.335.0) (2026-08-08)\n\n### Miscellaneous\n\n* **deps:** update gradle to v9.7.0 ([#856](https://github.com/kikin81/nubecita/issues/856)) ([de97a70](https://github.com/kikin81/nubecita/commit/de97a706221d7a9fb662a6cbc1dfaf2ce77f41af))\n\n### Documentation\n\n* **theme:** add OpenSpec change for theme selection ([#857](https://github.com/kikin81/nubecita/issues/857)) ([03fcbaf](https://github.com/kikin81/nubecita/commit/03fcbaf69ed81869e05e98eb7b64120180cde3a7))\n\n### Features\n\n* **settings:** let users choose Dynamic, Light or Dark themes ([#865](https://github.com/kikin81/nubecita/issues/865)) ([9f71958](https://github.com/kikin81/nubecita/commit/9f71958a24f35753515f7cf7f5c0bddc028ba5ff)), closes [#858](https://github.com/kikin81/nubecita/issues/858) [#859](https://github.com/kikin81/nubecita/issues/859) [#861](https://github.com/kikin81/nubecita/issues/861) [#862](https://github.com/kikin81/nubecita/issues/862) [#863](https://github.com/kikin81/nubecita/issues/863) [#864](https://github.com/kikin81/nubecita/issues/864)",
+          "timestamp": "2026-08-08T07:54:22Z",
+          "url": "https://github.com/kikin81/nubecita/commit/d5fa0ca349bd8edd1a4e785d21effbef361162d9"
+        },
+        "date": 1786176180638,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 32,
+            "range": "+/- 9.1%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1458.236,
+            "range": "+/- 7.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1352.074,
+            "range": "+/- 4.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1314.666,
+            "range": "+/- 15.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1173.485,
+            "range": "+/- 35.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 692,
+            "range": "+/- 3.7%",
             "unit": "frames"
           }
         ]
