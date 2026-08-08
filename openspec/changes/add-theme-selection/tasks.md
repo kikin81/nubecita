@@ -53,6 +53,29 @@ Tracked by beads epic **`nubecita-wqb8`**. Each task group below maps to one chi
 
 ## 6. Final verification
 
-- [ ] 6.1 Run the full local gate: `./gradlew spotlessCheck lint checkSortDependencies`, `./gradlew jacocoTestReportAggregated`, and the two `validateDebugScreenshotTest` tasks.
-- [ ] 6.2 Run the `compose-expert` skill over the diff (it adds `@Composable` lines, so the Compose review gate applies) and address its findings.
+- [x] 6.1 Root gate green: `spotlessCheck lint checkSortDependencies` (root task — the `:app`-scoped `checkSortDependencies` misses every other module) and `jacocoTestReportAggregated` (what CI runs; the root `testDebugUnitTest` skips flavored modules like `:core:preferences`). Both `validateDebugScreenshotTest` tasks pass on CI.
+- [x] 6.2 Ran the `compose-expert` skill over the diff (Review Mode, 18 files): **0 critical, 3 suggestions**. None blocking. The one worth acting on is pre-existing and adjacent — `MainActivity`'s root `Surface` uses `colorScheme.background` where the design-system contract says `surface`; left for a separate cleanup rather than widening this stack. Also surfaced that `NubecitaSpacing` is referenced 0 times across feature modules, which is a codebase-wide question, not this change's.
 - [x] 6.3 **Bench smoke — done in `.5`, and the fixture had to be fixed first.** `FakeUserPreferencesRepository.setThemePreference` was a **no-op** with a constant `flowOf(DYNAMIC)`, so this check could never have passed: tapping a theme in a bench build changed nothing. Made the fake stateful (in-memory `MutableStateFlow`, still starting at `DYNAMIC` so benchmark journeys are unaffected). Then ran the full journey on the emulator with the OS in **light** mode: Profile → gear → Settings → Appearance → tap `Dark`. The app repainted dark instantly without leaving the screen, status-bar icons went white and legible, and the Settings row re-captioned from `Dynamic` to `Dark`.
+
+## 7. Theme glyph (`nubecita-wqb8.8`)
+
+Follow-up to 5.2, which shipped the Appearance row icon-less because adding a glyph is a dedicated design-system change that owns its baseline regen.
+
+- [x] 7.1 Confirm the codepoint from the **cached upstream's cmap** with fontTools rather than reading it off the website: `palette` = `U+E3B7`. Add `Palette("\uE3B7")` to `NubecitaIconName` in alphabetical order.
+- [x] 7.2 Regenerate the subset font with `scripts/update_material_symbols.sh` (fontTools via a throwaway venv on `PATH`; pip is PEP-668-blocked under pyenv). Cache hit — no upstream re-fetch, which is what keeps the blast radius small.
+- [x] 7.3 **Verify the blast radius instead of assuming it.** Diffed `getCoordinates` per shared codepoint between the committed font and the regenerated one: **51 shared glyphs, 0 drifted outlines, 1 added (`U+E3B7`), 0 removed.** So no existing baseline can legitimately move; only the icon showcase and the Settings rows that now draw an icon.
+- [x] 7.4 Point the Settings Appearance row at `NubecitaIconName.Palette`, replacing `icon = null`.
+- [ ] 7.5 Regenerate baselines **on CI via the `update-baselines` label**, not locally — macOS re-introduces the logomark vector drift, which would ride along in the commit and fail CI for an unrelated reason. Apply the label only after every visual change is pushed; the workflow fires on `labeled` only and force-fails if the branch moves under it.
+
+## 8. Full end-to-end on the emulator (`Pixel_10_Pro`, stack top incl. the glyph)
+
+Driven entirely through the UI on the bench build, except the persistence row — bench preferences are in-memory by design, so process-death persistence can only be shown on the production build against a real DataStore.
+
+- [x] 8.1 Palette glyph renders on the Settings Appearance row, and the row's text now aligns with the icon-bearing rows below it.
+- [x] 8.2 `Dynamic → Light`: applies instantly, screen stays open, Settings row re-captions to `Light`.
+- [x] 8.3 **`Light` held while the OS flipped to dark.** An OS uiMode change recreates the Activity, so this is the override surviving a real reconfiguration, not just a repaint. Icons stayed dark-on-light.
+- [x] 8.4 `Light → Dark` with the OS dark: applies instantly, row re-captions to `Dark`.
+- [x] 8.5 **Re-tapping the selected row is inert** — the before/after screenshots are byte-identical (`md5` match). The no-write half is covered by the ViewModel test's `coVerify(exactly = 0)`.
+- [x] 8.6 `Dynamic` restored: follows the OS in both directions (dark under a dark OS, and the lavender dynamic-tinted light under a light OS — visibly the dynamic palette, not the brand one).
+- [x] 8.7 **Persistence across process death** (production build, real DataStore, OS light): `DARK` survives two force-stop + cold-start cycles, screenshots byte-identical between them, ~800 ms to first frame, status-bar icons white and legible each time.
+- [ ] 8.8 **Fold/unfold display hand-off — still not verified.** The Fold is unplugged; driving the transition with `cmd device_state` drops the device off ADB mid-switch. Rotation covers the same Activity-recreation path (verified on both the emulator and the Fold earlier), so the gap is the gesture, not the mechanism.
