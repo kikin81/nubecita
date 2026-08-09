@@ -257,6 +257,23 @@ data class ProfileHeaderUi(
      */
     val canMessage: Boolean = true,
     /**
+     * Whether this profile follows the signed-in viewer back — the
+     * "Follows you" chip in the hero. Sourced directly from
+     * `viewer.followedBy != null` (the profile's follow record pointing
+     * at the viewer), per `app.bsky.actor.defs#viewerState`.
+     *
+     * Deliberately a separate field from [canMessage] rather than a
+     * re-derivation of it: `canMessage` folds `followedBy` together
+     * with `associated.chat.allowIncoming`, so an account that follows
+     * you but has DMs set to `"none"` is `canMessage = false` while
+     * still being `followsYou = true`. Reading the chip off `canMessage`
+     * would hide the chip for exactly those accounts.
+     *
+     * Defaults to `false` — an absent `viewer` block (an
+     * unauthenticated request, or your own profile) is not a follow.
+     */
+    val followsYou: Boolean = false,
+    /**
      * Mute / block-direction flags for the viewer's relationship to
      * this profile. Sourced from `app.bsky.actor.defs#viewerState`
      * via [net.kikin.nubecita.feature.profile.impl.data.AuthorProfileMapper].

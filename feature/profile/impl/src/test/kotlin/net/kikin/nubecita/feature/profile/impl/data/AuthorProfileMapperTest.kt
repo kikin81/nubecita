@@ -188,6 +188,40 @@ internal class AuthorProfileMapperTest {
     }
 
     @Test
+    fun `followsYou is true when the actor's follow record points at the viewer`() {
+        val ui =
+            sampleView(
+                viewer = ViewerState(followedBy = AtUri("at://did:plc:other/app.bsky.graph.follow/abc")),
+            ).toProfileHeaderUi()
+        assertEquals(true, ui.followsYou)
+    }
+
+    @Test
+    fun `followsYou is false when followedBy is absent`() {
+        val ui = sampleView(viewer = ViewerState(followedBy = null)).toProfileHeaderUi()
+        assertEquals(false, ui.followsYou)
+    }
+
+    @Test
+    fun `followsYou is false when viewer is null`() {
+        val ui = sampleView(viewer = null).toProfileHeaderUi()
+        assertEquals(false, ui.followsYou)
+    }
+
+    @Test
+    fun `followsYou is independent of canMessage when the follower disallows DMs`() {
+        // An account that follows you but has DMs off is canMessage=false and
+        // followsYou=true — deriving the chip from canMessage would hide it here.
+        val ui =
+            sampleView(
+                associated = ProfileAssociated(chat = ProfileAssociatedChat(allowIncoming = "none")),
+                viewer = ViewerState(followedBy = AtUri("at://did:plc:other/app.bsky.graph.follow/abc")),
+            ).toProfileHeaderUi()
+        assertEquals(false, ui.canMessage)
+        assertEquals(true, ui.followsYou)
+    }
+
+    @Test
     fun `viewerModeration defaults to all-false when viewer is null`() {
         val ui = sampleView(viewer = null).toProfileHeaderUi()
         assertEquals(ViewerModerationState(), ui.viewerModeration)
