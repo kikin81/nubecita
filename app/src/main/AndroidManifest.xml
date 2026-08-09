@@ -46,6 +46,36 @@
             android:name="firebase_messaging_auto_init_enabled"
             android:value="false" />
         <!--
+            Small icon for notifications that FIREBASE renders, not us.
+
+            NubecitaFcmService.onMessageReceived only reads
+            `remoteMessage.data`. Bluesky's push gateway sends payloads that
+            carry a `notification` block, and for those the system displays
+            the notification itself whenever the app is backgrounded —
+            onMessageReceived is never called, so PushNotificationBuilder and
+            its @PushSmallIconRes binding are bypassed entirely. That display
+            path resolves its icon from THIS meta-data, and with the key
+            absent it falls back to `android:icon` (@mipmap/ic_launcher),
+            whose adaptive foreground carries a safe-zone margin and renders
+            visibly shrunken at 24dp — sitting next to a correctly-sized DM
+            notification in the same status bar (nubecita-4gqw).
+
+            Must live in :app, not :core:push: the push module deliberately
+            carries no branding (see @PushSmallIconRes) and the drawable is an
+            :app resource. Keep this in sync with PushAppModule's
+            providePushSmallIconRes and ChatsAppModule's
+            provideDmNotificationSmallIconRes — all three name the same
+            drawable, and NotificationSmallIconTest pins that.
+
+            No companion default_notification_color on purpose: neither
+            PushNotificationBuilder nor MessagingStyleDmNotifier calls
+            setColor, so tinting only the Firebase-rendered path would swap
+            this inconsistency for a new one.
+        -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_nubecita" />
+        <!--
             Disable WorkManager's default androidx.startup initializer so the
             Hilt-aware Configuration.Provider on NubecitaApplication is used
             instead (on-demand init via Configuration.Provider). Required for
