@@ -7,15 +7,15 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.widthIn
@@ -140,20 +140,35 @@ internal fun LoginScreen(
         // and primary CTA stretch edge-to-edge on Expanded width-class
         // devices and the form reads like an oversized banner. 480dp is the
         // canonical max-form-column width.
-        Box(
+        BoxWithConstraints(
             modifier =
                 Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
                     .consumeWindowInsets(innerPadding),
-            contentAlignment = Alignment.TopCenter,
         ) {
+            // The form scrolls. It previously filled the viewport exactly and
+            // handed the suggestion list whatever height was left over
+            // (`weight(1f, fill = false)`), which is nothing once the IME is
+            // open on a short screen — the list measured to ~0dp and the
+            // typeahead looked broken (nubecita-kfxi). Counter-intuitively the
+            // UNFOLDED inner display is the worst case: it is landscape, so at
+            // 1840px it is *shorter* than the 2092px folded outer display.
+            //
+            // `heightIn(min = maxHeight)` keeps the un-scrolled screen
+            // pixel-identical — the column still fills the viewport, so
+            // `Alignment.CenterVertically` still centres a short form. Once the
+            // content genuinely exceeds the viewport it scrolls instead of
+            // starving whichever child holds the weight.
+            val viewportHeight = maxHeight
             Column(
                 modifier =
                     Modifier
-                        .fillMaxHeight()
+                        .align(Alignment.TopCenter)
+                        .verticalScroll(rememberScrollState())
                         .widthIn(max = 480.dp)
                         .fillMaxWidth()
+                        .heightIn(min = viewportHeight)
                         .padding(
                             horizontal = MaterialTheme.spacing.s6,
                             vertical = MaterialTheme.spacing.s8,
@@ -233,17 +248,17 @@ internal fun LoginScreen(
                 // the field's ContentType and finds it via hasSetTextAction() on the
                 // assumption there is exactly one editable field. A plain sibling
                 // leaves the field untouched, and suggestion rows are not editable.
+                // No weight() here, and it could not work if there were: inside a
+                // vertically scrollable Column children are measured against an
+                // unbounded max height, so there is no "remaining space" for a
+                // weight to divide. The list takes its natural height (at most
+                // SUGGESTION_LIMIT rows) and the page scrolls if that overflows,
+                // so it can never be starved to 0dp the way the weighted version
+                // was with the IME open (nubecita-kfxi).
                 LoginSuggestions(
                     suggestions = state.suggestions,
                     query = state.handle,
                     onSelect = { onEvent(LoginEvent.SuggestionSelected(it)) },
-                    // weight(fill = false) instead of a fixed max height: the form
-                    // Column is fillMaxHeight and does not scroll, so the list must
-                    // take only the space left after the title, field, button and
-                    // links are measured. A dp cap is a guess that clips the CTA on
-                    // some screen / keyboard combination; this is correct on all of
-                    // them, and shrinks as the IME opens.
-                    modifier = Modifier.weight(1f, fill = false),
                 )
 
                 AnimatedVisibility(visible = errorText != null) {
@@ -264,18 +279,37 @@ internal fun LoginScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
 
-                Spacer(Modifier.height(MaterialTheme.spacing.s2))
+                // The sign-up prompt is for someone who does NOT have an account.
+                // The moment a handle is being typed that no longer describes the
+                // user, so the block yields the screen the same way the title
+                // above it does — leaving just the field, the results and the
+                // sign-in button while they are logging in. On a short screen
+                // with the IME open those two rows are the difference between a
+                // usable suggestion list and a cramped one (nubecita-kfxi).
+                //
+                // It comes BACK on an error, because that is exactly when it is
+                // needed again: `login_error_handle_not_found` reads "…or create
+                // a new Bluesky account below" and would otherwise point at a
+                // block this screen had just hidden.
+                AnimatedVisibility(visible = state.handle.isBlank() || state.errorMessage != null) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s4),
+                    ) {
+                        Spacer(Modifier.height(MaterialTheme.spacing.s2))
 
-                Text(
-                    text = stringResource(R.string.login_signup_cta_supporting),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                TextButton(
-                    onClick = { onEvent(LoginEvent.OpenSignup) },
-                    enabled = !state.isLoading,
-                ) {
-                    Text(stringResource(R.string.login_signup_cta_label))
+                        Text(
+                            text = stringResource(R.string.login_signup_cta_supporting),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        TextButton(
+                            onClick = { onEvent(LoginEvent.OpenSignup) },
+                            enabled = !state.isLoading,
+                        ) {
+                            Text(stringResource(R.string.login_signup_cta_label))
+                        }
+                    }
                 }
             }
         }
@@ -382,7 +416,12 @@ private fun LoginSuggestions(
     val match = query.trim().removePrefix("@")
     AnimatedVisibility(visible = suggestions.isNotEmpty(), modifier = modifier) {
         OutlinedCard(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+            // Deliberately NOT verticalScroll here. The form column above now
+            // scrolls, and nesting a second vertical scroller inside it makes
+            // the drag ambiguous — the inner one swallows the gesture and the
+            // page below it becomes hard to reach. At SUGGESTION_LIMIT rows the
+            // list is short enough that the page scroll covers it.
+            Column {
                 suggestions.forEachIndexed { index, suggestion ->
                     if (index > 0) HorizontalDivider()
                     LoginSuggestionRow(
