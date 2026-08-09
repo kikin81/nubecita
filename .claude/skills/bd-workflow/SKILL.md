@@ -206,7 +206,12 @@ gh api /repos/<OWNER>/<REPO>/pulls/<PR-NUMBER>/commits --jq '.[-1].commit.commit
 gh api graphql -f query='{ repository(owner:"<OWNER>",name:"<REPO>"){ pullRequest(number:<PR-NUMBER>){ reviews(first:30){ nodes { author{login} submittedAt } } } } }' --jq '[.data.repository.pullRequest.reviews.nodes[] | select((.author.login // "")|test("gemini|copilot")) | .submittedAt] | max'
 ```
 
-`.author.login // ""` is load-bearing: a review by a deleted account has a **null** `author`, and `null | test(…)` aborts jq with `null (null) cannot be matched, as it is not a string` — which would kill the poll rather than skip the row. (`.[-1]` on an empty commits array needs no such guard; jq yields `null` through `.commit.committer.date` without erroring.)
+Two details in that second query are load-bearing:
+
+- **`.author.login // ""`** — a review by a deleted account has a **null** `author`, and `null | test(…)` aborts jq with `null (null) cannot be matched, as it is not a string`, killing the poll rather than skipping the row. (`.[-1]` on an empty commits array needs no such guard; jq yields `null` through `.commit.committer.date` without erroring.)
+- **The match is case-sensitive on purpose.** These are *author* logins — `gemini-code-assist` and `copilot-pull-request-reviewer`, both lowercase — so no `"i"` flag is needed. Don't confuse them with the **`requested_reviewer.login`**, which for Copilot is the capitalized handle `Copilot`. Same bot, two different fields, two different casings; a pattern copied from one to the other will silently match nothing.
+
+The query's trailing `} } } } }` is five braces — closing `nodes`, `reviews`, `pullRequest`, `repository`, and the query itself (the threads query above needs seven).
 
 If the newest bot review predates the last commit, the latest work is **unreviewed** and the PR is not ready — regardless of how green it looks. **Neither bot re-reviews automatically on push**, and only one of them can be asked to:
 
