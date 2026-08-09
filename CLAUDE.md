@@ -65,16 +65,28 @@ One stack per epic, however deep it runs. Each child PR is titled as a Conventio
 
 Running the full pre-PR gate on every branch is wasted work when only the top of the stack represents the finished feature. Split it:
 
-- **Each child branch**, before `gh stack submit`: `./gradlew :<touched-module>:lintDebug` only. Lint compiles, so this still catches a broken layer at the layer that broke it.
-- **The top branch**, before `gh stack merge`: the full gate — `./gradlew :app:assembleDebug`, every touched module's `lintDebug`, and the compose-expert review run against the **cumulative** stack diff (`git diff origin/main...HEAD` from the top branch), not the top PR's own diff. A stack's Compose surface is the union of its children.
+- **Each child branch**, before `gh stack submit`: lint the touched modules only. Lint compiles, so this still catches a broken layer at the layer that broke it.
+- **The top branch**, before `gh stack merge`: the full gate — `./gradlew :app:assembleDebug`, every touched module's lint, and the compose-expert review run against the **cumulative** stack diff (`git diff origin/main...HEAD` from the top branch), not the top PR's own diff. A stack's Compose surface is the union of its children.
 
 CI still runs on every PR in the stack, unchanged.
+
+**Flavored modules have no `lintDebug` / `testDebugUnitTest` task.** Every `:feature:*:impl` module carries the `bench` / `production` flavor dimension, so the unqualified task names fail with `task 'lintDebug' is ambiguous`. Use the flavored names:
+
+| Instead of | Run |
+|---|---|
+| `:<module>:lintDebug` | `:<module>:lintProductionDebug` |
+| `:<module>:testDebugUnitTest` | `:<module>:testProductionDebugUnitTest` |
+| `:<module>:updateDebugScreenshotTest` | `:<module>:updateProductionDebugScreenshotTest` |
+| `:<module>:validateDebugScreenshotTest` | `:<module>:validateProductionDebugScreenshotTest` |
+
+Unflavored modules (`:designsystem`, `:core:*`) keep the plain names. When unsure, `./gradlew :<module>:tasks --all | grep -i lint`.
 
 #### Stack guardrails
 
 - **Never merge a child PR from the GitHub UI.** A single-PR merge lands on `main` alone and cuts its own release — the exact regression stacks exist to prevent. `gh stack merge` is the only merge path for a stack.
-- **Request Copilot review explicitly on every stack PR.** The `Copilot review for default branch` ruleset only fires on PRs targeting `main`; children 2..N target the branch below them and get no automatic review. Use the REST call (`POST /repos/{owner}/{repo}/pulls/{n}/requested_reviewers` with the literal `Copilot` handle) per PR.
+- **Copilot reviews only the bottom PR of a stack; there is no workaround.** The `Copilot review for default branch` ruleset fires on PRs targeting `main` — in a stack that is PR 1 alone. Children 2..N target the branch below them and get nothing. The REST call (`POST /repos/{owner}/{repo}/pulls/{n}/requested_reviewers` with the literal `Copilot` handle) **returns 200 and silently does nothing** on those PRs — verified on #871, which never registered a `review_requested` event after two successful-looking calls, while #870 (targeting `main`) was requested by the ruleset one second after creation. Don't add the REST call to a stack workflow expecting it to help. **Gemini does review every PR in the stack**, so bot coverage is partial rather than absent; the top-of-stack full gate and human review carry the rest. Widening the ruleset beyond the default branch is the only real fix and is a repo-settings change, not a workflow one.
 - **Screenshot-baseline updates restack everything above them.** The `update-screenshot-baselines` label pushes to a PR's head branch; if that's a lower branch, run `gh stack sync` + `gh stack submit` afterwards. Every restack re-fires CI on all branches above, so batch review fixes rather than pushing one at a time.
+- **Never commit the whole output of a baseline regeneration.** `updateProductionDebugScreenshotTest` rewrites *every* baseline in the module, and on macOS most come back with 1/255 antialiasing noise on a handful of pixels. Diff them against `HEAD` and keep only the images your change actually altered; `git checkout --` the rest. Committing the noise churns the diff and can pin a rendering that CI's Linux host disagrees with. Local `validate*ScreenshotTest` is **not** a usable gate on macOS — it already fails on a clean `main` checkout — so regenerate and triage locally, and let CI's `screenshot` job be the authority.
 - **The release type is the maximum across the stack.** One `feat:`-titled child PR makes the whole epic a minor release; an all-`chore:`/`refactor:` stack cuts nothing. Relabel one child PR title to `feat` when the epic needs to reach Play.
 - **Verify the one-push assumption before trusting it** (see below).
 
@@ -82,27 +94,16 @@ CI still runs on every PR in the stack, unchanged.
 
 This model depends on GitHub's atomic stack merge updating `main` in a **single push event**. If it instead lands N sequential ref updates, `Release` fires N times (`concurrency.cancel-in-progress: false` queues them all) and the epic cuts N versions.
 
-Confirm it once, cheaply:
+Count the `Release` runs immediately after the **first** stack lands:
 
 ```bash
-# two throwaway branches, each with one no-op `chore:` commit, stacked
-gh stack init chore/stack-probe-a
-printf '\n<!-- stack probe a -->\n' >> docs/README.md
-git commit -am 'chore: stack probe a'
-
-gh stack add chore/stack-probe-b
-printf '\n<!-- stack probe b -->\n' >> docs/README.md
-git commit -am 'chore: stack probe b'
-
-gh stack submit --auto --open
 gh stack merge --squash --yes
-
-gh run list --workflow=release.yaml --limit 5   # count the runs
+gh run list --workflow=release.yaml --limit 5
 ```
 
-Revert the probe's two lines afterwards in a normal `chore:` PR.
+**1 run** confirms the model. **N runs** means the atomic merge lands sequential ref updates, and the epic cut N versions — fall back to an integration branch: make `feat/<epic-id>-<slug>` the stack trunk (`gh stack init --base feat/<epic-id>-<slug> …`), merge children into it, and land the epic with one rebase-merge PR from the trunk to `main`.
 
-`chore:` commits bump no version, so the probe cuts zero releases either way — the **run count** is the answer. **1 run** confirms the model. **2 runs** means fall back to an integration branch: make `feat/<epic-id>-<slug>` the stack trunk (`gh stack init --base feat/<epic-id>-<slug> …`), merge children into it, and land the epic with one rebase-merge PR from the trunk to `main`.
+The `nubecita-47cg` "Follows you" stack (PRs #870 → #871) is the live first case. A real 2-PR stack answers this with better fidelity than a synthetic `chore:` probe and leaves no throwaway commits to revert; the only exposure if the answer is wrong is one extra version number.
 
 ### Branch names
 
@@ -375,11 +376,13 @@ Nubecita Pro is an auto-renewing Google Play subscription mediated by RevenueCat
 
 #### Screenshot tests
 
-Run via the AGP `com.android.compose.screenshot` plugin. Baseline images are committed under `src/screenshotTest/`. Update baselines with:
+Run via the AGP `com.android.compose.screenshot` plugin. The `@Preview` **sources** live in `src/screenshotTest/kotlin/`; the committed baseline **images** live in a separate, variant-qualified tree — `src/screenshotTest<Flavor><BuildType>/reference/<package path>/` (e.g. `src/screenshotTestProductionDebug/reference/` for a flavored `:feature:*:impl` module, `src/screenshotTestDebug/reference/` for an unflavored one). Update baselines with:
 ```bash
 ./gradlew :designsystem:updateDebugScreenshotTest
-# (or the equivalent :feature:*:impl task)
+./gradlew :feature:profile:impl:updateProductionDebugScreenshotTest   # flavored modules
 ```
+
+Regeneration rewrites **every** baseline in the module, and on macOS most come back with 1/255 antialiasing noise. Keep only the images your change actually altered and `git checkout --` the rest — see `scripts/triage-screenshot-failures.py`. Local `validate*ScreenshotTest` currently fails on macOS even on a clean `main`, so treat CI's `screenshot` job as the authority rather than the local task.
 
 Feature modules that ship UI-touching tasks MUST include `@Preview` annotations and screenshot tests alongside unit tests. Add `run-instrumented` label to the PR if the task also needs instrumented tests.
 

@@ -93,13 +93,23 @@ Then report: branch name, bd id + title, a suggested first commit subject (`<pre
 | Branch | Gate |
 |---|---|
 | Standalone branch | Steps 1–4 below (full) |
-| Stack child, not the top | Step 2 only (`lintDebug` on touched modules — lint compiles, so a broken layer still fails at the layer that broke it) |
+| Stack child, not the top | Step 2 only (lint the touched modules — lint compiles, so a broken layer still fails at the layer that broke it) |
 | Stack **top**, before landing | Steps 1–4, with step 4's diff taken across the **whole stack** |
 
 Run these before pushing. If any fails, stop and fix the underlying issue; never bypass a failing pre-commit hook with `git commit --no-verify`:
 
 1. `./gradlew :app:assembleDebug` — proves the app graph still links. Cheaper than the full build and catches missing deps / Hilt graph breaks the IDE wouldn't flag.
-2. `./gradlew :<changed-module>:lintDebug` for each Android Gradle module touched (e.g. `:feature:feed:impl:lintDebug`). Lint catches Compose-rule violations (stability, unused state, modifier order) and other correctness issues that compilation and unit tests don't. Run on the specific modules rather than the umbrella `lint` task so the loop stays fast. Modules outside the main Android build (e.g. `build-logic`, plain JVM libs) have no `lintDebug` task — skip them here, the convention plugins already gate them at compile time.
+2. Lint each Android Gradle module touched. Lint catches Compose-rule violations (stability, unused state, modifier order) and other correctness issues that compilation and unit tests don't. Run on the specific modules rather than the umbrella `lint` task so the loop stays fast.
+
+   **Pick the task name by flavor.** Every `:feature:*:impl` module carries the `bench` / `production` flavor dimension and therefore has **no** `lintDebug` task — the unqualified name fails with `task 'lintDebug' is ambiguous in project ':feature:…'`. Same trap for `testDebugUnitTest` and the screenshot tasks:
+
+   | Flavored (`:feature:*:impl`) | Unflavored (`:designsystem`, `:core:*`) |
+   |---|---|
+   | `:<module>:lintProductionDebug` | `:<module>:lintDebug` |
+   | `:<module>:testProductionDebugUnitTest` | `:<module>:testDebugUnitTest` |
+   | `:<module>:updateProductionDebugScreenshotTest` | `:<module>:updateDebugScreenshotTest` |
+
+   When unsure: `./gradlew :<module>:tasks --all | grep -i lint`. Modules outside the main Android build (e.g. `build-logic`, plain JVM libs) have no lint task at all — skip them here, the convention plugins already gate them at compile time.
 3. Pre-commit hook on the commit itself already ran spotless + commitlint + secret scan — no extra step needed here. If the hook reports a failure, fix the underlying issue rather than re-running with `--no-verify`.
 4. **Compose review gate.** Run the detector below; it decides whether a Compose-specific review is warranted before the PR opens:
 
@@ -130,10 +140,11 @@ gh pr create --base main \
 gh stack submit --auto --open
 ```
 
-`--auto` skips the interactive editor; `--open` marks new PRs ready for review instead of draft. Then fix up each newly created PR's title and body, since `--auto` generates them:
+`--auto` skips the interactive editor; `--open` marks new PRs ready for review instead of draft. It derives each PR title from the branch's commit subject, so a one-commit-per-child stack following the repo's Conventional Commit rule already gets valid titles — check them, don't blindly rewrite. Bodies are generated and DO need replacing:
 
 ```bash
-gh pr edit <pr-number> --title "<first-commit-subject>" --body "Closes: <bd-id>"
+gh pr edit <pr-number> --body "Closes: <bd-id>"
+gh pr edit <pr-number> --title "<first-commit-subject>"   # only if --auto's title is wrong
 ```
 
 Use the **first** commit on the branch as the PR title (`git log --reverse --format=%s <base>..HEAD | head -1`, where `<base>` is `main` or the branch below) — that's the convention for squash-merges, and in a stack that title becomes the branch's commit subject on `main`. If the user wants drafts, drop `--open` (or add `--draft` on the standalone path).
@@ -156,7 +167,9 @@ gh api -X POST /repos/<owner>/<repo>/pulls/<pr-number>/requested_reviewers \
 
 The GitHub Copilot review bot is added via the literal handle `Copilot` (case-sensitive). `gh pr edit --add-reviewer copilot-pull-request-reviewer` and the GraphQL `requestReviews` mutation both fail — the REST endpoint with the `Copilot` handle is the only path that works for this repo.
 
-**In a stack this call is mandatory on every PR**, not just a nicety. The `Copilot review for default branch` ruleset only fires on PRs targeting `main` — that's PR 1 alone. Children 2..N target the branch below them and get **no** automatic review unless requested explicitly.
+**Do NOT run this for a stack child — it does nothing.** The call returns 200 and registers no review request on any PR that doesn't target the default branch. Verified on the epic `nubecita-47cg` stack: #871 (base = the branch below it) never produced a `review_requested` event after two successful-looking calls and got no Copilot review, while #870 (base = `main`) was requested **by the ruleset** one second after creation — the API call was never the mechanism on either.
+
+So in a stack, Copilot covers the **bottom PR only**, and there is no workaround from the workflow side; widening the `Copilot review for default branch` ruleset is a repo-settings change. **Gemini does review every PR in the stack**, so coverage is partial rather than absent — lean on Gemini per-PR plus the top-of-stack full gate, and don't assume a stack child got a Copilot pass.
 
 **Post-PR — monitor CI status AND review comments between turns:**
 
@@ -203,7 +216,9 @@ Only for an epic's stack. Runs once, when every child is written and reviewed.
 
 1. Every PR in `gh stack view` is open, non-draft, and CI-green.
 2. Zero unresolved review threads on **every** PR in the stack (same GraphQL query as above, run per PR). Bots count.
-3. The full pre-PR gate has been run on the stack's **top** branch — `:app:assembleDebug`, touched-module `lintDebug`, and the compose-expert review over `origin/main...HEAD`.
+3. The full pre-PR gate has been run on the stack's **top** branch — `:app:assembleDebug`, touched-module lint (flavored names per the table above), and the compose-expert review over `origin/main...HEAD`.
+
+   If the stack touched any screenshot baselines, confirm only the genuinely-changed images were committed. Regeneration rewrites every baseline in the module and macOS adds 1/255 antialiasing noise to most of them; local `validate*ScreenshotTest` fails even on a clean `main`, so it is **not** a gate — CI's `screenshot` job is the authority.
 4. Every child PR's title is a valid Conventional Commit, and at least one is `feat:` if this epic should reach Play (the release type is the maximum across the stack; an all-`chore:`/`refactor:` stack cuts no version).
 
 **Execute:**
