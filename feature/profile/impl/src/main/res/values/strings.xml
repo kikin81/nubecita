@@ -87,6 +87,7 @@
 
     <!-- Muted-user inline notice in the hero (Task 5, nubecita-oftc.5) -->
     <string name="profile_muted_notice">You\'ve muted this user</string>
+    <string name="profile_follows_you">Follows you</string>
 
     <!-- Header inline-error -->
     <string name="profile_header_error_title">Couldn\'t load profile</string>

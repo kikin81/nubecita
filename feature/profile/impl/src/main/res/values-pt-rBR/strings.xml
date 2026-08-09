@@ -91,6 +91,7 @@
 
     <!-- Muted-user inline notice in the hero (Task 5, nubecita-oftc.5) -->
     <string name="profile_muted_notice">Você silenciou este usuário</string>
+    <string name="profile_follows_you">Segue você</string>
 
     <!-- Verification explanation sheet (Task 4, nubecita-vw45.4) -->
     <string name="verification_sheet_title_verified">Conta verificada</string>

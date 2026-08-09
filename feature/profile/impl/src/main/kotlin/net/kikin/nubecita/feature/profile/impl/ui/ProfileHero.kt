@@ -220,6 +220,11 @@ private fun ProfileHeroLoaded(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
+            if (header.followsYou) {
+                Spacer(Modifier.height(4.dp))
+                FollowsYouChip()
+            }
+
             if (showSupporterBadge) {
                 Spacer(Modifier.height(4.dp))
                 SupporterBadge()
@@ -267,6 +272,32 @@ private fun ProfileHeroLoaded(
             )
         }
     }
+}
+
+/**
+ * Inline chip shown directly below the handle when this profile follows
+ * the signed-in viewer back. Reads [ProfileHeaderUi.followsYou], which
+ * the mapper sources from `viewer.followedBy`.
+ *
+ * Text-only, unlike [MutedNotice]: this is a relationship label rather
+ * than a state warning, and it sits immediately under the handle where a
+ * leading icon would compete with the verification badge one line above.
+ * Same recessed-inset pill (`surfaceContainerLow` + `onSurfaceVariant`)
+ * as [MutedNotice] and [SupporterBadge], so the three read as one family
+ * when a profile happens to show more than one at once.
+ */
+@Composable
+private fun FollowsYouChip(modifier: Modifier = Modifier) {
+    Text(
+        text = stringResource(R.string.profile_follows_you),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier =
+            modifier
+                .clip(RoundedCornerShape(percent = 50))
+                .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+    )
 }
 
 /**
