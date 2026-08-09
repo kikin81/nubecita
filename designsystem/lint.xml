@@ -21,4 +21,37 @@
     <issue id="ComposeUnstableReceiver">
         <ignore path="src/main/kotlin/net/kikin/nubecita/designsystem/Tokens.kt" />
     </issue>
+
+    <!--
+        New in compose-lints 1.5.4. The rule guards against a slot whose
+        INVOKING LOCATION moves under a condition: Compose treats the two
+        positions as different, so the slot's internal state is dropped when
+        it switches. That harm can't occur for the video slots here.
+
+        The flagged parameters (PostCard's videoEmbedSlot / quotedVideoEmbedSlot
+        and PostCardQuotedPost's quotedVideoEmbedSlot) are each used twice
+        inside a `when` over a sealed embed type — invoked directly in the
+        Video branch, forwarded down in the RecordWithMedia branch. Three
+        reasons that is safe:
+
+        1. The branches are mutually exclusive, and `PostUi.embed` is a `val`
+           on an @Immutable model. A given post cannot transition from Video to
+           RecordWithMedia, so the invoking location never moves for a post.
+        2. PostCard renders inside keyed lazy lists, so two posts with
+           different embed types never share a composition slot.
+        3. The state the rule protects isn't in the composition anyway — the
+           slot hosts the app-scoped single-player SharedVideoPlayer, which
+           owns playback state outside Compose by design (:core:video).
+
+        Scoped to the two files rather than disabled module-wide, so a genuine
+        slot-reuse elsewhere in :designsystem still fails the build. The
+        alternative — restructuring PostCard's embed dispatch so each slot is
+        referenced once — is a real change to a core component with many
+        committed baselines, and is not something a dependency bump should
+        carry.
+    -->
+    <issue id="SlotReused">
+        <ignore path="src/main/kotlin/net/kikin/nubecita/designsystem/component/PostCard.kt" />
+        <ignore path="src/main/kotlin/net/kikin/nubecita/designsystem/component/PostCardQuotedPost.kt" />
+    </issue>
 </lint>
