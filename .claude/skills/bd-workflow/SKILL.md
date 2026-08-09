@@ -175,7 +175,7 @@ So in a stack, Copilot covers the **bottom PR only**, and there is no workaround
 
 Schedule a recurring poll via `CronCreate` so CI checks run in the background without blocking a shell or stealing the user's attention. The same poll checks for unresolved review threads: CI going green is not the same as the PR being ready, and a review that lands after the last CI poll is otherwise invisible until the user asks.
 
-The poll runs two commands. CI:
+The poll runs **three** commands. CI:
 
 ```bash
 gh pr checks <PR-NUMBER>
@@ -187,14 +187,31 @@ Unresolved review threads — note the GraphQL query needs **seven** closing bra
 gh api graphql -f query='{ repository(owner:"<OWNER>",name:"<REPO>"){ pullRequest(number:<PR-NUMBER>){ reviewThreads(last:50){ nodes { id isResolved comments(first:1){ nodes { databaseId author{login} path body } } } } } } }' --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false)] | length'
 ```
 
-Pass both to `CronCreate` with this decision logic in the prompt (write the commands into the prompt verbatim from the blocks above — do not add backslash escaping, which reaches the shell as literal backslashes and fails to parse):
+**Review currency** — is the newest commit actually reviewed? Compare the last commit's timestamp against the newest bot review:
+
+```bash
+gh api /repos/<OWNER>/<REPO>/pulls/<PR-NUMBER>/commits --jq '.[-1].commit.committer.date'
+gh api graphql -f query='{ repository(owner:"<OWNER>",name:"<REPO>"){ pullRequest(number:<PR-NUMBER>){ reviews(first:30){ nodes { author{login} submittedAt } } } } }' --jq '[.data.repository.pullRequest.reviews.nodes[] | select(.author.login|test("gemini|copilot")) | .submittedAt] | max'
+```
+
+If the newest bot review predates the last commit, the latest work is **unreviewed** and the PR is not ready — regardless of how green it looks. **Neither bot re-reviews automatically on push.** Re-request them:
+
+```bash
+gh pr comment <PR-NUMBER> --body "/gemini review"
+gh api -X POST /repos/<OWNER>/<REPO>/pulls/<PR-NUMBER>/requested_reviewers -f 'reviewers[]=Copilot'
+```
+
+Pass all three to `CronCreate` with this decision logic in the prompt (write the commands into the prompt verbatim from the blocks above — do not add backslash escaping, which reaches the shell as literal backslashes and fails to parse):
 
 - Checks still pending **and** the unresolved count unchanged since the last poll → say nothing, wait for the next poll.
-- All checks terminal (pass / fail / skipping / cancel) **and** zero unresolved threads → cancel the cron with `CronDelete` and report `✅ CI passed — N/N green, no open review threads`.
+- All checks terminal (pass / fail / skipping / cancel) **and** zero unresolved threads **and** the newest bot review is newer than the last commit → cancel the cron with `CronDelete` and report `✅ CI passed — N/N green, no open review threads, latest commit reviewed`.
 - Any check failed → fetch logs via `gh run view <RUN-ID> --log-failed` and propose a fix. Do **not** cancel.
 - Unresolved threads present → report how many, from whom, and a one-line summary of each. Do **not** cancel; the PR is not ready.
+- Newest bot review older than the last commit → say so explicitly, re-request review with the two commands above, and keep polling. Do **not** cancel and do **not** report the PR as ready.
 
-Cancel the cron only when CI is terminal **and** every thread is resolved. A green PR with open threads still blocks merge (see the merge rule above — every thread counts, bots included), so a poll that stops at green trains the wrong reflex.
+Cancel the cron only when CI is terminal, every thread is resolved, **and** the newest commit has been reviewed. A green PR with open threads still blocks merge (see the merge rule above — every thread counts, bots included), so a poll that stops at green trains the wrong reflex.
+
+The review-currency check exists because **zero unresolved threads is not evidence of review.** A commit no bot has looked at raises no threads, so it reports identically to a commit that was reviewed and found clean. This bit on `nubecita-oljt` itself: PR #869's last bot review was 16:36, its largest commit landed at 17:17, and the poll happily reported "0 unresolved threads, ready to merge" on an unreviewed change. Always compare timestamps — never infer review from the absence of comments.
 
 Tell the user once:
 
@@ -216,10 +233,11 @@ Only for an epic's stack. Runs once, when every child is written and reviewed.
 
 1. Every PR in `gh stack view` is open, non-draft, and CI-green.
 2. Zero unresolved review threads on **every** PR in the stack (same GraphQL query as above, run per PR). Bots count.
-3. The full pre-PR gate has been run on the stack's **top** branch — `:app:assembleDebug`, touched-module lint (flavored names per the table above), and the compose-expert review over `origin/main...HEAD`.
+3. Every PR's newest bot review is **newer than its last commit** (the review-currency check above). A restack rewrites every branch above the one you touched, silently invalidating their reviews while leaving the thread count at zero — so in a stack this check is per-PR and must be re-run after any `gh stack sync`.
+4. The full pre-PR gate has been run on the stack's **top** branch — `:app:assembleDebug`, touched-module lint (flavored names per the table above), and the compose-expert review over `origin/main...HEAD`.
 
    If the stack touched any screenshot baselines, confirm only the genuinely-changed images were committed. Regeneration rewrites every baseline in the module and macOS adds 1/255 antialiasing noise to most of them; local `validate*ScreenshotTest` fails even on a clean `main`, so it is **not** a gate — CI's `screenshot` job is the authority.
-4. Every child PR's title is a valid Conventional Commit, and at least one is `feat:` if this epic should reach Play (the release type is the maximum across the stack; an all-`chore:`/`refactor:` stack cuts no version).
+5. Every child PR's title is a valid Conventional Commit, and at least one is `feat:` if this epic should reach Play (the release type is the maximum across the stack; an all-`chore:`/`refactor:` stack cuts no version).
 
 **Execute:**
 
