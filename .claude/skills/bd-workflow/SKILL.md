@@ -12,7 +12,14 @@ The bd issue's shape picks the path. Determine it in the start flow and carry it
 - **Standalone issue** (no epic parent) → one branch, one PR to `main`, squash-merge. Unchanged from before.
 - **Child of an epic** → one branch and one PR **in the epic's `gh stack`**, stacked on `main`. Nothing merges until the whole epic lands via `gh stack merge`, so the epic cuts exactly one semantic release.
 
-Detect with `bd show <id> --json | jq -r '.[0].parent // empty'` — a non-empty parent whose `issue_type` is `epic` means the stacked path. If the repo has no stack yet for that epic, the start flow creates it.
+Detect in **two** steps. `parent` is a bare id string (`"nubecita-1fy"`), not a nested object, so the parent's type needs its own lookup — a non-empty `parent` alone does not mean the issue is an epic child:
+
+```bash
+parent=$(bd show <id> --json | jq -r '.[0].parent // empty')
+[ -n "$parent" ] && bd show "$parent" --json | jq -r '.[0].issue_type'
+```
+
+`epic` → stacked path. Empty `parent`, or a parent of any other type → standalone path. If the repo has no stack yet for that epic, the start flow creates it.
 
 ## When to use
 
