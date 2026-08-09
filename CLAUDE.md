@@ -25,11 +25,18 @@ pre-commit run --all-files
 
 ## Workflow
 
-All work is tracked in [beads](https://github.com/steveyegge/beads) (`bd`). Every change starts from a bd issue and lands through a short-lived branch + PR. When using Claude Code, the `bd-workflow` skill automates the ceremony; without it, the steps below are the convention.
+All work is tracked in [beads](https://github.com/steveyegge/beads) (`bd`). Every change starts from a bd issue. There are two landing paths, and the bd issue's shape picks which one:
+
+- **Standalone issue** (bug, chore, task, one-off feature) → one short-lived branch + one PR to `main`. This is the **Loop** below and it is unchanged.
+- **Epic** (a parent with children) → a **`gh stack` PR stack**, one PR per child, landed with a single atomic merge so the whole feature reaches `main` in one push and cuts **one** semantic release. See **Epics: stacked PRs**.
+
+When using Claude Code, the `bd-workflow` skill automates both paths; without it, the steps below are the convention.
 
 **Working from a second machine?** Read `docs/beads-multi-machine.md` **first**. The bd database syncs across machines via the DoltHub remote (`bd dolt push`/`pull`), and a stale/shadowed `dolt` binary will silently fork it (the symptom is `table has unknown fields`). That runbook covers the required per-machine `dolt` setup, the pull-first/push-last session loop, and fork recovery — the canonical source of truth is the Dolt remote, never `.beads/issues.jsonl`.
 
 ### Loop
+
+For a **standalone** issue — one branch, one PR, one release:
 
 1. `bd ready` — pick an unblocked issue.
 2. `bd update <id> --claim`.
@@ -37,6 +44,65 @@ All work is tracked in [beads](https://github.com/steveyegge/beads) (`bd`). Ever
 4. Commit with Conventional Commits; reference the bd id in the body footer.
 5. Open a PR with `Closes: <id>` in the body.
 6. `bd close <id>` after merge.
+
+### Epics: stacked PRs
+
+An epic lands as **one `gh stack` PR stack**, not as N independent PRs to `main`. Each bd child is one branch and one PR; PR 1 targets `main` and each subsequent PR targets the branch below it. Nothing reaches `main` until the whole stack merges in a single atomic operation — so the internal build never sees a half-built feature, and semantic-release cuts exactly one version for the whole epic.
+
+Unchanged from the standalone path: the openspec docs PR still goes to `main` on its own, the bd epic + children are still created up front, branch names still follow `<type>/<bd-id>-<slug>`, and you still never branch off the epic itself — the children are the branches.
+
+| Step | Command |
+|---|---|
+| First child | `gh stack init <type>/<child-1>-<slug>` (base defaults to `main`) |
+| Each next child | `gh stack add <type>/<child-N>-<slug>` |
+| Publish / refresh the PRs | `gh stack submit` |
+| After feedback on a lower PR | `gh stack sync` → `gh stack submit` |
+| Land the whole feature | `gh stack merge --squash --yes` |
+
+One stack per epic, however deep it runs. Each child PR is titled as a Conventional Commit — on the atomic squash-merge that title becomes its commit subject on `main` — and carries `Closes: <child-id>` in its body. After the stack merges, `bd close` every child **and** the epic, then archive the openspec change.
+
+#### Gating a stack
+
+Running the full pre-PR gate on every branch is wasted work when only the top of the stack represents the finished feature. Split it:
+
+- **Each child branch**, before `gh stack submit`: `./gradlew :<touched-module>:lintDebug` only. Lint compiles, so this still catches a broken layer at the layer that broke it.
+- **The top branch**, before `gh stack merge`: the full gate — `./gradlew :app:assembleDebug`, every touched module's `lintDebug`, and the compose-expert review run against the **cumulative** stack diff (`git diff origin/main...HEAD` from the top branch), not the top PR's own diff. A stack's Compose surface is the union of its children.
+
+CI still runs on every PR in the stack, unchanged.
+
+#### Stack guardrails
+
+- **Never merge a child PR from the GitHub UI.** A single-PR merge lands on `main` alone and cuts its own release — the exact regression stacks exist to prevent. `gh stack merge` is the only merge path for a stack.
+- **Request Copilot review explicitly on every stack PR.** The `Copilot review for default branch` ruleset only fires on PRs targeting `main`; children 2..N target the branch below them and get no automatic review. Use the REST call (`POST /repos/{owner}/{repo}/pulls/{n}/requested_reviewers` with the literal `Copilot` handle) per PR.
+- **Screenshot-baseline updates restack everything above them.** The `update-screenshot-baselines` label pushes to a PR's head branch; if that's a lower branch, run `gh stack sync` + `gh stack submit` afterwards. Every restack re-fires CI on all branches above, so batch review fixes rather than pushing one at a time.
+- **The release type is the maximum across the stack.** One `feat:`-titled child PR makes the whole epic a minor release; an all-`chore:`/`refactor:` stack cuts nothing. Relabel one child PR title to `feat` when the epic needs to reach Play.
+- **Verify the one-push assumption before trusting it** (see below).
+
+#### Pre-flight: confirm the atomic merge is one push
+
+This model depends on GitHub's atomic stack merge updating `main` in a **single push event**. If it instead lands N sequential ref updates, `Release` fires N times (`concurrency.cancel-in-progress: false` queues them all) and the epic cuts N versions.
+
+Confirm it once, cheaply:
+
+```bash
+# two throwaway branches, each with one no-op `chore:` commit, stacked
+gh stack init chore/stack-probe-a
+printf '\n<!-- stack probe a -->\n' >> docs/README.md
+git commit -am 'chore: stack probe a'
+
+gh stack add chore/stack-probe-b
+printf '\n<!-- stack probe b -->\n' >> docs/README.md
+git commit -am 'chore: stack probe b'
+
+gh stack submit --auto --open
+gh stack merge --squash --yes
+
+gh run list --workflow=release.yaml --limit 5   # count the runs
+```
+
+Revert the probe's two lines afterwards in a normal `chore:` PR.
+
+`chore:` commits bump no version, so the probe cuts zero releases either way — the **run count** is the answer. **1 run** confirms the model. **2 runs** means fall back to an integration branch: make `feat/<epic-id>-<slug>` the stack trunk (`gh stack init --base feat/<epic-id>-<slug> …`), merge children into it, and land the epic with one rebase-merge PR from the trunk to `main`.
 
 ### Branch names
 
@@ -62,9 +128,10 @@ Use `Refs:` on work-in-progress commits. `Closes: <bd-id>` goes in the **PR body
 
 ### Rules of thumb
 
-- One bd issue per branch. If scope grows, spawn a new bd issue.
-- PR title should be Conventional — on squash-merge it becomes the commit subject. (Currently enforced only by the local `commit-msg` pre-commit hook, not CI.)
-- `bd close` only after the PR merges.
+- One bd issue per branch. If scope grows, spawn a new bd issue — and if the work is an epic, that new issue becomes another branch in the same stack.
+- PR title should be Conventional — on squash-merge it becomes the commit subject, for a standalone PR and for every PR in a stack alike. (Currently enforced only by the local `commit-msg` pre-commit hook, not CI.)
+- `bd close` only after the PR merges. For an epic, that means after `gh stack merge` — close every child and the epic together.
+- An epic is "done" when its stack merges, not when its last child PR is approved. One epic, one release.
 
 ## Conventions
 
