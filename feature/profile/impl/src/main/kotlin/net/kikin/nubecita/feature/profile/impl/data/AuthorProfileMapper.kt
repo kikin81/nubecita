@@ -49,6 +49,7 @@ internal fun ProfileViewDetailed.toProfileHeaderUi(): ProfileHeaderUi =
         followsCount = followsCount ?: 0L,
         pinnedPost = pinnedPost?.let { PinnedPostRef(uri = it.uri.raw, cid = it.cid.raw) },
         canMessage = canViewerMessage(associated, viewer),
+        followsYou = viewer?.followedBy != null,
         viewerModeration = viewer.toViewerModerationState(),
         verifiedBadge = verification.toVerifiedBadge(),
         verifierRefs = verification.toVerifierRefs(),
