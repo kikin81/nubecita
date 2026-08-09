@@ -1,14 +1,35 @@
 ---
 name: bd-workflow
-description: Use when starting or finishing a beads (bd) task in this repo. Handles claiming an issue, creating a Conventional-Commit-prefixed branch with the bd id embedded, and opening a PR with a `Closes:` footer. Trigger on phrases like "start nubecita-xxx", "pick up <bd-id>", "open a PR for this", or "finish this task".
+description: Use when starting or finishing a beads (bd) task in this repo. Handles claiming an issue, creating a Conventional-Commit-prefixed branch with the bd id embedded, and opening a PR with a `Closes:` footer — as a standalone PR for a standalone issue, or as a `gh stack` PR stack for an epic's children. Trigger on phrases like "start nubecita-xxx", "pick up <bd-id>", "open a PR for this", "add this to the stack", "land the stack", or "finish this task".
 ---
 
-Automate the bd-driven branch/commit/PR ceremony documented in `CLAUDE.md`'s Workflow section. Two flows: **start** (claim + branch) and **finish** (push + PR). Never close the bd issue here — closure happens after merge.
+Automate the bd-driven branch/commit/PR ceremony documented in `CLAUDE.md`'s Workflow section. Three flows: **start** (claim + branch), **finish** (push + PR), and **land** (merge an epic's stack). Never close the bd issue here — closure happens after merge.
+
+## Two landing paths
+
+The bd issue's shape picks the path. Determine it in the start flow and carry it through:
+
+- **Standalone issue** (no epic parent) → one branch, one PR to `main`, squash-merge. Unchanged from before.
+- **Child of an epic** → one branch and one PR **in the epic's `gh stack`**, stacked on `main`. Nothing merges until the whole epic lands via `gh stack merge`, so the epic cuts exactly one semantic release.
+
+Detect in **two** steps. `parent` is a bare id string (`"nubecita-1fy"`), not a nested object, so the parent's type needs its own lookup — a non-empty `parent` alone does not mean the issue is an epic child:
+
+```bash
+parent=$(bd show <id> --json | jq -r '.[0].parent // empty')
+if [ -n "$parent" ]; then
+  bd show "$parent" --json | jq -r '.[0].issue_type'
+fi
+```
+
+Use the `if` form, not `[ -n "$parent" ] && …`. The `&&` chain exits **1** when `parent` is empty, and "this issue has no parent" is a normal, expected outcome — under `set -e`, or in an agent harness that surfaces non-zero exit as a tool failure, the standalone path would look like an error every time.
+
+`epic` → stacked path. Empty `parent`, or a parent of any other type → standalone path. If the repo has no stack yet for that epic, the start flow creates it.
 
 ## When to use
 
 - **Start flow** — user asks to begin work on a bd id: "start nubecita-aew", "let's pick up <id>", "claim this one".
 - **Finish flow** — user is done committing and wants to push/open a PR: "open the PR", "ship it", "finish this task".
+- **Land flow** — an epic's stack is complete and green: "land the stack", "merge the epic", "ship the feature".
 
 If the user has not chosen a bd id yet, run `bd ready` and offer the top candidates before starting.
 
@@ -16,9 +37,12 @@ If the user has not chosen a bd id yet, run `bd ready` and offer the top candida
 
 **Preconditions** — verify before doing anything destructive:
 
-1. Run `git branch --show-current` — must be `main` (or whatever base the user specifies). If not, stop and ask.
-2. Run `git diff --quiet && git diff --cached --quiet` — tracked tree must be clean. Untracked files are OK.
-3. Run `bd show <id> --json` and parse with the Bash tool piped through `jq`. Verify `.[0]` exists, `status != "closed"`, and `issue_type != "epic"`. If it's an epic, refuse and point the user at a child issue.
+1. Run `git diff --quiet && git diff --cached --quiet` — tracked tree must be clean. Untracked files are OK.
+2. Run `bd show <id> --json` and parse with the Bash tool piped through `jq`. Verify `.[0]` exists, `status != "closed"`, and `issue_type != "epic"`. If it's an epic, refuse and point the user at a child issue — the epic is the *stack*, never a branch.
+3. Determine the path (see **Two landing paths**) and check the starting branch accordingly:
+   - **Standalone** → `git branch --show-current` must be `main` (or a base the user specifies). If not, stop and ask.
+   - **Epic child, no stack yet** → must also be on `main`; this child becomes the bottom of the stack.
+   - **Epic child, stack exists** → must be on the stack's **top** branch; `gh stack top` checks it out for you. The new child stacks on the work already in flight. If the user wants it based on something lower instead, confirm before proceeding — that's a different stack shape.
 
 **Derive branch name:**
 
@@ -37,14 +61,26 @@ If the user has not chosen a bd id yet, run `bd ready` and offer the top candida
   ```
 - Final: `<prefix>/<bd-id>-<slug>`.
 
-**Execute:**
+**Execute — standalone:**
 
 ```bash
 git checkout -b <branch>
 bd update <id> --claim
 ```
 
-Then report: branch name, bd id + title, and a suggested first commit subject (`<prefix>: <title>`).
+**Execute — epic child.** `gh stack init` / `gh stack add` create the branch themselves; do NOT `git checkout -b` first.
+
+```bash
+# first child of the epic — starts the stack on main
+gh stack init <branch>
+
+# every later child — stacks on the current top branch
+gh stack add <branch>
+
+bd update <id> --claim
+```
+
+Then report: branch name, bd id + title, a suggested first commit subject (`<prefix>: <title>`), and — for an epic child — the stack's current shape from `gh stack view`.
 
 ## Finish flow
 
@@ -52,13 +88,32 @@ Then report: branch name, bd id + title, and a suggested first commit subject (`
 
 1. Current branch is not `main`.
 2. Tree is clean (`git diff --quiet && git diff --cached --quiet`).
-3. At least one commit ahead of base: `git rev-list --count main..HEAD` > 0.
+3. At least one commit ahead of base. The base differs by path: `main` for a standalone branch or the bottom of a stack, otherwise the branch below it in the stack. `git rev-list --count <base>..HEAD` > 0.
 4. Infer the bd id from the branch name (`<type>/<bd-id>-<slug>`) or accept one from the user.
+5. Read the stack shape with `gh stack view --json` (add `--json` to parse; bare `gh stack view` is for showing the user). It tells you whether the current branch is in a stack at all, which branch is below it (the base for step 3), and whether it is the stack's **top**. Do NOT probe with `gh stack top` / `gh stack down` — those are navigation commands that check out a different branch, not read-only queries.
 
-**Pre-PR verification** — run these before pushing. If any fails, stop and fix the underlying issue; never bypass a failing pre-commit hook with `git commit --no-verify`:
+**Pre-PR verification** — how much to run depends on where the branch sits. Running the full gate on every branch of a stack is wasted work; only the top represents the finished feature.
+
+| Branch | Gate |
+|---|---|
+| Standalone branch | Steps 1–4 below (full) |
+| Stack child, not the top | Step 2 only (lint the touched modules — lint compiles, so a broken layer still fails at the layer that broke it) |
+| Stack **top**, before landing | Steps 1–4, with step 4's diff taken across the **whole stack** |
+
+Run these before pushing. If any fails, stop and fix the underlying issue; never bypass a failing pre-commit hook with `git commit --no-verify`:
 
 1. `./gradlew :app:assembleDebug` — proves the app graph still links. Cheaper than the full build and catches missing deps / Hilt graph breaks the IDE wouldn't flag.
-2. `./gradlew :<changed-module>:lintDebug` for each Android Gradle module touched (e.g. `:feature:feed:impl:lintDebug`). Lint catches Compose-rule violations (stability, unused state, modifier order) and other correctness issues that compilation and unit tests don't. Run on the specific modules rather than the umbrella `lint` task so the loop stays fast. Modules outside the main Android build (e.g. `build-logic`, plain JVM libs) have no `lintDebug` task — skip them here, the convention plugins already gate them at compile time.
+2. Lint each Android Gradle module touched. Lint catches Compose-rule violations (stability, unused state, modifier order) and other correctness issues that compilation and unit tests don't. Run on the specific modules rather than the umbrella `lint` task so the loop stays fast.
+
+   **Pick the task name by flavor.** Every `:feature:*:impl` module carries the `bench` / `production` flavor dimension and therefore has **no** `lintDebug` task — the unqualified name fails with `task 'lintDebug' is ambiguous in project ':feature:…'`. Same trap for `testDebugUnitTest` and the screenshot tasks:
+
+   | Flavored (`:feature:*:impl`) | Unflavored (`:designsystem`, `:core:*`) |
+   |---|---|
+   | `:<module>:lintProductionDebug` | `:<module>:lintDebug` |
+   | `:<module>:testProductionDebugUnitTest` | `:<module>:testDebugUnitTest` |
+   | `:<module>:updateProductionDebugScreenshotTest` | `:<module>:updateDebugScreenshotTest` |
+
+   When unsure: `./gradlew :<module>:tasks --all | grep -i lint`. Modules outside the main Android build (e.g. `build-logic`, plain JVM libs) have no lint task at all — skip them here, the convention plugins already gate them at compile time.
 3. Pre-commit hook on the commit itself already ran spotless + commitlint + secret scan — no extra step needed here. If the hook reports a failure, fix the underlying issue rather than re-running with `--no-verify`.
 4. **Compose review gate.** Run the detector below; it decides whether a Compose-specific review is warranted before the PR opens:
 
@@ -72,7 +127,9 @@ Then report: branch name, bd id + title, and a suggested first commit subject (`
 
    Rationale: gate the heavyweight Compose lens on the one cheap signal that predicts whether it'll find anything. Empirically, PR #340 (headless send-path) was correctly skipped by this gate.
 
-**Execute:**
+   On a stack's **top** branch, `origin/main...HEAD` is already the cumulative diff of every branch below — which is what you want. A stack's Compose surface is the union of its children, so review it once, whole, rather than per child PR. Do NOT narrow this to the top PR's own diff (`<branch-below>...HEAD`).
+
+**Execute — standalone:**
 
 ```bash
 git push -u origin <branch>
@@ -81,22 +138,56 @@ gh pr create --base main \
   --body  "Closes: <bd-id>"
 ```
 
-Use the **first** commit on the branch as the PR title (`git log --reverse --format=%s main..HEAD | head -1`) — that's the convention for squash-merges. If the user wants a draft PR, add `--draft`.
-
-**Post-PR — tag Copilot for review:**
+**Execute — stack child.** `gh stack submit` pushes every branch, creates any missing PRs, and re-points the base of existing ones in a single call. Never `git push` a stack branch by hand and never `gh pr create` for one — a hand-created PR isn't part of the stack on GitHub and won't be included in the atomic merge.
 
 ```bash
-gh api -X POST /repos/<owner>/<repo>/pulls/<pr-number>/requested_reviewers \
-  -f 'reviewers[]=Copilot'
+gh stack submit --auto --open
 ```
 
-The GitHub Copilot review bot is added via the literal handle `Copilot` (case-sensitive). `gh pr edit --add-reviewer copilot-pull-request-reviewer` and the GraphQL `requestReviews` mutation both fail — the REST endpoint with the `Copilot` handle is the only path that works for this repo.
+`--auto` skips the interactive editor; `--open` marks new PRs ready for review instead of draft. It derives each PR title from the branch's commit subject, so a one-commit-per-child stack following the repo's Conventional Commit rule already gets valid titles — check them, don't blindly rewrite. Bodies are generated and DO need replacing:
+
+```bash
+gh pr edit <pr-number> --body "Closes: <bd-id>"
+gh pr edit <pr-number> --title "<first-commit-subject>"   # only if --auto's title is wrong
+```
+
+Use the **first** commit on the branch as the PR title (`git log --reverse --format=%s <base>..HEAD | head -1`, where `<base>` is `main` or the branch below) — that's the convention for squash-merges, and in a stack that title becomes the branch's commit subject on `main`. If the user wants drafts, drop `--open` (or add `--draft` on the standalone path).
+
+If review feedback landed on a **lower** branch, restack before submitting:
+
+```bash
+gh stack sync
+gh stack submit --auto --open
+```
+
+Every restack re-fires CI on all branches above, so batch fixes rather than pushing one at a time.
+
+**Post-PR — Copilot review: there is nothing to run.**
+
+Copilot is requested **exclusively** by the `Copilot review for default branch` ruleset, which fires once, ~1–2 s after a PR targeting `main` is opened (the resulting `review_requested` event is attributed to the PR author). You cannot trigger it, and you cannot make it re-review.
+
+Do **not** add a `requested_reviewers` call to any flow. It does nothing, on any PR:
+
+```bash
+# BOTH of these return 200 and register no reviewer. Neither works.
+gh api -X POST /repos/<owner>/<repo>/pulls/<n>/requested_reviewers -f 'reviewers[]=Copilot'
+gh api -X POST /repos/<owner>/<repo>/pulls/<n>/requested_reviewers -F 'reviewers[]=Copilot'
+```
+
+Verified on `nubecita-oljt`: repeated calls with both `-f` and `-F` produced **no** `review_requested` event on #871 (base = a stack branch) **or** on #869 (base = `main`, already reviewed at open). The only events on #869/#870 are the ruleset's, ~2 s after creation. The `-F` form is not a fix — the flag shape is a red herring, and the call does not 422 either.
+
+Two consequences:
+
+- **Stack children never get Copilot.** They target the branch below them, so the ruleset skips them. Widening it is a repo-settings change, not a workflow one.
+- **No PR gets a Copilot *re*-review after a push**, including on `main`-targeting PRs. Copilot's verdict always describes the PR as of its opening commit.
+
+**Gemini is the re-requestable one** — `gh pr comment <n> --body "/gemini review"` works on every PR in a stack. Lean on Gemini per-PR plus the top-of-stack full gate, and never assume a stack child, or a pushed-to PR, carries a current Copilot pass.
 
 **Post-PR — monitor CI status AND review comments between turns:**
 
 Schedule a recurring poll via `CronCreate` so CI checks run in the background without blocking a shell or stealing the user's attention. The same poll checks for unresolved review threads: CI going green is not the same as the PR being ready, and a review that lands after the last CI poll is otherwise invisible until the user asks.
 
-The poll runs two commands. CI:
+The poll runs **three** commands. CI:
 
 ```bash
 gh pr checks <PR-NUMBER>
@@ -108,14 +199,39 @@ Unresolved review threads — note the GraphQL query needs **seven** closing bra
 gh api graphql -f query='{ repository(owner:"<OWNER>",name:"<REPO>"){ pullRequest(number:<PR-NUMBER>){ reviewThreads(last:50){ nodes { id isResolved comments(first:1){ nodes { databaseId author{login} path body } } } } } } }' --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false)] | length'
 ```
 
-Pass both to `CronCreate` with this decision logic in the prompt (write the commands into the prompt verbatim from the blocks above — do not add backslash escaping, which reaches the shell as literal backslashes and fails to parse):
+**Review currency** — is the newest commit actually reviewed? Compare the last commit's timestamp against the newest bot review:
+
+```bash
+gh api /repos/<OWNER>/<REPO>/pulls/<PR-NUMBER>/commits --jq '.[-1].commit.committer.date'
+gh api graphql -f query='{ repository(owner:"<OWNER>",name:"<REPO>"){ pullRequest(number:<PR-NUMBER>){ reviews(first:30){ nodes { author{login} submittedAt } } } } }' --jq '[.data.repository.pullRequest.reviews.nodes[] | select((.author.login // "")|test("gemini|copilot")) | .submittedAt] | max'
+```
+
+Two details in that second query are load-bearing:
+
+- **`.author.login // ""`** — a review by a deleted account has a **null** `author`, and `null | test(…)` aborts jq with `null (null) cannot be matched, as it is not a string`, killing the poll rather than skipping the row. (`.[-1]` on an empty commits array needs no such guard; jq yields `null` through `.commit.committer.date` without erroring.)
+- **The match is case-sensitive on purpose.** These are *author* logins — `gemini-code-assist` and `copilot-pull-request-reviewer`, both lowercase — so no `"i"` flag is needed. Don't confuse them with the **`requested_reviewer.login`**, which for Copilot is the capitalized handle `Copilot`. Same bot, two different fields, two different casings; a pattern copied from one to the other will silently match nothing.
+
+The query's trailing `} } } } }` is five braces — closing `nodes`, `reviews`, `pullRequest`, `repository`, and the query itself (the threads query above needs seven).
+
+If the newest bot review predates the last commit, the latest work is **unreviewed** and the PR is not ready — regardless of how green it looks. **Neither bot re-reviews automatically on push**, and only one of them can be asked to:
+
+```bash
+gh pr comment <PR-NUMBER> --body "/gemini review"
+```
+
+There is no Copilot equivalent — see the Copilot section above. A pushed-to PR simply never regains a current Copilot review, so Gemini plus the local gate is the whole of the automated coverage on the newest commit.
+
+Pass all three to `CronCreate` with this decision logic in the prompt (write the commands into the prompt verbatim from the blocks above — do not add backslash escaping, which reaches the shell as literal backslashes and fails to parse):
 
 - Checks still pending **and** the unresolved count unchanged since the last poll → say nothing, wait for the next poll.
-- All checks terminal (pass / fail / skipping / cancel) **and** zero unresolved threads → cancel the cron with `CronDelete` and report `✅ CI passed — N/N green, no open review threads`.
+- All checks terminal (pass / fail / skipping / cancel) **and** zero unresolved threads **and** the newest bot review is newer than the last commit → cancel the cron with `CronDelete` and report `✅ CI passed — N/N green, no open review threads, latest commit reviewed`.
 - Any check failed → fetch logs via `gh run view <RUN-ID> --log-failed` and propose a fix. Do **not** cancel.
 - Unresolved threads present → report how many, from whom, and a one-line summary of each. Do **not** cancel; the PR is not ready.
+- Newest bot review older than the last commit → say so explicitly, re-request review with the two commands above, and keep polling. Do **not** cancel and do **not** report the PR as ready.
 
-Cancel the cron only when CI is terminal **and** every thread is resolved. A green PR with open threads still blocks merge (see the merge rule above — every thread counts, bots included), so a poll that stops at green trains the wrong reflex.
+Cancel the cron only when CI is terminal, every thread is resolved, **and** the newest commit has been reviewed. A green PR with open threads still blocks merge (see the merge rule above — every thread counts, bots included), so a poll that stops at green trains the wrong reflex.
+
+The review-currency check exists because **zero unresolved threads is not evidence of review.** A commit no bot has looked at raises no threads, so it reports identically to a commit that was reviewed and found clean. This bit on `nubecita-oljt` itself: PR #869's last bot review was 16:36, its largest commit landed at 17:17, and the poll happily reported "0 unresolved threads, ready to merge" on an unreviewed change. Always compare timestamps — never infer review from the absence of comments.
 
 Tell the user once:
 
@@ -125,14 +241,54 @@ Tell the user once:
 
 Do NOT use `gh pr checks --watch` — reprints the full table each poll, drowns the conversation. Do NOT use a background bash polling loop — blocks a shell and produces noisy output. Do NOT dump the full check list on success: just `✅ CI passed — N/N checks green` (or `❌ N of M failed`, with the failing names).
 
-After `gh pr create` succeeds, print the PR URL and remind the user: "bd issue stays open until the PR merges; run `bd close <id>` after merge."
+In a stack, poll **every** PR in it (`gh stack view` lists them), not just the one you just submitted — a restack re-fires CI on every branch above, so a lower PR going red is the common failure and it's invisible if you only watch the top.
+
+After the PR exists, print its URL and remind the user: "bd issue stays open until the PR merges; run `bd close <id>` after merge." For a stack child, add: "nothing merges until the whole epic lands — see the land flow."
+
+## Land flow
+
+Only for an epic's stack. Runs once, when every child is written and reviewed.
+
+**Preconditions** — all must hold; do not merge past a failure:
+
+1. Every PR in `gh stack view` is open, non-draft, and CI-green.
+2. Zero unresolved review threads on **every** PR in the stack (same GraphQL query as above, run per PR). Bots count.
+3. Every PR's newest bot review is **newer than its last commit** (the review-currency check above). A restack rewrites every branch above the one you touched, silently invalidating their reviews while leaving the thread count at zero — so in a stack this check is per-PR and must be re-run after any `gh stack sync`.
+4. The full pre-PR gate has been run on the stack's **top** branch — `:app:assembleDebug`, touched-module lint (flavored names per the table above), and the compose-expert review over `origin/main...HEAD`.
+
+   If the stack touched any screenshot baselines, confirm only the genuinely-changed images were committed. Regeneration rewrites every baseline in the module and macOS adds 1/255 antialiasing noise to most of them; local `validate*ScreenshotTest` fails even on a clean `main`, so it is **not** a gate — CI's `screenshot` job is the authority.
+5. Every child PR's title is a valid Conventional Commit, and at least one is `feat:` if this epic should reach Play (the release type is the maximum across the stack; an all-`chore:`/`refactor:` stack cuts no version).
+
+**Execute:**
+
+```bash
+gh stack merge --squash --yes
+```
+
+This is atomic: every PR in the stack merges into `main` in one all-or-nothing operation, or none do. The whole epic reaches `main` in a single push → one `Release` run → **one** semantic version.
+
+**Never** merge a child PR individually — not with `gh pr merge`, not from the GitHub UI. A lone merge lands on `main` by itself and cuts its own release, which is the exact regression stacks exist to prevent.
+
+**Post-merge:**
+
+```bash
+gh run list --workflow=release.yaml --limit 3   # confirm ONE run, not N
+gh stack sync --prune                           # drop local branches for the merged PRs
+bd close <child-1> <child-2> ... <epic-id>
+```
+
+If that run count is **N instead of 1**, the atomic merge is landing sequential ref updates and the whole one-release premise is broken. Stop, tell the user, and switch the next epic to the integration-branch fallback documented in `CLAUDE.md` (stack trunk = `feat/<epic-id>-<slug>`, landed with one rebase-merge PR to `main`).
+
+Then archive the openspec change for the feature.
 
 ## Invariants
 
-- **Never** run `bd close` in either flow. The user (or a post-merge automation) decides when.
-- **Never** force-push, amend, or rewrite history here.
+- **Never** run `bd close` in the start or finish flow. The user (or a post-merge automation) decides when. The land flow is the one place closure is proposed, and only after the merge succeeded.
+- **Never** force-push, amend, or rewrite history by hand. `gh stack sync` / `gh stack rebase` do rewrite the branches above — that is the tool's job and is expected; doing it manually with `git rebase` + `git push --force` desynchronizes the stack on GitHub.
 - **Never** branch from a dirty tree — stop and tell the user to commit or stash first.
-- Both flows are idempotent to retry: if the branch already exists, report and stop; if a PR already exists for the branch, `gh pr create` will error cleanly and the user can `gh pr view` instead.
+- **Never** branch off an epic. The epic is the stack; its children are the branches.
+- **Never** merge a stack's PR outside `gh stack merge`, and never `gh pr create` a branch that belongs to a stack.
+- All three flows are idempotent to retry: if the branch already exists, report and stop; `gh pr create` errors cleanly if a PR already exists; `gh stack submit` is inherently re-runnable and just updates what's there.
 
 ## Commit messages (reminder)
 

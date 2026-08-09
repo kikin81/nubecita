@@ -25,11 +25,18 @@ pre-commit run --all-files
 
 ## Workflow
 
-All work is tracked in [beads](https://github.com/steveyegge/beads) (`bd`). Every change starts from a bd issue and lands through a short-lived branch + PR. When using Claude Code, the `bd-workflow` skill automates the ceremony; without it, the steps below are the convention.
+All work is tracked in [beads](https://github.com/steveyegge/beads) (`bd`). Every change starts from a bd issue. There are two landing paths, and the bd issue's shape picks which one:
+
+- **Standalone issue** (bug, chore, task, one-off feature) → one short-lived branch + one PR to `main`. This is the **Loop** below and it is unchanged.
+- **Epic** (a parent with children) → a **`gh stack` PR stack**, one PR per child, landed with a single atomic merge so the whole feature reaches `main` in one push and cuts **one** semantic release. See **Epics: stacked PRs**.
+
+When using Claude Code, the `bd-workflow` skill automates both paths; without it, the steps below are the convention.
 
 **Working from a second machine?** Read `docs/beads-multi-machine.md` **first**. The bd database syncs across machines via the DoltHub remote (`bd dolt push`/`pull`), and a stale/shadowed `dolt` binary will silently fork it (the symptom is `table has unknown fields`). That runbook covers the required per-machine `dolt` setup, the pull-first/push-last session loop, and fork recovery — the canonical source of truth is the Dolt remote, never `.beads/issues.jsonl`.
 
 ### Loop
+
+For a **standalone** issue — one branch, one PR, one release:
 
 1. `bd ready` — pick an unblocked issue.
 2. `bd update <id> --claim`.
@@ -37,6 +44,67 @@ All work is tracked in [beads](https://github.com/steveyegge/beads) (`bd`). Ever
 4. Commit with Conventional Commits; reference the bd id in the body footer.
 5. Open a PR with `Closes: <id>` in the body.
 6. `bd close <id>` after merge.
+
+### Epics: stacked PRs
+
+An epic lands as **one `gh stack` PR stack**, not as N independent PRs to `main`. Each bd child is one branch and one PR; PR 1 targets `main` and each subsequent PR targets the branch below it. Nothing reaches `main` until the whole stack merges in a single atomic operation — so the internal build never sees a half-built feature, and semantic-release cuts exactly one version for the whole epic.
+
+Unchanged from the standalone path: the openspec docs PR still goes to `main` on its own, the bd epic + children are still created up front, branch names still follow `<type>/<bd-id>-<slug>`, and you still never branch off the epic itself — the children are the branches.
+
+| Step | Command |
+|---|---|
+| First child | `gh stack init <type>/<child-1>-<slug>` (base defaults to `main`) |
+| Each next child | `gh stack add <type>/<child-N>-<slug>` |
+| Publish / refresh the PRs | `gh stack submit` |
+| After feedback on a lower PR | `gh stack sync` → `gh stack submit` |
+| Land the whole feature | `gh stack merge --squash --yes` |
+
+One stack per epic, however deep it runs. Each child PR is titled as a Conventional Commit — on the atomic squash-merge that title becomes its commit subject on `main` — and carries `Closes: <child-id>` in its body. After the stack merges, `bd close` every child **and** the epic, then archive the openspec change.
+
+#### Gating a stack
+
+Running the full pre-PR gate on every branch is wasted work when only the top of the stack represents the finished feature. Split it:
+
+- **Each child branch**, before `gh stack submit`: lint the touched modules only. Lint compiles, so this still catches a broken layer at the layer that broke it.
+- **The top branch**, before `gh stack merge`: the full gate — `./gradlew :app:assembleDebug`, every touched module's lint, and the compose-expert review run against the **cumulative** stack diff (`git diff origin/main...HEAD` from the top branch), not the top PR's own diff. A stack's Compose surface is the union of its children.
+
+CI still runs on every PR in the stack, unchanged.
+
+**Flavored modules have no `lintDebug` / `testDebugUnitTest` task.** Every `:feature:*:impl` module carries the `bench` / `production` flavor dimension, so the unqualified task names fail with `task 'lintDebug' is ambiguous`. Use the flavored names:
+
+| Instead of | Run |
+|---|---|
+| `:<module>:lintDebug` | `:<module>:lintProductionDebug` |
+| `:<module>:testDebugUnitTest` | `:<module>:testProductionDebugUnitTest` |
+| `:<module>:updateDebugScreenshotTest` | `:<module>:updateProductionDebugScreenshotTest` |
+| `:<module>:validateDebugScreenshotTest` | `:<module>:validateProductionDebugScreenshotTest` |
+
+Unflavored modules (`:designsystem`, `:core:*`) keep the plain names. When unsure, `./gradlew :<module>:tasks --all | grep -i lint`.
+
+#### Stack guardrails
+
+- **Never merge a child PR from the GitHub UI.** A single-PR merge lands on `main` alone and cuts its own release — the exact regression stacks exist to prevent. `gh stack merge` is the only merge path for a stack.
+- **Copilot reviews only the bottom PR of a stack, only at PR-open, and cannot be triggered.** The `Copilot review for default branch` ruleset fires ~2 s after a PR targeting `main` is opened; that is the *only* mechanism. Children 2..N target the branch below them and get nothing. The REST call (`POST /repos/{owner}/{repo}/pulls/{n}/requested_reviewers` with the literal `Copilot` handle) **returns 200 and registers nothing — on any PR, with either `-f` or `-F`**; verified against both #871 (base = a stack branch) and #869 (base = `main`). Don't put it in a workflow. It also means **no PR regains a Copilot review after a push**, so Copilot's verdict always describes the opening commit. **Gemini reviews every PR in the stack and is re-requestable** via `gh pr comment <n> --body "/gemini review"` — that plus the top-of-stack full gate and human review is the real coverage. Widening the ruleset beyond the default branch is a repo-settings change, not a workflow one.
+- **Screenshot-baseline updates restack everything above them.** The `update-screenshot-baselines` label pushes to a PR's head branch; if that's a lower branch, run `gh stack sync` + `gh stack submit` afterwards. Every restack re-fires CI on all branches above, so batch review fixes rather than pushing one at a time.
+- **Never commit the whole output of a baseline regeneration.** `updateProductionDebugScreenshotTest` rewrites *every* baseline in the module, and on macOS most come back with 1/255 antialiasing noise on a handful of pixels. Diff them against `HEAD` and keep only the images your change actually altered; `git checkout --` the rest. Committing the noise churns the diff and can pin a rendering that CI's Linux host disagrees with. Local `validate*ScreenshotTest` is **not** a usable gate on macOS — it already fails on a clean `main` checkout — so regenerate and triage locally, and let CI's `screenshot` job be the authority.
+- **Zero unresolved threads is not evidence of review.** Neither Gemini nor Copilot re-reviews on push, so a commit no bot has looked at raises no threads and reads identically to one reviewed and found clean. Before landing, compare each PR's last commit timestamp against its newest bot review (`gh api /repos/{owner}/{repo}/pulls/{n}/commits --jq '.[-1].commit.committer.date'` vs. the newest `reviews[].submittedAt`); if the review is older, re-request with `gh pr comment <n> --body "/gemini review"`. A stack multiplies the exposure — one restack silently invalidates the review on every branch above it.
+- **The release type is the maximum across the stack.** One `feat:`-titled child PR makes the whole epic a minor release; an all-`chore:`/`refactor:` stack cuts nothing. Relabel one child PR title to `feat` when the epic needs to reach Play.
+- **Verify the one-push assumption before trusting it** (see below).
+
+#### Pre-flight: confirm the atomic merge is one push
+
+This model depends on GitHub's atomic stack merge updating `main` in a **single push event**. If it instead lands N sequential ref updates, `Release` fires N times (`concurrency.cancel-in-progress: false` queues them all) and the epic cuts N versions.
+
+Count the `Release` runs immediately after the **first** stack lands:
+
+```bash
+gh stack merge --squash --yes
+gh run list --workflow=release.yaml --limit 5
+```
+
+**1 run** confirms the model. **N runs** means the atomic merge lands sequential ref updates, and the epic cut N versions — fall back to an integration branch: make `feat/<epic-id>-<slug>` the stack trunk (`gh stack init --base feat/<epic-id>-<slug> …`), merge children into it, and land the epic with one rebase-merge PR from the trunk to `main`.
+
+The `nubecita-47cg` "Follows you" stack (PRs #870 → #871) is the live first case. A real 2-PR stack answers this with better fidelity than a synthetic `chore:` probe and leaves no throwaway commits to revert; the only exposure if the answer is wrong is one extra version number.
 
 ### Branch names
 
@@ -62,9 +130,10 @@ Use `Refs:` on work-in-progress commits. `Closes: <bd-id>` goes in the **PR body
 
 ### Rules of thumb
 
-- One bd issue per branch. If scope grows, spawn a new bd issue.
-- PR title should be Conventional — on squash-merge it becomes the commit subject. (Currently enforced only by the local `commit-msg` pre-commit hook, not CI.)
-- `bd close` only after the PR merges.
+- One bd issue per branch. If scope grows, spawn a new bd issue — and if the work is an epic, that new issue becomes another branch in the same stack.
+- PR title should be Conventional — on squash-merge it becomes the commit subject, for a standalone PR and for every PR in a stack alike. (Currently enforced only by the local `commit-msg` pre-commit hook, not CI.)
+- `bd close` only after the PR merges. For an epic, that means after `gh stack merge` — close every child and the epic together.
+- An epic is "done" when its stack merges, not when its last child PR is approved. One epic, one release.
 
 ## Conventions
 
@@ -308,11 +377,13 @@ Nubecita Pro is an auto-renewing Google Play subscription mediated by RevenueCat
 
 #### Screenshot tests
 
-Run via the AGP `com.android.compose.screenshot` plugin. Baseline images are committed under `src/screenshotTest/`. Update baselines with:
+Run via the AGP `com.android.compose.screenshot` plugin. The `@Preview` **sources** live in `src/screenshotTest/kotlin/`; the committed baseline **images** live in a separate, variant-qualified tree — `src/screenshotTest<Flavor><BuildType>/reference/<package path>/` (e.g. `src/screenshotTestProductionDebug/reference/` for a flavored `:feature:*:impl` module, `src/screenshotTestDebug/reference/` for an unflavored one). Update baselines with:
 ```bash
 ./gradlew :designsystem:updateDebugScreenshotTest
-# (or the equivalent :feature:*:impl task)
+./gradlew :feature:profile:impl:updateProductionDebugScreenshotTest   # flavored modules
 ```
+
+Regeneration rewrites **every** baseline in the module, and on macOS most come back with 1/255 antialiasing noise. Keep only the images your change actually altered and `git checkout --` the rest — see `scripts/triage-screenshot-failures.py`. Local `validate*ScreenshotTest` currently fails on macOS even on a clean `main`, so treat CI's `screenshot` job as the authority rather than the local task.
 
 Feature modules that ship UI-touching tasks MUST include `@Preview` annotations and screenshot tests alongside unit tests. Add `run-instrumented` label to the PR if the task also needs instrumented tests.
 
