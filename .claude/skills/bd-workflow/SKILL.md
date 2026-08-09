@@ -16,8 +16,12 @@ Detect in **two** steps. `parent` is a bare id string (`"nubecita-1fy"`), not a 
 
 ```bash
 parent=$(bd show <id> --json | jq -r '.[0].parent // empty')
-[ -n "$parent" ] && bd show "$parent" --json | jq -r '.[0].issue_type'
+if [ -n "$parent" ]; then
+  bd show "$parent" --json | jq -r '.[0].issue_type'
+fi
 ```
+
+Use the `if` form, not `[ -n "$parent" ] && …`. The `&&` chain exits **1** when `parent` is empty, and "this issue has no parent" is a normal, expected outcome — under `set -e`, or in an agent harness that surfaces non-zero exit as a tool failure, the standalone path would look like an error every time.
 
 `epic` → stacked path. Empty `parent`, or a parent of any other type → standalone path. If the repo has no stack yet for that epic, the start flow creates it.
 
