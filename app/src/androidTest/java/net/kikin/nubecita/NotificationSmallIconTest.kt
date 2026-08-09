@@ -2,6 +2,7 @@ package net.kikin.nubecita
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Bundle
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import net.kikin.nubecita.data.ChatsAppModule
@@ -38,10 +39,23 @@ import org.junit.runner.RunWith
 class NotificationSmallIconTest {
     private val context: Context get() = ApplicationProvider.getApplicationContext()
 
-    private fun applicationMetaData() =
-        context.packageManager
-            .getApplicationInfo(context.packageName, PackageManager.GET_META_DATA)
-            .metaData
+    /**
+     * `ApplicationInfo.metaData` is a platform type and is genuinely `null`
+     * when the manifest declares no `<meta-data>` at all. Coercing that to an
+     * empty bundle would report it as "the icon key is missing", and letting
+     * it NPE would report nothing useful — either way the diagnostic, which
+     * is this test's whole reason to exist, gets worse. Fail loudly and
+     * distinctly instead.
+     */
+    private fun applicationMetaData(): Bundle =
+        requireNotNull(
+            context.packageManager
+                .getApplicationInfo(context.packageName, PackageManager.GET_META_DATA)
+                .metaData,
+        ) {
+            "The merged manifest declares no <meta-data> at all — not just a missing notification " +
+                "icon key. Something removed the whole block from AndroidManifest.xml."
+        }
 
     @Test
     fun firebaseRenderedNotifications_useTheNotificationDrawable_notTheLauncherIcon() {
