@@ -162,18 +162,26 @@ gh stack submit --auto --open
 
 Every restack re-fires CI on all branches above, so batch fixes rather than pushing one at a time.
 
-**Post-PR — tag Copilot for review:**
+**Post-PR — Copilot review: there is nothing to run.**
+
+Copilot is requested **exclusively** by the `Copilot review for default branch` ruleset, which fires once, ~1–2 s after a PR targeting `main` is opened (the resulting `review_requested` event is attributed to the PR author). You cannot trigger it, and you cannot make it re-review.
+
+Do **not** add a `requested_reviewers` call to any flow. It does nothing, on any PR:
 
 ```bash
-gh api -X POST /repos/<owner>/<repo>/pulls/<pr-number>/requested_reviewers \
-  -f 'reviewers[]=Copilot'
+# BOTH of these return 200 and register no reviewer. Neither works.
+gh api -X POST /repos/<owner>/<repo>/pulls/<n>/requested_reviewers -f 'reviewers[]=Copilot'
+gh api -X POST /repos/<owner>/<repo>/pulls/<n>/requested_reviewers -F 'reviewers[]=Copilot'
 ```
 
-The GitHub Copilot review bot is added via the literal handle `Copilot` (case-sensitive). `gh pr edit --add-reviewer copilot-pull-request-reviewer` and the GraphQL `requestReviews` mutation both fail — the REST endpoint with the `Copilot` handle is the only path that works for this repo.
+Verified on `nubecita-oljt`: repeated calls with both `-f` and `-F` produced **no** `review_requested` event on #871 (base = a stack branch) **or** on #869 (base = `main`, already reviewed at open). The only events on #869/#870 are the ruleset's, ~2 s after creation. The `-F` form is not a fix — the flag shape is a red herring, and the call does not 422 either.
 
-**Do NOT run this for a stack child — it does nothing.** The call returns 200 and registers no review request on any PR that doesn't target the default branch. Verified on the epic `nubecita-47cg` stack: #871 (base = the branch below it) never produced a `review_requested` event after two successful-looking calls and got no Copilot review, while #870 (base = `main`) was requested **by the ruleset** one second after creation — the API call was never the mechanism on either.
+Two consequences:
 
-So in a stack, Copilot covers the **bottom PR only**, and there is no workaround from the workflow side; widening the `Copilot review for default branch` ruleset is a repo-settings change. **Gemini does review every PR in the stack**, so coverage is partial rather than absent — lean on Gemini per-PR plus the top-of-stack full gate, and don't assume a stack child got a Copilot pass.
+- **Stack children never get Copilot.** They target the branch below them, so the ruleset skips them. Widening it is a repo-settings change, not a workflow one.
+- **No PR gets a Copilot *re*-review after a push**, including on `main`-targeting PRs. Copilot's verdict always describes the PR as of its opening commit.
+
+**Gemini is the re-requestable one** — `gh pr comment <n> --body "/gemini review"` works on every PR in a stack. Lean on Gemini per-PR plus the top-of-stack full gate, and never assume a stack child, or a pushed-to PR, carries a current Copilot pass.
 
 **Post-PR — monitor CI status AND review comments between turns:**
 
@@ -195,15 +203,18 @@ gh api graphql -f query='{ repository(owner:"<OWNER>",name:"<REPO>"){ pullReques
 
 ```bash
 gh api /repos/<OWNER>/<REPO>/pulls/<PR-NUMBER>/commits --jq '.[-1].commit.committer.date'
-gh api graphql -f query='{ repository(owner:"<OWNER>",name:"<REPO>"){ pullRequest(number:<PR-NUMBER>){ reviews(first:30){ nodes { author{login} submittedAt } } } } }' --jq '[.data.repository.pullRequest.reviews.nodes[] | select(.author.login|test("gemini|copilot")) | .submittedAt] | max'
+gh api graphql -f query='{ repository(owner:"<OWNER>",name:"<REPO>"){ pullRequest(number:<PR-NUMBER>){ reviews(first:30){ nodes { author{login} submittedAt } } } } }' --jq '[.data.repository.pullRequest.reviews.nodes[] | select((.author.login // "")|test("gemini|copilot")) | .submittedAt] | max'
 ```
 
-If the newest bot review predates the last commit, the latest work is **unreviewed** and the PR is not ready — regardless of how green it looks. **Neither bot re-reviews automatically on push.** Re-request them:
+`.author.login // ""` is load-bearing: a review by a deleted account has a **null** `author`, and `null | test(…)` aborts jq with `null (null) cannot be matched, as it is not a string` — which would kill the poll rather than skip the row. (`.[-1]` on an empty commits array needs no such guard; jq yields `null` through `.commit.committer.date` without erroring.)
+
+If the newest bot review predates the last commit, the latest work is **unreviewed** and the PR is not ready — regardless of how green it looks. **Neither bot re-reviews automatically on push**, and only one of them can be asked to:
 
 ```bash
 gh pr comment <PR-NUMBER> --body "/gemini review"
-gh api -X POST /repos/<OWNER>/<REPO>/pulls/<PR-NUMBER>/requested_reviewers -f 'reviewers[]=Copilot'
 ```
+
+There is no Copilot equivalent — see the Copilot section above. A pushed-to PR simply never regains a current Copilot review, so Gemini plus the local gate is the whole of the automated coverage on the newest commit.
 
 Pass all three to `CronCreate` with this decision logic in the prompt (write the commands into the prompt verbatim from the blocks above — do not add backslash escaping, which reaches the shell as literal backslashes and fails to parse):
 
