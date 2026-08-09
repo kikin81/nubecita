@@ -103,6 +103,48 @@ private fun ProfileHeroMutedScreenshot() {
 }
 
 @PreviewTest
+@Preview(name = "hero-follows-you-light", showBackground = true)
+@Preview(name = "hero-follows-you-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ProfileHeroFollowsYouScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            ProfileHero(
+                header = SAMPLE_HEADER.copy(followsYou = true),
+                headerError = null,
+                showSupporterBadge = false,
+                onRetryHeader = {},
+                onVerificationBadgeClick = {},
+            )
+        }
+    }
+}
+
+// Both chips at once — proves the "Follows you" and muted pills stack as one
+// family rather than colliding, which a single-chip fixture would not catch.
+@PreviewTest
+@Preview(name = "hero-follows-you-and-muted-light", showBackground = true)
+@Preview(name = "hero-follows-you-and-muted-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ProfileHeroFollowsYouAndMutedScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            ProfileHero(
+                header =
+                    SAMPLE_HEADER.copy(
+                        followsYou = true,
+                        viewerModeration = ViewerModerationState(isMutedByViewer = true),
+                    ),
+                headerError = null,
+                showSupporterBadge = false,
+                onRetryHeader = {},
+                onVerificationBadgeClick = {},
+            )
+        }
+    }
+}
+
+@PreviewTest
 @Preview(name = "hero-with-bio-link-light", showBackground = true)
 @Preview(name = "hero-with-bio-link-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
