@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786176183708,
+  "lastUpdate": 1786262816544,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -1673,6 +1673,64 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 692,
             "range": "+/- 3.7%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "60dc3a8e72891821663ecf5ba5bb79942e4b0b53",
+          "message": "ci(release): 1.335.3\n\n## [1.335.3](https://github.com/kikin81/nubecita/compare/v1.335.2...v1.335.3) (2026-08-09)\n\n### Miscellaneous\n\n* **deps:** update pre-commit hook @fission-ai/openspec to v1.8.0 ([#868](https://github.com/kikin81/nubecita/issues/868)) ([58b8f06](https://github.com/kikin81/nubecita/commit/58b8f06a95675bb635bcdf290e1b12f071e39bbd))\n\n### Bug Fixes\n\n* **deps:** update all non-major dependencies ([#844](https://github.com/kikin81/nubecita/issues/844)) ([e52bc1e](https://github.com/kikin81/nubecita/commit/e52bc1e5a59cba6094a5fba12caacc92325f5df4))",
+          "timestamp": "2026-08-09T04:29:57Z",
+          "url": "https://github.com/kikin81/nubecita/commit/60dc3a8e72891821663ecf5ba5bb79942e4b0b53"
+        },
+        "date": 1786262814221,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 30,
+            "range": "+/- 9%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1456.977,
+            "range": "+/- 1.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1272.007,
+            "range": "+/- 4.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1073.725,
+            "range": "+/- 18.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 979.372,
+            "range": "+/- 31.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 685,
+            "range": "+/- 3.6%",
             "unit": "frames"
           }
         ]
