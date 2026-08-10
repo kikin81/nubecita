@@ -14,6 +14,7 @@ import net.kikin.nubecita.feature.settings.api.AboutLicenses
 import net.kikin.nubecita.feature.settings.api.Appearance
 import net.kikin.nubecita.feature.settings.api.ContentFilters
 import net.kikin.nubecita.feature.settings.api.FeedPreferences
+import net.kikin.nubecita.feature.settings.api.MediaAndAnimations
 import net.kikin.nubecita.feature.settings.api.Moderation
 import net.kikin.nubecita.feature.settings.api.Settings
 import net.kikin.nubecita.feature.settings.impl.AboutLicensesScreen
@@ -21,6 +22,7 @@ import net.kikin.nubecita.feature.settings.impl.AboutScreen
 import net.kikin.nubecita.feature.settings.impl.AppearanceScreen
 import net.kikin.nubecita.feature.settings.impl.ContentFiltersScreen
 import net.kikin.nubecita.feature.settings.impl.FeedPreferencesScreen
+import net.kikin.nubecita.feature.settings.impl.MediaAndAnimationsScreen
 import net.kikin.nubecita.feature.settings.impl.ModerationScreen
 import net.kikin.nubecita.feature.settings.impl.SettingsScreen
 
@@ -91,6 +93,13 @@ internal object SettingsNavigationModule {
                     onBack = { navState.removeLast() },
                     onNavigateTo = { navState.add(it) },
                 )
+            }
+            // Media and animations — autoplay and GIF controls. Its own route
+            // rather than a section of Appearance: these govern data cost, not
+            // look and feel.
+            entry<MediaAndAnimations>(metadata = adaptiveDialog()) {
+                val navState = LocalMainShellNavState.current
+                MediaAndAnimationsScreen(onBack = { navState.removeLast() })
             }
             // Feed preferences — a top-level Settings row, not a Moderation
             // child: these govern what appears in the timeline, whereas

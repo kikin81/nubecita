@@ -102,4 +102,20 @@
     <string name="appearance_theme_dark">Oscuro</string>
     <string name="appearance_row_label">Apariencia</string>
     <string name="appearance_save_error">No se pudo guardar el cambio. Int\u00e9ntalo de nuevo.</string>
+    <string name="media_row_label">Multimedia y animaciones</string>
+    <string name="media_title">Multimedia y animaciones</string>
+    <string name="media_back_content_desc">Atrás</string>
+    <string name="media_description">Controla cuándo se reproducen solos los videos y las imágenes animadas.</string>
+    <string name="media_autoplay_video_header">Reproducir videos automáticamente</string>
+    <string name="media_autoplay_always">Siempre</string>
+    <string name="media_autoplay_always_supporting">Los videos se reproducen en cualquier conexión.</string>
+    <string name="media_autoplay_wifi_only">Solo con Wi-Fi</string>
+    <string name="media_autoplay_wifi_only_supporting">Los videos se reproducen solo en conexiones sin límite, para ahorrar datos móviles.</string>
+    <string name="media_autoplay_never">Nunca</string>
+    <string name="media_autoplay_never_supporting">Los videos esperan a que toques reproducir.</string>
+    <string name="media_animated_images_header">Imágenes animadas</string>
+    <string name="media_autoplay_gifs">Reproducir GIF automáticamente</string>
+    <string name="media_autoplay_gifs_supporting">Desactívalo para mostrar el primer fotograma hasta que toques.</string>
+    <string name="media_save_error">No se pudo guardar el cambio. Inténtalo de nuevo.</string>
+    <string name="media_row_value">Reproducción automática: %1$s</string>
 </resources>
