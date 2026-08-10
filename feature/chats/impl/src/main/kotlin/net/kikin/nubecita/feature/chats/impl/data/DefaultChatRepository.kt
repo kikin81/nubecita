@@ -311,6 +311,11 @@ internal class DefaultChatRepository
                         )
                     response.toMessageUi(viewerDid = viewerDid).also { patchConvoOnSend(convoId, it) }
                 }.onFailure { throwable ->
+                    // Rethrow cancellation rather than reporting it as a send failure —
+                    // matching refreshConvos / getMessages above. This matters more now
+                    // that a suspending facet extraction runs before the send: leaving
+                    // the convo mid-send is a normal cancellation, not an error.
+                    if (throwable is CancellationException) throw throwable
                     Timber.tag(TAG).w(throwable, "sendMessage failed: %s", throwable.javaClass.name)
                 }
             }

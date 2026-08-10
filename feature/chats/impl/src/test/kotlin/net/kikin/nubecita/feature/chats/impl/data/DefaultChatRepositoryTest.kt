@@ -872,5 +872,8 @@ private fun OutgoingContent.toBodyString(): String =
     when (this) {
         is OutgoingContent.ByteArrayContent -> bytes().decodeToString()
         is io.ktor.http.content.TextContent -> text
-        else -> ""
+        // NOT "" — an empty body would make `assertTrue(!body.contains("facets"))`
+        // pass for a request whose body simply could not be read, which is the
+        // vacuous-pass failure mode these tests exist to rule out.
+        else -> error("unhandled OutgoingContent type ${this::class.simpleName}; cannot assert on the body")
     }

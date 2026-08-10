@@ -199,8 +199,9 @@ data class MessageUi(
      * contract. Renderers must not index [text] with them directly.
      *
      * Empty for messages sent before nubecita attached facets, and for other
-     * clients that omit them; the bubble falls back to detecting links in
-     * [text] so those stay tappable.
+     * clients that omit them. Renderers should treat an empty list as "the
+     * server told us nothing", not as "there is nothing here" — the bubble
+     * grew a regex fallback for exactly that case in a later change.
      */
     val facets: ImmutableList<Facet> = persistentListOf(),
     val isDeleted: Boolean,
