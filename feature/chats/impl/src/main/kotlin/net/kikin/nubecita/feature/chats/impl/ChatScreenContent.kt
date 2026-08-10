@@ -51,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -61,6 +62,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.designsystem.component.AvatarGroup
 import net.kikin.nubecita.designsystem.component.NubecitaAvatar
 import net.kikin.nubecita.designsystem.component.NubecitaPrimaryButton
@@ -73,6 +75,7 @@ import net.kikin.nubecita.feature.chats.impl.ui.DaySeparatorChip
 import net.kikin.nubecita.feature.chats.impl.ui.EmojiPickerDialog
 import net.kikin.nubecita.feature.chats.impl.ui.MessageBubble
 import net.kikin.nubecita.feature.chats.impl.ui.ReactionMenu
+import net.kikin.nubecita.feature.chats.impl.ui.openMessageLinkInCustomTab
 
 /**
  * Stateless content for a single chat thread. The stateful entry
@@ -92,6 +95,8 @@ internal fun ChatScreenContent(
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     val listState = rememberLazyListState()
+    // For opening tapped message links in a Custom Tab.
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     Scaffold(
@@ -273,6 +278,15 @@ internal fun ChatScreenContent(
                             listState = listState,
                             canPost = state.canPost,
                             onQuotedPostTap = { uri -> onEvent(ChatEvent.QuotedPostTapped(uri)) },
+                            // A link opens in-app: a browser hop is a pure UI concern,
+                            // same as a profile bio link. A mention is navigation, so it
+                            // goes through the VM like every other tab-internal route.
+                            onFacetTap = { target ->
+                                when (target) {
+                                    is FacetTarget.Link -> openMessageLinkInCustomTab(context, target.uri)
+                                    is FacetTarget.Mention -> onEvent(ChatEvent.MentionTapped(target.did))
+                                }
+                            },
                             onRetrySend = { tempId -> onEvent(ChatEvent.RetrySend(tempId)) },
                             onReactionToggle = { messageId, emoji ->
                                 onEvent(ChatEvent.ToggleReaction(messageId, emoji))
@@ -564,6 +578,7 @@ private fun LoadedBody(
     listState: LazyListState,
     canPost: Boolean,
     onQuotedPostTap: (quotedPostUri: String) -> Unit,
+    onFacetTap: (FacetTarget) -> Unit,
     onRetrySend: (tempId: String) -> Unit,
     onReactionToggle: (messageId: String, emoji: String) -> Unit,
     onReply: (messageId: String) -> Unit,
@@ -648,6 +663,7 @@ private fun LoadedBody(
                                     runIndex = item.runIndex,
                                     runCount = item.runCount,
                                     onQuotedPostTap = onQuotedPostTap,
+                                    onFacetTap = onFacetTap,
                                     onRetrySend = onRetrySend,
                                     onReactionToggle = { emoji ->
                                         onReactionToggle(item.message.id, emoji)
@@ -702,6 +718,7 @@ private fun LoadedBody(
                                 runIndex = item.runIndex,
                                 runCount = item.runCount,
                                 onQuotedPostTap = onQuotedPostTap,
+                                onFacetTap = onFacetTap,
                                 onRetrySend = onRetrySend,
                                 onReactionToggle = { emoji ->
                                     onReactionToggle(item.message.id, emoji)

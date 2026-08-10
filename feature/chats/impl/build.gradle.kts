@@ -52,6 +52,7 @@ dependencies {
     implementation(project(":feature:profile:api"))
     // BackHandler — exits multi-select mode on a back press before the press
     // falls through to inner-NavDisplay back navigation.
+    implementation(libs.androidx.browser)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     // NotificationCompat / MessagingStyle / NotificationManagerCompat for the

@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.designsystem.component.PostCardQuotedPost
 import net.kikin.nubecita.designsystem.component.PostCardRecordUnavailable
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -122,6 +123,7 @@ internal fun MessageBubble(
     onQuotedPostTap: (quotedPostUri: String) -> Unit = {},
     onRetrySend: (tempId: String) -> Unit = {},
     onReactionToggle: (emoji: String) -> Unit = {},
+    onFacetTap: (FacetTarget) -> Unit = {},
 ) {
     Column(
         modifier = modifier.widthIn(max = maxWidth),
@@ -138,6 +140,7 @@ internal fun MessageBubble(
                         runIndex = runIndex,
                         runCount = runCount,
                         onQuotedPostTap = onQuotedPostTap,
+                        onFacetTap = onFacetTap,
                     )
                 },
                 reactions = {
@@ -157,6 +160,7 @@ internal fun MessageBubble(
                 runIndex = runIndex,
                 runCount = runCount,
                 onQuotedPostTap = onQuotedPostTap,
+                onFacetTap = onFacetTap,
             )
         }
         // Send-status footer for outgoing rows only; server-fetched + reconciled
@@ -183,6 +187,7 @@ private fun MessageBubbleBody(
     runIndex: Int,
     runCount: Int,
     onQuotedPostTap: (quotedPostUri: String) -> Unit,
+    onFacetTap: (FacetTarget) -> Unit,
 ) {
     val embed = message.embed
     val showTextBubble = message.isDeleted || message.text.isNotEmpty() || embed == null
@@ -199,6 +204,7 @@ private fun MessageBubbleBody(
                 message = message,
                 runIndex = runIndex,
                 runCount = runCount,
+                onFacetTap = onFacetTap,
             )
         }
         if (embed != null) {
@@ -419,6 +425,7 @@ private fun MessageTextBubble(
     message: MessageUi,
     runIndex: Int,
     runCount: Int,
+    onFacetTap: (FacetTarget) -> Unit,
 ) {
     val shape = messageBubbleShape(index = runIndex, count = runCount, isOutgoing = message.isOutgoing)
     val containerColor =
@@ -449,7 +456,17 @@ private fun MessageTextBubble(
             )
         } else {
             Text(
-                text = message.text,
+                text =
+                    rememberMessageBodyAnnotatedString(
+                        text = message.text,
+                        facets = message.facets,
+                        // The bubble's own content colour, NOT colorScheme.primary:
+                        // primary on primaryContainer is 3.11:1 in the light scheme,
+                        // under the 4.5:1 AA floor. The underline carries the
+                        // affordance instead.
+                        linkColor = contentColor,
+                        onFacetTap = onFacetTap,
+                    ),
                 style = MaterialTheme.typography.bodyLarge,
                 color = contentColor,
             )

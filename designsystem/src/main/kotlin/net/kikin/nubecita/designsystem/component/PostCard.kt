@@ -321,19 +321,27 @@ private fun BodyText(
  * Memoized on `(text, facets, linkStyle)`; the tap listener reads the latest
  * [onFacetTap] via [rememberUpdatedState] so the string isn't rebuilt when the
  * host's lambda identity changes.
+ *
+ * Public because DM bubbles render the same richtext (`:feature:chats:impl`).
+ * Sharing the builder is not just deduplication — it carries the http(s)-only
+ * guard below, which matters more in a DM than in a post, since the facet comes
+ * from whoever messaged you. Pass a [linkStyle] whose colour is legible against
+ * the host's own background: `colorScheme.primary` fails AA on a
+ * `primaryContainer` bubble (3.11:1 in the light scheme).
  */
 @Composable
-private fun rememberTappableBlueskyAnnotatedString(
+fun rememberTappableBlueskyAnnotatedString(
     text: String,
     facets: kotlinx.collections.immutable.ImmutableList<Facet>,
     onFacetTap: (FacetTarget) -> Unit,
     linkStyle: SpanStyle = SpanStyle(color = MaterialTheme.colorScheme.primary),
+    linkStyles: TextLinkStyles? = null,
 ): AnnotatedString {
     // The listener reads the latest lambda so the string (memoized on the keys
     // below) isn't rebuilt when the host's onFacetTap identity changes.
     val latestOnFacetTap = rememberUpdatedState(onFacetTap)
-    return remember(text, facets, linkStyle) {
-        buildTappableBlueskyAnnotatedString(text, facets, linkStyle) { latestOnFacetTap.value(it) }
+    return remember(text, facets, linkStyle, linkStyles) {
+        buildTappableBlueskyAnnotatedString(text, facets, linkStyle, linkStyles) { latestOnFacetTap.value(it) }
     }
 }
 
@@ -347,6 +355,7 @@ internal fun buildTappableBlueskyAnnotatedString(
     text: String,
     facets: kotlinx.collections.immutable.ImmutableList<Facet>,
     linkStyle: SpanStyle,
+    linkStyles: TextLinkStyles? = null,
     onFacetTap: (FacetTarget) -> Unit,
 ): AnnotatedString {
     // Preserve the established rendering exactly — only tappability is new:
@@ -380,8 +389,15 @@ internal fun buildTappableBlueskyAnnotatedString(
                     // styled-but-inert (like a tag). The http(s)-only contract is
                     // enforced here, at the single source every host reads from.
                     if (uri.isHttpUri()) {
+                        // `linkStyles` is load-bearing when non-null: a bare
+                        // LinkAnnotation takes the THEME's default TextLinkStyles,
+                        // which paints the link `primary` and silently overrides the
+                        // addStyle(linkStyle) above. On a tinted container that is an
+                        // accessibility bug — primary on primaryContainer measures
+                        // 3.11:1 in the light scheme — so hosts with a coloured
+                        // background must pass their own (nubecita-io24.2).
                         addLink(
-                            LinkAnnotation.Clickable(tag = "link") {
+                            LinkAnnotation.Clickable(tag = "link", styles = linkStyles) {
                                 onFacetTap(FacetTarget.Link(uri))
                             },
                             startChar,
