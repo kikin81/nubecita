@@ -25,11 +25,25 @@ import org.junit.runner.RunWith
 class EmojiPickerViewThemeTest {
     private val context: Context get() = ApplicationProvider.getApplicationContext()
 
+    /**
+     * `textColorPrimary` resolves either to an inline colour (in [TypedValue.data],
+     * with `resourceId == 0`) or to a resource — usually a `ColorStateList`. Reading
+     * `getColor(out.resourceId)` unconditionally throws `Resources.NotFoundException`
+     * in the inline case, so branch on the type rather than assuming the shape the
+     * current platform theme happens to use.
+     */
     private fun textColorPrimaryOf(isDark: Boolean): Int {
         val themed = emojiPickerThemedContext(context, isDark)
         val out = TypedValue()
-        themed.theme.resolveAttribute(android.R.attr.textColorPrimary, out, true)
-        return themed.getColor(out.resourceId)
+        check(themed.theme.resolveAttribute(android.R.attr.textColorPrimary, out, true)) {
+            "textColorPrimary did not resolve in the ${if (isDark) "dark" else "light"} picker theme"
+        }
+        return if (out.type in TypedValue.TYPE_FIRST_COLOR_INT..TypedValue.TYPE_LAST_COLOR_INT) {
+            out.data
+        } else {
+            // A ColorStateList resource: getColorStateList gives us its default.
+            themed.getColorStateList(out.resourceId).defaultColor
+        }
     }
 
     @Test
