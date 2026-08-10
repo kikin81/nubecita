@@ -9,11 +9,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
@@ -53,18 +51,20 @@ internal fun EmojiPickerDialog(
             // Luminance of `surface` is the honest signal and works under dynamic
             // colour too.
             val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-            val context = LocalContext.current
-            val themedContext = remember(context, isDark) { emojiPickerThemedContext(context, isDark) }
             // `factory` runs ONCE, so the listener it installs would pin whatever
             // `onEmojiPicked` was current at first composition. rememberUpdatedState
             // keeps the View calling the latest one without recreating it.
             val latestOnEmojiPicked = rememberUpdatedState(onEmojiPicked)
-            // key(themedContext) so a theme flip WHILE the picker is open rebuilds the
-            // View — factory alone would never re-run, leaving the old theme applied.
-            key(themedContext) {
+            // key(isDark) so a theme flip WHILE the picker is open rebuilds the View —
+            // factory alone would never re-run, leaving the old theme applied.
+            key(isDark) {
                 AndroidView(
-                    factory = {
-                        EmojiPickerView(themedContext).apply {
+                    // Wrap the context `factory` hands us rather than
+                    // LocalContext.current: that one already carries whatever
+                    // wrappers Compose applied for this host (previews, embedded
+                    // configurations), and reaching past it would drop them.
+                    factory = { context ->
+                        EmojiPickerView(emojiPickerThemedContext(context, isDark)).apply {
                             setOnEmojiPickedListener { item -> latestOnEmojiPicked.value(item.emoji) }
                         }
                     },
