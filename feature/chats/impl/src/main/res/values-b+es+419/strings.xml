@@ -63,6 +63,8 @@
     <string name="chat_react_more">Más emojis</string>
     <string name="chat_react_long_press">Reaccionar</string>
     <string name="chat_reply_action">Responder</string>
+    <string name="chat_copy_action">Copiar</string>
+    <string name="chat_copied_confirmation">Mensaje copiado</string>
     <string name="chat_reply_you">Tú</string>
     <string name="chat_reply_banner">Respondiendo a %1$s</string>
     <string name="chat_reply_banner_no_name">Respondiendo</string>

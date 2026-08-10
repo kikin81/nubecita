@@ -51,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -75,6 +76,8 @@ import net.kikin.nubecita.feature.chats.impl.ui.DaySeparatorChip
 import net.kikin.nubecita.feature.chats.impl.ui.EmojiPickerDialog
 import net.kikin.nubecita.feature.chats.impl.ui.MessageBubble
 import net.kikin.nubecita.feature.chats.impl.ui.ReactionMenu
+import net.kikin.nubecita.feature.chats.impl.ui.copyActionOrNull
+import net.kikin.nubecita.feature.chats.impl.ui.copyMessageText
 import net.kikin.nubecita.feature.chats.impl.ui.openMessageLinkInCustomTab
 
 /**
@@ -585,6 +588,10 @@ private fun LoadedBody(
 ) {
     // Tracks which message (by id) currently shows the long-press quick-react menu.
     var reactionMenuFor by remember { mutableStateOf<String?>(null) }
+    // Copy target: the clipboard write is suspend, so it needs a scope.
+    val context = LocalContext.current
+    val clipboard = LocalClipboard.current
+    val copyScope = rememberCoroutineScope()
     // Tracks which message (by id) currently shows the full emoji picker dialog.
     var pickerFor by remember { mutableStateOf<String?>(null) }
     LazyColumn(
@@ -689,6 +696,11 @@ private fun LoadedBody(
                                             onReply(message.id)
                                             reactionMenuFor = null
                                         },
+                                        onCopy =
+                                            message.copyActionOrNull {
+                                                copyScope.launch { copyMessageText(context, clipboard, it) }
+                                                reactionMenuFor = null
+                                            },
                                         onDismiss = { reactionMenuFor = null },
                                     )
                                 }
@@ -744,6 +756,11 @@ private fun LoadedBody(
                                         onReply(message.id)
                                         reactionMenuFor = null
                                     },
+                                    onCopy =
+                                        message.copyActionOrNull {
+                                            copyScope.launch { copyMessageText(context, clipboard, it) }
+                                            reactionMenuFor = null
+                                        },
                                     onDismiss = { reactionMenuFor = null },
                                 )
                             }

@@ -38,6 +38,10 @@ internal fun ReactionMenu(
     onMore: () -> Unit,
     onReply: () -> Unit,
     onDismiss: () -> Unit,
+    // Null when there is nothing to copy — a deleted message, or one whose only
+    // content is a quoted-post embed. An always-present Copy that silently does
+    // nothing is worse than no Copy at all.
+    onCopy: (() -> Unit)? = null,
 ) {
     Popup(
         alignment = Alignment.Center,
@@ -81,26 +85,59 @@ internal fun ReactionMenu(
                     }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
-                            .clickable(onClick = onReply)
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    NubecitaIcon(
-                        name = NubecitaIconName.Reply,
-                        contentDescription = null,
-                    )
-                    Text(
-                        text = stringResource(R.string.chat_reply_action),
-                        style = MaterialTheme.typography.bodyLarge,
+                // Copy lives HERE rather than on a long-press of its own: the
+                // bubble's long-press already opens this menu, so a second
+                // long-press gesture would have to fight it (nubecita-io24.3).
+                // The bottom rounding belongs to whichever row is last.
+                MenuActionRow(
+                    icon = NubecitaIconName.Reply,
+                    label = stringResource(R.string.chat_reply_action),
+                    isLast = onCopy == null,
+                    onClick = onReply,
+                )
+                if (onCopy != null) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    MenuActionRow(
+                        icon = NubecitaIconName.ContentCopy,
+                        label = stringResource(R.string.chat_copy_action),
+                        isLast = true,
+                        onClick = onCopy,
                     )
                 }
             }
         }
+    }
+}
+
+/**
+ * One full-width action row in the long-press menu. [isLast] carries the
+ * bottom corner rounding, which has to follow the final row rather than being
+ * pinned to Reply — otherwise adding Copy leaves a square corner over the
+ * Surface's rounded one.
+ */
+@Composable
+private fun MenuActionRow(
+    icon: NubecitaIconName,
+    label: String,
+    isLast: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(
+                    if (isLast) {
+                        RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
+                    } else {
+                        RoundedCornerShape(0.dp)
+                    },
+                ).clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        NubecitaIcon(name = icon, contentDescription = null)
+        Text(text = label, style = MaterialTheme.typography.bodyLarge)
     }
 }
