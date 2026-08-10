@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.chats.impl
 
 import androidx.compose.runtime.Immutable
+import io.github.kikin81.atproto.app.bsky.richtext.Facet
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
@@ -169,11 +170,17 @@ sealed interface ThreadItem {
  * `MessageView.embed` resolved to `app.bsky.embed.record#view`. The
  * chat lexicon (`chat.bsky.convo.defs#messageView.embed`) only admits
  * the record-embed variant — external links, images, and video are
- * not part of the chat wire format and surface either as plain `text`
- * (external URLs, facets-pending) or are not transmittable at all.
+ * not part of the chat wire format and are not transmittable at all.
  * That constraint is why `embed` is typed as
  * [EmbedUi.RecordOrUnavailable] (Record + RecordUnavailable) rather
  * than the broader [EmbedUi].
+ *
+ * It also means a DM can never carry a rich link preview: there is no
+ * external-embed member to put one in. An external URL travels as
+ * [text] plus a link [facets] entry, and renders as a tappable link
+ * rather than a card. That is a protocol limit, not a missing feature —
+ * fetching link metadata client-side would hit every URL anyone sends
+ * you and still show nothing to other clients (nubecita-io24).
  */
 @Immutable
 data class MessageUi(
@@ -181,6 +188,21 @@ data class MessageUi(
     val senderDid: String,
     val isOutgoing: Boolean,
     val text: String,
+    /**
+     * Richtext annotations over [text] — `@handle` mentions and URLs — carried
+     * verbatim from the wire `MessageView.facets`. DMs facet exactly like posts
+     * do; the field was simply being dropped by the mapper, which is why links
+     * rendered as inert text (nubecita-io24.1).
+     *
+     * Byte offsets are **UTF-8**, not UTF-16 char indices — see
+     * [net.kikin.nubecita.core.posting.FacetExtractor] for the conversion
+     * contract. Renderers must not index [text] with them directly.
+     *
+     * Empty for messages sent before nubecita attached facets, and for other
+     * clients that omit them; the bubble falls back to detecting links in
+     * [text] so those stay tappable.
+     */
+    val facets: ImmutableList<Facet> = persistentListOf(),
     val isDeleted: Boolean,
     val sentAt: Instant,
     val embed: EmbedUi.RecordOrUnavailable? = null,

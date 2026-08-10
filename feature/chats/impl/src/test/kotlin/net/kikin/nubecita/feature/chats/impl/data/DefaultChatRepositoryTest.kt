@@ -1,6 +1,11 @@
 package net.kikin.nubecita.feature.chats.impl.data
 
+import io.github.kikin81.atproto.app.bsky.richtext.Facet
+import io.github.kikin81.atproto.app.bsky.richtext.FacetByteSlice
+import io.github.kikin81.atproto.app.bsky.richtext.FacetFeaturesUnion
+import io.github.kikin81.atproto.app.bsky.richtext.FacetLink
 import io.github.kikin81.atproto.runtime.NoAuth
+import io.github.kikin81.atproto.runtime.Uri
 import io.github.kikin81.atproto.runtime.XrpcClient
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -10,8 +15,11 @@ import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.HttpResponseData
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
 import io.ktor.utils.io.ByteReadChannel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +31,7 @@ import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
+import net.kikin.nubecita.core.posting.FacetExtractor
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.JoinRule
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -334,6 +343,52 @@ internal class DefaultChatRepositoryTest {
         runTest {
             val (_, repo) = newRepo(signedIn = true) { errorJson() }
             assertTrue(repo.getMessages("c1", cursor = null, limit = 30).isFailure)
+        }
+
+    @Test
+    fun sendMessage_attachesExtractedFacetsToTheWireRequest() =
+        runTest {
+            // A DM without facets is inert text in EVERY client — the appview does
+            // not derive links server-side. This pins that whatever the extractor
+            // produces actually reaches sendMessage's body.
+            val link =
+                Facet(
+                    index = FacetByteSlice(byteStart = 6L, byteEnd = 29L),
+                    features = listOf<FacetFeaturesUnion>(FacetLink(uri = Uri("https://example.com"))),
+                )
+            val (engine, repo) =
+                newRepo(signedIn = true, facets = persistentListOf(link)) {
+                    okJson(messageViewJson(id = "m1", senderDid = VIEWER_DID, text = "check https://example.com"))
+                }
+
+            repo.sendMessage(convoId = "c1", text = "check https://example.com", replyToMessageId = null).getOrThrow()
+
+            val body =
+                engine.requestHistory
+                    .last()
+                    .body
+                    .toBodyString()
+            assertTrue(body.contains("facets"), "sendMessage body carried no facets: $body")
+            assertTrue(body.contains("https://example.com"), "facet link uri missing from body: $body")
+        }
+
+    @Test
+    fun sendMessage_withNoFacets_omitsTheFieldEntirely() =
+        runTest {
+            // Lexicon convention: absent rather than a defined-but-empty array.
+            val (engine, repo) =
+                newRepo(signedIn = true, facets = persistentListOf()) {
+                    okJson(messageViewJson(id = "m1", senderDid = VIEWER_DID, text = "no links here"))
+                }
+
+            repo.sendMessage(convoId = "c1", text = "no links here", replyToMessageId = null).getOrThrow()
+
+            val body =
+                engine.requestHistory
+                    .last()
+                    .body
+                    .toBodyString()
+            assertTrue(!body.contains("facets"), "expected no facets key for facet-less text: $body")
         }
 
     @Test
@@ -703,6 +758,7 @@ internal class DefaultChatRepositoryTest {
 
     private fun newRepo(
         signedIn: Boolean,
+        facets: ImmutableList<Facet> = persistentListOf(),
         handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
     ): Pair<MockEngine, DefaultChatRepository> {
         val engine = MockEngine(handler)
@@ -728,6 +784,14 @@ internal class DefaultChatRepositoryTest {
                             )
 
                         override suspend fun refresh() = Unit
+                    },
+                // Canned rather than the real DefaultFacetExtractor, which is
+                // internal to :core:posting and would resolve mentions over the
+                // network. What matters here is that whatever the extractor
+                // returns reaches the wire.
+                facetExtractor =
+                    object : FacetExtractor {
+                        override suspend fun extract(text: String): ImmutableList<Facet> = facets
                     },
                 dispatcher = UnconfinedTestDispatcher(),
             )
@@ -801,3 +865,12 @@ internal class DefaultChatRepositoryTest {
         const val VIEWER_DID = "did:plc:viewer000"
     }
 }
+
+// Same extraction helper DefaultChatSettingsRepositoryTest uses — mock-engine
+// request bodies arrive as OutgoingContent, not a string.
+private fun OutgoingContent.toBodyString(): String =
+    when (this) {
+        is OutgoingContent.ByteArrayContent -> bytes().decodeToString()
+        is io.ktor.http.content.TextContent -> text
+        else -> ""
+    }

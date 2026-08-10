@@ -35,6 +35,7 @@ dependencies {
     // FollowRepository for the group-details per-member Follow toggle
     // (the shared follow/unfollow write surface; profile uses the same one).
     implementation(project(":core:post-interactions"))
+    implementation(project(":core:posting"))
     // DM-poll cursor + the message-checking opt-in toggle (the background
     // worker's gate). nubecita-1fy.15.
     implementation(project(":core:preferences"))

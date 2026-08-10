@@ -52,6 +52,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.posting.FacetExtractor
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.GroupPublicInfoUi
@@ -67,6 +68,7 @@ internal class DefaultChatRepository
     constructor(
         private val xrpcClientProvider: XrpcClientProvider,
         private val sessionStateProvider: SessionStateProvider,
+        private val facetExtractor: FacetExtractor,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : ChatRepository {
         // Single source of truth for the ACCEPTED convo list, shared across both
@@ -276,6 +278,18 @@ internal class DefaultChatRepository
                 runCatching {
                     val viewerDid = currentViewerDid()
                     val client = xrpcClientProvider.authenticated()
+                    // Facet before sending. A message without facets is inert text
+                    // in EVERY client, not just ours — the appview does not derive
+                    // links server-side (nubecita-io24.1). Same extractor the post
+                    // composer uses, so a link or @mention behaves identically
+                    // whether it was posted or DM'd.
+                    //
+                    // `extract` resolves mentions over the network, so text with an
+                    // @handle costs one extra round trip before the send. Text with
+                    // only URLs resolves nothing. The empty list maps to
+                    // AtField.Missing rather than a defined-but-empty array, per the
+                    // lexicon convention noted on FacetExtractor.
+                    val facets = facetExtractor.extract(text)
                     val response =
                         ConvoService(client).sendMessage(
                             SendMessageRequest(
@@ -283,6 +297,11 @@ internal class DefaultChatRepository
                                 message =
                                     MessageInput(
                                         text = text,
+                                        facets =
+                                            facets
+                                                .takeIf { it.isNotEmpty() }
+                                                ?.let { present(it) }
+                                                ?: AtField.Missing,
                                         replyTo =
                                             replyToMessageId
                                                 ?.let { present(ReplyRef(messageId = it)) }
