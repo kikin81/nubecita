@@ -46,6 +46,7 @@ import net.kikin.nubecita.feature.chats.impl.NewGroupScreen
 import net.kikin.nubecita.feature.chats.impl.selectedConvoId
 import net.kikin.nubecita.feature.chats.impl.selectedOtherUserDid
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
+import net.kikin.nubecita.feature.profile.api.Profile
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -139,6 +140,10 @@ internal object ChatsNavigationModule {
                     viewModel = viewModel,
                     onNavigateBack = { navState.removeLast() },
                     onNavigateToPost = { uri -> navState.add(PostDetailRoute(postUri = uri)) },
+                    // `Profile.handle` resolves a DID or a handle interchangeably
+                    // (see its KDoc), so a mention's raw DID routes directly — no
+                    // handle lookup needed just to open the screen.
+                    onNavigateToProfile = { did -> navState.add(Profile(handle = did)) },
                     onNavigateToGroupDetails = { convoId -> navState.add(GroupDetails(convoId = convoId)) },
                 )
             }

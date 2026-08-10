@@ -12,6 +12,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
+import io.github.kikin81.atproto.app.bsky.richtext.Facet
+import io.github.kikin81.atproto.app.bsky.richtext.FacetByteSlice
+import io.github.kikin81.atproto.app.bsky.richtext.FacetFeaturesUnion
+import io.github.kikin81.atproto.app.bsky.richtext.FacetLink
+import io.github.kikin81.atproto.runtime.Uri
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.designsystem.NubecitaTheme
@@ -29,6 +34,7 @@ private fun mu(
     sendStatus: MessageSendStatus = MessageSendStatus.Sent,
     reactions: ImmutableList<ReactionUi> = persistentListOf(),
     replyTo: RepliedMessageUi? = null,
+    facets: ImmutableList<Facet> = persistentListOf(),
 ): MessageUi =
     MessageUi(
         id = id,
@@ -40,7 +46,88 @@ private fun mu(
         sendStatus = sendStatus,
         reactions = reactions,
         replyTo = replyTo,
+        facets = facets,
     )
+
+/** A link facet over the trailing URL of [LINK_TEXT]. Byte offsets, not chars. */
+private fun linkFacet(): Facet =
+    Facet(
+        index = FacetByteSlice(byteStart = 5L, byteEnd = 31L),
+        features = listOf<FacetFeaturesUnion>(FacetLink(uri = Uri("https://nubecita.app/hello"))),
+    )
+
+private const val LINK_TEXT = "look https://nubecita.app/hello"
+
+@PreviewTest
+@Preview(name = "bubble-link-outgoing-light", showBackground = true)
+@Preview(name = "bubble-link-outgoing-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun LinkOutgoing() {
+    // The outgoing bubble is the contrast-critical one: its background is
+    // primaryContainer, where colorScheme.primary would measure 3.11:1 (light).
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalAlignment = Alignment.End,
+            ) {
+                MessageBubble(
+                    mu(isOutgoing = true, text = LINK_TEXT, facets = persistentListOf(linkFacet())),
+                    runIndex = 0,
+                    runCount = 1,
+                )
+            }
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "bubble-link-incoming-light", showBackground = true)
+@Preview(name = "bubble-link-incoming-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun LinkIncoming() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                MessageBubble(
+                    mu(isOutgoing = false, text = LINK_TEXT, facets = persistentListOf(linkFacet())),
+                    runIndex = 0,
+                    runCount = 1,
+                )
+            }
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "bubble-link-fallback-light", showBackground = true)
+@Preview(name = "bubble-link-fallback-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun LinkFallbackNoFacets() {
+    // No facets at all — every message sent before nubecita attached them.
+    // Must still linkify, via the regex fallback, and look identical to the
+    // faceted bubble above. If these two ever diverge visually, the fallback
+    // has drifted from the shared renderer.
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalAlignment = Alignment.End,
+            ) {
+                MessageBubble(
+                    mu(isOutgoing = true, text = LINK_TEXT, facets = persistentListOf()),
+                    runIndex = 0,
+                    runCount = 1,
+                )
+            }
+        }
+    }
+}
 
 @PreviewTest
 @Preview(name = "bubble-incoming-single-light", showBackground = true)

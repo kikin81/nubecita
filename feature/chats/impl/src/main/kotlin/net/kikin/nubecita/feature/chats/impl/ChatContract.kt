@@ -289,6 +289,15 @@ sealed interface ChatEvent : UiEvent {
         val quotedPostUri: String,
     ) : ChatEvent
 
+    /**
+     * User tapped an `@mention` inside a message body. Carries the mentioned
+     * account's DID (from the facet, not a handle lookup), which the VM turns
+     * into [ChatEffect.NavigateToProfile].
+     */
+    data class MentionTapped(
+        val did: String,
+    ) : ChatEvent
+
     /** User tapped "Group details" in the thread overflow menu (group convos only). */
     data object GroupDetailsTapped : ChatEvent
 
@@ -318,6 +327,11 @@ sealed interface ChatEffect : UiEffect {
     /** Push the post-detail screen for the tapped quoted-post URI. */
     data class NavigateToPost(
         val postUri: String,
+    ) : ChatEffect
+
+    /** Push the profile screen for a tapped `@mention`. */
+    data class NavigateToProfile(
+        val did: String,
     ) : ChatEffect
 
     /** Push the group-details screen for the open group convo. */

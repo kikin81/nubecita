@@ -133,6 +133,9 @@ class ChatViewModel
                 is ChatEvent.RetrySend -> onRetrySend(event.tempId)
                 is ChatEvent.QuotedPostTapped ->
                     sendEffect(ChatEffect.NavigateToPost(event.quotedPostUri))
+                is ChatEvent.MentionTapped ->
+                    sendEffect(ChatEffect.NavigateToProfile(event.did))
+
                 ChatEvent.GroupDetailsTapped -> onGroupDetailsTapped()
                 ChatEvent.AcceptRequest -> onAcceptRequest()
                 is ChatEvent.ToggleReaction -> onToggleReaction(event.messageId, event.emoji)

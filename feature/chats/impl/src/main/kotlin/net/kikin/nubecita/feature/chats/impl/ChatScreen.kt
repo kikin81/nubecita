@@ -31,12 +31,14 @@ internal fun ChatScreen(
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
     onNavigateToPost: (postUri: String) -> Unit = {},
+    onNavigateToProfile: (did: String) -> Unit = {},
     onNavigateToGroupDetails: (convoId: String) -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val currentOnNavigateBack by rememberUpdatedState(onNavigateBack)
     val currentOnNavigateToPost by rememberUpdatedState(onNavigateToPost)
+    val currentOnNavigateToProfile by rememberUpdatedState(onNavigateToProfile)
     val currentOnNavigateToGroupDetails by rememberUpdatedState(onNavigateToGroupDetails)
     // Pre-resolve snackbar copy at composition so locale + dark-mode changes
     // participate in recomposition (reading via context.getString inside the
@@ -59,6 +61,7 @@ internal fun ChatScreen(
         viewModel.effects.collect { effect ->
             when (effect) {
                 is ChatEffect.NavigateToPost -> currentOnNavigateToPost(effect.postUri)
+                is ChatEffect.NavigateToProfile -> currentOnNavigateToProfile(effect.did)
                 is ChatEffect.NavigateToGroupDetails -> currentOnNavigateToGroupDetails(effect.convoId)
                 ChatEffect.ShowAcceptError ->
                     effectScope.launch {
