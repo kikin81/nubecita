@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Themes for the AndroidX EmojiPickerView, which is a legacy View and so takes
+    its colours from the XML theme rather than Compose's MaterialTheme. The host
+    app theme is `android:Theme.Material.Light.NoActionBar` with no values-night,
+    so the picker drew near-black category headers on the dark Compose Surface
+    around it (nubecita-io24.4).
+
+    Two explicit themes rather than one theme with a values-night variant: night
+    resources follow the SYSTEM setting, but nubecita has an in-app theme
+    selector that can disagree with it. EmojiPickerDialog picks between these by
+    reading the Compose colour scheme actually in use, so the picker matches what
+    the rest of the app is rendering.
+-->
+<resources>
+    <style name="Theme.Nubecita.EmojiPicker.Light" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorBackground">@android:color/transparent</item>
+    </style>
+
+    <style name="Theme.Nubecita.EmojiPicker.Dark" parent="android:Theme.Material.NoActionBar">
+        <item name="android:colorBackground">@android:color/transparent</item>
+    </style>
+</resources>
