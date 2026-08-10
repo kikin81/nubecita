@@ -52,8 +52,10 @@ dependencies {
     implementation(project(":feature:profile:api"))
     // BackHandler — exits multi-select mode on a back press before the press
     // falls through to inner-NavDisplay back navigation.
-    implementation(libs.androidx.browser)
     implementation(libs.androidx.activity.compose)
+    // Chrome Custom Tabs — opens a tapped link in a message bubble in-app,
+    // matching profile bios and external-embed cards.
+    implementation(libs.androidx.browser)
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     // NotificationCompat / MessagingStyle / NotificationManagerCompat for the
     // background DM notifier (nubecita-1fy.15).
