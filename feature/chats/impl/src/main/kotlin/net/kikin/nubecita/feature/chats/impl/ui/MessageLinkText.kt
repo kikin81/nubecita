@@ -4,6 +4,8 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
@@ -65,13 +67,29 @@ internal fun rememberMessageBodyAnnotatedString(
     }
 
 /**
- * Regex linkification for facet-less messages. Not `remember`ed on purpose: it
- * captures [onFacetTap] directly, and the shared renderer's `rememberUpdatedState`
- * trick is what makes memoization safe there. Building an AnnotatedString over a
- * message-length string is cheap next to the risk of a stale captured lambda.
+ * Regex linkification for facet-less messages.
+ *
+ * Memoized on `(text, linkColor)` with the listener reading the latest
+ * [onFacetTap] through [rememberUpdatedState] — the same shape the shared
+ * renderer uses. Both halves are needed: without `remember`, every visible
+ * bubble in a scrolling thread rebuilds its AnnotatedString on each
+ * recomposition; without `rememberUpdatedState`, the memoized string would pin
+ * the first lambda and taps would route to a stale handler.
  */
 @Composable
 private fun buildFallbackLinkAnnotatedString(
+    text: String,
+    linkColor: Color,
+    onFacetTap: (FacetTarget) -> Unit,
+): AnnotatedString {
+    val latestOnFacetTap = rememberUpdatedState(onFacetTap)
+    return remember(text, linkColor) {
+        linkifiedAnnotatedString(text, linkColor) { latestOnFacetTap.value(it) }
+    }
+}
+
+/** Pure builder — no Compose runtime, so it is unit-testable on its own. */
+private fun linkifiedAnnotatedString(
     text: String,
     linkColor: Color,
     onFacetTap: (FacetTarget) -> Unit,
