@@ -43,4 +43,33 @@ interface UserPreferencesRepository {
 
     /** Persist the user's theme choice. */
     suspend fun setThemePreference(preference: ThemePreference)
+
+    /**
+     * Whether inline feed videos autoplay. Defaults to
+     * [AutoplayPreference.ALWAYS] — the behaviour before this setting existed —
+     * and falls back to it for any stored value this build can't parse.
+     *
+     * This is the user's *intent*, not the answer to "should this video play
+     * right now": [AutoplayPreference.WIFI_ONLY] also depends on the current
+     * connection. Read `AutoplayPolicy` rather than this flow at a playback
+     * call site, so the preference and the network check stay combined in one
+     * place.
+     */
+    val autoplayPreference: Flow<AutoplayPreference>
+
+    /** Persist the user's video-autoplay choice. */
+    suspend fun setAutoplayPreference(preference: AutoplayPreference)
+
+    /**
+     * Whether inline animated GIFs autoplay. Defaults to `true`, matching the
+     * behaviour before this setting existed.
+     *
+     * Independent of [autoplayPreference] and of the connection: a GIF is
+     * cheap enough that gating it on network type would be noise, so this is a
+     * plain on/off the user can set once.
+     */
+    val autoplayGifs: Flow<Boolean>
+
+    /** Persist the user's GIF-autoplay choice. */
+    suspend fun setAutoplayGifs(enabled: Boolean)
 }

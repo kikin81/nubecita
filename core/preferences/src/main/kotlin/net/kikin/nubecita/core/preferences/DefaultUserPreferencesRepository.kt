@@ -86,9 +86,49 @@ internal class DefaultUserPreferencesRepository
             dataStore.edit { prefs -> prefs[Keys.THEME_PREFERENCE] = preference.name }
         }
 
+        // Same shape as themePreference above, and for the same reason: an
+        // unrecognized stored value is an expected input (a value written by a
+        // newer build), so it is matched against `entries` and degrades to
+        // ALWAYS rather than throwing out of a Flow operator.
+        override val autoplayPreference: Flow<AutoplayPreference> =
+            dataStore.data
+                .catch { error ->
+                    if (error is IOException) {
+                        Timber.w(error, "Failed to read user preferences; defaulting autoplayPreference to ALWAYS")
+                        emit(emptyPreferences())
+                    } else {
+                        throw error
+                    }
+                }.map { prefs ->
+                    prefs[Keys.AUTOPLAY_PREFERENCE]
+                        ?.let { stored -> AutoplayPreference.entries.find { it.name == stored } }
+                        ?: AutoplayPreference.ALWAYS
+                }
+
+        override suspend fun setAutoplayPreference(preference: AutoplayPreference) {
+            dataStore.edit { prefs -> prefs[Keys.AUTOPLAY_PREFERENCE] = preference.name }
+        }
+
+        override val autoplayGifs: Flow<Boolean> =
+            dataStore.data
+                .catch { error ->
+                    if (error is IOException) {
+                        Timber.w(error, "Failed to read user preferences; defaulting autoplayGifs to true")
+                        emit(emptyPreferences())
+                    } else {
+                        throw error
+                    }
+                }.map { prefs -> prefs[Keys.AUTOPLAY_GIFS] ?: true }
+
+        override suspend fun setAutoplayGifs(enabled: Boolean) {
+            dataStore.edit { prefs -> prefs[Keys.AUTOPLAY_GIFS] = enabled }
+        }
+
         private object Keys {
             val HAS_SEEN_ONBOARDING = booleanPreferencesKey("has_seen_onboarding")
             val LAST_SELECTED_FEED_URI = stringPreferencesKey("last_selected_feed_uri")
             val THEME_PREFERENCE = stringPreferencesKey("theme_preference")
+            val AUTOPLAY_PREFERENCE = stringPreferencesKey("autoplay_preference")
+            val AUTOPLAY_GIFS = booleanPreferencesKey("autoplay_gifs")
         }
     }

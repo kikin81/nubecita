@@ -45,4 +45,25 @@ internal class FakeUserPreferencesRepository
         override suspend fun setThemePreference(preference: ThemePreference) {
             theme.value = preference
         }
+
+        // Stateful for the same reason as `theme` above: the Media-and-animations
+        // page is a write surface, so a constant flow plus a no-op setter would
+        // let a bench smoke test "toggle" autoplay and observe nothing — a false
+        // pass by construction. Defaults match production, so journeys that never
+        // open the page behave exactly as before.
+        private val autoplay = MutableStateFlow(AutoplayPreference.ALWAYS)
+
+        override val autoplayPreference: Flow<AutoplayPreference> = autoplay.asStateFlow()
+
+        override suspend fun setAutoplayPreference(preference: AutoplayPreference) {
+            autoplay.value = preference
+        }
+
+        private val gifs = MutableStateFlow(true)
+
+        override val autoplayGifs: Flow<Boolean> = gifs.asStateFlow()
+
+        override suspend fun setAutoplayGifs(enabled: Boolean) {
+            gifs.value = enabled
+        }
     }
