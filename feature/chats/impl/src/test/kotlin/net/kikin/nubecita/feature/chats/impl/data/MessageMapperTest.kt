@@ -6,6 +6,10 @@ import io.github.kikin81.atproto.app.bsky.embed.RecordViewBlocked
 import io.github.kikin81.atproto.app.bsky.embed.RecordViewDetached
 import io.github.kikin81.atproto.app.bsky.embed.RecordViewNotFound
 import io.github.kikin81.atproto.app.bsky.embed.RecordViewRecord
+import io.github.kikin81.atproto.app.bsky.richtext.Facet
+import io.github.kikin81.atproto.app.bsky.richtext.FacetByteSlice
+import io.github.kikin81.atproto.app.bsky.richtext.FacetFeaturesUnion
+import io.github.kikin81.atproto.app.bsky.richtext.FacetLink
 import io.github.kikin81.atproto.chat.bsky.convo.DeletedMessageView
 import io.github.kikin81.atproto.chat.bsky.convo.GetMessagesResponseMessagesUnion
 import io.github.kikin81.atproto.chat.bsky.convo.MessageView
@@ -18,6 +22,7 @@ import io.github.kikin81.atproto.runtime.Cid
 import io.github.kikin81.atproto.runtime.Datetime
 import io.github.kikin81.atproto.runtime.Did
 import io.github.kikin81.atproto.runtime.Handle
+import io.github.kikin81.atproto.runtime.Uri
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -287,6 +292,43 @@ internal class MessageMapperTest {
         assertEquals(viaList, single)
     }
 
+    @Test
+    fun `carries wire facets onto the message`() {
+        // The mapper used to drop MessageView.facets entirely, which is why a
+        // link in a DM rendered as inert text (nubecita-io24.1).
+        val link =
+            Facet(
+                index = FacetByteSlice(byteStart = 6L, byteEnd = 25L),
+                features = listOf<FacetFeaturesUnion>(FacetLink(uri = Uri("https://example.com"))),
+            )
+        val wire =
+            messageView(
+                id = "m1",
+                senderDid = "did:plc:other",
+                text = "check https://example.com",
+                sentAt = "2026-01-01T12:00:00Z",
+                facets = listOf(link),
+            )
+
+        val ui = wire.toMessageUi(viewerDid = "did:plc:viewer")
+
+        assertEquals(listOf(link), ui.facets, "wire facets must reach MessageUi verbatim")
+    }
+
+    @Test
+    fun `absent wire facets map to an empty list, not null`() {
+        val wire =
+            messageView(
+                id = "m1",
+                senderDid = "did:plc:other",
+                text = "no links",
+                sentAt = "2026-01-01T12:00:00Z",
+                facets = null,
+            )
+
+        assertEquals(emptyList<Facet>(), wire.toMessageUi(viewerDid = "did:plc:viewer").facets)
+    }
+
     private fun messageView(
         id: String,
         senderDid: String,
@@ -294,10 +336,11 @@ internal class MessageMapperTest {
         sentAt: String,
         embed: MessageViewEmbedUnion? = null,
         reactions: List<ReactionView>? = null,
+        facets: List<Facet>? = null,
     ): MessageView =
         MessageView(
             embed = embed,
-            facets = null,
+            facets = facets,
             id = id,
             reactions = reactions,
             rev = "rev-$id",

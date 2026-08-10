@@ -62,6 +62,9 @@ fun MessageView.toMessageUi(viewerDid: String): MessageUi =
         senderDid = sender.did.raw,
         isOutgoing = sender.did.raw == viewerDid,
         text = text,
+        // Carried verbatim — the offsets are UTF-8 byte positions the renderer
+        // converts, so re-deriving them here would be both wrong and redundant.
+        facets = facets?.toImmutableList() ?: persistentListOf(),
         isDeleted = false,
         sentAt = Instant.parse(sentAt.raw),
         embed = embed.toMessageEmbedUi(),

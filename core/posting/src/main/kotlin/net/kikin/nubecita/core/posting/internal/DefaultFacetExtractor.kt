@@ -10,50 +10,16 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.core.common.text.LinkPatterns
+import net.kikin.nubecita.core.posting.FacetExtractor
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Parses composer text into the `app.bsky.richtext.facet` annotations
- * that turn `@handle` tokens into linked mentions and `https://…`
- * tokens into clickable links on Bluesky's appview. Without this,
- * those tokens render as inert plain text — no link, no DID
- * reference — and the post looks broken to users coming from the
- * official client.
- *
- * Lives in `:core:posting` rather than the composer VM so the parsing
- * stays a pure-Kotlin transformation testable without Compose / Hilt
- * scaffolding, and so every future write path that produces a `Post`
- * record (replies, quote posts) reuses the same facet extraction
- * without re-implementing it.
- *
- * The Facet record's `index.byteStart` / `byteEnd` are **UTF-8 byte
- * offsets**, not character or codepoint offsets. The AT Protocol
- * `app.bsky.richtext.facet#byteSlice` lexicon explicitly notes:
- *
- * > Indices are zero-indexed, counting bytes of the UTF-8 encoded
- * > text. NOTE: some languages, like Javascript, use UTF-16 or
- * > Unicode codepoints for string slice indexing; in these languages,
- * > convert to byte arrays before working with facets.
- *
- * Kotlin's `Regex` matches over `String`, which is UTF-16 internally,
- * so the implementation walks each match's UTF-16 char range and
- * computes the corresponding byte offsets via a precomputed prefix-sum
- * table. The extra pass is `O(n)` over the message length and runs
- * once per submit; the overhead is invisible against the network round
- * trip that follows.
+ * The only [FacetExtractor] implementation. Kept `internal`; the
+ * interface is public in `net.kikin.nubecita.core.posting` so
+ * downstream features can inject it. See that file for the UTF-8
+ * byte-offset contract this implements.
  */
-internal interface FacetExtractor {
-    /**
-     * Extract facets from [text]. Returns an empty list when the text
-     * has no mentions or URLs (the caller should pass `AtField.Missing`
-     * to the record's `facets` field rather than `AtField.Defined(emptyList())`
-     * — both are wire-equivalent but the lexicon convention is the
-     * former).
-     */
-    suspend fun extract(text: String): ImmutableList<Facet>
-}
-
 @Singleton
 internal class DefaultFacetExtractor
     @Inject

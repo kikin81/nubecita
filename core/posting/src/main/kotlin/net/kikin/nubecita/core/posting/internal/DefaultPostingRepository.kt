@@ -56,6 +56,7 @@ import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.core.posting.ComposerVideoEmbed
 import net.kikin.nubecita.core.posting.ExternalLinkMetadataRepository
+import net.kikin.nubecita.core.posting.FacetExtractor
 import net.kikin.nubecita.core.posting.LinkPreview
 import net.kikin.nubecita.core.posting.LocaleProvider
 import net.kikin.nubecita.core.posting.PostAudience
