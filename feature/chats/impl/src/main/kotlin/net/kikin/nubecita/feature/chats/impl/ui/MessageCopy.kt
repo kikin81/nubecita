@@ -15,7 +15,10 @@ import net.kikin.nubecita.feature.chats.impl.R
  * menu hides the row entirely rather than offering an action that silently
  * does nothing.
  */
-internal fun MessageUi.copyActionOrNull(onCopy: (String) -> Unit): (() -> Unit)? = if (isDeleted || text.isBlank()) null else ({ onCopy(text) })
+internal fun MessageUi.copyActionOrNull(onCopy: (String) -> Unit): (() -> Unit)? {
+    if (isDeleted || text.isBlank()) return null
+    return { onCopy(text) }
+}
 
 /**
  * Puts [text] on the clipboard and confirms it — but only below API 33.
