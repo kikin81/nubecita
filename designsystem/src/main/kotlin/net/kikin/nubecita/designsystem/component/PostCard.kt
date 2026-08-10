@@ -318,9 +318,14 @@ private fun BodyText(
  * multiple mentions in one post each route to their own target with no manual
  * hit-testing. `#tag` facets stay styled but inert until tag search exists.
  *
- * Memoized on `(text, facets, linkStyle)`; the tap listener reads the latest
- * [onFacetTap] via [rememberUpdatedState] so the string isn't rebuilt when the
- * host's lambda identity changes.
+ * Memoized on `(text, facets, linkStyle, linkStyles)`; the tap listener reads
+ * the latest [onFacetTap] via [rememberUpdatedState] so the string isn't rebuilt
+ * when the host's lambda identity changes.
+ *
+ * **Passing [linkStyle] alone does not recolour links.** A bare `LinkAnnotation`
+ * takes the theme's default [TextLinkStyles], which overrides the span style —
+ * so a host that needs a different link colour must pass [linkStyles] too.
+ * Mentions are unaffected (they always carry an explicit style).
  *
  * Public because DM bubbles render the same richtext (`:feature:chats:impl`).
  * Sharing the builder is not just deduplication — it carries the http(s)-only
