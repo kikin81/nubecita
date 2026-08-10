@@ -44,6 +44,7 @@ enum class NubecitaIconName(
     CheckCircle("\uF0BE"),
     ChevronRight("\uE5CC"),
     Close("\uE5CD"),
+    ContentCopy("\uE14D"),
     Edit("\uF097"),
     Error("\uF8B6"),
     ExpandMore("\uE5CF"),
