@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.common.network.NetworkStatus
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -21,7 +22,18 @@ internal class AutoplayPolicyTest {
         metered: Boolean,
     ) : NetworkStatus {
         val state = MutableStateFlow(metered)
-        override val isMetered: Flow<Boolean> = state.asStateFlow()
+
+        /**
+         * How many collectors have subscribed. The point of the policy using
+         * `flatMapLatest` rather than `combine` is that this stays at zero for
+         * the two preferences whose answer does not depend on the connection —
+         * in production each subscription registers a system `NetworkCallback`.
+         */
+        var subscriptions = 0
+            private set
+
+        override val isMetered: Flow<Boolean> =
+            state.asStateFlow().onSubscription { subscriptions++ }
     }
 
     private fun policy(
@@ -43,7 +55,12 @@ internal class AutoplayPolicyTest {
 
                 override suspend fun setThemePreference(preference: ThemePreference) = Unit
 
-                override val autoplayPreference: Flow<AutoplayPreference> = flowOf(preference)
+                // MutableStateFlow, not flowOf: DataStore-backed preference
+                // flows never complete, and `videoAutoplayEnabled` switches on
+                // this one, so a finite fake would make the policy flow
+                // complete after a single value — an artifact of the fake that
+                // production could never produce.
+                override val autoplayPreference: Flow<AutoplayPreference> = MutableStateFlow(preference)
 
                 override suspend fun setAutoplayPreference(preference: AutoplayPreference) = Unit
 
@@ -111,6 +128,34 @@ internal class AutoplayPolicyTest {
 
                 cancelAndIgnoreRemainingEvents()
             }
+        }
+
+    @Test
+    fun `a connection-independent preference never subscribes to the network`() =
+        runTest {
+            // Not a micro-optimisation: every subscription registers a
+            // ConnectivityManager callback in production, and ALWAYS is the
+            // default, so `combine` here would mean most installs paying for a
+            // callback whose value is never read.
+            for (preference in listOf(AutoplayPreference.ALWAYS, AutoplayPreference.NEVER)) {
+                val network = FakeNetwork(metered = false)
+                policy(preference, network).videoAutoplayEnabled.test {
+                    awaitItem()
+                    cancelAndIgnoreRemainingEvents()
+                }
+                assertEquals(0, network.subscriptions, "\$preference subscribed to the network")
+            }
+        }
+
+    @Test
+    fun `a wifi-only preference does subscribe to the network`() =
+        runTest {
+            val network = FakeNetwork(metered = false)
+            policy(AutoplayPreference.WIFI_ONLY, network).videoAutoplayEnabled.test {
+                awaitItem()
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(1, network.subscriptions)
         }
 
     @Test

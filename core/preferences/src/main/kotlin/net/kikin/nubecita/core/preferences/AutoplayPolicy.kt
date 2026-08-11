@@ -1,8 +1,10 @@
 package net.kikin.nubecita.core.preferences
 
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import net.kikin.nubecita.core.common.network.NetworkStatus
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -36,13 +38,21 @@ class AutoplayPolicy
          * watch video.
          */
         val videoAutoplayEnabled: Flow<Boolean> =
-            combine(preferences.autoplayPreference, networkStatus.isMetered) { preference, metered ->
-                when (preference) {
-                    AutoplayPreference.ALWAYS -> true
-                    AutoplayPreference.NEVER -> false
-                    AutoplayPreference.WIFI_ONLY -> !metered
-                }
-            }.distinctUntilChanged()
+            preferences
+                .autoplayPreference
+                // flatMapLatest, not combine: only WIFI_ONLY has an answer that
+                // depends on the connection. combine would subscribe to
+                // isMetered for everyone, which registers a system
+                // NetworkCallback for the two preferences whose answer is a
+                // constant — and ALWAYS is the default, so that would be most
+                // installs paying for a callback nothing reads.
+                .flatMapLatest { preference ->
+                    when (preference) {
+                        AutoplayPreference.ALWAYS -> flowOf(true)
+                        AutoplayPreference.NEVER -> flowOf(false)
+                        AutoplayPreference.WIFI_ONLY -> networkStatus.isMetered.map { metered -> !metered }
+                    }
+                }.distinctUntilChanged()
 
         /**
          * Whether inline animated GIFs may play on their own.
