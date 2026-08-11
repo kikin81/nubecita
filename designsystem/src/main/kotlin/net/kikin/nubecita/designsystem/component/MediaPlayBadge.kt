@@ -8,11 +8,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.designsystem.semanticColors
 import net.kikin.nubecita.designsystem.spacing
 
 /**
@@ -29,8 +29,11 @@ import net.kikin.nubecita.designsystem.spacing
  * users aim for, and a second description would make TalkBack read the card
  * twice.
  *
- * Fixed black-on-white rather than scheme colours: it sits over arbitrary
- * photography, where a themed tint has no contrast guarantee at all.
+ * Painted with the `videoOverlayScrim` / `onVideoOverlay` semantic tokens —
+ * fixed black-on-white rather than scheme colours, because it sits over
+ * arbitrary photography where a themed tint has no contrast guarantee at all.
+ * The same pair paints the mute icon on the very same video card, so the two
+ * overlays cannot drift apart.
  */
 @Composable
 fun MediaPlayBadge(modifier: Modifier = Modifier) {
@@ -38,13 +41,13 @@ fun MediaPlayBadge(modifier: Modifier = Modifier) {
         modifier =
             modifier
                 .size(MaterialTheme.spacing.s12)
-                .background(color = Color.Black.copy(alpha = 0.55f), shape = CircleShape),
+                .background(color = MaterialTheme.semanticColors.videoOverlayScrim, shape = CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         NubecitaIcon(
             name = NubecitaIconName.PlayArrow,
             contentDescription = null,
-            tint = Color.White,
+            tint = MaterialTheme.semanticColors.onVideoOverlay,
             modifier = Modifier.size(MaterialTheme.spacing.s7),
         )
     }
