@@ -28,7 +28,8 @@ import javax.inject.Singleton
  *
  * `onLost` emits `true` (treat "no network" as expensive): with nothing
  * connected there is nothing to autoplay anyway, and guessing "unmetered"
- * would start playback the instant a cellular connection came back.
+ * would start playback the instant a cellular connection came back. Starting
+ * up offline takes the same branch — see `emitCurrent`.
  *
  * `distinctUntilChanged` because capability callbacks are chatty — signal
  * strength alone can fire several per second, and each duplicate would
@@ -61,7 +62,13 @@ class DefaultNetworkStatus
                     return@callbackFlow
                 }
 
-                fun emitCurrent() = trySend(connectivity.isActiveNetworkMetered)
+                fun emitCurrent() =
+                    trySend(
+                        isMetered(
+                            hasActiveNetwork = connectivity.activeNetwork != null,
+                            reportedMetered = connectivity.isActiveNetworkMetered,
+                        ),
+                    )
 
                 val callback =
                     object : ConnectivityManager.NetworkCallback() {
@@ -84,15 +91,35 @@ class DefaultNetworkStatus
                 emitCurrent()
                 connectivity.registerDefaultNetworkCallback(callback)
                 awaitClose { connectivity.unregisterNetworkCallback(callback) }
-            }.distinctUntilChanged()
-                .conflate()
+            }.conflate()
+                // conflate() BEFORE distinctUntilChanged(): conflate fuses into
+                // the callbackFlow's channel only when applied directly to it.
+                // With a non-fusible operator in between the channel keeps its
+                // default 64-deep suspending buffer, and a slow collector could
+                // make trySend fail and silently drop a network change.
+                .distinctUntilChanged()
                 .shareIn(
                     scope = externalScope,
                     started = SharingStarted.WhileSubscribed(stopTimeoutMillis = CALLBACK_LINGER_MS),
                     replay = 1,
                 )
 
-        private companion object {
+        internal companion object {
+            /**
+             * Whether the connection should be treated as expensive.
+             *
+             * Extracted from the callback so the one rule that is easy to get
+             * wrong is testable without a `ConnectivityManager`:
+             * `isActiveNetworkMetered` returns **false** when there is no
+             * active network, so reading it alone reports "unmetered" to a
+             * device that is simply offline — the opposite of what [onLost]
+             * does and of what this class documents. No network means metered.
+             */
+            internal fun isMetered(
+                hasActiveNetwork: Boolean,
+                reportedMetered: Boolean,
+            ): Boolean = !hasActiveNetwork || reportedMetered
+
             /**
              * How long the `NetworkCallback` stays registered after the last
              * collector leaves. Covers a configuration change without

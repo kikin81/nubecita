@@ -143,7 +143,7 @@ internal class AutoplayPolicyTest {
                     awaitItem()
                     cancelAndIgnoreRemainingEvents()
                 }
-                assertEquals(0, network.subscriptions, "\$preference subscribed to the network")
+                assertEquals(0, network.subscriptions, "$preference subscribed to the network")
             }
         }
 
