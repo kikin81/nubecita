@@ -17,12 +17,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil3.decode.BitmapFactoryDecoder
 import coil3.request.ImageRequest
 import net.kikin.nubecita.designsystem.LocalGifAutoplayEnabled
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.R
 
 /**
  * Inline animated GIF — an `app.bsky.embed.external` whose URL is an
@@ -55,6 +58,7 @@ fun PostCardGifEmbed(
     var playRequested by remember(gifUrl, gifAutoplayEnabled) { mutableStateOf(false) }
     val animate = gifAutoplayEnabled || playRequested
     val context = LocalContext.current
+    val playLabel = stringResource(R.string.postcard_gif_play)
     val model =
         remember(gifUrl, cover, animate, context) {
             when {
@@ -91,7 +95,15 @@ fun PostCardGifEmbed(
                 // bypass the warning, and skipped when it is already animating
                 // so the card keeps falling through to the host's own tap.
                 if (!animate && cover == null) {
-                    base.clickable { playRequested = true }
+                    base.clickable(
+                        // A verb phrase, because TalkBack reads it as
+                        // "double-tap to <label>". Without it the card announces
+                        // a bare "double-tap to activate" and the badge — which
+                        // deliberately carries no description of its own —
+                        // leaves nothing to say what activating would do.
+                        onClickLabel = playLabel,
+                        role = Role.Button,
+                    ) { playRequested = true }
                 } else {
                     base
                 }

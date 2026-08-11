@@ -62,4 +62,5 @@
     <string name="nubecita_actor_handle">\@%1$s</string>
     <string name="moderation_action_translate_post">Traduzir publicação</string>
     <string name="postcard_translation_unavailable">Nenhum app disponível para abrir o tradutor</string>
+    <string name="postcard_gif_play">reproduzir este GIF</string>
 </resources>
