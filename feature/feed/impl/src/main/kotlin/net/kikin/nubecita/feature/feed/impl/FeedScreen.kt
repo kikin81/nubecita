@@ -504,6 +504,7 @@ internal fun FeedScreenContent(
                     lastRepostTapPostUri = viewState.lastRepostTapPostUri,
                     onVideoTap = onVideoTap,
                     coordinator = coordinator,
+                    videoAutoplayEnabled = viewState.videoAutoplayEnabled,
                     header = header,
                 )
         }

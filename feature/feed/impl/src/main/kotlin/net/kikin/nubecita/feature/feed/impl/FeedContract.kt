@@ -37,6 +37,19 @@ data class FeedState(
     // posts" (lq9t.3.6).
     val loadStatus: FeedLoadStatus = FeedLoadStatus.InitialLoading,
     /**
+     * Whether an inline video may start on its own right now — the resolved
+     * answer from `AutoplayPolicy`, folding the stored preference together with
+     * whether the connection is metered, not the raw preference.
+     *
+     * Defaults to `true`, matching the policy's own default and the app's
+     * behaviour before the setting existed, so the frame before the first
+     * emission does not flash a non-autoplay feed at everyone.
+     *
+     * `false` means **on demand**, not unavailable: the card renders its poster
+     * with a play badge and a tap opens the full-screen player.
+     */
+    val videoAutoplayEnabled: Boolean = true,
+    /**
      * URI of the post whose like was most recently toggled by a user
      * tap in this session, or `null` if none. The screen reads this
      * to decide whether a particular PostCard's like-count change

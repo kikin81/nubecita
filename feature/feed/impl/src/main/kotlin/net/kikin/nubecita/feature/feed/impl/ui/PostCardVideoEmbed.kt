@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.testTag
@@ -85,6 +87,7 @@ internal fun PostCardVideoEmbed(
     modifier: Modifier = Modifier,
     onTap: (() -> Unit)? = null,
     cover: MediaCover? = null,
+    showPlayAffordance: Boolean = false,
 ) {
     Box(
         modifier =
@@ -107,6 +110,15 @@ internal fun PostCardVideoEmbed(
             MediaContentWarningCover(cover, Modifier.matchParentSize())
         } else {
             PosterLayer(video = video)
+            if (showPlayAffordance) {
+                // Only drawn when autoplay is off. With autoplay on, the poster
+                // is a transient frame before the surface takes over, and a
+                // badge there would flash on every bind. Off, the poster is the
+                // resting state and needs to say "this is a video, tap it" —
+                // without it the card is indistinguishable from a still image,
+                // which would make the setting read as "videos removed".
+                PlayAffordance(Modifier.align(Alignment.Center))
+            }
             DurationChipIfPresent(durationSeconds = video.durationSeconds)
         }
     }
@@ -177,9 +189,15 @@ internal fun PostCardVideoEmbed(
     quotedVideo: QuotedEmbedUi.Video,
     modifier: Modifier = Modifier,
     onTap: (() -> Unit)? = null,
+    showPlayAffordance: Boolean = false,
 ) {
     val asEmbedUiVideo = remember(quotedVideo) { quotedVideo.toEmbedUiVideo() }
-    PostCardVideoEmbed(video = asEmbedUiVideo, modifier = modifier, onTap = onTap)
+    PostCardVideoEmbed(
+        video = asEmbedUiVideo,
+        modifier = modifier,
+        onTap = onTap,
+        showPlayAffordance = showPlayAffordance,
+    )
 }
 
 /**
@@ -314,6 +332,36 @@ private fun BoxScope.PosterLayer(video: EmbedUi.Video) {
         GradientPosterFallback(
             altText = video.altText,
             modifier = Modifier.fillMaxSize(),
+        )
+    }
+}
+
+/**
+ * Centred play badge drawn over the poster when autoplay is off.
+ *
+ * Not itself clickable: the whole video Box already installs the tap that opens
+ * the full-screen player, and a second target stacked on top would swallow the
+ * gesture on the one spot users aim for. It carries no `contentDescription`
+ * either — the tappable Box owns the semantics, and a second announcement would
+ * make TalkBack read the card twice.
+ */
+@Composable
+private fun PlayAffordance(modifier: Modifier = Modifier) {
+    Box(
+        modifier =
+            modifier
+                .size(MaterialTheme.spacing.s12)
+                .background(
+                    color = Color.Black.copy(alpha = 0.55f),
+                    shape = CircleShape,
+                ),
+        contentAlignment = Alignment.Center,
+    ) {
+        NubecitaIcon(
+            name = NubecitaIconName.PlayArrow,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(MaterialTheme.spacing.s7),
         )
     }
 }

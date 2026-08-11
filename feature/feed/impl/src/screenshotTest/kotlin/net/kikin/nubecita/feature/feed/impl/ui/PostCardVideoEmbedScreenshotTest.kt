@@ -65,3 +65,38 @@ private fun PostCardVideoEmbedLongDurationScreenshot() {
         PostCardVideoEmbed(video = previewVideo(durationSeconds = 3600 + 23 * 60 + 45))
     }
 }
+
+/**
+ * Autoplay-off poster state: the same phase-B render plus the centred play
+ * badge. Baselined against BOTH poster branches — the badge sits over a loaded
+ * poster in one and over the gradient fallback in the other, and a badge that
+ * only reads against one of those backgrounds is exactly the regression these
+ * catch.
+ */
+@PreviewTest
+@Preview(name = "autoplay-off-with-poster-light", showBackground = true)
+@Preview(
+    name = "autoplay-off-with-poster-dark",
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun PostCardVideoEmbedAutoplayOffScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostCardVideoEmbed(video = previewVideo(), showPlayAffordance = true)
+    }
+}
+
+@PreviewTest
+@Preview(name = "autoplay-off-no-poster-light", showBackground = true)
+@Preview(
+    name = "autoplay-off-no-poster-dark",
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun PostCardVideoEmbedAutoplayOffNoPosterScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostCardVideoEmbed(video = previewVideo(posterUrl = null), showPlayAffordance = true)
+    }
+}

@@ -10,7 +10,9 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.actors.MuteRepository
 import net.kikin.nubecita.core.analytics.AnalyticsClient
@@ -24,6 +26,7 @@ import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
+import net.kikin.nubecita.core.preferences.AutoplayPolicy
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.FeedKind
@@ -49,6 +52,7 @@ class FeedViewModel
         private val analytics: AnalyticsClient,
         private val muteRepository: MuteRepository,
         private val handler: PostInteractionHandler,
+        autoplayPolicy: AutoplayPolicy,
     ) : MviViewModel<FeedState, FeedEvent, FeedEffect>(FeedState()),
         PostInteractionHandler by handler {
         /**
@@ -79,6 +83,14 @@ class FeedViewModel
         init {
             // Bind the handler to Feed surface and this VM's scope first.
             handler.bind(PostSurface.Feed, viewModelScope)
+
+            // Mirror the resolved autoplay answer rather than the raw
+            // preference: the policy already folds in whether the connection is
+            // metered, and it re-emits when that changes, so walking off wifi
+            // stops autoplay without reopening the app.
+            autoplayPolicy.videoAutoplayEnabled
+                .onEach { enabled -> setState { copy(videoAutoplayEnabled = enabled) } }
+                .launchIn(viewModelScope)
 
             // Mirror handler tap-markers into FeedState so FeedScreenContent
             // can animate the ±1 count transition before the network resolves.
