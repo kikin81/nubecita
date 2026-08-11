@@ -3,7 +3,6 @@ package net.kikin.nubecita.core.preferences
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import net.kikin.nubecita.core.common.network.NetworkStatus
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -50,9 +49,7 @@ class AutoplayPolicy
          *
          * Deliberately independent of the network: a GIF is cheap enough that
          * gating it on connection type would be noise the user did not ask for.
-         * Mapped rather than passed through so the two flows have the same
-         * shape at every call site.
          */
         val gifAutoplayEnabled: Flow<Boolean> =
-            preferences.autoplayGifs.map { it }.distinctUntilChanged()
+            preferences.autoplayGifs.distinctUntilChanged()
     }

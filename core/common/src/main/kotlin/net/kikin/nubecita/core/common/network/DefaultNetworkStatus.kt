@@ -51,14 +51,20 @@ class DefaultNetworkStatus
 
                 val callback =
                     object : ConnectivityManager.NetworkCallback() {
-                        override fun onAvailable(network: Network) = Unit.also { emitCurrent() }
+                        override fun onAvailable(network: Network) {
+                            emitCurrent()
+                        }
 
-                        override fun onLost(network: Network) = Unit.also { trySend(true) }
+                        override fun onLost(network: Network) {
+                            trySend(true)
+                        }
 
                         override fun onCapabilitiesChanged(
                             network: Network,
                             capabilities: NetworkCapabilities,
-                        ) = Unit.also { emitCurrent() }
+                        ) {
+                            emitCurrent()
+                        }
                     }
 
                 emitCurrent()
