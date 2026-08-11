@@ -10,6 +10,7 @@ import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.core.common.navigation.NavKeyDeepLinkMatcher
 import net.kikin.nubecita.core.common.navigation.Navigator
 import net.kikin.nubecita.core.common.navigation.OuterShell
+import net.kikin.nubecita.core.preferences.AutoplayPolicy
 import net.kikin.nubecita.feature.chats.impl.store.ChatsUnreadCountStore
 import net.kikin.nubecita.feature.notifications.impl.store.NotificationsUnreadCountStore
 
@@ -67,6 +68,17 @@ interface NavigationEntryPoint {
      * the qualifier-tagged `EntryProviderInstaller` set.
      */
     fun notificationsUnreadCountStore(): NotificationsUnreadCountStore
+
+    /**
+     * Resolves the autoplay preferences against the current connection.
+     * `MainShell` collects `gifAutoplayEnabled` and provides it as
+     * `LocalGifAutoplayEnabled`, because the GIF embed is an internal leaf of
+     * `PostCard` and a parameter would have to cross every post-rendering
+     * surface in the app to reach it. Video autoplay does NOT come through
+     * here — the feed's ViewModel injects the same policy directly, since it
+     * already owns the coordinator bind.
+     */
+    fun autoplayPolicy(): AutoplayPolicy
 
     /**
      * The process-singleton chats unread-DM store, populated by

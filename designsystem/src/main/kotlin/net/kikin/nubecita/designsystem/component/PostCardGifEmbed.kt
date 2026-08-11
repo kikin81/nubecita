@@ -1,5 +1,6 @@
 package net.kikin.nubecita.designsystem.component
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -7,11 +8,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import coil3.decode.BitmapFactoryDecoder
+import coil3.request.ImageRequest
+import net.kikin.nubecita.designsystem.LocalGifAutoplayEnabled
 import net.kikin.nubecita.designsystem.NubecitaTheme
 
 /**
@@ -39,6 +49,33 @@ fun PostCardGifEmbed(
     modifier: Modifier = Modifier,
     cover: MediaCover? = null,
 ) {
+    val gifAutoplayEnabled = LocalGifAutoplayEnabled.current
+    // Reset whenever autoplay flips or the URL changes: a card recycled to a
+    // different GIF must not inherit the previous one's "user tapped play".
+    var playRequested by remember(gifUrl, gifAutoplayEnabled) { mutableStateOf(false) }
+    val animate = gifAutoplayEnabled || playRequested
+    val context = LocalContext.current
+    val model =
+        remember(gifUrl, cover, animate, context) {
+            when {
+                // Covered → no model, so Coil never fetches or decodes the GIF.
+                cover != null -> null
+                animate -> gifUrl
+                else ->
+                    ImageRequest
+                        .Builder(context)
+                        .data(gifUrl)
+                        // Per-request, so the ImageLoader keeps its animated
+                        // decoder for every other GIF on screen.
+                        //
+                        // BitmapFactoryDecoder rather than StaticImageDecoder:
+                        // the latter is `ImageDecoder`-backed and API 29+, and
+                        // minSdk here is 28. BitmapFactory decodes a GIF to its
+                        // first frame on every supported level.
+                        .decoderFactory(BitmapFactoryDecoder.Factory())
+                        .build()
+            }
+        }
     val sized =
         modifier
             .fillMaxWidth()
@@ -49,16 +86,27 @@ fun PostCardGifEmbed(
                     base.heightIn(min = MIN_GIF_HEIGHT, max = MAX_GIF_HEIGHT)
                 }
             }.clip(RoundedCornerShape(16.dp))
+            .let { base ->
+                // Tap starts this GIF. Skipped while covered so a tap can't
+                // bypass the warning, and skipped when it is already animating
+                // so the card keeps falling through to the host's own tap.
+                if (!animate && cover == null) {
+                    base.clickable { playRequested = true }
+                } else {
+                    base
+                }
+            }
     Box(sized) {
         NubecitaAsyncImage(
-            // Covered → no model, so Coil never fetches/decodes the GIF.
-            model = if (cover != null) null else gifUrl,
+            model = model,
             contentDescription = alt,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,
         )
         if (cover != null) {
             MediaContentWarningCover(cover, Modifier.matchParentSize())
+        } else if (!animate) {
+            MediaPlayBadge(Modifier.align(Alignment.Center))
         }
     }
 }
