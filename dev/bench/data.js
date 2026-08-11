@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786262816544,
+  "lastUpdate": 1786436757186,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -1731,6 +1731,64 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 685,
             "range": "+/- 3.6%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "7f774c9262f1c39a5116e5caaf364fb8b4fbec3f",
+          "message": "ci(release): 1.337.0\n\n## [1.337.0](https://github.com/kikin81/nubecita/compare/v1.336.2...v1.337.0) (2026-08-10)\n\n### Features\n\n* **chats:** carry facets on DM messages ([#875](https://github.com/kikin81/nubecita/issues/875)) ([9bcee82](https://github.com/kikin81/nubecita/commit/9bcee8236d2c7e991c3f844871a53063e81d4461))\n* **chats:** copy message text from the reaction menu ([#877](https://github.com/kikin81/nubecita/issues/877)) ([836fc89](https://github.com/kikin81/nubecita/commit/836fc894c012a71e158fbb22baf4f2688fae35db))\n* **chats:** render tappable links in message bubbles ([#876](https://github.com/kikin81/nubecita/issues/876)) ([34d725c](https://github.com/kikin81/nubecita/commit/34d725c9ac4ff3c91ce08d5b2dae5df52f9a0099)), closes [#0979FF](https://github.com/kikin81/nubecita/issues/0979FF)\n\n### Bug Fixes\n\n* **chats:** make the emoji picker readable in dark mode ([#878](https://github.com/kikin81/nubecita/issues/878)) ([c7b7b0b](https://github.com/kikin81/nubecita/commit/c7b7b0b28dc38501cb98eb9db0e95c15faec0541))",
+          "timestamp": "2026-08-10T21:27:23Z",
+          "url": "https://github.com/kikin81/nubecita/commit/7f774c9262f1c39a5116e5caaf364fb8b4fbec3f"
+        },
+        "date": 1786436755621,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 30,
+            "range": "+/- 7.2%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1469.722,
+            "range": "+/- 5.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1290.77,
+            "range": "+/- 6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1070.724,
+            "range": "+/- 25.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1144.348,
+            "range": "+/- 9.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 694,
+            "range": "+/- 3%",
             "unit": "frames"
           }
         ]
