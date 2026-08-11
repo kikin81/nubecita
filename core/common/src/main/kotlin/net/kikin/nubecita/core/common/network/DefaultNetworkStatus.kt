@@ -10,6 +10,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.shareIn
@@ -98,6 +99,17 @@ class DefaultNetworkStatus
                 // default 64-deep suspending buffer, and a slow collector could
                 // make trySend fail and silently drop a network change.
                 .distinctUntilChanged()
+                // The upstream now runs in the application scope, which has a
+                // SupervisorJob but no exception handler — so a throw here
+                // would be an uncaught exception and take the process with it,
+                // rather than failing one collector. No specific throw is known
+                // to be reachable (ACCESS_NETWORK_STATE is a normal permission
+                // and cannot be revoked, and shareIn caps this class at one
+                // registration), so this is not guarding a diagnosed bug: it
+                // converts any future one into the same safe default the rest
+                // of the class uses. Metered, because assuming "free" is what
+                // would spend the user's data.
+                .catch { emit(true) }
                 .shareIn(
                     scope = externalScope,
                     started = SharingStarted.WhileSubscribed(stopTimeoutMillis = CALLBACK_LINGER_MS),
