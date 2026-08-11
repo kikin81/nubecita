@@ -8,6 +8,7 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.preferences.AutoplayPreference
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
+import timber.log.Timber
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -72,6 +73,10 @@ internal class MediaAndAnimationsViewModel
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (error: Exception) {
+                    // The snackbar tells the user; this tells us. A preference
+                    // that silently refuses to stick is otherwise invisible in
+                    // a bug report.
+                    Timber.w(error, "Failed to persist an autoplay preference")
                     sendEffect(MediaAndAnimationsEffect.ShowSaveError)
                 }
             }

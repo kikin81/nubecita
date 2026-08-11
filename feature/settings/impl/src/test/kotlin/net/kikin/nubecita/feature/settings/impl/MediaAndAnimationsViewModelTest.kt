@@ -98,7 +98,7 @@ internal class MediaAndAnimationsViewModelTest {
         }
 
     @Test
-    fun `re-emitting the current GIF value performs no write`() =
+    fun `toggling GIFs to the already active value performs no write`() =
         runTest {
             val repository = repositoryFor(MutableStateFlow(AutoplayPreference.ALWAYS), MutableStateFlow(true))
             val vm = MediaAndAnimationsViewModel(repository)
