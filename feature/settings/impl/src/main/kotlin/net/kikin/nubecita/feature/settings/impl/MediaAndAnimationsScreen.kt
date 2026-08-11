@@ -136,7 +136,10 @@ internal fun MediaAndAnimationsContent(
                 text = stringResource(R.string.media_description),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = 12.dp),
+                // 8dp bottom, not 12: the Column already adds 8dp via
+                // spacedBy, so 12 here would leave 20dp before the first
+                // header against 16dp before the second.
+                modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),
             )
 
             Text(
