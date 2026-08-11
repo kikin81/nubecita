@@ -133,7 +133,7 @@ internal class DefaultUserPreferencesRepositoryTest {
     fun `autoplayGifs defaults to true on a fresh store`() =
         runTest {
             val repo = DefaultUserPreferencesRepository(newDataStore(this))
-            assertEquals(true, repo.autoplayGifs.first())
+            assertTrue(repo.autoplayGifs.first())
         }
 
     @Test
@@ -155,11 +155,11 @@ internal class DefaultUserPreferencesRepositoryTest {
         runTest {
             val repo = DefaultUserPreferencesRepository(newDataStore(this))
             repo.autoplayGifs.test {
-                assertEquals(true, awaitItem())
+                assertTrue(awaitItem())
                 repo.setAutoplayGifs(false)
-                assertEquals(false, awaitItem())
+                assertFalse(awaitItem())
                 repo.setAutoplayGifs(true)
-                assertEquals(true, awaitItem())
+                assertTrue(awaitItem())
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -188,7 +188,7 @@ internal class DefaultUserPreferencesRepositoryTest {
 
             repo.setAutoplayPreference(AutoplayPreference.NEVER)
 
-            assertEquals(true, repo.autoplayGifs.first())
+            assertTrue(repo.autoplayGifs.first())
             assertEquals(AutoplayPreference.NEVER, repo.autoplayPreference.first())
         }
 
