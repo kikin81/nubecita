@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    ACCESS_NETWORK_STATE for NetworkStatus, which reports whether the active
+    connection is metered. Declared here rather than relied on from :core:video
+    (which declares it for DataSaverStatus) so this module carries the
+    permission it actually uses — a consumer that takes :core:common without
+    :core:video still gets a working NetworkStatus. Duplicate <uses-permission>
+    entries merge cleanly.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+</manifest>
