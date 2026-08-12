@@ -142,6 +142,30 @@ it buys nothing that justifies a second multi-megabyte artifact:
 locally generates once per checkout; the files persist on disk and subsequent
 runs pass the guard.
 
+**Staleness caveat, and why it does not undermine the guard.** Because the
+directory is gitignored it survives branch switches, so a developer could
+measure branch B against a profile generated on branch A — and `.2` would pass
+on stale content. Mitigations, in order of strength:
+
+- CI is immune: every nightly runs on a fresh checkout and regenerates.
+- Wire the directory into `clean`'s delete set so `./gradlew clean` resets it.
+- Document it in `benchmark/README.md` (child `.3`): a local profile is only
+  valid for the branch that produced it.
+
+This is a *staleness* risk, not an *absence* risk. It cannot recreate the bug
+this epic fixes (measuring zero app rules); it can only mean the profile is
+slightly out of date relative to the code — the same condition the committed
+production profile lives in permanently between regens.
+
+**Generation failure must fail loudly, never fall back.** If the nightly's
+generation step flakes or times out, the workflow fails. That is the correct
+behaviour: a fallback that proceeded to measure without a profile would
+recreate exactly the silent-zero bug this epic exists to eliminate. A *retry* is
+acceptable; a *skip* is not. `macrobench.yaml` currently sets
+`timeout-minutes: 60` for the whole job — implementation must confirm that still
+fits generation plus the bench run, given production generation took ~18 minutes
+on a physical device.
+
 **Acceptance test, to be run first.** Generate the bench profile, rebuild, and
 inspect
 `app/build/intermediates/merged_art_profile/benchBenchmarkRelease/…/baseline-prof.txt`.
@@ -156,10 +180,21 @@ against a fixed committed profile.
 
 ### 2. Gradle verification task — the guard (`nubecita-6row.2`)
 
-A per-variant task — `:app:verify<Variant>BaselineProfileRules`, registered for
-both `benchBenchmarkRelease` and `productionBenchmarkRelease` — reads that
+A per-variant task — `:app:verify<Variant>BaselineProfileRules` — reads that
 variant's merged ART profile, counts `net/kikin/nubecita` rules, and fails below
-a floor of **500**.
+a floor of **500**. Registered for three variants:
+
+| Variant | Why |
+|---|---|
+| `benchBenchmarkRelease` | the variant the nightly measures — where the bug was found |
+| `productionBenchmarkRelease` | the manual pre-ship validation lane |
+| **`productionRelease`** | **the variant that actually ships** |
+
+The third is the highest-value registration and was missing from the first draft
+of this design. Guarding only the benchmark variants would protect the
+*measurement* while leaving the *product* unguarded: a wiring break that dropped
+the app profile from the shipped APK would sail through. `productionRelease`
+currently carries 6,957 app rules, comfortably above the floor.
 
 With `.1` committing nothing, this guard is load-bearing rather than
 belt-and-braces: it is the only thing standing between a developer and a silent
@@ -230,9 +265,27 @@ different times:
 Given this bug hid behind a healthy-looking number for months, carrying both is
 proportionate.
 
-Three things to verify during implementation rather than assume:
+**On the `%` wildcard.** Review raised a concern that `TraceSectionMetric` does
+exact string matching and would never match `"JIT Compiling %"`. Checked against
+`androidx.benchmark.macro` 1.5.0-alpha07's own source
+(`androidx/benchmark/macro/Metric.kt:527`):
+
+> `"%"` can be used as a wildcard, as this is supported by the underlying
+> `TraceProcessor` query. For example `"JIT %"` will match a section named
+> `"JIT compiling int com.package.MyClass.method(int)"`
+
+The query is built with SQL `LIKE`, and SQLite's `LIKE` is ASCII
+case-insensitive by default, so the capital `C` in NiA's `"JIT Compiling %"`
+matches the runtime's lowercase `"JIT compiling …"`. The concern does not apply.
+
+Things to verify during implementation rather than assume:
 
 - `TraceSectionMetric` is `@ExperimentalMetricApi` and needs an opt-in.
+- **The metrics must report non-zero on a real run.** Whatever the API
+  guarantees, a metric that silently reports 0 because no slice matched is
+  indistinguishable from a profile that isn't working — the same failure shape
+  as the bug being fixed. Confirm a non-zero JIT reading in the `None` cell
+  before trusting a low reading in the `BaselineProfile` cell.
 - Confirm the ART trace sections actually emit on the **hosted emulator** the
   nightly uses (swiftshader). If they do not, the metric is emulator-blind and
   that limitation must be documented rather than silently reporting zeros.
