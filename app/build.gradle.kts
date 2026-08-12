@@ -394,12 +394,15 @@ dependencies {
     // the app APK. The `screenshots` fastlane lane runs the bench androidTest.
     androidTestImplementation(libs.screengrab)
 
-    // Baseline profile producer wiring — :benchmark's
+    // Baseline profile producer wiring — `:benchmark`'s
     // `BaselineProfileGenerator` writes startup-prof.txt + baseline-prof.txt
-    // into `app/src/release/generated/baselineProfiles/` (plugin default
-    // `saveInSrc = true`) and the androidx.baselineprofile plugin picks
-    // them up automatically at release assembly. Regen is manual — see
-    // benchmark/README.md for cadence.
+    // into `app/src/<flavor>Release/generated/baselineProfiles/` (plugin
+    // default `saveInSrc = true`), and the androidx.baselineprofile plugin
+    // picks them up at release assembly.
+    //
+    // productionRelease/ IS committed; benchRelease/ is gitignored and
+    // regenerated (nightly in CI, on demand locally). Production regen is
+    // manual and on-device — see benchmark/README.md for cadence.
     "baselineProfile"(project(":benchmark"))
 
     // Bench also ships the widget, rendered offline against fakes — see the note
@@ -458,13 +461,24 @@ abstract class VerifyBaselineProfileRulesTask : DefaultTask() {
                 lines.count { it.contains("net/kikin/nubecita") }
             }
         if (appRules < MIN_APP_PROFILE_RULES) {
+            // The fix differs by flavor: bench profiles are gitignored and
+            // regenerated on demand, production profiles are committed and
+            // regenerated manually on a device. Pointing a production failure at
+            // the bench generator would send the developer to a command that
+            // cannot help (nubecita-6row).
+            val fixCommand =
+                if (variantName.get().startsWith("production")) {
+                    "./gradlew :app:generateProductionReleaseBaselineProfile " +
+                        "-PbaselineProfileEnvironment=production   (on a signed-in physical device)"
+                } else {
+                    "./gradlew :app:generateBenchReleaseBaselineProfile"
+                }
             error(
                 "Variant ${variantName.get()} has only $appRules app baseline-profile " +
                     "rules (floor $MIN_APP_PROFILE_RULES). Its APK would be measured or " +
                     "shipped with a library-only profile.\n" +
-                    "  Fix: ./gradlew :app:generateBenchReleaseBaselineProfile\n" +
-                    "  Background: docs/superpowers/specs/" +
-                    "2026-08-11-startup-bench-profile-validation-design.md",
+                    "  Fix: $fixCommand\n" +
+                    "  Background: benchmark/README.md",
             )
         }
         logger.lifecycle("Baseline profile OK for ${variantName.get()}: $appRules app rules")
@@ -513,9 +527,11 @@ afterEvaluate {
         // Hooking the package task would leave the artifact users actually receive
         // unguarded, which is the whole point of registering productionRelease.
         //
-        // `merge<Variant>ArtProfile` IS in both the APK and AAB graphs, and running
-        // right after the profile is merged means the guard fires earlier than
-        // packaging — well before any device work.
+        // `merge<Variant>ArtProfile` IS in both the APK and AAB graphs, so this
+        // runs as soon as the profile is merged. Note `finalizedBy` orders this
+        // task only against the merge task — with `org.gradle.parallel` enabled,
+        // packaging may run concurrently. That is safe: a failure here fails the
+        // build, so nothing is published or measured.
         tasks.named("merge${capitalized}ArtProfile") { finalizedBy(verify) }
     }
 }

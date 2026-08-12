@@ -65,13 +65,26 @@ Default to **COLD only** when iterating — under the USB-drop threshold and ans
 
 ## Commands
 
+**Which lane?** The bench flavor answers "did startup regress" (deterministic,
+offline, runs nightly). The production flavor answers "does the shipped profile
+help" (real signed-in cold start, manual only — OAuth cannot be automated). Run
+the production lane before shipping a profile regen.
+
+**Generate the BENCH profile** (needed before any local bench run — it is
+gitignored, so a fresh checkout has none, and `:app:verify…BaselineProfileRules`
+will fail the build until you run this):
+
+```bash
+./gradlew :app:generateBenchReleaseBaselineProfile
+```
+
 **Generate the SHIPPABLE baseline profile** — `production` flavor, *needs a signed-in `productionNonMinifiedRelease` device* (real network, non-deterministic, ~weekly cadence):
 
 ```bash
 ./gradlew :app:generateProductionReleaseBaselineProfile -PbaselineProfileEnvironment=production
 ```
 
-Then commit `app/src/productionRelease/generated/baselineProfiles/{startup,baseline}-prof.txt` if the diff is meaningful. (For a quick local check against the deterministic `bench` flavor run `:app:generateBenchReleaseBaselineProfile` — but **don't commit a bench-generated profile** (it omits the real network/crypto/serialization startup path). Use the **variant-specific** task, NOT the generic `:app:generateReleaseBaselineProfile`: the generic task generates both flavors, so without the `-P` flag it silently overwrites the committed `productionRelease` profile with the bench one.)
+Then commit `app/src/productionRelease/generated/baselineProfiles/{startup,baseline}-prof.txt` if the diff is meaningful. (`:app:generateBenchReleaseBaselineProfile` against the deterministic `bench` flavor is **required**, not optional, before any local bench run — see Pre-flight above; the profile is gitignored and the verify task fails the build without it. But **don't commit a bench-generated profile** (it omits the real network/crypto/serialization startup path). Use the **variant-specific** task, NOT the generic `:app:generateReleaseBaselineProfile`: the generic task generates both flavors, so without the `-P` flag it silently overwrites the committed `productionRelease` profile with the bench one.)
 
 **Run StartupBenchmark — COLD cells only** (recommended default):
 
