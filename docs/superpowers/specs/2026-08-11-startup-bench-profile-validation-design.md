@@ -49,9 +49,30 @@ The `androidx.baselineprofile` consumer plugin appears to wire the
 `benchmarkRelease`, a different build type. The bench flavor has never had a
 profile generated for it, so its benchmark variant gets nothing.
 
-This explains every number in the table. **It is a hypothesis, not a verified
-fact** — see the acceptance test in child `.1`, which exists to falsify it
-before anything else is built.
+### Verified by spike, 2026-08-11
+
+This was written as a hypothesis. It has since been **confirmed experimentally**
+by running `.1`'s acceptance test as a throwaway spike, before committing to the
+plan.
+
+Ran `:app:generateBenchReleaseBaselineProfile` (bench flavor, fully offline, no
+OAuth — as predicted) to create `app/src/benchRelease/generated/baselineProfiles/`,
+then rebuilt `:app:assembleBenchBenchmarkRelease` and re-read the merged ART
+profile:
+
+| `benchBenchmarkRelease` merged ART profile | Total rules | App rules |
+|---|---|---|
+| Before — no `src/benchRelease/generated/` | 13,645 | **0** |
+| After — profile generated | 61,501 | **5,941** |
+
+The flavor-specific generated directory is indeed what feeds the benchmark
+variant. The root cause is confirmed, and `.2` and `.4` rest on a verified
+premise rather than an inferred one.
+
+Two side facts the spike also confirmed: bench-flavor generation needs no
+sign-in and no physical-device gate (it ran unattended against the fakes), and
+generation takes ~16 minutes on this hardware — directly relevant to `.1`'s
+60-minute CI job budget.
 
 ### Three false claims in `macrobench.yaml`'s header
 
@@ -174,12 +195,15 @@ acceptable; a *skip* is not. `macrobench.yaml` currently sets
 fits generation plus the bench run, given production generation took ~18 minutes
 on a physical device.
 
-**Acceptance test, to be run first.** Generate the bench profile, rebuild, and
-inspect
-`app/build/intermediates/merged_art_profile/benchBenchmarkRelease/…/baseline-prof.txt`.
-App-rule count must go from 0 to thousands. If it does not, the root-cause
-hypothesis is wrong and this design must be revised before the remaining
-children are built.
+**Acceptance test — already passed.** Run as a spike on 2026-08-11 before
+committing to the plan: generating the bench profile and rebuilding took
+`benchBenchmarkRelease` from 0 to 5,941 app rules (13,645 → 61,501 total). See
+*Verified by spike* above. `.1`'s remaining work is therefore mechanical —
+moving that proven sequence into the workflow — not exploratory.
+
+Measured input for the CI budget: generation took **~16 minutes** on a Pixel
+Fold. `macrobench.yaml`'s `timeout-minutes: 60` must cover that plus the build
+and the bench run.
 
 **Accepted risk:** a freshly generated profile each night makes the
 `BaselineProfile` cell's input vary run to run, adding variance to a trend whose
