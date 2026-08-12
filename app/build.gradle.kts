@@ -461,11 +461,23 @@ abstract class VerifyBaselineProfileRulesTask : DefaultTask() {
                 lines.count { it.contains("net/kikin/nubecita") }
             }
         if (appRules < MIN_APP_PROFILE_RULES) {
+            // The fix differs by flavor: bench profiles are gitignored and
+            // regenerated on demand, production profiles are committed and
+            // regenerated manually on a device. Pointing a production failure at
+            // the bench generator would send the developer to a command that
+            // cannot help (nubecita-6row).
+            val fixCommand =
+                if (variantName.get().startsWith("production")) {
+                    "./gradlew :app:generateProductionReleaseBaselineProfile " +
+                        "-PbaselineProfileEnvironment=production   (on a signed-in physical device)"
+                } else {
+                    "./gradlew :app:generateBenchReleaseBaselineProfile"
+                }
             error(
                 "Variant ${variantName.get()} has only $appRules app baseline-profile " +
                     "rules (floor $MIN_APP_PROFILE_RULES). Its APK would be measured or " +
                     "shipped with a library-only profile.\n" +
-                    "  Fix: ./gradlew :app:generateBenchReleaseBaselineProfile\n" +
+                    "  Fix: $fixCommand\n" +
                     "  Background: benchmark/README.md",
             )
         }
