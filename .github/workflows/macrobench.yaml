@@ -216,11 +216,17 @@ jobs:
         id: bench-convert
         run: |
           OUT=benchmark/build/macrobench-custom.json
+          OUT_BP=benchmark/build/macrobench-baselineprofile.json
+          # Partition: effectiveness metrics (JIT / ClassInit) are observed but
+          # NOT gated — they are CPU-bound and noisy on a swiftshader emulator,
+          # and would trip the 150% alert threshold on variance alone
+          # (nubecita-6row.4). Timing metrics keep the existing gate.
           jq '[ .benchmarks[]
             | (.className | split(".") | last) as $cls
             | .name as $bench
             | .metrics | to_entries[]
             | select(.value.median != null)
+            | select(.key | test("JIT|ClassInit") | not)
             | { name: "\($cls).\($bench) / \(.key)",
                 unit: (if   (.key | endswith("Ms")) then "ms"
                        elif  .key == "frameCount"    then "frames"
@@ -230,13 +236,32 @@ jobs:
                  then { range: "+/- \(.value.coefficientOfVariation * 1000 | round / 10)%" }
                  else {} end) ]' \
             "${{ steps.bench-json.outputs.path }}" > "$OUT"
+          jq '[ .benchmarks[]
+            | (.className | split(".") | last) as $cls
+            | .name as $bench
+            | .metrics | to_entries[]
+            | select(.value.median != null)
+            | select(.key | test("JIT|ClassInit"))
+            | { name: "\($cls).\($bench) / \(.key)",
+                unit: (if (.key | endswith("Ms")) then "ms" else "" end),
+                value: (.value.median * 1000 | round / 1000) }
+              + (if .value.coefficientOfVariation != null
+                 then { range: "+/- \(.value.coefficientOfVariation * 1000 | round / 10)%" }
+                 else {} end) ]' \
+            "${{ steps.bench-json.outputs.path }}" > "$OUT_BP"
           COUNT=$(jq 'length' "$OUT")
           if [ "$COUNT" -eq 0 ]; then
             echo "::error::No benchmark metrics found in ${{ steps.bench-json.outputs.path }}"
             exit 1
           fi
-          echo "Converted $COUNT metric(s)"
+          COUNT_BP=$(jq 'length' "$OUT_BP")
+          if [ "$COUNT_BP" -eq 0 ]; then
+            echo "::error::No baseline-profile effectiveness metrics found. StartupBenchmark should emit JIT/ClassInit metrics (nubecita-6row.4); a silently-empty set means the trace sections did not emit."
+            exit 1
+          fi
+          echo "Converted $COUNT timing metric(s), $COUNT_BP effectiveness metric(s)"
           echo "path=$OUT" >> "$GITHUB_OUTPUT"
+          echo "path_bp=$OUT_BP" >> "$GITHUB_OUTPUT"
 
       # Scheduled / manual: this is the trend of record. Push the new point to
       # gh-pages and fail the run if any metric regressed past the threshold.
@@ -253,6 +278,24 @@ jobs:
           alert-threshold: "150%"
           fail-on-alert: true
           comment-on-alert: true
+
+      # Effectiveness metrics are OBSERVED, NOT ENFORCED. JIT compilation is
+      # CPU-bound and materially noisier on a swiftshader emulator than on real
+      # hardware, so gating them at the timing chart's 150% threshold would fail
+      # the nightly on variance alone. Once enough history exists to know the
+      # real variance on this runner, set a threshold from data instead of
+      # guessing one (nubecita-6row.4).
+      - name: Store baseline-profile effectiveness (trend only)
+        if: github.event_name != 'pull_request'
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Baseline profile effectiveness
+          tool: customSmallerIsBetter
+          output-file-path: ${{ steps.bench-convert.outputs.path_bp }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          gh-pages-branch: gh-pages
+          auto-push: true
+          fail-on-alert: false
 
       # PR opt-in run: never mutate the gh-pages trend (auto-push: false,
       # save-data-file: false) and never auto-fail the build — surface a
