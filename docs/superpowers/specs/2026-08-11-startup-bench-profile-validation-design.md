@@ -1,7 +1,7 @@
 # Startup bench: make the BaselineProfile cell measure a real app profile
 
 **Date:** 2026-08-11 (revised same day after reviewing NiA and `macrobench.yaml`)
-**Epic:** `nubecita-6row` (children `.1`, `.2`, `.3`)
+**Epic:** `nubecita-6row` (children `.1`, `.2`, `.3`, `.4`)
 **Status:** design approved in conversation; this spec is itself under review
 (PR #890). Implementation not started.
 
@@ -84,6 +84,8 @@ entries. This is a measurement gap, not a shipping bug.
 
 ## Prior art: Now in Android, and why we cannot copy it
 
+Read from the local clone at `~/code/nowinandroid`, not from GitHub.
+
 NiA never has this problem because it regenerates on every release build:
 
 ```kotlin
@@ -95,6 +97,17 @@ release { baselineProfile.automaticGenerationDuringBuild = true }
 with `benchmarks/build.gradle.kts` using Gradle Managed Devices
 (`pixel6Api33`, `useConnectedDevices = false`). No committed artifact, no
 staleness, no variant-mismatch window.
+
+Two concrete confirmations from the clone:
+
+- **NiA commits no baseline profiles at all** — nothing under
+  `generated/baselineProfiles`, nothing git-tracked. Independent evidence for
+  child `.1`, arrived at from a different direction than our build-time /
+  dead-weight reasoning.
+- **`.github/workflows/NightlyBaselineProfiles.yaml`** generates them nightly on
+  a GMD: `:benchmarks:pixel6Api33Setup`, then `:app:assemble` with
+  `-Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=baselineprofile`.
+  A working reference for child `.1`'s workflow step.
 
 **That is not portable to our production flavor.** NiA's `prod` flavor has no
 authentication and runs unattended. Our production cold start goes through
@@ -109,7 +122,7 @@ gate passes fully offline — no OAuth, no physical device.
 
 ## Design
 
-Three pieces, one per child issue.
+Four pieces, one per child issue.
 
 ### 1. Generate the bench profile in the Macrobench workflow (`nubecita-6row.1`)
 
@@ -186,6 +199,48 @@ non-determinism of the generator. A **partial** loss — 6,452 dropping to 900 �
 passes. Deliberate, chosen over a proportional or exact-count floor that would
 cry wolf on every regen.
 
+### 4. Profile-effectiveness metrics — the ground truth (`nubecita-6row.4`)
+
+Adopted from NiA's `BaselineProfileMetrics`. Add trace-section metrics to
+`StartupBenchmark` alongside the existing `StartupTimingMetric`:
+
+```kotlin
+val jitCompilationMetric = TraceSectionMetric("JIT Compiling %", label = "JIT compilation")
+val classInitMetric      = TraceSectionMetric("L%/%;", label = "ClassInit")
+metrics = listOf(StartupTimingMetric(), jitCompilationMetric, classInitMetric)
+```
+
+**This is the check that would have caught the bug, and TTID did not.** With 0
+app rules, the `BaselineProfile` cell's JIT-compilation time stays level with the
+`None` cell — nothing of ours is being AOT-compiled. The 17.9% TTID gain from
+library profiles masked that completely. These metrics move the failure into the
+reported number instead of requiring someone to go spelunking in
+`merged_art_profile`.
+
+**Complementary to `.2`, not a replacement.** They fail in different ways and at
+different times:
+
+| | `.2` guard | `.4` metrics |
+|---|---|---|
+| When | seconds, before device work | after a full ~3-min bench run |
+| Kind | structural (counts rules) | behavioural (measures AOT effect) |
+| Coupling | AGP intermediates / task name | none |
+| Tuning | a floor to choose | none |
+
+Given this bug hid behind a healthy-looking number for months, carrying both is
+proportionate.
+
+Three things to verify during implementation rather than assume:
+
+- `TraceSectionMetric` is `@ExperimentalMetricApi` and needs an opt-in.
+- Confirm the ART trace sections actually emit on the **hosted emulator** the
+  nightly uses (swiftshader). If they do not, the metric is emulator-blind and
+  that limitation must be documented rather than silently reporting zeros.
+- `macrobench.yaml`'s jq converter already walks `.metrics` generically via
+  `to_entries` and maps names ending in `Ms` to milliseconds, so the new metrics
+  should land on the gh-pages trend as new series with no workflow change.
+  Confirm; do not assume.
+
 ### 3. Documentation — two lanes, three corrections (`nubecita-6row.3`)
 
 | Lane | Command | Answers |
@@ -206,21 +261,27 @@ into `app/src/release/generated/baselineProfiles/`.
 
 ## Delivery
 
-An epic → one `gh stack` of three PRs, landed atomically.
+An epic → one `gh stack` of four PRs, landed atomically, in the order
+`.1` → `.2` → `.4` → `.3`.
 
 Ordering matters: the guard from `.2` would fail the nightly if it landed before
-`.1` taught the workflow to generate a profile. A stack keeps `main` from ever
-seeing that intermediate state and cuts one release for the whole epic.
+`.1` taught the workflow to generate a profile, and `.4`'s metrics are only
+meaningful once a real profile is present. `.3` sits last because it documents
+the finished behaviour of the three below it. A stack keeps `main` from ever
+seeing an intermediate state and cuts one release for the whole epic.
 
-All three child PR titles must stay off `feat`, `fix`, and **`perf`** — the
+All four child PR titles must stay off `feat`, `fix`, and **`perf`** — the
 default `conventionalcommits` rules release on `perf` as a patch. Child `.1` is
-therefore `ci(bench):`, not `perf(...)`. As titled this epic cuts no release,
-which is correct: nothing user-facing changes.
+therefore `ci(bench):`, not `perf(...)`. As titled (`ci` / `test` / `test` /
+`docs`) this epic cuts no release, which is correct: nothing user-facing
+changes.
 
 ## Explicit non-goals
 
-- **Detecting partial profile degradation.** The floor is absence-only, by
-  choice.
+- **Detecting partial profile degradation via the `.2` floor.** The floor is
+  absence-only, by choice. Note `.4`'s JIT metric partially covers this gap from
+  the other side: a profile that degrades enough to matter should show rising
+  JIT time even while the rule count stays above 500.
 - **Automating the production lane.** OAuth cannot be mocked or driven
   headlessly. It stays a manual, on-device, pre-ship check. This is the one
   place we diverge from NiA and it is not fixable.
