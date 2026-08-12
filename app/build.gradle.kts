@@ -422,3 +422,11 @@ tasks.register("publish") {
     description = "No-op publish task to satisfy semantic-release verification in CI"
     group = "publishing"
 }
+
+// The bench-flavor baseline profile is gitignored and regenerated on demand,
+// so it survives branch switches. A stale profile from another branch can mask
+// newly-broken generation on this one — `clean` must reset it. See
+// nubecita-6row.1.
+tasks.named<Delete>("clean") {
+    delete(layout.projectDirectory.dir("src/benchRelease/generated"))
+}
