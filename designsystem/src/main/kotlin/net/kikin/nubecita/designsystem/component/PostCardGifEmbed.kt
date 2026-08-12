@@ -117,9 +117,18 @@ fun PostCardGifEmbed(
                 }
             }
     Box(sized) {
+        // The image layer stays composed (with a null model) while covered
+        // rather than being skipped: the cover is clipped to the same 16dp
+        // rounded corners, and its antialiased edge blends with whatever is
+        // behind it. Removing the layer underneath measurably changes those
+        // corner pixels (~300 px, up to 51/255 in dark mode), so "the cover is
+        // opaque, nothing shows through" is true of the fill but not the edge.
         NubecitaAsyncImage(
             model = model,
-            contentDescription = alt,
+            // Blank alt stays null so the image is decorative: an empty
+            // contentDescription makes TalkBack announce nothing useful where
+            // saying nothing at all is correct.
+            contentDescription = alt?.takeIf { it.isNotBlank() },
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,
         )
