@@ -54,6 +54,10 @@ ls app/build/intermediates/merged_art_profile/
 
 Expected: a `mergeBenchBenchmarkReleaseArtProfile`-style task exists, and `merged_art_profile/<variant>/` directories are present. If the task name differs from `merge<Variant>ArtProfile`, Task 2's `tasks.named(...)` string must change to match.
 
+**Result 2026-08-12: PASS.** All three exist — `mergeBenchBenchmarkReleaseArtProfile`, `mergeProductionBenchmarkReleaseArtProfile`, `mergeProductionReleaseArtProfile`.
+
+Also verified, and it changed the design: the release pipeline ships an **AAB** (`fastlane/Fastfile:118` → `bundleProductionRelease`). `./gradlew :app:bundleProductionRelease --dry-run` shows `:app:mergeProductionReleaseArtProfile` present and `:app:packageProductionRelease` **absent** (count 0). Task 2 therefore hooks the merge task, not the package task — hooking the package task would leave the shipped artifact unguarded.
+
 - [ ] **V2: Confirm `productionRelease` currently passes the 500 floor**
 
 ```bash
@@ -62,6 +66,8 @@ grep -c 'net/kikin/nubecita' \
 ```
 
 Expected: a number well above 500 (was 6,347). If it is below 500, Task 2 would land red on the shipping variant — stop and investigate before registering the guard there.
+
+**Result 2026-08-12: PASS** — 6,347 app rules.
 
 - [ ] **V3: Confirm the emulator emits ART JIT trace slices**
 
@@ -320,11 +326,18 @@ listOf(
         )
         variantName.set(variant)
     }
-    // finalizedBy the package task, not dependsOn: the guard needs the merged
-    // profile to EXIST, which is only true after packaging. Packaging still
-    // precedes install and the benchmark run, so the guard fires well before
-    // any device work — and a finalizer failure fails the build.
-    tasks.named("package$capitalized") { finalizedBy(verify) }
+    // finalizedBy the MERGE task, not the package task.
+    //
+    // The release pipeline ships an AAB (`fastlane/Fastfile:118` runs
+    // `bundleProductionRelease`), and `packageProductionRelease` is NOT in the
+    // bundle task graph — verified with `bundleProductionRelease --dry-run`.
+    // Hooking the package task would leave the artifact users actually receive
+    // unguarded, which is the whole point of registering productionRelease.
+    //
+    // `merge<Variant>ArtProfile` IS in both the APK and AAB graphs, and running
+    // right after the profile is merged means the guard fires earlier than
+    // packaging — well before any device work.
+    tasks.named("merge${capitalized}ArtProfile") { finalizedBy(verify) }
 }
 ```
 
