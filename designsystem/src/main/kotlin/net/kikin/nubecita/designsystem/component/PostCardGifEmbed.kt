@@ -19,6 +19,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil3.decode.BitmapFactoryDecoder
@@ -59,6 +61,13 @@ fun PostCardGifEmbed(
     val animate = gifAutoplayEnabled || playRequested
     val context = LocalContext.current
     val playLabel = stringResource(R.string.postcard_gif_play)
+    // Fall back to a generic label when the embed carries no alt, so TalkBack
+    // never lands on an unlabeled `Role.Button` — `onClickLabel` names the
+    // ACTION, not the element. Resolved at composition time (not inside the
+    // semantics block) so locale changes participate in recomposition.
+    // Mirrors VideoPosterEmbed.
+    val resolvedDescription =
+        alt?.takeIf { it.isNotBlank() } ?: stringResource(R.string.postcard_gif_default_content_description)
     // Keyed on WHETHER there is a cover, not on which one. MediaCover is a data
     // class carrying an `onReveal` lambda and PostCard builds it inline on every
     // recomposition, so keying on the instance would rebuild the request each
@@ -121,6 +130,9 @@ fun PostCardGifEmbed(
                     base
                 }
             }
+            // The description sits on the box, not the image, so the node
+            // TalkBack focuses is the one that carries the click.
+            .semantics { contentDescription = resolvedDescription }
     Box(sized) {
         // The image layer stays composed (with a null model) while covered
         // rather than being skipped: the cover is clipped to the same 16dp
@@ -130,10 +142,9 @@ fun PostCardGifEmbed(
         // opaque, nothing shows through" is true of the fill but not the edge.
         NubecitaAsyncImage(
             model = model,
-            // Blank alt stays null so the image is decorative: an empty
-            // contentDescription makes TalkBack announce nothing useful where
-            // saying nothing at all is correct.
-            contentDescription = alt?.takeIf { it.isNotBlank() },
+            // Decorative: the box above owns the description, and describing
+            // both would make TalkBack read the card twice.
+            contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,
         )
