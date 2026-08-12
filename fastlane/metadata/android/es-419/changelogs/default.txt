@@ -1,7 +1,8 @@
 ¡Gracias por usar nubecita! Novedades:
-• Tu sesión ya no se cierra sola: corregimos el error que te desconectaba sin motivo.
-• Solicitudes de mensajes: acepta o rechaza una invitación desde tus chats o dentro de la conversación.
-• Inicia sesión más rápido: escribe tu usuario y elige tu cuenta de la lista.
-• Traduce una publicación desde su menú.
-• Corregimos un cierre inesperado al responder o citar.
+• Elige tu estilo: tema dinámico, claro u oscuro.
+• Decide cuándo se reproducen los videos y GIFs, o déjalos quietos para ahorrar datos.
+• Los enlaces en los mensajes se abren con un toque, y puedes copiar un mensaje desde su menú.
+• Los perfiles muestran una etiqueta "Te sigue".
+• Iniciar sesión ya no falla si la app se cierra a mitad del proceso.
+• Las notificaciones muestran el ícono real de nubecita.
 ¡Gracias por acompañarnos! 💙

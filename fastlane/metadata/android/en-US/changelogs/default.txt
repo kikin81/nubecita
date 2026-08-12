@@ -1,7 +1,8 @@
 Thanks for using nubecita! What's new:
-• You stay signed in — fixed a bug that could sign you out for no reason.
-• Message requests — accept or decline an invite from your chat list or inside the conversation.
-• Faster sign-in — start typing your handle and pick your account from the list.
-• Translate a post from its menu.
-• Fixed a crash when replying or quoting in Spanish and Portuguese.
+• Choose your look — Dynamic, Light or Dark theme.
+• Decide when videos and GIFs play, or keep them still to save data.
+• Links in messages are tappable, and you can copy a message from its menu.
+• Profiles now show a "Follows you" chip.
+• Signing in survives the app closing mid-login.
+• Notifications show the real nubecita icon.
 Thanks for being here. 💙
