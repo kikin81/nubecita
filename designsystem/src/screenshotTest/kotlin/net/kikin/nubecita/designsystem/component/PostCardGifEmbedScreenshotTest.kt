@@ -2,8 +2,10 @@ package net.kikin.nubecita.designsystem.component
 
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
+import net.kikin.nubecita.designsystem.LocalGifAutoplayEnabled
 import net.kikin.nubecita.designsystem.NubecitaTheme
 
 /**
@@ -31,5 +33,28 @@ private fun PostCardGifEmbedKnownAspectPreview() {
 private fun PostCardGifEmbedUnknownAspectPreview() {
     NubecitaTheme(dynamicColor = false) {
         PostCardGifEmbed(gifUrl = "https://media.tenor.com/example.gif", aspectRatio = null, alt = null)
+    }
+}
+
+/**
+ * Autoplay-off state: the first frame plus the play badge.
+ *
+ * Baselined in light + dark because the badge is fixed black-on-white rather
+ * than a scheme colour — a regression that themed it would look fine in exactly
+ * one of these two and wrong in the other.
+ */
+@PreviewTest
+@Preview(name = "GIF — autoplay off, light", showBackground = true)
+@Preview(name = "GIF — autoplay off, dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostCardGifEmbedAutoplayOffPreview() {
+    NubecitaTheme(dynamicColor = false) {
+        CompositionLocalProvider(LocalGifAutoplayEnabled provides false) {
+            PostCardGifEmbed(
+                gifUrl = "https://static.klipy.com/example.gif",
+                aspectRatio = 0.93f,
+                alt = "example gif",
+            )
+        }
     }
 }

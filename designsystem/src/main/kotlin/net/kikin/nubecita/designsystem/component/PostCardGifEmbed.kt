@@ -1,5 +1,6 @@
 package net.kikin.nubecita.designsystem.component
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -7,12 +8,26 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import coil3.decode.BitmapFactoryDecoder
+import coil3.request.ImageRequest
+import net.kikin.nubecita.designsystem.LocalGifAutoplayEnabled
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.R
 
 /**
  * Inline animated GIF — an `app.bsky.embed.external` whose URL is an
@@ -39,6 +54,54 @@ fun PostCardGifEmbed(
     modifier: Modifier = Modifier,
     cover: MediaCover? = null,
 ) {
+    val gifAutoplayEnabled = LocalGifAutoplayEnabled.current
+    // Reset whenever autoplay flips or the URL changes: a card recycled to a
+    // different GIF must not inherit the previous one's "user tapped play".
+    var playRequested by remember(gifUrl, gifAutoplayEnabled) { mutableStateOf(false) }
+    val animate = gifAutoplayEnabled || playRequested
+    val context = LocalContext.current
+    val playLabel = stringResource(R.string.postcard_gif_play)
+    // Fall back to a generic label when the embed carries no alt, so TalkBack
+    // never lands on an unlabeled `Role.Button` — `onClickLabel` names the
+    // ACTION, not the element. Resolved at composition time (not inside the
+    // semantics block) so locale changes participate in recomposition.
+    // Mirrors VideoPosterEmbed.
+    val resolvedDescription =
+        alt?.takeIf { it.isNotBlank() } ?: stringResource(R.string.postcard_gif_default_content_description)
+    // Keyed on WHETHER there is a cover, not on which one. MediaCover is a data
+    // class carrying an `onReveal` lambda and PostCard builds it inline on every
+    // recomposition, so keying on the instance would rebuild the request each
+    // pass and defeat the memoization. The model only cares that it is covered.
+    val isCovered = cover != null
+    val model =
+        remember(gifUrl, isCovered, animate, context) {
+            when {
+                // Covered → no model, so Coil never fetches or decodes the GIF.
+                isCovered -> null
+                animate -> gifUrl
+                else ->
+                    ImageRequest
+                        .Builder(context)
+                        .data(gifUrl)
+                        // Per-request, so the ImageLoader keeps its animated
+                        // decoder for every other GIF on screen.
+                        //
+                        // BitmapFactoryDecoder rather than StaticImageDecoder:
+                        // the latter is `ImageDecoder`-backed and API 29+, and
+                        // minSdk here is 28. BitmapFactory decodes a GIF to its
+                        // first frame on every supported level.
+                        .decoderFactory(BitmapFactoryDecoder.Factory())
+                        // A distinct memory-cache key, because the decoder is
+                        // NOT part of Coil's default key — that is the URL. The
+                        // animated request for the same GIF would otherwise be
+                        // handed this still bitmap straight from the cache, and
+                        // tapping to play would silently do nothing. Verified
+                        // on device: without this the badge disappears (the
+                        // state flips) while the frame never moves.
+                        .memoryCacheKey("$gifUrl#static")
+                        .build()
+            }
+        }
     val sized =
         modifier
             .fillMaxWidth()
@@ -49,16 +112,46 @@ fun PostCardGifEmbed(
                     base.heightIn(min = MIN_GIF_HEIGHT, max = MAX_GIF_HEIGHT)
                 }
             }.clip(RoundedCornerShape(16.dp))
+            .let { base ->
+                // Tap starts this GIF. Skipped while covered so a tap can't
+                // bypass the warning, and skipped when it is already animating
+                // so the card keeps falling through to the host's own tap.
+                if (!animate && cover == null) {
+                    base.clickable(
+                        // A verb phrase, because TalkBack reads it as
+                        // "double-tap to <label>". Without it the card announces
+                        // a bare "double-tap to activate" and the badge — which
+                        // deliberately carries no description of its own —
+                        // leaves nothing to say what activating would do.
+                        onClickLabel = playLabel,
+                        role = Role.Button,
+                    ) { playRequested = true }
+                } else {
+                    base
+                }
+            }
+            // The description sits on the box, not the image, so the node
+            // TalkBack focuses is the one that carries the click.
+            .semantics { contentDescription = resolvedDescription }
     Box(sized) {
+        // The image layer stays composed (with a null model) while covered
+        // rather than being skipped: the cover is clipped to the same 16dp
+        // rounded corners, and its antialiased edge blends with whatever is
+        // behind it. Removing the layer underneath measurably changes those
+        // corner pixels (~300 px, up to 51/255 in dark mode), so "the cover is
+        // opaque, nothing shows through" is true of the fill but not the edge.
         NubecitaAsyncImage(
-            // Covered → no model, so Coil never fetches/decodes the GIF.
-            model = if (cover != null) null else gifUrl,
-            contentDescription = alt,
+            model = model,
+            // Decorative: the box above owns the description, and describing
+            // both would make TalkBack read the card twice.
+            contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,
         )
         if (cover != null) {
             MediaContentWarningCover(cover, Modifier.matchParentSize())
+        } else if (!animate) {
+            MediaPlayBadge(Modifier.align(Alignment.Center))
         }
     }
 }
