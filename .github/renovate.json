@@ -48,6 +48,11 @@
             "matchPackageNames": ["remotion", "@remotion/*"],
             "groupName": "remotion",
             "schedule": ["before 5am on monday"]
+        },
+        {
+            "description": "Keep aboutlibraries and Coil out of the gradle minor/patch automerge so they land as reviewable PRs. The known aboutlibraries shrinkResources failure is a runtime R8 issue on the licenses screen, which CI's assembleDebug-only build job cannot catch, and Coil minors move image loading across the whole feed. This is a review gate, not a version pin — both are free to reach their latest release.",
+            "matchPackageNames": ["/aboutlibraries/", "/^io.coil-kt.coil3/"],
+            "automerge": false
         }
     ]
 }
