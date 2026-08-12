@@ -298,6 +298,7 @@ internal fun FeedViewScreenContent(
                     lastRepostTapPostUri = viewState.lastRepostTapPostUri,
                     onVideoTap = onVideoTap,
                     coordinator = coordinator,
+                    videoAutoplayEnabled = viewState.videoAutoplayEnabled,
                     modifier = Modifier.consumeWindowInsets(padding),
                 )
         }

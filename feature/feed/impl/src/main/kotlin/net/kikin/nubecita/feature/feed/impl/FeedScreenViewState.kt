@@ -45,6 +45,12 @@ sealed interface FeedScreenViewState {
         val isRefreshing: Boolean,
         val lastLikeTapPostUri: String? = null,
         val lastRepostTapPostUri: String? = null,
+        /**
+         * Mirrors `FeedState.videoAutoplayEnabled`. Defaulted so the many
+         * preview and test constructions of this branch keep describing the
+         * ordinary autoplaying feed without restating it.
+         */
+        val videoAutoplayEnabled: Boolean = true,
     ) : FeedScreenViewState
 }
 
@@ -86,5 +92,6 @@ fun FeedState.toViewState(): FeedScreenViewState =
             isRefreshing = loadStatus == FeedLoadStatus.Refreshing,
             lastLikeTapPostUri = lastLikeTapPostUri,
             lastRepostTapPostUri = lastRepostTapPostUri,
+            videoAutoplayEnabled = videoAutoplayEnabled,
         )
     }

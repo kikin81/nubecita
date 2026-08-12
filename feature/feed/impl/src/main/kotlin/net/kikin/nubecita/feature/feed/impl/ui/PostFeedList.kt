@@ -88,6 +88,11 @@ internal fun PostFeedList(
     lastRepostTapPostUri: String? = null,
     onVideoTap: ((postUri: String) -> Unit)? = null,
     coordinator: FeedVideoPlayerCoordinator? = null,
+    // Whether inline video may start on its own, already resolved against the
+    // connection by AutoplayPolicy. Defaulted true so previews, screenshot
+    // fixtures and the no-coordinator call paths keep describing the ordinary
+    // autoplaying feed without restating it.
+    videoAutoplayEnabled: Boolean = true,
     // Optional leading list item (e.g. the Discover "Trending Videos" carousel).
     // A single header item above the posts — it never touches the tuned post-item
     // rendering below; null on non-Discover feeds.
@@ -198,11 +203,11 @@ internal fun PostFeedList(
                 // stability goal (function values compare by reference, so
                 // the key would churn each recomposition).
                 val videoSlot: @Composable (EmbedUi.Video, MediaCover?) -> Unit =
-                    remember(leaf.id, coordinator, onVideoTap) {
+                    remember(leaf.id, coordinator, onVideoTap, videoAutoplayEnabled) {
                         val onParentVideoTap: (() -> Unit)? =
                             onVideoTap?.let { tap -> { tap(leaf.id) } }
                         val slot: @Composable (EmbedUi.Video, MediaCover?) -> Unit = { video, cover ->
-                            if (coordinator != null) {
+                            if (coordinator != null && videoAutoplayEnabled) {
                                 PostCardVideoEmbed(
                                     video = video,
                                     postId = leaf.id,
@@ -211,10 +216,17 @@ internal fun PostFeedList(
                                     cover = cover,
                                 )
                             } else {
+                                // Autoplay off (or no coordinator at all, in
+                                // previews). The badge is drawn only in the
+                                // former case: with no coordinator this is a
+                                // preview/screenshot render of the ordinary
+                                // autoplaying feed, and a badge there would
+                                // describe a state the user never sees.
                                 PostCardVideoEmbed(
                                     video = video,
                                     onTap = onParentVideoTap,
                                     cover = cover,
+                                    showPlayAffordance = coordinator != null,
                                 )
                             }
                         }
@@ -235,14 +247,14 @@ internal fun PostFeedList(
                 // Build the quoted-video tap lambda inside the remember
                 // (same stability fix as the parent-video slot above).
                 val quotedVideoSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? =
-                    remember(quotedVideoUri, coordinator, onVideoTap) {
+                    remember(quotedVideoUri, coordinator, onVideoTap, videoAutoplayEnabled) {
                         if (quotedVideoUri == null) {
                             null
                         } else {
                             val onQuotedVideoTap: (() -> Unit)? =
                                 onVideoTap?.let { tap -> { tap(quotedVideoUri) } }
                             val slot: @Composable (QuotedEmbedUi.Video) -> Unit = { qVideo ->
-                                if (coordinator != null) {
+                                if (coordinator != null && videoAutoplayEnabled) {
                                     PostCardVideoEmbed(
                                         quotedVideo = qVideo,
                                         postId = quotedVideoUri,
@@ -250,9 +262,13 @@ internal fun PostFeedList(
                                         onTap = onQuotedVideoTap,
                                     )
                                 } else {
+                                    // Same split as the parent-video slot: the
+                                    // badge marks autoplay-off, not the
+                                    // no-coordinator preview path.
                                     PostCardVideoEmbed(
                                         quotedVideo = qVideo,
                                         onTap = onQuotedVideoTap,
+                                        showPlayAffordance = coordinator != null,
                                     )
                                 }
                             }
@@ -431,7 +447,17 @@ internal fun PostFeedList(
                 }
             }
         val currentPostsById by rememberUpdatedState(postsById)
-        LaunchedEffect(listState, coordinator) {
+        // Keyed on the autoplay flag so flipping the setting restarts the
+        // effect. Off: unbind immediately and never bind again, so a video
+        // already playing stops the moment the user turns autoplay off rather
+        // than at the next scroll settle. Back on: the snapshotFlow re-emits
+        // the current scroll state at once, so a resting feed rebinds without
+        // waiting for the user to scroll.
+        LaunchedEffect(listState, coordinator, videoAutoplayEnabled) {
+            if (!videoAutoplayEnabled) {
+                coordinator.bindMostVisibleVideo(null)
+                return@LaunchedEffect
+            }
             snapshotFlow { listState.isScrollInProgress }
                 .distinctUntilChanged()
                 .filter { scrolling -> !scrolling }
