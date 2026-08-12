@@ -84,7 +84,7 @@ will fail the build until you run this):
 ./gradlew :app:generateProductionReleaseBaselineProfile -PbaselineProfileEnvironment=production
 ```
 
-Then commit `app/src/productionRelease/generated/baselineProfiles/{startup,baseline}-prof.txt` if the diff is meaningful. (For a quick local check against the deterministic `bench` flavor run `:app:generateBenchReleaseBaselineProfile` — but **don't commit a bench-generated profile** (it omits the real network/crypto/serialization startup path). Use the **variant-specific** task, NOT the generic `:app:generateReleaseBaselineProfile`: the generic task generates both flavors, so without the `-P` flag it silently overwrites the committed `productionRelease` profile with the bench one.)
+Then commit `app/src/productionRelease/generated/baselineProfiles/{startup,baseline}-prof.txt` if the diff is meaningful. (`:app:generateBenchReleaseBaselineProfile` against the deterministic `bench` flavor is **required**, not optional, before any local bench run — see Pre-flight above; the profile is gitignored and the verify task fails the build without it. But **don't commit a bench-generated profile** (it omits the real network/crypto/serialization startup path). Use the **variant-specific** task, NOT the generic `:app:generateReleaseBaselineProfile`: the generic task generates both flavors, so without the `-P` flag it silently overwrites the committed `productionRelease` profile with the bench one.)
 
 **Run StartupBenchmark — COLD cells only** (recommended default):
 

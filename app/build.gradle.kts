@@ -466,8 +466,7 @@ abstract class VerifyBaselineProfileRulesTask : DefaultTask() {
                     "rules (floor $MIN_APP_PROFILE_RULES). Its APK would be measured or " +
                     "shipped with a library-only profile.\n" +
                     "  Fix: ./gradlew :app:generateBenchReleaseBaselineProfile\n" +
-                    "  Background: docs/superpowers/specs/" +
-                    "2026-08-11-startup-bench-profile-validation-design.md",
+                    "  Background: benchmark/README.md",
             )
         }
         logger.lifecycle("Baseline profile OK for ${variantName.get()}: $appRules app rules")
@@ -516,9 +515,11 @@ afterEvaluate {
         // Hooking the package task would leave the artifact users actually receive
         // unguarded, which is the whole point of registering productionRelease.
         //
-        // `merge<Variant>ArtProfile` IS in both the APK and AAB graphs, and running
-        // right after the profile is merged means the guard fires earlier than
-        // packaging — well before any device work.
+        // `merge<Variant>ArtProfile` IS in both the APK and AAB graphs, so this
+        // runs as soon as the profile is merged. Note `finalizedBy` orders this
+        // task only against the merge task — with `org.gradle.parallel` enabled,
+        // packaging may run concurrently. That is safe: a failure here fails the
+        // build, so nothing is published or measured.
         tasks.named("merge${capitalized}ArtProfile") { finalizedBy(verify) }
     }
 }

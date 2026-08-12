@@ -17,7 +17,7 @@ import org.junit.runner.RunWith
  * Generates Nubecita's **startup** and **baseline** profiles.
  *
  * Two outputs, both consumed by AGP at build time and landing in
- * `app/src/release/generated/baselineProfiles/`:
+ * `app/src/<flavor>Release/generated/baselineProfiles/`:
  *
  * - `startup-prof.txt` — the cold-start critical path only (launch →
  *   `Splash` → `MainShell` → first frame of `Feed`). Fed to R8 to lay the

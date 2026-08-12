@@ -256,11 +256,20 @@ jobs:
             echo "::error::No benchmark metrics found in ${{ steps.bench-json.outputs.path }}"
             exit 1
           fi
+          # NOT a hard failure. The JIT/ClassInit trace sections are verified on
+          # physical hardware but NOT yet on this swiftshader emulator, and
+          # benchmark/README.md documents that emulator metric availability
+          # genuinely diverges. Failing here would abort this step BEFORE the
+          # timing trend is stored, so an unverified new metric could take down
+          # the TTID lane this stack exists to repair. Warn, publish the count,
+          # and let the effectiveness store step skip itself.
+          # Promote to a hard failure once a green nightly proves these metrics
+          # emit on this runner (nubecita-6row.4).
           COUNT_BP=$(jq 'length' "$OUT_BP")
           if [ "$COUNT_BP" -eq 0 ]; then
-            echo "::error::No baseline-profile effectiveness metrics found. StartupBenchmark should emit JIT/ClassInit metrics (nubecita-6row.4); a silently-empty set means the trace sections did not emit."
-            exit 1
+            echo "::warning::No baseline-profile effectiveness metrics found — JIT/ClassInit trace sections did not emit on this runner. Timing metrics are unaffected; the effectiveness chart is skipped this run (nubecita-6row.4)."
           fi
+          echo "count_bp=$COUNT_BP" >> "$GITHUB_OUTPUT"
           echo "Converted $COUNT timing metric(s), $COUNT_BP effectiveness metric(s)"
           echo "path=$OUT" >> "$GITHUB_OUTPUT"
           echo "path_bp=$OUT_BP" >> "$GITHUB_OUTPUT"
@@ -288,7 +297,7 @@ jobs:
       # real variance on this runner, set a threshold from data instead of
       # guessing one (nubecita-6row.4).
       - name: Store baseline-profile effectiveness (trend only)
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.bench-convert.outputs.count_bp != '0'
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: Baseline profile effectiveness
