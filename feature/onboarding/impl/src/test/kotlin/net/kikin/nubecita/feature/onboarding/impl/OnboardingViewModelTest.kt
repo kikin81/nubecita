@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.preferences.AutoplayPreference
 import net.kikin.nubecita.core.preferences.ThemePreference
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
@@ -90,6 +91,14 @@ internal class OnboardingViewModelTest {
         override val themePreference: Flow<ThemePreference> = flowOf(ThemePreference.DYNAMIC)
 
         override suspend fun setThemePreference(preference: ThemePreference) = Unit
+
+        override val autoplayPreference: Flow<AutoplayPreference> = flowOf(AutoplayPreference.ALWAYS)
+
+        override suspend fun setAutoplayPreference(preference: AutoplayPreference) = Unit
+
+        override val autoplayGifs: Flow<Boolean> = flowOf(true)
+
+        override suspend fun setAutoplayGifs(enabled: Boolean) = Unit
     }
 
     private class FailingPreferences : UserPreferencesRepository {
@@ -109,5 +118,13 @@ internal class OnboardingViewModelTest {
         override val themePreference: Flow<ThemePreference> = flowOf(ThemePreference.DYNAMIC)
 
         override suspend fun setThemePreference(preference: ThemePreference) = Unit
+
+        override val autoplayPreference: Flow<AutoplayPreference> = flowOf(AutoplayPreference.ALWAYS)
+
+        override suspend fun setAutoplayPreference(preference: AutoplayPreference) = Unit
+
+        override val autoplayGifs: Flow<Boolean> = flowOf(true)
+
+        override suspend fun setAutoplayGifs(enabled: Boolean) = Unit
     }
 }

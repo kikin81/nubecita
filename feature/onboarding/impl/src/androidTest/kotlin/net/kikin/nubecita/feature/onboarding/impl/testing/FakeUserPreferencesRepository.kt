@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flowOf
+import net.kikin.nubecita.core.preferences.AutoplayPreference
 import net.kikin.nubecita.core.preferences.ThemePreference
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import javax.inject.Inject
@@ -46,4 +47,15 @@ internal class FakeUserPreferencesRepository
         override val themePreference: Flow<ThemePreference> = flowOf(ThemePreference.DYNAMIC)
 
         override suspend fun setThemePreference(preference: ThemePreference) = Unit
+
+        // Constant, unlike the bench fake: onboarding never reads or writes
+        // autoplay, so these exist only to satisfy the interface. A stateful
+        // version here would imply a behaviour these tests don't exercise.
+        override val autoplayPreference: Flow<AutoplayPreference> = flowOf(AutoplayPreference.ALWAYS)
+
+        override suspend fun setAutoplayPreference(preference: AutoplayPreference) = Unit
+
+        override val autoplayGifs: Flow<Boolean> = flowOf(true)
+
+        override suspend fun setAutoplayGifs(enabled: Boolean) = Unit
     }

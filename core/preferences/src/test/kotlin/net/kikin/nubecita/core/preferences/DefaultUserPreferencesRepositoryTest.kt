@@ -120,6 +120,78 @@ internal class DefaultUserPreferencesRepositoryTest {
             assertEquals(ThemePreference.DYNAMIC, repo.themePreference.first())
         }
 
+    // Defaults are the app's behaviour BEFORE this setting existed, so upgrading
+    // an existing install changes nothing until the user opens the new page.
+    @Test
+    fun `autoplayPreference defaults to ALWAYS on a fresh store`() =
+        runTest {
+            val repo = DefaultUserPreferencesRepository(newDataStore(this))
+            assertEquals(AutoplayPreference.ALWAYS, repo.autoplayPreference.first())
+        }
+
+    @Test
+    fun `autoplayGifs defaults to true on a fresh store`() =
+        runTest {
+            val repo = DefaultUserPreferencesRepository(newDataStore(this))
+            assertTrue(repo.autoplayGifs.first())
+        }
+
+    @Test
+    fun `setAutoplayPreference round-trips every option`() =
+        runTest {
+            val repo = DefaultUserPreferencesRepository(newDataStore(this))
+            repo.autoplayPreference.test {
+                assertEquals(AutoplayPreference.ALWAYS, awaitItem())
+                for (option in listOf(AutoplayPreference.WIFI_ONLY, AutoplayPreference.NEVER, AutoplayPreference.ALWAYS)) {
+                    repo.setAutoplayPreference(option)
+                    assertEquals(option, awaitItem())
+                }
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `setAutoplayGifs round-trips`() =
+        runTest {
+            val repo = DefaultUserPreferencesRepository(newDataStore(this))
+            repo.autoplayGifs.test {
+                assertTrue(awaitItem())
+                repo.setAutoplayGifs(false)
+                assertFalse(awaitItem())
+                repo.setAutoplayGifs(true)
+                assertTrue(awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    // Same contract as themePreference above: the name lookup is what lets this
+    // build read a value a NEWER one wrote (a future WIFI_AND_CHARGING, say) and
+    // degrade to ALWAYS instead of throwing out of the Flow. Pinned so a refactor
+    // to valueOf can't quietly reintroduce the crash.
+    @Test
+    fun `autoplayPreference falls back to ALWAYS for a value written by a newer build`() =
+        runTest {
+            val dataStore = newDataStore(this)
+            dataStore.edit { prefs -> prefs[stringPreferencesKey("autoplay_preference")] = "WIFI_AND_CHARGING" }
+
+            val repo = DefaultUserPreferencesRepository(dataStore)
+
+            assertEquals(AutoplayPreference.ALWAYS, repo.autoplayPreference.first())
+        }
+
+    // The two settings are independent: changing video autoplay must not disturb
+    // GIFs, which is the whole reason they are separate controls.
+    @Test
+    fun `video and gif autoplay are independent`() =
+        runTest {
+            val repo = DefaultUserPreferencesRepository(newDataStore(this))
+
+            repo.setAutoplayPreference(AutoplayPreference.NEVER)
+
+            assertTrue(repo.autoplayGifs.first())
+            assertEquals(AutoplayPreference.NEVER, repo.autoplayPreference.first())
+        }
+
     @JvmField
     @TempDir
     var tempDir: File = File("")
