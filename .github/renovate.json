@@ -45,7 +45,7 @@
         },
         {
             "description": "Remotion ships a release almost every day, and promo/remotion is a non-shipping asset-rendering project. Pull it out of the all-minor-patch group and refresh it once a week so it collapses into a single Monday PR instead of several per week.",
-            "matchPackageNames": ["remotion", "@remotion/**"],
+            "matchPackageNames": ["remotion", "@remotion/*"],
             "groupName": "remotion",
             "schedule": ["before 5am on monday"]
         }
