@@ -65,6 +65,19 @@ Default to **COLD only** when iterating — under the USB-drop threshold and ans
 
 ## Commands
 
+**Which lane?** The bench flavor answers "did startup regress" (deterministic,
+offline, runs nightly). The production flavor answers "does the shipped profile
+help" (real signed-in cold start, manual only — OAuth cannot be automated). Run
+the production lane before shipping a profile regen.
+
+**Generate the BENCH profile** (needed before any local bench run — it is
+gitignored, so a fresh checkout has none, and `:app:verify…BaselineProfileRules`
+will fail the build until you run this):
+
+```bash
+./gradlew :app:generateBenchReleaseBaselineProfile
+```
+
 **Generate the SHIPPABLE baseline profile** — `production` flavor, *needs a signed-in `productionNonMinifiedRelease` device* (real network, non-deterministic, ~weekly cadence):
 
 ```bash

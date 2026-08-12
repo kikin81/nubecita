@@ -394,12 +394,15 @@ dependencies {
     // the app APK. The `screenshots` fastlane lane runs the bench androidTest.
     androidTestImplementation(libs.screengrab)
 
-    // Baseline profile producer wiring — :benchmark's
+    // Baseline profile producer wiring — `:benchmark`'s
     // `BaselineProfileGenerator` writes startup-prof.txt + baseline-prof.txt
-    // into `app/src/release/generated/baselineProfiles/` (plugin default
-    // `saveInSrc = true`) and the androidx.baselineprofile plugin picks
-    // them up automatically at release assembly. Regen is manual — see
-    // benchmark/README.md for cadence.
+    // into `app/src/<flavor>Release/generated/baselineProfiles/` (plugin
+    // default `saveInSrc = true`), and the androidx.baselineprofile plugin
+    // picks them up at release assembly.
+    //
+    // productionRelease/ IS committed; benchRelease/ is gitignored and
+    // regenerated (nightly in CI, on demand locally). Production regen is
+    // manual and on-device — see benchmark/README.md for cadence.
     "baselineProfile"(project(":benchmark"))
 
     // Bench also ships the widget, rendered offline against fakes — see the note

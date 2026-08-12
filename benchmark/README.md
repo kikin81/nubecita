@@ -12,7 +12,7 @@ gating all build on this module.
 |-----------|------|--------|
 | `StartupBenchmark` | `MainActivity` cold / warm / hot launch, parameterized over `CompilationMode.None` + `Partial(BaselineProfileMode.Require)` | `StartupTimingMetric` (`timeToInitialDisplayMs`, `timeToFullDisplayMs`) |
 | `FeedScrollBenchmark` | UIAutomator-driven fling on the loaded feed `LazyColumn` | `FrameTimingMetric` (`frameDurationCpuMs`, `frameOverrunMs` — p50/p95/p99) |
-| `BaselineProfileGenerator` | Drives Splash → MainShell → first Feed frame for the `BaselineProfileRule` collector | Emits `startup-prof.txt` (R8 DEX layout) + `baseline-prof.txt` (ART AOT) into `:app:src/release/generated/baselineProfiles/` |
+| `BaselineProfileGenerator` | Drives Splash → MainShell → first Feed frame for the `BaselineProfileRule` collector | Emits `startup-prof.txt` (R8 DEX layout) + `baseline-prof.txt` (ART AOT) into `app/src/<flavor>Release/generated/baselineProfiles/` |
 
 `StartupBenchmark` reports two cells per startup mode so the bundled
 baseline profile's effect is directly visible in one bench run:
@@ -101,14 +101,33 @@ pipeline.
 > a CI cell to the prior CI cell; the on-device numbers posted to the
 > `nubecita-crmi` epic thread live on a separate track.
 
-> **Baseline profile in CI.** The workflow only *uses* the committed
-> `app/src/release/generated/baselineProfiles/baseline-prof.txt`; it
-> never regenerates it. Profile generation is blocked on hosted runners
-> by `requiresPhysicalDevice` and the signed-in OAuth cold-start path —
-> the `androidx.baselineprofile` plugin routes `BaselineProfileGenerator`
-> to the `nonMinifiedRelease` variant, so the `benchmarkRelease`
-> connected-test task only runs `StartupBenchmark` + `FeedScrollBenchmark`.
-> Regen stays the manual on-device task documented below.
+> **Baseline profile in CI.** The workflow *generates* the bench-flavor
+> profile on the emulator before measuring — see the "Generate bench
+> baseline profile" step. Nothing is committed; `app/src/benchRelease/generated/`
+> is gitignored.
+>
+> It does **not** generate the production profile: that requires the
+> signed-in OAuth cold-start path, which cannot run unattended. Production
+> regen stays the manual on-device task documented below.
+>
+> (Historical note: this section previously claimed CI generation was blocked by a
+> physical-device gate. No such setting exists — not in Gradle, AGP, or
+> `androidx.baselineprofile`. Bench-flavor generation runs fine unattended because
+> the bench flavor fakes `SignedIn` at boot.)
+
+### Two benchmark lanes
+
+| Lane | Command | Answers |
+|---|---|---|
+| **Bench** (default) | `./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest` | Did startup regress? Deterministic, offline, CI-able. Runs nightly. |
+| **Production** | same, plus `-PbaselineProfileEnvironment=production` | Does the *shipped* profile help? Real signed-in cold start. Manual, on-device, before shipping a profile regen. |
+
+The production lane can never be automated — OAuth is not mockable. Use the
+bench lane for trend tracking and the production lane to validate a regen
+before it ships.
+
+A locally-generated bench profile is only valid for the branch that produced
+it. `./gradlew :app:clean` resets it.
 
 ### Re-baselining the gh-pages trend
 

@@ -6,17 +6,19 @@
 # benchmark-action/github-action-benchmark@v1 to build a historical trend on
 # the `gh-pages` branch and alert on regression.
 #
-# WHAT THIS WORKFLOW USES vs. NEVER DOES
-# --------------------------------------
-# - It only USES the committed baseline profile at
-#   `app/src/release/generated/baselineProfiles/baseline-prof.txt`. It NEVER
-#   regenerates it: baseline-profile generation (BaselineProfileGenerator /
-#   BaselineProfileRule) is gated behind `requiresPhysicalDevice` and the
-#   signed-in OAuth cold-start path, neither of which exists on a hosted
-#   emulator. Regen stays a manual on-device task (see benchmark/README.md).
-#   The androidx.baselineprofile plugin routes BaselineProfileGenerator to the
-#   `nonMinifiedRelease` variant, so `connectedBenchmarkReleaseAndroidTest`
-#   only executes StartupBenchmark + FeedScrollBenchmark here.
+# WHAT THIS WORKFLOW DOES
+# -----------------------
+# - It GENERATES the bench-flavor baseline profile on the emulator before
+#   measuring (see the "Generate bench baseline profile" step), then measures
+#   against it. Nothing is committed: app/src/benchRelease/generated/ is
+#   gitignored and this runner is a fresh checkout every night.
+# - It does NOT generate the *production* profile. That needs the signed-in
+#   OAuth cold-start path, which cannot be automated — production regen stays a
+#   manual on-device task (see benchmark/README.md).
+#
+# Before nubecita-6row this workflow measured an APK containing ZERO app
+# baseline-profile rules, so its COLD-BaselineProfile cell reflected library
+# profiles only.
 #
 # PLATFORM ANCHORING
 # ------------------
