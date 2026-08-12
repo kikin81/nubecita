@@ -148,14 +148,22 @@ measure branch B against a profile generated on branch A — and `.2` would pass
 on stale content. Mitigations, in order of strength:
 
 - CI is immune: every nightly runs on a fresh checkout and regenerates.
-- Wire the directory into `clean`'s delete set so `./gradlew clean` resets it.
+- **Required, not optional:** wire the directory into `clean`'s delete set so
+  `./gradlew clean` resets it. This is part of `.1`'s definition of done, not a
+  nice-to-have — it is the only reliable way for a developer to reset local
+  state when results look wrong.
 - Document it in `benchmark/README.md` (child `.3`): a local profile is only
   valid for the branch that produced it.
 
 This is a *staleness* risk, not an *absence* risk. It cannot recreate the bug
-this epic fixes (measuring zero app rules); it can only mean the profile is
-slightly out of date relative to the code — the same condition the committed
-production profile lives in permanently between regens.
+this epic fixes (measuring zero app rules); it can only mean the profile is out
+of date relative to the code — the same condition the committed production
+profile lives in permanently between regens.
+
+The sharp version of the danger is not "branch A has more rules than branch B" —
+both would be healthy profiles far above the floor. It is that a stale profile
+from branch A can **mask newly broken generation on branch B**: the guard passes
+on yesterday's artifact while today's code produces nothing.
 
 **Generation failure must fail loudly, never fall back.** If the nightly's
 generation step flakes or times out, the workflow fails. That is the correct
@@ -221,6 +229,13 @@ Three non-negotiable properties:
   and its output provider — which pins a task name rather than a full path.
   Better than a hardcoded path, still not a public contract, which is exactly
   why the next property stays.
+
+  **Configuration Cache is not optional here** (`org.gradle.configuration-cache =
+  true`). The mechanic: `flatMap` the provider returned by `tasks.named` straight
+  into an `@InputDirectory`/`@InputFile` property on the verification task.
+  **Never resolve the path at configuration time** — no `.get()`, no
+  `File(...)`, no `project` reference inside the task action. Getting this wrong
+  produces a Configuration Cache violation rather than a working guard.
 - **Fails when it cannot find its input — never skips.** Even with a lazy
   provider, an AGP upgrade could rename or restructure the producing task. A
   guard that silently passes when its input is missing is the precise failure
@@ -278,6 +293,29 @@ The query is built with SQL `LIKE`, and SQLite's `LIKE` is ASCII
 case-insensitive by default, so the capital `C` in NiA's `"JIT Compiling %"`
 matches the runtime's lowercase `"JIT compiling …"`. The concern does not apply.
 
+**These metrics must not alert on the nightly — at least not at first.**
+`macrobench.yaml`'s jq converter walks `.metrics` generically via `to_entries`,
+so `.4`'s metrics land on the gh-pages trend as new series **with no workflow
+change** — and therefore inherit the scheduled run's `alert-threshold: "150%"`
+with `fail-on-alert: true`. JIT compilation is CPU-bound, and CPU-bound work on
+a SwiftShader emulator is materially noisier than on physical hardware, so those
+series could start failing the nightly on variance alone.
+
+The converter's genericity is therefore a hazard here, not only a convenience.
+`.4` must split the trend into two named charts via two
+`benchmark-action/github-action-benchmark` steps:
+
+| Chart | Metrics | Policy |
+|---|---|---|
+| existing (timing) | `timeToInitialDisplayMs`, frame metrics | `alert-threshold: 150%`, `fail-on-alert: true` — unchanged |
+| new (effectiveness) | JIT compilation, ClassInit | `fail-on-alert: false` initially |
+
+Effectiveness metrics start as *observed, not enforced*. Once enough nightly
+history exists to know their real variance on this runner, a threshold can be
+set from data instead of guessed. Their value on day one is the behavioural
+signal — a `BaselineProfile` cell whose JIT time matches its `None` cell — not
+an automated gate.
+
 Things to verify during implementation rather than assume:
 
 - `TraceSectionMetric` is `@ExperimentalMetricApi` and needs an opt-in.
@@ -289,10 +327,6 @@ Things to verify during implementation rather than assume:
 - Confirm the ART trace sections actually emit on the **hosted emulator** the
   nightly uses (swiftshader). If they do not, the metric is emulator-blind and
   that limitation must be documented rather than silently reporting zeros.
-- `macrobench.yaml`'s jq converter already walks `.metrics` generically via
-  `to_entries` and maps names ending in `Ms` to milliseconds, so the new metrics
-  should land on the gh-pages trend as new series with no workflow change.
-  Confirm; do not assume.
 
 ### 3. Documentation — two lanes, three corrections (`nubecita-6row.3`)
 
