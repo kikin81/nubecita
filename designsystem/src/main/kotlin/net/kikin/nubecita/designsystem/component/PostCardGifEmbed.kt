@@ -59,11 +59,16 @@ fun PostCardGifEmbed(
     val animate = gifAutoplayEnabled || playRequested
     val context = LocalContext.current
     val playLabel = stringResource(R.string.postcard_gif_play)
+    // Keyed on WHETHER there is a cover, not on which one. MediaCover is a data
+    // class carrying an `onReveal` lambda and PostCard builds it inline on every
+    // recomposition, so keying on the instance would rebuild the request each
+    // pass and defeat the memoization. The model only cares that it is covered.
+    val isCovered = cover != null
     val model =
-        remember(gifUrl, cover, animate, context) {
+        remember(gifUrl, isCovered, animate, context) {
             when {
                 // Covered → no model, so Coil never fetches or decodes the GIF.
-                cover != null -> null
+                isCovered -> null
                 animate -> gifUrl
                 else ->
                     ImageRequest
