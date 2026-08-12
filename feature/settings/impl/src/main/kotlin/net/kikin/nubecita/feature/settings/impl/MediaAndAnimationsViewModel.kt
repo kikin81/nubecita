@@ -53,15 +53,22 @@ internal class MediaAndAnimationsViewModel
             // it survives a swap of the control. Without it, re-tapping the
             // current option is a redundant DataStore write.
             if (preference == uiState.value.autoplay) return
-            persist { userPreferencesRepository.setAutoplayPreference(preference) }
+            persist("the video autoplay preference") {
+                userPreferencesRepository.setAutoplayPreference(preference)
+            }
         }
 
         private fun setGifs(enabled: Boolean) {
             if (enabled == uiState.value.autoplayGifs) return
-            persist { userPreferencesRepository.setAutoplayGifs(enabled) }
+            persist("the GIF autoplay preference") {
+                userPreferencesRepository.setAutoplayGifs(enabled)
+            }
         }
 
-        private fun persist(write: suspend () -> Unit) {
+        private fun persist(
+            what: String,
+            write: suspend () -> Unit,
+        ) {
             viewModelScope.launch {
                 // Broad catch, matching AppearanceViewModel and the one-shot
                 // command idiom in CLAUDE.md. IOException does cover DataStore's
@@ -76,7 +83,7 @@ internal class MediaAndAnimationsViewModel
                     // The snackbar tells the user; this tells us. A preference
                     // that silently refuses to stick is otherwise invisible in
                     // a bug report.
-                    Timber.w(error, "Failed to persist an autoplay preference")
+                    Timber.w(error, "Failed to persist %s", what)
                     sendEffect(MediaAndAnimationsEffect.ShowSaveError)
                 }
             }
