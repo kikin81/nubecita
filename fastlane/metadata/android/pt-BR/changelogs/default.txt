@@ -1,7 +1,8 @@
 Obrigado por usar o nubecita! Novidades:
-• Você continua conectado: corrigimos o erro que desconectava sua conta sem motivo.
-• Solicitações de mensagem: aceite ou recuse um convite pela lista de chats ou dentro da conversa.
-• Entre mais rápido: digite seu usuário e escolha sua conta na lista.
-• Traduza uma publicação pelo menu dela.
-• Corrigimos um travamento ao responder ou citar.
+• Escolha seu estilo: tema dinâmico, claro ou escuro.
+• Decida quando vídeos e GIFs são reproduzidos, ou deixe-os parados para economizar dados.
+• Os links nas mensagens abrem com um toque, e você pode copiar uma mensagem pelo menu dela.
+• Os perfis mostram a etiqueta "Segue você".
+• Entrar na conta não falha mais se o app fechar no meio do processo.
+• As notificações mostram o ícone real do nubecita.
 Obrigado por estar aqui! 💙
