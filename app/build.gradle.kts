@@ -418,6 +418,108 @@ dependencies {
     "productionImplementation"(project(":feature:widgets:impl"))
 }
 
+/**
+ * Fails the build when a release variant's merged ART profile carries no
+ * meaningful app rules.
+ *
+ * This exists because `CompilationMode.Partial(BaselineProfileMode.Require)`
+ * does NOT catch it: `Require` only asserts that *a* profile installed, and a
+ * library-only profile satisfies it. That gap let benchBenchmarkRelease ship 0
+ * app rules into every nightly measurement (nubecita-6row).
+ *
+ * Floor is absence-only by design: it catches a broken wiring, the wrong
+ * variant, or a profile that was never generated, while staying immune to the
+ * ~4% run-to-run non-determinism of the generator.
+ */
+abstract class VerifyBaselineProfileRulesTask : DefaultTask() {
+    // ConfigurableFileCollection + @InputFiles rather than the @InputDirectory
+    // the spec sketches: `tasks.named(...).map { it.outputs.files }` yields a
+    // file collection, and this form consumes it directly while still carrying
+    // the task dependency. Same Configuration Cache guarantee, less plumbing.
+    @get:InputFiles
+    abstract val artProfile: ConfigurableFileCollection
+
+    @get:Input
+    abstract val variantName: Property<String>
+
+    @TaskAction
+    fun verify() {
+        val file =
+            artProfile.files.firstOrNull { it.name == "baseline-prof.txt" }
+                ?: error(
+                    "Baseline-profile guard could not find baseline-prof.txt for " +
+                        "${variantName.get()}. This is a FAILURE, not a skip: an AGP " +
+                        "upgrade may have moved or renamed the merged-ART-profile " +
+                        "output. Fix the wiring in app/build.gradle.kts — do not " +
+                        "disable this check (nubecita-6row.2).",
+                )
+        val appRules =
+            file.useLines { lines ->
+                lines.count { it.contains("net/kikin/nubecita") }
+            }
+        if (appRules < MIN_APP_PROFILE_RULES) {
+            error(
+                "Variant ${variantName.get()} has only $appRules app baseline-profile " +
+                    "rules (floor $MIN_APP_PROFILE_RULES). Its APK would be measured or " +
+                    "shipped with a library-only profile.\n" +
+                    "  Fix: ./gradlew :app:generateBenchReleaseBaselineProfile\n" +
+                    "  Background: docs/superpowers/specs/" +
+                    "2026-08-11-startup-bench-profile-validation-design.md",
+            )
+        }
+        logger.lifecycle("Baseline profile OK for ${variantName.get()}: $appRules app rules")
+    }
+
+    companion object {
+        const val MIN_APP_PROFILE_RULES = 500
+    }
+}
+
+// Registered for the two benchmark variants AND productionRelease. Guarding
+// only the benchmark variants would protect the measurement while leaving the
+// shipped product unguarded.
+//
+// Wrapped in afterEvaluate: the androidx.baselineprofile plugin registers
+// `merge<Variant>ArtProfile` for each variant from its own afterEvaluate
+// callback (fired once the AGP variant API finishes creating variant tasks),
+// which runs after this script body finishes executing. Calling
+// `tasks.named("merge${capitalized}ArtProfile")` directly at script-body
+// scope fails with "Task with name ... not found" because the task isn't
+// registered yet at that point. Our own afterEvaluate registers after AGP's
+// (afterEvaluate callbacks run in registration order, and AGP's plugin
+// applies — and registers its callback — before this script body runs), so
+// by the time this block runs the merge tasks already exist.
+afterEvaluate {
+    listOf(
+        "benchBenchmarkRelease",
+        "productionBenchmarkRelease",
+        "productionRelease",
+    ).forEach { variant ->
+        val capitalized = variant.replaceFirstChar { it.uppercase() }
+        val verify =
+            tasks.register<VerifyBaselineProfileRulesTask>("verify${capitalized}BaselineProfileRules") {
+                // flatMap the producing task's output — never resolve a path at
+                // configuration time, or Configuration Cache rejects the build.
+                artProfile.from(
+                    tasks.named("merge${capitalized}ArtProfile").map { it.outputs.files },
+                )
+                variantName.set(variant)
+            }
+        // finalizedBy the MERGE task, not the package task.
+        //
+        // The release pipeline ships an AAB (`fastlane/Fastfile:118` runs
+        // `bundleProductionRelease`), and `packageProductionRelease` is NOT in the
+        // bundle task graph — verified with `bundleProductionRelease --dry-run`.
+        // Hooking the package task would leave the artifact users actually receive
+        // unguarded, which is the whole point of registering productionRelease.
+        //
+        // `merge<Variant>ArtProfile` IS in both the APK and AAB graphs, and running
+        // right after the profile is merged means the guard fires earlier than
+        // packaging — well before any device work.
+        tasks.named("merge${capitalized}ArtProfile") { finalizedBy(verify) }
+    }
+}
+
 tasks.register("publish") {
     description = "No-op publish task to satisfy semantic-release verification in CI"
     group = "publishing"
