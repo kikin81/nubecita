@@ -27,10 +27,11 @@ import javax.inject.Singleton
  * truth and avoids the case where `onCapabilitiesChanged` reports a network
  * that is no longer the active one.
  *
- * `onLost` emits `true` (treat "no network" as expensive): with nothing
- * connected there is nothing to autoplay anyway, and guessing "unmetered"
- * would start playback the instant a cellular connection came back. Starting
- * up offline takes the same branch — see `emitCurrent`.
+ * "No network" is treated as expensive: with nothing connected there is nothing
+ * to autoplay anyway, and guessing "unmetered" would start playback the instant
+ * a cellular connection came back. Every branch — including `onLost` and the
+ * initial emission — routes through [isMetered], so being offline and losing a
+ * network cannot disagree.
  *
  * `distinctUntilChanged` because capability callbacks are chatty — signal
  * strength alone can fire several per second, and each duplicate would
@@ -78,7 +79,14 @@ class DefaultNetworkStatus
                         }
 
                         override fun onLost(network: Network) {
-                            trySend(true)
+                            // Re-read rather than assuming "lost means offline".
+                            // onLost also fires mid-handover, when a new default
+                            // is already active — emitting `true` there would
+                            // mark an unmetered wifi connection as metered and
+                            // leave it that way until some later callback
+                            // happened to correct it. Truly offline still comes
+                            // out as metered, via isMetered's no-network branch.
+                            emitCurrent()
                         }
 
                         override fun onCapabilitiesChanged(
