@@ -44,20 +44,10 @@
             "platformAutomerge": true
         },
         {
-            "description": "Pin aboutlibraries. 15.0.0-rc01+ is built with Kotlin 2.4, whose class metadata (2.4.0) Hilt/Dagger's bundled kotlin-metadata-jvm can't parse while we're on Kotlin 2.3 — it breaks :app:hiltJavaCompile (see PR #467). Re-enable when the project moves to Kotlin 2.4 + a metadata-2.4-capable Dagger.",
-            "matchPackagePatterns": ["aboutlibraries"],
-            "enabled": false
-        },
-        {
             "description": "Remotion ships a release almost every day, and promo/remotion is a non-shipping asset-rendering project. Pull it out of the all-minor-patch group and refresh it once a week so it collapses into a single Monday PR instead of several per week.",
             "matchPackageNames": ["remotion", "@remotion/**"],
             "groupName": "remotion",
             "schedule": ["before 5am on monday"]
-        },
-        {
-            "description": "Cap Coil at 3.4.x. Coil 3.5.0 is built with Kotlin 2.4, whose class metadata (2.4.0) Hilt/Dagger 2.59.2's bundled kotlin-metadata-jvm (max 2.3.0) can't parse — it breaks :app:hiltJavaCompile (see PR #520), same root cause as the aboutlibraries pin (PR #467). Allows 3.4.x patches; lift the cap when the project moves to Kotlin 2.4 + a metadata-2.4-capable Dagger.",
-            "matchPackagePatterns": ["^io.coil-kt.coil3"],
-            "allowedVersions": "<3.5.0"
         }
     ]
 }
