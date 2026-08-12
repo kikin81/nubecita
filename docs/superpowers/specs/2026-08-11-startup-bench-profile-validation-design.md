@@ -2,7 +2,8 @@
 
 **Date:** 2026-08-11 (revised same day after reviewing NiA and `macrobench.yaml`)
 **Epic:** `nubecita-6row` (children `.1`, `.2`, `.3`)
-**Status:** design approved, not yet implemented
+**Status:** design approved in conversation; this spec is itself under review
+(PR #890). Implementation not started.
 
 ## Problem
 
@@ -61,9 +62,12 @@ are corrected by child `.3`:
    `app/src/release/generated/baselineProfiles/baseline-prof.txt`."* — It does
    not. The variant it builds carries 0 app rules.
 2. *"baseline-profile generation … is gated behind `requiresPhysicalDevice`"* —
-   `requiresPhysicalDevice` exists nowhere in this repo. It is not a Gradle
-   setting, not in `BaselineProfileGenerator`, not in any config. The string
-   appears in exactly one place: that comment.
+   there is no such gate. `requiresPhysicalDevice` is not a Gradle setting, not
+   an AGP or `androidx.baselineprofile` option, and appears nowhere in
+   `BaselineProfileGenerator` or any build config. It exists **only as prose, in
+   two documents** that repeat each other: `macrobench.yaml:14` and
+   `benchmark/README.md:107`. Child `.3` must correct both — an earlier draft of
+   this spec claimed it appeared in exactly one place, which was wrong.
 3. The workflow is described in conversation as weekly. It is **nightly**
    (`cron: "0 7 * * *"`), so the blind spot has been accumulating ~7× faster
    than assumed.
@@ -150,14 +154,29 @@ belt-and-braces: it is the only thing standing between a developer and a silent
 
 Three non-negotiable properties:
 
-- **Runs before device work.** Wired as a `dependsOn` of
-  `:benchmark:connectedBenchmarkReleaseAndroidTest`, ordered after the variant's
-  `merge<Variant>ArtProfile` task that produces its input. A broken profile then
-  costs seconds, not the ~3-minute bench run that hid this bug.
-- **Fails when it cannot find its input — never skips.** The path is an AGP
-  intermediate and an AGP upgrade could move it. A guard that silently passes
-  when its input is missing is the precise failure mode this epic exists to
-  eliminate.
+- **Runs before device work, without cross-project coupling.** Registered
+  entirely inside `:app` and hooked into `:app`'s own lifecycle for the
+  benchmark variants (the package/assemble task), *not* wired as a `dependsOn`
+  of `:benchmark:connectedBenchmarkReleaseAndroidTest`. A cross-project task
+  dependency would couple `:benchmark` to `:app`'s internals and conflict with
+  Project Isolation — and this repo runs with `org.gradle.configuration-cache =
+  true`, so that is a live constraint, not a hypothetical one. Because the bench
+  run has to build and install the app APK anyway, hooking `:app`'s package task
+  still fires the guard before any device work: a broken profile costs seconds,
+  not the ~3-minute bench run that hid this bug.
+- **Takes its input from the producing task's output, not a hardcoded path.**
+  Consume `merge<Variant>ArtProfile`'s output through a Gradle lazy provider so
+  the dependency is declared and the location tracks AGP rather than being
+  re-derived by string. Caveat to settle during implementation:
+  `MERGED_ART_PROFILE` is an AGP *internal* artifact type with no public Variant
+  API accessor, so this will likely resolve via `tasks.named("merge…ArtProfile")`
+  and its output provider — which pins a task name rather than a full path.
+  Better than a hardcoded path, still not a public contract, which is exactly
+  why the next property stays.
+- **Fails when it cannot find its input — never skips.** Even with a lazy
+  provider, an AGP upgrade could rename or restructure the producing task. A
+  guard that silently passes when its input is missing is the precise failure
+  mode this epic exists to eliminate.
 - **The failure message is actionable**, naming the exact command:
   `./gradlew :app:generateBenchReleaseBaselineProfile`.
 
@@ -180,9 +199,10 @@ not mockable — and the docs should say so plainly rather than leaving it as an
 unstated gap.
 
 Updates `benchmark/README.md` and `.claude/skills/run-startup-bench/SKILL.md`,
-corrects the three false claims in `macrobench.yaml`'s header, and fixes
-`app/build.gradle.kts:399`, which still documents the generator as writing into
-`app/src/release/generated/baselineProfiles/`.
+corrects the three false claims in `macrobench.yaml`'s header, removes the
+duplicated `requiresPhysicalDevice` claim from `benchmark/README.md:107`, and
+fixes `app/build.gradle.kts:399`, which still documents the generator as writing
+into `app/src/release/generated/baselineProfiles/`.
 
 ## Delivery
 
