@@ -77,6 +77,14 @@ fun PostCardGifEmbed(
                         // minSdk here is 28. BitmapFactory decodes a GIF to its
                         // first frame on every supported level.
                         .decoderFactory(BitmapFactoryDecoder.Factory())
+                        // A distinct memory-cache key, because the decoder is
+                        // NOT part of Coil's default key — that is the URL. The
+                        // animated request for the same GIF would otherwise be
+                        // handed this still bitmap straight from the cache, and
+                        // tapping to play would silently do nothing. Verified
+                        // on device: without this the badge disappears (the
+                        // state flips) while the frame never moves.
+                        .memoryCacheKey("$gifUrl#static")
                         .build()
             }
         }
