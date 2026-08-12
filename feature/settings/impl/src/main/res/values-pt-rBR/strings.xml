@@ -102,4 +102,20 @@
     <string name="appearance_theme_dark">Escuro</string>
     <string name="appearance_row_label">Apar\u00eancia</string>
     <string name="appearance_save_error">N\u00e3o foi poss\u00edvel salvar a altera\u00e7\u00e3o. Tente novamente.</string>
+    <string name="media_row_label">Mídia e animações</string>
+    <string name="media_title">Mídia e animações</string>
+    <string name="media_back_content_desc">Voltar</string>
+    <string name="media_description">Controle quando vídeos e imagens animadas começam a tocar sozinhos.</string>
+    <string name="media_autoplay_video_header">Reproduzir vídeos automaticamente</string>
+    <string name="media_autoplay_always">Sempre</string>
+    <string name="media_autoplay_always_supporting">Os vídeos são reproduzidos em qualquer conexão.</string>
+    <string name="media_autoplay_wifi_only">Somente Wi-Fi</string>
+    <string name="media_autoplay_wifi_only_supporting">Os vídeos são reproduzidos apenas em conexões sem limite, para economizar dados móveis.</string>
+    <string name="media_autoplay_never">Nunca</string>
+    <string name="media_autoplay_never_supporting">Os vídeos esperam você tocar em reproduzir.</string>
+    <string name="media_animated_images_header">Imagens animadas</string>
+    <string name="media_autoplay_gifs">Reproduzir GIFs automaticamente</string>
+    <string name="media_autoplay_gifs_supporting">Desative para mostrar o primeiro quadro até você tocar.</string>
+    <string name="media_save_error">Não foi possível salvar a alteração. Tente novamente.</string>
+    <string name="media_row_value">Reprodução automática: %1$s</string>
 </resources>

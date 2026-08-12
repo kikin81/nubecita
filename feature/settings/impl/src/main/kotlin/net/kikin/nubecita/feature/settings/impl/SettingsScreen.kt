@@ -65,6 +65,7 @@ import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.settings.api.About
 import net.kikin.nubecita.feature.settings.api.Appearance
 import net.kikin.nubecita.feature.settings.api.FeedPreferences
+import net.kikin.nubecita.feature.settings.api.MediaAndAnimations
 import net.kikin.nubecita.feature.settings.api.Moderation
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsHeader
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsRow
@@ -195,6 +196,10 @@ internal fun SettingsScreen(
                 SettingsEffect.OpenAppearance ->
                     // Push the Appearance sub-route (screen owns the NavKey).
                     currentOnNavigateTo(Appearance)
+
+                SettingsEffect.OpenMediaAndAnimations ->
+                    // Push the Media and animations sub-route.
+                    currentOnNavigateTo(MediaAndAnimations)
                 is SettingsEffect.OpenManageSubscription -> {
                     // Deep-link to the Play manage-subscription page. The screen
                     // owns the package name; the VM supplied the sku (if known).
@@ -568,14 +573,25 @@ internal fun SettingsContent(
     val displaySectionLabel = stringResource(R.string.settings_display_section)
     val appearanceLabel = stringResource(R.string.appearance_row_label)
     val appearanceValue = stringResource(state.theme.labelRes())
+    val mediaLabel = stringResource(R.string.media_row_label)
+    // Captioned with the video-autoplay choice, not the GIF toggle: autoplay is
+    // the data-cost setting people come here to change, and a two-value caption
+    // would not fit the row.
+    val mediaValue = stringResource(R.string.media_row_value, stringResource(state.autoplay.labelRes()))
     val displayRows =
-        remember(appearanceLabel, appearanceValue) {
+        remember(appearanceLabel, appearanceValue, mediaLabel, mediaValue) {
             persistentListOf(
                 SettingsRow.Action(
                     icon = NubecitaIconName.Palette,
                     label = appearanceLabel,
                     supportingText = appearanceValue,
                     onClick = { currentOnEvent(SettingsEvent.AppearanceTapped) },
+                ),
+                SettingsRow.Action(
+                    icon = NubecitaIconName.PlayArrow,
+                    label = mediaLabel,
+                    supportingText = mediaValue,
+                    onClick = { currentOnEvent(SettingsEvent.MediaAndAnimationsTapped) },
                 ),
             )
         }

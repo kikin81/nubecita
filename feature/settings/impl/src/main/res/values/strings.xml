@@ -147,4 +147,20 @@
     <string name="appearance_theme_dark">Dark</string>
     <string name="appearance_row_label">Appearance</string>
     <string name="appearance_save_error">Couldn\'t save your change. Try again.</string>
+    <string name="media_row_label">Media and animations</string>
+    <string name="media_title">Media and animations</string>
+    <string name="media_back_content_desc">Back</string>
+    <string name="media_description">Control when videos and animated images start playing on their own.</string>
+    <string name="media_autoplay_video_header">Autoplay videos</string>
+    <string name="media_autoplay_always">Always</string>
+    <string name="media_autoplay_always_supporting">Videos start playing on any connection.</string>
+    <string name="media_autoplay_wifi_only">Wi-Fi only</string>
+    <string name="media_autoplay_wifi_only_supporting">Videos start playing only on an unmetered connection, to save mobile data.</string>
+    <string name="media_autoplay_never">Never</string>
+    <string name="media_autoplay_never_supporting">Videos wait for you to tap play.</string>
+    <string name="media_animated_images_header">Animated images</string>
+    <string name="media_autoplay_gifs">Autoplay GIFs</string>
+    <string name="media_autoplay_gifs_supporting">Turn off to show the first frame until you tap.</string>
+    <string name="media_save_error">Couldn\'t save your change. Try again.</string>
+    <string name="media_row_value">Autoplay: %1$s</string>
 </resources>

@@ -93,6 +93,10 @@ internal class SettingsViewModel
             // Notifications-section Switch. Default-on Flow; never throws.
             // Mirror the theme so the Appearance row can caption itself with the
             // active choice. Read-only here — the Appearance screen owns writes.
+            userPreferencesRepository.autoplayPreference
+                .onEach { autoplay -> setState { copy(autoplay = autoplay) } }
+                .launchIn(viewModelScope)
+
             userPreferencesRepository.themePreference
                 .onEach { theme -> setState { copy(theme = theme) } }
                 .launchIn(viewModelScope)
@@ -159,6 +163,8 @@ internal class SettingsViewModel
                     sendEffect(SettingsEffect.OpenModeration)
                 SettingsEvent.FeedPreferencesTapped -> sendEffect(SettingsEffect.OpenFeedPreferences)
                 SettingsEvent.AppearanceTapped -> sendEffect(SettingsEffect.OpenAppearance)
+                SettingsEvent.MediaAndAnimationsTapped ->
+                    sendEffect(SettingsEffect.OpenMediaAndAnimations)
             }
         }
 

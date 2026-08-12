@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.settings.impl
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.core.preferences.AutoplayPreference
 import net.kikin.nubecita.core.preferences.ThemePreference
 import net.kikin.nubecita.data.models.BillingPeriod
 
@@ -89,6 +90,14 @@ data class SettingsViewState(
      * everyone who has never changed it.
      */
     val theme: ThemePreference = ThemePreference.DYNAMIC,
+    /**
+     * Active video-autoplay preference, mirrored for the same reason as
+     * [theme]: the Media and animations row captions itself with the current
+     * choice. Defaults to [AutoplayPreference.ALWAYS], matching the
+     * repository's default, so the pre-emission frame captions correctly for
+     * anyone who has never changed it.
+     */
+    val autoplay: AutoplayPreference = AutoplayPreference.ALWAYS,
 ) : UiState
 
 /**
@@ -217,6 +226,13 @@ sealed interface SettingsEvent : UiEvent {
      * sub-route.
      */
     data object AppearanceTapped : SettingsEvent
+
+    /**
+     * User tapped the Media and animations row. The VM answers with
+     * [SettingsEffect.OpenMediaAndAnimations]; the screen pushes the
+     * `MediaAndAnimations` NavKey.
+     */
+    data object MediaAndAnimationsTapped : SettingsEvent
 }
 
 /**
@@ -313,4 +329,7 @@ sealed interface SettingsEffect : UiEffect {
 
     /** Push the `Appearance` sub-route (theme picker). */
     data object OpenAppearance : SettingsEffect
+
+    /** Push the Media and animations sub-route. */
+    data object OpenMediaAndAnimations : SettingsEffect
 }
