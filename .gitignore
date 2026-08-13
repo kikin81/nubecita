@@ -98,3 +98,7 @@ docs/references/
 # profile at app/src/productionRelease/generated/ IS committed; this one is
 # not.
 app/src/benchRelease/generated/
+
+# Perfetto trace_processor wrapper, downloaded on demand by the perfetto-sql
+# skill to query Macrobenchmark traces. Not a project dependency.
+trace_processor
