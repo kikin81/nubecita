@@ -20,6 +20,7 @@ import net.kikin.nubecita.core.video.PlaybackMode
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
+import timber.log.Timber
 
 /**
  * Presenter for the fullscreen video player.
@@ -118,13 +119,22 @@ internal class VideoPlayerViewModel
                 Quad(isPlaying, positionMs, durationMs, playbackError)
             }.onEach { (isPlaying, positionMs, durationMs, playbackError) ->
                 if (playbackError != null) {
+                    val mapped = playbackError.toVideoPlayerError()
+                    // WARN so CrashlyticsTree forwards it as a breadcrumb: the
+                    // three user-facing strings are deliberately vague, so
+                    // without this the only record of WHY playback failed is a
+                    // cable and a PID-filtered logcat (nubecita-o91i).
+                    // `playbackError` is a Throwable, not a PlaybackException —
+                    // the code name is read off the mapped result, which already
+                    // extracted it in toVideoPlayerError().
+                    Timber.w(
+                        "video playback failed: %s (code=%s) uri=%s",
+                        mapped::class.simpleName,
+                        (mapped as? VideoPlayerError.Unknown)?.errorCodeName ?: "-",
+                        postUri,
+                    )
                     setState {
-                        copy(
-                            loadStatus =
-                                VideoPlayerLoadStatus.Error(
-                                    error = playbackError.toVideoPlayerError(),
-                                ),
-                        )
+                        copy(loadStatus = VideoPlayerLoadStatus.Error(error = mapped))
                     }
                 } else {
                     setState {
@@ -230,6 +240,18 @@ internal class VideoPlayerViewModel
                             // will change the embed type, but the error layout
                             // is the right surface). Mirrors the old resolver's
                             // IllegalStateException → Unknown mapping.
+                            //
+                            // Logged at WARN because this branch is where a
+                            // too-narrow extraction hides: it renders the same
+                            // "Something went wrong" as a genuine playback
+                            // failure, which is how quote-post videos stayed
+                            // broken (nubecita-o91i). The embed class name is
+                            // the fact that identifies a repeat.
+                            Timber.w(
+                                "video resolve failed: no video in embed=%s uri=%s",
+                                post.embed::class.simpleName,
+                                postUri,
+                            )
                             setState {
                                 copy(
                                     loadStatus =
