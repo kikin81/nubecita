@@ -18,16 +18,46 @@ import androidx.benchmark.macro.TraceSectionMetric
  * compilation removes work the runtime would otherwise do at startup.
  *
  * The `%` is a genuine wildcard: `TraceSectionMetric` builds a SQL `LIKE` query
- * against the Perfetto trace, and SQLite's `LIKE` is ASCII case-insensitive —
- * so "JIT Compiling %" matches the runtime's lowercase "JIT compiling …".
- * See androidx.benchmark.macro 1.5.0-alpha07, Metric.kt:527.
+ * against the Perfetto trace. See androidx.benchmark.macro 1.5.0-alpha07,
+ * `Metric.kt:527`.
+ *
+ * ## Match ART's casing exactly — do not "tidy" these strings
+ *
+ * The patterns below mirror what ART actually emits, verified by querying a
+ * captured trace with `trace_processor` rather than inferred:
+ *
+ * ```
+ * LIKE 'JIT Compiling %'   (capital C, case-insensitive)  ->  44 matches
+ * GLOB 'JIT Compiling *'   (capital C, case-sensitive)    ->   0 matches
+ * GLOB 'JIT compiling *'   (lowercase c, case-sensitive)  ->  44 matches
+ * ```
+ *
+ * An earlier version used `"JIT Compiling %"` and matched only because SQLite's
+ * `LIKE` is ASCII case-insensitive — not because the strings agreed. Were
+ * Perfetto ever to move that query to `GLOB`, or make matching case-sensitive,
+ * the metric would silently report 0.00 in BOTH cells: build green, chart
+ * green, signal dead. That is the precise failure class this whole area exists
+ * to eliminate, so the pattern now matches ART's output directly and depends on
+ * no case-folding behaviour (nubecita-rmmm).
  */
 object BaselineProfileMetrics {
-    /** Time spent JIT-compiling. Falls when methods are AOT-compiled instead. */
+    /**
+     * Time spent JIT-compiling. Falls when methods are AOT-compiled instead.
+     *
+     * Lowercase `compiling` is deliberate — ART emits e.g.
+     * `"JIT compiling void vt4.d(xo5) (kind=Baseline) from /data/app/…/base.apk"`.
+     */
     @OptIn(ExperimentalMetricApi::class)
-    val jitCompilationMetric = TraceSectionMetric("JIT Compiling %", label = "JIT compilation")
+    val jitCompilationMetric = TraceSectionMetric("JIT compiling %", label = "JIT compilation")
 
-    /** Time spent initialising classes. Falls when classes are pre-resolved. */
+    /**
+     * Time spent initialising classes. Falls when classes are pre-resolved.
+     *
+     * The pattern matches JVM class descriptors, verified against a trace: it
+     * selects 988 slices such as `Landroid/view/FrameRateVelocityPoint;` and
+     * `Lnet/kikin/nubecita/NubecitaApplication;`, matching the reported
+     * `ClassInitCount` exactly.
+     */
     @OptIn(ExperimentalMetricApi::class)
     val classInitMetric = TraceSectionMetric("L%/%;", label = "ClassInit")
 
