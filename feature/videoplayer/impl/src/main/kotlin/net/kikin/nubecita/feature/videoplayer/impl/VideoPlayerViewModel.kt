@@ -223,11 +223,10 @@ internal class VideoPlayerViewModel
                 postRepository
                     .getPost(postUri)
                     .onSuccess { post ->
-                        val video = post.embed as? EmbedUi.Video
+                        val video = post.embed.videoOrNull()
                         if (video == null) {
-                            // The post resolved but isn't a video post — the
-                            // caller routed a non-video URI to the fullscreen
-                            // player. Treat as a resolution error (no Retry
+                            // The post resolved but carries no video anywhere in
+                            // its embed. Treat as a resolution error (no Retry
                             // will change the embed type, but the error layout
                             // is the right surface). Mirrors the old resolver's
                             // IllegalStateException → Unknown mapping.
@@ -337,4 +336,24 @@ internal class VideoPlayerViewModel
             val c: C,
             val d: D,
         )
+    }
+
+/**
+ * The playable video carried by this embed, or `null` if there isn't one.
+ *
+ * A quote-post with a video maps to [EmbedUi.RecordWithMedia], whose video sits
+ * in the `media` slot rather than at the top level. A flat
+ * `as? EmbedUi.Video` therefore missed every quote-post video and surfaced
+ * "Something went wrong" on a post that plays fine elsewhere (nubecita-o91i).
+ *
+ * Only these two shapes carry a directly playable video. `media` is typed
+ * [EmbedUi.MediaEmbed], so images/external/gif land in the `else` branch and
+ * still resolve to `null` — unwrapping must not turn every quote-post into a
+ * video post.
+ */
+private fun EmbedUi.videoOrNull(): EmbedUi.Video? =
+    when (this) {
+        is EmbedUi.Video -> this
+        is EmbedUi.RecordWithMedia -> media as? EmbedUi.Video
+        else -> null
     }
