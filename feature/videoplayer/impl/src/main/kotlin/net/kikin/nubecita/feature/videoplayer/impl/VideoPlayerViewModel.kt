@@ -138,7 +138,7 @@ internal class VideoPlayerViewModel
                     // cable and a PID-filtered logcat (nubecita-o91i).
                     Timber.w(
                         "video playback failed: %s (code=%s) uri=%s",
-                        mapped::class.simpleName,
+                        mapped.javaClass.simpleName,
                         errorCodeName,
                         postUri,
                     )
@@ -258,7 +258,7 @@ internal class VideoPlayerViewModel
                             // the fact that identifies a repeat.
                             Timber.w(
                                 "video resolve failed: no video in embed=%s uri=%s",
-                                post.embed::class.simpleName,
+                                post.embed.javaClass.simpleName,
                                 postUri,
                             )
                             setState {
@@ -337,10 +337,11 @@ internal class VideoPlayerViewModel
                         // — Timber folds a stack trace into the message and
                         // CrashlyticsTree makes every WARN a breadcrumb, so a
                         // trace here would eat the per-breadcrumb budget for no
-                        // added signal. `javaClass.name` (not
-                        // `::class.simpleName`) because an arbitrary Throwable
-                        // really can be an anonymous class, unlike the sealed
-                        // VideoPlayerError logged above.
+                        // added signal. `name`, not `simpleName` like the two
+                        // logs above: those print sealed types whose every
+                        // implementor is a named declaration, whereas an
+                        // arbitrary Throwable really can be anonymous — and
+                        // `simpleName` is empty for those.
                         Timber.w(
                             "video resolve failed: %s uri=%s",
                             throwable.javaClass.name,
