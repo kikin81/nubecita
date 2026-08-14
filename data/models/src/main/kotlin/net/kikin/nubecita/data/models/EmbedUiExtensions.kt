@@ -52,6 +52,37 @@ public val EmbedUi.imageContainer: EmbedUi.ImageContainerEmbed?
         }
 
 /**
+ * The [EmbedUi.Video] this embed carries in its own media slot, if any — single
+ * source of truth for "given an [EmbedUi], where (if anywhere) is a directly
+ * playable video?"
+ *
+ * Returns:
+ * - The embed itself when it is a direct [EmbedUi.Video].
+ * - The `media` half of an [EmbedUi.RecordWithMedia] when that media is a video
+ *   (a quote post carrying its own attached video).
+ * - `null` for everything else. `media` is typed [EmbedUi.MediaEmbed], so
+ *   images/external/gif land here — unwrapping must not turn every quote post
+ *   into a video post.
+ *
+ * Scoped to this embed's own media slot, exactly like [imageContainer]: a video
+ * that lives inside the *quoted* post is reached via [quotedRecord] instead,
+ * because it is a different post with a different identity. Consumers that need
+ * both (the feed's autoplay binding) compose the two rather than re-deriving
+ * either.
+ *
+ * A flat `as? EmbedUi.Video` at the call site missed every quote-post video and
+ * surfaced "Something went wrong" on a post that plays fine elsewhere
+ * (nubecita-o91i) — which is why this lives here rather than in one feature.
+ */
+public val EmbedUi.video: EmbedUi.Video?
+    get() =
+        when (this) {
+            is EmbedUi.Video -> this
+            is EmbedUi.RecordWithMedia -> media as? EmbedUi.Video
+            else -> null
+        }
+
+/**
  * Returns a copy of this media embed with [warning] applied (pass `null` to
  * clear). Exhaustive over the [EmbedUi.MediaEmbed] variants, so a new media
  * kind becomes a compile error here. Each arm calls the variant's own `copy`,
