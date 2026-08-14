@@ -1,10 +1,10 @@
 package net.kikin.nubecita.feature.feed.impl.video
 
 import androidx.compose.foundation.lazy.LazyListLayoutInfo
-import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.quotedRecord
+import net.kikin.nubecita.data.models.video
 
 /**
  * What [FeedVideoPlayerCoordinator.bindMostVisibleVideo] needs to
@@ -82,13 +82,19 @@ fun mostVisibleVideoTarget(
  *    present in the same recordWithMedia: the user's primary upload
  *    is the contextual primary, the nested quoted video is one
  *    level deeper.
+ *
+ *    Cases 1 and 2 differ only in where the video sits, not in the
+ *    identity they bind under, so both resolve through the
+ *    `EmbedUi.video` extension property — single source of truth for
+ *    "is there a directly playable video on this post", shared with
+ *    the fullscreen player (nubecita-o91i).
  * 3. **Quoted-post video** — covers BOTH `post.embed is EmbedUi.Record`
  *    whose `quotedPost.embed is Video` AND `post.embed is
  *    EmbedUi.RecordWithMedia` whose `record is Record` whose
  *    `quotedPost.embed is Video`. Bind identity is the quoted post's
  *    AT URI (`quotedPost.uri`) — naturally distinct from any parent
  *    bind key, regardless of where in the embed tree the quoted
- *    post lives. Resolution uses the [EmbedUi.quotedRecord] extension
+ *    post lives. Resolution uses the `EmbedUi.quotedRecord` extension
  *    property — single source of truth across coordinator and feed
  *    screen.
  * 4. **Neither** → `null`. The item carries no addressable video.
@@ -99,15 +105,11 @@ fun mostVisibleVideoTarget(
  * geometry for nested videos is explicitly out of scope.
  */
 fun videoBindingFor(post: PostUi): VideoBindingTarget? {
-    // 1. Parent video.
-    (post.embed as? EmbedUi.Video)?.let { video ->
+    // 1 + 2. Parent video and RecordWithMedia.media video — both bind under
+    //         the parent post's id, and the EmbedUi.video extension is the
+    //         single source of truth for "which of those two shapes is it".
+    post.embed.video?.let { video ->
         return VideoBindingTarget(postId = post.id, playlistUrl = video.playlistUrl)
-    }
-    // 2. RecordWithMedia.media video — bind key is the parent post's id.
-    (post.embed as? EmbedUi.RecordWithMedia)?.media?.let { media ->
-        (media as? EmbedUi.Video)?.let { video ->
-            return VideoBindingTarget(postId = post.id, playlistUrl = video.playlistUrl)
-        }
     }
     // 3. Quoted-post video — covers top-level Record AND
     //    RecordWithMedia.record-is-Record via the quotedRecord extension.

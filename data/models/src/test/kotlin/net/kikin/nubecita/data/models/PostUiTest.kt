@@ -261,6 +261,76 @@ internal class PostUiTest {
         }
     }
 
+    @Test
+    fun `video returns the embed itself for a direct Video`() {
+        val video: EmbedUi = previewVideo()
+        assertEquals(video, video.video)
+    }
+
+    @Test
+    fun `video unwraps the media half of RecordWithMedia when it is a Video`() {
+        // The nubecita-o91i regression: a quote-post carrying a video maps to
+        // RecordWithMedia, so a flat `as? EmbedUi.Video` missed it entirely and
+        // the fullscreen player reported "no video embed".
+        val media = previewVideo()
+        val embed: EmbedUi =
+            EmbedUi.RecordWithMedia(
+                record = EmbedUi.Record(quotedPost = previewQuotedPost()),
+                media = media,
+            )
+        assertEquals(media, embed.video)
+    }
+
+    @Test
+    fun `video is null for RecordWithMedia whose media is not a Video`() {
+        // Unwrapping the media slot must not turn every quote-post into a video
+        // post — images/gallery/external/gif in that slot still resolve to null.
+        val cases: List<EmbedUi.MediaEmbed> =
+            listOf(
+                PostUiFixtures.fakeImagesEmbed(count = 2),
+                PostUiFixtures.fakeGalleryEmbed(count = 5),
+                EmbedUi.External(
+                    uri = "https://example.com/x",
+                    domain = "example.com",
+                    title = "",
+                    description = "",
+                    thumbUrl = null,
+                ),
+            )
+        cases.forEach { media ->
+            val embed: EmbedUi =
+                EmbedUi.RecordWithMedia(
+                    record = EmbedUi.Record(quotedPost = previewQuotedPost()),
+                    media = media,
+                )
+            assertEquals(null, embed.video, "expected null for media $media")
+        }
+    }
+
+    @Test
+    fun `video is null for embeds that carry no video`() {
+        val cases: List<EmbedUi> =
+            listOf(
+                EmbedUi.Empty,
+                EmbedUi.Images(items = persistentListOf()),
+                EmbedUi.Record(quotedPost = previewQuotedPost()),
+                EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.NotFound),
+                EmbedUi.Unsupported(typeUri = "app.bsky.embed.somethingNew"),
+            )
+        cases.forEach { embed ->
+            assertEquals(null, embed.video, "expected null for $embed")
+        }
+    }
+
+    private fun previewVideo(): EmbedUi.Video =
+        EmbedUi.Video(
+            posterUrl = "https://cdn/poster.jpg",
+            playlistUrl = "https://example/v.m3u8",
+            aspectRatio = 16f / 9f,
+            durationSeconds = 30,
+            altText = null,
+        )
+
     private fun previewQuotedPost(): QuotedPostUi =
         QuotedPostUi(
             uri = "at://did:plc:fake/app.bsky.feed.post/q",

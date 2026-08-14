@@ -7,6 +7,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -135,6 +136,89 @@ internal class VideoPlayerViewModelTest {
             assertTrue((status as VideoPlayerLoadStatus.Error).error is VideoPlayerError.Unknown)
             verify(exactly = 0) { holder.bind(any(), any()) }
             verify(exactly = 0) { holder.attachSurface() }
+        }
+
+    @Test
+    fun init_quotePostWithVideo_bindsTheVideo() =
+        runTest {
+            // A quote-post carrying a video maps to RecordWithMedia, whose
+            // video sits in the `media` slot. The video is genuinely there, so
+            // the player MUST bind it — regression for nubecita-o91i, where a
+            // flat `as? EmbedUi.Video` cast returned null and surfaced
+            // "Something went wrong" for every video in a quote-post.
+            coEvery { postRepository.getPost(AT_URI) } returns
+                Result.success(
+                    postUi(
+                        embed =
+                            EmbedUi.RecordWithMedia(
+                                record =
+                                    EmbedUi.RecordUnavailable(
+                                        reason = EmbedUi.RecordUnavailable.Reason.NotFound,
+                                    ),
+                                media =
+                                    EmbedUi.Video(
+                                        posterUrl = "https://cdn/poster.jpg",
+                                        playlistUrl = QUOTED_PLAYLIST_URL,
+                                        aspectRatio = 16f / 9f,
+                                        durationSeconds = 30,
+                                        altText = null,
+                                    ),
+                            ),
+                    ),
+                )
+
+            val vm = newVm()
+            runCurrent()
+
+            assertEquals(VideoPlayerLoadStatus.Ready, vm.uiState.value.loadStatus)
+            verify(exactly = 1) { holder.bind(QUOTED_PLAYLIST_URL, "https://cdn/poster.jpg") }
+        }
+
+    @Test
+    fun init_quotePostWithNonVideoMedia_entersError_andDoesNotBind() =
+        runTest {
+            // RecordWithMedia whose media slot holds IMAGES, not video. There
+            // is no video to play, so this must still error — unwrapping the
+            // media slot must not turn every quote-post into a video post.
+            coEvery { postRepository.getPost(AT_URI) } returns
+                Result.success(
+                    postUi(
+                        embed =
+                            EmbedUi.RecordWithMedia(
+                                record =
+                                    EmbedUi.RecordUnavailable(
+                                        reason = EmbedUi.RecordUnavailable.Reason.NotFound,
+                                    ),
+                                media = EmbedUi.Images(items = persistentListOf()),
+                            ),
+                    ),
+                )
+
+            val vm = newVm()
+            runCurrent()
+
+            val status = vm.uiState.value.loadStatus
+            assertTrue(status is VideoPlayerLoadStatus.Error)
+            assertTrue((status as VideoPlayerLoadStatus.Error).error is VideoPlayerError.Unknown)
+            verify(exactly = 0) { holder.bind(any(), any()) }
+        }
+
+    @Test
+    fun init_resolveCancelled_staysLoading_andDoesNotPaintAnError() =
+        runTest {
+            // DefaultPostRepository.getPost wraps its body in runCatching
+            // without rethrowing, so navigating away mid-resolve surfaces as
+            // Result.failure(CancellationException). That is not a failure and
+            // must not paint "Something went wrong" (nor emit a WARN, which
+            // CrashlyticsTree would turn into a false-positive breadcrumb).
+            coEvery { postRepository.getPost(AT_URI) } returns
+                Result.failure(CancellationException("navigated away"))
+
+            val vm = newVm()
+            runCurrent()
+
+            assertEquals(VideoPlayerLoadStatus.Resolving, vm.uiState.value.loadStatus)
+            verify(exactly = 0) { holder.bind(any(), any()) }
         }
 
     @Test
@@ -570,6 +654,9 @@ internal class VideoPlayerViewModelTest {
     private companion object {
         const val AT_URI = "at://did:plc:abc/app.bsky.feed.post/3abc"
         const val CID = "bafyreifakefakefakefakefakefakefakefakefakefake"
+
+        /** Playlist URL for the quote-post (RecordWithMedia) regression cases. */
+        const val QUOTED_PLAYLIST_URL = "https://video.cdn/hls/quoted.m3u8"
         val AUTHOR =
             AuthorUi(
                 did = "did:plc:abc",

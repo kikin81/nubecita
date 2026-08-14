@@ -1,10 +1,12 @@
 package net.kikin.nubecita.feature.videoplayer.impl
 
 import androidx.lifecycle.viewModelScope
+import androidx.media3.common.PlaybackException
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
@@ -18,8 +20,9 @@ import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.core.video.PlaybackMode
 import net.kikin.nubecita.core.video.SharedVideoPlayer
-import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.video
 import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
+import timber.log.Timber
 
 /**
  * Presenter for the fullscreen video player.
@@ -118,13 +121,29 @@ internal class VideoPlayerViewModel
                 Quad(isPlaying, positionMs, durationMs, playbackError)
             }.onEach { (isPlaying, positionMs, durationMs, playbackError) ->
                 if (playbackError != null) {
+                    val mapped = playbackError.toVideoPlayerError()
+                    // Read the code off the exception, not off `mapped`: only
+                    // the Unknown bucket carries errorCodeName, but Decode and
+                    // Network are the classified codes (ERROR_CODE_DECODING_-
+                    // FAILED, ERROR_CODE_IO_BAD_HTTP_STATUS, …) and are just as
+                    // diagnostic. `playbackError` is a Throwable, so a
+                    // non-Media3 cause legitimately has no code.
+                    val errorCodeName =
+                        (playbackError as? PlaybackException)
+                            ?.let { PlaybackException.getErrorCodeName(it.errorCode) }
+                            ?: "-"
+                    // WARN so CrashlyticsTree forwards it as a breadcrumb: the
+                    // three user-facing strings are deliberately vague, so
+                    // without this the only record of WHY playback failed is a
+                    // cable and a PID-filtered logcat (nubecita-o91i).
+                    Timber.w(
+                        "video playback failed: %s (code=%s) uri=%s",
+                        mapped.javaClass.simpleName,
+                        errorCodeName,
+                        postUri,
+                    )
                     setState {
-                        copy(
-                            loadStatus =
-                                VideoPlayerLoadStatus.Error(
-                                    error = playbackError.toVideoPlayerError(),
-                                ),
-                        )
+                        copy(loadStatus = VideoPlayerLoadStatus.Error(error = mapped))
                     }
                 } else {
                     setState {
@@ -223,14 +242,25 @@ internal class VideoPlayerViewModel
                 postRepository
                     .getPost(postUri)
                     .onSuccess { post ->
-                        val video = post.embed as? EmbedUi.Video
+                        val video = post.embed.video
                         if (video == null) {
-                            // The post resolved but isn't a video post — the
-                            // caller routed a non-video URI to the fullscreen
-                            // player. Treat as a resolution error (no Retry
+                            // The post resolved but carries no video anywhere in
+                            // its embed. Treat as a resolution error (no Retry
                             // will change the embed type, but the error layout
                             // is the right surface). Mirrors the old resolver's
                             // IllegalStateException → Unknown mapping.
+                            //
+                            // Logged at WARN because this branch is where a
+                            // too-narrow extraction hides: it renders the same
+                            // "Something went wrong" as a genuine playback
+                            // failure, which is how quote-post videos stayed
+                            // broken (nubecita-o91i). The embed class name is
+                            // the fact that identifies a repeat.
+                            Timber.w(
+                                "video resolve failed: no video in embed=%s uri=%s",
+                                post.embed.javaClass.simpleName,
+                                postUri,
+                            )
                             setState {
                                 copy(
                                     loadStatus =
@@ -291,6 +321,32 @@ internal class VideoPlayerViewModel
                             scheduleChromeAutoHide()
                         }
                     }.onFailure { throwable ->
+                        // DefaultPostRepository.getPost wraps its body in
+                        // runCatching and does NOT rethrow, so navigating away
+                        // mid-resolve arrives here as a
+                        // Result.failure(CancellationException) — nothing
+                        // failed, the screen is going away. Rethrow to restore
+                        // the cooperative cancellation runCatching swallowed,
+                        // which also skips the log and the error paint: this
+                        // block is still reached on a cancelled scope because
+                        // neither is a suspension point.
+                        if (throwable is CancellationException) throw throwable
+                        // The third failure path into the same vague "Something
+                        // went wrong": getPost itself failed (network, 5xx, bad
+                        // URI). Log the cause's type, don't pass the throwable
+                        // — Timber folds a stack trace into the message and
+                        // CrashlyticsTree makes every WARN a breadcrumb, so a
+                        // trace here would eat the per-breadcrumb budget for no
+                        // added signal. `name`, not `simpleName` like the two
+                        // logs above: those print sealed types whose every
+                        // implementor is a named declaration, whereas an
+                        // arbitrary Throwable really can be anonymous — and
+                        // `simpleName` is empty for those.
+                        Timber.w(
+                            "video resolve failed: %s uri=%s",
+                            throwable.javaClass.name,
+                            postUri,
+                        )
                         setState {
                             copy(
                                 loadStatus =
