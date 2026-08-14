@@ -70,7 +70,7 @@ Running the full pre-PR gate on every branch is wasted work when only the top of
 
 CI still runs on every PR in the stack, unchanged.
 
-**Flavored modules have no `lintDebug` / `testDebugUnitTest` task.** Every `:feature:*:impl` module carries the `bench` / `production` flavor dimension, so the unqualified task names fail with `task 'lintDebug' is ambiguous`. Use the flavored names:
+**Flavored modules have no `lintDebug` / `testDebugUnitTest` task.** A flavored module carries the `bench` / `production` `environment` dimension, so the unqualified task names fail with `task 'lintDebug' is ambiguous`. Use the flavored names:
 
 | Instead of | Run |
 |---|---|
@@ -79,7 +79,20 @@ CI still runs on every PR in the stack, unchanged.
 | `:<module>:updateDebugScreenshotTest` | `:<module>:updateProductionDebugScreenshotTest` |
 | `:<module>:validateDebugScreenshotTest` | `:<module>:validateProductionDebugScreenshotTest` |
 
-Unflavored modules (`:designsystem`, `:core:*`) keep the plain names. When unsure, `./gradlew :<module>:tasks --all | grep -i lint`.
+**Which modules are flavored is NOT predictable from the module path** — it does not follow the `:core:*` / `:feature:*` split in either direction. A module is flavored **iff its `build.gradle.kts` applies `nubecita.android.flavors`**, which per that plugin's contract is exactly the modules shipping a `src/bench/` source set (a network-free parallel implementation for the offline `:app:benchBenchmarkRelease` build). Everything else stays single-variant and picks up `production` transitively via `missingDimensionStrategy`. `nubecita.android.feature` does **not** imply flavors — all 18 `:feature:*:impl` modules apply it, but only 5 are flavored.
+
+As of 2026-08-14 that is 5 of 18 `:feature:*:impl` modules (`chats`, `feed`, `notifications`, `profile`, `search`) and 16 of 30 `:core:*` modules — so most feature modules take the *plain* names while over half of `:core:*` takes the *flavored* ones. `:designsystem` and `:data:models` are unflavored; `:app` and `:benchmark` declare the dimension through their own convention plugins.
+
+Don't infer it — check:
+
+```bash
+git grep -l nubecita.android.flavors -- '*/build.gradle.kts'   # every flavored module
+git grep -l nubecita.android.flavors -- <module-directory>     # just this one (no output = unflavored)
+```
+
+`<module-directory>` is a slash path (`feature/chats/impl`), not a Gradle path (`:feature:chats:impl`). Use `git grep`, not `grep -r`: it skips `build/` output, which otherwise floods the result with generated copies. Ignore `build-logic/convention` in the repo-wide list — it *registers* the plugin rather than applying it, so it is not itself a flavored module (22 hits, 21 flavored modules). `./gradlew :<module>:tasks --all | grep -i unittest` is the slower confirmation.
+
+The two failure modes read differently: an unflavored module rejects a flavored name with `task 'testProductionDebugUnitTest' not found in project`, while a flavored module rejects the plain name with `is ambiguous`.
 
 #### Stack guardrails
 
