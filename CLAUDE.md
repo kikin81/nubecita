@@ -83,7 +83,16 @@ CI still runs on every PR in the stack, unchanged.
 
 As of 2026-08-14 that is 5 of 18 `:feature:*:impl` modules (`chats`, `feed`, `notifications`, `profile`, `search`) and 16 of 30 `:core:*` modules — so most feature modules take the *plain* names while over half of `:core:*` takes the *flavored* ones. `:designsystem` and `:data:models` are unflavored; `:app` and `:benchmark` declare the dimension through their own convention plugins.
 
-Don't infer it — check. `grep -l nubecita.android.flavors <module>/build.gradle.kts` answers it instantly, or `./gradlew :<module>:tasks --all | grep -i unittest`. The two failure modes read differently: an unflavored module rejects a flavored name with `task 'testProductionDebugUnitTest' not found in project`, while a flavored module rejects the plain name with `is ambiguous`.
+Don't infer it — check:
+
+```bash
+git grep -l nubecita.android.flavors -- '*/build.gradle.kts'   # every flavored module
+git grep -l nubecita.android.flavors -- <module>               # just this one (no output = unflavored)
+```
+
+Use `git grep`, not `grep -r`: it skips `build/` output, which otherwise floods the result with generated copies. Ignore `build-logic/convention` in the repo-wide list — it *registers* the plugin rather than applying it, so it is not itself a flavored module. `./gradlew :<module>:tasks --all | grep -i unittest` is the slower confirmation.
+
+The two failure modes read differently: an unflavored module rejects a flavored name with `task 'testProductionDebugUnitTest' not found in project`, while a flavored module rejects the plain name with `is ambiguous`.
 
 #### Stack guardrails
 
