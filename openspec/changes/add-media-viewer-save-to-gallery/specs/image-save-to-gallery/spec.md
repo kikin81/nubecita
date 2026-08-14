@@ -43,9 +43,26 @@ The system SHALL withhold the image from gallery indexing until its bytes are co
 - **WHEN** a save fails after writing some but not all of the image's bytes
 - **THEN** no entry for that image is visible in the device gallery
 
+### Requirement: A failed save leaves nothing behind
+
+Withholding a partial image from the gallery is not sufficient on its own — the reserved entry and its bytes still occupy the user's storage while remaining invisible to them, which is unreclaimable by any means available to the user. The system SHALL therefore remove the reserved entry when a save does not complete, including when it is cancelled.
+
+#### Scenario: A failed write reserves no lasting storage
+
+- **WHEN** a save fails after reserving its gallery entry
+- **THEN** the reserved entry is removed
+- **AND** the bytes written before the failure no longer occupy storage
+
+#### Scenario: A cancelled save reserves no lasting storage
+
+- **WHEN** a save is cancelled after reserving its gallery entry
+- **THEN** the reserved entry is removed
+
 ### Requirement: Content type is determined from the image's own bytes
 
-The system SHALL determine each saved image's content type by inspecting the image data itself. It MUST NOT assume a content type from the file extension, the URL, or a fixed default, because the content delivery network serves more than one image format.
+The system SHALL determine each saved image's content type by inspecting the image data itself. It MUST NOT derive the content type from the URL, whose suffix is a request parameter rather than a guarantee about the bytes returned, nor from a fixed default.
+
+Animated GIF is deliberately absent from the recognised set: `EmbedUi.Gif` is not an `ImageContainerEmbed`, so a GIF embed resolves to no images and never reaches this viewer. If a surface that *can* carry a GIF gains a save action, that is the point to extend the recognised set.
 
 #### Scenario: A PNG is saved as a PNG
 

@@ -71,9 +71,17 @@ Mirrors `:core:posts`'s `PostRepositoryExceptions.kt`, the established pattern f
 
 `MediaViewerContract`'s existing KDoc commits to the ViewModel staying free of Android resources — the screen maps each error variant to a `stringResource`. The new `ShowSaveOutcome` effect follows that precedent exactly, so the presenter stays unit-testable without a `Context`.
 
-### D6: `IS_PENDING` during the write
+### D6: `IS_PENDING` during the write, plus explicit cleanup on failure
 
-Standard scoped-storage practice, and it is what makes the "a partially written image is never visible" requirement true rather than aspirational: the gallery cannot index the row until the flag clears.
+`IS_PENDING` is standard scoped-storage practice and is what makes the "a partially written image is never visible" requirement true rather than aspirational: the gallery cannot index the row until the flag clears.
+
+It is not sufficient on its own. A row that stays pending is invisible *and* undeletable by the user — it occupies storage that no gallery app will show them and no cleanup UI reaches. So the insert must be owned: delete the row if the write does not complete, on exception **and on cancellation**. Cancellation matters specifically because the save runs in a coroutine the viewer can outlive — a dismissed viewer mid-save must not leak. Cleanup therefore cannot itself be a cancellable suspending call.
+
+### D7: The API 29+ seam exists for lint, not for the verifier
+
+The `MediaStore` work sits behind an `@RequiresApi(Build.VERSION_CODES.Q)` seam with a version check at the boundary, because Android Lint's `NewApi` requires it in a `minSdk 28` module.
+
+Worth recording what this is *not* protecting against, since it is a commonly repeated claim: `RELATIVE_PATH`, `IS_PENDING` and `VOLUME_EXTERNAL_PRIMARY` are compile-time `String` constants, so the compiler inlines their values into the call site and no runtime field lookup ever happens. They cannot produce `NoSuchFieldError` or a verification failure on API 28. The seam is a lint contract and a legibility aid.
 
 ## Risks / Trade-offs
 

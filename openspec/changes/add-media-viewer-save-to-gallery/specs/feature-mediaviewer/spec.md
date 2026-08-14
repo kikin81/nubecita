@@ -12,6 +12,7 @@ The fullscreen viewer SHALL present a save action in its chrome. The action SHAL
 
 #### Scenario: The save action follows the chrome
 
+- **GIVEN** no save is in flight
 - **WHEN** the viewer's chrome is hidden by the auto-fade timer
 - **THEN** the save action is hidden with it
 - **AND** it reappears when the chrome is restored
@@ -55,6 +56,14 @@ While a save is in flight the viewer SHALL indicate progress and SHALL ignore fu
 
 - **WHEN** a save is in flight
 - **THEN** the viewer indicates that work is in progress
+
+#### Scenario: The chrome does not auto-fade out from under a save in progress
+
+- **GIVEN** a save is in flight
+- **AND** the progress indication is presented within the chrome
+- **WHEN** the chrome auto-fade timer would otherwise elapse
+- **THEN** the chrome remains visible
+- **AND** the auto-fade resumes once the save completes
 
 #### Scenario: The indicator clears on completion
 
