@@ -7,6 +7,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -199,6 +200,24 @@ internal class VideoPlayerViewModelTest {
             val status = vm.uiState.value.loadStatus
             assertTrue(status is VideoPlayerLoadStatus.Error)
             assertTrue((status as VideoPlayerLoadStatus.Error).error is VideoPlayerError.Unknown)
+            verify(exactly = 0) { holder.bind(any(), any()) }
+        }
+
+    @Test
+    fun init_resolveCancelled_staysLoading_andDoesNotPaintAnError() =
+        runTest {
+            // DefaultPostRepository.getPost wraps its body in runCatching
+            // without rethrowing, so navigating away mid-resolve surfaces as
+            // Result.failure(CancellationException). That is not a failure and
+            // must not paint "Something went wrong" (nor emit a WARN, which
+            // CrashlyticsTree would turn into a false-positive breadcrumb).
+            coEvery { postRepository.getPost(AT_URI) } returns
+                Result.failure(CancellationException("navigated away"))
+
+            val vm = newVm()
+            runCurrent()
+
+            assertEquals(VideoPlayerLoadStatus.Resolving, vm.uiState.value.loadStatus)
             verify(exactly = 0) { holder.bind(any(), any()) }
         }
 

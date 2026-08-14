@@ -6,6 +6,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
@@ -320,6 +321,16 @@ internal class VideoPlayerViewModel
                             scheduleChromeAutoHide()
                         }
                     }.onFailure { throwable ->
+                        // DefaultPostRepository.getPost wraps its body in
+                        // runCatching and does NOT rethrow, so navigating away
+                        // mid-resolve arrives here as a
+                        // Result.failure(CancellationException) — nothing
+                        // failed, the screen is going away. Rethrow to restore
+                        // the cooperative cancellation runCatching swallowed,
+                        // which also skips the log and the error paint: this
+                        // block is still reached on a cancelled scope because
+                        // neither is a suspension point.
+                        if (throwable is CancellationException) throw throwable
                         // The third failure path into the same vague "Something
                         // went wrong": getPost itself failed (network, 5xx, bad
                         // URI). Log the cause's type, don't pass the throwable
