@@ -87,10 +87,10 @@ Don't infer it — check:
 
 ```bash
 git grep -l nubecita.android.flavors -- '*/build.gradle.kts'   # every flavored module
-git grep -l nubecita.android.flavors -- <module>               # just this one (no output = unflavored)
+git grep -l nubecita.android.flavors -- <module-directory>     # just this one (no output = unflavored)
 ```
 
-Use `git grep`, not `grep -r`: it skips `build/` output, which otherwise floods the result with generated copies. Ignore `build-logic/convention` in the repo-wide list — it *registers* the plugin rather than applying it, so it is not itself a flavored module. `./gradlew :<module>:tasks --all | grep -i unittest` is the slower confirmation.
+`<module-directory>` is a slash path (`feature/chats/impl`), not a Gradle path (`:feature:chats:impl`). Use `git grep`, not `grep -r`: it skips `build/` output, which otherwise floods the result with generated copies. Ignore `build-logic/convention` in the repo-wide list — it *registers* the plugin rather than applying it, so it is not itself a flavored module (22 hits, 21 flavored modules). `./gradlew :<module>:tasks --all | grep -i unittest` is the slower confirmation.
 
 The two failure modes read differently: an unflavored module rejects a flavored name with `task 'testProductionDebugUnitTest' not found in project`, while a flavored module rejects the plain name with `is ambiguous`.
 
