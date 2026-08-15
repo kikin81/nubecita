@@ -94,12 +94,18 @@ internal class MediaViewerViewModel
                                 }
                             },
                         )
-                // Re-read rather than reusing `status`: the user can page while
-                // the save runs, and writing the captured copy back would
-                // silently revert their page change.
-                val current = uiState.value.loadStatus
-                if (current is MediaViewerLoadStatus.Loaded) {
-                    setState { copy(loadStatus = current.copy(isSaving = false)) }
+                // Read the status inside the reducer, not before it: setState
+                // is a compare-and-set update, so anything captured outside can
+                // be stale by the time the lambda runs — and writing a captured
+                // Loaded back would silently revert a page change made during
+                // the save.
+                setState {
+                    val settled = loadStatus
+                    if (settled is MediaViewerLoadStatus.Loaded) {
+                        copy(loadStatus = settled.copy(isSaving = false))
+                    } else {
+                        this
+                    }
                 }
                 sendEffect(MediaViewerEffect.ShowSaveOutcome(outcome))
             }

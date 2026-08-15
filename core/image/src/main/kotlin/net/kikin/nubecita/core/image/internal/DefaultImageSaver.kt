@@ -9,6 +9,7 @@ import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 import coil3.ImageLoader
 import coil3.disk.DiskCache
+import coil3.request.ErrorResult
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -83,6 +84,16 @@ internal class DefaultImageSaver
                 } catch (failure: ImageStorageException) {
                     Timber.w("image save failed: could not write to the gallery")
                     Result.failure(failure)
+                } catch (failure: Exception) {
+                    // Backstop. resolver.insert sits outside writeToGallery's own
+                    // try, and OEM ContentResolver implementations are a known
+                    // source of surprises (SecurityException, SQLiteException).
+                    // Without this the throw escapes into viewModelScope.launch
+                    // and takes the app down on a save tap. Exception, not
+                    // Throwable, so Errors still propagate — and the
+                    // CancellationException arm above still wins by ordering.
+                    Timber.w(failure, "image save failed: unexpected %s", failure.javaClass.name)
+                    Result.failure(ImageStorageException("unexpected failure saving the image", failure))
                 }
             }
         }
@@ -123,7 +134,12 @@ internal class DefaultImageSaver
                     throw ImageRetrievalException(url, failure)
                 }
 
-            if (result !is SuccessResult) throw ImageRetrievalException(url)
+            // Carry the real cause (timeout, 404, decode) rather than dropping it.
+            // ImageResult is a plain interface, not a sealed type, so !is
+            // SuccessResult does not smart-cast to ErrorResult — hence `as?`.
+            if (result !is SuccessResult) {
+                throw ImageRetrievalException(url, (result as? ErrorResult)?.throwable)
+            }
         }
 
         /**
