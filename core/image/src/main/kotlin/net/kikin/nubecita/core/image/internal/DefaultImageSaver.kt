@@ -68,7 +68,7 @@ internal class DefaultImageSaver
                     // mid-way through reading.
                     val uri =
                         openSnapshotOrFetch(url).use { snapshot ->
-                            val file = File(snapshot.data.toString())
+                            val file = snapshot.data.toFile()
                             if (!file.isFile || file.length() <= 0L) throw ImageRetrievalException(url)
                             writeToGallery(file)
                         }
