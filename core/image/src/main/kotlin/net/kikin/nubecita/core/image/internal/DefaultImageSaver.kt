@@ -110,9 +110,18 @@ internal class DefaultImageSaver
          */
         private suspend fun fetchIntoCache(url: String) {
             val result =
-                runCatching {
+                try {
                     imageLoader.execute(ImageRequest.Builder(context).data(url).build())
-                }.getOrElse { throw ImageRetrievalException(url, it) }
+                } catch (cancellation: CancellationException) {
+                    // NOT runCatching: it catches Throwable, which includes
+                    // CancellationException, and wrapping that into an
+                    // ImageRetrievalException would both break cooperative
+                    // cancellation and tell a user who merely navigated away
+                    // that their download failed.
+                    throw cancellation
+                } catch (failure: Throwable) {
+                    throw ImageRetrievalException(url, failure)
+                }
 
             if (result !is SuccessResult) throw ImageRetrievalException(url)
         }
@@ -165,6 +174,12 @@ internal class DefaultImageSaver
                 // storage they cannot reclaim. Delete before rethrowing.
                 runCatching { resolver.delete(uri, null, null) }
                     .onFailure { Timber.w("failed to clean up a pending gallery entry after a failed save") }
+                // Cleanup first, then let cancellation through untouched. Not
+                // reachable today — nothing in this non-suspending body throws
+                // CancellationException — but wrapping one into an
+                // ImageStorageException would report a storage failure for a
+                // cancelled save, so the guard travels with the catch.
+                if (failure is CancellationException) throw failure
                 throw if (failure is ImageStorageException) {
                     failure
                 } else {

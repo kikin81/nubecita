@@ -5,6 +5,7 @@ import io.github.kikin81.atproto.runtime.XrpcError
 import io.mockk.mockk
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -411,6 +412,21 @@ internal class MediaViewerViewModelTest {
             assertFalse(loaded(unsupported).canSave, "canSave must be false where the platform cannot save")
         }
 
+    @Test
+    fun `a cancelled save reports no outcome to the user`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Cancellation is not a failure. If the saver's CancellationException
+            // were folded into a Result — which runCatching around the fetch
+            // would silently do — the user would be told the save failed after
+            // merely navigating away. Regression guard for that swallow.
+            val vm = loadedVm(imageSaver = CancellingImageSaver())
+            vm.effects.test {
+                vm.handleEvent(MediaViewerEvent.OnSaveClick)
+                advanceUntilIdle()
+                expectNoEvents()
+            }
+        }
+
     // ---------- helpers ----------
 
     private fun newVm(
@@ -424,6 +440,13 @@ internal class MediaViewerViewModelTest {
             postRepository = repo,
             imageSaver = imageSaver,
         )
+
+    /** Throws [CancellationException], as a real save does when its scope dies. */
+    private class CancellingImageSaver : ImageSaver {
+        override val isSupported: Boolean = true
+
+        override suspend fun saveToGallery(url: String): Result<AndroidUri> = throw CancellationException("navigated away mid-save")
+    }
 
     /**
      * In-memory [ImageSaver] for driving the save path deterministically.

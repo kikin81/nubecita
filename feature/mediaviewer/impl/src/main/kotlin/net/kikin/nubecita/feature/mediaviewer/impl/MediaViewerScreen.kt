@@ -57,6 +57,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import me.saket.telephoto.zoomable.rememberZoomableState
@@ -143,15 +144,22 @@ internal fun MediaViewerScreen(
             when (effect) {
                 MediaViewerEffect.Dismiss -> currentOnDismiss()
                 is MediaViewerEffect.ShowSaveOutcome ->
+                    // Launched, not awaited: showSnackbar suspends until the
+                    // snackbar is dismissed or times out, and awaiting it here
+                    // would stall this collector — so a back press during the
+                    // ~4s snackbar would sit unhandled behind it.
+                    //
                     // Wording chosen here, not in the VM: the presenter stays
                     // free of Android resources, same as MediaViewerError.
-                    snackbarHostState.showSnackbar(
-                        when (effect.outcome) {
-                            MediaViewerSaveOutcome.Saved -> savedMessage
-                            MediaViewerSaveOutcome.RetrievalFailed -> retrievalFailedMessage
-                            MediaViewerSaveOutcome.StorageFailed -> storageFailedMessage
-                        },
-                    )
+                    launch {
+                        snackbarHostState.showSnackbar(
+                            when (effect.outcome) {
+                                MediaViewerSaveOutcome.Saved -> savedMessage
+                                MediaViewerSaveOutcome.RetrievalFailed -> retrievalFailedMessage
+                                MediaViewerSaveOutcome.StorageFailed -> storageFailedMessage
+                            },
+                        )
+                    }
             }
         }
     }
