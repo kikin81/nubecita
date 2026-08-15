@@ -30,6 +30,26 @@
 #
 #     // allow-runcatching: <reason>
 #
+# Known limitations (both verified against this repo, both fail safe):
+#
+#   1. A `suspend` modifier on its own line, split from `fun`, would not be
+#      seen. Unreachable here: ktlint rejects that formatting outright
+#      (`spotlessKotlinCheck` fails on it) and `spotlessApply` rewrites it to
+#      `suspend fun` on one line, after which this guard does flag the body.
+#      Spotless gates both pre-commit and CI, so such code cannot land. This
+#      guard therefore DEPENDS on spotless staying in the pipeline.
+#
+#   2. Brace nesting is not tracked, so the suspend flag survives past the end
+#      of a function until the next `fun` declaration. A `runCatching` in, say,
+#      a property initialiser sitting directly below a suspend function is
+#      flagged spuriously. Currently zero occurrences in the tree; if one
+#      appears it fails loudly with the opt-out marker in the message, which is
+#      the right way round — a false positive costs one comment, a false
+#      negative ships the bug.
+#
+# Tracking brace depth in awk would trade those for a subtler class of bug, so
+# it stays line-oriented on purpose.
+#
 # Usage: ./scripts/check_runcatching_cancellation.sh [files...]
 #        (no args → scans the whole tracked tree)
 
