@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -43,7 +44,7 @@ internal class DefaultActorProfileRepository
     ) : ActorProfileRepository {
         override suspend fun fetchProfile(actor: String): Result<ActorProfile> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     ActorService(client)
                         .getProfile(GetProfileRequest(actor = AtIdentifier(actor)))

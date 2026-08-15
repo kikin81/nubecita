@@ -10,6 +10,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.posts.PostThreadRepository
 import net.kikin.nubecita.data.models.ThreadItem
@@ -26,7 +27,7 @@ internal class DefaultPostThreadRepository
     ) : PostThreadRepository {
         override suspend fun getPostThread(uri: String): Result<ImmutableList<ThreadItem>> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     val response =
                         FeedService(client).getPostThread(

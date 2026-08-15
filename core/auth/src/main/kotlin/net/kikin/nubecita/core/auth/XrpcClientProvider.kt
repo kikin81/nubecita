@@ -35,7 +35,7 @@ interface XrpcClientProvider {
 /**
  * Thrown by [XrpcClientProvider.authenticated] when no session is
  * persisted. Subclass of [IllegalStateException] so callers using
- * `runCatching { ... }` patterns observe it as a typed `Result.failure`
+ * `runCatchingCancellable { ... }` patterns observe it as a typed `Result.failure`
  * without forcing every call site to wrap a `try / catch`.
  */
 class NoSessionException(

@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import net.kikin.nubecita.core.bookmarks.BookmarkRepository
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.common.session.SessionClearable
 import net.kikin.nubecita.core.postinteractions.LikeRepostRepository
 import net.kikin.nubecita.core.postinteractions.PendingState
@@ -115,7 +116,7 @@ internal class DefaultPostInteractionsCache
             val job =
                 applicationScope.async {
                     val callResult =
-                        runCatching {
+                        runCatchingCancellable {
                             if (before.viewerLikeUri == null) {
                                 likeRepostRepository.like(StrongRef(uri = AtUri(postUri), cid = Cid(postCid))).getOrThrow()
                             } else {
@@ -171,7 +172,7 @@ internal class DefaultPostInteractionsCache
             val job =
                 applicationScope.async {
                     val callResult =
-                        runCatching {
+                        runCatchingCancellable {
                             if (before.viewerRepostUri == null) {
                                 likeRepostRepository.repost(StrongRef(uri = AtUri(postUri), cid = Cid(postCid))).getOrThrow()
                             } else {
@@ -229,7 +230,7 @@ internal class DefaultPostInteractionsCache
 
             val job =
                 applicationScope.async {
-                    runCatching {
+                    runCatchingCancellable {
                         if (before.isBookmarked) {
                             bookmarkRepository.unbookmark(ref).getOrThrow()
                         } else {

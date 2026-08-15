@@ -11,6 +11,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.jsonPrimitive
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.feature.moderation.impl.SubjectPreview
 import net.kikin.nubecita.feature.moderation.impl.data.internal.GraphemeText
 import timber.log.Timber
@@ -41,7 +42,7 @@ internal class DefaultSubjectPreviewResolver
     ) : SubjectPreviewResolver {
         override suspend fun resolvePost(uri: String): Result<SubjectPreview.Post> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     val response =
                         FeedService(client).getPosts(
@@ -71,7 +72,7 @@ internal class DefaultSubjectPreviewResolver
 
         override suspend fun resolveAccount(did: String): Result<SubjectPreview.Account> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     val response =
                         ActorService(client).getProfile(

@@ -12,7 +12,6 @@ import io.github.kikin81.atproto.runtime.Nsid
 import io.github.kikin81.atproto.runtime.RecordKey
 import io.github.kikin81.atproto.runtime.encodeRecord
 import io.github.kikin81.atproto.runtime.parseOrNull
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.auth.NoSessionException
@@ -20,6 +19,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.postinteractions.FollowRepository
 import timber.log.Timber
 import javax.inject.Inject
@@ -43,7 +43,7 @@ internal class DefaultFollowRepository
     ) : FollowRepository {
         override suspend fun follow(subjectDid: String): Result<String> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val viewerDid = currentViewerDid()
                     val client = xrpcClientProvider.authenticated()
                     val record =
@@ -61,9 +61,6 @@ internal class DefaultFollowRepository
                         )
                     response.uri.raw
                 }.onFailure { throwable ->
-                    // runCatching swallows CancellationException; rethrow so a
-                    // cancelled caller propagates structurally.
-                    if (throwable is CancellationException) throw throwable
                     // `subjectDid` is PII (the followed account's DID); withhold
                     // it from the log, same policy as DefaultLikeRepostRepository.
                     Timber.tag(TAG).w(throwable, "follow failed: %s", throwable.javaClass.name)
@@ -72,7 +69,7 @@ internal class DefaultFollowRepository
 
         override suspend fun unfollow(followUri: String): Result<Unit> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val (repo, rkey) = parseFollowUri(AtUri(followUri))
                     val client = xrpcClientProvider.authenticated()
                     RepoService(client).deleteRecord(
@@ -84,7 +81,6 @@ internal class DefaultFollowRepository
                     )
                     Unit
                 }.onFailure { throwable ->
-                    if (throwable is CancellationException) throw throwable
                     // `followUri` carries the viewer's DID — keep it out of the
                     // log surface for the same reason DefaultLikeRepostRepository
                     // redacts its delete URIs.

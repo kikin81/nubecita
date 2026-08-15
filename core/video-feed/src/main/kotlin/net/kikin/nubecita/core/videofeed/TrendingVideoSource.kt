@@ -4,13 +4,13 @@ import io.github.kikin81.atproto.app.bsky.feed.FeedService
 import io.github.kikin81.atproto.app.bsky.feed.FeedViewPost
 import io.github.kikin81.atproto.app.bsky.feed.GetFeedRequest
 import io.github.kikin81.atproto.runtime.AtUri
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.auth.viewerDidOrNull
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostUi
@@ -45,7 +45,7 @@ internal class DefaultTrendingVideoSource
     ) : VideoFeedSource {
         override suspend fun loadPage(cursor: String?): Result<VideoFeedPage> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     val response =
                         FeedService(client).getFeed(
@@ -57,9 +57,6 @@ internal class DefaultTrendingVideoSource
                         )
                     VideoFeedPage(items = toVideoPosts(response.feed, sessionStateProvider.viewerDidOrNull), cursor = response.cursor)
                 }.onFailure { throwable ->
-                    // runCatching also catches CancellationException; rethrow it so structured
-                    // coroutine cancellation propagates instead of being swallowed into a Result.
-                    if (throwable is CancellationException) throw throwable
                     // Log only the error identity — the feed URI is public, but keep parity
                     // with the redaction discipline used across the XRPC repositories.
                     Timber.tag(TAG).w(throwable, "trending getFeed failed: %s", throwable.javaClass.name)

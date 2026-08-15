@@ -96,6 +96,22 @@ repos:
         files: '\.kt$'
         pass_filenames: false
 
+      - id: runcatching-cancellation
+        name: no bare runCatching inside a suspend fun
+        # runCatching catches Throwable, which includes CancellationException,
+        # so a cancelled call becomes Result.failure instead of unwinding:
+        # cooperative cancellation breaks, the user is shown an error for a
+        # request they cancelled by navigating away, and CrashlyticsTree turns
+        # each logged "failure" into a breadcrumb that evicts the ones
+        # preceding a real crash. Use runCatchingCancellable (:core:common),
+        # or opt out with `// allow-runcatching: <reason>`. Pure shell, so it
+        # runs on every commit; pass_filenames is false because the script
+        # scans the whole src/main tree itself.
+        entry: ./scripts/check_runcatching_cancellation.sh
+        language: system
+        files: '\.kt$'
+        pass_filenames: false
+
       - id: screenshot-test-compile
         name: screenshot test sources compile
         # compileProductionDebugScreenshotTestKotlin specifically — the

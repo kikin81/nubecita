@@ -18,6 +18,7 @@ dependencies {
     api(libs.atproto.runtime)
 
     implementation(project(":core:auth"))
+    implementation(project(":core:common"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.ktor.client.core)

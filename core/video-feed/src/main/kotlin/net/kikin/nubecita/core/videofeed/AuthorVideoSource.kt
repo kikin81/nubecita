@@ -6,13 +6,13 @@ import dagger.assisted.AssistedInject
 import io.github.kikin81.atproto.app.bsky.feed.FeedService
 import io.github.kikin81.atproto.app.bsky.feed.GetAuthorFeedRequest
 import io.github.kikin81.atproto.runtime.AtIdentifier
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.auth.viewerDidOrNull
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import timber.log.Timber
 
 /** The `posts_with_video` author-feed request. Pure, so the critical filter is unit-tested. */
@@ -43,14 +43,11 @@ internal class AuthorVideoSource
     ) : VideoFeedSource {
         override suspend fun loadPage(cursor: String?): Result<VideoFeedPage> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     val response = FeedService(client).getAuthorFeed(authorVideoFeedRequest(actor, cursor))
                     VideoFeedPage(items = toVideoPosts(response.feed, sessionStateProvider.viewerDidOrNull), cursor = response.cursor)
                 }.onFailure { throwable ->
-                    // runCatching also catches CancellationException; rethrow so structured
-                    // coroutine cancellation propagates instead of being swallowed into a Result.
-                    if (throwable is CancellationException) throw throwable
                     Timber.tag(TAG).w(throwable, "author getAuthorFeed failed: %s", throwable.javaClass.name)
                 }
             }

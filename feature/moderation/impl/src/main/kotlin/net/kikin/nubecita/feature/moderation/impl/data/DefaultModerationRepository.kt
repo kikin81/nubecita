@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.feature.moderation.impl.ModerationRepository
 import net.kikin.nubecita.feature.moderation.impl.data.internal.GraphemeText
 import timber.log.Timber
@@ -74,7 +75,7 @@ internal class DefaultModerationRepository
             subjectLabel: String,
         ): Result<Unit> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     val request =
                         CreateReportRequest(

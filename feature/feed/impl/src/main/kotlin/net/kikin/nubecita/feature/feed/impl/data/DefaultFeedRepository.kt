@@ -14,6 +14,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import timber.log.Timber
@@ -96,7 +97,7 @@ class DefaultFeedRepository
             block: suspend (client: XrpcClient, cursor: String?) -> Pair<List<FeedViewPost>, String?>,
         ): Result<TimelinePage> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     // Read the cached prefs + viewer DID once per page; the
                     // mapper drops hard-filtered timeline posts and covers

@@ -16,6 +16,7 @@ import net.kikin.nubecita.core.auth.viewerDidOrNull
 import net.kikin.nubecita.core.bookmarks.BookmarkRepository
 import net.kikin.nubecita.core.bookmarks.BookmarksPage
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import timber.log.Timber
 import javax.inject.Inject
@@ -36,7 +37,7 @@ internal class DefaultBookmarkRepository
     ) : BookmarkRepository {
         override suspend fun bookmark(post: StrongRef): Result<Unit> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     BookmarkService(xrpcClientProvider.authenticated())
                         .createBookmark(CreateBookmarkRequest(cid = post.cid, uri = post.uri))
                 }.onFailure { logUnlessCancelled(it, "createBookmark") }
@@ -44,7 +45,7 @@ internal class DefaultBookmarkRepository
 
         override suspend fun unbookmark(post: StrongRef): Result<Unit> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     BookmarkService(xrpcClientProvider.authenticated())
                         .deleteBookmark(DeleteBookmarkRequest(uri = post.uri))
                 }.onFailure { logUnlessCancelled(it, "deleteBookmark") }
@@ -52,7 +53,7 @@ internal class DefaultBookmarkRepository
 
         override suspend fun getBookmarks(cursor: String?): Result<BookmarksPage> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val response =
                         BookmarkService(xrpcClientProvider.authenticated())
                             .getBookmarks(GetBookmarksRequest(cursor = cursor))

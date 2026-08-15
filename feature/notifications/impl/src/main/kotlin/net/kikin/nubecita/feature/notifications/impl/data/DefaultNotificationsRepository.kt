@@ -16,6 +16,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.auth.viewerDidOrNull
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import net.kikin.nubecita.data.models.NotificationFilter
 import net.kikin.nubecita.data.models.NotificationReason
@@ -36,7 +37,7 @@ internal class DefaultNotificationsRepository
             cursor: String?,
         ): Result<NotificationsPage> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     val response =
                         NotificationService(client).listNotifications(
@@ -59,7 +60,7 @@ internal class DefaultNotificationsRepository
 
         override suspend fun markSeen(seenAt: Instant): Result<Unit> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     NotificationService(client).updateSeen(
                         // kotlin.time.Instant.toString() emits an ISO-8601 string
@@ -73,7 +74,7 @@ internal class DefaultNotificationsRepository
 
         override suspend fun unreadCount(): Result<Int> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     val response =
                         NotificationService(client).getUnreadCount(
