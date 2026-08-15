@@ -49,6 +49,10 @@ __pycache__/
 .dolt/
 *.db
 .beads-credential-key
+# bd runtime lock. Untracked-but-committed once (PR #906) via `git add -A`,
+# which then blocked `git pull` for anyone whose local bd had created its own
+# copy — git will not overwrite an untracked file with a newly tracked one.
+.beads.gate.lock
 
 # Claude Code: share skills, slash commands + workflows, ignore local
 # settings/logs. (Overrides a global .claude/ ignore that would otherwise hide
