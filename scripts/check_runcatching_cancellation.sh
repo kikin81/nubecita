@@ -41,7 +41,10 @@ cd "$REPO_ROOT"
 if [ "$#" -gt 0 ]; then
     files=("$@")
 else
-    mapfile -t files < <(git ls-files '*/src/main/**/*.kt' 'src/main/**/*.kt' 2>/dev/null || true)
+    # Only `*/src/main/**` — every module lives under a directory, and the
+    # path filter below rejects a root-level src/main anyway, so collecting it
+    # would silently drop those files rather than scan them.
+    mapfile -t files < <(git ls-files '*/src/main/**/*.kt' 2>/dev/null || true)
 fi
 
 violations=0
@@ -61,15 +64,28 @@ for f in "${files[@]}"; do
         violations=$((violations + 1))
     done < <(
         awk '
-            # Remember the most recent function declaration seen.
-            /(^|[^A-Za-z0-9_])fun[ \t]/ {
-                in_suspend = ($0 ~ /(^|[^A-Za-z0-9_])suspend[ \t]+fun[ \t]/) ? 1 : 0
+            {
+                # Work on a comment-stripped copy so a `// fun fact` cannot be
+                # mistaken for a declaration (which would silently clear the
+                # suspend flag and disable the check for the rest of the file).
+                code = $0
+                sub(/[^:]\/\/.*/, "", code)
+                if (code ~ /^[ \t]*\/\//) code = ""
+            }
+            # Track the nearest function declaration. Modifiers may sit between
+            # `suspend` and `fun` — `private suspend inline fun` is real Kotlin —
+            # so test for `suspend` appearing anywhere before `fun`, not
+            # immediately before it.
+            code ~ /(^|[^A-Za-z0-9_])fun[ \t(]/ {
+                head = code
+                sub(/(^|[^A-Za-z0-9_])fun[ \t(].*/, "", head)
+                in_suspend = (head ~ /(^|[^A-Za-z0-9_])suspend([^A-Za-z0-9_]|$)/) ? 1 : 0
             }
             # An opt-out marker on this line or the previous one clears the flag.
             {
                 allowed = ($0 ~ /allow-runcatching:/ || prev ~ /allow-runcatching:/) ? 1 : 0
             }
-            /(^|[^A-Za-z0-9_])runCatching[ \t]*[{(]/ {
+            code ~ /(^|[^A-Za-z0-9_])runCatching[ \t]*[{(]/ {
                 if (in_suspend == 1 && allowed == 0) {
                     printf "%d:%s\n", NR, $0
                 }

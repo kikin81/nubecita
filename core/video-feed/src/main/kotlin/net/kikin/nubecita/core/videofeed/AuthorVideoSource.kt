@@ -6,7 +6,6 @@ import dagger.assisted.AssistedInject
 import io.github.kikin81.atproto.app.bsky.feed.FeedService
 import io.github.kikin81.atproto.app.bsky.feed.GetAuthorFeedRequest
 import io.github.kikin81.atproto.runtime.AtIdentifier
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.auth.SessionStateProvider
@@ -51,7 +50,6 @@ internal class AuthorVideoSource
                 }.onFailure { throwable ->
                     // runCatching also catches CancellationException; rethrow so structured
                     // coroutine cancellation propagates instead of being swallowed into a Result.
-                    if (throwable is CancellationException) throw throwable
                     Timber.tag(TAG).w(throwable, "author getAuthorFeed failed: %s", throwable.javaClass.name)
                 }
             }

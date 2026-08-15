@@ -108,7 +108,6 @@ internal class DefaultChatRepository
                 }.onFailure { throwable ->
                     // Never swallow cancellation — let it propagate so the coroutine
                     // tears down cleanly and we don't log a cancel as a network failure.
-                    if (throwable is CancellationException) throw throwable
                     // Leave the cache untouched so a failed refresh keeps the prior list.
                     Timber.tag(TAG).w(throwable, "refreshConvos(%s) failed: %s", status, throwable.javaClass.name)
                 }
@@ -161,10 +160,9 @@ internal class DefaultChatRepository
             crossinline block: suspend (ConvoService) -> Unit,
         ): Result<Unit> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     block(ConvoService(xrpcClientProvider.authenticated()))
                 }.onFailure { throwable ->
-                    if (throwable is CancellationException) throw throwable
                     Timber.tag(TAG).w(throwable, "%s failed: %s", op, throwable.javaClass.name)
                 }
             }
@@ -210,7 +208,6 @@ internal class DefaultChatRepository
                         isRequest = convo.isRequestConvo(),
                     )
                 }.onFailure { throwable ->
-                    if (throwable is CancellationException) throw throwable
                     Timber.tag(TAG).w(throwable, "getConvo failed: %s", throwable.javaClass.name)
                 }
             }
@@ -238,7 +235,6 @@ internal class DefaultChatRepository
                         }
                     }
                 }.onFailure { throwable ->
-                    if (throwable is CancellationException) throw throwable
                     // `dids` are PII — log only the failure identity, not the values.
                     Timber.tag(TAG).w(throwable, "getProfiles failed: %s", throwable.javaClass.name)
                 }
@@ -316,7 +312,6 @@ internal class DefaultChatRepository
                     // matching refreshConvos / getMessages above. This matters more now
                     // that a suspending facet extraction runs before the send: leaving
                     // the convo mid-send is a normal cancellation, not an error.
-                    if (throwable is CancellationException) throw throwable
                     Timber.tag(TAG).w(throwable, "sendMessage failed: %s", throwable.javaClass.name)
                 }
             }
@@ -335,7 +330,6 @@ internal class DefaultChatRepository
                         .message
                         .toMessageUi(viewerDid)
                 }.onFailure {
-                    if (it is CancellationException) throw it
                     Timber.tag(TAG).w(it, "addReaction failed: %s", it.javaClass.name)
                 }
             }
@@ -354,7 +348,6 @@ internal class DefaultChatRepository
                         .message
                         .toMessageUi(viewerDid)
                 }.onFailure {
-                    if (it is CancellationException) throw it
                     Timber.tag(TAG).w(it, "removeReaction failed: %s", it.javaClass.name)
                 }
             }
@@ -392,7 +385,6 @@ internal class DefaultChatRepository
                         cursor = response.cursor,
                     )
                 }.onFailure {
-                    if (it is CancellationException) throw it
                     Timber.tag(TAG).w(it, "getConvoMembers failed: %s", it.javaClass.name)
                 }
             }
@@ -407,7 +399,6 @@ internal class DefaultChatRepository
                         .createGroup(CreateGroupRequest(members = dids.map { Did(it) }, name = name))
                         .convo.id
                 }.onFailure { throwable ->
-                    if (throwable is CancellationException) throw throwable
                     Timber.tag(TAG).w(throwable, "createGroup failed: %s", throwable.javaClass.name)
                 }
             }
@@ -448,7 +439,6 @@ internal class DefaultChatRepository
                         cursor = response.cursor,
                     )
                 }.onFailure {
-                    if (it is CancellationException) throw it
                     Timber.tag(TAG).w(it, "getJoinRequests failed: %s", it.javaClass.name)
                 }
             }
@@ -478,7 +468,6 @@ internal class DefaultChatRepository
                             .convo
                     (convo.kind as? GroupConvo)?.joinLink?.toJoinLinkUi()
                 }.onFailure { throwable ->
-                    if (throwable is CancellationException) throw throwable
                     Timber.tag(TAG).w(throwable, "getJoinLink failed: %s", throwable.javaClass.name)
                 }
             }
@@ -533,10 +522,9 @@ internal class DefaultChatRepository
             crossinline block: suspend (GroupService) -> Unit,
         ): Result<Unit> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     block(GroupService(xrpcClientProvider.authenticated()))
                 }.onFailure { throwable ->
-                    if (throwable is CancellationException) throw throwable
                     Timber.tag(TAG).w(throwable, "%s failed: %s", op, throwable.javaClass.name)
                 }
             }
@@ -547,10 +535,9 @@ internal class DefaultChatRepository
             crossinline block: suspend (GroupService) -> JoinLinkView,
         ): Result<JoinLinkUi> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     block(GroupService(xrpcClientProvider.authenticated())).toJoinLinkUi()
                 }.onFailure { throwable ->
-                    if (throwable is CancellationException) throw throwable
                     Timber.tag(TAG).w(throwable, "%s failed: %s", op, throwable.javaClass.name)
                 }
             }
@@ -579,7 +566,6 @@ internal class DefaultChatRepository
                         .group
                         .toGroupPublicInfoUi()
                 }.onFailure { throwable ->
-                    if (throwable is CancellationException) throw throwable
                     Timber.tag(TAG).w(throwable, "getGroupPublicInfo failed: %s", throwable.javaClass.name)
                 }
             }
@@ -593,7 +579,6 @@ internal class DefaultChatRepository
                     val convo = response.convo
                     if (convo != null) JoinResult.Joined(convo.id) else JoinResult.Pending
                 }.onFailure { throwable ->
-                    if (throwable is CancellationException) throw throwable
                     Timber.tag(TAG).w(throwable, "requestJoin failed: %s", throwable.javaClass.name)
                 }
             }

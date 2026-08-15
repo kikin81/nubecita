@@ -14,7 +14,6 @@ import io.github.kikin81.atproto.runtime.Did
 import io.github.kikin81.atproto.runtime.Nsid
 import io.github.kikin81.atproto.runtime.encodeRecord
 import io.github.kikin81.atproto.runtime.parseOrNull
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.actors.BlockRepository
@@ -63,7 +62,6 @@ internal class DefaultBlockRepository
                     )
                     Unit
                 }.onFailure { throwable ->
-                    if (throwable is CancellationException) throw throwable
                     Timber.tag(TAG).w(throwable, "blockActor failed: %s", throwable.javaClass.name)
                 }
             }
@@ -86,7 +84,6 @@ internal class DefaultBlockRepository
                     } while (cursor != null && pages < MAX_BLOCK_PAGES)
                     accounts.toList()
                 }.onFailure { throwable ->
-                    if (throwable is CancellationException) throw throwable
                     Timber.tag(TAG).w(throwable, "blockedAccounts failed: %s", throwable.javaClass.name)
                 }
             }
@@ -103,7 +100,6 @@ internal class DefaultBlockRepository
                     )
                     Unit
                 }.onFailure { throwable ->
-                    if (throwable is CancellationException) throw throwable
                     // blockUri carries the viewer's DID — log only the throwable identity.
                     Timber.tag(TAG).w(throwable, "unblockActor failed: %s", throwable.javaClass.name)
                 }

@@ -15,7 +15,6 @@ import java.util.Locale
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Android-backed [SharedMediaStore]. All the security-critical logic (the hard
@@ -80,7 +79,7 @@ internal class DefaultSharedMediaStore internal constructor(
                     // runCatching would otherwise swallow, leaking tmp_* files.
                     if (!renamed) temp.delete()
                 }
-            }.getOrElse { if (it is CancellationException) throw it else null }
+            }.getOrNull()
         }
 
     override suspend fun attachmentFor(sharedImageUri: String): ComposerAttachment? =
@@ -94,7 +93,7 @@ internal class DefaultSharedMediaStore internal constructor(
                         .firstOrNull { it.extension == file.extension.lowercase(Locale.ROOT) }
                         ?: return@runCatchingCancellable null
                 ComposerAttachment(uri = uri, mimeType = type.mimeType)
-            }.getOrElse { if (it is CancellationException) throw it else null }
+            }.getOrNull()
         }
 
     override suspend fun delete(uri: Uri) {
@@ -103,7 +102,7 @@ internal class DefaultSharedMediaStore internal constructor(
                 val file = uri.path?.let(::File) ?: return@runCatchingCancellable
                 // Only ever delete inside our own directory.
                 if (isOwnedCopy(file)) file.delete()
-            }.getOrElse { if (it is CancellationException) throw it else Unit }
+            }.getOrElse { Unit }
         }
     }
 
@@ -111,7 +110,7 @@ internal class DefaultSharedMediaStore internal constructor(
         withContext(dispatcher) {
             runCatchingCancellable {
                 MediaCopy.sweep(dir, now = System.currentTimeMillis(), maxAgeMillis = maxAgeMillis)
-            }.getOrElse { if (it is CancellationException) throw it else 0 }
+            }.getOrElse { 0 }
         }
     }
 

@@ -49,7 +49,7 @@ internal class DefaultLikeRepostRepository
             crossinline buildRecord: (createdAt: Datetime, subject: StrongRef) -> T,
         ): Result<AtUri> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val viewerDid = currentViewerDid()
                     val client = xrpcClientProvider.authenticated()
                     val record =

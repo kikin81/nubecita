@@ -22,7 +22,6 @@ internal class DefaultAuthRepository
                 .onFailure {
                     // runCatching on a suspend fn also catches CancellationException —
                     // rethrow so structured cancellation isn't swallowed into a Result.
-                    if (it is CancellationException) throw it
                     // The handle is user-provided PII; log only the throwable identity,
                     // matching the redaction discipline in the profile/actor repos.
                     Timber.tag(TAG).w(it, "beginLogin failed")
@@ -34,7 +33,6 @@ internal class DefaultAuthRepository
                 sessionStateProvider.refresh()
                 recordLoginTimestamp()
             }.onFailure {
-                if (it is CancellationException) throw it
                 // Strip the query string before logging — the redirect URI
                 // carries the one-time-use OAuth `code` and the CSRF `state`
                 // value, neither of which belong in any log surface (logcat
@@ -52,7 +50,6 @@ internal class DefaultAuthRepository
                 atOAuth.logout()
                 sessionStateProvider.refresh()
             }.onFailure {
-                if (it is CancellationException) throw it
                 Timber.tag(TAG).w(it, "signOut() failed")
             }
 

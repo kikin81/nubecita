@@ -4,7 +4,6 @@ import io.github.kikin81.atproto.app.bsky.graph.GraphService
 import io.github.kikin81.atproto.app.bsky.graph.MuteActorRequest
 import io.github.kikin81.atproto.app.bsky.graph.UnmuteActorRequest
 import io.github.kikin81.atproto.runtime.AtIdentifier
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.actors.MuteRepository
@@ -34,7 +33,6 @@ internal class DefaultMuteRepository
                     GraphService(client).muteActor(MuteActorRequest(actor = AtIdentifier(did)))
                     Unit
                 }.onFailure { throwable ->
-                    if (throwable is CancellationException) throw throwable
                     Timber.tag(TAG).w(throwable, "muteActor failed: %s", throwable.javaClass.name)
                 }
             }
@@ -46,7 +44,6 @@ internal class DefaultMuteRepository
                     GraphService(client).unmuteActor(UnmuteActorRequest(actor = AtIdentifier(did)))
                     Unit
                 }.onFailure { throwable ->
-                    if (throwable is CancellationException) throw throwable
                     Timber.tag(TAG).w(throwable, "unmuteActor failed: %s", throwable.javaClass.name)
                 }
             }

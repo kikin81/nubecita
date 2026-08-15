@@ -7,7 +7,6 @@ import io.github.kikin81.atproto.app.bsky.actor.SavedFeedsPrefV2
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -192,7 +191,6 @@ internal class DefaultPinnedFeedsRepository
         override suspend fun refresh(): Result<Unit> =
             withContext(dispatcher) {
                 runCatchingCancellable { doRefresh() }
-                    .onFailure { if (it is CancellationException) throw it }
             }
 
         private suspend fun doRefresh() {
@@ -371,7 +369,7 @@ internal class DefaultPinnedFeedsRepository
                             throw t
                         }
                     }
-                }.onFailure { if (it is CancellationException) throw it }
+                }
             }
 
         override suspend fun unpinFeed(uri: String): Result<Unit> =
@@ -409,7 +407,7 @@ internal class DefaultPinnedFeedsRepository
                             throw t
                         }
                     }
-                }.onFailure { if (it is CancellationException) throw it }
+                }
             }
 
         override suspend fun reorderPinnedFeeds(orderedPinnedUris: List<String>): Result<Unit> =
@@ -455,7 +453,7 @@ internal class DefaultPinnedFeedsRepository
                             throw t
                         }
                     }
-                }.onFailure { if (it is CancellationException) throw it }
+                }
             }
 
         // -------------------------------------------------------------------------

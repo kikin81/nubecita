@@ -12,7 +12,6 @@ import io.github.kikin81.atproto.runtime.Nsid
 import io.github.kikin81.atproto.runtime.RecordKey
 import io.github.kikin81.atproto.runtime.encodeRecord
 import io.github.kikin81.atproto.runtime.parseOrNull
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.auth.NoSessionException
@@ -64,7 +63,6 @@ internal class DefaultFollowRepository
                 }.onFailure { throwable ->
                     // runCatching swallows CancellationException; rethrow so a
                     // cancelled caller propagates structurally.
-                    if (throwable is CancellationException) throw throwable
                     // `subjectDid` is PII (the followed account's DID); withhold
                     // it from the log, same policy as DefaultLikeRepostRepository.
                     Timber.tag(TAG).w(throwable, "follow failed: %s", throwable.javaClass.name)
@@ -85,7 +83,6 @@ internal class DefaultFollowRepository
                     )
                     Unit
                 }.onFailure { throwable ->
-                    if (throwable is CancellationException) throw throwable
                     // `followUri` carries the viewer's DID — keep it out of the
                     // log surface for the same reason DefaultLikeRepostRepository
                     // redacts its delete URIs.
