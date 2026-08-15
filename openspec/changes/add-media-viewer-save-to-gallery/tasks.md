@@ -46,4 +46,4 @@
 - [x] 6.1 Regenerate `:feature:mediaviewer:impl` screenshot baselines and commit **only** the genuinely changed images; `git checkout --` the antialiasing-noise churn. Local `validate*ScreenshotTest` is not a usable gate on macOS — CI's `screenshot` job is the authority.
 - [x] 6.2 Run the gate: `:core:image` and `:feature:mediaviewer:impl` tests and lint, root `spotlessCheck`, root `checkSortDependencies`.
 - [x] 6.3 Confirm the merged manifest still declares **no** storage or media permission — this is the change's central promise, so assert it rather than assume it.
-- [ ] 6.4 Device pass on the Pixel Fold (`37201FDHS002UN`): save an image, confirm it appears in the device gallery under Nubecita.
+- [x] 6.4 Device pass (bench flavor, Pixel 7 `31030DLH2001A6` — the attached device): saved two images from different pager pages; both land in `Pictures/Nubecita/` as `image/jpeg` with distinct sizes, success snackbar shown, chrome held open during the save.

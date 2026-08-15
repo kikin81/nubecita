@@ -8,7 +8,6 @@ import android.os.Environment
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 import coil3.ImageLoader
-import coil3.disk.DiskCache
 import coil3.request.ErrorResult
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
@@ -27,6 +26,7 @@ import net.kikin.nubecita.core.image.sniffImageFormat
 import timber.log.Timber
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
 import java.io.OutputStream
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
@@ -57,22 +57,17 @@ internal class DefaultImageSaver
             // (76 of 7,258 active users, 90d GA4) still on Android 9. See the
             // add-media-viewer-save-to-gallery design, decision D3, before
             // "fixing" this by adding the permission.
-            if (!isSupported) return Result.failure(ImageSaveUnsupportedException())
+            // Written as an inline SDK_INT comparison, not `if (!isSupported)`:
+            // it is the same predicate, but lint's NewApi can only follow the
+            // inline form, and that is what lets the @RequiresApi(Q) work below
+            // be called without a suppression.
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                return Result.failure(ImageSaveUnsupportedException())
+            }
 
             return withContext(dispatcher) {
                 try {
-                    // The snapshot stays open across the whole copy. It is
-                    // Coil's read lock: closing it first and keeping only the
-                    // path would let the eviction policy (or another request
-                    // for the same key) delete or overwrite the file we are
-                    // mid-way through reading.
-                    val uri =
-                        openSnapshotOrFetch(url).use { snapshot ->
-                            val file = snapshot.data.toFile()
-                            if (!file.isFile || file.length() <= 0L) throw ImageRetrievalException(url)
-                            writeToGallery(file)
-                        }
-                    Result.success(uri)
+                    Result.success(writeFromBestSource(url))
                 } catch (cancellation: CancellationException) {
                     // Never fold cancellation into a failed Result — doing so
                     // reports "save failed" for a user who simply navigated
@@ -99,18 +94,71 @@ internal class DefaultImageSaver
         }
 
         /**
-         * Opens the disk-cache snapshot for [url], fetching first on a miss.
+         * Resolves the best available source for [url] and writes it out.
          *
-         * The caller owns the returned snapshot and MUST keep it open for the
-         * duration of the read — see the note at the call site.
+         * Order matters:
+         * 1. A disk-cache hit — the common path, since the viewer just
+         *    displayed this image. The snapshot stays open across the whole
+         *    copy: it is Coil's read lock, and closing it while keeping only
+         *    the path would let eviction (or another request for the same key)
+         *    delete the file mid-read.
+         * 2. Fetch, then re-check the cache — the user pressed save before the
+         *    load finished.
+         * 3. Read the origin directly. Coil only writes **network** fetches to
+         *    its disk cache; `file:`, `content:`, asset and resource URIs are
+         *    served straight from source and never produce a snapshot, so
+         *    without this a save of any non-network image fails with "could
+         *    not retrieve bytes" no matter how many times it is fetched.
          */
-        private suspend fun openSnapshotOrFetch(url: String): DiskCache.Snapshot {
+        @RequiresApi(Build.VERSION_CODES.Q)
+        private suspend fun writeFromBestSource(url: String): Uri {
             // Coil's diskCacheKey defaults to the data string, so the fullsize
             // URL is the snapshot key the viewer wrote under.
-            val cache = imageLoader.diskCache ?: throw ImageRetrievalException(url)
-            cache.openSnapshot(url)?.let { return it }
+            val cache = imageLoader.diskCache
+            cache?.openSnapshot(url)?.use { snapshot ->
+                val cached = snapshot.data.toFile()
+                if (cached.isFile && cached.length() > 0L) {
+                    return writeToGallery { cached.inputStream() }
+                }
+            }
+
             fetchIntoCache(url)
-            return cache.openSnapshot(url) ?: throw ImageRetrievalException(url)
+
+            cache?.openSnapshot(url)?.use { snapshot ->
+                val cached = snapshot.data.toFile()
+                if (cached.isFile && cached.length() > 0L) {
+                    return writeToGallery { cached.inputStream() }
+                }
+            }
+
+            // Probe before writing so an unreadable origin is reported as a
+            // retrieval failure rather than being wrapped as a storage one.
+            openOrigin(url)?.close() ?: throw ImageRetrievalException(url)
+            return writeToGallery {
+                openOrigin(url) ?: throw ImageStorageException("could not reopen the image source")
+            }
+        }
+
+        /**
+         * Opens [url] at its origin, for the sources Coil serves without ever
+         * writing a disk-cache entry. Returns null when the scheme is not one
+         * this can read, which the caller turns into a retrieval failure.
+         */
+        private fun openOrigin(url: String): InputStream? {
+            val uri = Uri.parse(url)
+            val path = uri.path
+            return try {
+                when {
+                    uri.scheme == FILE_SCHEME && path != null && path.startsWith(ASSET_PATH_PREFIX) ->
+                        context.assets.open(path.removePrefix(ASSET_PATH_PREFIX))
+                    uri.scheme == FILE_SCHEME && path != null -> File(path).inputStream()
+                    uri.scheme == FILE_SCHEME -> null
+                    else -> context.contentResolver.openInputStream(uri)
+                }
+            } catch (failure: Exception) {
+                Timber.w("could not open the image origin: %s", failure.javaClass.name)
+                null
+            }
         }
 
         /**
@@ -153,8 +201,8 @@ internal class DefaultImageSaver
          * guaranteed to run and clean up, with no `NonCancellable` needed.
          */
         @RequiresApi(Build.VERSION_CODES.Q)
-        private fun writeToGallery(source: File): Uri {
-            val format = sniffFormat(source)
+        private fun writeToGallery(openStream: () -> InputStream): Uri {
+            val format = sniffFormat(openStream)
             val resolver = context.contentResolver
             val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
 
@@ -181,7 +229,7 @@ internal class DefaultImageSaver
             try {
                 resolver.openOutputStream(uri).use { stream ->
                     stream ?: throw ImageStorageException("MediaStore returned no output stream")
-                    source.inputStream().use { it.copyToStream(stream) }
+                    openStream().use { it.copyToStream(stream) }
                 }
                 // A no-op update leaves IS_PENDING set, which is the exact
                 // orphan this whole dance exists to avoid: invisible to the
@@ -223,10 +271,10 @@ internal class DefaultImageSaver
                 .onFailure { Timber.w("failed to clean up a pending gallery entry after a failed save") }
         }
 
-        /** Reads just enough of [source] to classify its format. */
-        private fun sniffFormat(source: File): SavedImageFormat =
+        /** Reads just enough of the source to classify its format. */
+        private fun sniffFormat(openStream: () -> InputStream): SavedImageFormat =
             try {
-                source.inputStream().use { input ->
+                openStream().use { input ->
                     val header = ByteArray(SIGNATURE_LENGTH)
                     val read = input.read(header)
                     if (read <= 0) SavedImageFormat.Unknown else sniffImageFormat(header.copyOf(read))
@@ -235,7 +283,7 @@ internal class DefaultImageSaver
                 throw ImageStorageException("could not read the cached image", failure)
             }
 
-        private fun java.io.InputStream.copyToStream(out: OutputStream) {
+        private fun InputStream.copyToStream(out: OutputStream) {
             copyTo(out, DEFAULT_BUFFER_SIZE)
             out.flush()
         }
@@ -247,6 +295,11 @@ internal class DefaultImageSaver
              * it this way makes the value read back identical to the value written,
              * so the instrumented test can assert equality rather than prefix-match.
              */
+            const val FILE_SCHEME = "file"
+
+            /** `file:///android_asset/x` — the bench fixtures' image scheme. */
+            const val ASSET_PATH_PREFIX = "/android_asset/"
+
             val ALBUM_RELATIVE_PATH = "${Environment.DIRECTORY_PICTURES}/Nubecita/"
         }
     }
