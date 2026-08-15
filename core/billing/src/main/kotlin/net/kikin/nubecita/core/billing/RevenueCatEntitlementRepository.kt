@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.data.models.ActiveSubscription
 import timber.log.Timber
 import javax.inject.Inject
@@ -56,7 +57,7 @@ internal class RevenueCatEntitlementRepository
             // a no-op here keeps the "inert, not crashing" promise and avoids logging a
             // spurious warning on every call, matching the BillingRepository guards.
             if (!Purchases.isConfigured) return
-            runCatching { Purchases.sharedInstance.awaitCustomerInfo() }
+            runCatchingCancellable { Purchases.sharedInstance.awaitCustomerInfo() }
                 .onSuccess { publish(it) }
                 .onFailure { Timber.tag(TAG).w(it, "entitlement refresh failed: %s", it.javaClass.name) }
         }

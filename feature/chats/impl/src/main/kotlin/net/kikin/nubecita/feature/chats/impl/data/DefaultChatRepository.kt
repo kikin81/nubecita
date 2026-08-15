@@ -52,6 +52,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.posting.FacetExtractor
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
@@ -93,7 +94,7 @@ internal class DefaultChatRepository
             cache: MutableStateFlow<ImmutableList<ConvoRowUi>?>,
         ): Result<Unit> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val viewerDid = currentViewerDid()
                     val client = xrpcClientProvider.authenticated()
                     val response =
@@ -170,7 +171,7 @@ internal class DefaultChatRepository
 
         override suspend fun resolveConvo(otherUserDid: String): Result<ConvoResolution> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val viewerDid = currentViewerDid()
                     val client = xrpcClientProvider.authenticated()
                     val response =
@@ -195,7 +196,7 @@ internal class DefaultChatRepository
 
         override suspend fun getConvo(convoId: String): Result<ChatConvo> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val viewerDid = currentViewerDid()
                     val client = xrpcClientProvider.authenticated()
                     val convo = ConvoService(client).getConvo(GetConvoRequest(convoId = convoId)).convo
@@ -216,8 +217,8 @@ internal class DefaultChatRepository
 
         override suspend fun getProfiles(dids: List<String>): Result<List<AuthorUi>> =
             withContext(dispatcher) {
-                runCatching {
-                    if (dids.isEmpty()) return@runCatching emptyList()
+                runCatchingCancellable {
+                    if (dids.isEmpty()) return@runCatchingCancellable emptyList()
                     val service = ActorService(xrpcClientProvider.authenticated())
                     // app.bsky.actor.getProfiles caps `actors` at 25 per call. Hydration
                     // is best-effort: catch per chunk so one failing batch still yields the
@@ -249,7 +250,7 @@ internal class DefaultChatRepository
             limit: Int,
         ): Result<MessagePage> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val viewerDid = currentViewerDid()
                     val client = xrpcClientProvider.authenticated()
                     val response =
@@ -275,7 +276,7 @@ internal class DefaultChatRepository
             replyToMessageId: String?,
         ): Result<MessageUi> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val viewerDid = currentViewerDid()
                     val client = xrpcClientProvider.authenticated()
                     // Facet before sending. A message without facets is inert text
@@ -326,7 +327,7 @@ internal class DefaultChatRepository
             emoji: String,
         ): Result<MessageUi> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val viewerDid = currentViewerDid()
                     val client = xrpcClientProvider.authenticated()
                     ConvoService(client)
@@ -345,7 +346,7 @@ internal class DefaultChatRepository
             emoji: String,
         ): Result<MessageUi> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val viewerDid = currentViewerDid()
                     val client = xrpcClientProvider.authenticated()
                     ConvoService(client)
@@ -360,7 +361,7 @@ internal class DefaultChatRepository
 
         override suspend fun getLog(cursor: String?): Result<ChatLogPage> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     ConvoService(client)
                         .getLog(GetLogRequest(cursor = cursor))
@@ -375,7 +376,7 @@ internal class DefaultChatRepository
             cursor: String?,
         ): Result<MemberPage> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val viewerDid = currentViewerDid()
                     val client = xrpcClientProvider.authenticated()
                     val response =
@@ -401,7 +402,7 @@ internal class DefaultChatRepository
             dids: List<String>,
         ): Result<String> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     GroupService(xrpcClientProvider.authenticated())
                         .createGroup(CreateGroupRequest(members = dids.map { Did(it) }, name = name))
                         .convo.id
@@ -432,7 +433,7 @@ internal class DefaultChatRepository
             cursor: String?,
         ): Result<JoinRequestPage> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val response =
                         GroupService(xrpcClientProvider.authenticated())
                             .listJoinRequests(
@@ -470,7 +471,7 @@ internal class DefaultChatRepository
 
         override suspend fun getJoinLink(convoId: String): Result<JoinLinkUi?> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val convo =
                         ConvoService(xrpcClientProvider.authenticated())
                             .getConvo(GetConvoRequest(convoId = convoId))
@@ -556,7 +557,7 @@ internal class DefaultChatRepository
 
         override suspend fun markConvoRead(convoId: String): Result<Unit> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     ConvoService(client).updateRead(UpdateReadRequest(convoId = convoId))
                     // Optimistically zero the cached convo so the in-row + bottom-nav
@@ -572,7 +573,7 @@ internal class DefaultChatRepository
 
         override suspend fun getGroupPublicInfo(code: String): Result<GroupPublicInfoUi> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     GroupService(xrpcClientProvider.authenticated())
                         .getGroupPublicInfo(GetGroupPublicInfoRequest(code = code))
                         .group
@@ -585,7 +586,7 @@ internal class DefaultChatRepository
 
         override suspend fun requestJoin(code: String): Result<JoinResult> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val response =
                         GroupService(xrpcClientProvider.authenticated())
                             .requestJoin(RequestJoinRequest(code = code))

@@ -2,6 +2,7 @@ package net.kikin.nubecita.core.auth
 
 import io.github.kikin81.atproto.oauth.AtOAuth
 import kotlinx.coroutines.CancellationException
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.common.session.SessionClearable
 import timber.log.Timber
 import javax.inject.Inject
@@ -17,7 +18,7 @@ internal class DefaultAuthRepository
         private val clock: Clock,
     ) : AuthRepository {
         override suspend fun beginLogin(handle: String): Result<String> =
-            runCatching { atOAuth.beginLogin(handle) }
+            runCatchingCancellable { atOAuth.beginLogin(handle) }
                 .onFailure {
                     // runCatching on a suspend fn also catches CancellationException —
                     // rethrow so structured cancellation isn't swallowed into a Result.
@@ -28,7 +29,7 @@ internal class DefaultAuthRepository
                 }
 
         override suspend fun completeLogin(redirectUri: String): Result<Unit> =
-            runCatching {
+            runCatchingCancellable {
                 atOAuth.completeLogin(redirectUri)
                 sessionStateProvider.refresh()
                 recordLoginTimestamp()
@@ -42,7 +43,7 @@ internal class DefaultAuthRepository
             }
 
         override suspend fun signOut(): Result<Unit> =
-            runCatching {
+            runCatchingCancellable {
                 // Drop session-scoped in-memory state before revocation.
                 // Even if the network logout fails below, each clearable stays
                 // cleared — there's no value in retaining optimistic state

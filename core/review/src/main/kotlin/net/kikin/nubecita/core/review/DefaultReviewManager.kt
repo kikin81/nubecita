@@ -5,6 +5,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import timber.log.Timber
 import javax.inject.Inject
 import kotlin.time.Clock
@@ -34,11 +35,11 @@ internal class DefaultReviewManager
     ) : ReviewManager {
         override suspend fun onPostPublished(activity: Activity) {
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     preferences.incrementPostCount()
                     val state = preferences.currentState()
                     val now = clock.now()
-                    if (!ReviewPolicy.isEligible(state, installTimeProvider.firstInstallTime(), now)) return@runCatching
+                    if (!ReviewPolicy.isEligible(state, installTimeProvider.firstInstallTime(), now)) return@runCatchingCancellable
 
                     // requestReview may throw (offline / no Play Store) → caught
                     // below, NOT recorded, so a later eligible publish retries.
@@ -46,7 +47,7 @@ internal class DefaultReviewManager
                     preferences.recordReviewRequested(now)
 
                     // The attempt is already spent; a launch failure is swallowed.
-                    runCatching { reviewClient.launchReview(activity, handle) }
+                    runCatchingCancellable { reviewClient.launchReview(activity, handle) }
                         .onFailure {
                             it.rethrowIfCancellation()
                             Timber.tag(TAG).w(it, "launchReview failed")

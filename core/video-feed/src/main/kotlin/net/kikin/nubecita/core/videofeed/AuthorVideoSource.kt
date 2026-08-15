@@ -13,6 +13,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.auth.viewerDidOrNull
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import timber.log.Timber
 
 /** The `posts_with_video` author-feed request. Pure, so the critical filter is unit-tested. */
@@ -43,7 +44,7 @@ internal class AuthorVideoSource
     ) : VideoFeedSource {
         override suspend fun loadPage(cursor: String?): Result<VideoFeedPage> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     val response = FeedService(client).getAuthorFeed(authorVideoFeedRequest(actor, cursor))
                     VideoFeedPage(items = toVideoPosts(response.feed, sessionStateProvider.viewerDidOrNull), cursor = response.cursor)

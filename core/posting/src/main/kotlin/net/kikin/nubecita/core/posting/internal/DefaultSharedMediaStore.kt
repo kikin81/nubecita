@@ -6,6 +6,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.MediaCopy
 import net.kikin.nubecita.core.posting.SharedMediaStore
@@ -47,15 +48,15 @@ internal class DefaultSharedMediaStore internal constructor(
 
     override suspend fun copyIn(source: Uri): Uri? =
         withContext(dispatcher) {
-            runCatching {
+            runCatchingCancellable {
                 // Confused-deputy guard: never read a content:// that points
                 // back at one of our own providers.
-                if (isOwnAuthority(source)) return@runCatching null
+                if (isOwnAuthority(source)) return@runCatchingCancellable null
                 val resolver = context.contentResolver
                 // Cheap early reject on the declared type; the byte sniff below
                 // is the authoritative check (the sender can lie about the type).
                 val declared = resolver.getType(source)
-                if (declared != null && !declared.startsWith("image/")) return@runCatching null
+                if (declared != null && !declared.startsWith("image/")) return@runCatchingCancellable null
 
                 dir.mkdirs()
                 val id = UUID.randomUUID().toString()
@@ -66,10 +67,10 @@ internal class DefaultSharedMediaStore internal constructor(
                         resolver.openInputStream(source)?.use { input ->
                             MediaCopy.copyBounded(input, temp, maxImageBytes)
                         } ?: false
-                    if (!copied) return@runCatching null
-                    val type = MediaCopy.sniff(readHeader(temp)) ?: return@runCatching null
+                    if (!copied) return@runCatchingCancellable null
+                    val type = MediaCopy.sniff(readHeader(temp)) ?: return@runCatchingCancellable null
                     val dest = File(dir, "$id.${type.extension}")
-                    if (!temp.renameTo(dest)) return@runCatching null
+                    if (!temp.renameTo(dest)) return@runCatchingCancellable null
                     renamed = true
                     Uri.fromFile(dest)
                 } finally {
@@ -84,22 +85,22 @@ internal class DefaultSharedMediaStore internal constructor(
 
     override suspend fun attachmentFor(sharedImageUri: String): ComposerAttachment? =
         withContext(dispatcher) {
-            runCatching {
+            runCatchingCancellable {
                 val uri = Uri.parse(sharedImageUri)
-                val file = uri.path?.let(::File) ?: return@runCatching null
-                if (!isOwnedCopy(file) || !file.exists()) return@runCatching null
+                val file = uri.path?.let(::File) ?: return@runCatchingCancellable null
+                if (!isOwnedCopy(file) || !file.exists()) return@runCatchingCancellable null
                 val type =
                     MediaCopy.ImageType.entries
                         .firstOrNull { it.extension == file.extension.lowercase(Locale.ROOT) }
-                        ?: return@runCatching null
+                        ?: return@runCatchingCancellable null
                 ComposerAttachment(uri = uri, mimeType = type.mimeType)
             }.getOrElse { if (it is CancellationException) throw it else null }
         }
 
     override suspend fun delete(uri: Uri) {
         withContext(dispatcher) {
-            runCatching {
-                val file = uri.path?.let(::File) ?: return@runCatching
+            runCatchingCancellable {
+                val file = uri.path?.let(::File) ?: return@runCatchingCancellable
                 // Only ever delete inside our own directory.
                 if (isOwnedCopy(file)) file.delete()
             }.getOrElse { if (it is CancellationException) throw it else Unit }
@@ -108,7 +109,7 @@ internal class DefaultSharedMediaStore internal constructor(
 
     override suspend fun sweepOrphans() {
         withContext(dispatcher) {
-            runCatching {
+            runCatchingCancellable {
                 MediaCopy.sweep(dir, now = System.currentTimeMillis(), maxAgeMillis = maxAgeMillis)
             }.getOrElse { if (it is CancellationException) throw it else 0 }
         }

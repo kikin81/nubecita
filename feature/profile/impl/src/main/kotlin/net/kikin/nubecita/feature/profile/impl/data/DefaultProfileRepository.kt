@@ -33,6 +33,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.image.ImageEncoder
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.postinteractions.FollowRepository
@@ -75,7 +76,7 @@ internal class DefaultProfileRepository
 
         override suspend fun fetchHeader(actor: String): Result<ProfileHeaderWithViewer> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     val response = ActorService(client).getProfile(buildGetProfileRequest(actor))
                     response.toProfileHeaderWithViewer()
@@ -90,7 +91,7 @@ internal class DefaultProfileRepository
         override suspend fun resolveVerifiers(refs: ImmutableList<VerifierRef>): Result<ImmutableList<VerifierUi>> =
             withContext(dispatcher) {
                 if (refs.isEmpty()) return@withContext Result.success(persistentListOf())
-                runCatching {
+                runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     // getProfiles is capped at 25 actors/call; chunk defensively even though a
                     // profile realistically carries only a handful of verifiers.
@@ -128,7 +129,7 @@ internal class DefaultProfileRepository
             limit: Int,
         ): Result<ProfileTabPage> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val service = FeedService(xrpcClientProvider.authenticated())
                     // The Likes tab is a distinct endpoint (getActorLikes, own-profile
                     // only), not a getAuthorFeed filter; both return the same

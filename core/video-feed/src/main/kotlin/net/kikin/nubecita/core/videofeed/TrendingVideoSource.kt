@@ -11,6 +11,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.auth.viewerDidOrNull
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostUi
@@ -45,7 +46,7 @@ internal class DefaultTrendingVideoSource
     ) : VideoFeedSource {
         override suspend fun loadPage(cursor: String?): Result<VideoFeedPage> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     val response =
                         FeedService(client).getFeed(

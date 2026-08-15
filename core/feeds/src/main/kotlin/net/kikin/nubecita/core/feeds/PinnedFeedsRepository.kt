@@ -15,6 +15,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.database.dao.SavedFeedDao
 import net.kikin.nubecita.core.database.model.SavedFeedEntity
 import net.kikin.nubecita.data.models.FeedKind
@@ -190,7 +191,7 @@ internal class DefaultPinnedFeedsRepository
 
         override suspend fun refresh(): Result<Unit> =
             withContext(dispatcher) {
-                runCatching { doRefresh() }
+                runCatchingCancellable { doRefresh() }
                     .onFailure { if (it is CancellationException) throw it }
             }
 
@@ -302,7 +303,7 @@ internal class DefaultPinnedFeedsRepository
 
         override suspend fun pinFeed(uri: String): Result<Unit> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     writeMutex.withLock {
                         val fullPrefs = dataSource.getFullPreferences()
                         val currentItems =
@@ -375,7 +376,7 @@ internal class DefaultPinnedFeedsRepository
 
         override suspend fun unpinFeed(uri: String): Result<Unit> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     writeMutex.withLock {
                         val fullPrefs = dataSource.getFullPreferences()
                         val currentItems =
@@ -413,7 +414,7 @@ internal class DefaultPinnedFeedsRepository
 
         override suspend fun reorderPinnedFeeds(orderedPinnedUris: List<String>): Result<Unit> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     writeMutex.withLock {
                         val fullPrefs = dataSource.getFullPreferences()
                         // Collapse entries that map to the same Room key (e.g. two

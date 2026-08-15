@@ -9,6 +9,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.auth.viewerDidOrNull
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import net.kikin.nubecita.core.posts.PostNotFoundException
 import net.kikin.nubecita.core.posts.PostProjectionException
@@ -26,7 +27,7 @@ internal class DefaultPostRepository
     ) : PostRepository {
         override suspend fun getPost(uri: String): Result<PostUi> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     val response =
                         FeedService(client).getPosts(

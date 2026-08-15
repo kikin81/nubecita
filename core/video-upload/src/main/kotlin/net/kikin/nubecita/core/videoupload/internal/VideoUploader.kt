@@ -16,6 +16,7 @@ import io.ktor.http.isSuccess
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonObject
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.videoupload.VideoUploadError
 import timber.log.Timber
 import java.io.File
@@ -107,7 +108,7 @@ internal class VideoUploader(
 
         // Read once: the body is a stream, and consuming it twice would yield
         // an empty string on the second read.
-        val raw = runCatching { response.body<String>() }.getOrNull().orEmpty()
+        val raw = runCatchingCancellable { response.body<String>() }.getOrNull().orEmpty()
 
         val status = parseJobStatus(json, raw)
 

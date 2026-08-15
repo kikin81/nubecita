@@ -20,6 +20,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.postinteractions.FollowRepository
 import timber.log.Timber
 import javax.inject.Inject
@@ -43,7 +44,7 @@ internal class DefaultFollowRepository
     ) : FollowRepository {
         override suspend fun follow(subjectDid: String): Result<String> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val viewerDid = currentViewerDid()
                     val client = xrpcClientProvider.authenticated()
                     val record =
@@ -72,7 +73,7 @@ internal class DefaultFollowRepository
 
         override suspend fun unfollow(followUri: String): Result<Unit> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val (repo, rkey) = parseFollowUri(AtUri(followUri))
                     val client = xrpcClientProvider.authenticated()
                     RepoService(client).deleteRecord(

@@ -10,6 +10,7 @@ import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.actors.MuteRepository
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -28,7 +29,7 @@ internal class DefaultMuteRepository
     ) : MuteRepository {
         override suspend fun muteActor(did: String): Result<Unit> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     GraphService(client).muteActor(MuteActorRequest(actor = AtIdentifier(did)))
                     Unit
@@ -40,7 +41,7 @@ internal class DefaultMuteRepository
 
         override suspend fun unmuteActor(did: String): Result<Unit> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     GraphService(client).unmuteActor(UnmuteActorRequest(actor = AtIdentifier(did)))
                     Unit

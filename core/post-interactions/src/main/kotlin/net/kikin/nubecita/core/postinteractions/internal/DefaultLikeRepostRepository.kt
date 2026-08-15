@@ -18,6 +18,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.postinteractions.LikeRepostRepository
 import timber.log.Timber
 import javax.inject.Inject
@@ -86,7 +87,7 @@ internal class DefaultLikeRepostRepository
             recordUri: AtUri,
         ): Result<Unit> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val (repo, rkey) = recordUri.repoAndRkey()
                     val client = xrpcClientProvider.authenticated()
                     RepoService(client).deleteRecord(

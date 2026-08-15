@@ -9,6 +9,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.postinteractions.PostDeletionRepository
 import timber.log.Timber
 import javax.inject.Inject
@@ -21,7 +22,7 @@ internal class DefaultPostDeletionRepository
     ) : PostDeletionRepository {
         override suspend fun deletePost(postUri: AtUri): Result<Unit> =
             withContext(dispatcher) {
-                runCatching {
+                runCatchingCancellable {
                     val (repo, rkey) = postUri.repoAndRkey()
                     RepoService(xrpcClientProvider.authenticated()).deleteRecord(
                         DeleteRecordRequest(
