@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786697544968,
+  "lastUpdate": 1786781044310,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -1963,6 +1963,64 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 708,
             "range": "+/- 2.3%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a4dd2a5e1d2c2fc2f965f526915cd18da4876417",
+          "message": "chore(repo): untrack .beads.gate.lock and gitignore bd lock files (#907)\n\nI committed this zero-byte bd runtime lock in #906 (1032bba3) by using\n`git add -A` in a repo where bd leaves untracked runtime files, and\n.gitignore covered .beads-credential-key but not the lock.\n\nIt is not merely noise. Once tracked, it blocks `git pull` for anyone\nwhose local bd has created its own copy — git refuses to overwrite an\nuntracked working-tree file with a newly tracked one, and the pull\naborts. That reproduced on this machine the moment #906 landed.\n\nUntracks the file and gitignores it so the same `git add -A` cannot\nre-add it.\n\nCloses: nubecita-qidq",
+          "timestamp": "2026-08-15T05:20:42Z",
+          "url": "https://github.com/kikin81/nubecita/commit/a4dd2a5e1d2c2fc2f965f526915cd18da4876417"
+        },
+        "date": 1786781042764,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 31,
+            "range": "+/- 10.9%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1222.853,
+            "range": "+/- 10.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1275.051,
+            "range": "+/- 2.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1279.413,
+            "range": "+/- 18.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1084.187,
+            "range": "+/- 13.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 680,
+            "range": "+/- 3.4%",
             "unit": "frames"
           }
         ]
