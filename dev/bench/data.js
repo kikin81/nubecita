@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786781044310,
+  "lastUpdate": 1786781047064,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -2141,6 +2141,124 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationSumMs",
             "value": 361.021,
             "range": "+/- 88.9%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a4dd2a5e1d2c2fc2f965f526915cd18da4876417",
+          "message": "chore(repo): untrack .beads.gate.lock and gitignore bd lock files (#907)\n\nI committed this zero-byte bd runtime lock in #906 (1032bba3) by using\n`git add -A` in a repo where bd leaves untracked runtime files, and\n.gitignore covered .beads-credential-key but not the lock.\n\nIt is not merely noise. Once tracked, it blocks `git pull` for anyone\nwhose local bd has created its own copy — git refuses to overwrite an\nuntracked working-tree file with a newly tracked one, and the pull\naborts. That reproduced on this machine the moment #906 landed.\n\nUntracks the file and gitignores it so the same `git add -A` cannot\nre-add it.\n\nCloses: nubecita-qidq",
+          "timestamp": "2026-08-15T05:20:42Z",
+          "url": "https://github.com/kikin81/nubecita/commit/a4dd2a5e1d2c2fc2f965f526915cd18da4876417"
+        },
+        "date": 1786781046492,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / ClassInitCount",
+            "value": 184,
+            "range": "+/- 0.5%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / ClassInitSumMs",
+            "value": 12.904,
+            "range": "+/- 32.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / JIT compilationCount",
+            "value": 95,
+            "range": "+/- 19.6%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / JIT compilationSumMs",
+            "value": 376.725,
+            "range": "+/- 44.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / ClassInitCount",
+            "value": 141,
+            "range": "+/- 0%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / ClassInitSumMs",
+            "value": 8.508,
+            "range": "+/- 74.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / JIT compilationCount",
+            "value": 0,
+            "range": "+/- 0%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / JIT compilationSumMs",
+            "value": 0,
+            "range": "+/- 0%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / ClassInitCount",
+            "value": 1,
+            "range": "+/- 100%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / ClassInitSumMs",
+            "value": 0.038,
+            "range": "+/- 185.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / JIT compilationCount",
+            "value": 287,
+            "range": "+/- 58.7%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / JIT compilationSumMs",
+            "value": 870.086,
+            "range": "+/- 41.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / ClassInitCount",
+            "value": 0,
+            "range": "+/- 149.1%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / ClassInitSumMs",
+            "value": 0,
+            "range": "+/- 221.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationCount",
+            "value": 75,
+            "range": "+/- 65.2%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationSumMs",
+            "value": 435.132,
+            "range": "+/- 71.9%",
             "unit": "ms"
           }
         ]
