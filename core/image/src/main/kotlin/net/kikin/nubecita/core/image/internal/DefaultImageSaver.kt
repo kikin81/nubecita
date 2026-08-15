@@ -8,6 +8,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 import coil3.ImageLoader
+import coil3.disk.DiskCache
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -59,8 +60,18 @@ internal class DefaultImageSaver
 
             return withContext(dispatcher) {
                 try {
-                    val cached = cachedFileFor(url) ?: fetchIntoCache(url)
-                    Result.success(writeToGallery(cached))
+                    // The snapshot stays open across the whole copy. It is
+                    // Coil's read lock: closing it first and keeping only the
+                    // path would let the eviction policy (or another request
+                    // for the same key) delete or overwrite the file we are
+                    // mid-way through reading.
+                    val uri =
+                        openSnapshotOrFetch(url).use { snapshot ->
+                            val file = File(snapshot.data.toString())
+                            if (!file.isFile || file.length() <= 0L) throw ImageRetrievalException(url)
+                            writeToGallery(file)
+                        }
+                    Result.success(uri)
                 } catch (cancellation: CancellationException) {
                     // Never fold cancellation into a failed Result — doing so
                     // reports "save failed" for a user who simply navigated
@@ -76,28 +87,34 @@ internal class DefaultImageSaver
             }
         }
 
-        /** The Coil disk-cache file for [url], or null when not cached. */
-        private fun cachedFileFor(url: String): File? {
+        /**
+         * Opens the disk-cache snapshot for [url], fetching first on a miss.
+         *
+         * The caller owns the returned snapshot and MUST keep it open for the
+         * duration of the read — see the note at the call site.
+         */
+        private suspend fun openSnapshotOrFetch(url: String): DiskCache.Snapshot {
             // Coil's diskCacheKey defaults to the data string, so the fullsize
             // URL is the snapshot key the viewer wrote under.
-            val snapshot = imageLoader.diskCache?.openSnapshot(url) ?: return null
-            return snapshot.use { File(it.data.toString()) }.takeIf { it.isFile && it.length() > 0 }
+            val cache = imageLoader.diskCache ?: throw ImageRetrievalException(url)
+            cache.openSnapshot(url)?.let { return it }
+            fetchIntoCache(url)
+            return cache.openSnapshot(url) ?: throw ImageRetrievalException(url)
         }
 
         /**
-         * Populates the disk cache for [url] and returns the resulting file.
+         * Populates the disk cache for [url].
          *
          * Only reached when the user presses save before the image finished
          * loading; the common path never gets here.
          */
-        private suspend fun fetchIntoCache(url: String): File {
+        private suspend fun fetchIntoCache(url: String) {
             val result =
                 runCatching {
                     imageLoader.execute(ImageRequest.Builder(context).data(url).build())
                 }.getOrElse { throw ImageRetrievalException(url, it) }
 
             if (result !is SuccessResult) throw ImageRetrievalException(url)
-            return cachedFileFor(url) ?: throw ImageRetrievalException(url)
         }
 
         /**

@@ -72,6 +72,11 @@ internal class MediaViewerViewModel
             // Drop the second tap rather than queueing it — the user wants one
             // copy in their gallery, not one per impatient tap.
             if (status.isSaving) return
+            // The screen omits the affordance when canSave is false, so this is
+            // unreachable through the UI — but reaching saveToGallery anyway
+            // would surface ImageSaveUnsupportedException, which the mapping
+            // below would mislabel as a storage failure.
+            if (!status.canSave) return
             val image = status.images.getOrNull(status.currentIndex) ?: return
 
             setState { copy(loadStatus = status.copy(isSaving = true)) }

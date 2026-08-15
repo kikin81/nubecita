@@ -1,7 +1,7 @@
 ## 1. `:core:image` — the save capability
 
 - [x] 1.1 Add Coil to `:core:image`'s `build.gradle.kts` (`platform(libs.coil.bom)` + the core artifact); the module has no Coil dependency today. Run the **root** `checkSortDependencies` afterwards, not the `:app:`-scoped one.
-- [x] 1.2 Add `ImageSaver` to `:core:image` — `val isSupported: Boolean` and `suspend fun saveToGallery(url: String, altText: String?): Result<Uri>`. KDoc why `isSupported` exists on the interface (keeps `Build.VERSION` out of the VM and composable, and makes the gated path fakeable).
+- [x] 1.2 Add `ImageSaver` to `:core:image` — `val isSupported: Boolean` and `suspend fun saveToGallery(url: String): Result<Uri>`. KDoc why `isSupported` exists on the interface (keeps `Build.VERSION` out of the VM and composable, and makes the gated path fakeable).
 - [x] 1.3 Add typed save exceptions mirroring `:core:posts`'s `PostRepositoryExceptions.kt` — at minimum a retrieval failure, a storage failure, and an unsupported-platform failure.
 - [x] 1.4 Add a pure content-type sniffer that reads the leading magic bytes and returns MIME + file extension for JPEG, PNG and WebP, with a defined fallback for unrecognised bytes. Sniff rather than read the URL suffix: `fullsizeUrl` ends in `@jpeg`, but that is a request parameter, not a guarantee about the bytes. GIF is deliberately excluded — `EmbedUi.Gif` is not an `ImageContainerEmbed`, so a GIF resolves to `NoImages` and cannot reach this viewer.
 - [x] 1.5 Add pure filename generation for the saved entry (stable, collision-tolerant — `MediaStore` de-duplicates, so this must not attempt its own uniqueness scheme).
@@ -22,7 +22,7 @@
 - [x] 3.1 Add `:core:image` to the module's `build.gradle.kts`.
 - [x] 3.2 Extend `MediaViewerContract`: `OnSaveClick` event; `isSaving: Boolean` and `canSave: Boolean` on `MediaViewerLoadStatus.Loaded`; `ShowSaveOutcome` effect carrying a **typed** outcome (no user-facing string — the contract's existing KDoc commits to the VM staying Android-resource-free).
 - [x] 3.3 Inject `ImageSaver` into `MediaViewerViewModel`; set `canSave` from `isSupported` when entering `Loaded`.
-- [x] 3.4 Handle `OnSaveClick`: ignore when `isSaving` is already true; set `isSaving`; call `saveToGallery` with the **current page's** `fullsizeUrl` and `altText`; map the `Result` to a typed outcome effect; clear `isSaving` on both success and failure.
+- [x] 3.4 Handle `OnSaveClick`: ignore when `isSaving` is already true or `canSave` is false; set `isSaving`; call `saveToGallery` with the **current page's** `fullsizeUrl`; map the `Result` to a typed outcome effect; clear `isSaving` on both success and failure.
 
 ## 4. `:feature:mediaviewer:impl` — screen
 
