@@ -97,6 +97,30 @@ class DefaultImageSaverTest {
     }
 
     @Test
+    fun the_provider_populates_a_sane_date_added() {
+        // DATE_ADDED and DATE_TAKEN are both @Column(readOnly = true) — the
+        // provider derives them (DATE_TAKEN from EXIF), so writing them from
+        // ContentValues is discarded exactly like DESCRIPTION. Pinned here so
+        // the recurring "set DATE_TAKEN/DATE_ADDED or images sort to 1970"
+        // suggestion can be answered with evidence: the provider already fills
+        // DATE_ADDED, and saved images sort correctly without our help.
+        cache(URL, pngBytes())
+
+        val uri = runBlocking { saver.saveToGallery(URL) }.getOrThrow()
+        created += uri
+
+        val dateAddedSeconds =
+            context.contentResolver
+                .query(uri, arrayOf(MediaStore.Images.Media.DATE_ADDED), null, null, null)
+                ?.use { if (it.moveToFirst()) it.getLong(0) else 0L } ?: 0L
+
+        assertTrue(
+            "DATE_ADDED should be a recent epoch-seconds value, was $dateAddedSeconds",
+            dateAddedSeconds > 1_600_000_000L,
+        )
+    }
+
+    @Test
     fun records_no_app_written_description() {
         // MediaStore.DESCRIPTION is readOnly and EXIF-derived, so nothing the
         // app writes lands there. Pinned so a future "helpful" DESCRIPTION

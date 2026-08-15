@@ -190,25 +190,37 @@ internal class DefaultImageSaver
                 val published =
                     resolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
                 if (published < 1) throw ImageStorageException("MediaStore did not publish the saved image")
-            } catch (failure: Throwable) {
-                // A row left pending is invisible to the gallery AND unreachable
-                // by the user, so failing without this would silently consume
-                // storage they cannot reclaim. Delete before rethrowing.
-                runCatching { resolver.delete(uri, null, null) }
-                    .onFailure { Timber.w("failed to clean up a pending gallery entry after a failed save") }
-                // Cleanup first, then let cancellation through untouched. Not
-                // reachable today — nothing in this non-suspending body throws
-                // CancellationException — but wrapping one into an
-                // ImageStorageException would report a storage failure for a
-                // cancelled save, so the guard travels with the catch.
-                if (failure is CancellationException) throw failure
-                throw if (failure is ImageStorageException) {
-                    failure
-                } else {
-                    ImageStorageException("failed writing the image into the gallery", failure)
-                }
+            } catch (cancellation: CancellationException) {
+                // Not reachable today — nothing in this non-suspending body
+                // throws CancellationException — but wrapping one below would
+                // report a storage failure for a cancelled save, so the arm
+                // travels with the catch.
+                deletePendingRow(resolver, uri)
+                throw cancellation
+            } catch (failure: ImageStorageException) {
+                // Already the right type and message; re-wrapping would bury it.
+                deletePendingRow(resolver, uri)
+                throw failure
+            } catch (failure: Exception) {
+                deletePendingRow(resolver, uri)
+                throw ImageStorageException("failed writing the image into the gallery", failure)
             }
             return uri
+        }
+
+        /**
+         * Drops a row whose write did not complete.
+         *
+         * A row left pending is invisible to the gallery AND unreachable by the
+         * user, so skipping this would silently consume storage they cannot
+         * reclaim.
+         */
+        private fun deletePendingRow(
+            resolver: android.content.ContentResolver,
+            uri: Uri,
+        ) {
+            runCatching { resolver.delete(uri, null, null) }
+                .onFailure { Timber.w("failed to clean up a pending gallery entry after a failed save") }
         }
 
         /** Reads just enough of [source] to classify its format. */
