@@ -183,7 +183,13 @@ internal class DefaultImageSaver
                     stream ?: throw ImageStorageException("MediaStore returned no output stream")
                     source.inputStream().use { it.copyToStream(stream) }
                 }
-                resolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
+                // A no-op update leaves IS_PENDING set, which is the exact
+                // orphan this whole dance exists to avoid: invisible to the
+                // gallery and unreclaimable by the user. Treat it as a failure
+                // so the catch below deletes the row.
+                val published =
+                    resolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
+                if (published < 1) throw ImageStorageException("MediaStore did not publish the saved image")
             } catch (failure: Throwable) {
                 // A row left pending is invisible to the gallery AND unreachable
                 // by the user, so failing without this would silently consume

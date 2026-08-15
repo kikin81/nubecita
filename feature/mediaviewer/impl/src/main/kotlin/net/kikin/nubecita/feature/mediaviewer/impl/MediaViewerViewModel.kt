@@ -79,7 +79,19 @@ internal class MediaViewerViewModel
             if (!status.canSave) return
             val image = status.images.getOrNull(status.currentIndex) ?: return
 
-            setState { copy(loadStatus = status.copy(isSaving = true)) }
+            // Same atomicity rule as the clear below: read inside the reducer.
+            // `image` above is deliberately still the captured one — the user
+            // meant the page that was on screen when they tapped — but writing
+            // a captured Loaded back would revert a page change landing in this
+            // window.
+            setState {
+                val latest = loadStatus
+                if (latest is MediaViewerLoadStatus.Loaded) {
+                    copy(loadStatus = latest.copy(isSaving = true))
+                } else {
+                    this
+                }
+            }
             viewModelScope.launch {
                 val outcome =
                     imageSaver

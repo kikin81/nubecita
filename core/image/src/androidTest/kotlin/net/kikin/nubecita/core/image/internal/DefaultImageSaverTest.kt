@@ -6,6 +6,7 @@ import android.os.Build
 import android.provider.MediaStore
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.SdkSuppress
 import coil3.ImageLoader
 import coil3.disk.DiskCache
 import kotlinx.coroutines.Dispatchers
@@ -18,7 +19,6 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,6 +34,11 @@ import java.io.File
  * deleted in [tearDown] so a failing run does not litter the device gallery.
  */
 @RunWith(AndroidJUnit4::class)
+// Class-level rather than a per-test assume: this also keeps the class from
+// being loaded on API 28 at all, which matters because it references
+// MediaStore.setIncludePending — an API 29 *method*, unlike the inlined String
+// constants in the production code.
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.Q)
 class DefaultImageSaverTest {
     private lateinit var context: Context
     private lateinit var diskCache: DiskCache
@@ -61,7 +66,6 @@ class DefaultImageSaverTest {
 
     @Test
     fun saves_a_cached_image_into_the_nubecita_album_with_its_bytes_intact() {
-        assumeSupported()
         val bytes = pngBytes()
         cache(URL, bytes)
 
@@ -81,7 +85,6 @@ class DefaultImageSaverTest {
 
     @Test
     fun records_the_sniffed_content_type_not_the_one_implied_by_the_url() {
-        assumeSupported()
         // URL says jpeg — as every Bluesky CDN fullsize URL does — but the bytes
         // are a PNG. The gallery entry must describe the bytes, not the request.
         val jpegLookingUrl = "https://cdn.example/img/feed_fullsize/plain/did/cid@jpeg"
@@ -98,7 +101,6 @@ class DefaultImageSaverTest {
         // MediaStore.DESCRIPTION is readOnly and EXIF-derived, so nothing the
         // app writes lands there. Pinned so a future "helpful" DESCRIPTION
         // write is caught as the no-op it is.
-        assumeSupported()
         cache(URL, pngBytes())
 
         val uri = runBlocking { saver.saveToGallery(URL) }.getOrThrow()
@@ -109,7 +111,6 @@ class DefaultImageSaverTest {
 
     @Test
     fun a_cached_image_is_saved_without_any_network_request() {
-        assumeSupported()
         // The ImageLoader here has no network components registered at all, so
         // any fetch attempt fails outright. A successful save therefore proves
         // the bytes came from the cache — the D2 optimisation cannot silently
@@ -124,7 +125,6 @@ class DefaultImageSaverTest {
 
     @Test
     fun an_uncached_image_that_cannot_be_fetched_reports_retrieval_failure() {
-        assumeSupported()
         // Nothing cached and no network fetcher registered.
         val result = runBlocking { saver.saveToGallery("https://cdn.example/missing.png") }
 
@@ -137,7 +137,6 @@ class DefaultImageSaverTest {
 
     @Test
     fun a_retrieval_failure_creates_no_row_not_even_a_pending_one() {
-        assumeSupported()
         // Counted with pending entries included: a leaked IS_PENDING row is
         // invisible to the gallery but still consumes storage the user cannot
         // reclaim, so a visible-only query would pass on a leak.
@@ -159,12 +158,6 @@ class DefaultImageSaverTest {
     }
 
     // ---------- helpers ----------
-
-    private fun assumeSupported() =
-        assumeTrue(
-            "shared-gallery writes need API 29+; the saver reports unsupported below that",
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q,
-        )
 
     /** Writes [bytes] into the Coil disk cache under [url], the default key. */
     private fun cache(
