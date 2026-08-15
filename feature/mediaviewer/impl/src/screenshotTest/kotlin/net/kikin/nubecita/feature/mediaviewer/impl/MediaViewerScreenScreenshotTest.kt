@@ -38,6 +38,7 @@ private fun MediaViewerLoadingScreenshot() {
             onAltBadgeClick = {},
             onAltSheetDismiss = {},
             onChromeAutoFadeTimeout = {},
+            onSaveClick = {},
         )
     }
 }
@@ -57,6 +58,7 @@ private fun MediaViewerErrorNetworkScreenshot() {
             onAltBadgeClick = {},
             onAltSheetDismiss = {},
             onChromeAutoFadeTimeout = {},
+            onSaveClick = {},
         )
     }
 }
@@ -76,6 +78,7 @@ private fun MediaViewerErrorNotFoundScreenshot() {
             onAltBadgeClick = {},
             onAltSheetDismiss = {},
             onChromeAutoFadeTimeout = {},
+            onSaveClick = {},
         )
     }
 }
@@ -95,6 +98,7 @@ private fun MediaViewerErrorNoImagesScreenshot() {
             onAltBadgeClick = {},
             onAltSheetDismiss = {},
             onChromeAutoFadeTimeout = {},
+            onSaveClick = {},
         )
     }
 }
@@ -123,6 +127,73 @@ private fun MediaViewerLoadedSingleScreenshot() {
             onAltBadgeClick = {},
             onAltSheetDismiss = {},
             onChromeAutoFadeTimeout = {},
+            onSaveClick = {},
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "loaded-savable-light", showBackground = true)
+@Preview(name = "loaded-savable-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun MediaViewerLoadedSavableScreenshot() {
+    // canSave = true, which the other fixtures leave at its false default —
+    // without this the save affordance appears in no baseline at all and the
+    // screenshots would pin its absence rather than its appearance.
+    NubecitaCanvasPreviewTheme {
+        MediaViewerScreenContent(
+            state =
+                MediaViewerState(
+                    loadStatus =
+                        MediaViewerLoadStatus.Loaded(
+                            images = persistentListOf(previewImage(0, altText = "the cat sat on the mat")),
+                            currentIndex = 0,
+                            isChromeVisible = true,
+                            isAltSheetOpen = false,
+                            canSave = true,
+                        ),
+                ),
+            onRetry = {},
+            onDismissRequest = {},
+            onPageChange = {},
+            onTapImage = {},
+            onAltBadgeClick = {},
+            onAltSheetDismiss = {},
+            onChromeAutoFadeTimeout = {},
+            onSaveClick = {},
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "loaded-saving-light", showBackground = true)
+@Preview(name = "loaded-saving-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun MediaViewerLoadedSavingScreenshot() {
+    // Mid-save: the icon is replaced by the brand progress indicator, and the
+    // chrome must still be present (the auto-fade is suspended while saving).
+    NubecitaCanvasPreviewTheme {
+        MediaViewerScreenContent(
+            state =
+                MediaViewerState(
+                    loadStatus =
+                        MediaViewerLoadStatus.Loaded(
+                            images = persistentListOf(previewImage(0, altText = "the cat sat on the mat")),
+                            currentIndex = 0,
+                            isChromeVisible = true,
+                            isAltSheetOpen = false,
+                            canSave = true,
+                            isSaving = true,
+                        ),
+                ),
+            onRetry = {},
+            onDismissRequest = {},
+            onPageChange = {},
+            onTapImage = {},
+            onAltBadgeClick = {},
+            onAltSheetDismiss = {},
+            onChromeAutoFadeTimeout = {},
+            onSaveClick = {},
         )
     }
 }
@@ -158,6 +229,7 @@ private fun MediaViewerLoadedMultiScreenshot() {
             onAltBadgeClick = {},
             onAltSheetDismiss = {},
             onChromeAutoFadeTimeout = {},
+            onSaveClick = {},
         )
     }
 }
@@ -193,6 +265,7 @@ private fun MediaViewerLoadedMultiNoAltScreenshot() {
             onAltBadgeClick = {},
             onAltSheetDismiss = {},
             onChromeAutoFadeTimeout = {},
+            onSaveClick = {},
         )
     }
 }

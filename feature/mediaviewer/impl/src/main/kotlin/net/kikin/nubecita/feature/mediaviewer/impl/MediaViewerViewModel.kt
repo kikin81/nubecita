@@ -10,6 +10,8 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.image.ImageRetrievalException
+import net.kikin.nubecita.core.image.ImageSaver
 import net.kikin.nubecita.core.posts.PostNotFoundException
 import net.kikin.nubecita.core.posts.PostProjectionException
 import net.kikin.nubecita.core.posts.PostRepository
@@ -43,6 +45,7 @@ internal class MediaViewerViewModel
     constructor(
         @Assisted private val route: MediaViewerRoute,
         private val postRepository: PostRepository,
+        private val imageSaver: ImageSaver,
     ) : MviViewModel<MediaViewerState, MediaViewerEvent, MediaViewerEffect>(MediaViewerState()) {
         @AssistedFactory
         interface Factory {
@@ -59,6 +62,41 @@ internal class MediaViewerViewModel
                 MediaViewerEvent.OnAltSheetDismiss -> setSheetOpen(false)
                 MediaViewerEvent.OnChromeAutoFadeTimeout -> setChromeVisible(false)
                 MediaViewerEvent.OnDismissRequest -> sendEffect(MediaViewerEffect.Dismiss)
+                MediaViewerEvent.OnSaveClick -> onSaveClick()
+            }
+        }
+
+        private fun onSaveClick() {
+            val status = uiState.value.loadStatus
+            if (status !is MediaViewerLoadStatus.Loaded) return
+            // Drop the second tap rather than queueing it — the user wants one
+            // copy in their gallery, not one per impatient tap.
+            if (status.isSaving) return
+            val image = status.images.getOrNull(status.currentIndex) ?: return
+
+            setState { copy(loadStatus = status.copy(isSaving = true)) }
+            viewModelScope.launch {
+                val outcome =
+                    imageSaver
+                        .saveToGallery(url = image.fullsizeUrl)
+                        .fold(
+                            onSuccess = { MediaViewerSaveOutcome.Saved },
+                            onFailure = { failure ->
+                                if (failure is ImageRetrievalException) {
+                                    MediaViewerSaveOutcome.RetrievalFailed
+                                } else {
+                                    MediaViewerSaveOutcome.StorageFailed
+                                }
+                            },
+                        )
+                // Re-read rather than reusing `status`: the user can page while
+                // the save runs, and writing the captured copy back would
+                // silently revert their page change.
+                val current = uiState.value.loadStatus
+                if (current is MediaViewerLoadStatus.Loaded) {
+                    setState { copy(loadStatus = current.copy(isSaving = false)) }
+                }
+                sendEffect(MediaViewerEffect.ShowSaveOutcome(outcome))
             }
         }
 
@@ -97,6 +135,7 @@ internal class MediaViewerViewModel
                                             currentIndex = route.imageIndex.coerceIn(0, embed.items.size - 1),
                                             isChromeVisible = true,
                                             isAltSheetOpen = false,
+                                            canSave = imageSaver.isSupported,
                                         ),
                                 )
                             }

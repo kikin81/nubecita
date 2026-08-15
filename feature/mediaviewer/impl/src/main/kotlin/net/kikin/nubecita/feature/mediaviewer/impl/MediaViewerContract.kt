@@ -36,6 +36,14 @@ internal sealed interface MediaViewerLoadStatus {
      *   the auto-fade timer; resets to `true` on every page change.
      * - [isAltSheetOpen] is the alt-text bottom-sheet visibility flag,
      *   gated by the current image's alt text being non-null.
+     * - [canSave] mirrors `ImageSaver.isSupported`. It is constant for the
+     *   life of the process, but lives here so no composable performs its own
+     *   `Build.VERSION` check — the save affordance is omitted entirely when
+     *   this is false, rather than shown disabled.
+     * - [isSaving] guards a double-tap from starting a second write and
+     *   drives the in-flight indicator. While it is true the chrome auto-fade
+     *   is suspended: the indicator lives in the chrome, so fading on
+     *   schedule would hide the very progress the user is waiting on.
      */
     @Immutable
     data class Loaded(
@@ -43,6 +51,8 @@ internal sealed interface MediaViewerLoadStatus {
         val currentIndex: Int,
         val isChromeVisible: Boolean,
         val isAltSheetOpen: Boolean,
+        val canSave: Boolean = false,
+        val isSaving: Boolean = false,
     ) : MediaViewerLoadStatus
 
     /**
@@ -115,6 +125,31 @@ internal sealed interface MediaViewerEvent : UiEvent {
 
     /** Close button, swipe-down past threshold, or back press; dispatches [MediaViewerEffect.Dismiss]. */
     data object OnDismissRequest : MediaViewerEvent
+
+    /**
+     * Save the image on the current page to the device gallery. A no-op while
+     * a save is already in flight, so a double-tap writes one file.
+     */
+    data object OnSaveClick : MediaViewerEvent
+}
+
+/**
+ * Result of a save attempt, as a type rather than a message.
+ *
+ * The VM stays free of Android resources (see [MediaViewerError]'s note), so
+ * the screen maps each variant to a `stringResource`. The two failure
+ * variants are kept apart because they call for different user action:
+ * [RetrievalFailed] is worth retrying, [StorageFailed] usually is not.
+ */
+internal sealed interface MediaViewerSaveOutcome {
+    /** The image is in the device gallery. */
+    data object Saved : MediaViewerSaveOutcome
+
+    /** The image bytes could not be obtained — cache miss plus a failed fetch. */
+    data object RetrievalFailed : MediaViewerSaveOutcome
+
+    /** The bytes were obtained but the gallery write failed. */
+    data object StorageFailed : MediaViewerSaveOutcome
 }
 
 internal sealed interface MediaViewerEffect : UiEffect {
@@ -128,4 +163,13 @@ internal sealed interface MediaViewerEffect : UiEffect {
      */
     @Immutable
     data object Dismiss : MediaViewerEffect
+
+    /**
+     * A save attempt finished. Carries the outcome as a type; the screen
+     * chooses the wording and shows the snackbar.
+     */
+    @Immutable
+    data class ShowSaveOutcome(
+        val outcome: MediaViewerSaveOutcome,
+    ) : MediaViewerEffect
 }

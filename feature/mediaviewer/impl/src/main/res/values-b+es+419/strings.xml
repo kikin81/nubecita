@@ -11,4 +11,9 @@
     <string name="mediaviewer_error_no_images">Esta publicación no tiene imágenes.</string>
     <string name="mediaviewer_error_unknown">No se pudo cargar la imagen. Reintentar.</string>
     <string name="mediaviewer_retry">Reintentar</string>
+
+    <string name="mediaviewer_save_content_description">Guardar imagen en tus fotos</string>
+    <string name="mediaviewer_save_success">Se guardó en tus fotos</string>
+    <string name="mediaviewer_save_failed_retrieval">No se pudo descargar la imagen. Revisa tu conexión e inténtalo de nuevo.</string>
+    <string name="mediaviewer_save_failed_storage">No se pudo guardar la imagen en tus fotos.</string>
 </resources>

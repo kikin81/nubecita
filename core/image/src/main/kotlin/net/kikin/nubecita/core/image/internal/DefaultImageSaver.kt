@@ -1,0 +1,186 @@
+package net.kikin.nubecita.core.image.internal
+
+import android.content.ContentValues
+import android.content.Context
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import androidx.annotation.RequiresApi
+import coil3.ImageLoader
+import coil3.request.ImageRequest
+import coil3.request.SuccessResult
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
+import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.image.ImageRetrievalException
+import net.kikin.nubecita.core.image.ImageSaveUnsupportedException
+import net.kikin.nubecita.core.image.ImageSaver
+import net.kikin.nubecita.core.image.ImageStorageException
+import net.kikin.nubecita.core.image.SIGNATURE_LENGTH
+import net.kikin.nubecita.core.image.SavedImageFormat
+import net.kikin.nubecita.core.image.savedImageDisplayName
+import net.kikin.nubecita.core.image.sniffImageFormat
+import timber.log.Timber
+import java.io.File
+import java.io.IOException
+import java.io.OutputStream
+import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
+
+/**
+ * [ImageSaver] backed by Coil's disk cache for reads and `MediaStore` for
+ * writes.
+ *
+ * The bytes are copied straight from the cache file the viewer already
+ * populated — never decoded and re-encoded — so the saved file is
+ * byte-identical to what the server served and the save costs no network,
+ * no decode, and no `Bitmap` allocation.
+ */
+internal class DefaultImageSaver
+    @Inject
+    constructor(
+        @param:ApplicationContext private val context: Context,
+        private val imageLoader: ImageLoader,
+        @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
+    ) : ImageSaver {
+        override val isSupported: Boolean
+            get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+
+        override suspend fun saveToGallery(url: String): Result<Uri> {
+            // API 28 would need WRITE_EXTERNAL_STORAGE, which this app does not
+            // declare: it would be the first dangerous permission on the Play
+            // listing — seen by 100% of prospective users — to serve the 1.0%
+            // (76 of 7,258 active users, 90d GA4) still on Android 9. See the
+            // add-media-viewer-save-to-gallery design, decision D3, before
+            // "fixing" this by adding the permission.
+            if (!isSupported) return Result.failure(ImageSaveUnsupportedException())
+
+            return withContext(dispatcher) {
+                try {
+                    val cached = cachedFileFor(url) ?: fetchIntoCache(url)
+                    Result.success(writeToGallery(cached))
+                } catch (cancellation: CancellationException) {
+                    // Never fold cancellation into a failed Result — doing so
+                    // reports "save failed" for a user who simply navigated
+                    // away, and breaks cooperative cancellation for the caller.
+                    throw cancellation
+                } catch (failure: ImageRetrievalException) {
+                    Timber.w("image save failed: could not retrieve bytes")
+                    Result.failure(failure)
+                } catch (failure: ImageStorageException) {
+                    Timber.w("image save failed: could not write to the gallery")
+                    Result.failure(failure)
+                }
+            }
+        }
+
+        /** The Coil disk-cache file for [url], or null when not cached. */
+        private fun cachedFileFor(url: String): File? {
+            // Coil's diskCacheKey defaults to the data string, so the fullsize
+            // URL is the snapshot key the viewer wrote under.
+            val snapshot = imageLoader.diskCache?.openSnapshot(url) ?: return null
+            return snapshot.use { File(it.data.toString()) }.takeIf { it.isFile && it.length() > 0 }
+        }
+
+        /**
+         * Populates the disk cache for [url] and returns the resulting file.
+         *
+         * Only reached when the user presses save before the image finished
+         * loading; the common path never gets here.
+         */
+        private suspend fun fetchIntoCache(url: String): File {
+            val result =
+                runCatching {
+                    imageLoader.execute(ImageRequest.Builder(context).data(url).build())
+                }.getOrElse { throw ImageRetrievalException(url, it) }
+
+            if (result !is SuccessResult) throw ImageRetrievalException(url)
+            return cachedFileFor(url) ?: throw ImageRetrievalException(url)
+        }
+
+        /**
+         * Copies [source] into the shared gallery and returns the new item's
+         * `Uri`.
+         *
+         * Deliberately **not** a suspending function. Coroutine cancellation
+         * only takes effect at suspension points, so keeping the whole
+         * insert-write-publish sequence non-suspending means it either does not
+         * start or runs to completion — the `catch` below is therefore
+         * guaranteed to run and clean up, with no `NonCancellable` needed.
+         */
+        @RequiresApi(Build.VERSION_CODES.Q)
+        private fun writeToGallery(source: File): Uri {
+            val format = sniffFormat(source)
+            val resolver = context.contentResolver
+            val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+
+            val pending =
+                ContentValues().apply {
+                    put(MediaStore.Images.Media.DISPLAY_NAME, savedImageDisplayName(format, System.currentTimeMillis()))
+                    put(MediaStore.Images.Media.MIME_TYPE, format.mimeType)
+                    put(MediaStore.Images.Media.RELATIVE_PATH, ALBUM_RELATIVE_PATH)
+                    // Hide the row from the gallery until every byte has landed,
+                    // so an interrupted save cannot surface as a truncated image.
+                    put(MediaStore.Images.Media.IS_PENDING, 1)
+                    // No DESCRIPTION write: that column is declared readOnly and
+                    // is derived by the provider from the file's EXIF
+                    // ImageDescription tag, so a ContentValues write is silently
+                    // discarded. Carrying alt text would mean injecting EXIF,
+                    // which breaks the byte-identical copy above. Verified on
+                    // device — the column reads back null.
+                }
+
+            val uri =
+                resolver.insert(collection, pending)
+                    ?: throw ImageStorageException("MediaStore refused to create an entry for the image")
+
+            try {
+                resolver.openOutputStream(uri).use { stream ->
+                    stream ?: throw ImageStorageException("MediaStore returned no output stream")
+                    source.inputStream().use { it.copyToStream(stream) }
+                }
+                resolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
+            } catch (failure: Throwable) {
+                // A row left pending is invisible to the gallery AND unreachable
+                // by the user, so failing without this would silently consume
+                // storage they cannot reclaim. Delete before rethrowing.
+                runCatching { resolver.delete(uri, null, null) }
+                    .onFailure { Timber.w("failed to clean up a pending gallery entry after a failed save") }
+                throw if (failure is ImageStorageException) {
+                    failure
+                } else {
+                    ImageStorageException("failed writing the image into the gallery", failure)
+                }
+            }
+            return uri
+        }
+
+        /** Reads just enough of [source] to classify its format. */
+        private fun sniffFormat(source: File): SavedImageFormat =
+            try {
+                source.inputStream().use { input ->
+                    val header = ByteArray(SIGNATURE_LENGTH)
+                    val read = input.read(header)
+                    if (read <= 0) SavedImageFormat.Unknown else sniffImageFormat(header.copyOf(read))
+                }
+            } catch (failure: IOException) {
+                throw ImageStorageException("could not read the cached image", failure)
+            }
+
+        private fun java.io.InputStream.copyToStream(out: OutputStream) {
+            copyTo(out, DEFAULT_BUFFER_SIZE)
+            out.flush()
+        }
+
+        private companion object {
+            /**
+             * Trailing slash is the canonical persisted form — `RELATIVE_PATH`'s
+             * javadoc renders a file in `DCIM/Vacation` as `DCIM/Vacation/`. Writing
+             * it this way makes the value read back identical to the value written,
+             * so the instrumented test can assert equality rather than prefix-match.
+             */
+            val ALBUM_RELATIVE_PATH = "${Environment.DIRECTORY_PICTURES}/Nubecita/"
+        }
+    }

@@ -17,6 +17,7 @@ dependencies {
 
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
+    implementation(project(":core:image"))
     implementation(project(":core:posts"))
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
