@@ -12,10 +12,12 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -29,6 +31,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetState
@@ -53,6 +57,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import me.saket.telephoto.zoomable.rememberZoomableState
@@ -120,13 +125,41 @@ internal fun MediaViewerScreen(
     val onAltBadgeClick = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnAltBadgeClick) } }
     val onAltSheetDismiss = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnAltSheetDismiss) } }
     val onChromeAutoFadeTimeout = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnChromeAutoFadeTimeout) } }
+    val onSaveClick = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnSaveClick) } }
 
     LaunchedEffect(Unit) { viewModel.handleEvent(MediaViewerEvent.Load) }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    // Resolved in composition and tracked with rememberUpdatedState rather than
+    // read off a captured Context inside the effect: stringResource recomposes
+    // on a configuration change, so a locale switch mid-save still shows the
+    // right wording. (A captured Context would go stale — lint's
+    // LocalContextGetResourceValueCall.)
+    val savedMessage by rememberUpdatedState(stringResource(R.string.mediaviewer_save_success))
+    val retrievalFailedMessage by rememberUpdatedState(stringResource(R.string.mediaviewer_save_failed_retrieval))
+    val storageFailedMessage by rememberUpdatedState(stringResource(R.string.mediaviewer_save_failed_storage))
 
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {
                 MediaViewerEffect.Dismiss -> currentOnDismiss()
+                is MediaViewerEffect.ShowSaveOutcome ->
+                    // Launched, not awaited: showSnackbar suspends until the
+                    // snackbar is dismissed or times out, and awaiting it here
+                    // would stall this collector — so a back press during the
+                    // ~4s snackbar would sit unhandled behind it.
+                    //
+                    // Wording chosen here, not in the VM: the presenter stays
+                    // free of Android resources, same as MediaViewerError.
+                    launch {
+                        snackbarHostState.showSnackbar(
+                            when (effect.outcome) {
+                                MediaViewerSaveOutcome.Saved -> savedMessage
+                                MediaViewerSaveOutcome.RetrievalFailed -> retrievalFailedMessage
+                                MediaViewerSaveOutcome.StorageFailed -> storageFailedMessage
+                            },
+                        )
+                    }
             }
         }
     }
@@ -149,6 +182,8 @@ internal fun MediaViewerScreen(
         onAltBadgeClick = onAltBadgeClick,
         onAltSheetDismiss = onAltSheetDismiss,
         onChromeAutoFadeTimeout = onChromeAutoFadeTimeout,
+        onSaveClick = onSaveClick,
+        snackbarHostState = snackbarHostState,
         modifier = modifier,
     )
 }
@@ -168,30 +203,41 @@ internal fun MediaViewerScreenContent(
     onAltBadgeClick: () -> Unit,
     onAltSheetDismiss: () -> Unit,
     onChromeAutoFadeTimeout: () -> Unit,
+    onSaveClick: () -> Unit,
     modifier: Modifier = Modifier,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     Surface(
         modifier = modifier.fillMaxSize(),
         color = Color.Black,
     ) {
-        when (val status = state.loadStatus) {
-            MediaViewerLoadStatus.Loading -> LoadingState()
-            is MediaViewerLoadStatus.Error ->
-                ErrorState(
-                    error = status.error,
-                    onRetry = onRetry,
-                    onDismiss = onDismissRequest,
-                )
-            is MediaViewerLoadStatus.Loaded ->
-                LoadedState(
-                    status = status,
-                    onPageChange = onPageChange,
-                    onTapImage = onTapImage,
-                    onAltBadgeClick = onAltBadgeClick,
-                    onAltSheetDismiss = onAltSheetDismiss,
-                    onChromeAutoFadeTimeout = onChromeAutoFadeTimeout,
-                    onDismissRequest = onDismissRequest,
-                )
+        Box(modifier = Modifier.fillMaxSize()) {
+            when (val status = state.loadStatus) {
+                MediaViewerLoadStatus.Loading -> LoadingState()
+                is MediaViewerLoadStatus.Error ->
+                    ErrorState(
+                        error = status.error,
+                        onRetry = onRetry,
+                        onDismiss = onDismissRequest,
+                    )
+                is MediaViewerLoadStatus.Loaded ->
+                    LoadedState(
+                        status = status,
+                        onPageChange = onPageChange,
+                        onTapImage = onTapImage,
+                        onAltBadgeClick = onAltBadgeClick,
+                        onAltSheetDismiss = onAltSheetDismiss,
+                        onChromeAutoFadeTimeout = onChromeAutoFadeTimeout,
+                        onDismissRequest = onDismissRequest,
+                        onSaveClick = onSaveClick,
+                    )
+            }
+            // Sits above the viewer rather than in a Scaffold: this screen is a
+            // full-bleed black surface with no app bars to coordinate with.
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),
+            )
         }
     }
 }
@@ -259,6 +305,7 @@ private fun LoadedState(
     onAltSheetDismiss: () -> Unit,
     onChromeAutoFadeTimeout: () -> Unit,
     onDismissRequest: () -> Unit,
+    onSaveClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val pagerState =
@@ -305,8 +352,12 @@ private fun LoadedState(
     // true OR the page changes. The status fields are the trigger keys
     // so the LaunchedEffect coroutine cancels and restarts on every
     // relevant state change.
-    LaunchedEffect(status.isChromeVisible, status.currentIndex) {
-        if (status.isChromeVisible) {
+    // `isSaving` is a key, not just a guard: the in-flight indicator lives in
+    // the chrome, so letting the timer run during a save would fade out the
+    // very progress the user is waiting on. Re-keying also restarts the timer
+    // when the save finishes, so the chrome still fades on its own afterwards.
+    LaunchedEffect(status.isChromeVisible, status.currentIndex, status.isSaving) {
+        if (status.isChromeVisible && !status.isSaving) {
             kotlinx.coroutines.delay(CHROME_AUTO_FADE_DELAY)
             currentOnChromeAutoFadeTimeout()
         }
@@ -381,8 +432,11 @@ private fun LoadedState(
                 currentIndex = status.currentIndex,
                 totalImages = status.images.size,
                 hasAltText = !status.images[status.currentIndex].altText.isNullOrBlank(),
+                canSave = status.canSave,
+                isSaving = status.isSaving,
                 onClose = onDismissRequest,
                 onAltBadgeClick = onAltBadgeClick,
+                onSaveClick = onSaveClick,
             )
         }
 
@@ -411,8 +465,11 @@ private fun ChromeBar(
     currentIndex: Int,
     totalImages: Int,
     hasAltText: Boolean,
+    canSave: Boolean,
+    isSaving: Boolean,
     onClose: () -> Unit,
     onAltBadgeClick: () -> Unit,
+    onSaveClick: () -> Unit,
 ) {
     Surface(
         modifier =
@@ -446,32 +503,62 @@ private fun ChromeBar(
                     modifier = Modifier.align(Alignment.Center),
                 )
             }
-            if (hasAltText) {
-                val altBadgeContentDescription =
-                    stringResource(R.string.mediaviewer_alt_badge_content_description)
-                Surface(
-                    onClick = onAltBadgeClick,
-                    modifier =
-                        Modifier
-                            .align(Alignment.CenterEnd)
-                            .semantics {
+            Row(
+                modifier = Modifier.align(Alignment.CenterEnd),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Omitted entirely — not disabled — where the platform cannot
+                // write to the shared gallery without a permission the app
+                // deliberately does not declare. A control that can never work
+                // is worse than no control.
+                if (canSave) {
+                    if (isSaving) {
+                        Box(
+                            modifier = Modifier.size(48.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            NubecitaWavyProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = Color.White,
+                            )
+                        }
+                    } else {
+                        IconButton(onClick = onSaveClick) {
+                            NubecitaIcon(
+                                name = NubecitaIconName.Download,
+                                contentDescription =
+                                    stringResource(R.string.mediaviewer_save_content_description),
+                                filled = false,
+                                tint = Color.White,
+                            )
+                        }
+                    }
+                }
+                if (hasAltText) {
+                    val altBadgeContentDescription =
+                        stringResource(R.string.mediaviewer_alt_badge_content_description)
+                    Surface(
+                        onClick = onAltBadgeClick,
+                        modifier =
+                            Modifier.semantics {
                                 contentDescription = altBadgeContentDescription
                                 role = Role.Button
                             },
-                    color = Color.White.copy(alpha = 0.18f),
-                    contentColor = Color.White,
-                    shape = MaterialTheme.shapes.small,
-                ) {
-                    Text(
-                        text = stringResource(R.string.mediaviewer_alt_badge_label),
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
+                        color = Color.White.copy(alpha = 0.18f),
+                        contentColor = Color.White,
+                        shape = MaterialTheme.shapes.small,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.mediaviewer_alt_badge_label),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
+                } else {
+                    // Reserve the space so the page indicator stays centered
+                    // regardless of whether the badge renders.
+                    Spacer(modifier = Modifier.size(48.dp))
                 }
-            } else {
-                // Reserve the space so the page indicator stays centered
-                // regardless of whether the badge renders.
-                Spacer(modifier = Modifier.size(48.dp).align(Alignment.CenterEnd))
             }
         }
     }

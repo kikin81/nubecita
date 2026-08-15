@@ -45,6 +45,7 @@ enum class NubecitaIconName(
     ChevronRight("\uE5CC"),
     Close("\uE5CD"),
     ContentCopy("\uE14D"),
+    Download("\uF090"),
     Edit("\uF097"),
     Error("\uF8B6"),
     ExpandMore("\uE5CF"),

@@ -10,6 +10,8 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.image.ImageRetrievalException
+import net.kikin.nubecita.core.image.ImageSaver
 import net.kikin.nubecita.core.posts.PostNotFoundException
 import net.kikin.nubecita.core.posts.PostProjectionException
 import net.kikin.nubecita.core.posts.PostRepository
@@ -43,6 +45,7 @@ internal class MediaViewerViewModel
     constructor(
         @Assisted private val route: MediaViewerRoute,
         private val postRepository: PostRepository,
+        private val imageSaver: ImageSaver,
     ) : MviViewModel<MediaViewerState, MediaViewerEvent, MediaViewerEffect>(MediaViewerState()) {
         @AssistedFactory
         interface Factory {
@@ -59,6 +62,64 @@ internal class MediaViewerViewModel
                 MediaViewerEvent.OnAltSheetDismiss -> setSheetOpen(false)
                 MediaViewerEvent.OnChromeAutoFadeTimeout -> setChromeVisible(false)
                 MediaViewerEvent.OnDismissRequest -> sendEffect(MediaViewerEffect.Dismiss)
+                MediaViewerEvent.OnSaveClick -> onSaveClick()
+            }
+        }
+
+        private fun onSaveClick() {
+            val status = uiState.value.loadStatus
+            if (status !is MediaViewerLoadStatus.Loaded) return
+            // Drop the second tap rather than queueing it — the user wants one
+            // copy in their gallery, not one per impatient tap.
+            if (status.isSaving) return
+            // The screen omits the affordance when canSave is false, so this is
+            // unreachable through the UI — but reaching saveToGallery anyway
+            // would surface ImageSaveUnsupportedException, which the mapping
+            // below would mislabel as a storage failure.
+            if (!status.canSave) return
+            val image = status.images.getOrNull(status.currentIndex) ?: return
+
+            // Same atomicity rule as the clear below: read inside the reducer.
+            // `image` above is deliberately still the captured one — the user
+            // meant the page that was on screen when they tapped — but writing
+            // a captured Loaded back would revert a page change landing in this
+            // window.
+            setState {
+                val latest = loadStatus
+                if (latest is MediaViewerLoadStatus.Loaded) {
+                    copy(loadStatus = latest.copy(isSaving = true))
+                } else {
+                    this
+                }
+            }
+            viewModelScope.launch {
+                val outcome =
+                    imageSaver
+                        .saveToGallery(url = image.fullsizeUrl)
+                        .fold(
+                            onSuccess = { MediaViewerSaveOutcome.Saved },
+                            onFailure = { failure ->
+                                if (failure is ImageRetrievalException) {
+                                    MediaViewerSaveOutcome.RetrievalFailed
+                                } else {
+                                    MediaViewerSaveOutcome.StorageFailed
+                                }
+                            },
+                        )
+                // Read the status inside the reducer, not before it: setState
+                // is a compare-and-set update, so anything captured outside can
+                // be stale by the time the lambda runs — and writing a captured
+                // Loaded back would silently revert a page change made during
+                // the save.
+                setState {
+                    val settled = loadStatus
+                    if (settled is MediaViewerLoadStatus.Loaded) {
+                        copy(loadStatus = settled.copy(isSaving = false))
+                    } else {
+                        this
+                    }
+                }
+                sendEffect(MediaViewerEffect.ShowSaveOutcome(outcome))
             }
         }
 
@@ -97,6 +158,7 @@ internal class MediaViewerViewModel
                                             currentIndex = route.imageIndex.coerceIn(0, embed.items.size - 1),
                                             isChromeVisible = true,
                                             isAltSheetOpen = false,
+                                            canSave = imageSaver.isSupported,
                                         ),
                                 )
                             }

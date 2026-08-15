@@ -11,4 +11,9 @@
     <string name="mediaviewer_error_no_images">Este post não tem imagens.</string>
     <string name="mediaviewer_error_unknown">Não foi possível carregar a imagem. Tente de novo.</string>
     <string name="mediaviewer_retry">Tentar de novo</string>
+
+    <string name="mediaviewer_save_content_description">Salvar imagem nas suas fotos</string>
+    <string name="mediaviewer_save_success">Salva nas suas fotos</string>
+    <string name="mediaviewer_save_failed_retrieval">Não foi possível baixar a imagem. Verifique sua conexão e tente novamente.</string>
+    <string name="mediaviewer_save_failed_storage">Não foi possível salvar a imagem nas suas fotos.</string>
 </resources>

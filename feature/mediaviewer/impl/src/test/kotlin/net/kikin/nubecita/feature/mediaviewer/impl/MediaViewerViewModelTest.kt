@@ -2,12 +2,18 @@ package net.kikin.nubecita.feature.mediaviewer.impl
 
 import app.cash.turbine.test
 import io.github.kikin81.atproto.runtime.XrpcError
+import io.mockk.mockk
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.NoSessionException
+import net.kikin.nubecita.core.image.ImageRetrievalException
+import net.kikin.nubecita.core.image.ImageSaver
+import net.kikin.nubecita.core.image.ImageStorageException
 import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.data.models.AuthorUi
@@ -24,6 +30,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import java.io.IOException
 import kotlin.time.Instant
+import android.net.Uri as AndroidUri
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class MediaViewerViewModelTest {
@@ -296,16 +303,203 @@ internal class MediaViewerViewModelTest {
             }
         }
 
+    // ---------- save to gallery ----------
+
+    @Test
+    fun `save writes the current page's image, not the first`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Regression guard for the whole point of putting save in the
+            // viewer chrome: the page the user is looking at is the image
+            // they mean, so paging must change what gets saved.
+            val saver = FakeImageSaver()
+            val vm = loadedVm(imageSaver = saver)
+            advanceUntilIdle()
+
+            vm.handleEvent(MediaViewerEvent.OnPageChanged(1))
+            vm.handleEvent(MediaViewerEvent.OnSaveClick)
+            advanceUntilIdle()
+
+            assertEquals(1, saver.calls)
+            assertEquals("https://cdn/full-2.jpg", saver.lastUrl)
+        }
+
+    @Test
+    fun `a second tap while saving does not start a second save`() =
+        runTest(mainDispatcher.dispatcher) {
+            val saver = FakeImageSaver()
+            val vm = loadedVm(imageSaver = saver)
+            advanceUntilIdle()
+
+            vm.handleEvent(MediaViewerEvent.OnSaveClick)
+            // No advanceUntilIdle between the two: the first save is still in
+            // flight, which is exactly the double-tap the guard exists for.
+            vm.handleEvent(MediaViewerEvent.OnSaveClick)
+            advanceUntilIdle()
+
+            assertEquals(1, saver.calls)
+        }
+
+    @Test
+    fun `isSaving clears after success and after failure`() =
+        runTest(mainDispatcher.dispatcher) {
+            val ok = loadedVm(imageSaver = FakeImageSaver())
+            advanceUntilIdle()
+            ok.handleEvent(MediaViewerEvent.OnSaveClick)
+            advanceUntilIdle()
+            assertFalse(loaded(ok).isSaving, "isSaving must clear after a successful save")
+
+            val failing =
+                loadedVm(imageSaver = FakeImageSaver(result = Result.failure(ImageStorageException("nope"))))
+            advanceUntilIdle()
+            failing.handleEvent(MediaViewerEvent.OnSaveClick)
+            advanceUntilIdle()
+            assertFalse(loaded(failing).isSaving, "isSaving must clear after a failed save")
+        }
+
+    @Test
+    fun `each failure kind maps to its own outcome`() =
+        runTest(mainDispatcher.dispatcher) {
+            val retrieval =
+                loadedVm(
+                    imageSaver =
+                        FakeImageSaver(result = Result.failure(ImageRetrievalException("https://cdn/full-1.jpg"))),
+                )
+            advanceUntilIdle()
+            retrieval.effects.test {
+                retrieval.handleEvent(MediaViewerEvent.OnSaveClick)
+                advanceUntilIdle()
+                assertEquals(
+                    MediaViewerEffect.ShowSaveOutcome(MediaViewerSaveOutcome.RetrievalFailed),
+                    awaitItem(),
+                )
+            }
+
+            val storage =
+                loadedVm(imageSaver = FakeImageSaver(result = Result.failure(ImageStorageException("disk full"))))
+            advanceUntilIdle()
+            storage.effects.test {
+                storage.handleEvent(MediaViewerEvent.OnSaveClick)
+                advanceUntilIdle()
+                assertEquals(
+                    MediaViewerEffect.ShowSaveOutcome(MediaViewerSaveOutcome.StorageFailed),
+                    awaitItem(),
+                )
+            }
+        }
+
+    @Test
+    fun `success emits the saved outcome`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = loadedVm(imageSaver = FakeImageSaver())
+            advanceUntilIdle()
+            vm.effects.test {
+                vm.handleEvent(MediaViewerEvent.OnSaveClick)
+                advanceUntilIdle()
+                assertEquals(MediaViewerEffect.ShowSaveOutcome(MediaViewerSaveOutcome.Saved), awaitItem())
+            }
+        }
+
+    @Test
+    fun `canSave mirrors the saver's platform support`() =
+        runTest(mainDispatcher.dispatcher) {
+            val supported = loadedVm(imageSaver = FakeImageSaver(isSupported = true))
+            advanceUntilIdle()
+            assertTrue(loaded(supported).canSave)
+
+            val unsupported =
+                loadedVm(imageSaver = FakeImageSaver(isSupported = false))
+            advanceUntilIdle()
+            assertFalse(loaded(unsupported).canSave, "canSave must be false where the platform cannot save")
+        }
+
+    @Test
+    fun `a cancelled save reports no outcome to the user`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Cancellation is not a failure. If the saver's CancellationException
+            // were folded into a Result — which runCatching around the fetch
+            // would silently do — the user would be told the save failed after
+            // merely navigating away. Regression guard for that swallow.
+            val vm = loadedVm(imageSaver = CancellingImageSaver())
+            vm.effects.test {
+                vm.handleEvent(MediaViewerEvent.OnSaveClick)
+                advanceUntilIdle()
+                expectNoEvents()
+            }
+        }
+
     // ---------- helpers ----------
 
     private fun newVm(
         repo: PostRepository,
         postUri: String = "at://focus",
         imageIndex: Int = 0,
+        imageSaver: ImageSaver = FakeImageSaver(),
     ): MediaViewerViewModel =
         MediaViewerViewModel(
             route = MediaViewerRoute(postUri = postUri, imageIndex = imageIndex),
             postRepository = repo,
+            imageSaver = imageSaver,
+        )
+
+    /** Throws [CancellationException], as a real save does when its scope dies. */
+    private class CancellingImageSaver : ImageSaver {
+        override val isSupported: Boolean = true
+
+        override suspend fun saveToGallery(url: String): Result<AndroidUri> = throw CancellationException("navigated away mid-save")
+    }
+
+    /**
+     * In-memory [ImageSaver] for driving the save path deterministically.
+     */
+    private class FakeImageSaver(
+        override val isSupported: Boolean = true,
+        private val result: Result<AndroidUri> = Result.success(PLACEHOLDER_URI),
+    ) : ImageSaver {
+        var calls: Int = 0
+            private set
+        var lastUrl: String? = null
+            private set
+
+        override suspend fun saveToGallery(url: String): Result<AndroidUri> {
+            calls++
+            lastUrl = url
+            return result
+        }
+
+        private companion object {
+            /** `Uri` is Android-only; the VM never reads the value, only success-vs-failure. */
+            val PLACEHOLDER_URI: AndroidUri = mockk(relaxed = true)
+        }
+    }
+
+    /** A VM already settled in [MediaViewerLoadStatus.Loaded] over a two-image post. */
+    private fun TestScope.loadedVm(imageSaver: ImageSaver): MediaViewerViewModel =
+        newVm(repo = FakeRepo(Result.success(twoImagePost())), imageSaver = imageSaver).also {
+            it.handleEvent(MediaViewerEvent.Load)
+            advanceUntilIdle()
+        }
+
+    private fun loaded(vm: MediaViewerViewModel): MediaViewerLoadStatus.Loaded = vm.uiState.value.loadStatus as MediaViewerLoadStatus.Loaded
+
+    private fun twoImagePost(): PostUi =
+        samplePost(
+            EmbedUi.Images(
+                items =
+                    persistentListOf(
+                        ImageUi(
+                            fullsizeUrl = "https://cdn/full-1.jpg",
+                            thumbUrl = null,
+                            altText = "first",
+                            aspectRatio = 1f,
+                        ),
+                        ImageUi(
+                            fullsizeUrl = "https://cdn/full-2.jpg",
+                            thumbUrl = null,
+                            altText = "second",
+                            aspectRatio = 1f,
+                        ),
+                    ),
+            ),
         )
 
     private fun samplePost(embed: EmbedUi): PostUi =

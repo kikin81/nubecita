@@ -79,22 +79,24 @@ Animated GIF is deliberately absent from the recognised set: `EmbedUi.Gif` is no
 - **WHEN** an image whose bytes are JPEG-encoded is saved
 - **THEN** the gallery entry's recorded content type identifies it as JPEG
 
-### Requirement: The poster's alt text is preserved as the saved image's description
+### Requirement: Alt text is not carried into the gallery entry
 
-When the source image carries alt text, the system SHALL record it as the saved image's description, so accessibility text written by the poster survives into the user's own gallery.
+The system SHALL NOT attempt to record the poster's alt text against the saved
+gallery entry.
 
-#### Scenario: Alt text is carried into the gallery entry
+`MediaStore`'s `DESCRIPTION` column is declared `readOnly` and is *derived* by
+the provider from the file's EXIF `ImageDescription` tag — a value written
+through `ContentValues` is silently discarded. The only way to populate it is
+to inject EXIF into the saved file, which would break the byte-identical
+guarantee above and would work only for formats `ExifInterface` can write.
+Preserving alt text is therefore out of scope rather than best-effort, so the
+code does not carry a write that does nothing.
 
-- **GIVEN** the image has alt text
-- **WHEN** the image is saved
-- **THEN** the gallery entry's description is that alt text
+#### Scenario: No description is recorded
 
-#### Scenario: Absent alt text saves successfully with no description
-
-- **GIVEN** the image has no alt text
-- **WHEN** the image is saved
+- **WHEN** an image with alt text is saved
 - **THEN** the save succeeds
-- **AND** the gallery entry has no description
+- **AND** the gallery entry carries no app-written description
 
 ### Requirement: The capability declares no Android permission
 
