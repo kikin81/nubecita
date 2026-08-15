@@ -20,8 +20,6 @@ internal class DefaultAuthRepository
         override suspend fun beginLogin(handle: String): Result<String> =
             runCatchingCancellable { atOAuth.beginLogin(handle) }
                 .onFailure {
-                    // runCatching on a suspend fn also catches CancellationException —
-                    // rethrow so structured cancellation isn't swallowed into a Result.
                     // The handle is user-provided PII; log only the throwable identity,
                     // matching the redaction discipline in the profile/actor repos.
                     Timber.tag(TAG).w(it, "beginLogin failed")

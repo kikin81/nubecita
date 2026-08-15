@@ -32,9 +32,6 @@ internal class DefaultPostDeletionRepository
                     )
                     Unit
                 }.onFailure { throwable ->
-                    // runCatching catches CancellationException too, which would
-                    // both log a cancelled delete as a failure and hand a
-                    // cancellation back as an ordinary Result. Rethrow first.
                     // The URI carries the author's DID, so it is kept out of the
                     // message — same redaction policy as DefaultXrpcClientProvider.
                     // The throwable's stack carries the underlying cause.

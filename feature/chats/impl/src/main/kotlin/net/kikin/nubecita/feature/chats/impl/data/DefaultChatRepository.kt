@@ -106,8 +106,6 @@ internal class DefaultChatRepository
                             .map { it.toConvoRowUi(viewerDid = viewerDid) }
                             .toImmutableList()
                 }.onFailure { throwable ->
-                    // Never swallow cancellation — let it propagate so the coroutine
-                    // tears down cleanly and we don't log a cancel as a network failure.
                     // Leave the cache untouched so a failed refresh keeps the prior list.
                     Timber.tag(TAG).w(throwable, "refreshConvos(%s) failed: %s", status, throwable.javaClass.name)
                 }
@@ -152,9 +150,9 @@ internal class DefaultChatRepository
             }
 
         // Shared shape for the one-shot convo mutations (leave/accept/mute): run the
-        // XRPC call + cache patch on the IO dispatcher; rethrow cancellation; log and
-        // return failure otherwise (the cache is only patched after the call succeeds,
-        // so a failure leaves the cached list untouched).
+        // XRPC call and cache patch on the IO dispatcher, then log and return failure
+        // otherwise (the cache is only patched after the call succeeds, so a failure
+        // leaves the cached list untouched).
         private suspend inline fun convoMutation(
             op: String,
             crossinline block: suspend (ConvoService) -> Unit,
@@ -308,10 +306,9 @@ internal class DefaultChatRepository
                         )
                     response.toMessageUi(viewerDid = viewerDid).also { patchConvoOnSend(convoId, it) }
                 }.onFailure { throwable ->
-                    // Rethrow cancellation rather than reporting it as a send failure —
-                    // matching refreshConvos / getMessages above. This matters more now
-                    // that a suspending facet extraction runs before the send: leaving
-                    // the convo mid-send is a normal cancellation, not an error.
+                    // Log-and-return-failure, matching refreshConvos / getMessages
+                    // above. Leaving the convo mid-send is a cancellation rather than
+                    // an error, and never reaches here.
                     Timber.tag(TAG).w(throwable, "sendMessage failed: %s", throwable.javaClass.name)
                 }
             }
@@ -515,8 +512,8 @@ internal class DefaultChatRepository
             }
 
         // Parallel to [convoMutation] but over GroupService for the member-management
-        // procedures: run the XRPC call on IO; rethrow cancellation; log and return
-        // failure otherwise. No cache patch — the roster refetches via getConvoMembers.
+        // procedures: run the XRPC call on IO, then log and return failure otherwise.
+        // No cache patch — the roster refetches via getConvoMembers.
         private suspend inline fun groupMutation(
             op: String,
             crossinline block: suspend (GroupService) -> Unit,

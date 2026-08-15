@@ -48,8 +48,6 @@ internal class AuthorVideoSource
                     val response = FeedService(client).getAuthorFeed(authorVideoFeedRequest(actor, cursor))
                     VideoFeedPage(items = toVideoPosts(response.feed, sessionStateProvider.viewerDidOrNull), cursor = response.cursor)
                 }.onFailure { throwable ->
-                    // runCatching also catches CancellationException; rethrow so structured
-                    // coroutine cancellation propagates instead of being swallowed into a Result.
                     Timber.tag(TAG).w(throwable, "author getAuthorFeed failed: %s", throwable.javaClass.name)
                 }
             }

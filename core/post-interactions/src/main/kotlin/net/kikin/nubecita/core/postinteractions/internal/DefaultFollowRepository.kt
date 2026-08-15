@@ -61,8 +61,6 @@ internal class DefaultFollowRepository
                         )
                     response.uri.raw
                 }.onFailure { throwable ->
-                    // runCatching swallows CancellationException; rethrow so a
-                    // cancelled caller propagates structurally.
                     // `subjectDid` is PII (the followed account's DID); withhold
                     // it from the log, same policy as DefaultLikeRepostRepository.
                     Timber.tag(TAG).w(throwable, "follow failed: %s", throwable.javaClass.name)

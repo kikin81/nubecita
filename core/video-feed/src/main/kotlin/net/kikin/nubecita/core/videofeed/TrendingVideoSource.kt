@@ -57,8 +57,6 @@ internal class DefaultTrendingVideoSource
                         )
                     VideoFeedPage(items = toVideoPosts(response.feed, sessionStateProvider.viewerDidOrNull), cursor = response.cursor)
                 }.onFailure { throwable ->
-                    // runCatching also catches CancellationException; rethrow it so structured
-                    // coroutine cancellation propagates instead of being swallowed into a Result.
                     // Log only the error identity — the feed URI is public, but keep parity
                     // with the redaction discipline used across the XRPC repositories.
                     Timber.tag(TAG).w(throwable, "trending getFeed failed: %s", throwable.javaClass.name)

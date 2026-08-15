@@ -115,8 +115,6 @@ internal class DefaultProfileRepository
                             )
                         }.toImmutableList()
                 }.onFailure { throwable ->
-                    // runCatching also traps CancellationException; rethrow so structured
-                    // coroutine cancellation propagates instead of surfacing as verifiersError.
                     Timber.tag(TAG).w(throwable, "resolveVerifiers failed: %s", throwable.javaClass.name)
                 }
             }
@@ -157,8 +155,6 @@ internal class DefaultProfileRepository
                         nextCursor = nextCursor,
                     )
                 }.onFailure { throwable ->
-                    // runCatching also traps CancellationException; rethrow so structured
-                    // cancellation propagates instead of surfacing as an error Result
                     // (matches resolveVerifiers in this file + the repo-wide convention).
                     // `actor` is a raw DID or handle (PII); `cursor` is
                     // opaque appview state, also withheld. `tab` is a

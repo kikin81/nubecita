@@ -1,7 +1,6 @@
 package net.kikin.nubecita.core.review
 
 import android.app.Activity
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
@@ -49,26 +48,17 @@ internal class DefaultReviewManager
                     // The attempt is already spent; a launch failure is swallowed.
                     runCatchingCancellable { reviewClient.launchReview(activity, handle) }
                         .onFailure {
-                            it.rethrowIfCancellation()
                             Timber.tag(TAG).w(it, "launchReview failed")
                         }
                 }.onFailure {
-                    it.rethrowIfCancellation()
                     Timber.tag(TAG).w(it, "onPostPublished failed")
                 }
             }
         }
 
-        // `runCatching` catches everything, including CancellationException —
-        // swallowing it would break cooperative cancellation when the host
-        // Activity scope is cancelled. Rethrow it; log only genuine failures.
-        // Logged at `w` (not `d`) so integration/storage issues are visible in
-        // logcat, and not `e` so expected offline failures don't reach
+        // Failures log at `w` (not `d`) so integration/storage issues are visible
+        // in logcat, and not `e` so an expected offline failure does not reach
         // Crashlytics — matches `DefaultModerationRepository`.
-        private fun Throwable.rethrowIfCancellation() {
-            if (this is CancellationException) throw this
-        }
-
         private companion object {
             const val TAG = "ReviewManager"
         }
