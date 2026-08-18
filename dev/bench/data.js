@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787039552953,
+  "lastUpdate": 1787039556168,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -2669,6 +2669,124 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationSumMs",
             "value": 453.806,
             "range": "+/- 61.6%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "1be903dd81c0d5141241ed208651e64b48a80b9f",
+          "message": "ci(release): 1.339.1\n\n## [1.339.1](https://github.com/kikin81/nubecita/compare/v1.339.0...v1.339.1) (2026-08-15)\n\n### Miscellaneous\n\n* **repo:** untrack .beads.gate.lock and gitignore bd lock files ([#907](https://github.com/kikin81/nubecita/issues/907)) ([a4dd2a5](https://github.com/kikin81/nubecita/commit/a4dd2a5e1d2c2fc2f965f526915cd18da4876417)), closes [#906](https://github.com/kikin81/nubecita/issues/906) [#906](https://github.com/kikin81/nubecita/issues/906)\n\n### Documentation\n\n* **openspec:** archive the save-to-gallery change ([#906](https://github.com/kikin81/nubecita/issues/906)) ([1032bba](https://github.com/kikin81/nubecita/commit/1032bba31e163dfdee936ac3276e63a0d04e2856)), closes [#905](https://github.com/kikin81/nubecita/issues/905)\n\n### Bug Fixes\n\n* **coroutines:** stop runCatching swallowing cancellation across the app ([#908](https://github.com/kikin81/nubecita/issues/908)) ([45f1280](https://github.com/kikin81/nubecita/commit/45f1280596f91c6aeb873549e169704c45df66e1))",
+          "timestamp": "2026-08-15T20:53:07Z",
+          "url": "https://github.com/kikin81/nubecita/commit/1be903dd81c0d5141241ed208651e64b48a80b9f"
+        },
+        "date": 1787039555517,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / ClassInitCount",
+            "value": 184,
+            "range": "+/- 0.5%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / ClassInitSumMs",
+            "value": 16.626,
+            "range": "+/- 32.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / JIT compilationCount",
+            "value": 106,
+            "range": "+/- 21.3%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / JIT compilationSumMs",
+            "value": 431.386,
+            "range": "+/- 21.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / ClassInitCount",
+            "value": 141,
+            "range": "+/- 0%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / ClassInitSumMs",
+            "value": 16.817,
+            "range": "+/- 52.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / JIT compilationCount",
+            "value": 0,
+            "range": "+/- 0%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / JIT compilationSumMs",
+            "value": 0,
+            "range": "+/- 0%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / ClassInitCount",
+            "value": 1,
+            "range": "+/- 100%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / ClassInitSumMs",
+            "value": 0.043,
+            "range": "+/- 117.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / JIT compilationCount",
+            "value": 308,
+            "range": "+/- 115%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / JIT compilationSumMs",
+            "value": 1139.374,
+            "range": "+/- 67.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / ClassInitCount",
+            "value": 0,
+            "range": "+/- 149.1%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / ClassInitSumMs",
+            "value": 0,
+            "range": "+/- 222.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationCount",
+            "value": 63,
+            "range": "+/- 66.8%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationSumMs",
+            "value": 280.052,
+            "range": "+/- 66.7%",
             "unit": "ms"
           }
         ]
