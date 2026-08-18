@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786954697087,
+  "lastUpdate": 1787039552953,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -2137,6 +2137,64 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 798,
             "range": "+/- 5%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "1be903dd81c0d5141241ed208651e64b48a80b9f",
+          "message": "ci(release): 1.339.1\n\n## [1.339.1](https://github.com/kikin81/nubecita/compare/v1.339.0...v1.339.1) (2026-08-15)\n\n### Miscellaneous\n\n* **repo:** untrack .beads.gate.lock and gitignore bd lock files ([#907](https://github.com/kikin81/nubecita/issues/907)) ([a4dd2a5](https://github.com/kikin81/nubecita/commit/a4dd2a5e1d2c2fc2f965f526915cd18da4876417)), closes [#906](https://github.com/kikin81/nubecita/issues/906) [#906](https://github.com/kikin81/nubecita/issues/906)\n\n### Documentation\n\n* **openspec:** archive the save-to-gallery change ([#906](https://github.com/kikin81/nubecita/issues/906)) ([1032bba](https://github.com/kikin81/nubecita/commit/1032bba31e163dfdee936ac3276e63a0d04e2856)), closes [#905](https://github.com/kikin81/nubecita/issues/905)\n\n### Bug Fixes\n\n* **coroutines:** stop runCatching swallowing cancellation across the app ([#908](https://github.com/kikin81/nubecita/issues/908)) ([45f1280](https://github.com/kikin81/nubecita/commit/45f1280596f91c6aeb873549e169704c45df66e1))",
+          "timestamp": "2026-08-15T20:53:07Z",
+          "url": "https://github.com/kikin81/nubecita/commit/1be903dd81c0d5141241ed208651e64b48a80b9f"
+        },
+        "date": 1787039551128,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 34,
+            "range": "+/- 5.3%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1421.036,
+            "range": "+/- 4.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1254.738,
+            "range": "+/- 8.1%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1136.039,
+            "range": "+/- 22.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1107.529,
+            "range": "+/- 9.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 641,
+            "range": "+/- 0.9%",
             "unit": "frames"
           }
         ]
