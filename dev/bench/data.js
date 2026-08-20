@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787039556168,
+  "lastUpdate": 1787212763347,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -2195,6 +2195,64 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 641,
             "range": "+/- 0.9%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "ac01d457fd3b373b16491ff9a2355f655ec3d8e1",
+          "message": "ci(release): 1.339.2\n\n## [1.339.2](https://github.com/kikin81/nubecita/compare/v1.339.1...v1.339.2) (2026-08-19)\n\n### Miscellaneous\n\n* **deps:** update dependency com.diffplug.spotless to v8.10.0 ([#911](https://github.com/kikin81/nubecita/issues/911)) ([c84b0a4](https://github.com/kikin81/nubecita/commit/c84b0a41e10ceb69a34fc9ae76d8a7255c3b9867))\n* **deps:** update pre-commit hook @fission-ai/openspec to v1.9.0 ([#909](https://github.com/kikin81/nubecita/issues/909)) ([2d33a67](https://github.com/kikin81/nubecita/commit/2d33a671388ed9fbb65b189a654775f3bbdd7a82))\n\n### Bug Fixes\n\n* **deps:** update remotion to v4.0.512 ([#910](https://github.com/kikin81/nubecita/issues/910)) ([945b5c9](https://github.com/kikin81/nubecita/commit/945b5c9a449e43d2cb01178014789bee5f0ed841))",
+          "timestamp": "2026-08-19T02:05:27Z",
+          "url": "https://github.com/kikin81/nubecita/commit/ac01d457fd3b373b16491ff9a2355f655ec3d8e1"
+        },
+        "date": 1787212760430,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 31,
+            "range": "+/- 12%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1250.562,
+            "range": "+/- 8.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1248.354,
+            "range": "+/- 8.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1077.996,
+            "range": "+/- 23.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1064.953,
+            "range": "+/- 28.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 708,
+            "range": "+/- 1.4%",
             "unit": "frames"
           }
         ]
