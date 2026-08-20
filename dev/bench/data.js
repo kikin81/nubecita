@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787212763347,
+  "lastUpdate": 1787212767556,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -2845,6 +2845,124 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationSumMs",
             "value": 280.052,
             "range": "+/- 66.7%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "ac01d457fd3b373b16491ff9a2355f655ec3d8e1",
+          "message": "ci(release): 1.339.2\n\n## [1.339.2](https://github.com/kikin81/nubecita/compare/v1.339.1...v1.339.2) (2026-08-19)\n\n### Miscellaneous\n\n* **deps:** update dependency com.diffplug.spotless to v8.10.0 ([#911](https://github.com/kikin81/nubecita/issues/911)) ([c84b0a4](https://github.com/kikin81/nubecita/commit/c84b0a41e10ceb69a34fc9ae76d8a7255c3b9867))\n* **deps:** update pre-commit hook @fission-ai/openspec to v1.9.0 ([#909](https://github.com/kikin81/nubecita/issues/909)) ([2d33a67](https://github.com/kikin81/nubecita/commit/2d33a671388ed9fbb65b189a654775f3bbdd7a82))\n\n### Bug Fixes\n\n* **deps:** update remotion to v4.0.512 ([#910](https://github.com/kikin81/nubecita/issues/910)) ([945b5c9](https://github.com/kikin81/nubecita/commit/945b5c9a449e43d2cb01178014789bee5f0ed841))",
+          "timestamp": "2026-08-19T02:05:27Z",
+          "url": "https://github.com/kikin81/nubecita/commit/ac01d457fd3b373b16491ff9a2355f655ec3d8e1"
+        },
+        "date": 1787212766130,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / ClassInitCount",
+            "value": 184,
+            "range": "+/- 0%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / ClassInitSumMs",
+            "value": 11.418,
+            "range": "+/- 30.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / JIT compilationCount",
+            "value": 95,
+            "range": "+/- 6.4%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / JIT compilationSumMs",
+            "value": 356.111,
+            "range": "+/- 16.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / ClassInitCount",
+            "value": 141,
+            "range": "+/- 0.3%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / ClassInitSumMs",
+            "value": 12.451,
+            "range": "+/- 45.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / JIT compilationCount",
+            "value": 0,
+            "range": "+/- 0%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / JIT compilationSumMs",
+            "value": 0,
+            "range": "+/- 0%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / ClassInitCount",
+            "value": 1,
+            "range": "+/- 100%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / ClassInitSumMs",
+            "value": 0.034,
+            "range": "+/- 136.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / JIT compilationCount",
+            "value": 315,
+            "range": "+/- 125.7%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / JIT compilationSumMs",
+            "value": 1112.324,
+            "range": "+/- 58.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / ClassInitCount",
+            "value": 0,
+            "range": "+/- 149.1%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / ClassInitSumMs",
+            "value": 0,
+            "range": "+/- 188.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationCount",
+            "value": 66,
+            "range": "+/- 60.4%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationSumMs",
+            "value": 580.608,
+            "range": "+/- 60.8%",
             "unit": "ms"
           }
         ]
