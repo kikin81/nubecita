@@ -1,5 +1,5 @@
 [versions]
-aboutlibraries = "15.1.0"
+aboutlibraries = "15.1.1"
 androidGradlePlugin = "9.3.1"
 androidxBenchmark = "1.5.0-rc01"
 androidxUiAutomator = "2.4.0"
