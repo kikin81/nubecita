@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787212767556,
+  "lastUpdate": 1787299149307,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -2253,6 +2253,64 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 708,
             "range": "+/- 1.4%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "b501f2f51babd5898360e227214d4bff38fe5727",
+          "message": "ci(release): 1.339.3\n\n## [1.339.3](https://github.com/kikin81/nubecita/compare/v1.339.2...v1.339.3) (2026-08-20)\n\n### Bug Fixes\n\n* **deps:** update dependency com.revenuecat.purchases:purchases to v10.17.0 ([#912](https://github.com/kikin81/nubecita/issues/912)) ([dbe0d03](https://github.com/kikin81/nubecita/commit/dbe0d03f054c032d4faed3e4add5818aa192363c))",
+          "timestamp": "2026-08-20T18:14:15Z",
+          "url": "https://github.com/kikin81/nubecita/commit/b501f2f51babd5898360e227214d4bff38fe5727"
+        },
+        "date": 1787299146736,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 33,
+            "range": "+/- 6.2%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1443.846,
+            "range": "+/- 13%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1374.148,
+            "range": "+/- 20.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1230.406,
+            "range": "+/- 22.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1287.63,
+            "range": "+/- 25%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 695,
+            "range": "+/- 2%",
             "unit": "frames"
           }
         ]
