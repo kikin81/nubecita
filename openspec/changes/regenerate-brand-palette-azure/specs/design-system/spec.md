@@ -193,13 +193,22 @@ stop is reproducible rather than hand-picked:
 | Neutral | surfaces | 255 | 5 |
 | NeutralVariant | outlines | 250 | 9 |
 
-`error`, `onError`, `errorContainer` and `onErrorContainer` remain the Material 3
-static error colors and are NOT generated from the brand hues.
+The error family is the one exception to hue generation. `Error40`, `Error50`,
+`Error80` and `Error90` remain carried in `NubecitaPalette` — so every role is
+still sourced from a single palette object — but they hold the Material 3 static
+error colors and are NOT generated from the brand hues above. Error semantics must
+stay recognisable across themes, and harmonising them toward the brand hue would
+weaken that signal.
 
 #### Scenario: Every role has a brand color
 
 - **WHEN** any of the six `ColorScheme`s is instantiated
-- **THEN** all of `primary`, `onPrimary`, `primaryContainer`, `onPrimaryContainer`, `secondary`, `onSecondary`, `secondaryContainer`, `onSecondaryContainer`, `tertiary`, `onTertiary`, `tertiaryContainer`, `onTertiaryContainer`, `error`, `onError`, `errorContainer`, `onErrorContainer`, `background`, `onBackground`, `surface`, `onSurface`, `surfaceVariant`, `onSurfaceVariant`, `outline`, `outlineVariant`, `scrim`, `inverseSurface`, `inverseOnSurface`, `inversePrimary`, `surfaceDim`, `surfaceBright`, `surfaceContainerLowest`, `surfaceContainerLow`, `surfaceContainer`, `surfaceContainerHigh`, `surfaceContainerHighest` resolve to values derived from the brand tonal palette.
+- **THEN** all of `primary`, `onPrimary`, `primaryContainer`, `onPrimaryContainer`, `secondary`, `onSecondary`, `secondaryContainer`, `onSecondaryContainer`, `tertiary`, `onTertiary`, `tertiaryContainer`, `onTertiaryContainer`, `background`, `onBackground`, `surface`, `onSurface`, `surfaceVariant`, `onSurfaceVariant`, `outline`, `outlineVariant`, `scrim`, `inverseSurface`, `inverseOnSurface`, `inversePrimary`, `surfaceDim`, `surfaceBright`, `surfaceContainerLowest`, `surfaceContainerLow`, `surfaceContainer`, `surfaceContainerHigh`, `surfaceContainerHighest` resolve to values derived from the brand tonal palette.
+
+#### Scenario: Error roles are populated from the static error family
+
+- **WHEN** any of the six `ColorScheme`s is instantiated
+- **THEN** `error`, `onError`, `errorContainer` and `onErrorContainer` resolve to the Material 3 static error colors carried in `NubecitaPalette`, NOT to values generated from the brand hues, and NOT to any stock Material default left unassigned.
 
 #### Scenario: Light-mode primary matches the CSS token
 
