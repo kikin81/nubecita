@@ -91,30 +91,47 @@ The surface roles keep the depth-role contract recorded in
 - **WHEN** the dark `ColorScheme` and `NubecitaSemanticColors` are both resolved
 - **THEN** each of `likeAccent`, `repostAccent`, `supporterAccent`, `success` and `warning` SHALL have a contrast ratio of at least 4.5:1 against `surface`.
 
-### Requirement: `primaryContainer` MUST NOT be placed adjacent to `secondaryContainer`
+### Requirement: No two accent `*Container` fills may be rendered adjacent
 
-Feature code MUST NOT render a `primaryContainer` fill immediately adjacent to a
-`secondaryContainer` fill. The two separate at 1.00:1 in light and 1.01:1 in dark —
-they are indistinguishable.
+Feature code MUST NOT render any two of `primaryContainer`, `secondaryContainer`
+and `tertiaryContainer` immediately adjacent to one another. Measured across the
+scheme, every such pairing is indistinguishable:
+
+| Adjacent fills | Light | Dark |
+| --- | --- | --- |
+| `primaryContainer` / `secondaryContainer` | 1.00:1 | 1.01:1 |
+| `primaryContainer` / `tertiaryContainer` | 1.00:1 | 1.00:1 |
+| `secondaryContainer` / `tertiaryContainer` | 1.01:1 | 1.01:1 |
 
 The cause is structural rather than incidental to this palette: Material 3 assigns
-dark `primary` and dark `secondary` the same tonal stop (80), so the entire
-separation between the accent families is hue. Hue-only separation disappears for
-a viewer with deuteranopia and degrades on a cold-calibrated display.
+all three accent families the same tonal stop for a given role — 90 in light, 30 in
+dark — so container fills differ *only* in hue. Hue-only separation disappears for
+a viewer with deuteranopia and degrades on a cold-calibrated display, and no choice
+of brand hues can fix it.
 
-Side-by-side tonal affordances MUST therefore pair a **filled** accent role with a
-**container** role — for example a `primary` filled button beside a
-`secondaryContainer` tonal button, which separates at 4.97:1 in light and 5.49:1
-in dark.
+Side-by-side accent affordances MUST therefore pair a **filled** accent role with a
+**container** role. Every such pairing separates acceptably, so the choice of which
+family takes the filled role is free:
+
+| | Light | Dark |
+| --- | --- | --- |
+| `primary` / `secondaryContainer` | 4.97:1 | 5.49:1 |
+| `secondary` / `primaryContainer` | 5.01:1 | 5.47:1 |
+| `tertiary` / `secondaryContainer` | 4.99:1 | 5.50:1 |
 
 This rule is enforced by code review, following the precedent set for the reserved
 `surfaceDim` / `surfaceBright` / `surfaceContainerLowest` tokens. No lint rule is
 added.
 
-#### Scenario: Two adjacent tonal buttons pair filled with container
+#### Scenario: Two adjacent tonal buttons do not both use container roles
 
 - **WHEN** a screen renders two adjacent accent affordances, such as a Follow and a Message button
-- **THEN** one SHALL use `primary` + `onPrimary` and the other SHALL use `secondaryContainer` + `onSecondaryContainer`, and they SHALL NOT both use `*Container` roles.
+- **THEN** they SHALL NOT both draw their fill from a `*Container` role; at least one SHALL use a filled accent role (`primary`, `secondary` or `tertiary`) with its matching `on*`. Which family takes the filled role is a per-screen decision — `primary` + `secondaryContainer` and `secondary` + `primaryContainer` both satisfy this.
+
+#### Scenario: Adjacent fills are separable regardless of which pairing is chosen
+
+- **WHEN** any two accent affordances are rendered adjacent to one another
+- **THEN** their fill colours SHALL have a WCAG 2.1 contrast ratio of at least 3:1 against each other, which is the property the pairing rule exists to guarantee.
 
 #### Scenario: Adjacent container fills are rejected in review
 
@@ -282,21 +299,35 @@ wallpaper-derived color under `AppTheme.Dynamic`.
 
 ### Requirement: `:designsystem` provides a `NubecitaLogomark` composable
 
-`:designsystem/component/NubecitaLogo.kt` SHALL expose a public `@Composable fun NubecitaLogomark(modifier: Modifier = Modifier, tint: Color = MaterialTheme.colorScheme.primary)` that renders the brand cloud-only mark (no wordmark) backed by the `nubecita_logomark.xml` vector drawable.
+`:designsystem/component/NubecitaLogo.kt` SHALL expose a public `@Composable fun NubecitaLogomark(modifier: Modifier = Modifier, tint: Color = Color.Unspecified)` that renders the brand cloud mark with bow (no wordmark), backed by `LogoImageVector` — a Compose `ImageVector` port of the mark, held in `:designsystem/component/LogoImageVector.kt`. Its intrinsic size SHALL be 72dp × 72dp.
 
-The vector drawable SHALL be a single-color rendering of the cloud silhouette ported from `openspec/references/design-system/assets/logomark-mono.svg` — 3 circles + 1 rounded rect, all with `android:fillColor="#FFFFFFFF"`. The composable SHALL apply `ColorFilter.tint(tint)` so the rendered color matches the `tint` parameter. The default tint of `MaterialTheme.colorScheme.primary` resolves to brand Sky-40 (`#0061A6`) under the static palette and to the user's wallpaper-derived primary under dynamic color.
+The mark SHALL be multi-colour by default: a white cloud body, a pink bow
+(`#F7AAC9` / `#E36DA0`), and two identity-blue stroke accents sourced from
+`NubecitaPalette.LauncherBlue`.
 
-The logomark's default tint therefore differs from the launcher icon and splash
-background, which remain `#0A7AFF` via `NubecitaPalette.LauncherBlue`. This is
-intentional: the identity blue is fixed, in the same way `VerifiedBlue` is
-deliberately detached from the theme, while the in-app logomark follows the active
-accent.
+The `tint` parameter SHALL be honoured only when specified: the composable SHALL
+apply `ColorFilter.tint(tint)` when `tint.isSpecified` and SHALL apply no colour
+filter otherwise. `Color.Unspecified` therefore means "render multi-colour", which
+is legible only against a contrasting or branded background. Against a
+low-contrast surface — notably the near-white light theme background — a caller
+MUST pass an explicit `tint`, or the white cloud body renders invisible.
 
-Call sites choose between the two explicitly. A caller rendering the mark as
-**brand identity** — the in-app splash placeholder — passes
-`tint = NubecitaPalette.LauncherBlue`. A caller rendering it as **in-app chrome** —
-the onboarding screen — passes no tint and takes the theme default. No call site
-may pass a tonal-ramp stop such as `Sky50` to express either meaning.
+Call sites choose the tint by what the mark *means* at that site:
+
+| Site | Tint | Why |
+| --- | --- | --- |
+| In-app splash placeholder | `NubecitaPalette.LauncherBlue` | Brand identity; must match the system splash background it hands off from |
+| In-app chrome (e.g. onboarding) | `MaterialTheme.colorScheme.primary` | Follows the active theme, including wallpaper-derived colour under `AppTheme.Dynamic` |
+| Branded/contrasting background | omit (multi-colour) | The full mark is legible there |
+
+No call site may pass a tonal-ramp stop such as `Sky50` to express either meaning:
+after this change `Sky50` is an ordinary ramp stop whose value follows the ramp.
+
+This requirement replaces a stale description. The previous text specified a
+default tint of `MaterialTheme.colorScheme.primary`, a backing
+`nubecita_logomark.xml` vector drawable, and a single-colour silhouette with every
+path at `#FFFFFFFF`. None of the three matches the implementation, and no
+`nubecita_logomark.xml` exists in the repository.
 
 The composable SHALL set `contentDescription = stringResource(R.string.logomark_content_description)` (value: `"Nubecita"`) so screen readers announce the brand name when the mark is used as the sole content of a tappable container.
 
@@ -305,12 +336,17 @@ The intrinsic aspect of the underlying vector SHALL be 1:1 (square). Callers con
 #### Scenario: Logomark renders with default tint under static palette
 
 - **WHEN** `NubecitaTheme(dynamicColor = false) { NubecitaLogomark(modifier = Modifier.size(96.dp)) }` is composed
-- **THEN** a 96dp × 96dp white-cloud image SHALL render tinted to brand Sky-40 (`#0061A6`)
+- **THEN** a 96dp × 96dp mark SHALL render with no `ColorFilter` applied — white cloud body, pink bow, and `LauncherBlue` stroke accents — because the default `tint` is `Color.Unspecified`, NOT a theme-derived colour.
 
 #### Scenario: Logomark accepts a custom tint
 
 - **WHEN** `NubecitaLogomark(tint = Color.White)` is composed inside `NubecitaTheme`
-- **THEN** the cloud SHALL render in pure white regardless of the active palette
+- **THEN** the whole mark SHALL collapse to pure white regardless of the active palette
+
+#### Scenario: In-app chrome tints the mark to the active accent
+
+- **WHEN** `NubecitaLogomark(tint = MaterialTheme.colorScheme.primary)` is composed under `NubecitaTheme(dynamicColor = false)` in light mode
+- **THEN** the mark SHALL collapse to brand Sky-40 (`#0061A6`), remaining legible against the near-white light surface where the untinted multi-colour rendering would not be.
 
 #### Scenario: Logomark exposes its accessible label
 

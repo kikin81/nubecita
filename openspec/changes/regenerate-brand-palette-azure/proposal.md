@@ -36,12 +36,12 @@ two compete for attention inside a single post card.
   **`Orchid`** at hue 318. Every accent role in all six `ColorScheme`s is
   regenerated from these ramps.
 - Light-mode accent roles move from tonal stop 50 to the Material 3 stop **40**,
-  which resolves all three AA failures. Every on/container pair in every scheme
+  which resolves all four AA failures. Every on/container pair in every scheme
   clears 4.5:1, and every `outline` clears 3:1.
 - The dark surface ramp is deepened from HCT tone 6 to tone **3**, with the
   container steps widened so the depth tiers stay separable near black.
 - Two new design-system rules are added, both derived from measurement rather than
-  taste: `primaryContainer` may never be placed adjacent to `secondaryContainer`,
+  taste: no two accent `*Container` fills may be placed adjacent to one another,
   and `tertiary` is reserved for auxiliary, non-critical surfaces.
 - `ColorSchemeTest` stops asserting specific hex values and instead asserts the
   contrast **property** across all six schemes, so a future palette edit that
@@ -91,13 +91,18 @@ None. This change modifies existing behavior rather than introducing a capabilit
 
 **Code**
 
-- `designsystem/src/main/kotlin/.../designsystem/Color.kt` — `NubecitaPalette`
-  ramps and all six `ColorScheme` builders. This is the only production source
-  file whose behavior changes; `Theme.kt` is untouched because the schemes already
-  derive mechanically.
-- `designsystem/src/test/kotlin/.../ColorSchemeTest.kt` — rewritten to
-  property-based contrast assertions.
-- `designsystem/src/test/kotlin/.../NubecitaThemeTest.kt` — updated expected values.
+- `designsystem/.../designsystem/Color.kt` — `NubecitaPalette` ramps, all six
+  `ColorScheme` builders, and the new fixed `LauncherBlue` constant. `Theme.kt` is
+  untouched because the schemes already derive mechanically.
+- `designsystem/.../component/LogoImageVector.kt` and `component/NubecitaLogo.kt` —
+  the mark's stroke accents and previews move from `Sky50` to `LauncherBlue`.
+- `app/src/main/java/.../Navigation.kt` — the in-app splash placeholder moves to
+  `LauncherBlue` so it keeps matching the system splash it hands off from.
+- `feature/onboarding/impl/.../OnboardingScreen.kt` — takes an explicit
+  `MaterialTheme.colorScheme.primary` tint so the mark follows the active theme.
+- `designsystem/src/test/.../ColorSchemeTest.kt` — rewritten to property-based
+  contrast assertions; `NubecitaThemeTest.kt` and `NubecitaLogoScreenshotTest.kt` —
+  updated expected values.
 
 **Documentation and references**
 
@@ -107,16 +112,22 @@ None. This change modifies existing behavior rather than introducing a capabilit
 
 **Screenshot baselines**
 
-All 1,147 committed baselines change, across `:designsystem` (241) and nine
-`:feature:*:impl` modules. This inverts the standing repo rule against committing
+All 1,147 committed baselines change, across 20 modules — `:designsystem` (241),
+`:app` (22), `:core:image` (2), and 17 `:feature:*` modules, five of which are
+flavored and need the `productionDebug`-qualified task. This inverts the standing repo rule against committing
 a whole-module regeneration: here every baseline legitimately changes, and the
 risk is the opposite one — a baseline that silently pins the old accent would read
 as a pass.
 
 **Not affected**
 
-`:app`, every `:core:*` module, the launcher icon and splash resources, the
-dynamic-color code path, and `NubecitaSemanticColors`.
+Every `:core:*` module, the launcher icon and splash *resources*
+(`app/res/values/colors.xml`, `themes.xml`, `ic_launcher_background.xml` all keep
+`#0A7AFF` unchanged), the dynamic-color code path, and `NubecitaSemanticColors`.
+
+Note that `:app` and `:feature:onboarding:impl` **are** touched, for the logomark
+tint only — not for theme color. An earlier draft listed `:app` here on the
+assumption that no code outside `:designsystem` referenced the palette.
 
 **Baseline deviation**
 

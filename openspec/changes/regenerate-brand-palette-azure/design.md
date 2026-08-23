@@ -127,6 +127,14 @@ rather than a uniform ~4-tone stride) so each depth tier stays separable. The sp
 requires a minimum 3-tone gap between adjacent tiers so this cannot silently
 regress.
 
+That 3-tone rule applies to the *usable* depth ramp — `surface` through
+`surfaceContainerHighest`. `surfaceContainerLowest` sits 2 tones below `surface`
+and is deliberately exempt: it is one of the three reserved tokens that
+`docs/design-system/surface-roles.md` forbids outside design-system internals, so
+it is never rendered adjacent to `surface` and the gap carries no legibility
+consequence. Widening it would push `surface` up to tone 4 and give back part of
+the power saving that motivates D4.
+
 The semantic accents were re-measured against the new `#090B0E` surface and all
 clear 7.44:1 or better, so no retuning is needed.
 
@@ -208,10 +216,13 @@ Users who prefer a brighter accent have `AppTheme.Dynamic`, which is the default
 states the deviation and its rationale explicitly, and records that the previous
 value was already spec-compliant, so a future reviewer cannot mistake it for a bug.
 
-**Dark `primary` and `secondary` are the same tone, so accent separation is
-hue-only** → Structural to Material 3, not to this palette. Mitigated by the
-adjacency requirement, which forbids the one composition where it becomes
-invisible. Not fully solvable within the M3 role model.
+**All three accent families share a tonal stop per role, so container fills
+separate only by hue** → Structural to Material 3, not to this palette: every
+pairing of `primaryContainer` / `secondaryContainer` / `tertiaryContainer` measures
+~1:1 in both modes, and no choice of brand hues fixes it. Mitigated by the
+adjacency requirement, which forbids the compositions where it becomes invisible
+and mandates a filled-plus-container pairing (~5:1) instead. Not fully solvable
+within the M3 role model.
 
 **The change is invisible to most users** → Accepted. `Dynamic` is the default and
 stays untouched by choice. The value is in the accessibility fix, the identity in
