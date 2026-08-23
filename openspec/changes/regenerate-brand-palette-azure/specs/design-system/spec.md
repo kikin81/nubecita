@@ -234,7 +234,51 @@ weaken that signal.
 #### Scenario: Brand hue is no longer the Bluesky accent
 
 - **WHEN** the light `ColorScheme` is instantiated
-- **THEN** `MaterialTheme.colorScheme.primary` SHALL NOT equal `Color(0xFF0A7AFF)`, which remains reserved for the launcher icon and splash background only.
+- **THEN** `MaterialTheme.colorScheme.primary` SHALL NOT equal `Color(0xFF0A7AFF)`, which is reserved for the fixed identity surfaces enumerated in the `LauncherBlue` requirement below.
+
+### Requirement: The brand identity blue is a fixed constant, separate from the primary ramp
+
+`#0A7AFF` MUST be exposed as `NubecitaPalette.LauncherBlue`, a fixed brand
+constant that is NOT a tonal-ramp stop and NOT derived from any `ColorScheme`.
+Every surface that carries the brand identity — as opposed to the active accent —
+MUST source its color from it:
+
+- the logomark's stroke accents in `LogoImageVector`
+- the in-app splash placeholder logomark, which must keep matching the system
+  splash window background it hands off from
+- the launcher icon and `windowSplashScreenBackground`, via the
+  `brand_sky_blue` resource holding the same literal
+
+Before this change these surfaces referenced `NubecitaPalette.Sky50`, which held
+`#0A7AFF` only by coincidence of the old ramp. Regenerating the ramp moves tone 50
+to a different blue, so the identity role MUST NOT remain attached to a ramp stop.
+`LauncherBlue` follows the precedent of `VerifiedBlue`: a deliberately
+theme-detached constant, unaffected by light/dark, contrast level, or dynamic color.
+
+In-app chrome that merely displays the mark — such as the onboarding logomark —
+MUST NOT use `LauncherBlue`, and SHALL take `NubecitaLogomark`'s default tint of
+`MaterialTheme.colorScheme.primary` so it follows the active theme, including
+wallpaper-derived color under `AppTheme.Dynamic`.
+
+#### Scenario: Identity blue survives a palette regeneration
+
+- **WHEN** the brand tonal palette is regenerated to new HCT coordinates
+- **THEN** `NubecitaPalette.LauncherBlue` SHALL still equal `Color(0xFF0A7AFF)`, and SHALL equal the `brand_sky_blue` resource value used by the launcher icon and system splash.
+
+#### Scenario: The identity blue is not a ramp stop
+
+- **WHEN** the Sky tonal ramp is regenerated
+- **THEN** no identity surface SHALL reference `NubecitaPalette.Sky50`, and `Sky50` SHALL carry no identity meaning — it is an ordinary stop whose value follows the ramp.
+
+#### Scenario: In-app splash placeholder matches the system splash
+
+- **WHEN** the system splash hands off to the `Splash` route
+- **THEN** the placeholder logomark SHALL render in `LauncherBlue`, producing no visible color change across the handoff.
+
+#### Scenario: Onboarding logomark follows the theme
+
+- **WHEN** the onboarding screen is composed under `AppTheme.Dynamic` on an Android 12+ device
+- **THEN** its logomark SHALL render in the wallpaper-derived `MaterialTheme.colorScheme.primary`, NOT in `LauncherBlue`.
 
 ### Requirement: `:designsystem` provides a `NubecitaLogomark` composable
 
@@ -243,9 +287,16 @@ weaken that signal.
 The vector drawable SHALL be a single-color rendering of the cloud silhouette ported from `openspec/references/design-system/assets/logomark-mono.svg` — 3 circles + 1 rounded rect, all with `android:fillColor="#FFFFFFFF"`. The composable SHALL apply `ColorFilter.tint(tint)` so the rendered color matches the `tint` parameter. The default tint of `MaterialTheme.colorScheme.primary` resolves to brand Sky-40 (`#0061A6`) under the static palette and to the user's wallpaper-derived primary under dynamic color.
 
 The logomark's default tint therefore differs from the launcher icon and splash
-background, which remain `#0A7AFF`. This is intentional: the launcher blue is a
-fixed identity mark, in the same way `VerifiedBlue` is deliberately detached from
-the theme, while the in-app logomark follows the active accent.
+background, which remain `#0A7AFF` via `NubecitaPalette.LauncherBlue`. This is
+intentional: the identity blue is fixed, in the same way `VerifiedBlue` is
+deliberately detached from the theme, while the in-app logomark follows the active
+accent.
+
+Call sites choose between the two explicitly. A caller rendering the mark as
+**brand identity** — the in-app splash placeholder — passes
+`tint = NubecitaPalette.LauncherBlue`. A caller rendering it as **in-app chrome** —
+the onboarding screen — passes no tint and takes the theme default. No call site
+may pass a tonal-ramp stop such as `Sky50` to express either meaning.
 
 The composable SHALL set `contentDescription = stringResource(R.string.logomark_content_description)` (value: `"Nubecita"`) so screen readers announce the brand name when the mark is used as the sole content of a tappable container.
 

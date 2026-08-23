@@ -9,11 +9,20 @@ based on the resolved `AppTheme` and the OS contrast setting.
 
 Two properties of the current state shape this design:
 
-**The palette is genuinely the single source of truth.** No production source file
-outside `:designsystem` contains a raw `Color(0x…)` literal, and only two files
-(`app/Navigation.kt`, `feature/onboarding/impl/OnboardingScreen.kt`) reference
-`NubecitaPalette` by name. Changing the palette therefore requires no feature-code
-edits at all.
+**The palette is the single source of truth for theme color, but not only for
+theme color.** No production source file outside `:designsystem` contains a raw
+`Color(0x…)` literal, which is what makes a palette swap tractable. It does not
+follow that the swap is edit-free: `NubecitaPalette.Sky50` is referenced from
+seven non-test sites, and every one of them means *brand identity blue* rather
+than *the tone-50 stop of the primary ramp* — the logomark's stroke accents in
+`LogoImageVector.kt`, its previews in `NubecitaLogo.kt`, the in-app splash
+placeholder in `app/Navigation.kt`, and the onboarding logomark in
+`OnboardingScreen.kt`.
+
+Those two meanings are currently the same constant by coincidence, and this change
+separates them (D8). An earlier draft of this document claimed the change required
+no feature-code edits at all; that was wrong, and acting on it would have either
+broken compilation in three modules or silently repainted the brand mark.
 
 **The palette is mostly invisible.** `AppTheme.Dynamic` is the default, and on
 API 31+ it takes `dynamicLightColorScheme` / `dynamicDarkColorScheme` wholesale.
@@ -153,6 +162,35 @@ noise to separate from signal, and the triage script has nothing to triage. The
 risk moves to the opposite failure — a baseline that silently retains the old
 accent would read as a pass. The tasks therefore include an explicit verification
 that the regenerated PNGs contain the new primary and not the old one.
+
+### D8 — Split "brand identity blue" from "the tone-50 stop" into `LauncherBlue`
+
+`#0A7AFF` currently plays two unrelated roles that happen to share a constant:
+it is the primary ramp's tone-50 stop, *and* it is the brand identity blue —
+the launcher icon, the system splash background, the in-app splash placeholder,
+and the logomark's stroke accents.
+
+Regenerating the ramp breaks that coincidence. Tone 50 of the new Sky ramp is
+`#007ACF`; leaving the identity sites pointed at `Sky50` would silently repaint
+the brand mark, and deleting `Sky50` as an apparently unused stop would break
+compilation in `:app`, `:feature:onboarding:impl` and `:designsystem`.
+
+A new fixed constant `NubecitaPalette.LauncherBlue = Color(0xFF0A7AFF)` takes the
+identity role, and every identity site is repointed at it. This follows the
+precedent already set by `VerifiedBlue`, which is documented as a deliberately
+theme-detached platform signal. After the split, `Sky50` is an ordinary ramp stop
+with no identity meaning, and the identity blue has exactly one Kotlin definition
+plus its resource twin in `app/res/values/colors.xml`.
+
+*Alternative considered: keep the identity sites on `Sky50` and pin the new Sky
+ramp so that tone 50 lands on `#0A7AFF`.* Rejected — it would constrain the whole
+primary ramp to preserve one legacy value, reintroducing the tone-50 accent that
+caused the accessibility defect.
+
+The onboarding logomark is deliberately excluded from the repoint and instead
+drops its override to take the theme's `primary`. It renders after the splash
+handoff as ordinary in-app chrome, so pinning it to a constant also defeats
+wallpaper-derived color under `AppTheme.Dynamic` — the default theme.
 
 ## Risks / Trade-offs
 
