@@ -22,10 +22,19 @@ on Android 11 and earlier. This bounds the user-visible impact of the change and
 also bounds the value of investing in it — but the palette remains the app's
 identity in screenshots, in `@Preview`, and for anyone who opts out of Material You.
 
-The trigger is an accessibility defect. Light `primary` sits at tonal stop 50
-(`#0A7AFF`), where Material 3 specifies stop 40. Measured against the light
-surface it yields 3.92:1 as text and 4.01:1 as a filled button with a white label,
-both under the 4.5:1 AA minimum. `Peach50` fails the same way at 3.81:1.
+The trigger is an accessibility defect. The light accents sit at tonal stop 50 —
+`Sky50` (`#0A7AFF`) and `Peach50` (`#C06C00`) — where Material 3 specifies stop 40.
+Four pairs fall under the 4.5:1 AA minimum, and the pattern is symmetric across the
+two accent families: each fails both as a filled button with a white label
+(`primary`/`onPrimary` 4.01:1, `secondary`/`onSecondary` 3.90:1) and as a
+foreground on the light surface (`surface`/`primary` 3.92:1, `surface`/`secondary`
+3.81:1). Dark mode has no failing pair.
+
+The accent-on-surface half of that set is easy to miss: a contrast audit that
+checks only `on*` roles against their own containers catches two of the four and
+reports the palette as merely marginal rather than broken. The requirement in
+`specs/design-system/spec.md` therefore names the accent-as-foreground pairs
+explicitly.
 
 ## Goals / Non-Goals
 

@@ -17,9 +17,15 @@ Every foreground/background pair reachable through `MaterialTheme.colorScheme` i
 any of the six schemes MUST meet WCAG 2.1 AA: at least **4.5:1** for text-bearing
 pairs and at least **3:1** for `outline` against its surface.
 
-This requirement exists because the palette it replaces assigned light `primary`
-to tonal stop 50, which measured 3.92:1 as text on the light surface and 4.01:1
-as a filled button with a white label — both below the 4.5:1 minimum.
+This requirement exists because the palette it replaces assigned the light accents
+to tonal stop 50, producing four failing pairs: `primary`/`onPrimary` at 4.01:1,
+`secondary`/`onSecondary` at 3.90:1, `surface`/`primary` at 3.92:1 and
+`surface`/`secondary` at 3.81:1 — all below the 4.5:1 minimum.
+
+The accent-as-foreground-on-surface pairs are named explicitly below because they
+are two of those four failures. A pair set covering only `on*` roles against their
+own containers would miss them, and so would miss half the defect this requirement
+exists to prevent.
 
 Conformance MUST be enforced by a test that asserts the contrast property across
 all six schemes, rather than by asserting individual hex values. A test that pins
@@ -29,7 +35,12 @@ palette edit.
 #### Scenario: Every on/container pair meets AA
 
 - **WHEN** any of the six `ColorScheme`s is instantiated
-- **THEN** each of the pairs `primary`/`onPrimary`, `primaryContainer`/`onPrimaryContainer`, `secondary`/`onSecondary`, `secondaryContainer`/`onSecondaryContainer`, `tertiary`/`onTertiary`, `tertiaryContainer`/`onTertiaryContainer`, `surface`/`onSurface`, `surface`/`onSurfaceVariant`, and every `surfaceContainer*`/`onSurface` pair SHALL have a WCAG 2.1 contrast ratio of at least 4.5:1.
+- **THEN** each of the pairs `primary`/`onPrimary`, `primaryContainer`/`onPrimaryContainer`, `secondary`/`onSecondary`, `secondaryContainer`/`onSecondaryContainer`, `tertiary`/`onTertiary`, `tertiaryContainer`/`onTertiaryContainer`, `surface`/`onSurface`, `surface`/`onSurfaceVariant`, `inverseSurface`/`inverseOnSurface`, `inverseSurface`/`inversePrimary`, and every `surfaceContainer*`/`onSurface` pair SHALL have a WCAG 2.1 contrast ratio of at least 4.5:1.
+
+#### Scenario: Accents are legible as foreground on the surface
+
+- **WHEN** any of the six `ColorScheme`s is instantiated
+- **THEN** each of `primary`, `secondary` and `tertiary` used as a foreground against `surface` SHALL have a WCAG 2.1 contrast ratio of at least 4.5:1, covering the accent-as-text and accent-as-icon usage that carries two of the four defects this requirement replaces.
 
 #### Scenario: Outline meets the non-text threshold
 

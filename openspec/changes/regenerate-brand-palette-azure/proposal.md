@@ -4,20 +4,23 @@ Tracked as bd `nubecita-bvff`.
 
 ## Why
 
-Text and controls painted in the brand accent are hard to read in light mode. Three
+Text and controls painted in the brand accent are hard to read in light mode. Four
 pairs in the shipping light theme fall below the WCAG AA 4.5:1 minimum for normal
-text — including a filled button whose white label sits at 4.01:1 on its own
-background:
+text — including both filled buttons, whose white labels sit at 4.01:1 and 3.90:1
+on their own backgrounds:
 
 | Pair | Measured | Required |
 | --- | --- | --- |
-| `Sky50` primary as text/icon on light `surface` | 3.92:1 | 4.5:1 |
 | `Sky50` filled button with white label | 4.01:1 | 4.5:1 |
-| `Peach50` secondary on light `surface` | 3.81:1 | 4.5:1 |
+| `Sky50` primary as text/icon on light `surface` | 3.92:1 | 4.5:1 |
+| `Peach50` filled button with white label | 3.90:1 | 4.5:1 |
+| `Peach50` secondary as text/icon on light `surface` | 3.81:1 | 4.5:1 |
 
-The cause is a single deviation: light `primary` is assigned tonal stop **50**
+The cause is a single deviation: the light accents are assigned tonal stop **50**
 where Material 3 specifies tonal stop **40**. Tone 50 is simply too light to carry
 white text or to serve as body-weight text on a near-white surface.
+
+No pair fails in dark mode; the defect is confined to the light theme.
 
 Fixing the tone necessarily changes the accent's appearance, so the accessibility
 fix and the palette refresh are the same change rather than two. That makes this
