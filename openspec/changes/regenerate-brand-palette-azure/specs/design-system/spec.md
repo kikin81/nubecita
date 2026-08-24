@@ -143,7 +143,7 @@ added.
 #### Scenario: Adjacent fills are separable regardless of which pairing is chosen
 
 - **WHEN** any two accent affordances are rendered adjacent to one another
-- **THEN** their fill colours SHALL have a WCAG 2.1 contrast ratio of at least 3:1 against each other, which is the property the pairing rule exists to guarantee.
+- **THEN** their fill colors SHALL have a WCAG 2.1 contrast ratio of at least 3:1 against each other, which is the property the pairing rule exists to guarantee.
 
 ### Requirement: `tertiary` is reserved for auxiliary, non-critical surfaces
 
@@ -328,13 +328,13 @@ wallpaper-derived color under `AppTheme.Dynamic`.
 
 `:designsystem/component/NubecitaLogo.kt` SHALL expose a public `@Composable fun NubecitaLogomark(modifier: Modifier = Modifier, tint: Color = Color.Unspecified)` that renders the brand cloud mark with bow (no wordmark), backed by `LogoImageVector` — a Compose `ImageVector` port of the mark, held in `:designsystem/component/LogoImageVector.kt`. Its intrinsic size SHALL be 72dp × 72dp.
 
-The mark SHALL be multi-colour by default: a white cloud body, a pink bow
+The mark SHALL be multi-color by default: a white cloud body, a pink bow
 (`#F7AAC9` / `#E36DA0`), and two identity-blue stroke accents sourced from
 `NubecitaPalette.LauncherBlue`.
 
 The `tint` parameter SHALL be honoured only when specified: the composable SHALL
-apply `ColorFilter.tint(tint)` when `tint.isSpecified` and SHALL apply no colour
-filter otherwise. `Color.Unspecified` therefore means "render multi-colour", which
+apply `ColorFilter.tint(tint)` when `tint.isSpecified` and SHALL apply no color
+filter otherwise. `Color.Unspecified` therefore means "render multi-color", which
 is legible only against a contrasting or branded background. Against a
 low-contrast surface — notably the near-white light theme background — a caller
 MUST pass an explicit `tint`, or the white cloud body renders invisible.
@@ -344,15 +344,15 @@ Call sites choose the tint by what the mark *means* at that site:
 | Site | Tint | Why |
 | --- | --- | --- |
 | In-app splash placeholder | `NubecitaPalette.LauncherBlue` | Brand identity; must match the system splash background it hands off from |
-| In-app chrome (e.g. onboarding) | `MaterialTheme.colorScheme.primary` | Follows the active theme, including wallpaper-derived colour under `AppTheme.Dynamic` |
-| Branded/contrasting background | omit (multi-colour) | The full mark is legible there |
+| In-app chrome (e.g. onboarding) | `MaterialTheme.colorScheme.primary` | Follows the active theme, including wallpaper-derived color under `AppTheme.Dynamic` |
+| Branded/contrasting background | omit (multi-color) | The full mark is legible there |
 
 No call site may pass a tonal-ramp stop such as `Sky50` to express either meaning:
 after this change `Sky50` is an ordinary ramp stop whose value follows the ramp.
 
 This requirement replaces a stale description. The previous text specified a
 default tint of `MaterialTheme.colorScheme.primary`, a backing
-`nubecita_logomark.xml` vector drawable, and a single-colour silhouette with every
+`nubecita_logomark.xml` vector drawable, and a single-color silhouette with every
 path at `#FFFFFFFF`. None of the three matches the implementation, and no
 `nubecita_logomark.xml` exists in the repository.
 
@@ -363,7 +363,7 @@ The intrinsic aspect of the underlying vector SHALL be 1:1 (square). Callers con
 #### Scenario: Logomark renders with default tint under static palette
 
 - **WHEN** `NubecitaTheme(dynamicColor = false) { NubecitaLogomark(modifier = Modifier.size(96.dp)) }` is composed
-- **THEN** a 96dp × 96dp mark SHALL render with no `ColorFilter` applied — white cloud body, pink bow, and `LauncherBlue` stroke accents — because the default `tint` is `Color.Unspecified`, NOT a theme-derived colour.
+- **THEN** a 96dp × 96dp mark SHALL render with no `ColorFilter` applied — white cloud body, pink bow, and `LauncherBlue` stroke accents — because the default `tint` is `Color.Unspecified`, NOT a theme-derived color.
 
 #### Scenario: Logomark accepts a custom tint
 
@@ -373,7 +373,7 @@ The intrinsic aspect of the underlying vector SHALL be 1:1 (square). Callers con
 #### Scenario: In-app chrome tints the mark to the active accent
 
 - **WHEN** `NubecitaLogomark(tint = MaterialTheme.colorScheme.primary)` is composed under `NubecitaTheme(dynamicColor = false)` in light mode
-- **THEN** the mark SHALL collapse to brand Sky-40 (`#0061A6`), remaining legible against the near-white light surface where the untinted multi-colour rendering would not be.
+- **THEN** the mark SHALL collapse to brand Sky-40 (`#0061A6`), remaining legible against the near-white light surface where the untinted multi-color rendering would not be.
 
 #### Scenario: Logomark exposes its accessible label
 
