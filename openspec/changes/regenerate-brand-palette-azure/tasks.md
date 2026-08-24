@@ -50,15 +50,24 @@ macOS even on a clean tree — CI's `screenshot` job is the authority.
 - [ ] 4.4 Verify the regeneration actually took: scan the committed PNGs for the new accent `#0061A6` (light) / `#A0C9FF` (dark). A module whose baselines contain neither did not regenerate and would read as a false pass (design D7). Record the per-module result in the PR body. **Do NOT treat the presence of `#0A7AFF` as the failure signal** — after task 2.2 that blue legitimately survives as `LauncherBlue` in the logomark and splash-placeholder baselines, so it is expected in `:designsystem` and `:app` and its absence there is the actual regression.
 - [ ] 4.5 Confirm the total changed-file count is ~1147 PNGs. A materially lower number means a module was missed — unlike an ordinary change, here *every* baseline is expected to move.
 
+## 3b. Route like/repost through the semantic accents (found by the device pass)
+
+- [ ] 3b.1 `PostCard`'s like action used `colorScheme.secondary` and its repost action (both branches) used `colorScheme.tertiary`; `PostStat`'s preview and `VideoPageChrome`'s rail did the same. The dedicated `likeAccent` / `repostAccent` tokens were reachable only from `NotificationReasonIcon` and the paywall. Point all six sites at `MaterialTheme.semanticColors.likeAccent` / `repostAccent`. Bookmark stays on `primary` — a private toggle, no rule violated.
+- [ ] 3b.2 Note this was invisible to the 1054 green baselines: a regenerated baseline records whatever colour renders, so a like turning from Peach orange to Lagoon teal reads as a successful update. Only the on-device pass surfaced it.
+- [ ] 3b.3 Repost on `colorScheme.tertiary` also violated the **tertiary-is-auxiliary** requirement added by this very change. Task 3.3's audit checked `primaryContainer` adjacency only and never audited existing code against the tertiary rule — widen any future audit to cover every rule the change introduces, not just the one that prompted it.
+- [ ] 3b.4 Update the `likeAccent` / `repostAccent` KDoc in `Tokens.kt`: both said "any future PostCard like-button variants", which would have read as permission to keep using the brand accents. Also drop the stale "colorScheme.tertiary is lilac" — it is Orchid now.
+- [ ] 3b.5 Regenerate the affected baselines (49 files) and confirm `likeAccent` / `repostAccent` are present and the old Lagoon/Orchid accents are gone.
+- [ ] 3b.6 **Follow-up, deliberately NOT done here:** `ComposerCharacterCounter.kt:72` uses `colorScheme.tertiary` for the approaching-limit warning, which also arguably depends on being noticed and would fit the `warning` semantic token better. Out of scope for a palette change — raise as its own bd issue.
+
 ## 5. Verification
 
 - [ ] 5.1 `./gradlew :app:assembleDebug`
 - [ ] 5.2 `./gradlew jacocoTestReportAggregated` — the root `testDebugUnitTest` task skips flavored modules, so it is not sufficient here.
-- [ ] 5.3 `./gradlew spotlessCheck lint :app:checkSortDependencies` plus `:designsystem:lintDebug`.
+- [ ] 5.3 `./gradlew spotlessCheck` plus the **root** `checkSortDependencies` — the `:app:`-scoped task is per-module and misses every other module, so it is not the gate CI runs. Lint the touched modules with the right flavor names: `:designsystem:lintDebug` and `:feature:onboarding:impl:lintDebug` (unflavored), `:app:lintProductionDebug` and `:feature:chats:impl:lintProductionDebug` (flavored — `:app` included, see 4.1).
 - [ ] 5.4 Compile the bench variant — `./gradlew :app:assembleBenchDebug` — since five baseline modules are flavored.
 - [ ] 5.5 Device pass on the physical foldable using the bench flavor: install, switch Settings → Appearance to Light, screenshot; switch to Dark, screenshot; confirm the deep dark surface and that no control is illegible. Confirm the persisted theme change actually took in each screenshot rather than assuming the tap landed.
 - [ ] 5.6 Confirm the launcher icon and splash still render `#0A7AFF` and were not touched.
-- [ ] 5.7 Run the `compose-expert` skill against the diff (it adds no `@Composable` lines, so this is likely a no-op — record that rather than skipping silently).
+- [ ] 5.7 Compose review gate: `git diff origin/main...HEAD -- '*.kt' | grep -E '^\+' | grep -c '@Composable'` returns **0**, so the gate says skip and module lint covers Compose rules. Record the result rather than skipping silently. (compose-expert was run earlier against the *design*, where it found the twelve fixed accent roles sitting on Material baseline purple — see D9.)
 
 ## 6. Land
 
