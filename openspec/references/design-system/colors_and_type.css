@@ -10,65 +10,80 @@
    LIGHT THEME  — default
    ============================================================ */
 :root {
-  /* -----  M3 tonal palette (Nubecita key: Sky)  ----- */
-  --sky-0:    #000D1F;
-  --sky-10:   #001B33;
-  --sky-20:   #003155;
-  --sky-30:   #004880;
-  --sky-40:   #0062B1;
-  --sky-50:   #0A7AFF;   /* PRIMARY (M3 key color) */
-  --sky-60:   #3F92FF;
-  --sky-70:   #6FAAFF;
-  --sky-80:   #A6C8FF;
-  --sky-90:   #D6E3FF;
-  --sky-95:   #EBF1FF;
-  --sky-98:   #F7F9FF;
+  /* -----  M3 tonal palette (Nubecita key: Sky) — HCT hue 255, chroma 72  ----- */
+  --sky-0:    #000000;
+  --sky-10:   #001C37;
+  --sky-20:   #003259;
+  --sky-30:   #00497F;
+  --sky-40:   #0061A6;   /* PRIMARY (M3 key color) */
+  --sky-50:   #007ACF;
+  --sky-60:   #0094FA;
+  --sky-70:   #67AFFF;
+  --sky-80:   #A0C9FF;
+  --sky-90:   #D2E4FF;
+  --sky-95:   #EAF1FF;
+  --sky-98:   #F8F9FF;
   --sky-99:   #FDFCFF;
   --sky-100:  #FFFFFF;
 
-  /* -----  Secondary (Peach — the warm counterweight)  ----- */
-  --peach-0:   #2B1100;
-  --peach-10:  #3E1C00;
-  --peach-20:  #5B2D00;
-  --peach-30:  #7B4100;
-  --peach-40:  #9C5600;
-  --peach-50:  #C06C00;
-  --peach-60:  #E38412;
-  --peach-70:  #FFA04D;
-  --peach-80:  #FFB787;
-  --peach-90:  #FFDCC2;
-  --peach-95:  #FFEDE0;
-  --peach-98:  #FFF8F4;
+  /* The brand identity blue. NOT a ramp stop — the launcher icon, system splash,
+     in-app splash placeholder and logomark stroke accents. Held #0A7AFF when the
+     primary moved to --sky-40, so the home-screen mark does not shift. */
+  --launcher-blue: #0A7AFF;
 
-  /* -----  Tertiary (Lilac — the soft third accent)  ----- */
-  --lilac-30:  #4A3880;
-  --lilac-40:  #6250B0;
-  --lilac-50:  #7B6AD0;
-  --lilac-70:  #B5A8F0;
-  --lilac-90:  #E5DEFF;
-  --lilac-95:  #F3EFFF;
+  /* -----  Secondary (Lagoon — the cool counterweight) — HCT hue 215, chroma 40  ----- */
+  --lagoon-0:   #000000;
+  --lagoon-10:  #001F25;
+  --lagoon-20:  #00363F;
+  --lagoon-30:  #004E5B;
+  --lagoon-40:  #006878;
+  --lagoon-50:  #098396;
+  --lagoon-60:  #399DB1;
+  --lagoon-70:  #59B8CD;
+  --lagoon-80:  #76D4E9;
+  --lagoon-90:  #A7EDFF;
+  --lagoon-95:  #D6F6FF;
+  --lagoon-98:  #F0FBFF;
+  --lagoon-99:  #F8FDFF;
+  --lagoon-100: #FFFFFF;
+
+  /* -----  Tertiary (Orchid — auxiliary accent only) — HCT hue 318, chroma 45  ----- */
+  --orchid-0:   #000000;
+  --orchid-10:  #310049;
+  --orchid-20:  #481B60;
+  --orchid-30:  #613379;
+  --orchid-40:  #7A4B92;
+  --orchid-50:  #9564AD;
+  --orchid-60:  #B07DC9;
+  --orchid-70:  #CC97E5;
+  --orchid-80:  #E8B3FF;
+  --orchid-90:  #F6D9FF;
+  --orchid-95:  #FDEBFF;
+  --orchid-98:  #FFF7FC;
+  --orchid-99:  #FFFBFF;
+  --orchid-100: #FFFFFF;
 
   /* -----  Neutral  ----- */
   --neutral-0:    #000000;
-  --neutral-10:   #1A1B1F;
-  --neutral-20:   #2E2F33;
-  --neutral-30:   #45464A;
-  --neutral-40:   #5D5E62;
-  --neutral-50:   #76777B;
-  --neutral-60:   #909094;
-  --neutral-70:   #AAAAAE;
-  --neutral-80:   #C6C6CA;
-  --neutral-90:   #E2E2E6;
-  --neutral-95:   #F0F0F4;
-  --neutral-98:   #F8F9FC;
-  --neutral-99:   #FCFCFF;
+  --neutral-10:   #191C1F;
+  --neutral-20:   #2E3034;
+  --neutral-30:   #45474B;
+  --neutral-40:   #5D5E63;
+  --neutral-50:   #75777B;
+  --neutral-60:   #8F9095;
+  --neutral-70:   #AAABB0;
+  --neutral-80:   #C5C6CB;
+  --neutral-90:   #E2E2E7;
+  --neutral-95:   #F0F0F5;
+  --neutral-98:   #F9F9FE;
+  --neutral-99:   #FDFCFF;
   --neutral-100:  #FFFFFF;
 
   /* -----  Neutral-variant (for outlines + low-emphasis)  ----- */
-  --nv-30:  #43474E;
-  --nv-50:  #73777F;
-  --nv-80:  #C3C7CF;
-  --nv-90:  #DFE2EB;
+  --nv-30:  #41474F;
+  --nv-50:  #727880;
+  --nv-80:  #C1C7D0;
+  --nv-90:  #DDE3EC;
 
   /* -----  Semantic (M3 "error" + Nubecita-specific)  ----- */
   --error-40:    #BA1A1A;
@@ -87,20 +102,20 @@
   /* ============================================================
      SEMANTIC ROLES — light mode
      ============================================================ */
-  --primary:            var(--sky-50);
+  --primary:            var(--sky-40);
   --on-primary:         var(--sky-100);
   --primary-container:  var(--sky-90);
   --on-primary-container: var(--sky-10);
 
-  --secondary:          var(--peach-50);
-  --on-secondary:       #FFFFFF;
-  --secondary-container: var(--peach-90);
-  --on-secondary-container: var(--peach-10);
+  --secondary:          var(--lagoon-40);
+  --on-secondary:       var(--lagoon-100);
+  --secondary-container: var(--lagoon-90);
+  --on-secondary-container: var(--lagoon-10);
 
-  --tertiary:           var(--lilac-40);
-  --on-tertiary:        #FFFFFF;
-  --tertiary-container: var(--lilac-90);
-  --on-tertiary-container: var(--lilac-30);
+  --tertiary:           var(--orchid-40);
+  --on-tertiary:        var(--orchid-100);
+  --tertiary-container: var(--orchid-90);
+  --on-tertiary-container: var(--orchid-10);
 
   --error:              var(--error-40);
   --on-error:           #FFFFFF;
@@ -108,18 +123,18 @@
   --on-error-container: #410002;
 
   /* Surfaces (M3 Expressive uses many tonal surfaces) */
-  --surface:            #FDFCFF;
+  --surface:            var(--neutral-99);
   --on-surface:         var(--neutral-10);
   --on-surface-variant: var(--nv-30);
 
-  --surface-dim:        #DEDCE0;
-  --surface-bright:     #FDFCFF;
+  --surface-dim:        #D9DADF;
+  --surface-bright:     var(--neutral-99);
 
-  --surface-container-lowest: #FFFFFF;
-  --surface-container-low:    #F7F5FA;
-  --surface-container:        #F1EFF4;
-  --surface-container-high:   #EBE9EE;
-  --surface-container-highest:#E5E3E9;
+  --surface-container-lowest: var(--neutral-100);
+  --surface-container-low:    #F3F3F8;
+  --surface-container:        #EDEDF2;
+  --surface-container-high:   #E7E8ED;
+  --surface-container-highest:var(--neutral-90);
 
   /* Foregrounds (shortcuts) */
   --fg-1:  var(--neutral-10);   /* primary text */
@@ -132,10 +147,10 @@
   --outline-variant: var(--nv-80);
 
   /* Scrim + overlays */
-  --scrim: rgba(0, 13, 31, 0.5);
-  --state-hover:  rgba(10, 122, 255, 0.08);
-  --state-focus:  rgba(10, 122, 255, 0.12);
-  --state-press:  rgba(10, 122, 255, 0.12);
+  --scrim: rgba(0, 0, 0, 0.5);
+  --state-hover:  rgba(0, 97, 166, 0.08);
+  --state-focus:  rgba(0, 97, 166, 0.12);
+  --state-press:  rgba(0, 97, 166, 0.12);
 
   /* ============================================================
      SHAPE — M3 Expressive shape scale (more rounded than M3 base)
@@ -263,46 +278,49 @@
   --primary-container:  var(--sky-30);
   --on-primary-container: var(--sky-90);
 
-  --secondary:          var(--peach-80);
-  --on-secondary:       var(--peach-20);
-  --secondary-container: var(--peach-30);
-  --on-secondary-container: var(--peach-90);
+  --secondary:          var(--lagoon-80);
+  --on-secondary:       var(--lagoon-20);
+  --secondary-container: var(--lagoon-30);
+  --on-secondary-container: var(--lagoon-90);
 
-  --tertiary:           var(--lilac-70);
-  --on-tertiary:        var(--lilac-30);
-  --tertiary-container: var(--lilac-30);
-  --on-tertiary-container: var(--lilac-90);
+  --tertiary:           var(--orchid-80);
+  --on-tertiary:        var(--orchid-20);
+  --tertiary-container: var(--orchid-30);
+  --on-tertiary-container: var(--orchid-90);
 
   --error:              var(--error-80);
   --on-error:           #690005;
   --error-container:    #93000A;
   --on-error-container: var(--error-90);
 
-  --surface:            #111318;
-  --on-surface:         #E3E2E6;
+  /* Deep dark: surface at HCT tone 3, below M3's canonical tone 6, for OLED
+     power draw. Container steps widened (1/3/6/9/14/19/26) so the depth tiers
+     stay separable near black. Deliberate departure — do not "correct" to t6. */
+  --surface:            #090B0E;
+  --on-surface:         var(--neutral-90);
   --on-surface-variant: var(--nv-80);
 
-  --surface-dim:        #111318;
-  --surface-bright:     #37393E;
+  --surface-dim:        #090B0E;
+  --surface-bright:     #3C3E42;
 
-  --surface-container-lowest: #0C0E13;
-  --surface-container-low:    #191C20;
-  --surface-container:        #1D2024;
-  --surface-container-high:   #272A2F;
-  --surface-container-highest:#32353A;
+  --surface-container-lowest: #030406;
+  --surface-container-low:    #111317;
+  --surface-container:        #171A1D;
+  --surface-container-high:   #222427;
+  --surface-container-highest:#2C2E32;
 
-  --fg-1:  #E3E2E6;
+  --fg-1:  var(--neutral-90);
   --fg-2:  var(--nv-80);
   --fg-3:  var(--neutral-70);
-  --fg-inverse: var(--neutral-10);
+  --fg-inverse: var(--neutral-20);
 
-  --outline:         var(--nv-50);
+  --outline:         #8B919A;
   --outline-variant: var(--nv-30);
 
   --scrim: rgba(0, 0, 0, 0.6);
-  --state-hover:  rgba(166, 200, 255, 0.08);
-  --state-focus:  rgba(166, 200, 255, 0.12);
-  --state-press:  rgba(166, 200, 255, 0.12);
+  --state-hover:  rgba(160, 201, 255, 0.08);
+  --state-focus:  rgba(160, 201, 255, 0.12);
+  --state-press:  rgba(160, 201, 255, 0.12);
 
   --elev-1: 0 1px 2px rgba(0,0,0,0.30), 0 1px 3px rgba(0,0,0,0.30);
   --elev-2: 0 1px 2px rgba(0,0,0,0.30), 0 2px 6px rgba(0,0,0,0.35);

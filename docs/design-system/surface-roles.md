@@ -33,6 +33,60 @@ For in-layout content hierarchy (cards, embeds, rows), tonal elevation is **not*
 
 Every `Scaffold(` call must set `containerColor = MaterialTheme.colorScheme.surface` explicitly. This codifies that Scaffolds own the screen-canvas paint and prevents the silent `background` → `surface` slippage from M3's default. Every existing Scaffold was migrated as part of workstream 3; code review enforces the rule for new ones.
 
+## Accent roles: adjacency and usage
+
+Two rules govern the accent families (`primary` / `secondary` / `tertiary` and
+their containers). Both are measured constraints, not stylistic preferences, and
+both are enforced by code review — the same way the reserved `surfaceDim` /
+`surfaceBright` / `surfaceContainerLowest` tokens are. No lint rule exists.
+
+### Adjacent accent fills must pair across tiers
+
+Two accent affordances rendered next to each other must take exactly one **filled**
+role (`primary`, `secondary`, `tertiary`) and exactly one **container** role. Two
+filled roles together are forbidden; two container roles together are forbidden.
+
+Material 3 assigns all three accent families the *same tonal stop per tier* —
+filled at tone 40 light / 80 dark, containers at 90 / 30 — so any two roles from
+the same tier differ only in hue. Measured, every same-tier pairing collapses:
+
+| Same tier — forbidden | Light | Dark |
+|---|---|---|
+| `primary` / `secondary` | 1.00:1 | 1.01:1 |
+| `primary` / `tertiary` | 1.00:1 | 1.00:1 |
+| `secondary` / `tertiary` | 1.00:1 | 1.00:1 |
+| `primaryContainer` / `secondaryContainer` | 1.00:1 | 1.01:1 |
+| `primaryContainer` / `tertiaryContainer` | 1.00:1 | 1.00:1 |
+| `secondaryContainer` / `tertiaryContainer` | 1.01:1 | 1.01:1 |
+
+Hue-only separation disappears under deuteranopia and degrades on a
+cold-calibrated display. No choice of brand hues fixes it — the tones are
+identical by construction, so this is structural to M3 rather than specific to the
+Azure palette.
+
+Cross-tier pairings all separate acceptably, so which family carries the fill is a
+per-screen decision:
+
+| Cross tier — permitted | Light | Dark |
+|---|---|---|
+| `primary` / `secondaryContainer` | 4.97:1 | 5.49:1 |
+| `secondary` / `primaryContainer` | 5.01:1 | 5.47:1 |
+| `tertiary` / `secondaryContainer` | 4.99:1 | 5.50:1 |
+
+The Follow / Message button pair is the canonical example: `primary` + `onPrimary`
+beside `secondaryContainer` + `onSecondaryContainer`.
+
+### `tertiary` is reserved for auxiliary surfaces
+
+`tertiary` and `tertiaryContainer` carry decoration only — badges, mention chips,
+auxiliary tags. They must not carry a screen's primary action, its selection state,
+or any control whose meaning depends on being noticed.
+
+The constraint is quantitative: in the dark scheme `tertiary` carries HCT chroma
+**43** against `primary`'s **37**, making it the most saturated of the three
+families. Using it for load-bearing UI puts three competing accent hues inside a
+single post card.
+
 ## Where this lives
 
 - **Source of truth (this page)**: `docs/design-system/surface-roles.md`

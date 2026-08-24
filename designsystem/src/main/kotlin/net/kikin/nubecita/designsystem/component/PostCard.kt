@@ -332,7 +332,8 @@ private fun BodyText(
  * guard below, which matters more in a DM than in a post, since the facet comes
  * from whoever messaged you. Pass a [linkStyle] whose colour is legible against
  * the host's own background: `colorScheme.primary` fails AA on a
- * `primaryContainer` bubble (3.11:1 in the light scheme).
+ * `primaryContainer` bubble (4.99:1 in the light scheme since the Azure
+ * palette; it was 3.11:1 and below AA before, which is why this exists).
  */
 @Composable
 fun rememberTappableBlueskyAnnotatedString(
@@ -399,7 +400,8 @@ internal fun buildTappableBlueskyAnnotatedString(
                         // which paints the link `primary` and silently overrides the
                         // addStyle(linkStyle) above. On a tinted container that is an
                         // accessibility bug — primary on primaryContainer measures
-                        // 3.11:1 in the light scheme — so hosts with a coloured
+                        // 4.99:1 in the light scheme since the Azure palette, up from a
+                        // sub-AA 3.11:1 — so hosts with a coloured
                         // background must pass their own (nubecita-io24.2).
                         addLink(
                             LinkAnnotation.Clickable(tag = "link", styles = linkStyles) {

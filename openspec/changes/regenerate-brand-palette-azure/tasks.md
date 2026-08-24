@@ -9,7 +9,7 @@ Branch: `feat/nubecita-bvff-regenerate-brand-palette-azure`
 
 - [ ] 1.1 Rewrite `designsystem/src/test/kotlin/.../ColorSchemeTest.kt` to assert the contrast *property* rather than hex literals: a WCAG 2.1 helper, then a parameterised assertion over all six schemes. The asserted pair set MUST include, at ≥ 4.5:1: every `*Container`/`on*Container` and accent/`on*` pair; `surface`/`onSurface` and `surface`/`onSurfaceVariant`; every `surfaceContainer*`/`onSurface`; both `inverseSurface` pairs; and — critically — **`primary`, `secondary` and `tertiary` each as a foreground on `surface`**, which is where two of the four defects live. Plus `outline` vs `surface` at ≥ 3:1. **Test updated: `ColorSchemeTest`.**
 - [ ] 1.2 Run `./gradlew :designsystem:testDebugUnitTest --tests '*ColorSchemeTest*'` against the **unmodified** palette and confirm it FAILS on exactly these four pairs, all light-mode: `primary`/`onPrimary` (4.01:1), `secondary`/`onSecondary` (3.90:1), `surface`/`primary` (3.92:1), `surface`/`secondary` (3.81:1). Dark mode must show no failure. Paste the output into the PR body. A guard that passes before the fix proves nothing (see design D5); a guard that fails on a *different* set means the measurements in the spec are wrong and must be re-derived before the palette is touched — do not adjust the expectation to match.
-- [ ] 1.3 Add a `NubecitaSemanticColors` contrast case asserting `likeAccent`, `repostAccent`, `supporterAccent`, `success` and `warning` each clear 4.5:1 against dark `surface`. **Test added: `ColorSchemeTest.semanticAccentsMeetContrastOnDarkSurface`.**
+- [ ] 1.3 Widen `nubecitaSemanticColors` in `Theme.kt` from `private` to `internal` so it is reachable from the test source set, then add a `NubecitaSemanticColors` contrast case asserting `likeAccent`, `repostAccent`, `supporterAccent`, `success` and `warning` each clear 4.5:1 against dark `surface`. **Test added: `ColorSchemeTest.semanticAccentsMeetContrastOnDarkSurface`.**
 
 ## 2. Palette and color schemes
 
@@ -29,7 +29,7 @@ Branch: `feat/nubecita-bvff-regenerate-brand-palette-azure`
   All twelve clear AA against their partners (7.21:1 worst case). No M3 component reads these roles today, so this fixes a latent trap rather than a visible bug. **Test added: `ColorSchemeTest.fixedAccentRolesAreBrandDerived`.**
 - [ ] 2.11 Note the `scrim` side-effect: light `scrim` is `Sky0.copy(alpha = 0.5f)`, and the regenerated `Sky0` is `#000000` where today it is `#000D1F`. The light scrim therefore goes from navy-tinted to neutral black, converging with the dark scrim. Accept it (it is the correct tone-0 value) but record it so the baseline diff on every dialog/sheet screenshot is expected rather than surprising.
 - [ ] 2.12 Confirm `Theme.kt` needs no edit, and that `VerifiedBlue` (`#208BFE`) and every `NubecitaSemanticColors` constant are unchanged.
-- [ ] 2.13 Run `./gradlew :designsystem:testDebugUnitTest` — `ColorSchemeTest` must now PASS. **Tests updated: `ColorSchemeTest`, `NubecitaThemeTest`** (the latter's expected `primary` becomes `#0061A6` light / `#A0C9FF` dark).
+- [ ] 2.13 Run `./gradlew :designsystem:testDebugUnitTest` — `ColorSchemeTest` must now PASS. **Tests updated: `ColorSchemeTest`.** (`NubecitaThemeTest` needs no edit after all — verified it asserts spacing/elevation/shape tokens only, no brand hex. The earlier claim that its expected `primary` would change was wrong.)
 
 ## 3. Reference tokens and design-system docs
 
