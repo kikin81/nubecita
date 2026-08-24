@@ -1,0 +1,275 @@
+# Design — Regenerate the brand palette (Azure)
+
+## Context
+
+`:designsystem` owns the brand palette as a hand-maintained `NubecitaPalette`
+object of hex literals, from which six `ColorScheme`s are assembled: light and
+dark, each at standard, medium and high contrast. `Theme.kt` selects among them
+based on the resolved `AppTheme` and the OS contrast setting.
+
+Two properties of the current state shape this design:
+
+**The palette is the single source of truth for theme color, but not only for
+theme color.** No production source file outside `:designsystem` contains a raw
+`Color(0x…)` literal, which is what makes a palette swap tractable. It does not
+follow that the swap is edit-free: `NubecitaPalette.Sky50` is referenced from
+seven non-test sites, and every one of them means *brand identity blue* rather
+than *the tone-50 stop of the primary ramp* — the logomark's stroke accents in
+`LogoImageVector.kt`, its previews in `NubecitaLogo.kt`, the in-app splash
+placeholder in `app/Navigation.kt`, and the onboarding logomark in
+`OnboardingScreen.kt`.
+
+Those two meanings are currently the same constant by coincidence, and this change
+separates them (D8). An earlier draft of this document claimed the change required
+no feature-code edits at all; that was wrong, and acting on it would have either
+broken compilation in three modules or silently repainted the brand mark.
+
+**The palette is mostly invisible.** `AppTheme.Dynamic` is the default, and on
+API 31+ it takes `dynamicLightColorScheme` / `dynamicDarkColorScheme` wholesale.
+The brand palette renders only for users who explicitly select Light or Dark, and
+on Android 11 and earlier. This bounds the user-visible impact of the change and
+also bounds the value of investing in it — but the palette remains the app's
+identity in screenshots, in `@Preview`, and for anyone who opts out of Material You.
+
+The trigger is an accessibility defect. The light accents sit at tonal stop 50 —
+`Sky50` (`#0A7AFF`) and `Peach50` (`#C06C00`) — where Material 3 specifies stop 40.
+Four pairs fall under the 4.5:1 AA minimum, and the pattern is symmetric across the
+two accent families: each fails both as a filled button with a white label
+(`primary`/`onPrimary` 4.01:1, `secondary`/`onSecondary` 3.90:1) and as a
+foreground on the light surface (`surface`/`primary` 3.92:1, `surface`/`secondary`
+3.81:1). Dark mode has no failing pair.
+
+The accent-on-surface half of that set is easy to miss: a contrast audit that
+checks only `on*` roles against their own containers catches two of the four and
+reports the palette as merely marginal rather than broken. The requirement in
+`specs/design-system/spec.md` therefore names the accent-as-foreground pairs
+explicitly.
+
+## Goals / Non-Goals
+
+**Goals:**
+
+- Bring every foreground/background pair in all six schemes to WCAG 2.1 AA.
+- Replace the clashing warm-secondary palette with a cohesive cool triad.
+- Deepen the dark surface ramp for OLED power draw.
+- Encode the two adjacency/usage hazards found during review as spec requirements,
+  so they survive the people who found them.
+- Make the contrast guarantee testable, so the next palette edit cannot silently
+  reintroduce the defect.
+
+**Non-Goals:**
+
+- Changing the dynamic-color path.
+- Repainting the launcher icon or splash background.
+- Adding a fourth `AppTheme` for OLED.
+- Retuning `NubecitaSemanticColors`.
+- Adding a lint rule for the new usage constraints.
+
+## Decisions
+
+### D1 — Generate the ramps from HCT coordinates, commit the output as literals
+
+The five tonal palettes are generated with
+`@material/material-color-utilities` 0.4.0 from an (HCT hue, chroma) pair each,
+and the resulting stops are committed as hex literals in `NubecitaPalette` exactly
+as today.
+
+*Alternative considered: add the Kotlin port of material-color-utilities as a
+runtime dependency and derive the scheme at startup.* Rejected. It adds a
+dependency and per-launch work to produce values that never change, and it would
+make the committed screenshot baselines depend on a transitive library version.
+Generating offline keeps the runtime identical to today — the schemes stay plain
+`lightColorScheme(...)` / `darkColorScheme(...)` calls — while making every value
+reproducible from a recorded coordinate rather than hand-picked.
+
+The generator script and its coordinates are recorded in this design document
+rather than checked in, matching how the existing palette's CSS reference is kept
+in `openspec/references/`.
+
+### D2 — Accent tonal stops follow Material 3; vividness is not a reason to deviate
+
+Light accents move from stop 50 to stop 40. This is the whole of the accessibility
+fix, and it is why the fix cannot be shipped separately from the palette change —
+tone 40 of the new Sky ramp *is* `#0061A6`.
+
+*Alternative considered: keep stop 50 and raise contrast by darkening `onPrimary`
+instead.* Rejected. `onPrimary` is already pure white in light mode; there is
+nowhere further to go. Deviating from the specified stop is what caused the defect,
+and the spec now fixes the mapping explicitly.
+
+The cost is real and should be stated: the light accent becomes visibly deeper and
+less vivid than today's `#0A7AFF`. That is the price of legibility at body weight.
+
+### D3 — Hue selection is constrained by the semantic accents, not only by taste
+
+`NubecitaSemanticColors` carries app-level constants that are not part of the brand
+ramp: `error` at HCT hue 25, `repostAccent` at 157, `likeAccent` at 356. A brand
+primary landing near any of these makes a themed control read as a semantic state.
+
+Azure's hues were chosen with that constraint applied: Sky at 255 clears error by
+130°, repost by 98°, and like by 79°. Two candidates evaluated during selection
+were rejected or retuned on this basis — a warm primary at hue 25 collided exactly
+with `error`, and a green primary at 170 sat 13° from `repostAccent`.
+
+### D4 — Dark surface at tone 3, container steps widened
+
+Material 3 places dark `surface` at tone 6; the current palette already sits at
+5.9, so it is compliant. Moving to tone 3 is a deliberate departure for OLED power
+draw, where a darker pixel draws less current.
+
+Pure black (tone 0) was considered and rejected: Material 3 communicates depth
+through tonal elevation, and at pure black there is nothing below `surface` for
+`surfaceContainerLowest` to occupy. Tone 3 keeps a floor beneath the canvas while
+capturing most of the power benefit.
+
+Because the ramp starts lower, the steps are widened (1 / 3 / 6 / 9 / 14 / 19 / 26
+rather than a uniform ~4-tone stride) so each depth tier stays separable. The spec
+requires a minimum 3-tone gap between adjacent tiers so this cannot silently
+regress.
+
+That 3-tone rule applies to the *usable* depth ramp — `surface` through
+`surfaceContainerHighest`. `surfaceContainerLowest` sits 2 tones below `surface`
+and is deliberately exempt: it is one of the three reserved tokens that
+`docs/design-system/surface-roles.md` forbids outside design-system internals, so
+it is never rendered adjacent to `surface` and the gap carries no legibility
+consequence. Widening it would push `surface` up to tone 4 and give back part of
+the power saving that motivates D4.
+
+The semantic accents were re-measured against the new `#090B0E` surface and all
+clear 7.44:1 or better, so no retuning is needed.
+
+### D5 — Tests assert the property, not the values
+
+`ColorSchemeTest` currently asserts specific hex literals. That test would have
+passed throughout the entire lifetime of the accessibility defect — it recorded
+what the palette *was*, not whether it was *correct*.
+
+It is rewritten to compute WCAG contrast over every on/container pair in all six
+schemes and assert the floor. The hex-pinning assertions are kept only for
+`primary` in light and dark, where the spec names an exact value.
+
+The new test must be confirmed to fail against the pre-change palette before the
+palette is edited. A test that passes both before and after proves nothing.
+
+### D6 — One PR, not a stack
+
+An earlier plan split this into a `gh stack`. That is wrong here: the moment
+`NubecitaPalette` changes, every module's `validate*ScreenshotTest` fails, so any
+child PR that lands the palette without the regenerated baselines is red. The work
+is atomic and ships as one standalone PR, with this openspec change going to `main`
+on its own beforehand per the repository workflow.
+
+### D7 — Whole-module baseline regeneration is correct here, inverting the usual rule
+
+The repository rule is to never commit a whole baseline regeneration, because
+`update*ScreenshotTest` rewrites every image in a module and macOS returns most of
+them with 1/255 antialiasing noise.
+
+A palette change inverts this: every baseline legitimately changes, so there is no
+noise to separate from signal, and the triage script has nothing to triage. The
+risk moves to the opposite failure — a baseline that silently retains the old
+accent would read as a pass. The tasks therefore include an explicit verification
+that the regenerated PNGs contain the new primary and not the old one.
+
+### D8 — Split "brand identity blue" from "the tone-50 stop" into `LauncherBlue`
+
+`#0A7AFF` currently plays two unrelated roles that happen to share a constant:
+it is the primary ramp's tone-50 stop, *and* it is the brand identity blue —
+the launcher icon, the system splash background, the in-app splash placeholder,
+and the logomark's stroke accents.
+
+Regenerating the ramp breaks that coincidence. Tone 50 of the new Sky ramp is
+`#007ACF`; leaving the identity sites pointed at `Sky50` would silently repaint
+the brand mark, and deleting `Sky50` as an apparently unused stop would break
+compilation in `:app`, `:feature:onboarding:impl` and `:designsystem`.
+
+A new fixed constant `NubecitaPalette.LauncherBlue = Color(0xFF0A7AFF)` takes the
+identity role, and every identity site is repointed at it. This follows the
+precedent already set by `VerifiedBlue`, which is documented as a deliberately
+theme-detached platform signal. After the split, `Sky50` is an ordinary ramp stop
+with no identity meaning, and the identity blue has exactly one Kotlin definition
+plus its resource twin in `app/res/values/colors.xml`.
+
+*Alternative considered: keep the identity sites on `Sky50` and pin the new Sky
+ramp so that tone 50 lands on `#0A7AFF`.* Rejected — it would constrain the whole
+primary ramp to preserve one legacy value, reintroducing the tone-50 accent that
+caused the accessibility defect.
+
+The onboarding logomark is deliberately excluded from the repoint and instead
+drops its override to take the theme's `primary`. It renders after the splash
+handoff as ordinary in-app chrome, so pinning it to a constant also defeats
+wallpaper-derived color under `AppTheme.Dynamic` — the default theme.
+
+### D9 — Populate the fixed accent roles, which were silently on the Material baseline
+
+`lightColorScheme()` / `darkColorScheme()` default the twelve `*Fixed*` accent
+roles to `ColorLightTokens` / `ColorDarkTokens`, and `Color.kt` never assigned any
+of them. `MaterialTheme.colorScheme.primaryFixed` therefore resolved to the stock
+Material baseline purple, in direct contradiction of the existing requirement that
+no Material default remain reachable through `MaterialTheme.colorScheme`.
+
+Verified against `androidx.compose.material3`: no Material 3 component reads a
+fixed role, so nothing renders purple today. This is a latent trap rather than a
+live bug — the first feature to reference `primaryFixed`, or a future M3 component
+that adopts the roles, would surface it.
+
+Since the ramps are being regenerated anyway, the twelve values fall straight out
+of them at the M3 mapping (90 / 80 / 10 / 30) and all clear AA against their
+partners at 7.21:1 worst case. Populating them is close to free and makes the
+existing requirement true for the first time.
+
+*Alternative considered: narrow the requirement to the roles actually assigned and
+document the fixed roles as deliberately baseline.* Rejected — it would preserve a
+reachable purple in a scheme that claims to be fully branded, to save assigning
+twelve constants that the ramps already contain.
+
+Note also that `surfaceTint` needs no assignment: `lightColorScheme()` defaults it
+to `primary`, so it follows the brand automatically and updates with this change.
+
+## Risks / Trade-offs
+
+**A regenerated baseline silently pins the old palette** → After regeneration,
+sample the committed PNGs for the old accent `#0A7AFF` and the new `#0061A6`;
+a module whose baselines still contain the former did not regenerate. CI's
+`screenshot` job is the authority, since local `validate*ScreenshotTest` fails on
+macOS even on a clean tree.
+
+**The light accent is visibly less vivid than today** → Accepted, and stated in the
+proposal rather than hidden. Legibility at body weight is the point of the change.
+Users who prefer a brighter accent have `AppTheme.Dynamic`, which is the default.
+
+**Deep dark is off-spec and may be "corrected" later** → The spec requirement
+states the deviation and its rationale explicitly, and records that the previous
+value was already spec-compliant, so a future reviewer cannot mistake it for a bug.
+
+**All three accent families share a tonal stop per role, so same-tier fills
+separate only by hue** → Structural to Material 3, not to this palette. Filled
+roles all sit at tone 40 light / 80 dark and container roles at 90 / 30, so *any*
+same-tier pairing — two filled roles or two container roles — measures ~1:1 in both
+modes, and no choice of brand hues fixes it. Mitigated by the adjacency
+requirement, which mandates pairing across tiers (~5:1). Not fully solvable within
+the M3 role model.
+
+**The change is invisible to most users** → Accepted. `Dynamic` is the default and
+stays untouched by choice. The value is in the accessibility fix, the identity in
+store screenshots, and the palette's role as the `@Preview` and screenshot-test
+ground truth.
+
+**High-contrast variants drift from the standard scheme** → The medium and high
+contrast schemes derive by `.copy()` from the standard scheme and push accents
+toward the ramp ends. They are covered by the same property-based contrast test,
+so a ramp that cannot supply the needed stop fails the build rather than silently
+degrading.
+
+## Migration Plan
+
+No runtime migration. The palette is compile-time constant; users see the new
+colors on first launch after update, and only if they had selected Light or Dark.
+There is no persisted state tied to palette values, so rollback is a straight
+revert of the implementation PR.
+
+## Open Questions
+
+None. The launcher-icon question was resolved in favor of keeping `#0A7AFF` as a
+fixed brand mark; repainting it is deferred to its own change should it ever be
+wanted.
