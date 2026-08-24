@@ -91,29 +91,36 @@ The surface roles keep the depth-role contract recorded in
 - **WHEN** the dark `ColorScheme` and `NubecitaSemanticColors` are both resolved
 - **THEN** each of `likeAccent`, `repostAccent`, `supporterAccent`, `success` and `warning` SHALL have a contrast ratio of at least 4.5:1 against `surface`.
 
-### Requirement: No two accent `*Container` fills may be rendered adjacent
+### Requirement: Adjacent accent affordances MUST pair one filled role with one container role
 
-Feature code MUST NOT render any two of `primaryContainer`, `secondaryContainer`
-and `tertiaryContainer` immediately adjacent to one another. Measured across the
-scheme, every such pairing is indistinguishable:
+Two accent affordances rendered immediately adjacent MUST take their fills from
+**different tiers**: exactly one from a filled accent role (`primary`, `secondary`
+or `tertiary`) and exactly one from a container role (`primaryContainer`,
+`secondaryContainer` or `tertiaryContainer`). Two filled roles together are
+forbidden, and two container roles together are forbidden.
 
-| Adjacent fills | Light | Dark |
+The cause is structural rather than incidental to this palette. Material 3 assigns
+all three accent families the *same tonal stop* for a given role — filled roles sit
+at tone 40 in light and 80 in dark, container roles at 90 and 30 — so any two roles
+from the same tier differ **only in hue**. Every same-tier pairing measures ~1:1:
+
+| Same tier — forbidden | Light | Dark |
 | --- | --- | --- |
+| `primary` / `secondary` | 1.00:1 | 1.01:1 |
+| `primary` / `tertiary` | 1.00:1 | 1.00:1 |
+| `secondary` / `tertiary` | 1.00:1 | 1.00:1 |
 | `primaryContainer` / `secondaryContainer` | 1.00:1 | 1.01:1 |
 | `primaryContainer` / `tertiaryContainer` | 1.00:1 | 1.00:1 |
 | `secondaryContainer` / `tertiaryContainer` | 1.01:1 | 1.01:1 |
 
-The cause is structural rather than incidental to this palette: Material 3 assigns
-all three accent families the same tonal stop for a given role — 90 in light, 30 in
-dark — so container fills differ *only* in hue. Hue-only separation disappears for
-a viewer with deuteranopia and degrades on a cold-calibrated display, and no choice
-of brand hues can fix it.
+Hue-only separation disappears for a viewer with deuteranopia and degrades on a
+cold-calibrated display, and no choice of brand hues can fix it — the tones are
+identical by construction.
 
-Side-by-side accent affordances MUST therefore pair a **filled** accent role with a
-**container** role. Every such pairing separates acceptably, so the choice of which
-family takes the filled role is free:
+Cross-tier pairings all separate acceptably, so which family takes the filled role
+is free:
 
-| | Light | Dark |
+| Cross tier — permitted | Light | Dark |
 | --- | --- | --- |
 | `primary` / `secondaryContainer` | 4.97:1 | 5.49:1 |
 | `secondary` / `primaryContainer` | 5.01:1 | 5.47:1 |
@@ -123,20 +130,20 @@ This rule is enforced by code review, following the precedent set for the reserv
 `surfaceDim` / `surfaceBright` / `surfaceContainerLowest` tokens. No lint rule is
 added.
 
-#### Scenario: Two adjacent tonal buttons do not both use container roles
+#### Scenario: Two adjacent tonal buttons pair across tiers
 
 - **WHEN** a screen renders two adjacent accent affordances, such as a Follow and a Message button
-- **THEN** they SHALL NOT both draw their fill from a `*Container` role; at least one SHALL use a filled accent role (`primary`, `secondary` or `tertiary`) with its matching `on*`. Which family takes the filled role is a per-screen decision — `primary` + `secondaryContainer` and `secondary` + `primaryContainer` both satisfy this.
+- **THEN** exactly one SHALL draw its fill from a filled accent role (`primary`, `secondary` or `tertiary`) with its matching `on*`, and exactly one from a `*Container` role with its matching `on*Container`. They SHALL NOT both be filled roles, and SHALL NOT both be container roles. Which family takes the filled role is a per-screen decision — `primary` + `secondaryContainer` and `secondary` + `primaryContainer` both satisfy this.
+
+#### Scenario: Same-tier pairings are rejected in review
+
+- **WHEN** a change places two filled accent roles adjacent, or two `*Container` roles adjacent
+- **THEN** review SHALL reject it, citing the ~1:1 measured separation — the two roles share a tonal stop and differ only in hue.
 
 #### Scenario: Adjacent fills are separable regardless of which pairing is chosen
 
 - **WHEN** any two accent affordances are rendered adjacent to one another
 - **THEN** their fill colours SHALL have a WCAG 2.1 contrast ratio of at least 3:1 against each other, which is the property the pairing rule exists to guarantee.
-
-#### Scenario: Adjacent container fills are rejected in review
-
-- **WHEN** a change places a `primaryContainer` surface directly beside a `secondaryContainer` surface
-- **THEN** review SHALL reject it, citing the measured 1.00:1 separation.
 
 ### Requirement: `tertiary` is reserved for auxiliary, non-critical surfaces
 

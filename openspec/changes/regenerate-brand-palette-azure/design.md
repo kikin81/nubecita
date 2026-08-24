@@ -242,13 +242,13 @@ Users who prefer a brighter accent have `AppTheme.Dynamic`, which is the default
 states the deviation and its rationale explicitly, and records that the previous
 value was already spec-compliant, so a future reviewer cannot mistake it for a bug.
 
-**All three accent families share a tonal stop per role, so container fills
-separate only by hue** → Structural to Material 3, not to this palette: every
-pairing of `primaryContainer` / `secondaryContainer` / `tertiaryContainer` measures
-~1:1 in both modes, and no choice of brand hues fixes it. Mitigated by the
-adjacency requirement, which forbids the compositions where it becomes invisible
-and mandates a filled-plus-container pairing (~5:1) instead. Not fully solvable
-within the M3 role model.
+**All three accent families share a tonal stop per role, so same-tier fills
+separate only by hue** → Structural to Material 3, not to this palette. Filled
+roles all sit at tone 40 light / 80 dark and container roles at 90 / 30, so *any*
+same-tier pairing — two filled roles or two container roles — measures ~1:1 in both
+modes, and no choice of brand hues fixes it. Mitigated by the adjacency
+requirement, which mandates pairing across tiers (~5:1). Not fully solvable within
+the M3 role model.
 
 **The change is invisible to most users** → Accepted. `Dynamic` is the default and
 stays untouched by choice. The value is in the accessibility fix, the identity in

@@ -41,7 +41,7 @@ two compete for attention inside a single post card.
 - The dark surface ramp is deepened from HCT tone 6 to tone **3**, with the
   container steps widened so the depth tiers stay separable near black.
 - Two new design-system rules are added, both derived from measurement rather than
-  taste: no two accent `*Container` fills may be placed adjacent to one another,
+  taste: adjacent accent affordances must pair one filled role with one container role,
   and `tertiary` is reserved for auxiliary, non-critical surfaces.
 - `ColorSchemeTest` stops asserting specific hex values and instead asserts the
   contrast **property** across all six schemes, so a future palette edit that
