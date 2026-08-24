@@ -32,6 +32,7 @@ import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.designsystem.semanticColors
 import net.kikin.nubecita.feature.videos.impl.R
 import net.kikin.nubecita.feature.videos.impl.VideoFeedTestTags
 
@@ -78,7 +79,7 @@ internal fun VideoPageChrome(
                 count = post.stats.likeCount.toLong(),
                 active = post.viewer.isLikedByViewer,
                 toggleable = true,
-                activeColor = MaterialTheme.colorScheme.secondary,
+                activeColor = MaterialTheme.semanticColors.likeAccent,
                 testTag = VideoFeedTestTags.RAIL_LIKE,
             )
             VideoRailAction(
@@ -88,7 +89,7 @@ internal fun VideoPageChrome(
                 count = post.stats.repostCount.toLong(),
                 active = post.viewer.isRepostedByViewer,
                 toggleable = true,
-                activeColor = MaterialTheme.colorScheme.tertiary,
+                activeColor = MaterialTheme.semanticColors.repostAccent,
                 testTag = VideoFeedTestTags.RAIL_REPOST,
             )
             VideoRailAction(

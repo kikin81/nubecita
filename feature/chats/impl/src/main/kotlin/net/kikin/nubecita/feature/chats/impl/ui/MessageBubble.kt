@@ -461,7 +461,8 @@ private fun MessageTextBubble(
                         text = message.text,
                         facets = message.facets,
                         // The bubble's own content colour, NOT colorScheme.primary:
-                        // primary on primaryContainer is 3.11:1 in the light scheme,
+                        // primary on primaryContainer is 4.99:1 in the light scheme
+                        // since the Azure palette (it was 3.11:1, below AA),
                         // under the 4.5:1 AA floor. The underline carries the
                         // affordance instead.
                         linkColor = contentColor,

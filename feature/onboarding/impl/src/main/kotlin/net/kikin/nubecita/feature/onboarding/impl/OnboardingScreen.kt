@@ -48,7 +48,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
-import net.kikin.nubecita.designsystem.NubecitaPalette
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaLogomark
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -306,7 +305,7 @@ private fun OnboardingPageContent(page: OnboardingPage) {
         ) {
             NubecitaLogomark(
                 modifier = Modifier.size(120.dp),
-                tint = NubecitaPalette.Sky50,
+                tint = MaterialTheme.colorScheme.primary,
             )
         }
 

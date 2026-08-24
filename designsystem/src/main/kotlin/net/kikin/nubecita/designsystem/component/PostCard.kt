@@ -57,6 +57,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.R
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.designsystem.semanticColors
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 
@@ -332,7 +333,8 @@ private fun BodyText(
  * guard below, which matters more in a DM than in a post, since the facet comes
  * from whoever messaged you. Pass a [linkStyle] whose colour is legible against
  * the host's own background: `colorScheme.primary` fails AA on a
- * `primaryContainer` bubble (3.11:1 in the light scheme).
+ * `primaryContainer` bubble (4.99:1 in the light scheme since the Azure
+ * palette; it was 3.11:1 and below AA before, which is why this exists).
  */
 @Composable
 fun rememberTappableBlueskyAnnotatedString(
@@ -399,7 +401,8 @@ internal fun buildTappableBlueskyAnnotatedString(
                         // which paints the link `primary` and silently overrides the
                         // addStyle(linkStyle) above. On a tinted container that is an
                         // accessibility bug — primary on primaryContainer measures
-                        // 3.11:1 in the light scheme — so hosts with a coloured
+                        // 4.99:1 in the light scheme since the Azure palette, up from a
+                        // sub-AA 3.11:1 — so hosts with a coloured
                         // background must pass their own (nubecita-io24.2).
                         addLink(
                             LinkAnnotation.Clickable(tag = "link", styles = linkStyles) {
@@ -597,7 +600,11 @@ private fun ActionRow(
             accessibilityLabel = stringResource(R.string.postcard_action_like),
             active = post.viewer.isLikedByViewer,
             toggleable = true,
-            activeColor = MaterialTheme.colorScheme.secondary,
+            // The dedicated like accent, NOT colorScheme.secondary. Like/repost are
+            // independent per-action signals chosen to match the Bluesky/Twitter
+            // convention, so they must not ride the brand accent — a themed secondary
+            // makes a liked heart whatever hue the palette happens to use.
+            activeColor = MaterialTheme.semanticColors.likeAccent,
             onClick = { callbacks.onLike(post) },
             iconAnimation = PostStatIconAnimation.Pop,
             animateUserDelta = animateLikeTap,
@@ -677,7 +684,7 @@ private fun RepostAction(
             accessibilityLabel = stringResource(R.string.postcard_action_repost),
             active = isReposted,
             toggleable = true,
-            activeColor = MaterialTheme.colorScheme.tertiary,
+            activeColor = MaterialTheme.semanticColors.repostAccent,
             onClick = { callbacks.onRepost(post) },
             iconAnimation = PostStatIconAnimation.Spin,
             animateUserDelta = animateRepostTap,
@@ -695,7 +702,7 @@ private fun RepostAction(
             // instant toggle. Not toggleable — the primary tap action is "open".
             accessibilityLabel = stringResource(R.string.postcard_action_repost_options),
             active = isReposted,
-            activeColor = MaterialTheme.colorScheme.tertiary,
+            activeColor = MaterialTheme.semanticColors.repostAccent,
             onClick = { expanded = true },
             onLongClick = { callbacks.onRepost(post) },
             onLongClickLabel = repostLabel,

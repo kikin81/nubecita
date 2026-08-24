@@ -53,17 +53,18 @@ data class NubecitaSemanticColors(
      * closest neighbor in the brand scheme but reads as an error
      * affordance to users — likes deserve a distinct, joyful tint
      * that isn't conflated with error semantics. Used by
-     * `NotificationReasonIcon` and any future PostCard like-button
-     * variants.
+     * `NotificationReasonIcon`, `PostCard`'s like action and the
+     * video rail.
      */
     val likeAccent: Color,
     /**
      * Green accent reserved for the repost-family social action
-     * (Repost, RepostViaRepost). `colorScheme.tertiary` is lilac in
-     * the brand scheme, which doesn't read as "repost" to users
-     * primed by Bluesky/Twitter conventions. Used by
-     * `NotificationReasonIcon` and any future PostCard repost-button
-     * variants.
+     * (Repost, RepostViaRepost). `colorScheme.tertiary` is Orchid, a
+     * violet, in the brand scheme, and no brand accent reads as
+     * "repost" to users primed by Bluesky/Twitter conventions — which
+     * is the whole point of holding this colour outside the tonal
+     * palette. Used by `NotificationReasonIcon`, `PostCard`'s repost
+     * action and the video rail.
      */
     val repostAccent: Color,
     /**

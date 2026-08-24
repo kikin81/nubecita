@@ -203,7 +203,7 @@ val LogoImageVector: ImageVector
                         close()
                     }
                     path(
-                        stroke = SolidColor(NubecitaPalette.Sky50),
+                        stroke = SolidColor(NubecitaPalette.LauncherBlue),
                         strokeLineWidth = 12f,
                         strokeLineCap = StrokeCap.Round,
                     ) {
@@ -211,7 +211,7 @@ val LogoImageVector: ImageVector
                         curveTo(338.67f, 475.33f, 357.33f, 475.33f, 376f, 494f)
                     }
                     path(
-                        stroke = SolidColor(NubecitaPalette.Sky50),
+                        stroke = SolidColor(NubecitaPalette.LauncherBlue),
                         strokeLineWidth = 12f,
                         strokeLineCap = StrokeCap.Round,
                     ) {

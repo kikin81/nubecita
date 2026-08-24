@@ -40,9 +40,12 @@ import net.kikin.nubecita.designsystem.component.rememberTappableBlueskyAnnotate
  * carries facets they win outright, so nothing here can shadow server state.
  *
  * [linkColor] should be the host bubble's own content colour rather than
- * `colorScheme.primary`: primary on `primaryContainer` measures 3.11:1 in the
- * light scheme, below the 4.5:1 AA floor. The link is distinguished by the
- * underline the renderer applies, not by hue.
+ * `colorScheme.primary`. This began as an AA fix — primary on `primaryContainer`
+ * measured 3.11:1, below the 4.5:1 floor. The Azure palette lifted that pairing
+ * to 4.99:1, so the contrast argument no longer forces it, but the behaviour is
+ * kept deliberately: the link is distinguished by the underline the renderer
+ * applies rather than by hue, and the bubble's own content colour is what keeps
+ * it legible on every host surface.
  */
 @Composable
 internal fun rememberMessageBodyAnnotatedString(
@@ -59,7 +62,7 @@ internal fun rememberMessageBodyAnnotatedString(
             linkStyle = SpanStyle(color = linkColor),
             // Required, not decorative: without an explicit TextLinkStyles the
             // LinkAnnotation inherits the theme default and repaints the link
-            // `primary`, which is 3.11:1 on a primaryContainer bubble.
+            // `primary` rather than the bubble's content colour.
             linkStyles = bubbleLinkStyles(linkColor),
         )
     } else {

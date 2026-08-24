@@ -64,7 +64,9 @@ private const val LINK_TEXT = "look https://nubecita.app/hello"
 @Composable
 private fun LinkOutgoing() {
     // The outgoing bubble is the contrast-critical one: its background is
-    // primaryContainer, where colorScheme.primary would measure 3.11:1 (light).
+    // primaryContainer. colorScheme.primary measured 3.11:1 there before the
+    // Azure palette; it is 4.99:1 now, but the bubble still uses its own
+    // content colour so links stay legible on any host surface.
     NubecitaTheme(dynamicColor = false) {
         Surface {
             Column(

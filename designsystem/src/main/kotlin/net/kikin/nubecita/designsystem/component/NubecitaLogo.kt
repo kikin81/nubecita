@@ -20,11 +20,11 @@ import net.kikin.nubecita.designsystem.R
  *
  * Backed by [LogoImageVector], a Compose `ImageVector` port of the brand
  * logomark — white cloud body, a pink bow on top (`#F7AAC9` / `#E36DA0`),
- * and two sky-blue stroke accents (`NubecitaPalette.Sky50`). Use the
+ * and two sky-blue stroke accents (`NubecitaPalette.LauncherBlue`). Use the
  * default multi-color rendering on surfaces with a contrasting (typically
  * darker or branded) background. For low-contrast surfaces like the
  * near-white `Sky99` theme background, pass a [tint] (e.g.
- * `NubecitaPalette.Sky50`) to collapse the mark to a single legible color
+ * `NubecitaPalette.LauncherBlue`) to collapse the mark to a single legible color
  * via `ColorFilter.tint(...)`.
  *
  * Caller controls absolute size via [modifier] (`Modifier.size(...)` or
@@ -47,7 +47,7 @@ fun NubecitaLogomark(
 @Composable
 private fun NubecitaLogomarkPreview() {
     NubecitaTheme(dynamicColor = false) {
-        NubecitaLogomark(modifier = Modifier.size(96.dp).background(NubecitaPalette.Sky50))
+        NubecitaLogomark(modifier = Modifier.size(96.dp).background(NubecitaPalette.LauncherBlue))
     }
 }
 
@@ -55,7 +55,7 @@ private fun NubecitaLogomarkPreview() {
 @Composable
 private fun NubecitaLogomarkDarkPreview() {
     NubecitaTheme(darkTheme = true, dynamicColor = false) {
-        NubecitaLogomark(modifier = Modifier.size(96.dp).background(NubecitaPalette.Sky50))
+        NubecitaLogomark(modifier = Modifier.size(96.dp).background(NubecitaPalette.LauncherBlue))
     }
 }
 
@@ -65,7 +65,7 @@ private fun NubecitaLogomarkTintedPreview() {
     NubecitaTheme(dynamicColor = false) {
         NubecitaLogomark(
             modifier = Modifier.size(96.dp).background(NubecitaPalette.Sky99),
-            tint = NubecitaPalette.Sky50,
+            tint = NubecitaPalette.LauncherBlue,
         )
     }
 }

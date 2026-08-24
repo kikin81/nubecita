@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.designsystem.semanticColors
 
 /**
  * One interactive icon + count cell in a [PostCard]'s action row.
@@ -265,7 +266,7 @@ private fun PostStatActivePreview() {
                 count = 5L,
                 accessibilityLabel = "Undo repost",
                 active = true,
-                activeColor = MaterialTheme.colorScheme.tertiary,
+                activeColor = MaterialTheme.semanticColors.repostAccent,
             )
             PostStat(
                 name = NubecitaIconName.Favorite,
@@ -273,7 +274,7 @@ private fun PostStatActivePreview() {
                 count = 87L,
                 accessibilityLabel = "Unlike",
                 active = true,
-                activeColor = MaterialTheme.colorScheme.secondary,
+                activeColor = MaterialTheme.semanticColors.likeAccent,
             )
             PostStat(name = NubecitaIconName.IosShare, count = null, accessibilityLabel = "Share post")
         }
