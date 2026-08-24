@@ -22,8 +22,14 @@ Branch: `feat/nubecita-bvff-regenerate-brand-palette-azure`
 - [ ] 2.7 Rewrite `nubecitaLightColorScheme()` at Material 3 tonal stops — accents at 40 / 100 / 90 / 10 — replacing the tone-50 assignments that caused the AA failures.
 - [ ] 2.8 Rewrite `nubecitaDarkColorScheme()` with accents at 80 / 20 / 30 / 90 and the deepened surface ramp: `surface` `#090B0E`, `surfaceContainerLowest` `#030406`, `surfaceContainerLow` `#111317`, `surfaceContainer` `#171A1D`, `surfaceContainerHigh` `#222427`, `surfaceContainerHighest` `#2C2E32`, `surfaceBright` `#3C3E42`.
 - [ ] 2.9 Regenerate the four contrast variants (`light/darkMediumContrast`, `light/darkHighContrast`) from the new ramps, preserving the existing mechanical-derivation comment. Delete the two `// palette has no Lilac20 / Lilac10` workaround comments — the Orchid ramp supplies every stop.
-- [ ] 2.10 Confirm `Theme.kt` needs no edit, and that `VerifiedBlue` (`#208BFE`) and every `NubecitaSemanticColors` constant are unchanged.
-- [ ] 2.11 Run `./gradlew :designsystem:testDebugUnitTest` — `ColorSchemeTest` must now PASS. **Tests updated: `ColorSchemeTest`, `NubecitaThemeTest`** (the latter's expected `primary` becomes `#0061A6` light / `#A0C9FF` dark).
+- [ ] 2.10 Populate the twelve **fixed** accent roles in both base schemes, which the current code never assigns — they silently inherit `ColorLightTokens` / `ColorDarkTokens` baseline purple. Same values in light and dark, at the M3 mapping (`*Fixed` = tone 90, `*FixedDim` = 80, `on*Fixed` = 10, `on*FixedVariant` = 30):
+  `primaryFixed` `#D2E4FF` · `primaryFixedDim` `#A0C9FF` · `onPrimaryFixed` `#001C37` · `onPrimaryFixedVariant` `#00497F`
+  `secondaryFixed` `#A7EDFF` · `secondaryFixedDim` `#76D4E9` · `onSecondaryFixed` `#001F25` · `onSecondaryFixedVariant` `#004E5B`
+  `tertiaryFixed` `#F6D9FF` · `tertiaryFixedDim` `#E8B3FF` · `onTertiaryFixed` `#310049` · `onTertiaryFixedVariant` `#613379`
+  All twelve clear AA against their partners (7.21:1 worst case). No M3 component reads these roles today, so this fixes a latent trap rather than a visible bug. **Test added: `ColorSchemeTest.fixedAccentRolesAreBrandDerived`.**
+- [ ] 2.11 Note the `scrim` side-effect: light `scrim` is `Sky0.copy(alpha = 0.5f)`, and the regenerated `Sky0` is `#000000` where today it is `#000D1F`. The light scrim therefore goes from navy-tinted to neutral black, converging with the dark scrim. Accept it (it is the correct tone-0 value) but record it so the baseline diff on every dialog/sheet screenshot is expected rather than surprising.
+- [ ] 2.12 Confirm `Theme.kt` needs no edit, and that `VerifiedBlue` (`#208BFE`) and every `NubecitaSemanticColors` constant are unchanged.
+- [ ] 2.13 Run `./gradlew :designsystem:testDebugUnitTest` — `ColorSchemeTest` must now PASS. **Tests updated: `ColorSchemeTest`, `NubecitaThemeTest`** (the latter's expected `primary` becomes `#0061A6` light / `#A0C9FF` dark).
 
 ## 3. Reference tokens and design-system docs
 

@@ -221,6 +221,21 @@ stop is reproducible rather than hand-picked:
 | Neutral | surfaces | 255 | 5 |
 | NeutralVariant | outlines | 250 | 9 |
 
+The twelve **fixed** accent roles — `primaryFixed`, `primaryFixedDim`,
+`onPrimaryFixed`, `onPrimaryFixedVariant` and their secondary and tertiary
+equivalents — MUST also be populated from the brand ramps, at the Material 3
+mapping: `*Fixed` = tone 90, `*FixedDim` = tone 80, `on*Fixed` = tone 10,
+`on*FixedVariant` = tone 30. By definition these hold the same value in light and
+dark.
+
+Before this change none of the twelve was assigned, so
+`lightColorScheme()` / `darkColorScheme()` supplied their defaults from
+`ColorLightTokens` / `ColorDarkTokens` — the stock Material baseline palette. The
+requirement above was therefore not met: `MaterialTheme.colorScheme.primaryFixed`
+resolved to a baseline purple. No Material 3 component reads these roles today, so
+nothing rendered incorrectly, but the value was reachable by any feature that
+referenced it.
+
 The error family is the one exception to hue generation. `Error40`, `Error50`,
 `Error80` and `Error90` remain carried in `NubecitaPalette` — so every role is
 still sourced from a single palette object — but they hold the Material 3 static
@@ -232,6 +247,11 @@ weaken that signal.
 
 - **WHEN** any of the six `ColorScheme`s is instantiated
 - **THEN** all of `primary`, `onPrimary`, `primaryContainer`, `onPrimaryContainer`, `secondary`, `onSecondary`, `secondaryContainer`, `onSecondaryContainer`, `tertiary`, `onTertiary`, `tertiaryContainer`, `onTertiaryContainer`, `background`, `onBackground`, `surface`, `onSurface`, `surfaceVariant`, `onSurfaceVariant`, `outline`, `outlineVariant`, `scrim`, `inverseSurface`, `inverseOnSurface`, `inversePrimary`, `surfaceDim`, `surfaceBright`, `surfaceContainerLowest`, `surfaceContainerLow`, `surfaceContainer`, `surfaceContainerHigh`, `surfaceContainerHighest` resolve to values derived from the brand tonal palette.
+
+#### Scenario: No fixed accent role falls back to a Material baseline default
+
+- **WHEN** any of the six `ColorScheme`s is instantiated
+- **THEN** each of `primaryFixed`, `primaryFixedDim`, `onPrimaryFixed`, `onPrimaryFixedVariant`, `secondaryFixed`, `secondaryFixedDim`, `onSecondaryFixed`, `onSecondaryFixedVariant`, `tertiaryFixed`, `tertiaryFixedDim`, `onTertiaryFixed` and `onTertiaryFixedVariant` SHALL resolve to a value from the brand tonal palette, and SHALL NOT equal the corresponding `ColorLightTokens` / `ColorDarkTokens` baseline value.
 
 #### Scenario: Error roles are populated from the static error family
 

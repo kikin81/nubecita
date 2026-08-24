@@ -200,6 +200,32 @@ drops its override to take the theme's `primary`. It renders after the splash
 handoff as ordinary in-app chrome, so pinning it to a constant also defeats
 wallpaper-derived color under `AppTheme.Dynamic` — the default theme.
 
+### D9 — Populate the fixed accent roles, which were silently on the Material baseline
+
+`lightColorScheme()` / `darkColorScheme()` default the twelve `*Fixed*` accent
+roles to `ColorLightTokens` / `ColorDarkTokens`, and `Color.kt` never assigned any
+of them. `MaterialTheme.colorScheme.primaryFixed` therefore resolved to the stock
+Material baseline purple, in direct contradiction of the existing requirement that
+no Material default remain reachable through `MaterialTheme.colorScheme`.
+
+Verified against `androidx.compose.material3`: no Material 3 component reads a
+fixed role, so nothing renders purple today. This is a latent trap rather than a
+live bug — the first feature to reference `primaryFixed`, or a future M3 component
+that adopts the roles, would surface it.
+
+Since the ramps are being regenerated anyway, the twelve values fall straight out
+of them at the M3 mapping (90 / 80 / 10 / 30) and all clear AA against their
+partners at 7.21:1 worst case. Populating them is close to free and makes the
+existing requirement true for the first time.
+
+*Alternative considered: narrow the requirement to the roles actually assigned and
+document the fixed roles as deliberately baseline.* Rejected — it would preserve a
+reachable purple in a scheme that claims to be fully branded, to save assigning
+twelve constants that the ramps already contain.
+
+Note also that `surfaceTint` needs no assignment: `lightColorScheme()` defaults it
+to `primary`, so it follows the brand automatically and updates with this change.
+
 ## Risks / Trade-offs
 
 **A regenerated baseline silently pins the old palette** → After regeneration,
