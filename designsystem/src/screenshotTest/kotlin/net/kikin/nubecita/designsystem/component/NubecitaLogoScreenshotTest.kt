@@ -28,7 +28,7 @@ import net.kikin.nubecita.designsystem.preview.NubecitaComponentPreview
 @PreviewWrapper(NubecitaComponentPreview::class)
 @Composable
 private fun NubecitaLogomarkDefaultScreenshot() {
-    NubecitaLogomark(modifier = Modifier.size(96.dp).background(NubecitaPalette.Sky50))
+    NubecitaLogomark(modifier = Modifier.size(96.dp).background(NubecitaPalette.LauncherBlue))
 }
 
 @PreviewTest
@@ -38,6 +38,6 @@ private fun NubecitaLogomarkDefaultScreenshot() {
 private fun NubecitaLogomarkTintedScreenshot() {
     NubecitaLogomark(
         modifier = Modifier.size(96.dp).background(NubecitaPalette.Sky99),
-        tint = NubecitaPalette.Sky50,
+        tint = NubecitaPalette.LauncherBlue,
     )
 }

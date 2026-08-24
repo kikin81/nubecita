@@ -111,7 +111,7 @@ private fun brandScheme(
         else -> nubecitaLightColorScheme()
     }
 
-private fun nubecitaSemanticColors(darkTheme: Boolean): NubecitaSemanticColors =
+internal fun nubecitaSemanticColors(darkTheme: Boolean): NubecitaSemanticColors =
     if (darkTheme) {
         NubecitaSemanticColors(
             success = NubecitaPalette.Success80,
@@ -160,8 +160,10 @@ private val OnVideoOverlay = NubecitaPalette.Neutral100
 // variants tuned for contrast against `colorScheme.surface` in each scheme.
 //
 // Like: magenta/pink, distinct from `colorScheme.error` (which carries error
-// semantics). Repost: green, distinct from `colorScheme.tertiary` (lilac in
-// the brand scheme).
+// semantics). Repost: green, distinct from `colorScheme.tertiary` (Orchid, a
+// violet, in the brand scheme) and from `primary` (Sky). Hue distances from the
+// brand ramps were a constraint on palette selection, not an afterthought:
+// Sky sits 130 degrees off error, 98 off repost and 79 off like.
 private val LikeAccentLight = Color(0xFFEC4899)
 private val LikeAccentDark = Color(0xFFF472B6)
 private val RepostAccentLight = Color(0xFF20BC70)

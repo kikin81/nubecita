@@ -73,7 +73,7 @@ fun MainNavigation(modifier: Modifier = Modifier) {
                         ) {
                             NubecitaLogomark(
                                 modifier = Modifier.size(96.dp),
-                                tint = NubecitaPalette.Sky50,
+                                tint = NubecitaPalette.LauncherBlue,
                             )
                         }
                     }

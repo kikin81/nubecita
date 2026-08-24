@@ -4,62 +4,105 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 
+/**
+ * The brand tonal palette.
+ *
+ * The five ramps are generated from HCT (hue, chroma, tone) coordinates with
+ * `@material/material-color-utilities`, so every stop is reproducible from a
+ * recorded coordinate rather than hand-picked:
+ *
+ * | Ramp | Role | Hue | Chroma |
+ * |---|---|---|---|
+ * | Sky | primary | 255 | 72 |
+ * | Lagoon | secondary | 215 | 40 |
+ * | Orchid | tertiary | 318 | 45 |
+ * | Neutral | surfaces | 255 | 5 |
+ * | NeutralVariant | outlines | 250 | 9 |
+ *
+ * The values are committed as literals rather than derived at runtime: they never
+ * change between launches, and generating them offline keeps the schemes plain
+ * `lightColorScheme(...)` / `darkColorScheme(...)` calls with no extra dependency.
+ *
+ * Contract: `openspec/specs/design-system`.
+ */
 object NubecitaPalette {
-    val Sky0 = Color(0xFF000D1F)
-    val Sky10 = Color(0xFF001B33)
-    val Sky20 = Color(0xFF003155)
-    val Sky30 = Color(0xFF004880)
-    val Sky40 = Color(0xFF0062B1)
-    val Sky50 = Color(0xFF0A7AFF)
-    val Sky60 = Color(0xFF3F92FF)
-    val Sky70 = Color(0xFF6FAAFF)
-    val Sky80 = Color(0xFFA6C8FF)
-    val Sky90 = Color(0xFFD6E3FF)
-    val Sky95 = Color(0xFFEBF1FF)
-    val Sky98 = Color(0xFFF7F9FF)
+    // Primary — HCT hue 255, chroma 72. Tone 40 is the light primary, tone 80 the dark one.
+    val Sky0 = Color(0xFF000000)
+    val Sky10 = Color(0xFF001C37)
+    val Sky20 = Color(0xFF003259)
+    val Sky30 = Color(0xFF00497F)
+    val Sky40 = Color(0xFF0061A6)
+    val Sky50 = Color(0xFF007ACF)
+    val Sky60 = Color(0xFF0094FA)
+    val Sky70 = Color(0xFF67AFFF)
+    val Sky80 = Color(0xFFA0C9FF)
+    val Sky90 = Color(0xFFD2E4FF)
+    val Sky95 = Color(0xFFEAF1FF)
+    val Sky98 = Color(0xFFF8F9FF)
     val Sky99 = Color(0xFFFDFCFF)
     val Sky100 = Color(0xFFFFFFFF)
 
-    val Peach0 = Color(0xFF2B1100)
-    val Peach10 = Color(0xFF3E1C00)
-    val Peach20 = Color(0xFF5B2D00)
-    val Peach30 = Color(0xFF7B4100)
-    val Peach40 = Color(0xFF9C5600)
-    val Peach50 = Color(0xFFC06C00)
-    val Peach60 = Color(0xFFE38412)
-    val Peach70 = Color(0xFFFFA04D)
-    val Peach80 = Color(0xFFFFB787)
-    val Peach90 = Color(0xFFFFDCC2)
-    val Peach95 = Color(0xFFFFEDE0)
-    val Peach98 = Color(0xFFFFF8F4)
+    // Secondary — HCT hue 215, chroma 40. A cool cyan; replaced the warm Peach ramp,
+    // which clashed with the blue primary and failed AA at tone 50.
+    val Lagoon0 = Color(0xFF000000)
+    val Lagoon10 = Color(0xFF001F25)
+    val Lagoon20 = Color(0xFF00363F)
+    val Lagoon30 = Color(0xFF004E5B)
+    val Lagoon40 = Color(0xFF006878)
+    val Lagoon50 = Color(0xFF098396)
+    val Lagoon60 = Color(0xFF399DB1)
+    val Lagoon70 = Color(0xFF59B8CD)
+    val Lagoon80 = Color(0xFF76D4E9)
+    val Lagoon90 = Color(0xFFA7EDFF)
+    val Lagoon95 = Color(0xFFD6F6FF)
+    val Lagoon98 = Color(0xFFF0FBFF)
+    val Lagoon99 = Color(0xFFF8FDFF)
+    val Lagoon100 = Color(0xFFFFFFFF)
 
-    val Lilac30 = Color(0xFF4A3880)
-    val Lilac40 = Color(0xFF6250B0)
-    val Lilac50 = Color(0xFF7B6AD0)
-    val Lilac70 = Color(0xFFB5A8F0)
-    val Lilac90 = Color(0xFFE5DEFF)
-    val Lilac95 = Color(0xFFF3EFFF)
+    // Tertiary — HCT hue 318, chroma 45. Reserved for auxiliary, non-critical
+    // surfaces (badges, mention chips): in dark mode it is the highest-chroma of
+    // the three accent families, so it out-shouts primary if used for real UI.
+    val Orchid0 = Color(0xFF000000)
+    val Orchid10 = Color(0xFF310049)
+    val Orchid20 = Color(0xFF481B60)
+    val Orchid30 = Color(0xFF613379)
+    val Orchid40 = Color(0xFF7A4B92)
+    val Orchid50 = Color(0xFF9564AD)
+    val Orchid60 = Color(0xFFB07DC9)
+    val Orchid70 = Color(0xFFCC97E5)
+    val Orchid80 = Color(0xFFE8B3FF)
+    val Orchid90 = Color(0xFFF6D9FF)
+    val Orchid95 = Color(0xFFFDEBFF)
+    val Orchid98 = Color(0xFFFFF7FC)
+    val Orchid99 = Color(0xFFFFFBFF)
+    val Orchid100 = Color(0xFFFFFFFF)
 
+    // Neutral — HCT hue 255, chroma 5. Tinted toward the primary hue so the
+    // greys read as chosen rather than inherited.
     val Neutral0 = Color(0xFF000000)
-    val Neutral10 = Color(0xFF1A1B1F)
-    val Neutral20 = Color(0xFF2E2F33)
-    val Neutral30 = Color(0xFF45464A)
-    val Neutral40 = Color(0xFF5D5E62)
-    val Neutral50 = Color(0xFF76777B)
-    val Neutral60 = Color(0xFF909094)
-    val Neutral70 = Color(0xFFAAAAAE)
-    val Neutral80 = Color(0xFFC6C6CA)
-    val Neutral90 = Color(0xFFE2E2E6)
-    val Neutral95 = Color(0xFFF0F0F4)
-    val Neutral98 = Color(0xFFF8F9FC)
-    val Neutral99 = Color(0xFFFCFCFF)
+    val Neutral10 = Color(0xFF191C1F)
+    val Neutral20 = Color(0xFF2E3034)
+    val Neutral30 = Color(0xFF45474B)
+    val Neutral40 = Color(0xFF5D5E63)
+    val Neutral50 = Color(0xFF75777B)
+    val Neutral60 = Color(0xFF8F9095)
+    val Neutral70 = Color(0xFFAAABB0)
+    val Neutral80 = Color(0xFFC5C6CB)
+    val Neutral90 = Color(0xFFE2E2E7)
+    val Neutral95 = Color(0xFFF0F0F5)
+    val Neutral98 = Color(0xFFF9F9FE)
+    val Neutral99 = Color(0xFFFDFCFF)
     val Neutral100 = Color(0xFFFFFFFF)
 
-    val NeutralVariant30 = Color(0xFF43474E)
-    val NeutralVariant50 = Color(0xFF73777F)
-    val NeutralVariant80 = Color(0xFFC3C7CF)
-    val NeutralVariant90 = Color(0xFFDFE2EB)
+    // Neutral variant — HCT hue 250, chroma 9. Outlines and dividers.
+    val NeutralVariant30 = Color(0xFF41474F)
+    val NeutralVariant50 = Color(0xFF727880)
+    val NeutralVariant80 = Color(0xFFC1C7D0)
+    val NeutralVariant90 = Color(0xFFDDE3EC)
 
+    // Error family. Deliberately NOT generated from the brand hues — these are the
+    // Material 3 static error colors. Error semantics must stay recognisable across
+    // themes, and harmonising them toward the brand hue would weaken the signal.
     val Error40 = Color(0xFFBA1A1A)
     val Error50 = Color(0xFFDC362E)
     val Error80 = Color(0xFFFFB4AB)
@@ -74,10 +117,28 @@ object NubecitaPalette {
     val Warning80 = Color(0xFFFFCC80)
 
     /**
+     * The brand identity blue — the launcher icon, the system splash background,
+     * the in-app splash placeholder, and the logomark's stroke accents.
+     *
+     * Deliberately a fixed constant and NOT a tonal-ramp stop. It held the same
+     * value as [Sky50] before the palette was regenerated, but only by
+     * coincidence: tone 50 of the Sky ramp is now a different blue, while the
+     * identity blue must stay put so the home-screen icon, the Play listing, and
+     * the splash→app handoff do not shift.
+     *
+     * Its resource twin is `app/src/main/res/values/colors.xml` → `brand_sky_blue`,
+     * used by `windowSplashScreenBackground` and `ic_launcher_background`. Keep the
+     * two in step.
+     *
+     * Same rationale as [VerifiedBlue]: a constant platform signal, not theme chrome.
+     */
+    val LauncherBlue = Color(0xFF0A7AFF)
+
+    /**
      * Fixed verified-blue for account-verification badges. Deliberately a constant
-     * platform signal — NOT tied to the theme accent (`primary` == [Sky50]) and NOT
-     * light/dark-adaptive — so a verified check reads consistently everywhere, like a
-     * brand mark. Bright enough for adequate contrast on both surface tones.
+     * platform signal — NOT tied to the theme accent and NOT light/dark-adaptive —
+     * so a verified check reads consistently everywhere, like a brand mark. Bright
+     * enough for adequate contrast on both surface tones.
      */
     val VerifiedBlue = Color(0xFF208BFE)
 }
@@ -103,83 +164,127 @@ object NubecitaPalette {
  * `background` is set equal to `surface` and treated as a synonym; new code
  * should reference `colorScheme.surface` rather than `colorScheme.background`
  * outside design-system internals. Code review enforces this convention.
+ *
+ * **Accent adjacency.** Two accent affordances rendered next to each other MUST
+ * take their fills from different tiers — exactly one filled role (`primary` /
+ * `secondary` / `tertiary`) and exactly one container role. M3 puts all three
+ * families on the same tonal stop per tier, so any same-tier pairing differs only
+ * in hue and measures ~1:1.
  */
 internal fun nubecitaLightColorScheme() =
     lightColorScheme(
-        primary = NubecitaPalette.Sky50,
+        primary = NubecitaPalette.Sky40,
         onPrimary = NubecitaPalette.Sky100,
         primaryContainer = NubecitaPalette.Sky90,
         onPrimaryContainer = NubecitaPalette.Sky10,
-        secondary = NubecitaPalette.Peach50,
-        onSecondary = Color.White,
-        secondaryContainer = NubecitaPalette.Peach90,
-        onSecondaryContainer = NubecitaPalette.Peach10,
-        tertiary = NubecitaPalette.Lilac40,
-        onTertiary = Color.White,
-        tertiaryContainer = NubecitaPalette.Lilac90,
-        onTertiaryContainer = NubecitaPalette.Lilac30,
+        secondary = NubecitaPalette.Lagoon40,
+        onSecondary = NubecitaPalette.Lagoon100,
+        secondaryContainer = NubecitaPalette.Lagoon90,
+        onSecondaryContainer = NubecitaPalette.Lagoon10,
+        tertiary = NubecitaPalette.Orchid40,
+        onTertiary = NubecitaPalette.Orchid100,
+        tertiaryContainer = NubecitaPalette.Orchid90,
+        onTertiaryContainer = NubecitaPalette.Orchid10,
         error = NubecitaPalette.Error40,
         onError = Color.White,
         errorContainer = NubecitaPalette.Error90,
         onErrorContainer = Color(0xFF410002),
-        background = NubecitaPalette.Sky99,
+        background = NubecitaPalette.Neutral99,
         onBackground = NubecitaPalette.Neutral10,
-        surface = Color(0xFFFDFCFF),
+        surface = NubecitaPalette.Neutral99,
         onSurface = NubecitaPalette.Neutral10,
         surfaceVariant = NubecitaPalette.NeutralVariant90,
         onSurfaceVariant = NubecitaPalette.NeutralVariant30,
         outline = NubecitaPalette.NeutralVariant50,
         outlineVariant = NubecitaPalette.NeutralVariant80,
-        scrim = NubecitaPalette.Sky0.copy(alpha = 0.5f),
+        scrim = NubecitaPalette.Neutral0.copy(alpha = 0.5f),
         inverseSurface = NubecitaPalette.Neutral20,
         inverseOnSurface = NubecitaPalette.Neutral95,
         inversePrimary = NubecitaPalette.Sky80,
-        surfaceDim = Color(0xFFDEDCE0),
-        surfaceBright = Color(0xFFFDFCFF),
-        surfaceContainerLowest = Color.White,
-        surfaceContainerLow = Color(0xFFF7F5FA),
-        surfaceContainer = Color(0xFFF1EFF4),
-        surfaceContainerHigh = Color(0xFFEBE9EE),
-        surfaceContainerHighest = Color(0xFFE5E3E9),
+        surfaceDim = Color(0xFFD9DADF),
+        surfaceBright = NubecitaPalette.Neutral99,
+        surfaceContainerLowest = NubecitaPalette.Neutral100,
+        surfaceContainerLow = Color(0xFFF3F3F8),
+        surfaceContainer = Color(0xFFEDEDF2),
+        surfaceContainerHigh = Color(0xFFE7E8ED),
+        surfaceContainerHighest = NubecitaPalette.Neutral90,
+        // Fixed accent roles hold the same value in light and dark. Assigned
+        // explicitly because lightColorScheme()/darkColorScheme() default them to
+        // ColorLightTokens/ColorDarkTokens — the stock Material baseline palette —
+        // which would leave a Material default reachable through colorScheme.
+        primaryFixed = NubecitaPalette.Sky90,
+        primaryFixedDim = NubecitaPalette.Sky80,
+        onPrimaryFixed = NubecitaPalette.Sky10,
+        onPrimaryFixedVariant = NubecitaPalette.Sky30,
+        secondaryFixed = NubecitaPalette.Lagoon90,
+        secondaryFixedDim = NubecitaPalette.Lagoon80,
+        onSecondaryFixed = NubecitaPalette.Lagoon10,
+        onSecondaryFixedVariant = NubecitaPalette.Lagoon30,
+        tertiaryFixed = NubecitaPalette.Orchid90,
+        tertiaryFixedDim = NubecitaPalette.Orchid80,
+        onTertiaryFixed = NubecitaPalette.Orchid10,
+        onTertiaryFixedVariant = NubecitaPalette.Orchid30,
     )
 
+/**
+ * The dark scheme places `surface` at HCT tone 3 — below Material 3's canonical
+ * tone 6 — for OLED power draw, with the container steps widened (1 / 3 / 6 / 9 /
+ * 14 / 19 / 26) so each depth tier stays separable near black.
+ *
+ * This is a deliberate departure, NOT a spec-compliance fix: the palette this
+ * replaced already sat at tone 5.9, i.e. it was already canonical. Do not
+ * "correct" it back to tone 6.
+ */
 internal fun nubecitaDarkColorScheme() =
     darkColorScheme(
         primary = NubecitaPalette.Sky80,
         onPrimary = NubecitaPalette.Sky20,
         primaryContainer = NubecitaPalette.Sky30,
         onPrimaryContainer = NubecitaPalette.Sky90,
-        secondary = NubecitaPalette.Peach80,
-        onSecondary = NubecitaPalette.Peach20,
-        secondaryContainer = NubecitaPalette.Peach30,
-        onSecondaryContainer = NubecitaPalette.Peach90,
-        tertiary = NubecitaPalette.Lilac70,
-        onTertiary = NubecitaPalette.Lilac30,
-        tertiaryContainer = NubecitaPalette.Lilac30,
-        onTertiaryContainer = NubecitaPalette.Lilac90,
+        secondary = NubecitaPalette.Lagoon80,
+        onSecondary = NubecitaPalette.Lagoon20,
+        secondaryContainer = NubecitaPalette.Lagoon30,
+        onSecondaryContainer = NubecitaPalette.Lagoon90,
+        tertiary = NubecitaPalette.Orchid80,
+        onTertiary = NubecitaPalette.Orchid20,
+        tertiaryContainer = NubecitaPalette.Orchid30,
+        onTertiaryContainer = NubecitaPalette.Orchid90,
         error = NubecitaPalette.Error80,
         onError = Color(0xFF690005),
         errorContainer = Color(0xFF93000A),
         onErrorContainer = NubecitaPalette.Error90,
-        background = Color(0xFF111318),
-        onBackground = Color(0xFFE3E2E6),
-        surface = Color(0xFF111318),
-        onSurface = Color(0xFFE3E2E6),
+        background = Color(0xFF090B0E),
+        onBackground = NubecitaPalette.Neutral90,
+        surface = Color(0xFF090B0E),
+        onSurface = NubecitaPalette.Neutral90,
         surfaceVariant = NubecitaPalette.NeutralVariant30,
         onSurfaceVariant = NubecitaPalette.NeutralVariant80,
-        outline = NubecitaPalette.NeutralVariant50,
+        outline = Color(0xFF8B919A),
         outlineVariant = NubecitaPalette.NeutralVariant30,
         scrim = Color.Black.copy(alpha = 0.6f),
         inverseSurface = NubecitaPalette.Neutral90,
-        inverseOnSurface = NubecitaPalette.Neutral10,
+        inverseOnSurface = NubecitaPalette.Neutral20,
         inversePrimary = NubecitaPalette.Sky40,
-        surfaceDim = Color(0xFF111318),
-        surfaceBright = Color(0xFF37393E),
-        surfaceContainerLowest = Color(0xFF0C0E13),
-        surfaceContainerLow = Color(0xFF191C20),
-        surfaceContainer = Color(0xFF1D2024),
-        surfaceContainerHigh = Color(0xFF272A2F),
-        surfaceContainerHighest = Color(0xFF32353A),
+        surfaceDim = Color(0xFF090B0E),
+        surfaceBright = Color(0xFF3C3E42),
+        surfaceContainerLowest = Color(0xFF030406),
+        surfaceContainerLow = Color(0xFF111317),
+        surfaceContainer = Color(0xFF171A1D),
+        surfaceContainerHigh = Color(0xFF222427),
+        surfaceContainerHighest = Color(0xFF2C2E32),
+        // Same values as the light scheme — fixed roles do not flip with theme.
+        primaryFixed = NubecitaPalette.Sky90,
+        primaryFixedDim = NubecitaPalette.Sky80,
+        onPrimaryFixed = NubecitaPalette.Sky10,
+        onPrimaryFixedVariant = NubecitaPalette.Sky30,
+        secondaryFixed = NubecitaPalette.Lagoon90,
+        secondaryFixedDim = NubecitaPalette.Lagoon80,
+        onSecondaryFixed = NubecitaPalette.Lagoon10,
+        onSecondaryFixedVariant = NubecitaPalette.Lagoon30,
+        tertiaryFixed = NubecitaPalette.Orchid90,
+        tertiaryFixedDim = NubecitaPalette.Orchid80,
+        onTertiaryFixed = NubecitaPalette.Orchid10,
+        onTertiaryFixedVariant = NubecitaPalette.Orchid30,
     )
 
 // Contrast variants derive mechanically from the brand tonal palette. Light
@@ -193,14 +298,14 @@ internal fun nubecitaLightMediumContrastColorScheme() =
         onPrimary = NubecitaPalette.Sky100,
         primaryContainer = NubecitaPalette.Sky40,
         onPrimaryContainer = NubecitaPalette.Sky100,
-        secondary = NubecitaPalette.Peach30,
-        onSecondary = NubecitaPalette.Peach98,
-        secondaryContainer = NubecitaPalette.Peach40,
-        onSecondaryContainer = NubecitaPalette.Peach98,
-        tertiary = NubecitaPalette.Lilac30,
-        onTertiary = NubecitaPalette.Lilac95,
-        tertiaryContainer = NubecitaPalette.Lilac40,
-        onTertiaryContainer = NubecitaPalette.Lilac95,
+        secondary = NubecitaPalette.Lagoon30,
+        onSecondary = NubecitaPalette.Lagoon98,
+        secondaryContainer = NubecitaPalette.Lagoon40,
+        onSecondaryContainer = NubecitaPalette.Lagoon98,
+        tertiary = NubecitaPalette.Orchid30,
+        onTertiary = NubecitaPalette.Orchid95,
+        tertiaryContainer = NubecitaPalette.Orchid40,
+        onTertiaryContainer = NubecitaPalette.Orchid95,
         outline = NubecitaPalette.NeutralVariant30,
     )
 
@@ -210,14 +315,14 @@ internal fun nubecitaLightHighContrastColorScheme() =
         onPrimary = NubecitaPalette.Sky100,
         primaryContainer = NubecitaPalette.Sky30,
         onPrimaryContainer = NubecitaPalette.Sky100,
-        secondary = NubecitaPalette.Peach20,
-        onSecondary = NubecitaPalette.Peach98,
-        secondaryContainer = NubecitaPalette.Peach30,
-        onSecondaryContainer = NubecitaPalette.Peach98,
-        tertiary = NubecitaPalette.Lilac30, // palette has no Lilac20; lowest available
-        onTertiary = NubecitaPalette.Lilac95,
-        tertiaryContainer = NubecitaPalette.Lilac40,
-        onTertiaryContainer = NubecitaPalette.Lilac95,
+        secondary = NubecitaPalette.Lagoon20,
+        onSecondary = NubecitaPalette.Lagoon98,
+        secondaryContainer = NubecitaPalette.Lagoon30,
+        onSecondaryContainer = NubecitaPalette.Lagoon98,
+        tertiary = NubecitaPalette.Orchid20,
+        onTertiary = NubecitaPalette.Orchid95,
+        tertiaryContainer = NubecitaPalette.Orchid30,
+        onTertiaryContainer = NubecitaPalette.Orchid95,
         outline = NubecitaPalette.Neutral20,
     )
 
@@ -227,14 +332,14 @@ internal fun nubecitaDarkMediumContrastColorScheme() =
         onPrimary = NubecitaPalette.Sky10,
         primaryContainer = NubecitaPalette.Sky40,
         onPrimaryContainer = NubecitaPalette.Sky99,
-        secondary = NubecitaPalette.Peach90,
-        onSecondary = NubecitaPalette.Peach10,
-        secondaryContainer = NubecitaPalette.Peach40,
-        onSecondaryContainer = NubecitaPalette.Peach98,
-        tertiary = NubecitaPalette.Lilac90,
-        onTertiary = NubecitaPalette.Lilac30, // palette has no Lilac10
-        tertiaryContainer = NubecitaPalette.Lilac40,
-        onTertiaryContainer = NubecitaPalette.Lilac95,
+        secondary = NubecitaPalette.Lagoon90,
+        onSecondary = NubecitaPalette.Lagoon10,
+        secondaryContainer = NubecitaPalette.Lagoon40,
+        onSecondaryContainer = NubecitaPalette.Lagoon98,
+        tertiary = NubecitaPalette.Orchid90,
+        onTertiary = NubecitaPalette.Orchid10,
+        tertiaryContainer = NubecitaPalette.Orchid40,
+        onTertiaryContainer = NubecitaPalette.Orchid95,
         outline = NubecitaPalette.NeutralVariant80,
     )
 
@@ -244,13 +349,13 @@ internal fun nubecitaDarkHighContrastColorScheme() =
         onPrimary = NubecitaPalette.Sky10,
         primaryContainer = NubecitaPalette.Sky80,
         onPrimaryContainer = NubecitaPalette.Sky10,
-        secondary = NubecitaPalette.Peach95,
-        onSecondary = NubecitaPalette.Peach10,
-        secondaryContainer = NubecitaPalette.Peach80,
-        onSecondaryContainer = NubecitaPalette.Peach10,
-        tertiary = NubecitaPalette.Lilac95,
-        onTertiary = NubecitaPalette.Lilac30,
-        tertiaryContainer = NubecitaPalette.Lilac70,
-        onTertiaryContainer = NubecitaPalette.Lilac30,
+        secondary = NubecitaPalette.Lagoon95,
+        onSecondary = NubecitaPalette.Lagoon10,
+        secondaryContainer = NubecitaPalette.Lagoon80,
+        onSecondaryContainer = NubecitaPalette.Lagoon10,
+        tertiary = NubecitaPalette.Orchid95,
+        onTertiary = NubecitaPalette.Orchid10,
+        tertiaryContainer = NubecitaPalette.Orchid70,
+        onTertiaryContainer = NubecitaPalette.Orchid10,
         outline = NubecitaPalette.NeutralVariant90,
     )
