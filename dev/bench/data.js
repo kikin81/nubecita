@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787471751098,
+  "lastUpdate": 1787558806013,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -2427,6 +2427,64 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 632,
             "range": "+/- 1%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "13778acf5e856bcff9b2231bb30f0a1fb2b46957",
+          "message": "docs(designsystem): propose Azure brand palette regeneration (#916)\n\n* docs(designsystem): propose Azure brand palette regeneration\n\nAdd the OpenSpec change for replacing the Sky/Peach/Lilac brand tonal\npalette with the Azure direction (Sky H255 / Lagoon H215 / Orchid H318).\n\nThe driver is an accessibility defect rather than aesthetics: light\nprimary is assigned tonal stop 50 where Material 3 specifies stop 40,\nwhich measures 3.92:1 as text on the light surface and 4.01:1 as a\nfilled button with a white label, both under the WCAG AA 4.5:1 minimum.\nPeach50 fails the same way at 3.81:1. Every accent at spec tone 40\nclears 6.30:1.\n\nDelta specs cover two capabilities:\n\n  design-system     4 ADDED (M3 tonal mapping + contrast floor,\n                    deepened dark surface ramp, primaryContainer /\n                    secondaryContainer adjacency ban, tertiary reserved\n                    for auxiliary surfaces), 3 MODIFIED (NubecitaTheme,\n                    every-role-populated, NubecitaLogomark)\n  app-theme-selection  1 MODIFIED (Light primary hex)\n\nScope is the brand palette only. Dynamic color is the default theme and\nwins on API 31+, so it is deliberately untouched, and the launcher icon\nand splash keep #0A7AFF as a fixed identity mark.\n\nDocs only -- no code, no baselines. Implementation lands separately as\none standalone PR, since the palette change makes every module's\nscreenshot job red until all 1147 baselines regenerate.\n\nRefs: nubecita-bvff\n\n* docs(designsystem): resolve error-role contradiction in palette spec\n\nThe 'Every role has a brand color' scenario listed error/onError/\nerrorContainer/onErrorContainer among roles resolving to brand-derived\nvalues, contradicting the prose added directly above it stating the\nerror family is not generated from the brand hues.\n\nSplit rather than deleted: the error colors DO live in NubecitaPalette\n(Error40/50/80/90), so removing them from the scenario would drop the\nonly assertion that those roles are populated at all. They now have\ntheir own scenario asserting they resolve to the static Material 3\nerror colors and not to an unassigned stock default.\n\nAlso records why the error family is exempt from hue generation --\nharmonising it toward the brand hue would weaken the error signal.\n\nRefs: nubecita-bvff\n\n* docs(designsystem): cover accent-on-surface pairs, correct failure count\n\nThe AA contrast requirement named only on/container pairs, omitting the\naccent-as-foreground-on-surface case -- which is where two of the\nmotivating failures actually live. As written the requirement would not\nhave caught half the defect it exists to prevent.\n\nAdds primary/secondary/tertiary against surface to the asserted pair\nset, plus the two inverseSurface pairs, and states in the requirement\nwhy those pairs are named explicitly.\n\nRe-measuring the shipping palette against the expanded set turned up a\nFOURTH failure that the original three-row table missed:\n\n  light primary/onPrimary      4.01:1\n  light secondary/onSecondary  3.90:1   <- previously unreported\n  light surface/primary        3.92:1\n  light surface/secondary      3.81:1\n\nThe pattern is symmetric: both accent families fail as a filled button\nwith a white label AND as a foreground on the light surface. Dark mode\nhas no failing pair.\n\nProposal, design and task 1.2 updated to the corrected set of four.\nTask 1.1 now names the required pairs so 1.2's prediction is actually\nachievable, and 1.2 says to re-derive rather than adjust if the\nobserved failures differ.\n\nRefs: nubecita-bvff\n\n* docs(designsystem): split brand identity blue from the primary ramp\n\n#0A7AFF plays two unrelated roles that share a constant today: the\nprimary ramp's tone-50 stop, and the brand identity blue. Regenerating\nthe ramp breaks that coincidence -- new tone 50 is #007ACF.\n\nSky50 has seven non-test references and every one means \"identity\nblue\", not \"tone 50\": LogoImageVector stroke accents, NubecitaLogo\npreviews, the in-app splash placeholder in app/Navigation.kt, and the\nonboarding logomark. The previous task list said to delete unused Sky\nstops, which would have broken compilation in three modules; keeping\nSky50 instead would have silently repainted the brand mark.\n\nAdds NubecitaPalette.LauncherBlue as a fixed constant following the\nVerifiedBlue precedent, with a spec requirement enumerating which\nsurfaces must source from it and scenarios pinning that it survives a\nramp regeneration.\n\nThe onboarding logomark is deliberately NOT repointed -- it drops its\noverride for the theme default, since it renders after the splash\nhandoff as ordinary chrome and pinning it defeats dynamic color, which\nis the default theme.\n\nAlso corrects the design doc, which claimed the change needed no\nfeature-code edits, and fixes task 4.4: it flagged any baseline still\ncontaining #0A7AFF as a regeneration failure, but that blue now\nlegitimately survives in the logomark baselines.\n\nRefs: nubecita-bvff\n\n* docs(designsystem): correct stale logomark spec, generalise adjacency rule\n\nThree fixes from review.\n\n1. The committed NubecitaLogomark requirement is stale on three counts,\n   verified against NubecitaLogo.kt / LogoImageVector.kt:\n     - default tint is Color.Unspecified, not colorScheme.primary\n     - backed by the LogoImageVector Compose ImageVector, not a\n       nubecita_logomark.xml drawable -- no such file exists\n     - the mark is multi-colour (white cloud, pink bow #F7AAC9 /\n       #E36DA0, blue stroke accents), not a single-colour silhouette\n   This broke task 2.3, which said to drop onboarding's tint override\n   to \"take the default of colorScheme.primary\". Dropping it actually\n   yields Unspecified -> multi-colour -> a white cloud body on\n   onboarding's near-white background. 2.3 now passes the tint\n   explicitly, and 3.4 records the spec correction.\n\n2. The container-adjacency rule was too narrow. Measuring every\n   pairing shows it is not specific to primary/secondary -- ALL of\n   them collapse, because M3 gives all three accent families the same\n   tonal stop per role (90 light / 30 dark), so container fills differ\n   only in hue:\n     primaryContainer/secondaryContainer     1.00 / 1.01\n     primaryContainer/tertiaryContainer      1.00 / 1.00\n     secondaryContainer/tertiaryContainer    1.01 / 1.01\n   Every filled+container pairing clears 3:1 (4.97-5.50), so which\n   family takes the filled role is free. Requirement, scenarios,\n   proposal, design risk and task 3.2 all generalised.\n\n3. The design text claimed a 3-tone minimum gap across the dark ramp,\n   but surfaceContainerLowest sits 2 tones below surface. Clarified\n   that the rule covers the usable ramp; containerLowest is a reserved\n   token never rendered adjacent to surface, and widening the gap\n   would give back part of the OLED saving.\n\nProposal Impact corrected too -- it claimed :app was unaffected and\nstill said three AA failures.\n\nRefs: nubecita-bvff\n\n* docs(designsystem): populate fixed accent roles, note scrim change\n\nFrom a Compose-expert pass over the change, verified against the\nandroidx.compose.material3 source.\n\nlightColorScheme() / darkColorScheme() default the twelve *Fixed*\naccent roles to ColorLightTokens / ColorDarkTokens, and Color.kt never\nassigns any of them. So MaterialTheme.colorScheme.primaryFixed\ncurrently resolves to the stock Material baseline purple -- directly\ncontradicting the existing requirement that no Material default remain\nreachable through MaterialTheme.colorScheme.\n\nNo M3 component reads a fixed role (grepped the material3 source, zero\nhits), so nothing renders purple today. It is a latent trap, not a live\nbug. Since the ramps are being regenerated anyway the twelve values\nfall out at the M3 mapping (90/80/10/30) and clear AA at 7.21:1 worst\ncase, so populating them is close to free and makes the requirement\ntrue for the first time.\n\nAlso records the scrim side-effect: light scrim is Sky0.copy(0.5f) and\nthe regenerated Sky0 is #000000 where today it is #000D1F, so the light\nscrim goes neutral and converges with the dark one. Accepted, but noted\nso the dialog/sheet baseline diffs are expected.\n\nRefs: nubecita-bvff\n\n* docs(designsystem): forbid same-tier accent adjacency, not just containers\n\nThe adjacency rule only forbade two *Container fills together, which\nleft the mirror-image hole open: two FILLED accent roles are equally\ninvisible, because M3 puts all three families on the same tonal stop\nper tier -- filled at 40 light / 80 dark, containers at 90 / 30.\n\nMeasured, every same-tier pairing is ~1:1 in both modes:\n  primary/secondary       1.00 / 1.01\n  primary/tertiary        1.00 / 1.00\n  secondary/tertiary      1.00 / 1.00\n  primaryContainer/secondaryContainer    1.00 / 1.01\n  primaryContainer/tertiaryContainer     1.00 / 1.00\n  secondaryContainer/tertiaryContainer   1.01 / 1.01\n\nSo the invariant is cross-tier pairing, not \"avoid containers\":\nadjacent accent affordances must take exactly one filled role and\nexactly one container role. Cross-tier pairings all clear ~5:1.\n\nAlso fixes task 2.4, whose justification for keeping Sky50 described\nthe pre-migration state as if it were post-migration. After tasks 2.2\nand 2.3 repoint the identity sites and 2.7 moves primary to Sky40,\nSky50 genuinely has zero references -- which is precisely when it looks\nsafe to delete. The task now states the ordering and gives ramp\ncompleteness as the reason to retain it.\n\nRefs: nubecita-bvff\n\n* docs(designsystem): use US spelling for color throughout the change\n\nThe change introduced 11 instances of \"colour\" against a repo that\nuses \"color\" in 58 spec/doc files (the only two \"colour\" hits are\nstray, in old superpowers docs). Matches the API surface too --\nColorScheme, colorScheme, Color.Unspecified.\n\nNo semantic change.\n\nRefs: nubecita-bvff",
+          "timestamp": "2026-08-24T03:45:51Z",
+          "url": "https://github.com/kikin81/nubecita/commit/13778acf5e856bcff9b2231bb30f0a1fb2b46957"
+        },
+        "date": 1787558802710,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 33,
+            "range": "+/- 21.8%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1349.569,
+            "range": "+/- 5.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1125.57,
+            "range": "+/- 4.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1038.456,
+            "range": "+/- 36%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1004.622,
+            "range": "+/- 45.1%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 698,
+            "range": "+/- 1.1%",
             "unit": "frames"
           }
         ]
