@@ -80,16 +80,27 @@ object NubecitaPalette {
     // Neutral — HCT hue 255, chroma 5. Tinted toward the primary hue so the
     // greys read as chosen rather than inherited.
     val Neutral0 = Color(0xFF000000)
+    val Neutral1 = Color(0xFF030406)
+    val Neutral3 = Color(0xFF090B0E)
+    val Neutral6 = Color(0xFF111317)
+    val Neutral9 = Color(0xFF171A1D)
     val Neutral10 = Color(0xFF191C1F)
+    val Neutral14 = Color(0xFF222427)
+    val Neutral19 = Color(0xFF2C2E32)
     val Neutral20 = Color(0xFF2E3034)
+    val Neutral26 = Color(0xFF3C3E42)
     val Neutral30 = Color(0xFF45474B)
     val Neutral40 = Color(0xFF5D5E63)
     val Neutral50 = Color(0xFF75777B)
     val Neutral60 = Color(0xFF8F9095)
     val Neutral70 = Color(0xFFAAABB0)
     val Neutral80 = Color(0xFFC5C6CB)
+    val Neutral87 = Color(0xFFD9DADF)
     val Neutral90 = Color(0xFFE2E2E7)
+    val Neutral92 = Color(0xFFE7E8ED)
+    val Neutral94 = Color(0xFFEDEDF2)
     val Neutral95 = Color(0xFFF0F0F5)
+    val Neutral96 = Color(0xFFF3F3F8)
     val Neutral98 = Color(0xFFF9F9FE)
     val Neutral99 = Color(0xFFFDFCFF)
     val Neutral100 = Color(0xFFFFFFFF)
@@ -97,12 +108,16 @@ object NubecitaPalette {
     // Neutral variant — HCT hue 250, chroma 9. Outlines and dividers.
     val NeutralVariant30 = Color(0xFF41474F)
     val NeutralVariant50 = Color(0xFF727880)
+    val NeutralVariant60 = Color(0xFF8B919A)
     val NeutralVariant80 = Color(0xFFC1C7D0)
     val NeutralVariant90 = Color(0xFFDDE3EC)
 
     // Error family. Deliberately NOT generated from the brand hues — these are the
     // Material 3 static error colors. Error semantics must stay recognisable across
     // themes, and harmonising them toward the brand hue would weaken the signal.
+    val Error10 = Color(0xFF410002)
+    val Error20 = Color(0xFF690005)
+    val Error30 = Color(0xFF93000A)
     val Error40 = Color(0xFFBA1A1A)
     val Error50 = Color(0xFFDC362E)
     val Error80 = Color(0xFFFFB4AB)
@@ -186,9 +201,9 @@ internal fun nubecitaLightColorScheme() =
         tertiaryContainer = NubecitaPalette.Orchid90,
         onTertiaryContainer = NubecitaPalette.Orchid10,
         error = NubecitaPalette.Error40,
-        onError = Color.White,
+        onError = NubecitaPalette.Neutral100,
         errorContainer = NubecitaPalette.Error90,
-        onErrorContainer = Color(0xFF410002),
+        onErrorContainer = NubecitaPalette.Error10,
         background = NubecitaPalette.Neutral99,
         onBackground = NubecitaPalette.Neutral10,
         surface = NubecitaPalette.Neutral99,
@@ -201,12 +216,12 @@ internal fun nubecitaLightColorScheme() =
         inverseSurface = NubecitaPalette.Neutral20,
         inverseOnSurface = NubecitaPalette.Neutral95,
         inversePrimary = NubecitaPalette.Sky80,
-        surfaceDim = Color(0xFFD9DADF),
+        surfaceDim = NubecitaPalette.Neutral87,
         surfaceBright = NubecitaPalette.Neutral99,
         surfaceContainerLowest = NubecitaPalette.Neutral100,
-        surfaceContainerLow = Color(0xFFF3F3F8),
-        surfaceContainer = Color(0xFFEDEDF2),
-        surfaceContainerHigh = Color(0xFFE7E8ED),
+        surfaceContainerLow = NubecitaPalette.Neutral96,
+        surfaceContainer = NubecitaPalette.Neutral94,
+        surfaceContainerHigh = NubecitaPalette.Neutral92,
         surfaceContainerHighest = NubecitaPalette.Neutral90,
         // Fixed accent roles hold the same value in light and dark. Assigned
         // explicitly because lightColorScheme()/darkColorScheme() default them to
@@ -250,28 +265,28 @@ internal fun nubecitaDarkColorScheme() =
         tertiaryContainer = NubecitaPalette.Orchid30,
         onTertiaryContainer = NubecitaPalette.Orchid90,
         error = NubecitaPalette.Error80,
-        onError = Color(0xFF690005),
-        errorContainer = Color(0xFF93000A),
+        onError = NubecitaPalette.Error20,
+        errorContainer = NubecitaPalette.Error30,
         onErrorContainer = NubecitaPalette.Error90,
-        background = Color(0xFF090B0E),
+        background = NubecitaPalette.Neutral3,
         onBackground = NubecitaPalette.Neutral90,
-        surface = Color(0xFF090B0E),
+        surface = NubecitaPalette.Neutral3,
         onSurface = NubecitaPalette.Neutral90,
         surfaceVariant = NubecitaPalette.NeutralVariant30,
         onSurfaceVariant = NubecitaPalette.NeutralVariant80,
-        outline = Color(0xFF8B919A),
+        outline = NubecitaPalette.NeutralVariant60,
         outlineVariant = NubecitaPalette.NeutralVariant30,
-        scrim = Color.Black.copy(alpha = 0.6f),
+        scrim = NubecitaPalette.Neutral0.copy(alpha = 0.6f),
         inverseSurface = NubecitaPalette.Neutral90,
         inverseOnSurface = NubecitaPalette.Neutral20,
         inversePrimary = NubecitaPalette.Sky40,
-        surfaceDim = Color(0xFF090B0E),
-        surfaceBright = Color(0xFF3C3E42),
-        surfaceContainerLowest = Color(0xFF030406),
-        surfaceContainerLow = Color(0xFF111317),
-        surfaceContainer = Color(0xFF171A1D),
-        surfaceContainerHigh = Color(0xFF222427),
-        surfaceContainerHighest = Color(0xFF2C2E32),
+        surfaceDim = NubecitaPalette.Neutral3,
+        surfaceBright = NubecitaPalette.Neutral26,
+        surfaceContainerLowest = NubecitaPalette.Neutral1,
+        surfaceContainerLow = NubecitaPalette.Neutral6,
+        surfaceContainer = NubecitaPalette.Neutral9,
+        surfaceContainerHigh = NubecitaPalette.Neutral14,
+        surfaceContainerHighest = NubecitaPalette.Neutral19,
         // Same values as the light scheme — fixed roles do not flip with theme.
         primaryFixed = NubecitaPalette.Sky90,
         primaryFixedDim = NubecitaPalette.Sky80,
