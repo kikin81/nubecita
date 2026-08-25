@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787644794547,
+  "lastUpdate": 1787644797736,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -3725,6 +3725,124 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationSumMs",
             "value": 423.754,
             "range": "+/- 57.8%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "b9fc7076910b958c771307184f05d89dd4540977",
+          "message": "ci(release): 1.340.0\n\n## [1.340.0](https://github.com/kikin81/nubecita/compare/v1.339.3...v1.340.0) (2026-08-24)\n\n### Miscellaneous\n\n* **deps:** update gradle to v9.7.1 ([#913](https://github.com/kikin81/nubecita/issues/913)) ([77926d1](https://github.com/kikin81/nubecita/commit/77926d1ba3cabc6077adaebe3f4e2e1121ab52d1))\n* **deps:** update pre-commit hook @fission-ai/openspec to v1.10.0 ([#915](https://github.com/kikin81/nubecita/issues/915)) ([645f088](https://github.com/kikin81/nubecita/commit/645f0885671dbe6573eb8896c6c5c8975c17ba00))\n\n### Documentation\n\n* **designsystem:** propose Azure brand palette regeneration ([#916](https://github.com/kikin81/nubecita/issues/916)) ([13778ac](https://github.com/kikin81/nubecita/commit/13778acf5e856bcff9b2231bb30f0a1fb2b46957)), closes [#0A7AFF](https://github.com/kikin81/nubecita/issues/0A7AFF) [#0A7AFF](https://github.com/kikin81/nubecita/issues/0A7AFF) [#F7AAC9](https://github.com/kikin81/nubecita/issues/F7AAC9) [#E36DA0](https://github.com/kikin81/nubecita/issues/E36DA0) [#000000](https://github.com/kikin81/nubecita/issues/000000) [#000D1F](https://github.com/kikin81/nubecita/issues/000D1F)\n\n### Features\n\n* **designsystem:** regenerate brand palette to Azure and fix light-theme AA failures ([#918](https://github.com/kikin81/nubecita/issues/918)) ([b00b044](https://github.com/kikin81/nubecita/commit/b00b04425ea3a728511cc5f8fc3918b532fa6d04)), closes [#0A7AFF](https://github.com/kikin81/nubecita/issues/0A7AFF) [#007ACF](https://github.com/kikin81/nubecita/issues/007ACF) [#0A7AFF](https://github.com/kikin81/nubecita/issues/0A7AFF) [#0A7AFF](https://github.com/kikin81/nubecita/issues/0A7AFF) [#1D2024](https://github.com/kikin81/nubecita/issues/1D2024) [#171A1D](https://github.com/kikin81/nubecita/issues/171A1D) [#222427](https://github.com/kikin81/nubecita/issues/222427) [#550](https://github.com/kikin81/nubecita/issues/550) [#C06C00](https://github.com/kikin81/nubecita/issues/C06C00) [#C06C00](https://github.com/kikin81/nubecita/issues/C06C00) [#006878](https://github.com/kikin81/nubecita/issues/006878) [#EC4899](https://github.com/kikin81/nubecita/issues/EC4899) [#FFB787](https://github.com/kikin81/nubecita/issues/FFB787) [#76D4E9](https://github.com/kikin81/nubecita/issues/76D4E9) [#F472B6](https://github.com/kikin81/nubecita/issues/F472B6) [#20BC70](https://github.com/kikin81/nubecita/issues/20BC70) [#030406](https://github.com/kikin81/nubecita/issues/030406) [#090B0E](https://github.com/kikin81/nubecita/issues/090B0E) [#111317](https://github.com/kikin81/nubecita/issues/111317) [#171A1D](https://github.com/kikin81/nubecita/issues/171A1D) [#222427](https://github.com/kikin81/nubecita/issues/222427) [#2C2E32](https://github.com/kikin81/nubecita/issues/2C2E32) [#3C3E42](https://github.com/kikin81/nubecita/issues/3C3E42) [#D9DADF](https://github.com/kikin81/nubecita/issues/D9DADF) [#E7E8ED](https://github.com/kikin81/nubecita/issues/E7E8ED) [#EDEDF2](https://github.com/kikin81/nubecita/issues/EDEDF2) [#F3F3F8](https://github.com/kikin81/nubecita/issues/F3F3F8) [#8B919A](https://github.com/kikin81/nubecita/issues/8B919A) [#410002](https://github.com/kikin81/nubecita/issues/410002) [#690005](https://github.com/kikin81/nubecita/issues/690005) [#93000A](https://github.com/kikin81/nubecita/issues/93000A) [2C2E32/#3C3E42](https://github.com/2C2E32/nubecita/issues/3C3E42)\n\n### Bug Fixes\n\n* **deps:** update all non-major dependencies ([#914](https://github.com/kikin81/nubecita/issues/914)) ([539a84e](https://github.com/kikin81/nubecita/commit/539a84e7d37454dc5df16ce6fad863071206026e))",
+          "timestamp": "2026-08-24T16:21:23Z",
+          "url": "https://github.com/kikin81/nubecita/commit/b9fc7076910b958c771307184f05d89dd4540977"
+        },
+        "date": 1787644796870,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / ClassInitCount",
+            "value": 184,
+            "range": "+/- 0%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / ClassInitSumMs",
+            "value": 11.762,
+            "range": "+/- 118.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / JIT compilationCount",
+            "value": 106,
+            "range": "+/- 3.4%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / JIT compilationSumMs",
+            "value": 354.606,
+            "range": "+/- 20.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / ClassInitCount",
+            "value": 141,
+            "range": "+/- 0%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / ClassInitSumMs",
+            "value": 13.675,
+            "range": "+/- 19.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / JIT compilationCount",
+            "value": 1,
+            "range": "+/- 39.1%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / JIT compilationSumMs",
+            "value": 1.522,
+            "range": "+/- 163.1%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / ClassInitCount",
+            "value": 1,
+            "range": "+/- 100%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / ClassInitSumMs",
+            "value": 0.038,
+            "range": "+/- 117.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / JIT compilationCount",
+            "value": 300,
+            "range": "+/- 116.8%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / JIT compilationSumMs",
+            "value": 994.882,
+            "range": "+/- 48.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / ClassInitCount",
+            "value": 0,
+            "range": "+/- 149.1%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / ClassInitSumMs",
+            "value": 0,
+            "range": "+/- 181.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationCount",
+            "value": 66,
+            "range": "+/- 62.2%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationSumMs",
+            "value": 303.705,
+            "range": "+/- 104.9%",
             "unit": "ms"
           }
         ]
