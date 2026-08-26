@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787644797736,
+  "lastUpdate": 1787731388541,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -2543,6 +2543,64 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 715,
             "range": "+/- 3%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "b9fc7076910b958c771307184f05d89dd4540977",
+          "message": "ci(release): 1.340.0\n\n## [1.340.0](https://github.com/kikin81/nubecita/compare/v1.339.3...v1.340.0) (2026-08-24)\n\n### Miscellaneous\n\n* **deps:** update gradle to v9.7.1 ([#913](https://github.com/kikin81/nubecita/issues/913)) ([77926d1](https://github.com/kikin81/nubecita/commit/77926d1ba3cabc6077adaebe3f4e2e1121ab52d1))\n* **deps:** update pre-commit hook @fission-ai/openspec to v1.10.0 ([#915](https://github.com/kikin81/nubecita/issues/915)) ([645f088](https://github.com/kikin81/nubecita/commit/645f0885671dbe6573eb8896c6c5c8975c17ba00))\n\n### Documentation\n\n* **designsystem:** propose Azure brand palette regeneration ([#916](https://github.com/kikin81/nubecita/issues/916)) ([13778ac](https://github.com/kikin81/nubecita/commit/13778acf5e856bcff9b2231bb30f0a1fb2b46957)), closes [#0A7AFF](https://github.com/kikin81/nubecita/issues/0A7AFF) [#0A7AFF](https://github.com/kikin81/nubecita/issues/0A7AFF) [#F7AAC9](https://github.com/kikin81/nubecita/issues/F7AAC9) [#E36DA0](https://github.com/kikin81/nubecita/issues/E36DA0) [#000000](https://github.com/kikin81/nubecita/issues/000000) [#000D1F](https://github.com/kikin81/nubecita/issues/000D1F)\n\n### Features\n\n* **designsystem:** regenerate brand palette to Azure and fix light-theme AA failures ([#918](https://github.com/kikin81/nubecita/issues/918)) ([b00b044](https://github.com/kikin81/nubecita/commit/b00b04425ea3a728511cc5f8fc3918b532fa6d04)), closes [#0A7AFF](https://github.com/kikin81/nubecita/issues/0A7AFF) [#007ACF](https://github.com/kikin81/nubecita/issues/007ACF) [#0A7AFF](https://github.com/kikin81/nubecita/issues/0A7AFF) [#0A7AFF](https://github.com/kikin81/nubecita/issues/0A7AFF) [#1D2024](https://github.com/kikin81/nubecita/issues/1D2024) [#171A1D](https://github.com/kikin81/nubecita/issues/171A1D) [#222427](https://github.com/kikin81/nubecita/issues/222427) [#550](https://github.com/kikin81/nubecita/issues/550) [#C06C00](https://github.com/kikin81/nubecita/issues/C06C00) [#C06C00](https://github.com/kikin81/nubecita/issues/C06C00) [#006878](https://github.com/kikin81/nubecita/issues/006878) [#EC4899](https://github.com/kikin81/nubecita/issues/EC4899) [#FFB787](https://github.com/kikin81/nubecita/issues/FFB787) [#76D4E9](https://github.com/kikin81/nubecita/issues/76D4E9) [#F472B6](https://github.com/kikin81/nubecita/issues/F472B6) [#20BC70](https://github.com/kikin81/nubecita/issues/20BC70) [#030406](https://github.com/kikin81/nubecita/issues/030406) [#090B0E](https://github.com/kikin81/nubecita/issues/090B0E) [#111317](https://github.com/kikin81/nubecita/issues/111317) [#171A1D](https://github.com/kikin81/nubecita/issues/171A1D) [#222427](https://github.com/kikin81/nubecita/issues/222427) [#2C2E32](https://github.com/kikin81/nubecita/issues/2C2E32) [#3C3E42](https://github.com/kikin81/nubecita/issues/3C3E42) [#D9DADF](https://github.com/kikin81/nubecita/issues/D9DADF) [#E7E8ED](https://github.com/kikin81/nubecita/issues/E7E8ED) [#EDEDF2](https://github.com/kikin81/nubecita/issues/EDEDF2) [#F3F3F8](https://github.com/kikin81/nubecita/issues/F3F3F8) [#8B919A](https://github.com/kikin81/nubecita/issues/8B919A) [#410002](https://github.com/kikin81/nubecita/issues/410002) [#690005](https://github.com/kikin81/nubecita/issues/690005) [#93000A](https://github.com/kikin81/nubecita/issues/93000A) [2C2E32/#3C3E42](https://github.com/2C2E32/nubecita/issues/3C3E42)\n\n### Bug Fixes\n\n* **deps:** update all non-major dependencies ([#914](https://github.com/kikin81/nubecita/issues/914)) ([539a84e](https://github.com/kikin81/nubecita/commit/539a84e7d37454dc5df16ce6fad863071206026e))",
+          "timestamp": "2026-08-24T16:21:23Z",
+          "url": "https://github.com/kikin81/nubecita/commit/b9fc7076910b958c771307184f05d89dd4540977"
+        },
+        "date": 1787731385479,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 34,
+            "range": "+/- 8.5%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1381.958,
+            "range": "+/- 6.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1269.01,
+            "range": "+/- 6.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1098.75,
+            "range": "+/- 42.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 893.73,
+            "range": "+/- 34.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 684,
+            "range": "+/- 0.7%",
             "unit": "frames"
           }
         ]
