@@ -24,6 +24,11 @@ Two distinct types carry this choice, and requirements below name whichever one 
 - `Light` MUST resolve to the Nubecita brand palette in its light variant, regardless of the OS light/dark setting.
 - `Dark` MUST resolve to the Nubecita brand palette in its dark variant, regardless of the OS light/dark setting.
 
+The brand palette these options render is owned by the `design-system` capability.
+`Dynamic` is unaffected by brand palette changes: it sources every role from
+`dynamicLightColorScheme` / `dynamicDarkColorScheme` and no brand color is
+reachable through it on API 31+.
+
 #### Scenario: Dynamic follows the OS light/dark setting
 
 - **WHEN** the active theme is `Dynamic` and the OS switches from light to dark mode
@@ -37,7 +42,12 @@ Two distinct types carry this choice, and requirements below name whichever one 
 #### Scenario: Light overrides an OS set to dark
 
 - **WHEN** the active theme is `Light` and the OS is in dark mode
-- **THEN** the app renders the brand light palette, and `MaterialTheme.colorScheme.primary` equals the brand Sky-50 (`#0A7AFF`).
+- **THEN** the app renders the brand light palette, and `MaterialTheme.colorScheme.primary` equals the brand Sky-40 (`#0061A6`).
+
+#### Scenario: Dynamic is unchanged by a brand palette change
+
+- **WHEN** the active theme is `Dynamic` on an Android 12+ device and the brand palette is changed
+- **THEN** no rendered color changes, because every role is wallpaper-derived.
 
 #### Scenario: Dynamic degrades to the brand palette before Android 12
 
