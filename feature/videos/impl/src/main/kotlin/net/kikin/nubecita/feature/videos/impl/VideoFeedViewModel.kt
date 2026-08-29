@@ -271,7 +271,12 @@ class VideoFeedViewModel
 
         private fun maybeLoadMore(index: Int) {
             if (loadingMore || endReached) return
-            if (index < loaded.size - PREFETCH_THRESHOLD) return
+            // `index` addresses the list the PAGER renders, which drops deleted posts, so
+            // the threshold has to use that list's size too. Measured against `loaded.size`
+            // the trigger sits past the real tail — with enough deletions the user reaches
+            // the end and pagination silently never fires.
+            val renderedCount = (uiState.value.status as? VideoFeedStatus.Content)?.items?.size ?: return
+            if (index < renderedCount - PREFETCH_THRESHOLD) return
             loadingMore = true
             loadMoreJob =
                 viewModelScope.launch {
@@ -296,7 +301,10 @@ class VideoFeedViewModel
                                     setState { copy(status = VideoFeedStatus.Content(merged)) }
                                     // Re-bind with the appended items so the pool can prewarm past the old tail.
                                     // settle() reuses the active/prewarm slots by index, so this doesn't restart playback.
-                                    pool.bind(loaded.map { it.source }, startIndex = uiState.value.activeIndex)
+                                    // `merged`, not `loaded`, for the same reason as the first page: activeIndex
+                                    // addresses the list the pager renders, so binding the unfiltered list here
+                                    // would silently re-point the pool on the first append.
+                                    pool.bind(merged.map { it.source }, startIndex = uiState.value.activeIndex)
                                     postInteractionsCache.seed(fresh.map { it.post })
                                 }
                             }.onFailure { Timber.w(it, "video feed page failed") }

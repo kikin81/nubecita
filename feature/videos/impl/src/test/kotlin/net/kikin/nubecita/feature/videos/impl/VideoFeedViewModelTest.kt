@@ -494,6 +494,54 @@ class VideoFeedViewModelTest {
         }
 
     @Test
+    fun appendedPage_bindsPoolToTheFilteredList_whenAPostIsDeleted() =
+        runTest(mainDispatcher.dispatcher) {
+            // The append path must address the pool the same way the first page does.
+            // Binding `loaded` here would re-point the pool from the filtered list to the
+            // unfiltered one on the FIRST append, so the surface silently drifts one clip
+            // out of step with the pager mid-scroll.
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(List(4) { videoPost("v$it") }, cursor = "c1"))
+            coEvery { source.loadPage("c1") } returns Result.success(VideoFeedPage(listOf(videoPost("w0")), cursor = null))
+            cacheState.value = persistentMapOf("v0" to PostInteractionState(isDeleted = true))
+
+            val viewModel = vm()
+            advanceUntilIdle()
+            viewModel.handleEvent(VideoFeedEvent.ActiveIndexChanged(1))
+            advanceUntilIdle()
+
+            val ids = (viewModel.uiState.value.status as VideoFeedStatus.Content).items.map { it.post.id }
+            assertEquals(listOf("v1", "v2", "v3", "w0"), ids)
+            // 4 items, not the 5 still sitting in `loaded`.
+            coVerify { pool.bind(match { it.size == 4 }, 1) }
+        }
+
+    @Test
+    fun pagination_triggersOnTheRenderedTail_notTheUnfilteredOne() =
+        runTest(mainDispatcher.dispatcher) {
+            // 8 loaded, 3 deleted -> 5 rendered. Against the RENDERED size the prefetch
+            // threshold fires at index 2; against `loaded.size` it would not fire until
+            // index 5, which the pager can never reach (it only has pages 0..4). That is
+            // pagination stalling at the tail, not merely firing late.
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(List(8) { videoPost("v$it") }, cursor = "c1"))
+            coEvery { source.loadPage("c1") } returns Result.success(VideoFeedPage(listOf(videoPost("w0")), cursor = null))
+            cacheState.value =
+                persistentMapOf(
+                    "v0" to PostInteractionState(isDeleted = true),
+                    "v1" to PostInteractionState(isDeleted = true),
+                    "v2" to PostInteractionState(isDeleted = true),
+                )
+
+            val viewModel = vm()
+            advanceUntilIdle()
+            assertEquals(5, (viewModel.uiState.value.status as VideoFeedStatus.Content).items.size)
+
+            viewModel.handleEvent(VideoFeedEvent.ActiveIndexChanged(2))
+            advanceUntilIdle()
+
+            coVerify { source.loadPage("c1") }
+        }
+
+    @Test
     fun togglePlayPause_flipsState_andDrivesPool() =
         runTest(mainDispatcher.dispatcher) {
             coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(listOf(videoPost("a")), cursor = null))
