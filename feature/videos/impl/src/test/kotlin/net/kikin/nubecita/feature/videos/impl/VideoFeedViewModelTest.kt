@@ -423,6 +423,30 @@ class VideoFeedViewModelTest {
         }
 
     @Test
+    fun deletedPostBeforeTarget_doesNotShiftTheOpenedVideo() =
+        runTest(mainDispatcher.dispatcher) {
+            // applyInteractions drops deleted posts, so the UI list is SHORTER than the
+            // loaded list. Addressing the pager against `loaded` while rendering `merged`
+            // makes index N denote two different clips: with v0 deleted, target v2 sits at
+            // index 2 of `loaded` but index 1 of what the user actually sees.
+            coEvery { source.loadPage(null) } returns
+                Result.success(VideoFeedPage(List(4) { videoPost("v$it") }, cursor = null))
+            cacheState.value = persistentMapOf("v0" to PostInteractionState(isDeleted = true))
+
+            val viewModel = vm(startPostUri = "v2")
+            advanceUntilIdle()
+
+            val items = (viewModel.uiState.value.status as VideoFeedStatus.Content).items
+            assertEquals(listOf("v1", "v2", "v3"), items.map { it.post.id })
+            // Index must address the list the user sees, not the pre-filter one.
+            assertEquals(1, viewModel.uiState.value.activeIndex)
+            assertEquals("v2", items[viewModel.uiState.value.activeIndex].post.id)
+            // ...and the pool must be bound to that SAME list, or the surface plays a
+            // different clip than the page the pager settled on.
+            coVerify { pool.bind(match { it.size == 3 }, 1) }
+        }
+
+    @Test
     fun startPostUri_foundInPage_doesNotHydrate_andCountsResolved() =
         runTest(mainDispatcher.dispatcher) {
             coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(List(3) { videoPost("v$it") }, cursor = null))

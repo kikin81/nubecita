@@ -189,19 +189,30 @@ class VideoFeedViewModel
                         setState { copy(status = VideoFeedStatus.Error) }
                     } else {
                         // May PREPEND the tapped post to `loaded`, so it must run before
-                        // the list is snapshotted for the state / pool / cache below.
-                        val initialIndex = resolveStartIndex(pages)
+                        // the list is snapshotted below.
+                        resolveStartPost(pages)
+                        // applyInteractions DROPS deleted posts, so `merged` can be shorter
+                        // than `loaded`. The pager and the pool must be addressed against the
+                        // SAME list or index N denotes two different clips — resolve the index
+                        // in `merged` and bind the pool to `merged` too.
                         val merged = loaded.toImmutableList().applyInteractions(postInteractionsCache.state.value)
+                        val initialIndex =
+                            route.startPostUri
+                                ?.let { uri -> merged.indexOfFirst { it.post.id == uri }.coerceAtLeast(0) }
+                                ?: 0
                         setState { copy(status = VideoFeedStatus.Content(merged), activeIndex = initialIndex) }
-                        pool.bind(loaded.map { it.source }, startIndex = initialIndex)
+                        pool.bind(merged.map { it.source }, startIndex = initialIndex)
+                        // Seeded from `loaded`: seed() treats deletion as outranking wire data,
+                        // so re-seeding a deleted post cannot resurrect it.
                         postInteractionsCache.seed(loaded.map { it.post })
                     }
                 }
         }
 
         /**
-         * Index to open on: where the tapped post ([VideoFeed.startPostUri]) landed
-         * in the pages this feed loaded.
+         * Make sure the post the user tapped ([VideoFeed.startPostUri]) is present in
+         * [loaded]. Does NOT return an index — the caller resolves that against the
+         * post-interaction-merged list, which may be shorter than [loaded].
          *
          * Those pages are a **second, independent fetch** of a live feed, so they
          * need not contain the tapped post at all — device-confirmed in
@@ -217,15 +228,14 @@ class VideoFeedViewModel
          * falls back to the top — and that outcome is logged and counted instead of
          * being silent, which is why this bug reached a user as a mystery.
          *
-         * Returns 0 when the route carried no URI (opening at the top is the intent).
+         * No-op when the route carried no URI (opening at the top is the intent).
          */
-        private suspend fun resolveStartIndex(pagesWalked: Int): Int {
-            val startPostUri = route.startPostUri ?: return 0
+        private suspend fun resolveStartPost(pagesWalked: Int) {
+            val startPostUri = route.startPostUri ?: return
 
-            val seeked = loaded.indexOfFirst { it.post.id == startPostUri }
-            if (seeked >= 0) {
+            if (loaded.any { it.post.id == startPostUri }) {
                 analytics.log(VideoFeedSeek(VideoSeekOutcome.Resolved, pagesWalked.toLong()))
-                return seeked
+                return
             }
 
             // Not in any page we loaded. `loaded` provably lacks it, so prepending
@@ -240,7 +250,7 @@ class VideoFeedViewModel
                     pagesWalked,
                 )
                 analytics.log(VideoFeedSeek(VideoSeekOutcome.Recovered, pagesWalked.toLong()))
-                return 0
+                return
             }
 
             Timber.w(
@@ -248,7 +258,6 @@ class VideoFeedViewModel
                 pagesWalked,
             )
             analytics.log(VideoFeedSeek(VideoSeekOutcome.FellBackToTop, pagesWalked.toLong()))
-            return 0
         }
 
         private fun onActiveIndexChanged(index: Int) {
