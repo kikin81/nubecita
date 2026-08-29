@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787915544400,
+  "lastUpdate": 1787989423767,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -2717,6 +2717,64 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 692,
             "range": "+/- 1.2%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d3050eaecef2a66941237804c5579542914974ee",
+          "message": "docs(openspec): archive the Azure palette change and fold in its specs (#920)\n\n* docs(openspec): archive the Azure palette change and fold in its specs\n\nShipped in #918 (b00b0442, released 1.340.0).\n\nApplies the delta specs into the main specs and moves the change to\nopenspec/changes/archive/2026-08-24-regenerate-brand-palette-azure/:\n\n  design-system        +5 requirements, ~3 modified  (38 -> 43)\n  app-theme-selection  ~1 modified                   (11 -> 11)\n\nVerified the merge reconciled rather than concatenated: no duplicated\nrequirement headers, no leftover ADDED/MODIFIED markers, no TBD\nsections, and the only surviving #0A7AFF references are the LauncherBlue\nrequirement itself plus the scenario asserting primary must NOT equal\nit.\n\nTwo fixes were needed before the archive would apply.\n\nThe LauncherBlue requirement had been written into the MODIFIED block\nrather than ADDED -- it was inserted directly after a scenario belonging\nto the preceding modified requirement. `openspec validate --strict`\npassed on that structure; only `openspec archive` caught it, by failing\nto find a requirement it was being asked to modify. It aborted\ntransactionally with no files changed. Worth knowing that strict\nvalidation does not check whether a MODIFIED header actually exists in\nthe target spec.\n\nThe task list was also entirely unchecked -- the work shipped but the\nboxes were never ticked, so archiving it as-is would have recorded that\nnothing was done. Now 41/42 complete, with 3b.6 deliberately left open\n(the ComposerCharacterCounter tertiary usage, raised as a follow-up) and\nnotes where reality diverged from the plan: 5.5 ran on an emulator\nrather than the physical foldable, 4.5's 1147 baseline count was wrong\n(1093 live, 54 were an orphan tree), and 6.2 records that the Linux\nscreenshot job failed on pure 1/255 host noise.\n\nRefs: nubecita-bvff\n\n* docs(openspec): use US spelling in the archived task notes\n\nOne \"colour\" survived into task 3b.2 -- it was written after the earlier\nspelling pass, so the earlier fix did not cover it. The openspec corpus\nis consistently US-spelled and matches the API surface it describes\n(ColorScheme, colorScheme, Color.Unspecified).\n\nRefs: nubecita-bvff",
+          "timestamp": "2026-08-27T15:09:56Z",
+          "url": "https://github.com/kikin81/nubecita/commit/d3050eaecef2a66941237804c5579542914974ee"
+        },
+        "date": 1787989421483,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 33,
+            "range": "+/- 18.2%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1416.258,
+            "range": "+/- 5.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1251.649,
+            "range": "+/- 6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1086.959,
+            "range": "+/- 11.1%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1031.174,
+            "range": "+/- 46.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 702,
+            "range": "+/- 3%",
             "unit": "frames"
           }
         ]
