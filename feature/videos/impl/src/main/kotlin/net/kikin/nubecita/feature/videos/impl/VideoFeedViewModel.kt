@@ -185,17 +185,22 @@ class VideoFeedViewModel
                         pages < MAX_SEEK_PAGES
                     )
 
-                    if (loaded.isEmpty()) {
+                    // Before the empty check: a feed page that came back with nothing
+                    // playable is exactly when recovering the tapped post matters most —
+                    // erroring out first would refuse to play a video the user just tapped
+                    // and the carousel was just showing.
+                    resolveStartPost(pages)
+                    // applyInteractions DROPS deleted posts, so `merged` can be shorter than
+                    // `loaded`. The pager and the pool must be addressed against the SAME
+                    // list or index N denotes two different clips — resolve the index in
+                    // `merged` and bind the pool to `merged` too. Guarding on `merged`
+                    // (not `loaded`) also means "nothing to render" is one condition: an
+                    // empty page and an all-deleted page both land on Error rather than a
+                    // zero-page pager.
+                    val merged = loaded.toImmutableList().applyInteractions(postInteractionsCache.state.value)
+                    if (merged.isEmpty()) {
                         setState { copy(status = VideoFeedStatus.Error) }
                     } else {
-                        // May PREPEND the tapped post to `loaded`, so it must run before
-                        // the list is snapshotted below.
-                        resolveStartPost(pages)
-                        // applyInteractions DROPS deleted posts, so `merged` can be shorter
-                        // than `loaded`. The pager and the pool must be addressed against the
-                        // SAME list or index N denotes two different clips — resolve the index
-                        // in `merged` and bind the pool to `merged` too.
-                        val merged = loaded.toImmutableList().applyInteractions(postInteractionsCache.state.value)
                         val initialIndex =
                             route.startPostUri
                                 ?.let { uri -> merged.indexOfFirst { it.post.id == uri }.coerceAtLeast(0) }

@@ -136,6 +136,53 @@ class VideoFeedViewModelTest {
         }
 
     @Test
+    fun emptyPage_stillPlaysTheTappedVideo() =
+        runTest(mainDispatcher.dispatcher) {
+            // A page with nothing playable is exactly when recovery matters most: the
+            // carousel was showing this post a moment ago. Erroring out would refuse to
+            // play a video the user just tapped.
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(emptyList(), cursor = null))
+            coEvery { postRepository.getPost("tapped") } returns Result.success(videoPost("tapped"))
+
+            val viewModel = vm(startPostUri = "tapped")
+            advanceUntilIdle()
+
+            val items = (viewModel.uiState.value.status as VideoFeedStatus.Content).items
+            assertEquals(listOf("tapped"), items.map { it.post.id })
+            assertEquals(0, viewModel.uiState.value.activeIndex)
+            verify { analytics.log(VideoFeedSeek(VideoSeekOutcome.Recovered, 1L)) }
+        }
+
+    @Test
+    fun emptyPage_withNothingToRecover_isError() =
+        runTest(mainDispatcher.dispatcher) {
+            // Nothing loaded and nothing hydratable -> Error, not a zero-page pager.
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(emptyList(), cursor = null))
+            coEvery { postRepository.getPost("gone") } returns Result.failure(IllegalStateException("deleted"))
+
+            val viewModel = vm(startPostUri = "gone")
+            advanceUntilIdle()
+
+            assertEquals(VideoFeedStatus.Error, viewModel.uiState.value.status)
+        }
+
+    @Test
+    fun allLoadedPostsDeleted_isError_notAZeroPagePager() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(List(2) { videoPost("v$it") }, cursor = null))
+            cacheState.value =
+                persistentMapOf(
+                    "v0" to PostInteractionState(isDeleted = true),
+                    "v1" to PostInteractionState(isDeleted = true),
+                )
+
+            val viewModel = vm()
+            advanceUntilIdle()
+
+            assertEquals(VideoFeedStatus.Error, viewModel.uiState.value.status)
+        }
+
+    @Test
     fun loadFailure_isError() =
         runTest(mainDispatcher.dispatcher) {
             coEvery { source.loadPage(null) } returns Result.failure(RuntimeException("boom"))
