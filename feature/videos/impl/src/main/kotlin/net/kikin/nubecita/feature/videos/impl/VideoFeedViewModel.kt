@@ -12,12 +12,16 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.PostSurface
+import net.kikin.nubecita.core.analytics.VideoFeedSeek
+import net.kikin.nubecita.core.analytics.VideoSeekOutcome
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
+import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.core.video.playback.DataSaverStatus
 import net.kikin.nubecita.core.video.playback.PlaylistPlaybackState
@@ -48,11 +52,13 @@ class VideoFeedViewModel
     constructor(
         @Assisted private val route: VideoFeed,
         private val sourceFactory: VideoFeedSourceFactory,
+        private val postRepository: PostRepository,
         private val pool: VerticalVideoPlaylistPlayer,
         private val sharedVideoPlayer: SharedVideoPlayer,
         private val dataSaver: DataSaverStatus,
         private val handler: PostInteractionHandler,
         private val postInteractionsCache: PostInteractionsCache,
+        private val analytics: AnalyticsClient,
     ) : MviViewModel<VideoFeedState, VideoFeedEvent, VideoFeedEffect>(
             VideoFeedState(),
         ),
@@ -182,19 +188,67 @@ class VideoFeedViewModel
                     if (loaded.isEmpty()) {
                         setState { copy(status = VideoFeedStatus.Error) }
                     } else {
-                        // -1 → open at top. Reached only when startPostUri is genuinely
-                        // absent from this feed: aged out, past MAX_SEEK_PAGES, or a Media
-                        // cell that isn't in posts_with_video (a record-with-media video
-                        // counts as a Media video cell but the author-feed filter may omit
-                        // it). The seek already stops at end-of-feed (cursor == null), so the
-                        // fallback is graceful rather than a runaway.
-                        val initialIndex = loaded.indexOfFirst { it.post.id == route.startPostUri }.coerceAtLeast(0)
+                        // May PREPEND the tapped post to `loaded`, so it must run before
+                        // the list is snapshotted for the state / pool / cache below.
+                        val initialIndex = resolveStartIndex(pages)
                         val merged = loaded.toImmutableList().applyInteractions(postInteractionsCache.state.value)
                         setState { copy(status = VideoFeedStatus.Content(merged), activeIndex = initialIndex) }
                         pool.bind(loaded.map { it.source }, startIndex = initialIndex)
                         postInteractionsCache.seed(loaded.map { it.post })
                     }
                 }
+        }
+
+        /**
+         * Index to open on: where the tapped post ([VideoFeed.startPostUri]) landed
+         * in the pages this feed loaded.
+         *
+         * Those pages are a **second, independent fetch** of a live feed, so they
+         * need not contain the tapped post at all — device-confirmed in
+         * nubecita-zdv8.16, where the carousel's page and the feed's page came back
+         * with disjoint heads and the user was dropped on a video they never tapped.
+         * Legitimate misses exist too (aged out, past [MAX_SEEK_PAGES], or a Media
+         * cell absent from `posts_with_video`).
+         *
+         * So a miss is RECOVERED rather than absorbed: hydrate the post directly by
+         * URI and pin it to the top, which makes "the tapped video plays" hold
+         * regardless of what the refetch returned. Only a post that cannot be
+         * hydrated at all (deleted, blocked, or no longer carrying a video embed)
+         * falls back to the top — and that outcome is logged and counted instead of
+         * being silent, which is why this bug reached a user as a mystery.
+         *
+         * Returns 0 when the route carried no URI (opening at the top is the intent).
+         */
+        private suspend fun resolveStartIndex(pagesWalked: Int): Int {
+            val startPostUri = route.startPostUri ?: return 0
+
+            val seeked = loaded.indexOfFirst { it.post.id == startPostUri }
+            if (seeked >= 0) {
+                analytics.log(VideoFeedSeek(VideoSeekOutcome.Resolved, pagesWalked.toLong()))
+                return seeked
+            }
+
+            // Not in any page we loaded. `loaded` provably lacks it, so prepending
+            // cannot duplicate a pager key.
+            val recovered = postRepository.getPost(startPostUri).getOrNull()?.toVideoFeedItemOrNull()
+            if (recovered != null) {
+                loaded.add(0, recovered)
+                // Abnormal but handled: the feed's own pages disagreed with the surface the
+                // user tapped from. Worth seeing in a bug report, hence info and not debug.
+                Timber.i(
+                    "video feed seek RECOVERED: tapped post absent from %d loaded page(s), hydrated by URI",
+                    pagesWalked,
+                )
+                analytics.log(VideoFeedSeek(VideoSeekOutcome.Recovered, pagesWalked.toLong()))
+                return 0
+            }
+
+            Timber.w(
+                "video feed seek MISS: tapped post absent from %d loaded page(s) and not hydratable; opening at top",
+                pagesWalked,
+            )
+            analytics.log(VideoFeedSeek(VideoSeekOutcome.FellBackToTop, pagesWalked.toLong()))
+            return 0
         }
 
         private fun onActiveIndexChanged(index: Int) {
