@@ -12,12 +12,16 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.PostSurface
+import net.kikin.nubecita.core.analytics.VideoFeedSeek
+import net.kikin.nubecita.core.analytics.VideoSeekOutcome
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
+import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.core.video.playback.DataSaverStatus
 import net.kikin.nubecita.core.video.playback.PlaylistPlaybackState
@@ -48,11 +52,13 @@ class VideoFeedViewModel
     constructor(
         @Assisted private val route: VideoFeed,
         private val sourceFactory: VideoFeedSourceFactory,
+        private val postRepository: PostRepository,
         private val pool: VerticalVideoPlaylistPlayer,
         private val sharedVideoPlayer: SharedVideoPlayer,
         private val dataSaver: DataSaverStatus,
         private val handler: PostInteractionHandler,
         private val postInteractionsCache: PostInteractionsCache,
+        private val analytics: AnalyticsClient,
     ) : MviViewModel<VideoFeedState, VideoFeedEvent, VideoFeedEffect>(
             VideoFeedState(),
         ),
@@ -179,22 +185,84 @@ class VideoFeedViewModel
                         pages < MAX_SEEK_PAGES
                     )
 
-                    if (loaded.isEmpty()) {
+                    // Before the empty check: a feed page that came back with nothing
+                    // playable is exactly when recovering the tapped post matters most —
+                    // erroring out first would refuse to play a video the user just tapped
+                    // and the carousel was just showing.
+                    resolveStartPost(pages)
+                    // applyInteractions DROPS deleted posts, so `merged` can be shorter than
+                    // `loaded`. The pager and the pool must be addressed against the SAME
+                    // list or index N denotes two different clips — resolve the index in
+                    // `merged` and bind the pool to `merged` too. Guarding on `merged`
+                    // (not `loaded`) also means "nothing to render" is one condition: an
+                    // empty page and an all-deleted page both land on Error rather than a
+                    // zero-page pager.
+                    val merged = loaded.toImmutableList().applyInteractions(postInteractionsCache.state.value)
+                    if (merged.isEmpty()) {
                         setState { copy(status = VideoFeedStatus.Error) }
                     } else {
-                        // -1 → open at top. Reached only when startPostUri is genuinely
-                        // absent from this feed: aged out, past MAX_SEEK_PAGES, or a Media
-                        // cell that isn't in posts_with_video (a record-with-media video
-                        // counts as a Media video cell but the author-feed filter may omit
-                        // it). The seek already stops at end-of-feed (cursor == null), so the
-                        // fallback is graceful rather than a runaway.
-                        val initialIndex = loaded.indexOfFirst { it.post.id == route.startPostUri }.coerceAtLeast(0)
-                        val merged = loaded.toImmutableList().applyInteractions(postInteractionsCache.state.value)
+                        val initialIndex =
+                            route.startPostUri
+                                ?.let { uri -> merged.indexOfFirst { it.post.id == uri }.coerceAtLeast(0) }
+                                ?: 0
                         setState { copy(status = VideoFeedStatus.Content(merged), activeIndex = initialIndex) }
-                        pool.bind(loaded.map { it.source }, startIndex = initialIndex)
+                        pool.bind(merged.map { it.source }, startIndex = initialIndex)
+                        // Seeded from `loaded`: seed() treats deletion as outranking wire data,
+                        // so re-seeding a deleted post cannot resurrect it.
                         postInteractionsCache.seed(loaded.map { it.post })
                     }
                 }
+        }
+
+        /**
+         * Make sure the post the user tapped ([VideoFeed.startPostUri]) is present in
+         * [loaded]. Does NOT return an index — the caller resolves that against the
+         * post-interaction-merged list, which may be shorter than [loaded].
+         *
+         * Those pages are a **second, independent fetch** of a live feed, so they
+         * need not contain the tapped post at all — device-confirmed in
+         * nubecita-zdv8.16, where the carousel's page and the feed's page came back
+         * with disjoint heads and the user was dropped on a video they never tapped.
+         * Legitimate misses exist too (aged out, past [MAX_SEEK_PAGES], or a Media
+         * cell absent from `posts_with_video`).
+         *
+         * So a miss is RECOVERED rather than absorbed: hydrate the post directly by
+         * URI and pin it to the top, which makes "the tapped video plays" hold
+         * regardless of what the refetch returned. Only a post that cannot be
+         * hydrated at all (deleted, blocked, or no longer carrying a video embed)
+         * falls back to the top — and that outcome is logged and counted instead of
+         * being silent, which is why this bug reached a user as a mystery.
+         *
+         * No-op when the route carried no URI (opening at the top is the intent).
+         */
+        private suspend fun resolveStartPost(pagesWalked: Int) {
+            val startPostUri = route.startPostUri ?: return
+
+            if (loaded.any { it.post.id == startPostUri }) {
+                analytics.log(VideoFeedSeek(VideoSeekOutcome.Resolved, pagesWalked.toLong()))
+                return
+            }
+
+            // Not in any page we loaded. `loaded` provably lacks it, so prepending
+            // cannot duplicate a pager key.
+            val recovered = postRepository.getPost(startPostUri).getOrNull()?.toVideoFeedItemOrNull()
+            if (recovered != null) {
+                loaded.add(0, recovered)
+                // Abnormal but handled: the feed's own pages disagreed with the surface the
+                // user tapped from. Worth seeing in a bug report, hence info and not debug.
+                Timber.i(
+                    "video feed seek RECOVERED: tapped post absent from %d loaded page(s), hydrated by URI",
+                    pagesWalked,
+                )
+                analytics.log(VideoFeedSeek(VideoSeekOutcome.Recovered, pagesWalked.toLong()))
+                return
+            }
+
+            Timber.w(
+                "video feed seek MISS: tapped post absent from %d loaded page(s) and not hydratable; opening at top",
+                pagesWalked,
+            )
+            analytics.log(VideoFeedSeek(VideoSeekOutcome.FellBackToTop, pagesWalked.toLong()))
         }
 
         private fun onActiveIndexChanged(index: Int) {
@@ -208,7 +276,12 @@ class VideoFeedViewModel
 
         private fun maybeLoadMore(index: Int) {
             if (loadingMore || endReached) return
-            if (index < loaded.size - PREFETCH_THRESHOLD) return
+            // `index` addresses the list the PAGER renders, which drops deleted posts, so
+            // the threshold has to use that list's size too. Measured against `loaded.size`
+            // the trigger sits past the real tail — with enough deletions the user reaches
+            // the end and pagination silently never fires.
+            val renderedCount = (uiState.value.status as? VideoFeedStatus.Content)?.items?.size ?: return
+            if (index < renderedCount - PREFETCH_THRESHOLD) return
             loadingMore = true
             loadMoreJob =
                 viewModelScope.launch {
@@ -233,7 +306,10 @@ class VideoFeedViewModel
                                     setState { copy(status = VideoFeedStatus.Content(merged)) }
                                     // Re-bind with the appended items so the pool can prewarm past the old tail.
                                     // settle() reuses the active/prewarm slots by index, so this doesn't restart playback.
-                                    pool.bind(loaded.map { it.source }, startIndex = uiState.value.activeIndex)
+                                    // `merged`, not `loaded`, for the same reason as the first page: activeIndex
+                                    // addresses the list the pager renders, so binding the unfiltered list here
+                                    // would silently re-point the pool on the first append.
+                                    pool.bind(merged.map { it.source }, startIndex = uiState.value.activeIndex)
                                     postInteractionsCache.seed(fresh.map { it.post })
                                 }
                             }.onFailure { Timber.w(it, "video feed page failed") }

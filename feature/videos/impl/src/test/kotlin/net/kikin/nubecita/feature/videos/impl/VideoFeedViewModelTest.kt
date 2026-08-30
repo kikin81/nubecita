@@ -12,10 +12,14 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.PostSurface
+import net.kikin.nubecita.core.analytics.VideoFeedSeek
+import net.kikin.nubecita.core.analytics.VideoSeekOutcome
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
+import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.core.video.playback.DataSaverStatus
@@ -56,10 +60,30 @@ class VideoFeedViewModelTest {
             every { state } returns cacheState
         }
 
+    private val postRepository = mockk<PostRepository>()
+    private val analytics = mockk<AnalyticsClient>(relaxed = true)
+
+    init {
+        // Default: the tapped post cannot be hydrated, so tests that don't care about
+        // the recovery path still exercise the plain "open at top" fallback. Tests that
+        // DO care stub a success explicitly.
+        coEvery { postRepository.getPost(any()) } returns Result.failure(IllegalStateException("not hydratable"))
+    }
+
     private fun vm(
         startPostUri: String? = null,
         authorDid: String? = null,
-    ) = VideoFeedViewModel(VideoFeed(startPostUri, authorDid), sourceFactory, pool, shared, dataSaver, handler, interactionsCache)
+    ) = VideoFeedViewModel(
+        VideoFeed(startPostUri, authorDid),
+        sourceFactory,
+        postRepository,
+        pool,
+        shared,
+        dataSaver,
+        handler,
+        interactionsCache,
+        analytics,
+    )
 
     @Test
     fun init_releasesSharedPlayer_loadsFirstPage_bindsPool() =
@@ -104,6 +128,53 @@ class VideoFeedViewModelTest {
     fun firstPage_withNoVideoPosts_isError() =
         runTest(mainDispatcher.dispatcher) {
             coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(listOf(nonVideoPost("x")), cursor = null))
+
+            val viewModel = vm()
+            advanceUntilIdle()
+
+            assertEquals(VideoFeedStatus.Error, viewModel.uiState.value.status)
+        }
+
+    @Test
+    fun emptyPage_stillPlaysTheTappedVideo() =
+        runTest(mainDispatcher.dispatcher) {
+            // A page with nothing playable is exactly when recovery matters most: the
+            // carousel was showing this post a moment ago. Erroring out would refuse to
+            // play a video the user just tapped.
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(emptyList(), cursor = null))
+            coEvery { postRepository.getPost("tapped") } returns Result.success(videoPost("tapped"))
+
+            val viewModel = vm(startPostUri = "tapped")
+            advanceUntilIdle()
+
+            val items = (viewModel.uiState.value.status as VideoFeedStatus.Content).items
+            assertEquals(listOf("tapped"), items.map { it.post.id })
+            assertEquals(0, viewModel.uiState.value.activeIndex)
+            verify { analytics.log(VideoFeedSeek(VideoSeekOutcome.Recovered, 1L)) }
+        }
+
+    @Test
+    fun emptyPage_withNothingToRecover_isError() =
+        runTest(mainDispatcher.dispatcher) {
+            // Nothing loaded and nothing hydratable -> Error, not a zero-page pager.
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(emptyList(), cursor = null))
+            coEvery { postRepository.getPost("gone") } returns Result.failure(IllegalStateException("deleted"))
+
+            val viewModel = vm(startPostUri = "gone")
+            advanceUntilIdle()
+
+            assertEquals(VideoFeedStatus.Error, viewModel.uiState.value.status)
+        }
+
+    @Test
+    fun allLoadedPostsDeleted_isError_notAZeroPagePager() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(List(2) { videoPost("v$it") }, cursor = null))
+            cacheState.value =
+                persistentMapOf(
+                    "v0" to PostInteractionState(isDeleted = true),
+                    "v1" to PostInteractionState(isDeleted = true),
+                )
 
             val viewModel = vm()
             advanceUntilIdle()
@@ -306,15 +377,25 @@ class VideoFeedViewModelTest {
         }
 
     @Test
-    fun seek_fallsBackToTop_whenTargetNeverFound() =
+    fun seek_recoversTappedPost_whenAbsentFromEveryLoadedPage() =
         runTest(mainDispatcher.dispatcher) {
+            // PREVIOUSLY asserted activeIndex == 0 here, which pinned the bug as correct:
+            // the feed's pages are a SECOND, independent fetch of a live feed and need not
+            // contain the tapped post at all (device-confirmed, nubecita-zdv8.16). Opening
+            // at the top means playing a video the user never tapped.
             coEvery { source.loadPage(null) } returns
                 Result.success(VideoFeedPage(listOf(videoPost("a"), videoPost("b")), cursor = null))
+            coEvery { postRepository.getPost("tapped") } returns Result.success(videoPost("tapped"))
 
-            val viewModel = vm(startPostUri = "does-not-exist")
+            val viewModel = vm(startPostUri = "tapped")
             advanceUntilIdle()
 
+            val items = (viewModel.uiState.value.status as VideoFeedStatus.Content).items
+            assertEquals(listOf("tapped", "a", "b"), items.map { it.post.id })
             assertEquals(0, viewModel.uiState.value.activeIndex)
+            // The pool must be bound to the LIST THAT INCLUDES the recovered post.
+            coVerify { pool.bind(match { it.size == 3 }, 0) }
+            verify { analytics.log(VideoFeedSeek(VideoSeekOutcome.Recovered, 1L)) }
         }
 
     @Test
@@ -352,17 +433,78 @@ class VideoFeedViewModelTest {
         }
 
     @Test
-    fun startPostUri_absentFromPage_fallsBackToFirstItem() =
+    fun startPostUri_absentAndUnhydratable_fallsBackToTop_andIsCounted() =
         runTest(mainDispatcher.dispatcher) {
-            // Trending is live: by the time the feed loads, the tapped post may have
-            // fallen out of the page entirely. That must open at the top, not crash.
+            // The ONLY remaining fallback: the post is absent from every page AND cannot
+            // be hydrated (deleted, blocked, no longer visible). Opening at the top is
+            // correct here — but it must be counted, never silent, because a silent
+            // version of exactly this is how the bug reached a user as a mystery.
             coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(List(3) { videoPost("v$it") }, cursor = null))
+            coEvery { postRepository.getPost("gone") } returns Result.failure(IllegalStateException("deleted"))
 
             val viewModel = vm(startPostUri = "gone")
             advanceUntilIdle()
 
+            val items = (viewModel.uiState.value.status as VideoFeedStatus.Content).items
+            assertEquals(listOf("v0", "v1", "v2"), items.map { it.post.id })
             assertEquals(0, viewModel.uiState.value.activeIndex)
             coVerify { pool.bind(any(), 0) }
+            verify { analytics.log(VideoFeedSeek(VideoSeekOutcome.FellBackToTop, 1L)) }
+        }
+
+    @Test
+    fun startPostUri_hydratedPostCarriesNoVideo_fallsBackToTop() =
+        runTest(mainDispatcher.dispatcher) {
+            // getPost succeeds but the record has no video embed, so there is nothing to
+            // play — it must not be prepended as an unplayable page.
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(List(2) { videoPost("v$it") }, cursor = null))
+            coEvery { postRepository.getPost("textonly") } returns Result.success(nonVideoPost("textonly"))
+
+            val viewModel = vm(startPostUri = "textonly")
+            advanceUntilIdle()
+
+            val items = (viewModel.uiState.value.status as VideoFeedStatus.Content).items
+            assertEquals(listOf("v0", "v1"), items.map { it.post.id })
+            assertEquals(0, viewModel.uiState.value.activeIndex)
+            verify { analytics.log(VideoFeedSeek(VideoSeekOutcome.FellBackToTop, 1L)) }
+        }
+
+    @Test
+    fun deletedPostBeforeTarget_doesNotShiftTheOpenedVideo() =
+        runTest(mainDispatcher.dispatcher) {
+            // applyInteractions drops deleted posts, so the UI list is SHORTER than the
+            // loaded list. Addressing the pager against `loaded` while rendering `merged`
+            // makes index N denote two different clips: with v0 deleted, target v2 sits at
+            // index 2 of `loaded` but index 1 of what the user actually sees.
+            coEvery { source.loadPage(null) } returns
+                Result.success(VideoFeedPage(List(4) { videoPost("v$it") }, cursor = null))
+            cacheState.value = persistentMapOf("v0" to PostInteractionState(isDeleted = true))
+
+            val viewModel = vm(startPostUri = "v2")
+            advanceUntilIdle()
+
+            val items = (viewModel.uiState.value.status as VideoFeedStatus.Content).items
+            assertEquals(listOf("v1", "v2", "v3"), items.map { it.post.id })
+            // Index must address the list the user sees, not the pre-filter one.
+            assertEquals(1, viewModel.uiState.value.activeIndex)
+            assertEquals("v2", items[viewModel.uiState.value.activeIndex].post.id)
+            // ...and the pool must be bound to that SAME list, or the surface plays a
+            // different clip than the page the pager settled on.
+            coVerify { pool.bind(match { it.size == 3 }, 1) }
+        }
+
+    @Test
+    fun startPostUri_foundInPage_doesNotHydrate_andCountsResolved() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(List(3) { videoPost("v$it") }, cursor = null))
+
+            val viewModel = vm(startPostUri = "v1")
+            advanceUntilIdle()
+
+            assertEquals(1, viewModel.uiState.value.activeIndex)
+            // The happy path must not cost an extra network round-trip.
+            coVerify(exactly = 0) { postRepository.getPost(any()) }
+            verify { analytics.log(VideoFeedSeek(VideoSeekOutcome.Resolved, 1L)) }
         }
 
     @Test
@@ -396,6 +538,54 @@ class VideoFeedViewModelTest {
 
             val ids = (viewModel.uiState.value.status as VideoFeedStatus.Content).items.map { it.post.id }
             assertEquals(listOf("v0", "v1", "v2", "v3", "w0"), ids)
+        }
+
+    @Test
+    fun appendedPage_bindsPoolToTheFilteredList_whenAPostIsDeleted() =
+        runTest(mainDispatcher.dispatcher) {
+            // The append path must address the pool the same way the first page does.
+            // Binding `loaded` here would re-point the pool from the filtered list to the
+            // unfiltered one on the FIRST append, so the surface silently drifts one clip
+            // out of step with the pager mid-scroll.
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(List(4) { videoPost("v$it") }, cursor = "c1"))
+            coEvery { source.loadPage("c1") } returns Result.success(VideoFeedPage(listOf(videoPost("w0")), cursor = null))
+            cacheState.value = persistentMapOf("v0" to PostInteractionState(isDeleted = true))
+
+            val viewModel = vm()
+            advanceUntilIdle()
+            viewModel.handleEvent(VideoFeedEvent.ActiveIndexChanged(1))
+            advanceUntilIdle()
+
+            val ids = (viewModel.uiState.value.status as VideoFeedStatus.Content).items.map { it.post.id }
+            assertEquals(listOf("v1", "v2", "v3", "w0"), ids)
+            // 4 items, not the 5 still sitting in `loaded`.
+            coVerify { pool.bind(match { it.size == 4 }, 1) }
+        }
+
+    @Test
+    fun pagination_triggersOnTheRenderedTail_notTheUnfilteredOne() =
+        runTest(mainDispatcher.dispatcher) {
+            // 8 loaded, 3 deleted -> 5 rendered. Against the RENDERED size the prefetch
+            // threshold fires at index 2; against `loaded.size` it would not fire until
+            // index 5, which the pager can never reach (it only has pages 0..4). That is
+            // pagination stalling at the tail, not merely firing late.
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(List(8) { videoPost("v$it") }, cursor = "c1"))
+            coEvery { source.loadPage("c1") } returns Result.success(VideoFeedPage(listOf(videoPost("w0")), cursor = null))
+            cacheState.value =
+                persistentMapOf(
+                    "v0" to PostInteractionState(isDeleted = true),
+                    "v1" to PostInteractionState(isDeleted = true),
+                    "v2" to PostInteractionState(isDeleted = true),
+                )
+
+            val viewModel = vm()
+            advanceUntilIdle()
+            assertEquals(5, (viewModel.uiState.value.status as VideoFeedStatus.Content).items.size)
+
+            viewModel.handleEvent(VideoFeedEvent.ActiveIndexChanged(2))
+            advanceUntilIdle()
+
+            coVerify { source.loadPage("c1") }
         }
 
     @Test

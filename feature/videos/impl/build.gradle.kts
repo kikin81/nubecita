@@ -18,6 +18,7 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:post-interactions"))
     implementation(project(":core:post-interactions-ui"))
+    implementation(project(":core:posts"))
     implementation(project(":core:video"))
     implementation(project(":core:video-feed"))
     implementation(project(":data:models"))

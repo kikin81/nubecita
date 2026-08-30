@@ -619,6 +619,45 @@ data class VideoPlaybackError(
         )
 }
 
+/**
+ * How the vertical video feed resolved the post the user actually tapped
+ * (`VideoFeed.startPostUri`).
+ *
+ * The feed's own pages are a **second, independent** fetch of a live feed, so
+ * they need not contain the tapped post — device-confirmed in nubecita-zdv8.16,
+ * where two `getFeed(thevids)` calls minutes apart returned disjoint heads.
+ * This event makes that miss countable instead of silent.
+ */
+enum class VideoSeekOutcome(
+    val wire: String,
+) {
+    /** Found in a page the feed loaded itself — the normal path. */
+    Resolved("resolved"),
+
+    /** Absent from every loaded page, hydrated by URI and pinned to the top. */
+    Recovered("recovered"),
+
+    /** Absent AND unhydratable — the feed opened on a post the user did not tap. */
+    FellBackToTop("fell_back_to_top"),
+}
+
+/**
+ * Fired once per vertical-feed open that carried a tapped post URI.
+ * [pagesWalked] is how many pages the seek consumed looking for it. PII-free:
+ * an outcome category and a count, never the post URI.
+ */
+data class VideoFeedSeek(
+    val outcome: VideoSeekOutcome,
+    val pagesWalked: Long,
+) : AnalyticsEvent {
+    override val name: String = "video_feed_seek"
+    override val params: Map<String, AnalyticsValue> =
+        mapOf(
+            "outcome" to Str(outcome.wire),
+            "pages_walked" to LongVal(pagesWalked),
+        )
+}
+
 /** What happened when the user reached for picture-in-picture. */
 enum class PipOutcome(
     val wire: String,
