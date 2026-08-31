@@ -132,7 +132,7 @@ class LoginScreenInstrumentationTest {
                 intended(
                     allOf(
                         hasAction(Intent.ACTION_VIEW),
-                        hasData(Uri.parse(BLUESKY_SIGNUP_URL)),
+                        hasData(Uri.parse(FakeAuthRepository.DEFAULT_SIGNUP_AUTHORIZATION_URL)),
                     ),
                 )
             }.isSuccess
