@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788248601403,
+  "lastUpdate": 1788352180602,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -2949,6 +2949,64 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 621,
             "range": "+/- 4.4%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "16dcc512c21d2d3f5e381724a2dd794680ad3a79",
+          "message": "ci(release): 1.340.1\n\n## [1.340.1](https://github.com/kikin81/nubecita/compare/v1.340.0...v1.340.1) (2026-08-30)\n\n### Documentation\n\n* **openspec:** archive the Azure palette change and fold in its specs ([#920](https://github.com/kikin81/nubecita/issues/920)) ([d3050ea](https://github.com/kikin81/nubecita/commit/d3050eaecef2a66941237804c5579542914974ee)), closes [#918](https://github.com/kikin81/nubecita/issues/918) [#0A7AFF](https://github.com/kikin81/nubecita/issues/0A7AFF)\n\n### Bug Fixes\n\n* **videos:** play the tapped video when the trending refetch misses ([#923](https://github.com/kikin81/nubecita/issues/923)) ([c765a49](https://github.com/kikin81/nubecita/commit/c765a49cc6e9b2f7c6300458bb6b4bc125820bda))",
+          "timestamp": "2026-08-30T21:53:01Z",
+          "url": "https://github.com/kikin81/nubecita/commit/16dcc512c21d2d3f5e381724a2dd794680ad3a79"
+        },
+        "date": 1788352178132,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 30,
+            "range": "+/- 10%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1319.973,
+            "range": "+/- 7.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1287.45,
+            "range": "+/- 11.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1333.27,
+            "range": "+/- 38.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1108.206,
+            "range": "+/- 6.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 692,
+            "range": "+/- 3%",
             "unit": "frames"
           }
         ]
