@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788438567402,
+  "lastUpdate": 1788438571581,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -4955,6 +4955,124 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationSumMs",
             "value": 438.609,
             "range": "+/- 93.9%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "16dcc512c21d2d3f5e381724a2dd794680ad3a79",
+          "message": "ci(release): 1.340.1\n\n## [1.340.1](https://github.com/kikin81/nubecita/compare/v1.340.0...v1.340.1) (2026-08-30)\n\n### Documentation\n\n* **openspec:** archive the Azure palette change and fold in its specs ([#920](https://github.com/kikin81/nubecita/issues/920)) ([d3050ea](https://github.com/kikin81/nubecita/commit/d3050eaecef2a66941237804c5579542914974ee)), closes [#918](https://github.com/kikin81/nubecita/issues/918) [#0A7AFF](https://github.com/kikin81/nubecita/issues/0A7AFF)\n\n### Bug Fixes\n\n* **videos:** play the tapped video when the trending refetch misses ([#923](https://github.com/kikin81/nubecita/issues/923)) ([c765a49](https://github.com/kikin81/nubecita/commit/c765a49cc6e9b2f7c6300458bb6b4bc125820bda))",
+          "timestamp": "2026-08-30T21:53:01Z",
+          "url": "https://github.com/kikin81/nubecita/commit/16dcc512c21d2d3f5e381724a2dd794680ad3a79"
+        },
+        "date": 1788438570144,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / ClassInitCount",
+            "value": 184,
+            "range": "+/- 0%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / ClassInitSumMs",
+            "value": 12.704,
+            "range": "+/- 27%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / JIT compilationCount",
+            "value": 107,
+            "range": "+/- 2.9%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / JIT compilationSumMs",
+            "value": 462.481,
+            "range": "+/- 25.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / ClassInitCount",
+            "value": 141,
+            "range": "+/- 0%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / ClassInitSumMs",
+            "value": 14.158,
+            "range": "+/- 64.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / JIT compilationCount",
+            "value": 4,
+            "range": "+/- 15.2%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / JIT compilationSumMs",
+            "value": 9.622,
+            "range": "+/- 127.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / ClassInitCount",
+            "value": 1,
+            "range": "+/- 100%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / ClassInitSumMs",
+            "value": 0.042,
+            "range": "+/- 117%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / JIT compilationCount",
+            "value": 456,
+            "range": "+/- 49.8%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / JIT compilationSumMs",
+            "value": 1188.107,
+            "range": "+/- 53.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / ClassInitCount",
+            "value": 0,
+            "range": "+/- 149.1%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / ClassInitSumMs",
+            "value": 0,
+            "range": "+/- 179.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationCount",
+            "value": 60,
+            "range": "+/- 60%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationSumMs",
+            "value": 595.95,
+            "range": "+/- 67.8%",
             "unit": "ms"
           }
         ]
