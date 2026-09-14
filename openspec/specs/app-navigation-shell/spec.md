@@ -1,7 +1,7 @@
 # app-navigation-shell Specification
 
 ## Purpose
-TBD - created by archiving change add-adaptive-navigation-shell. Update Purpose after archive.
+`MainShell` — the in-app navigation chrome that hosts the top-level tabs over an inner `NavDisplay`: adaptive `NavigationBar` ↔ `NavigationRail` chrome driven by `WindowSizeClass`, per-tab back stacks preserved across tab switches, "exit through home" back behaviour, state retained across configuration change and process death, tab-internal navigation routed through the MVI effect channel, and a list-detail scene strategy for wide windows.
 ## Requirements
 ### Requirement: `Main` NavEntry hosts a `MainShell` composable instead of `MainScreen`
 

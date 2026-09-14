@@ -1,7 +1,7 @@
 # build-logic-conventions Specification
 
 ## Purpose
-TBD - created by archiving change add-build-logic-conventions. Update Purpose after archive.
+The `build-logic/` composite build: the convention plugins that centralize SDK levels, JVM toolchain, Compose wiring, Hilt/KSP wiring and shared feature dependencies, so each module's `build.gradle.kts` declares only its namespace and its own dependencies, with plugin versions resolved from the shared version catalog.
 ## Requirements
 ### Requirement: `build-logic/` composite build hosts all convention plugins
 

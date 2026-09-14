@@ -1,7 +1,7 @@
 # core-auth-oauth-bindings Specification
 
 ## Purpose
-TBD - created by archiving change add-feature-login. Update Purpose after archive.
+`:core:auth`'s OAuth Hilt surface: the `AtOAuth` binding, the `AuthRepository` boundary feature code talks to (`completeLogin`, `signOut`, and the `SessionStateProvider` refresh they trigger), the `OAuthRedirectBroker` that carries the redirect URI back from the browser, and the `XrpcClientProvider` that is the only sanctioned source of an authenticated XRPC client.
 ## Requirements
 ### Requirement: `:core:auth` provides an `AtOAuth` Hilt binding
 

@@ -1,7 +1,7 @@
 # push-notifications Specification
 
 ## Purpose
-TBD - created by archiving change add-push-notifications. Update Purpose after archive.
+`:core:push` — the push pipeline: FCM registration against the user's PDS through the gateway proxy and its lifecycle across login, token rotation and logout, the `POST_NOTIFICATIONS` prompt and notification channels, gateway payload parsing, the filters applied before anything is shown (recipient DID, foreground suppression, mute list, trusted-verifier allow-list), per-reason grouping, and deep-linked taps.
 ## Requirements
 ### Requirement: `:core:push` module hosts the push pipeline
 

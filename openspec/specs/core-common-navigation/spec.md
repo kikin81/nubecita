@@ -1,7 +1,7 @@
 # core-common-navigation Specification
 
 ## Purpose
-TBD - created by archiving change add-oauth-flow. Update Purpose after archive.
+The shared navigation primitives in `:core:common`: the injectable outer `Navigator` that owns the app back stack, the Compose-owned `MainShellNavState` multi-tab state holder and its `LocalMainShellNavState` `CompositionLocal`, the `@OuterShell` / `@MainShell` qualifiers that route each feature's `EntryProviderInstaller` to the right `NavDisplay`, and the `LocalTabReTapSignal` re-tap broadcast.
 ## Requirements
 ### Requirement: `:core:common` provides a `Navigator` Hilt singleton owning the app back stack
 

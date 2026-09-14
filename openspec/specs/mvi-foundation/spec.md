@@ -1,7 +1,7 @@
 # mvi-foundation Specification
 
 ## Purpose
-TBD - created by archiving change add-mvi-foundation. Update Purpose after archive.
+The MVI base layer every screen presenter builds on: the `UiState` / `UiEvent` / `UiEffect` role markers, the generic `MviViewModel<S, E, F>` exposing a `StateFlow` plus a buffered effects channel, and the flat UI-ready state with errors routed through effects rather than a remote-data wrapper type.
 ## Requirements
 ### Requirement: MVI role markers
 

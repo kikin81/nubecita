@@ -1,7 +1,7 @@
 # atproto-networking Specification
 
 ## Purpose
-TBD - created by archiving change add-atproto-hilt-module. Update Purpose after archive.
+The shared AT Protocol networking boundary: a single Hilt-provided anonymous `XrpcClient` for public AppView queries over one explicitly-declared, shared Ktor engine, carrying no plugins that mutate request or response bodies, and never constructed inline by feature code.
 ## Requirements
 ### Requirement: Anonymous XrpcClient is available for public AppView queries
 

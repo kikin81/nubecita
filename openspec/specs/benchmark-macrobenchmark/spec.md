@@ -1,7 +1,7 @@
 # benchmark-macrobenchmark Specification
 
 ## Purpose
-TBD - created by archiving change add-benchmark-module. Update Purpose after archive.
+The `:benchmark` AndroidX Macrobenchmark suite and the baseline-profile plugin wiring in `:app`: cold/warm/hot `MainActivity` startup measurement, Feed scroll frame timing, the stable test tags those benchmarks drive, and how results are captured.
 ## Requirements
 ### Requirement: `:benchmark` module exists as an AndroidX Macrobenchmark suite
 

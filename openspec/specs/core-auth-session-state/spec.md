@@ -1,7 +1,7 @@
 # core-auth-session-state Specification
 
 ## Purpose
-TBD - created by archiving change add-splash-routing. Update Purpose after archive.
+The observable session lifecycle: a `SessionState` sealed type and the `SessionStateProvider` singleton that publishes it, so routing and feature code react to signed-in / signed-out / loading transitions instead of polling session storage.
 ## Requirements
 ### Requirement: `:core:auth` exposes a `SessionState` sealed type
 

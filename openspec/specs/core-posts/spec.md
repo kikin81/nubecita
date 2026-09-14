@@ -1,7 +1,7 @@
 # core-posts Specification
 
 ## Purpose
-TBD - created by archiving change add-fullscreen-image-viewer. Update Purpose after archive.
+`:core:posts` — the single-post *read* surface: `PostRepository.getPost(uri)` projecting the wire `PostView` to `PostUi` through `:core:feed-mapping`'s shared helper so feed and post-detail renderings stay identical, and the single-import discipline that keeps `app.bsky.feed.getPosts` confined to its default implementation. (`:core:posting` owns the write surface.)
 ## Requirements
 ### Requirement: `:core:posts` exposes `PostRepository` for single-post fetches
 

@@ -1,7 +1,7 @@
 # app-splash-routing Specification
 
 ## Purpose
-TBD - created by archiving change add-splash-routing. Update Purpose after archive.
+Cold-start routing: the `Splash` start destination held on screen by the system SplashScreen API while session bootstrap runs, the reactive back-stack replacement to Login or Main once `SessionState` resolves, and the brand theming (splash theme, adaptive launcher icon) that makes that handoff flicker-free.
 ## Requirements
 ### Requirement: `:app` defines a `Splash` NavKey as the start destination
 

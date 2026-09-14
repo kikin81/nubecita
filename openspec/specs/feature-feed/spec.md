@@ -1,7 +1,7 @@
 # feature-feed Specification
 
 ## Purpose
-TBD - created by archiving change add-feature-feed-foundation. Update Purpose after archive.
+The Following timeline: `FeedViewModel` over `FeedRepository` and the pure `FeedViewPostMapper`, a sealed `FeedLoadStatus` state machine covering initial load, refresh and cursor-paged append, and `FeedScreen`'s render contract — thread de-duplication and self-thread chains, stable list keys and hoisted scroll state, inline video, list-detail metadata, the compose FAB, and the reply/tab-re-tap entry points.
 ## Requirements
 ### Requirement: `FeedViewModel` is the canonical entry point for the Following timeline
 

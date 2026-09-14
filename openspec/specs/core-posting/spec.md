@@ -1,7 +1,7 @@
 # core-posting Specification
 
 ## Purpose
-TBD - created by archiving change add-composer-mention-typeahead. Update Purpose after archive.
+The post-composition domain's read side: the `ActorTypeaheadRepository` backing the composer's mention picker, the `ActorTypeaheadUi` boundary type it returns, its single call into `searchActorsTypeahead`, and its Hilt scoping to shell-side consumers only.
 ## Requirements
 ### Requirement: `ActorTypeaheadRepository` exposes a typeahead query
 
