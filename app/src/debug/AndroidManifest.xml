@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+            Debug-only: stop Firebase Analytics collection entirely.
+
+            CI instrumentation was polluting the production GA4 property
+            (nubecita-2a4c1). The nightly sweep runs
+            `:app:connectedProductionDebugAndroidTest` — the PRODUCTION flavor,
+            which binds real FirebaseAnalytics — and `applicationIdSuffix` is
+            deliberately unset (see the note in app/build.gradle.kts), so those
+            emulator runs report as net.kikin.nubecita and land in the same
+            property as real installs.
+
+            Measured 2026-09-13: device model `sdk_gphone64_x86_64` was the #1
+            device by active users (21 users / 21 sessions in a 7-day window, a
+            flat 3/day). Every CI day had activeUsers == newUsers, because a
+            wiped AVD gets a fresh app-instance id and is therefore counted as a
+            brand-new user on every run — inflating first_open / newUsers /
+            activeUsers by roughly 30%, and with it the top of the activation
+            funnel. Returning users (activeUsers − newUsers) were unaffected.
+
+            Why the manifest flag and not setAnalyticsCollectionEnabled(false)
+            from NubecitaApplication.onCreate: the contaminating events are the
+            SDK's own automatic ones — first_open, session_start, app_remove,
+            screen_view, user_engagement (the emulators emitted ZERO custom
+            events). Those fire as part of Firebase initialization, so a runtime
+            disable in onCreate races them and would let first_open through.
+            The manifest value is read before the SDK starts collecting.
+
+            For the same reason a Hilt @TestInstallIn swapping AnalyticsModule
+            for NoOpAnalyticsClient does NOT fix this — that only silences our
+            own AnalyticsClient calls, which were never the problem.
+
+            `firebase_analytics_collection_enabled` (not the `..._deactivated`
+            kill switch) on purpose: this is a soft default, so a developer
+            verifying analytics instrumentation on a debug build can still flip
+            it back on at runtime with
+            FirebaseAnalytics.setAnalyticsCollectionEnabled(true).
+
+            Scope is the `debug` build type, so it covers both benchDebug and
+            productionDebug. Release builds are untouched. Crashlytics is
+            deliberately left enabled — it is low-volume from CI and still
+            useful for catching instrumentation crashes.
+        -->
+        <meta-data
+            android:name="firebase_analytics_collection_enabled"
+            android:value="false" />
+    </application>
+
+</manifest>
