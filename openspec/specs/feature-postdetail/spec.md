@@ -1,7 +1,7 @@
 # feature-postdetail Specification
 
 ## Purpose
-TBD - created by archiving change add-fullscreen-image-viewer. Update Purpose after archive.
+The thread view: `PostDetailRoute` over `PostThreadRepository` as the single caller of `getPostThread`, the sealed `ThreadItem` projection of a thread response and load-status state machine, the focus post's visual emphasis, embeds and media-viewer navigation, pull-to-refresh, the floating reply affordance, and the scroll-reactive toolbar.
 ## Requirements
 ### Requirement: Image tap dispatches a media-viewer navigation effect
 

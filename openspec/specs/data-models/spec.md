@@ -1,7 +1,7 @@
 # data-models Specification
 
 ## Purpose
-TBD - created by archiving change add-postcard-component. Update Purpose after archive.
+`:data:models` — the canonical, service-free home for the `@Stable` UI model types every feature and the design system render from (`PostUi`, `AuthorUi`, `EmbedUi` and its quoted-record variants, `FeedItemUi`, `NotificationItemUi`, …), together with the fixture factories previews and tests build on.
 ## Requirements
 ### Requirement: `:data:models` is the canonical location for UI model types
 

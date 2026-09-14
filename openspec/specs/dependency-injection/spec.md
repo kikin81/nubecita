@@ -1,7 +1,7 @@
 # dependency-injection Specification
 
 ## Purpose
-TBD - created by archiving change add-hilt. Update Purpose after archive.
+The app's Hilt graph: the `@HiltAndroidApp` application root, `@AndroidEntryPoint` activity entry points, `@HiltViewModel` ViewModels resolved via `hiltViewModel()`, where repository interfaces are bound to their implementations and at what scope, and the reserved test-substitution path.
 ## Requirements
 ### Requirement: Application bootstrap
 

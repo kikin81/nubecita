@@ -1,7 +1,7 @@
 # feature-login Specification
 
 ## Purpose
-TBD - created by archiving change add-feature-login. Update Purpose after archive.
+The OAuth login surface: the `:api` NavKey / `:impl` entry-provider split, the handle-entry screen with its typed `LoginError` sum and sign-up affordance, and `LoginViewModel`'s round-trip — `beginLogin` → Custom Tab → deep-linked redirect published to `OAuthRedirectBroker` → `completeLogin` → post-login navigation.
 ## Requirements
 ### Requirement: `:feature:login:api` exposes only NavKey types
 

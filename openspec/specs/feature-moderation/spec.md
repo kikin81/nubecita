@@ -1,7 +1,7 @@
 # feature-moderation Specification
 
 ## Purpose
-TBD - created by archiving change add-moderation-report-flow. Update Purpose after archive.
+The report flow: the `Report` `@MainShell` sub-route and its `ReportSubject` sum, the reason taxonomy mapped onto the dialog's category cards, the stepped `ReportDialogViewModel` with derived submit-enablement and step-wise back handling, submission via `com.atproto.moderation.createReport`, and the post- and profile-overflow entry points that route into it.
 ## Requirements
 ### Requirement: `:feature:moderation:api` exposes the `Report` NavKey + `ReportSubject` sealed sum
 

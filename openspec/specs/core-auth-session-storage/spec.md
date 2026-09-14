@@ -1,7 +1,7 @@
 # core-auth-session-storage Specification
 
 ## Purpose
-TBD - created by archiving change add-core-auth-session-storage. Update Purpose after archive.
+Encrypted persistence of the OAuth session: the `OAuthSessionStore` binding backed by Tink-encrypted DataStore — save/load round-trip, clear on sign-out, survival across process death, degradation to "no session" on corrupted storage, and exclusion from device backups — keeping Tink and DataStore off `:app`'s dependency surface.
 ## Requirements
 ### Requirement: Module provides an `OAuthSessionStore` Hilt binding
 
