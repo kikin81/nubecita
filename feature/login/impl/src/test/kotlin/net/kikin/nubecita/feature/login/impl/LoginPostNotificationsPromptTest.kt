@@ -203,6 +203,8 @@ private class PromptTestAuthRepository(
 
     override suspend fun completeLogin(redirectUri: String): Result<Unit> = completeLoginResult
 
+    override suspend fun beginSignup(): Result<String> = Result.success("ignored")
+
     override suspend fun signOut(): Result<Unit> = Result.success(Unit)
 }
 
