@@ -27,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -337,8 +338,19 @@ private fun VideoPlayerSeekBar(
             animatedPosition.snapTo(positionFraction)
         }
     }
+    // Material3 1.5.0-alpha28 deprecated the stateless value-based Slider in favor
+    // of this SliderState-based overload. We keep the same controlled-value
+    // pattern (draggingFraction while scrubbing, else the animated position) by
+    // syncing state.value imperatively every recomposition — mirroring the
+    // bridging pattern material3's own (now-deprecated) float overload used
+    // internally.
+    val state =
+        remember {
+            SliderState(value = draggingFraction ?: animatedPosition.value, trackRange = 0f..1f)
+        }
+    state.value = draggingFraction ?: animatedPosition.value
     Slider(
-        value = draggingFraction ?: animatedPosition.value,
+        state = state,
         onValueChange = { fraction ->
             if (durationMs > 0L) {
                 draggingFraction = fraction.coerceIn(0f, 1f)
@@ -351,7 +363,6 @@ private fun VideoPlayerSeekBar(
                 onSeek((committed * durationMs).toLong())
             }
         },
-        valueRange = 0f..1f,
         colors = SliderDefaults.colors(thumbColor = Color.White),
         track = { sliderState ->
             // Read the animated amplitude as a *value* here (subscribing this
