@@ -34,8 +34,14 @@ import androidx.navigation3.scene.SceneStrategyScope
  *
  * [activeTabKey] is read on every `calculateScene` call (it reads
  * `MainShellNavState.topLevelKey` snapshot state), so the scene recomputes on
- * tab switch. Matching is by [NavEntry.contentKey], which is `key.toString()`
- * for the default-keyed top-level tab roots.
+ * tab switch. Matching is by [NavEntry.contentKey]. `NavEntry.key` is private and
+ * nav3's `defaultContentKey` is `@PublishedApi internal`, so the target contentKey
+ * is derived by building a throwaway [NavEntry] around the active tab key — that
+ * picks up whatever default the *linked* nav3 version applies, rather than
+ * hardcoding the formula. nav3 `1.2.0-rc01` changed that default from
+ * `key.toString()` to `key.toString() + key::class`; the hardcoded `toString()`
+ * it replaced made every match miss, silently falling back to the whole stack and
+ * re-opening nubecita-xqp7 / nubecita-s1f3.
  *
  * ## Why a wrapper and not per-tab `sceneKey`
  *
@@ -71,7 +77,10 @@ internal class ActiveTabScopedSceneStrategy<T : Any>(
 ) : SceneStrategy<T> {
     override fun SceneStrategyScope<T>.calculateScene(entries: List<NavEntry<T>>): Scene<T>? {
         val scope = this
-        val targetContentKey = activeTabKey().toString()
+        // Probe entry: `defaultContentKey` is internal to nav3, so round-trip the
+        // active tab key through NavEntry to get the same contentKey the real
+        // entries were built with. Content is never composed.
+        val targetContentKey = NavEntry<T>(key = activeTabKey(), content = {}).contentKey
         val start = entries.indexOfLast { it.contentKey == targetContentKey }
         val segment = if (start >= 0) entries.drop(start) else entries
         if (segment.isEmpty()) return null
