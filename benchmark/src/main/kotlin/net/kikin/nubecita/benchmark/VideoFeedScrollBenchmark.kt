@@ -38,11 +38,15 @@ import org.junit.runner.RunWith
  * rail. That makes a *separate* "overlay" benchmark redundant — but it also
  * means the coverage is implicit, and implicit coverage silently evaporates.
  *
- * So the rail is asserted twice: once in `setupBlock` (before measurement) and
- * once at the end of the measured block. The second assertion is the important
- * one. Removing the controls would make frame timing *better*, so a regression
- * that drops them reports as an improvement — a green number measuring the
- * wrong thing. Failing loudly is the only way that shows up.
+ * So the rail is asserted on **every** settled page: once in `setupBlock` for
+ * the page the feed opens on, then again after each fling. Per-page rather than
+ * once at the end, because a control that vanished on an intermediate page and
+ * reappeared would pass a start-and-end check while the frames in between
+ * silently excluded the overlay.
+ *
+ * That asymmetry is the whole point: removing the controls makes frame timing
+ * *better*, so a regression that drops them reports as an improvement — a green
+ * number measuring the wrong thing. Failing loudly is the only way it shows up.
  */
 @RunWith(AndroidJUnit4::class)
 class VideoFeedScrollBenchmark {
@@ -100,18 +104,25 @@ class VideoFeedScrollBenchmark {
             // Shrink the active swipe area away from the edges so a fling doesn't
             // trip a system back/home gesture.
             pager.setGestureMargin(pager.visibleBounds.width() / GESTURE_MARGIN_DIVISOR)
-            repeat(SCROLL_ITERATIONS) {
+            repeat(SCROLL_ITERATIONS) { index ->
                 pager.fling(Direction.UP)
                 device.waitForIdle()
+                // Assert on EVERY settled page, not just the last one. A control
+                // that vanished on an intermediate page and came back would
+                // otherwise pass both the setup check and a single post-loop
+                // check, while the frames in between silently excluded the
+                // overlay — and those frames would be the fast ones.
+                //
+                // Safe to query here: it runs after waitForIdle, so the page has
+                // settled and the accessibility lookup is not competing with
+                // animating frames.
+                device.findObject(By.res(VIDEO_FEED_RAIL_LIKE_RES_ID))
+                    ?: throw AssertionError(
+                        "Overlay rail ('$VIDEO_FEED_RAIL_LIKE_RES_ID') missing on page " +
+                            "${index + 2} of ${SCROLL_ITERATIONS + 1} — the frames measured on " +
+                            "that page do not include the overlay controls.",
+                    )
             }
-            // Re-assert AFTER the flings. Dropping the controls mid-run would
-            // lower frame times, so this failing is the only signal separating
-            // "fast" from "measured the wrong screen".
-            device.findObject(By.res(VIDEO_FEED_RAIL_LIKE_RES_ID))
-                ?: throw AssertionError(
-                    "Overlay rail ('$VIDEO_FEED_RAIL_LIKE_RES_ID') vanished during measurement — " +
-                        "these frame timings do not include the overlay controls.",
-                )
         }
 
     private companion object {
