@@ -37,7 +37,7 @@
 
 - [ ] 3.1 Replace `VideoPlayerChrome`'s controls with the icon-only overlay control. Two grades of problem: back / mute / pop-out are bare `IconButton`s tinted `Color.White` with **no** backing, while skip ±10s already carry `translucentSkipColors()` = `Color.White @ 0.16 alpha` that is merely too faint. Both become one measured treatment.
 - [ ] 3.2 Preserve the existing `IconButtonShapes` play/pause morph and its remembered-instance stability note — that `remember` exists to protect 120 Hz skipping, so do not inline it.
-- [ ] 3.3 Update `:feature:videoplayer:impl` screenshot baselines. Check flavouring first: `git grep -l nubecita.android.flavors -- feature/videoplayer/impl` (output = use `updateProductionDebugScreenshotTest`; no output = `updateDebugScreenshotTest`).
+- [ ] 3.3 Update `:feature:videoplayer:impl` screenshot baselines. Check flavoring first: `git grep -l nubecita.android.flavors -- feature/videoplayer/impl` (output = use `updateProductionDebugScreenshotTest`; no output = `updateDebugScreenshotTest`).
 - [ ] 3.4 Device pass: controls legible over a bright video; PiP entry, seek bar and the 3s auto-hide unaffected.
 
 ## 4. Adopt in the trending video feed

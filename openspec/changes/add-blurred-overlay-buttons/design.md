@@ -58,7 +58,7 @@ which point its cost is one dependency and one file.
 
 *Alternative considered:* adopt Haze rc01 now, isolated behind D2. Genuinely viable — the exposure
 really is one file — and rejected only because the scrim delivers the actual requirement and the
-blur can arrive later at strictly lower risk. This is a sequencing decision, not a judgement that
+blur can arrive later at strictly lower risk. This is a sequencing decision, not a judgment that
 Haze is unfit.
 
 *Also considered:* blur a **snapshot** captured when chrome appears rather than every frame. Much
