@@ -31,6 +31,18 @@ import org.junit.runner.RunWith
  * the single-arg `By.res(id)` matches. The literals live in
  * `BenchmarkConstants` and are pinned to the production tags by
  * `VideoFeedTestTagsTest` / `FeedTestTagsTest`.
+ *
+ * **Overlay-control coverage (nubecita-6rdb.15).** This is also the baseline
+ * for the media overlay-control work: `VideoPageChrome` renders unconditionally
+ * in this feed, so every frame measured here already carries the right-hand
+ * rail. That makes a *separate* "overlay" benchmark redundant — but it also
+ * means the coverage is implicit, and implicit coverage silently evaporates.
+ *
+ * So the rail is asserted twice: once in `setupBlock` (before measurement) and
+ * once at the end of the measured block. The second assertion is the important
+ * one. Removing the controls would make frame timing *better*, so a regression
+ * that drops them reports as an improvement — a green number measuring the
+ * wrong thing. Failing loudly is the only way that shows up.
  */
 @RunWith(AndroidJUnit4::class)
 class VideoFeedScrollBenchmark {
@@ -72,6 +84,14 @@ class VideoFeedScrollBenchmark {
                     ?: throw AssertionError(
                         "Vertical feed pager ('$VIDEO_FEED_RES_ID') not found after opening a poster.",
                     )
+                // The overlay controls are the thing this baseline exists to
+                // measure the cost of. Confirm they are actually on screen
+                // before a single frame is timed.
+                device.wait(Until.findObject(By.res(VIDEO_FEED_RAIL_LIKE_RES_ID)), NAV_WAIT_MS)
+                    ?: throw AssertionError(
+                        "Overlay rail ('$VIDEO_FEED_RAIL_LIKE_RES_ID') not on screen before measuring. " +
+                            "The frame timings would exclude the controls this benchmark is the baseline for.",
+                    )
             },
         ) {
             val pager =
@@ -84,6 +104,14 @@ class VideoFeedScrollBenchmark {
                 pager.fling(Direction.UP)
                 device.waitForIdle()
             }
+            // Re-assert AFTER the flings. Dropping the controls mid-run would
+            // lower frame times, so this failing is the only signal separating
+            // "fast" from "measured the wrong screen".
+            device.findObject(By.res(VIDEO_FEED_RAIL_LIKE_RES_ID))
+                ?: throw AssertionError(
+                    "Overlay rail ('$VIDEO_FEED_RAIL_LIKE_RES_ID') vanished during measurement — " +
+                        "these frame timings do not include the overlay controls.",
+                )
         }
 
     private companion object {
