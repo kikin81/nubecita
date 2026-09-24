@@ -38,15 +38,17 @@ import org.junit.runner.RunWith
  * rail. That makes a *separate* "overlay" benchmark redundant — but it also
  * means the coverage is implicit, and implicit coverage silently evaporates.
  *
- * So the rail is asserted on **every** settled page: once in `setupBlock` for
- * the page the feed opens on, then again after each fling. Per-page rather than
- * once at the end, because a control that vanished on an intermediate page and
- * reappeared would pass a start-and-end check while the frames in between
- * silently excluded the overlay.
+ * So the rail is asserted in `setupBlock`, before a single frame is timed. That
+ * matters because the asymmetry is nasty: removing the controls makes frame
+ * timing *better*, so a regression that drops them reports as an improvement —
+ * a green number measuring the wrong thing.
  *
- * That asymmetry is the whole point: removing the controls makes frame timing
- * *better*, so a regression that drops them reports as an improvement — a green
- * number measuring the wrong thing. Failing loudly is the only way it shows up.
+ * The assertion deliberately does NOT repeat inside the measured loop. A
+ * `findObject` there forces a synchronous accessibility dump on the app's main
+ * thread and pollutes the very metric it is guarding. Per-page coverage lives in
+ * `VideoFeedPageScreenshotTest`, which renders `VideoPageChrome` directly and is
+ * validated by CI — a correctness check in a correctness test, rather than one
+ * bolted onto a perf measurement.
  */
 @RunWith(AndroidJUnit4::class)
 class VideoFeedScrollBenchmark {
@@ -104,24 +106,23 @@ class VideoFeedScrollBenchmark {
             // Shrink the active swipe area away from the edges so a fling doesn't
             // trip a system back/home gesture.
             pager.setGestureMargin(pager.visibleBounds.width() / GESTURE_MARGIN_DIVISOR)
-            repeat(SCROLL_ITERATIONS) { index ->
+            // NO per-page overlay assertion in here, deliberately. `findObject`
+            // triggers a synchronous accessibility-hierarchy dump, which makes
+            // the target app's main thread serialize its semantics tree — inside
+            // the timing loop that shows up as artificial frame drops and
+            // inflated FrameTimingMetric numbers. Guarding the metric by
+            // corrupting it is a bad trade, and it would cost every run forever.
+            //
+            // The per-page case (controls that render on page 1 but not page 3)
+            // is covered where it belongs: `VideoFeedPageScreenshotTest` renders
+            // `VideoPageChrome` directly and its committed baselines are
+            // validated by CI's `screenshot` job, so a rail that stopped
+            // rendering fails there — as a correctness failure, which is what it
+            // is. The `setupBlock` check above stays because it runs OUTSIDE
+            // measurement and costs the metric nothing.
+            repeat(SCROLL_ITERATIONS) {
                 pager.fling(Direction.UP)
                 device.waitForIdle()
-                // Assert on EVERY settled page, not just the last one. A control
-                // that vanished on an intermediate page and came back would
-                // otherwise pass both the setup check and a single post-loop
-                // check, while the frames in between silently excluded the
-                // overlay — and those frames would be the fast ones.
-                //
-                // Safe to query here: it runs after waitForIdle, so the page has
-                // settled and the accessibility lookup is not competing with
-                // animating frames.
-                device.findObject(By.res(VIDEO_FEED_RAIL_LIKE_RES_ID))
-                    ?: throw AssertionError(
-                        "Overlay rail ('$VIDEO_FEED_RAIL_LIKE_RES_ID') missing on page " +
-                            "${index + 2} of ${SCROLL_ITERATIONS + 1} — the frames measured on " +
-                            "that page do not include the overlay controls.",
-                    )
             }
         }
 
