@@ -16,8 +16,14 @@ alpha value.
 The same problem has already produced divergence: `VideoRailAction`'s own KDoc records that
 `:designsystem`'s `PostStat` "is `internal` and lays out horizontally, so it cannot be reused
 here", so the app now carries two unrelated implementations of "a post-action control" and a
-third media surface with no shared styling at all. Fixing legibility and removing that
-duplication are the same task, and both land in `:designsystem`.
+third media surface with no shared styling at all.
+
+To be precise about what this change does and does not fix: it unifies the **over-media** controls
+— the trending feed's rail and the fullscreen player's chrome — behind one `:designsystem`
+component, so those two stop diverging and any future media surface has something to reuse.
+`PostStat`, the horizontal in-card variant, is **left alone**; unifying it with the vertical rail
+would churn PostCard's screenshot baselines and is separable work. So the `PostStat` divergence
+survives this change by design, and the non-goal below is not in tension with this paragraph.
 
 This change ships the **tinted scrim** treatment only. Background blur — the look this work
 started from — is deliberately deferred to a follow-up change. The reasoning is in design.md D1,
@@ -44,7 +50,7 @@ blur can be added later **without touching a single call site**.
 **No new dependency.** Haze was evaluated and is not adopted here — see design.md D1.
 
 Not in scope, deliberately: background blur (its own change, gated on a stable implementation),
-MediaViewer's `ChromeBar` (already legible behind a 45 % black scrim), `PostCardVideoEmbed` (no
+MediaViewer's `ChromeBar` (already legible behind a 45% black scrim), `PostCardVideoEmbed` (no
 chrome to restyle), unifying `VideoRailAction` with `PostStat` (worth doing, but it churns
 PostCard's screenshot baselines and is separable), and any merge of the three video players
 (their playback layer is already shared via `:core:video`; only the chrome differs, and it differs

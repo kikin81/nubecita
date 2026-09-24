@@ -71,7 +71,7 @@ blur change as a per-surface option; not a reason to keep blur in this one.
 This is the load-bearing decision and the reason deferring blur is free.
 
 `:designsystem` exposes overlay controls whose public API carries no treatment concept — no scrim
-colour, no alpha, no blur parameter, no backdrop-source handle. Feature code asks for "a control
+color, no alpha, no blur parameter, no backdrop-source handle. Feature code asks for "a control
 over media"; the component decides how to back it.
 
 Consequences, all deliberate:
@@ -88,10 +88,11 @@ skip / play-pause / mute / PiP) and an **icon-with-count** control stacked verti
 feed's rail cell).
 
 `VideoRailAction`'s accessibility contract is carried over verbatim rather than redesigned:
-`toggleable` + `Role.Switch` with the label as `contentDescription` for like/repost/mute;
-`clickable` + `Role.Button` + `onClickLabel` with a decorative icon for reply/share; labels always
-plain nouns, never inverse verbs. That contract is already correct and already tested — this change
-moves it, it does not revisit it.
+`toggleable` + `Role.Switch` with the label as `contentDescription` for **like, repost, bookmark
+and mute**; `clickable` + `Role.Button` + `onClickLabel` with a decorative icon for **reply, share
+and overflow**; labels always plain nouns, never inverse verbs. That is all **seven** rail cells —
+bookmark and overflow are easy to overlook. The contract is already correct and already tested;
+this change moves it, it does not revisit it.
 
 ### D4. The scrim must independently meet a contrast floor
 
@@ -100,7 +101,7 @@ The scrim is the only rendering that ships here, so it carries the whole legibil
 frame. Tuned and measured, with the ratio recorded in a code comment so a later visual tweak cannot
 quietly drop below it.
 
-Colours come from `MaterialTheme` per the design-system spec — no `Color(0xFF…)` literals.
+Colors come from `MaterialTheme` per the design-system spec — no `Color(0xFF…)` literals.
 
 ### D5. Benchmark now, even though the scrim is cheap
 
@@ -152,7 +153,7 @@ measurable floor rather than a taste target, and D2 means the upgrade path costs
 terminal state: the scrim meets the requirement, and is what API-level and surface-type constraints
 would force on some devices and surfaces even after blur lands (D6).
 
-**Two adopted surfaces, one abstraction — the component may be under-generalised.** → Two consumers
+**Two adopted surfaces, one abstraction — the component may be under-generalized.** → Two consumers
 with genuinely different layouts is a reasonable basis. MediaViewer is deliberately excluded rather
 than bent to fit.
 

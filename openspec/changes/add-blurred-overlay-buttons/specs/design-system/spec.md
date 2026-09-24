@@ -1,10 +1,15 @@
 ## ADDED Requirements
 
-### Requirement: Controls drawn over media MUST use the shared overlay components
+### Requirement: Icon action controls drawn over media MUST use the shared overlay components
 
-Feature modules MUST consume `:designsystem`'s overlay control components for any control drawn
-over media, and MUST NOT declare a bare `IconButton` tinted `Color.White` — or any equivalent
-background-less control — over video or imagery. The shared components own the backing treatment
+Feature modules MUST consume `:designsystem`'s overlay control components for any **icon action
+control** drawn over media, and MUST NOT declare a bare `IconButton` tinted `Color.White` — or any
+equivalent background-less control — over video or imagery.
+
+An *icon action control* is a tappable control whose visual content is an icon, optionally with a
+short count or label beneath it. The requirement deliberately does NOT extend to other chrome that
+happens to sit over media — seek bars, progress indicators, author chips, captions and text
+overlays — which have their own layout and legibility needs and are out of scope here. The shared components own the backing treatment
 and its API-level selection. This extends the prohibition on hand-rolled styling to overlays.
 
 This exists because the app previously carried two divergent implementations of the same idea —

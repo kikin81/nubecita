@@ -1,8 +1,17 @@
 > **Tracked in beads under epic `nubecita-6rdb` (Fullscreen video player revamp).**
-> Groups 1-5 map to children `nubecita-6rdb.15` → `.16` → `.17` → `.18`, wired as a
-> dependency chain so the baseline is captured before any visual change lands.
-> Group 7 is filed standalone as `nubecita-e8at` (deferred).
-> This change supersedes `nubecita-6rdb.12`, now closed.
+>
+> | Group | Owned by |
+> |---|---|
+> | 1. Baseline measurement | `nubecita-6rdb.15` |
+> | 2. Design-system components | `nubecita-6rdb.16` |
+> | 3. Adopt in the fullscreen player | `nubecita-6rdb.17` |
+> | 4. Adopt in the trending feed **and** 5. Measure and confirm | `nubecita-6rdb.18` |
+> | 6. Gate and land | every child — this is the per-PR gate, not a separate unit of work |
+> | 7. Hand off the blur follow-up | done; filed as `nubecita-e8at` |
+>
+> `.15` → `.16` → `.17` → `.18` are wired as a dependency chain so the baseline is captured
+> before any visual change lands. This docs change is `nubecita-6rdb.19`, and it supersedes
+> `nubecita-6rdb.12`, now closed.
 
 ## 1. Baseline measurement (before any visual change)
 
@@ -15,10 +24,10 @@
 
 - [ ] 2.1 Create the icon-only overlay control in `:designsystem` (fullscreen player shape: back / skip / play-pause / mute / PiP).
 - [ ] 2.2 Create the icon-with-count overlay control (trending feed rail cell: icon above an optional compact count).
-- [ ] 2.3 Carry `VideoRailAction`'s accessibility contract over **verbatim** — `toggleable` + `Role.Switch` with the label as `contentDescription` for like/repost/mute; `clickable` + `Role.Button` + `onClickLabel` with a decorative icon for reply/share; labels stay plain nouns, never inverse verbs. This contract is already correct; move it, do not redesign it.
+- [ ] 2.3 Carry `VideoRailAction`'s accessibility contract over **verbatim** — `toggleable` + `Role.Switch` with the label as `contentDescription` for **like, repost, bookmark and mute**; `clickable` + `Role.Button` + `onClickLabel` with a decorative icon for **reply, share and overflow**; labels stay plain nouns, never inverse verbs. All **seven** rail cells must be covered — bookmark and overflow are easy to miss. This contract is already correct; move it, do not redesign it.
 - [ ] 2.4 Tune the scrim to hold **4.5:1** contrast over a white frame and record the measured ratio in a code comment, so a later visual tweak cannot quietly drop below it.
-- [ ] 2.5 Verify the public API exposes **no** treatment parameter — no scrim colour, alpha, blur, quality mode, or backdrop-source handle (design.md D2). This is what makes the follow-up blur change additive; getting it wrong now costs a refactor later.
-- [ ] 2.6 Source every colour from `MaterialTheme` — no `Color(0xFF…)` literals.
+- [ ] 2.5 Verify the public API exposes **no** treatment parameter — no scrim color, alpha, blur, quality mode, or backdrop-source handle (design.md D2). This is what makes the follow-up blur change additive; getting it wrong now costs a refactor later.
+- [ ] 2.6 Source every color from `MaterialTheme` — no `Color(0xFF…)` literals.
 - [ ] 2.7 Add `@Preview` variants for both controls over white, black and mid-tone backdrops. Use these to settle design.md Open Question 2 (whether the scrim needs a hairline border for shape definition).
 - [ ] 2.8 Add screenshot tests and generate baselines with `./gradlew :designsystem:updateDebugScreenshotTest`. Commit **only** the images your change actually altered — regeneration rewrites every baseline and macOS adds 1/255 antialiasing noise; `git checkout --` the rest (see `scripts/triage-screenshot-failures.py`).
 

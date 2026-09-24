@@ -35,7 +35,8 @@ MUST NOT hand-roll an overlay control.
 
 The component set SHALL cover both layouts already present in the app: an **icon-only** control
 (the fullscreen player's back / skip / play-pause / mute / PiP buttons) and an **icon-with-count**
-control stacked vertically (the trending feed's like / repost / reply / share rail cell).
+control stacked vertically (the trending feed's rail cells: like, repost, bookmark, reply, share,
+overflow and mute).
 
 #### Scenario: Feature module renders an overlay control
 
@@ -52,7 +53,7 @@ control stacked vertically (the trending feed's like / repost / reply / share ra
 ### Requirement: The public API MUST NOT expose the backing treatment
 
 The overlay control components' public API MUST NOT expose how a control is backed. It MUST NOT
-carry a scrim colour, an alpha, a blur parameter, a quality mode, or a backdrop-source handle, and
+carry a scrim color, an alpha, a blur parameter, a quality mode, or a backdrop-source handle, and
 MUST NOT reference any third-party effect library type.
 
 Callers SHALL describe what the control *is* — its icon, label, count, toggled state and action —
