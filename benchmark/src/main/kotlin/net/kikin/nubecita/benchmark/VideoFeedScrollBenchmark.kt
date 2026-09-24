@@ -31,6 +31,24 @@ import org.junit.runner.RunWith
  * the single-arg `By.res(id)` matches. The literals live in
  * `BenchmarkConstants` and are pinned to the production tags by
  * `VideoFeedTestTagsTest` / `FeedTestTagsTest`.
+ *
+ * **Overlay-control coverage (nubecita-6rdb.15).** This is also the baseline
+ * for the media overlay-control work: `VideoPageChrome` renders unconditionally
+ * in this feed, so every frame measured here already carries the right-hand
+ * rail. That makes a *separate* "overlay" benchmark redundant — but it also
+ * means the coverage is implicit, and implicit coverage silently evaporates.
+ *
+ * So the rail is asserted in `setupBlock`, before a single frame is timed. That
+ * matters because the asymmetry is nasty: removing the controls makes frame
+ * timing *better*, so a regression that drops them reports as an improvement —
+ * a green number measuring the wrong thing.
+ *
+ * The assertion deliberately does NOT repeat inside the measured loop. A
+ * `findObject` there forces a synchronous accessibility dump on the app's main
+ * thread and pollutes the very metric it is guarding. Per-page coverage lives in
+ * `VideoFeedPageScreenshotTest`, which renders `VideoPageChrome` directly and is
+ * validated by CI — a correctness check in a correctness test, rather than one
+ * bolted onto a perf measurement.
  */
 @RunWith(AndroidJUnit4::class)
 class VideoFeedScrollBenchmark {
@@ -72,6 +90,14 @@ class VideoFeedScrollBenchmark {
                     ?: throw AssertionError(
                         "Vertical feed pager ('$VIDEO_FEED_RES_ID') not found after opening a poster.",
                     )
+                // The overlay controls are the thing this baseline exists to
+                // measure the cost of. Confirm they are actually on screen
+                // before a single frame is timed.
+                device.wait(Until.findObject(By.res(VIDEO_FEED_RAIL_LIKE_RES_ID)), NAV_WAIT_MS)
+                    ?: throw AssertionError(
+                        "Overlay rail ('$VIDEO_FEED_RAIL_LIKE_RES_ID') not on screen before measuring. " +
+                            "The frame timings would exclude the controls this benchmark is the baseline for.",
+                    )
             },
         ) {
             val pager =
@@ -80,6 +106,20 @@ class VideoFeedScrollBenchmark {
             // Shrink the active swipe area away from the edges so a fling doesn't
             // trip a system back/home gesture.
             pager.setGestureMargin(pager.visibleBounds.width() / GESTURE_MARGIN_DIVISOR)
+            // NO per-page overlay assertion in here, deliberately. `findObject`
+            // triggers a synchronous accessibility-hierarchy dump, which makes
+            // the target app's main thread serialize its semantics tree — inside
+            // the timing loop that shows up as artificial frame drops and
+            // inflated FrameTimingMetric numbers. Guarding the metric by
+            // corrupting it is a bad trade, and it would cost every run forever.
+            //
+            // The per-page case (controls that render on page 1 but not page 3)
+            // is covered where it belongs: `VideoFeedPageScreenshotTest` renders
+            // `VideoPageChrome` directly and its committed baselines are
+            // validated by CI's `screenshot` job, so a rail that stopped
+            // rendering fails there — as a correctness failure, which is what it
+            // is. The `setupBlock` check above stays because it runs OUTSIDE
+            // measurement and costs the metric nothing.
             repeat(SCROLL_ITERATIONS) {
                 pager.fling(Direction.UP)
                 device.waitForIdle()

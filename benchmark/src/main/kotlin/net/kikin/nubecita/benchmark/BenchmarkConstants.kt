@@ -89,3 +89,16 @@ internal const val TRENDING_VIDEO_THUMB_RES_ID: String = "trending_video_thumb"
  * `:feature:videos:impl/VideoFeedTestTagsTest`. Flung under measurement.
  */
 internal const val VIDEO_FEED_RES_ID: String = "video_feed"
+
+/**
+ * The vertical feed's right-hand rail — the like cell stands in for the whole
+ * overlay-control rail. Pinned to `VideoFeedTestTags.RAIL_LIKE` by
+ * `:feature:videos:impl/VideoFeedTestTagsTest`.
+ *
+ * Asserted by `VideoFeedScrollBenchmark` so the run cannot report a clean
+ * frame-timing number while the overlay controls are absent. `VideoPageChrome`
+ * renders unconditionally today, so a disappearance would be a regression —
+ * but frame timing would *improve* when the controls vanish, which is exactly
+ * the shape of a green number that means nothing (nubecita-6rdb.15).
+ */
+internal const val VIDEO_FEED_RAIL_LIKE_RES_ID: String = "video_feed_like"
