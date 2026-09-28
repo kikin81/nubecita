@@ -22,14 +22,14 @@
 
 ## 2. Design-system components
 
-- [ ] 2.1 Create the icon-only overlay control in `:designsystem` (fullscreen player shape: back / skip / play-pause / mute / PiP).
-- [ ] 2.2 Create the icon-with-count overlay control (trending feed rail cell: icon above an optional compact count).
-- [ ] 2.3 Carry `VideoRailAction`'s accessibility contract over **verbatim** — `toggleable` + `Role.Switch` with the label as `contentDescription` for **like, repost, bookmark and mute**; `clickable` + `Role.Button` + `onClickLabel` with a decorative icon for **reply, share and overflow**; labels stay plain nouns, never inverse verbs. All **seven** rail cells must be covered — bookmark and overflow are easy to miss. This contract is already correct; move it, do not redesign it.
-- [ ] 2.4 Tune the scrim to hold **4.5:1** contrast over a white frame and record the measured ratio in a code comment, so a later visual tweak cannot quietly drop below it.
-- [ ] 2.5 Verify the public API exposes **no** treatment parameter — no scrim color, alpha, blur, quality mode, or backdrop-source handle (design.md D2). This is what makes the follow-up blur change additive; getting it wrong now costs a refactor later.
-- [ ] 2.6 Source every color from `MaterialTheme` — no `Color(0xFF…)` literals.
-- [ ] 2.7 Add `@Preview` variants for both controls over white, black and mid-tone backdrops. Use these to settle design.md Open Question 2 (whether the scrim needs a hairline border for shape definition).
-- [ ] 2.8 Add screenshot tests and generate baselines with `./gradlew :designsystem:updateDebugScreenshotTest`. Commit **only** the images your change actually altered — regeneration rewrites every baseline and macOS adds 1/255 antialiasing noise; `git checkout --` the rest (see `scripts/triage-screenshot-failures.py`).
+- [x] 2.1 Create the icon-only overlay control in `:designsystem` (fullscreen player shape: back / skip / play-pause / mute / PiP).
+- [x] 2.2 Create the icon-with-count overlay control (trending feed rail cell: icon above an optional compact count).
+- [x] 2.3 Carry `VideoRailAction`'s accessibility contract over **verbatim** — `toggleable` + `Role.Switch` with the label as `contentDescription` for **like, repost, bookmark and mute**; `clickable` + `Role.Button` + `onClickLabel` with a decorative icon for **reply, share and overflow**; labels stay plain nouns, never inverse verbs. All **seven** rail cells must be covered — bookmark and overflow are easy to miss. This contract is already correct; move it, do not redesign it.
+- [x] 2.4 No tuning needed — `:designsystem` already had the right tokens. `videoOverlayScrim` (black @ 80%) over a white frame is sRGB 0.2 / luminance 0.033, giving **12.6:1** against pure-white `onVideoOverlay`, well past the 4.5:1 floor. Recorded in the file header with the arithmetic so a token change forces a re-measure. Reused rather than invented: `MediaPlayBadge` already paints with this pair, so the two overlay families cannot drift.
+- [x] 2.5 Verify the public API exposes **no** treatment parameter — no scrim color, alpha, blur, quality mode, or backdrop-source handle (design.md D2). This is what makes the follow-up blur change additive; getting it wrong now costs a refactor later.
+- [x] 2.6 Source every color from `MaterialTheme` — no `Color(0xFF…)` literals.
+- [x] 2.7 Previews added over white, black and mid-tone. They earned their keep: they exposed that fill alone fails over black (80%-black scrim on black is invisible, so the shape boundary vanishes while the icon stays legible). Open Question 2 settled — a 1dp hairline at 16% alpha was added. Note the swept axis is the **backdrop**, not light/dark: these tokens are theme-invariant, so light and dark renders would be byte-identical and prove nothing.
+- [x] 2.8 Three baselines committed (white / black / mid-tone). Regeneration also rewrote two unrelated `NubecitaLogomark` baselines both times — discarded via `git checkout --`, exactly the macOS antialiasing noise the guidance warns about.
 
 ## 3. Adopt in the fullscreen player
 

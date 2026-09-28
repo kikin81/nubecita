@@ -190,7 +190,16 @@ implementation, D6's surface-type limit, and D7's budget.
    whether a per-frame GPU effect fits the 120 Hz budget. That question cannot be answered on an
    emulator. Before blur is adopted, its gate needs a re-measurement on real 120 Hz hardware;
    an emulator pass there would be a green number that means nothing.
-2. Does the scrim want a hairline border or shadow for shape definition against mid-tone content,
-   or is fill alone enough? A visual call, to settle against the previews in D4.
+2. ~~Does the scrim want a hairline border for shape definition?~~ **Resolved: yes, it needs one** —
+   and the deciding case was black, not mid-tone as this question assumed.
+
+   The first baselines showed fill alone working over white and mid-tone but failing over a black
+   frame: `videoOverlayScrim` is 80% black, so on black it is indistinguishable from the media. The
+   icon stayed perfectly legible (white on black is ~21:1) while the control stopped reading as a
+   control at all — legibility satisfied, shape boundary not, and the capability spec asks for both.
+
+   Added a 1dp hairline at `onVideoOverlay` 16% alpha. Low alpha on purpose: over white and mid-tone
+   the boundary is already carried by the scrim, so the edge stays invisible there rather than
+   ringing every control. Verified on the committed baselines for all three backdrops.
 3. For the blur change: revisit the snapshot-blur option in D1, which may suit the auto-hiding
    fullscreen chrome even where live blur is unaffordable.
