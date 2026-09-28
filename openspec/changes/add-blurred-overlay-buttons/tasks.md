@@ -18,7 +18,7 @@
 - [ ] 1.1 Add a video-overlay Macrobenchmark to `:benchmark` covering the trending feed with chrome visible: video playing, overlay controls shown, swiping between pages. Model it on the existing `VideoFeedScrollBenchmark`.
 - [ ] 1.2 Verify the benchmark actually exercises the overlay — assert the controls are on screen during the measured section, so a chrome-hidden run cannot silently report a clean number.
 - [x] 1.3 Reference device decided: **the emulator**, for availability. Recorded in design.md Open Question 1 along with the limitation — emulator frame timings are a *relative* instrument (fine for "did the scrim move it"), not a device-accurate 120 Hz budget gate. The deferred blur change needs real hardware.
-- [ ] 1.4 Run it on the reference device on the **pre-change** build and record the numbers in the change folder. This is the only chance to capture a before-number on a build with no overlay treatment at all — the follow-up blur change depends on it existing. **Still outstanding; blocks `nubecita-6rdb.16`.** Also verify the new rail assertion actually fires (remove the rail, confirm the run fails) — an assertion that has never been seen to fail is not yet a guard.
+- [x] 1.4 Baseline captured on the emulator and recorded in `baseline-measurements.md`. The rail assertion was mutation-verified: pointing `VIDEO_FEED_RAIL_LIKE_RES_ID` at an absent tag turned the run red with the intended diagnostic (`tests=1 failures=1`), and restoring it turned it green — pass → fail → pass, so the guard is real rather than decorative.
 
 ## 2. Design-system components
 
