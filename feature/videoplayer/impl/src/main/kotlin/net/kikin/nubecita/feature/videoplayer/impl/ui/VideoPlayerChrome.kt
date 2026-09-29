@@ -19,8 +19,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconButtonShapes
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +41,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import net.kikin.nubecita.designsystem.component.NubecitaOverlayIconButton
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
@@ -86,20 +85,15 @@ internal fun VideoPlayerChrome(
         }
     Box(modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)) {
         // Top band: back button.
-        IconButton(
+        NubecitaOverlayIconButton(
+            icon = NubecitaIconName.Close,
+            accessibilityLabel = stringResource(R.string.video_player_back_content_description),
             onClick = { onEvent(VideoPlayerEvent.BackClicked) },
             modifier =
                 Modifier
                     .align(Alignment.TopStart)
-                    .padding(8.dp)
-                    .size(44.dp),
-        ) {
-            NubecitaIcon(
-                name = NubecitaIconName.Close,
-                contentDescription = stringResource(R.string.video_player_back_content_description),
-                tint = Color.White,
-            )
-        }
+                    .padding(8.dp),
+        )
 
         // Center band: the transport cluster plus a mute/PiP utility row beneath
         // the play/pause. Mute + pop-out are grouped here as *player* controls —
@@ -115,19 +109,13 @@ internal fun VideoPlayerChrome(
                 horizontalArrangement = Arrangement.spacedBy(24.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                FilledIconButton(
+                NubecitaOverlayIconButton(
+                    icon = NubecitaIconName.Replay10,
+                    accessibilityLabel = stringResource(R.string.video_player_skip_back_content_description),
                     onClick = { onEvent(VideoPlayerEvent.SkipBack) },
-                    modifier = Modifier.size(SKIP_BUTTON_SIZE),
-                    shape = CircleShape,
-                    colors = translucentSkipColors(),
-                ) {
-                    NubecitaIcon(
-                        name = NubecitaIconName.Replay10,
-                        contentDescription = stringResource(R.string.video_player_skip_back_content_description),
-                        opticalSize = SKIP_ICON_SIZE,
-                        tint = Color.White,
-                    )
-                }
+                    size = SKIP_BUTTON_SIZE,
+                    glyphSize = SKIP_ICON_SIZE,
+                )
                 // The one element that breaks from the surrounding circular shape
                 // language: a large filled primary button that morphs round→squircle
                 // on press (design panel C). The `shapes` overload animates between
@@ -150,19 +138,13 @@ internal fun VideoPlayerChrome(
                         opticalSize = PLAY_PAUSE_ICON_SIZE,
                     )
                 }
-                FilledIconButton(
+                NubecitaOverlayIconButton(
+                    icon = NubecitaIconName.Forward10,
+                    accessibilityLabel = stringResource(R.string.video_player_skip_forward_content_description),
                     onClick = { onEvent(VideoPlayerEvent.SkipForward) },
-                    modifier = Modifier.size(SKIP_BUTTON_SIZE),
-                    shape = CircleShape,
-                    colors = translucentSkipColors(),
-                ) {
-                    NubecitaIcon(
-                        name = NubecitaIconName.Forward10,
-                        contentDescription = stringResource(R.string.video_player_skip_forward_content_description),
-                        opticalSize = SKIP_ICON_SIZE,
-                        tint = Color.White,
-                    )
-                }
+                    size = SKIP_BUTTON_SIZE,
+                    glyphSize = SKIP_ICON_SIZE,
+                )
             }
             // Utility row: mute + optional pop-out (PiP), centered under the
             // play/pause. The pop-out shows only on PiP-capable devices
@@ -173,34 +155,30 @@ internal fun VideoPlayerChrome(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(
+                // Stays a Role.Button with a state-dependent label rather than
+                // becoming a Role.Switch like the trending feed's mute cell. The
+                // switch form wants a plain noun ("Mute") and these strings are
+                // inverse verbs ("Unmute"/"Mute"), so converting would change
+                // TalkBack output and need new strings in three locales. That is
+                // a deliberate follow-up, not a silent side effect of restyling.
+                NubecitaOverlayIconButton(
+                    icon = if (state.isMuted) NubecitaIconName.VolumeOff else NubecitaIconName.VolumeUp,
+                    accessibilityLabel =
+                        stringResource(
+                            if (state.isMuted) {
+                                R.string.video_player_unmute_content_description
+                            } else {
+                                R.string.video_player_mute_content_description
+                            },
+                        ),
                     onClick = { onEvent(VideoPlayerEvent.MuteClicked) },
-                    modifier = Modifier.size(44.dp),
-                ) {
-                    NubecitaIcon(
-                        name = if (state.isMuted) NubecitaIconName.VolumeOff else NubecitaIconName.VolumeUp,
-                        contentDescription =
-                            stringResource(
-                                if (state.isMuted) {
-                                    R.string.video_player_unmute_content_description
-                                } else {
-                                    R.string.video_player_mute_content_description
-                                },
-                            ),
-                        tint = Color.White,
-                    )
-                }
+                )
                 if (onPopOut != null) {
-                    IconButton(
+                    NubecitaOverlayIconButton(
+                        icon = NubecitaIconName.PictureInPictureAlt,
+                        accessibilityLabel = stringResource(R.string.video_player_pip_content_description),
                         onClick = onPopOut,
-                        modifier = Modifier.size(44.dp),
-                    ) {
-                        NubecitaIcon(
-                            name = NubecitaIconName.PictureInPictureAlt,
-                            contentDescription = stringResource(R.string.video_player_pip_content_description),
-                            tint = Color.White,
-                        )
-                    }
+                    )
                 }
             }
         }
@@ -264,18 +242,6 @@ private val SKIP_ICON_SIZE = 28.dp
 private val PLAY_PAUSE_BUTTON_SIZE = 72.dp
 private val PLAY_PAUSE_ICON_SIZE = 36.dp
 private val PLAY_PAUSE_PRESSED_CORNER = 27.dp
-
-/**
- * Translucent dark-on-white fill for the skip buttons (design token
- * `rgba(255,255,255,0.16)` over the scrim) with a white glyph — distinct
- * from the primary-filled play/pause so the hierarchy reads correctly.
- */
-@Composable
-private fun translucentSkipColors() =
-    IconButtonDefaults.filledIconButtonColors(
-        containerColor = Color.White.copy(alpha = 0.16f),
-        contentColor = Color.White,
-    )
 
 /**
  * Wavy seek bar (design D3): a Material 3 `Slider` whose track slot is a

@@ -35,10 +35,10 @@
 
 > Supersedes `nubecita-6rdb.12`, which proposed hand-tuning `translucentSkipColors()` from `Color.White @ 0.16` to ~0.28 alpha. That issue's rejected alternative is worth keeping: `secondaryContainer` was prototyped and rejected because the brand's is peach — loud, and a warm/cool clash with the blue play button over a dark scrim.
 
-- [ ] 3.1 Replace `VideoPlayerChrome`'s controls with the icon-only overlay control. Two grades of problem: back / mute / pop-out are bare `IconButton`s tinted `Color.White` with **no** backing, while skip ±10s already carry `translucentSkipColors()` = `Color.White @ 0.16 alpha` that is merely too faint. Both become one measured treatment.
-- [ ] 3.2 Preserve the existing `IconButtonShapes` play/pause morph and its remembered-instance stability note — that `remember` exists to protect 120 Hz skipping, so do not inline it.
-- [ ] 3.3 Update `:feature:videoplayer:impl` screenshot baselines. Check flavoring first: `git grep -l nubecita.android.flavors -- feature/videoplayer/impl` (output = use `updateProductionDebugScreenshotTest`; no output = `updateDebugScreenshotTest`).
-- [ ] 3.4 Device pass: controls legible over a bright video; PiP entry, seek bar and the 3s auto-hide unaffected.
+- [x] 3.1 Five controls adopted — back, skip ±10s, mute, pop-out. `translucentSkipColors()` deleted; its 0.16 alpha was the "too faint" half of the problem. Play/pause deliberately untouched: it is the primary filled button, not an overlay control, and the visual hierarchy depends on it staying distinct.
+- [x] 3.2 Morph and the remembered-instance note both untouched — verified in the diff and visible in the regenerated baselines.
+- [x] 3.3 Module is **unflavored** (checked, not assumed) → `updateDebugScreenshotTest`. Six chrome baselines changed, no unrelated module touched. Caveat worth keeping: the fixture's backdrop is black, so the scrim is invisible in these and the hairline carries the shape. They demonstrate the Open Question 2 fix in situ but do NOT exercise the scrim over bright content — the `:designsystem` white / mid-tone baselines are what cover that.
+- [ ] 3.4 **Outstanding.** Device pass: controls legible over a bright video; PiP entry, seek bar and the 3s auto-hide unaffected. The screenshot fixtures are black-backdrop, so bright-content legibility is still unverified on a real surface.
 
 ## 4. Adopt in the trending video feed
 
