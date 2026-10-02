@@ -26,6 +26,7 @@ per-feature one.
 #### Scenario: No background-less overlay controls remain
 
 - **WHEN** `:feature:videos:impl` and `:feature:videoplayer:impl` are inspected after adoption
-- **THEN** every interactive control drawn over media resolves to a `:designsystem` overlay
+- **THEN** every secondary interactive control drawn over media resolves to a `:designsystem` overlay
   component
 - **AND** none renders a white-tinted icon with no backing treatment
+- **AND** the primary play/pause transport button retains its filled primary button styling and morph interaction

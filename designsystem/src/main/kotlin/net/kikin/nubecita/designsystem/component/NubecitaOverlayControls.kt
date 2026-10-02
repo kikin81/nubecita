@@ -69,9 +69,15 @@ import net.kikin.nubecita.designsystem.spacing
  * An icon-only control over media — the fullscreen player's back, skip, mute
  * and pop-out buttons.
  *
- * Set [toggleable] for controls with an on/off state (mute); leave it false for
+ * Set [toggleable] for controls with an on/off state; leave it false for
  * one-shot actions (back, skip). See [NubecitaOverlayStatButton] for the
  * accessibility contract, which is identical and deliberately so.
+ *
+ * [size] and [glyphSize] exist because the fullscreen chrome's transport
+ * controls are deliberately bigger than its utility controls — skip ±10s is
+ * 52dp/28dp against 44dp/24dp for back, mute and pop-out. They are *layout*,
+ * not treatment: sizing a control is the caller's business, how it is backed is
+ * not, so this does not weaken the D2 rule that the backing stays private.
  */
 @Composable
 fun NubecitaOverlayIconButton(
@@ -82,7 +88,7 @@ fun NubecitaOverlayIconButton(
     active: Boolean = false,
     toggleable: Boolean = false,
     size: Dp = ICON_BUTTON_SIZE,
-    glyphSize: Dp = MaterialTheme.spacing.s6,
+    glyphSize: Dp = ICON_BUTTON_GLYPH_SIZE,
     testTag: String? = null,
     onClickLabel: String? = null,
 ) {
@@ -263,3 +269,4 @@ private val StatShape = RoundedCornerShape(percent = 50)
  *   is 4dp, which would be a heavy ring rather than a hairline.
  */
 private val ICON_BUTTON_SIZE = 44.dp
+private val ICON_BUTTON_GLYPH_SIZE = 24.dp

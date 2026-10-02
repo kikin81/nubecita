@@ -34,21 +34,25 @@ white video frame.
 MUST NOT hand-roll an overlay control.
 
 The component set SHALL cover both layouts already present in the app: an **icon-only** control
-(the fullscreen player's back / skip / play-pause / mute / PiP buttons) and an **icon-with-count**
-control stacked vertically (the trending feed's rail cells: like, repost, bookmark, reply, share,
-overflow and mute).
+(the fullscreen player's secondary controls: back, skip ±10s, mute, and PiP buttons) and an
+**icon-with-count** control stacked vertically (the trending feed's rail cells: like, repost,
+bookmark, reply, share, overflow and mute).
+
+The primary transport play/pause control is deliberately distinct: it is the primary filled action
+button with dedicated sizing (72dp) and morphing shape interaction, so it retains its primary button
+styling rather than blending in as a circular scrim overlay control.
 
 #### Scenario: Feature module renders an overlay control
 
-- **WHEN** a feature module needs a control over media
+- **WHEN** a feature module needs a secondary control over media
 - **THEN** it calls a `:designsystem` overlay control composable
 - **AND** it does not construct its own background, scrim, alpha, or effect for that control
 
 #### Scenario: No hand-rolled overlay controls remain in adopted modules
 
 - **WHEN** `:feature:videos:impl` and `:feature:videoplayer:impl` are inspected after adoption
-- **THEN** no overlay control declares its own `Color.White`-tinted `IconButton` without a
-  `:designsystem` backing treatment
+- **THEN** no secondary overlay control declares its own `Color.White`-tinted `IconButton` or translucent alpha styling without a `:designsystem` backing treatment
+- **AND** the primary play/pause transport button retains its filled primary button styling and morph interaction
 
 ### Requirement: The public API MUST NOT expose the backing treatment
 

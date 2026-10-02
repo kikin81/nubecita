@@ -83,9 +83,11 @@ Consequences, all deliberate:
 
 ### D3. One component set, two layouts
 
-Two composables, matching what already exists: an **icon-only** control (fullscreen player's back /
-skip / play-pause / mute / PiP) and an **icon-with-count** control stacked vertically (the trending
-feed's rail cell).
+Two composables, matching what already exists: an **icon-only** control (fullscreen player's secondary
+controls: back, skip ±10s, mute, PiP) and an **icon-with-count** control stacked vertically (the trending
+feed's rail cell). The primary transport play/pause control is deliberately carved out: it is the primary
+filled action button with dedicated 72dp sizing and morphing shape interaction, so it retains its primary
+button styling rather than blending in as a circular scrim overlay control.
 
 `VideoRailAction`'s accessibility contract is carried over verbatim rather than redesigned:
 `toggleable` + `Role.Switch` with the label as `contentDescription` for **like, repost, bookmark
