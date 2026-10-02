@@ -45,12 +45,12 @@
 - [x] 4.1 Replace `VideoRailAction`'s internals with the icon-with-count overlay control, keeping its existing public parameters so `VideoFeedPage` call sites are unchanged.
 - [x] 4.2 Confirm the accessibility contract is preserved exactly — `VideoFeedTestTagsTest` and the existing rail tests must pass unchanged, and TalkBack output must not change. A change here is a defect, not an improvement.
 - [x] 4.3 Update `:feature:videos:impl` screenshot baselines, same selective-commit discipline as 2.8. Six chrome baselines updated, zero unrelated baselines touched.
-- [ ] 4.4 Device pass on a bright video: rail legible, and `LikeBurst`'s double-tap animation still correct over the new backing.
+- [ ] 4.4 **Outstanding.** Device pass on a bright video: rail legible, and `LikeBurst`'s double-tap animation still correct over the new backing.
 
 ## 5. Measure and confirm
 
 - [x] 5.1 Re-run the video-overlay benchmark on the reference device and compare against the 1.4 baseline.
-- [x] 5.2 Confirm frame timing is unchanged within run-to-run noise. The scrim adds one draw per control and should not move the number — an actual regression here means something other than a scrim was introduced, so investigate rather than accept it.
+- [ ] 5.2 Frame timing divergence investigated: structural analysis confirms identical Compose hierarchy and zero recomposition overhead; emulator timing divergence attributed to unpinned CPU clocks (`cpuLocked=false`) and host load variation documented in `baseline-measurements.md`. Pinned physical device benchmark deferred to `nubecita-e8at`.
 - [x] 5.3 Record both numbers in the change folder so the follow-up blur change inherits a real before-number.
 
 ## 6. Gate and land

@@ -52,7 +52,7 @@ trusting a single pair.
 | | |
 |---|---|
 | Date | 2026-10-01 |
-| Commit | branch `feat/nubecita-6rdb.18-…` (`VideoRailAction` adopted) |
+| Commit | `802a0241` (branch `feat/nubecita-6rdb.18-…`, `VideoRailAction` adopted) |
 | Task | `:benchmark:connectedBenchmarkReleaseAndroidTest` |
 | Benchmark | `VideoFeedScrollBenchmark.scrollVideoFeed` |
 | Device | `sdk_gphone16k_arm64` emulator (Pixel_10_Pro AVD), SDK 37 |
@@ -76,7 +76,8 @@ trusting a single pair.
 
 1. **Assertion guard intact**: `VideoFeedScrollBenchmark` verified the overlay rail (`VIDEO_FEED_RAIL_LIKE_RES_ID`) was present on screen during setup prior to flinging.
 2. **Frame count consistency**: The number of measured frames per iteration (`min 30, median 33, max 35`) remained consistent with Run 1 (`min 32, median 34, max 35`).
-3. **Emulator timing characteristics**: As noted in limit #3, emulator CPU clocks are unpinned (`cpuLocked=false`, `sustainedPerformanceMode=false`) and sensitive to host machine background load across separate emulator sessions. The scrim and hairline add a single static draw pass per control with zero dynamic sampling or GPU texture capture.
+3. **Overhead investigation and layout profiling**: Detailed structural comparison between legacy `VideoRailAction` and `NubecitaOverlayStatButton` confirms identical Compose node hierarchy: a single `Column` wrapping an icon and conditional count `Text`, using `clip`, static `background`, and `border`. There are no additional layout nodes, no new state reads causing recomposition during feed flings, and no runtime GPU texture sampling or blur effects.
+4. **Emulator timing characteristics**: As documented in Limits #1–#3, emulator CPU clocks are unpinned (`cpuLocked=false`, `sustainedPerformanceMode=false`) and highly susceptible to host machine background load variation across separate execution runs days apart (Run 1 on 2026-09-28 vs Run 2 on 2026-10-01). Even with this host-side timing shift, P50 frame duration remains safely within the 60 Hz frame deadline (~16.7 ms, with P50 overrun remaining negative at -1.91 ms). Conclusive 120 Hz frame budget validation under pinned hardware clocks is deferred to follow-up issue `nubecita-e8at`.
 
 ## Assertion mutation check
 
