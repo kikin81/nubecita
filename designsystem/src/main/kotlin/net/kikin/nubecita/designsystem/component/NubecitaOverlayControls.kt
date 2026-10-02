@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.core.common.text.rememberCompactCount
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -80,30 +81,33 @@ fun NubecitaOverlayIconButton(
     modifier: Modifier = Modifier,
     active: Boolean = false,
     toggleable: Boolean = false,
+    size: Dp = ICON_BUTTON_SIZE,
+    glyphSize: Dp = MaterialTheme.spacing.s6,
     testTag: String? = null,
+    onClickLabel: String? = null,
 ) {
     Box(
         modifier =
             modifier
                 .minimumInteractiveComponentSize()
-                .size(ICON_BUTTON_SIZE)
+                .size(size)
                 .clip(CircleShape)
                 .background(MaterialTheme.semanticColors.videoOverlayScrim, CircleShape)
                 .border(HAIRLINE_WIDTH, hairlineColor(), CircleShape)
                 .overlayInteraction(
-                    accessibilityLabel = accessibilityLabel,
                     onClick = onClick,
                     active = active,
                     toggleable = toggleable,
+                    onClickLabel = onClickLabel,
                 ).then(if (testTag != null) Modifier.testTag(testTag) else Modifier),
         contentAlignment = Alignment.Center,
     ) {
         NubecitaIcon(
             name = icon,
-            contentDescription = if (toggleable) accessibilityLabel else null,
+            contentDescription = accessibilityLabel,
             filled = active,
             tint = MaterialTheme.semanticColors.onVideoOverlay,
-            opticalSize = MaterialTheme.spacing.s6,
+            opticalSize = glyphSize,
         )
     }
 }
@@ -156,14 +160,15 @@ fun NubecitaOverlayStatButton(
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s1),
         modifier =
             modifier
+                .minimumInteractiveComponentSize()
                 .clip(StatShape)
                 .background(MaterialTheme.semanticColors.videoOverlayScrim, StatShape)
                 .border(HAIRLINE_WIDTH, hairlineColor(), StatShape)
                 .overlayInteraction(
-                    accessibilityLabel = accessibilityLabel,
                     onClick = onClick,
                     active = active,
                     toggleable = toggleable,
+                    onClickLabel = accessibilityLabel,
                 ).then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
                 .padding(
                     horizontal = MaterialTheme.spacing.s2,
@@ -193,10 +198,10 @@ fun NubecitaOverlayStatButton(
  * covers the scrim, not just the glyph.
  */
 private fun Modifier.overlayInteraction(
-    accessibilityLabel: String,
     onClick: () -> Unit,
     active: Boolean,
     toggleable: Boolean,
+    onClickLabel: String? = null,
 ): Modifier =
     if (toggleable) {
         this.toggleable(
@@ -207,7 +212,7 @@ private fun Modifier.overlayInteraction(
     } else {
         this.clickable(
             role = Role.Button,
-            onClickLabel = accessibilityLabel,
+            onClickLabel = onClickLabel,
             onClick = onClick,
         )
     }
