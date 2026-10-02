@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -48,6 +49,7 @@ import androidx.navigation3.runtime.NavKey
 import androidx.window.core.layout.WindowSizeClass
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.data.models.FeedKind
@@ -139,23 +141,27 @@ internal fun FeedHost(
         )
 
     // Sync pager settled page to host ViewModel selection
-    LaunchedEffect(pagerState.currentPage, resolvedFeeds) {
-        val targetFeed = resolvedFeeds.getOrNull(pagerState.currentPage)
-        if (targetFeed != null && targetFeed.uri != state.selectedFeedUri && !pagerState.isScrollInProgress) {
-            hostViewModel.handleEvent(FeedHostEvent.SelectFeed(targetFeed.uri))
-        }
+    LaunchedEffect(pagerState, resolvedFeeds) {
+        snapshotFlow { pagerState.settledPage }
+            .distinctUntilChanged()
+            .collect { page ->
+                val targetFeed = resolvedFeeds.getOrNull(page)
+                if (targetFeed != null && targetFeed.uri != state.selectedFeedUri) {
+                    hostViewModel.handleEvent(FeedHostEvent.SelectFeed(targetFeed.uri))
+                }
+            }
     }
 
     // Sync external/chip selection change to pager page
     LaunchedEffect(state.selectedFeedUri, resolvedFeeds) {
         val targetIndex = resolvedFeeds.indexOfFirst { it.uri == state.selectedFeedUri }
-        if (targetIndex >= 0 && targetIndex != pagerState.currentPage) {
+        if (targetIndex >= 0 && targetIndex != pagerState.settledPage) {
             pagerState.animateScrollToPage(targetIndex)
         }
     }
 
     // Back gesture: navigate to Page 0 (Following) before exiting
-    BackHandler(enabled = pagerState.currentPage != 0) {
+    BackHandler(enabled = pagerState.settledPage != 0) {
         coroutineScope.launch {
             pagerState.animateScrollToPage(0)
         }
@@ -274,7 +280,7 @@ internal fun FeedHost(
         ) { page ->
             val feed = resolvedFeeds.getOrNull(page)
             if (feed != null) {
-                val isPageActive = pagerState.currentPage == page && !pagerState.isScrollInProgress
+                val isPageActive = pagerState.settledPage == page && !pagerState.isScrollInProgress
                 FeedPane(
                     feedUri = feed.uri,
                     kind = feed.kind,
