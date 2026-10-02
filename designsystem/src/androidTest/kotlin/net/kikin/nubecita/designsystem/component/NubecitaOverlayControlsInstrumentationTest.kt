@@ -18,6 +18,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -43,13 +44,15 @@ class NubecitaOverlayControlsInstrumentationTest {
     fun overlayIconButton_buttonRole_contentDescription_andOptionalOnClickLabel() {
         var clicked = false
         composeTestRule.setContent {
-            NubecitaOverlayIconButton(
-                icon = NubecitaIconName.ArrowBack,
-                accessibilityLabel = "Back",
-                onClick = { clicked = true },
-                onClickLabel = "navigate back",
-                testTag = "back_btn",
-            )
+            NubecitaTheme {
+                NubecitaOverlayIconButton(
+                    icon = NubecitaIconName.ArrowBack,
+                    accessibilityLabel = "Back",
+                    onClick = { clicked = true },
+                    onClickLabel = "navigate back",
+                    testTag = "back_btn",
+                )
+            }
         }
 
         val node = composeTestRule.onNodeWithTag("back_btn")
@@ -76,14 +79,16 @@ class NubecitaOverlayControlsInstrumentationTest {
     fun overlayIconButton_switchRole_togglesState() {
         var isToggled by mutableStateOf(false)
         composeTestRule.setContent {
-            NubecitaOverlayIconButton(
-                icon = NubecitaIconName.VolumeUp,
-                accessibilityLabel = "Mute",
-                active = isToggled,
-                toggleable = true,
-                onClick = { isToggled = !isToggled },
-                testTag = "mute_btn",
-            )
+            NubecitaTheme {
+                NubecitaOverlayIconButton(
+                    icon = NubecitaIconName.VolumeUp,
+                    accessibilityLabel = "Mute",
+                    active = isToggled,
+                    toggleable = true,
+                    onClick = { isToggled = !isToggled },
+                    testTag = "mute_btn",
+                )
+            }
         }
 
         val node = composeTestRule.onNodeWithTag("mute_btn")
@@ -106,15 +111,17 @@ class NubecitaOverlayControlsInstrumentationTest {
     fun overlayStatButton_toggleableAndCount_exposesSwitchAndCount() {
         var isToggled by mutableStateOf(false)
         composeTestRule.setContent {
-            NubecitaOverlayStatButton(
-                icon = NubecitaIconName.Favorite,
-                accessibilityLabel = "Like",
-                active = isToggled,
-                toggleable = true,
-                count = 1420L,
-                onClick = { isToggled = !isToggled },
-                testTag = "like_stat_btn",
-            )
+            NubecitaTheme {
+                NubecitaOverlayStatButton(
+                    icon = NubecitaIconName.Favorite,
+                    accessibilityLabel = "Like",
+                    active = isToggled,
+                    toggleable = true,
+                    count = 1420L,
+                    onClick = { isToggled = !isToggled },
+                    testTag = "like_stat_btn",
+                )
+            }
         }
 
         val node = composeTestRule.onNodeWithTag("like_stat_btn")
@@ -138,13 +145,15 @@ class NubecitaOverlayControlsInstrumentationTest {
     fun overlayStatButton_buttonRole_onClickLabel() {
         var clicked = false
         composeTestRule.setContent {
-            NubecitaOverlayStatButton(
-                icon = NubecitaIconName.ChatBubble,
-                accessibilityLabel = "Reply",
-                onClick = { clicked = true },
-                toggleable = false,
-                testTag = "reply_stat_btn",
-            )
+            NubecitaTheme {
+                NubecitaOverlayStatButton(
+                    icon = NubecitaIconName.ChatBubble,
+                    accessibilityLabel = "Reply",
+                    onClick = { clicked = true },
+                    toggleable = false,
+                    testTag = "reply_stat_btn",
+                )
+            }
         }
 
         val node = composeTestRule.onNodeWithTag("reply_stat_btn")
