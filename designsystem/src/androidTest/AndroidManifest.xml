@@ -5,11 +5,13 @@
     standard AndroidJUnitRunner (not HiltTestRunner) do not get ComponentActivity
     in the merged manifest automatically — an explicit declaration is required.
 -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <application>
         <activity
             android:name="androidx.activity.ComponentActivity"
-            android:exported="false"
+            android:exported="true"
+            tools:replace="android:exported"
             android:theme="@android:style/Theme.Material.Light.NoActionBar" />
     </application>
 </manifest>
