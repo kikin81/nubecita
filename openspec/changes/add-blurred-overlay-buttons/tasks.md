@@ -15,8 +15,8 @@
 
 ## 1. Baseline measurement (before any visual change)
 
-- [ ] 1.1 Add a video-overlay Macrobenchmark to `:benchmark` covering the trending feed with chrome visible: video playing, overlay controls shown, swiping between pages. Model it on the existing `VideoFeedScrollBenchmark`.
-- [ ] 1.2 Verify the benchmark actually exercises the overlay — assert the controls are on screen during the measured section, so a chrome-hidden run cannot silently report a clean number.
+- [x] 1.1 Add a video-overlay Macrobenchmark to `:benchmark` covering the trending feed with chrome visible: video playing, overlay controls shown, swiping between pages. Model it on the existing `VideoFeedScrollBenchmark` (Satisfied by enhancing the existing `VideoFeedScrollBenchmark`).
+- [x] 1.2 Verify the benchmark actually exercises the overlay — assert the controls are on screen during the measured section, so a chrome-hidden run cannot silently report a clean number (Satisfied by enhancing the existing `VideoFeedScrollBenchmark`).
 - [x] 1.3 Reference device decided: **the emulator**, for availability. Recorded in design.md Open Question 1 along with the limitation — emulator frame timings are a *relative* instrument (fine for "did the scrim move it"), not a device-accurate 120 Hz budget gate. The deferred blur change needs real hardware.
 - [x] 1.4 Baseline captured on the emulator and recorded in `baseline-measurements.md`. The rail assertion was mutation-verified: pointing `VIDEO_FEED_RAIL_LIKE_RES_ID` at an absent tag turned the run red with the intended diagnostic (`tests=1 failures=1`), and restoring it turned it green — pass → fail → pass, so the guard is real rather than decorative.
 
