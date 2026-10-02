@@ -1,7 +1,9 @@
 # media-overlay-controls Specification
 
 ## Purpose
-Shared media overlay control components in `:designsystem` providing contrast-safe backing treatments (scrim and hairline) for controls rendered over video or imagery in the fullscreen player and trending video feed.
+This specification defines shared media overlay control components in `:designsystem` providing contrast-safe backing treatments (scrim and hairline) for controls rendered over video or imagery in the fullscreen player and trending video feed.
+
+It governs the component set, the visual legibility floor across arbitrary media backdrops, the preservation of the accessibility contract for interactive controls, the encapsulation of backing treatments from caller APIs, and performance constraints guarding the project's 120 Hz frame budget.
 ## Requirements
 ### Requirement: Overlay controls MUST remain legible against arbitrary media
 
@@ -10,14 +12,14 @@ legible against any frame, including a fully white one. A bare icon tinted `Colo
 background is NOT an acceptable overlay control.
 
 The backing treatment MUST hold a contrast ratio of at least **4.5:1** between the control's
-foreground (icon and any count label) and the treated background, measured against a worst-case
+foreground (icon and any count label) and the as-rendered, composited backing treatment, measured against a worst-case
 white video frame.
 
 #### Scenario: Control over a white video frame
 
 - **WHEN** an overlay control is rendered over a fully white frame
 - **THEN** its backing treatment renders behind the icon and label
-- **AND** the measured foreground-to-treated-background contrast ratio is at least 4.5:1
+- **AND** the measured contrast ratio between the foreground and the as-rendered, composited backing treatment is at least 4.5:1
 
 #### Scenario: Control over a black video frame
 
@@ -28,7 +30,7 @@ white video frame.
 #### Scenario: Control over mid-tone moving content
 
 - **WHEN** an overlay control is rendered over content whose luminance varies across the control
-- **THEN** the treatment holds the 4.5:1 floor across the control's whole area
+- **THEN** the as-rendered, composited backing treatment holds the 4.5:1 floor across the control's whole area
 - **AND** no region of the foreground falls below the floor
 
 ### Requirement: The overlay control component set lives in `:designsystem`
@@ -56,6 +58,23 @@ styling rather than blending in as a circular scrim overlay control.
 - **WHEN** `:feature:videos:impl` and `:feature:videoplayer:impl` are inspected after adoption
 - **THEN** no secondary overlay control declares its own `Color.White`-tinted `IconButton` or translucent alpha styling without a `:designsystem` backing treatment
 - **AND** the primary play/pause transport button retains its filled primary button styling and morph interaction
+
+### Requirement: Overlay controls MUST preserve the accessibility contract for interactive controls
+
+Toggleable overlay controls SHALL use `Role.Switch` semantics with `contentDescription` set to the accessibility label on the icon, whereas non-toggleable action overlay controls SHALL use `Role.Button` semantics with `onClickLabel` set to the accessibility label and keep the icon decorative (`contentDescription = null`) to prevent screen readers from announcing the label twice.
+
+#### Scenario: Toggleable overlay control accessibility
+
+- **WHEN** a toggleable overlay control is rendered
+- **THEN** it exposes `Role.Switch` semantics
+- **AND** the icon's `contentDescription` is set to the accessibility label
+
+#### Scenario: Non-toggleable overlay control accessibility
+
+- **WHEN** a non-toggleable action overlay control is rendered
+- **THEN** it exposes `Role.Button` semantics
+- **AND** `onClickLabel` is set to the accessibility label
+- **AND** the icon's `contentDescription` is null
 
 ### Requirement: The public API MUST NOT expose the backing treatment
 
@@ -124,8 +143,9 @@ introduced by a change that carries the before/after measurement required by the
 
 #### Scenario: Overlay adoption does not regress frame timing
 
-- **WHEN** the video-overlay benchmark is run before and after adoption
-- **THEN** frame timing is unchanged within run-to-run noise
+- **WHEN** the video-overlay benchmark is run before and after adoption on the reference device
+- **THEN** the median (P50) and 95th percentile (P95) frame duration delta does not exceed 1.0 ms across test iterations
+- **AND** P95 frame timing remains within the project's 8.33 ms (120 Hz) budget
 
 ### Requirement: Committed screenshot baselines MUST reflect the shipped treatment
 
