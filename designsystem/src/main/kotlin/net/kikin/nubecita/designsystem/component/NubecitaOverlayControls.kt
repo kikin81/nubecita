@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Alignment
@@ -84,6 +85,7 @@ fun NubecitaOverlayIconButton(
     Box(
         modifier =
             modifier
+                .minimumInteractiveComponentSize()
                 .size(ICON_BUTTON_SIZE)
                 .clip(CircleShape)
                 .background(MaterialTheme.semanticColors.videoOverlayScrim, CircleShape)
@@ -249,11 +251,9 @@ private val StatShape = RoundedCornerShape(percent = 50)
  *
  * The two literals below deliberately stay off-scale:
  *
- * - [ICON_BUTTON_SIZE] is 44dp, the touch target the fullscreen chrome already
- *   used. The scale has no 44 (`s10` = 40, `s12` = 48) and rounding either way
- *   would resize every chrome button — out of scope here, and 44dp already
- *   clears the 48dp-with-`minimumInteractiveComponentSize` guidance via
- *   `clickable`'s own expansion.
+ * - [ICON_BUTTON_SIZE] is 44dp visual size, matching what the fullscreen chrome
+ *   already used. The touch target is safely expanded to ≥48dp via
+ *   `minimumInteractiveComponentSize()` without altering its visual 44dp circle.
  * - [HAIRLINE_WIDTH] is a stroke width, not spacing; the scale's smallest step
  *   is 4dp, which would be a heavy ring rather than a hairline.
  */
