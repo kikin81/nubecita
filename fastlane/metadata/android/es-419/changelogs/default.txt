@@ -1,8 +1,6 @@
 ¡Gracias por usar nubecita! Novedades:
-• Elige tu estilo: tema dinámico, claro u oscuro.
-• Decide cuándo se reproducen los videos y GIFs, o déjalos quietos para ahorrar datos.
-• Los enlaces en los mensajes se abren con un toque, y puedes copiar un mensaje desde su menú.
-• Los perfiles muestran una etiqueta "Te sigue".
-• Iniciar sesión ya no falla si la app se cierra a mitad del proceso.
-• Las notificaciones muestran el ícono real de nubecita.
+• Guarda imágenes: descarga fotos directamente a tu galería desde el visor.
+• Controles de video más claros: fáciles de ver incluso sobre fondos brillantes.
+• Diseño renovado: nueva paleta Azure con mejor contraste y legibilidad.
+• Reproducción de video más fluida en videos populares y citas.
 ¡Gracias por acompañarnos! 💙

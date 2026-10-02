@@ -1,8 +1,6 @@
 Thanks for using nubecita! What's new:
-• Choose your look — Dynamic, Light or Dark theme.
-• Decide when videos and GIFs play, or keep them still to save data.
-• Links in messages are tappable, and you can copy a message from its menu.
-• Profiles now show a "Follows you" chip.
-• Signing in survives the app closing mid-login.
-• Notifications show the real nubecita icon.
+• Save images — download photos straight to your gallery from the viewer.
+• Clearer video controls — easy to see even over bright backgrounds.
+• Refreshed look — fresh Azure colors with improved contrast and readability.
+• Smoother video playback when watching trending videos and quote posts.
 Thanks for being here. 💙
