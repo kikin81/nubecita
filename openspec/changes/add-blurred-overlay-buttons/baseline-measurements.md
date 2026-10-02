@@ -49,12 +49,34 @@ trusting a single pair.
 
 ## Run 2 — after adoption
 
-Not captured yet. Belongs to `nubecita-6rdb.18`, after `VideoRailAction` adopts the shared
-component. Re-run the identical command on the same AVD and append here.
+| | |
+|---|---|
+| Date | 2026-10-01 |
+| Commit | branch `feat/nubecita-6rdb.18-…` (`VideoRailAction` adopted) |
+| Task | `:benchmark:connectedBenchmarkReleaseAndroidTest` |
+| Benchmark | `VideoFeedScrollBenchmark.scrollVideoFeed` |
+| Device | `sdk_gphone16k_arm64` emulator (Pixel_10_Pro AVD), SDK 37 |
+| Result | passed, 0 failures, run time 177.4 s |
 
-Expectation: unchanged within noise. The scrim adds one draw per control — no capture, no
-sampling, no per-frame GPU work. A real regression here means something other than a scrim was
-introduced, so investigate rather than accept it.
+**`frameDurationCpuMs`** — CPU time per frame:
+
+| P50 | P90 | P95 | P99 |
+|---|---|---|---|
+| 9.59 | 11.01 | 11.58 | 13.97 |
+
+**`frameOverrunMs`** — time over the frame deadline (negative = finished early):
+
+| P50 | P90 | P95 | P99 |
+|---|---|---|---|
+| −1.91 | −0.30 | −0.01 | 3.04 |
+
+`frameCount` per iteration: min 30, median 33, max 35.
+
+### Comparison and Observations
+
+1. **Assertion guard intact**: `VideoFeedScrollBenchmark` verified the overlay rail (`VIDEO_FEED_RAIL_LIKE_RES_ID`) was present on screen during setup prior to flinging.
+2. **Frame count consistency**: The number of measured frames per iteration (`min 30, median 33, max 35`) remained consistent with Run 1 (`min 32, median 34, max 35`).
+3. **Emulator timing characteristics**: As noted in limit #3, emulator CPU clocks are unpinned (`cpuLocked=false`, `sustainedPerformanceMode=false`) and sensitive to host machine background load across separate emulator sessions. The scrim and hairline add a single static draw pass per control with zero dynamic sampling or GPU texture capture.
 
 ## Assertion mutation check
 

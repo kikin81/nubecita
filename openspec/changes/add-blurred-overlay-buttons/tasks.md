@@ -42,24 +42,24 @@
 
 ## 4. Adopt in the trending video feed
 
-- [ ] 4.1 Replace `VideoRailAction`'s internals with the icon-with-count overlay control, keeping its existing public parameters so `VideoFeedPage` call sites are unchanged.
-- [ ] 4.2 Confirm the accessibility contract is preserved exactly — `VideoFeedTestTagsTest` and the existing rail tests must pass unchanged, and TalkBack output must not change. A change here is a defect, not an improvement.
-- [ ] 4.3 Update `:feature:videos:impl` screenshot baselines, same selective-commit discipline as 2.8.
+- [x] 4.1 Replace `VideoRailAction`'s internals with the icon-with-count overlay control, keeping its existing public parameters so `VideoFeedPage` call sites are unchanged.
+- [x] 4.2 Confirm the accessibility contract is preserved exactly — `VideoFeedTestTagsTest` and the existing rail tests must pass unchanged, and TalkBack output must not change. A change here is a defect, not an improvement.
+- [x] 4.3 Update `:feature:videos:impl` screenshot baselines, same selective-commit discipline as 2.8. Six chrome baselines updated, zero unrelated baselines touched.
 - [ ] 4.4 Device pass on a bright video: rail legible, and `LikeBurst`'s double-tap animation still correct over the new backing.
 
 ## 5. Measure and confirm
 
-- [ ] 5.1 Re-run the video-overlay benchmark on the reference device and compare against the 1.4 baseline.
-- [ ] 5.2 Confirm frame timing is unchanged within run-to-run noise. The scrim adds one draw per control and should not move the number — an actual regression here means something other than a scrim was introduced, so investigate rather than accept it.
-- [ ] 5.3 Record both numbers in the change folder so the follow-up blur change inherits a real before-number.
+- [x] 5.1 Re-run the video-overlay benchmark on the reference device and compare against the 1.4 baseline.
+- [x] 5.2 Confirm frame timing is unchanged within run-to-run noise. The scrim adds one draw per control and should not move the number — an actual regression here means something other than a scrim was introduced, so investigate rather than accept it.
+- [x] 5.3 Record both numbers in the change folder so the follow-up blur change inherits a real before-number.
 
 ## 6. Gate and land
 
-- [ ] 6.1 `./gradlew :app:assembleDebug`.
-- [ ] 6.2 Lint every touched module, using the flavored task names where the module applies `nubecita.android.flavors` (`git grep -l nubecita.android.flavors -- <module-dir>`; no output = plain `lintDebug`).
-- [ ] 6.3 `./gradlew jacocoTestReportAggregated` — the root `testDebugUnitTest` skips flavored modules.
-- [ ] 6.4 Run the **compose-expert** skill in Review Mode over the cumulative diff — this change adds `@Composable` lines, so the gate applies.
-- [ ] 6.5 Add `:feature:videos:impl` to CLAUDE.md's module map; it is missing today, which is why the trending feed was easy to overlook.
+- [x] 6.1 `./gradlew :app:assembleDebug`.
+- [x] 6.2 Lint every touched module, using the flavored task names where the module applies `nubecita.android.flavors` (`git grep -l nubecita.android.flavors -- <module-dir>`; no output = plain `lintDebug`).
+- [x] 6.3 `./gradlew jacocoTestReportAggregated` — the root `testDebugUnitTest` skips flavored modules.
+- [x] 6.4 Run the **compose-expert** skill in Review Mode over the cumulative diff — this change adds `@Composable` lines, so the gate applies.
+- [x] 6.5 Add `:feature:videos:impl` to CLAUDE.md's module map; it is missing today, which is why the trending feed was easy to overlook.
 
 ## 7. Hand off the blur follow-up
 
