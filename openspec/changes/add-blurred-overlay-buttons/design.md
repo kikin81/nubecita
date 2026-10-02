@@ -178,8 +178,18 @@ implementation, D6's surface-type limit, and D7's budget.
 
 ## Open Questions
 
-1. Which device is the benchmark's reference — the plugged-in foldable, or a lower-tier device that
-   better represents the floor?
+1. ~~Which device is the benchmark's reference?~~ **Resolved: the emulator**, for availability —
+   the baseline can be captured and re-captured without hardware to hand.
+
+   Recorded honestly, because it changes what the number can be used for: Macrobenchmark frame
+   timings on an emulator do not map to real GPU behavior, so the emulator baseline is a
+   **relative** instrument — good for "did adopting the scrim move it", which is exactly what
+   `nubecita-6rdb.18` needs — and NOT a device-accurate 8.33 ms budget gate.
+
+   The consequence lands on the deferred blur change (`nubecita-e8at`), whose whole question is
+   whether a per-frame GPU effect fits the 120 Hz budget. That question cannot be answered on an
+   emulator. Before blur is adopted, its gate needs a re-measurement on real 120 Hz hardware;
+   an emulator pass there would be a green number that means nothing.
 2. Does the scrim want a hairline border or shadow for shape definition against mid-tone content,
    or is fill alone enough? A visual call, to settle against the previews in D4.
 3. For the blur change: revisit the snapshot-blur option in D1, which may suit the auto-hiding

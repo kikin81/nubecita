@@ -4,11 +4,17 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 /**
- * Pins [VideoFeedTestTags.PAGER]. The `:benchmark` module's
- * `VideoFeedScrollBenchmark` hardcodes the same literal (it deliberately does
- * not depend on `:feature:videos:impl`), so a silent rename would otherwise only
- * surface in the opt-in `run-bench` CI job. To rename: update this value AND
- * `benchmark/.../BenchmarkConstants.kt`'s `VIDEO_FEED_RES_ID` in the same PR.
+ * Pins [VideoFeedTestTags.PAGER] and [VideoFeedTestTags.RAIL_LIKE]. The
+ * `:benchmark` module's `VideoFeedScrollBenchmark` hardcodes both literals (it
+ * deliberately does not depend on `:feature:videos:impl`), so a silent rename
+ * would otherwise only surface in the opt-in `run-bench` CI job. To rename:
+ * update the value here AND `benchmark/.../BenchmarkConstants.kt`'s
+ * `VIDEO_FEED_RES_ID` / `VIDEO_FEED_RAIL_LIKE_RES_ID` in the same PR.
+ *
+ * `RAIL_LIKE` carries extra weight since nubecita-6rdb.15: the benchmark
+ * asserts it to prove the overlay controls were on screen while frames were
+ * timed. A rename that slipped through would turn that assertion into a
+ * permanent failure, not a silent pass — which is the safe direction.
  */
 internal class VideoFeedTestTagsTest {
     @Test
