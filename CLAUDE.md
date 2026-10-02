@@ -223,6 +223,7 @@ feature/
   search/{api,impl}      search with typeahead, posts/people/feeds tabs, and recent search
   settings/{api,impl}    settings screen
   videoplayer/{api,impl} inline video player
+  videos/{api,impl}      vertical trending video feed
 benchmark/               Macrobenchmark + BaselineProfile generator
 openspec/                specs/ and changes/ for design decisions
 docs/                    design system docs, OAuth docs
