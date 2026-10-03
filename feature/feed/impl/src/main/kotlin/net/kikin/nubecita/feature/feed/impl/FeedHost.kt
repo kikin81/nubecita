@@ -1,6 +1,6 @@
 package net.kikin.nubecita.feature.feed.impl
 
-import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -58,6 +58,7 @@ import net.kikin.nubecita.feature.feed.impl.ui.FeedChipRow
 import net.kikin.nubecita.feature.feed.impl.ui.PinnedListsSheet
 import net.kikin.nubecita.feature.feed.impl.ui.selectedFeedChipIndex
 import net.kikin.nubecita.feature.feeds.api.Feeds
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.roundToInt
 
 /**
@@ -155,15 +156,18 @@ internal fun FeedHost(
     // Sync external/chip selection change to pager page
     LaunchedEffect(state.selectedFeedUri, resolvedFeeds) {
         val targetIndex = resolvedFeeds.indexOfFirst { it.uri == state.selectedFeedUri }
-        if (targetIndex >= 0 && targetIndex != pagerState.settledPage) {
+        if (targetIndex >= 0 && targetIndex != pagerState.targetPage) {
             pagerState.animateScrollToPage(targetIndex)
         }
     }
 
     // Back gesture: navigate to Page 0 (Following) before exiting
-    BackHandler(enabled = pagerState.settledPage != 0) {
-        coroutineScope.launch {
+    PredictiveBackHandler(enabled = pagerState.settledPage != 0) { progress ->
+        try {
+            progress.collect { /* predictive back progress */ }
             pagerState.animateScrollToPage(0)
+        } catch (_: CancellationException) {
+            // User cancelled predictive back gesture
         }
     }
 

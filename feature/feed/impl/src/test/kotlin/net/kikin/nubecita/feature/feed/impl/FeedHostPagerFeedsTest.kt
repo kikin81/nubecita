@@ -82,6 +82,14 @@ class FeedHostPagerFeedsTest {
         assertFalse(isUserScrollEnabled(widthDp = 1200))
     }
 
+    @Test
+    fun `isPageActive is true only when page matches settledPage and scroll is not in progress`() {
+        assertTrue(isPageActive(settledPage = 1, page = 1, isScrollInProgress = false))
+        assertFalse(isPageActive(settledPage = 1, page = 1, isScrollInProgress = true))
+        assertFalse(isPageActive(settledPage = 0, page = 1, isScrollInProgress = false))
+        assertFalse(isPageActive(settledPage = 2, page = 1, isScrollInProgress = true))
+    }
+
     companion object {
         fun resolvePagerFeeds(
             feedChips: List<PinnedFeedUi>,
@@ -99,5 +107,11 @@ class FeedHostPagerFeedsTest {
         fun isBackHandlerEnabled(currentPage: Int): Boolean = currentPage != 0
 
         fun isUserScrollEnabled(widthDp: Int): Boolean = widthDp < 600
+
+        fun isPageActive(
+            settledPage: Int,
+            page: Int,
+            isScrollInProgress: Boolean,
+        ): Boolean = settledPage == page && !isScrollInProgress
     }
 }
