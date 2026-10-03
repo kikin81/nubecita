@@ -84,6 +84,9 @@
     <string name="feed_snackbar_overflow_unmute_thread_coming_soon">Unmute thread — coming soon</string>
     <string name="feed_snackbar_text_copied">Text copied</string>
 
+    <!-- Following default feed tab name -->
+    <string name="feed_following">Following</string>
+
     <!-- Pinned lists chip row and bottom sheet -->
     <string name="feed_lists_chip_collapsed">Lists</string>
     <string name="feed_lists_chip_selected">List: %1$s</string>

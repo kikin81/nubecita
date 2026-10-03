@@ -10,6 +10,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -144,6 +145,10 @@ internal fun FeedScreen(
     onComposeClick: () -> Unit = {},
     onReplyClick: (String) -> Unit = {},
     onQuoteClick: (String) -> Unit = {},
+    showChipRow: Boolean = true,
+    showSnackbarHost: Boolean = true,
+    isPageActive: Boolean = true,
+    customContentPadding: PaddingValues? = null,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     viewModel: FeedViewModel = hiltViewModel(),
     trendingViewModel: TrendingVideosViewModel = hiltViewModel(),
@@ -163,8 +168,8 @@ internal fun FeedScreen(
     var trendingLoadRequested by rememberSaveable { mutableStateOf(false) }
     val isDiscoverFeed = selectedFeedUri?.endsWith("/app.bsky.feed.generator/whats-hot") == true
     val isFeedRefreshing = (viewState as? FeedScreenViewState.Loaded)?.isRefreshing == true
-    LaunchedEffect(isDiscoverFeed, isFeedRefreshing) {
-        if (isDiscoverFeed && (!trendingLoadRequested || isFeedRefreshing)) {
+    LaunchedEffect(isDiscoverFeed, isFeedRefreshing, isPageActive) {
+        if (isDiscoverFeed && isPageActive && (!trendingLoadRequested || isFeedRefreshing)) {
             trendingViewModel.load()
             trendingLoadRequested = true
         }
@@ -220,6 +225,10 @@ internal fun FeedScreen(
         onVideoTap = interactions.onVideoTap,
         coordinator = interactions.coordinator,
         header = trendingHeader,
+        showChipRow = showChipRow,
+        showSnackbarHost = showSnackbarHost,
+        isPageActive = isPageActive,
+        customContentPadding = customContentPadding,
         modifier = modifier,
     )
 }
@@ -255,6 +264,10 @@ internal fun FeedScreenContent(
     onQuotedImageTap: (quotedPostUri: String, imageIndex: Int) -> Unit = { _, _ -> },
     onVideoTap: ((postUri: String) -> Unit)? = null,
     coordinator: FeedVideoPlayerCoordinator? = null,
+    showChipRow: Boolean = true,
+    showSnackbarHost: Boolean = true,
+    isPageActive: Boolean = true,
+    customContentPadding: PaddingValues? = null,
     /**
      * Optional leading item above the posts (the Discover Trending Videos
      * carousel). Hoisted so the host owns its empty/dismissed visibility —
@@ -342,7 +355,7 @@ internal fun FeedScreenContent(
     val cardColor = MaterialTheme.colorScheme.surfaceContainer
     val cardShape = MaterialTheme.shapes.medium
 
-    val hasSelector = feedChips.isNotEmpty() || pinnedLists.isNotEmpty() || status == FeedHostStatus.Loading
+    val hasSelector = showChipRow && (feedChips.isNotEmpty() || pinnedLists.isNotEmpty() || status == FeedHostStatus.Loading)
     val nestedScrollModifier =
         if (hasSelector) {
             Modifier.nestedScroll(nestedScrollConnection)
@@ -353,7 +366,11 @@ internal fun FeedScreenContent(
     Scaffold(
         modifier = modifier.then(nestedScrollModifier),
         containerColor = MaterialTheme.colorScheme.surface,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = {
+            if (showSnackbarHost) {
+                SnackbarHost(snackbarHostState)
+            }
+        },
         topBar = {
             if (hasSelector) {
                 Surface(
@@ -451,6 +468,7 @@ internal fun FeedScreenContent(
             }
         },
     ) { padding ->
+        val effectivePadding = customContentPadding ?: padding
         // EVERY branch must consume `padding` — without this, the status bar
         // and gesture bar overlap content under edge-to-edge. Scrollable
         // surfaces apply via `contentPadding` so the surface itself extends
@@ -460,7 +478,7 @@ internal fun FeedScreenContent(
             FeedScreenViewState.InitialLoading ->
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = padding,
+                    contentPadding = effectivePadding,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(count = SHIMMER_PREVIEW_COUNT, key = { "shimmer-$it" }) { index ->
@@ -477,14 +495,14 @@ internal fun FeedScreenContent(
                 FeedEmptyState(
                     onRefresh = onRefresh,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = padding,
+                    contentPadding = effectivePadding,
                 )
             is FeedScreenViewState.InitialError ->
                 FeedErrorState(
                     error = viewState.error,
                     onRetry = onRetry,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = padding,
+                    contentPadding = effectivePadding,
                 )
             is FeedScreenViewState.Loaded ->
                 PostFeedList(
@@ -499,18 +517,19 @@ internal fun FeedScreenContent(
                     onImageTap = onImageTap,
                     cardColor = cardColor,
                     cardShape = cardShape,
-                    contentPadding = padding,
+                    contentPadding = effectivePadding,
                     lastLikeTapPostUri = viewState.lastLikeTapPostUri,
                     lastRepostTapPostUri = viewState.lastRepostTapPostUri,
                     onVideoTap = onVideoTap,
                     coordinator = coordinator,
                     videoAutoplayEnabled = viewState.videoAutoplayEnabled,
+                    isPageActive = isPageActive,
                     header = header,
                 )
         }
     }
 
-    if (showPinnedListsSheet) {
+    if (showChipRow && showPinnedListsSheet) {
         PinnedListsSheet(
             pinnedLists = pinnedLists,
             selectedFeedUri = selectedFeedUri,

@@ -2,11 +2,14 @@
 
 package net.kikin.nubecita.core.video
 
+import android.os.Build
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -502,7 +505,15 @@ class SharedVideoPlayer
             playlistUrl: String,
             posterUrl: String?,
         ) {
-            if (_boundPlaylistUrl.value == playlistUrl) return
+            if (_boundPlaylistUrl.value == playlistUrl) {
+                val p = cachedExoPlayer
+                if (p != null && (p.playbackState == androidx.media3.common.Player.STATE_IDLE || p.playbackState == androidx.media3.common.Player.STATE_ENDED || _playbackError.value != null)) {
+                    _playbackError.value = null
+                    p.seekTo(0)
+                    p.prepare()
+                }
+                return
+            }
             val p = requirePlayer()
             // New media item — drop any prior playback error so the VM
             // doesn't immediately bounce back into Error before the new
@@ -549,6 +560,28 @@ class SharedVideoPlayer
         }
     }
 
+private val emulatorSafeMediaCodecSelector =
+    MediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
+        val decoders =
+            MediaCodecSelector.DEFAULT.getDecoderInfos(
+                mimeType,
+                requiresSecureDecoder,
+                requiresTunnelingDecoder,
+            )
+        val isEmulator =
+            Build.HARDWARE.contains("ranchu", ignoreCase = true) ||
+                Build.HARDWARE.contains("goldfish", ignoreCase = true) ||
+                Build.FINGERPRINT.contains("generic", ignoreCase = true) ||
+                Build.PRODUCT.contains("sdk_gphone", ignoreCase = true)
+        if (isEmulator) {
+            decoders.sortedBy { decoder ->
+                if (decoder.name.startsWith("c2.android.") || decoder.name.startsWith("OMX.google.")) 0 else 1
+            }
+        } else {
+            decoders
+        }
+    }
+
 /**
  * Production factory for [SharedVideoPlayer]. Wires the real Media3
  * chain: an `ExoPlayer` built with a `DefaultTrackSelector` whose
@@ -584,8 +617,13 @@ fun createSharedVideoPlayer(
                     .setUsage(androidx.media3.common.C.USAGE_MEDIA)
                     .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MOVIE)
                     .build()
+            val renderersFactory =
+                DefaultRenderersFactory(appContext)
+                    .setEnableDecoderFallback(true)
+                    .forceDisableMediaCodecAsynchronousQueueing()
+                    .setMediaCodecSelector(emulatorSafeMediaCodecSelector)
             ExoPlayer
-                .Builder(appContext)
+                .Builder(appContext, renderersFactory)
                 .setTrackSelector(trackSelector)
                 .build()
                 .apply {
