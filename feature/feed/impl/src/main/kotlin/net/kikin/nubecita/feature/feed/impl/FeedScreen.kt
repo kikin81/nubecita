@@ -146,6 +146,7 @@ internal fun FeedScreen(
     onReplyClick: (String) -> Unit = {},
     onQuoteClick: (String) -> Unit = {},
     showChipRow: Boolean = true,
+    showSnackbarHost: Boolean = true,
     isPageActive: Boolean = true,
     customContentPadding: PaddingValues? = null,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
@@ -225,6 +226,7 @@ internal fun FeedScreen(
         coordinator = interactions.coordinator,
         header = trendingHeader,
         showChipRow = showChipRow,
+        showSnackbarHost = showSnackbarHost,
         isPageActive = isPageActive,
         customContentPadding = customContentPadding,
         modifier = modifier,
@@ -263,6 +265,7 @@ internal fun FeedScreenContent(
     onVideoTap: ((postUri: String) -> Unit)? = null,
     coordinator: FeedVideoPlayerCoordinator? = null,
     showChipRow: Boolean = true,
+    showSnackbarHost: Boolean = true,
     isPageActive: Boolean = true,
     customContentPadding: PaddingValues? = null,
     /**
@@ -363,7 +366,11 @@ internal fun FeedScreenContent(
     Scaffold(
         modifier = modifier.then(nestedScrollModifier),
         containerColor = MaterialTheme.colorScheme.surface,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = {
+            if (showSnackbarHost) {
+                SnackbarHost(snackbarHostState)
+            }
+        },
         topBar = {
             if (hasSelector) {
                 Surface(

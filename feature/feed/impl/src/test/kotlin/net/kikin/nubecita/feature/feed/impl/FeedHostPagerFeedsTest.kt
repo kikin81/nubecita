@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.feed.impl
 
+import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
 import net.kikin.nubecita.data.models.FeedKind
 import net.kikin.nubecita.data.models.PinnedFeedUi
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -14,8 +15,8 @@ import org.junit.jupiter.api.Test
 class FeedHostPagerFeedsTest {
     private val following =
         PinnedFeedUi(
-            id = "following",
-            uri = "app.bsky.feed.getTimeline",
+            id = PinnedFeedsRepository.FOLLOWING_FEED_URI,
+            uri = PinnedFeedsRepository.FOLLOWING_FEED_URI,
             kind = FeedKind.Following,
             displayName = "Following",
             avatarUrl = null,
@@ -63,13 +64,23 @@ class FeedHostPagerFeedsTest {
     }
 
     @Test
-    fun `backHandler is disabled on page 0 and enabled on page greater than 0`() {
-        // Page 0 (Following): back exits through home (disabled at host level so NavDisplay handles it)
-        assertFalse(isBackHandlerEnabled(currentPage = 0))
+    fun `backHandler is disabled on Following page and enabled on other pages`() {
+        // When Following is at index 0
+        assertFalse(isBackHandlerEnabled(currentPage = 0, followingIndex = 0))
+        assertTrue(isBackHandlerEnabled(currentPage = 1, followingIndex = 0))
+        assertTrue(isBackHandlerEnabled(currentPage = 2, followingIndex = 0))
 
-        // Page 1+ (Discover, Science, etc.): back intercepts to return to Page 0
-        assertTrue(isBackHandlerEnabled(currentPage = 1))
-        assertTrue(isBackHandlerEnabled(currentPage = 2))
+        // When Following is at arbitrary index (e.g. index 1 in [discover, following, science])
+        assertTrue(isBackHandlerEnabled(currentPage = 0, followingIndex = 1))
+        assertFalse(isBackHandlerEnabled(currentPage = 1, followingIndex = 1))
+        assertTrue(isBackHandlerEnabled(currentPage = 2, followingIndex = 1))
+
+        // When Following is absent (followingIndex = -1)
+        assertFalse(isBackHandlerEnabled(currentPage = 0, followingIndex = -1))
+        assertFalse(isBackHandlerEnabled(currentPage = 1, followingIndex = -1))
+
+        // When Feed is not top route (e.g. tablet detail pane open or sub-route on top)
+        assertFalse(isBackHandlerEnabled(currentPage = 1, followingIndex = 0, isTopRoute = false))
     }
 
     @Test
@@ -104,7 +115,11 @@ class FeedHostPagerFeedsTest {
             }
         }
 
-        fun isBackHandlerEnabled(currentPage: Int): Boolean = currentPage != 0
+        fun isBackHandlerEnabled(
+            currentPage: Int,
+            followingIndex: Int = 0,
+            isTopRoute: Boolean = true,
+        ): Boolean = isTopRoute && followingIndex >= 0 && currentPage != followingIndex
 
         fun isUserScrollEnabled(widthDp: Int): Boolean = widthDp < 600
 

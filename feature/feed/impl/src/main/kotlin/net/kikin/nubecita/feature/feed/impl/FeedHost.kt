@@ -1,7 +1,7 @@
 package net.kikin.nubecita.feature.feed.impl
 
 import androidx.activity.compose.PredictiveBackHandler
-import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animate
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -27,15 +28,18 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -49,9 +53,13 @@ import androidx.navigation3.runtime.NavKey
 import androidx.window.core.layout.WindowSizeClass
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
+import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
 import net.kikin.nubecita.data.models.FeedKind
 import net.kikin.nubecita.data.models.PinnedFeedUi
 import net.kikin.nubecita.feature.feed.impl.ui.FeedChipRow
@@ -79,6 +87,7 @@ import kotlin.math.roundToInt
 @Composable
 internal fun FeedHost(
     modifier: Modifier = Modifier,
+    isTopRoute: Boolean = true,
     onNavigateToPost: (String) -> Unit = {},
     onNavigateToAuthor: (String) -> Unit = {},
     onNavigateToMediaViewer: (postUri: String, imageIndex: Int) -> Unit = { _, _ -> },
@@ -118,13 +127,14 @@ internal fun FeedHost(
             }
         }
 
+    val followingDisplayName = stringResource(R.string.feed_following)
     val initialFollowingFeed =
-        remember {
+        remember(followingDisplayName) {
             PinnedFeedUi(
-                id = "following",
-                uri = "app.bsky.feed.getTimeline",
+                id = PinnedFeedsRepository.FOLLOWING_FEED_URI,
+                uri = PinnedFeedsRepository.FOLLOWING_FEED_URI,
                 kind = FeedKind.Following,
-                displayName = "Following",
+                displayName = followingDisplayName,
                 avatarUrl = null,
             )
         }
@@ -141,13 +151,17 @@ internal fun FeedHost(
             pageCount = { resolvedFeeds.size },
         )
 
-    // Sync pager settled page to host ViewModel selection
-    LaunchedEffect(pagerState, resolvedFeeds) {
+    val currentResolvedFeeds by rememberUpdatedState(resolvedFeeds)
+    val currentSelectedFeedUri by rememberUpdatedState(state.selectedFeedUri)
+
+    // Sync pager settled page to host ViewModel selection only on user-driven swipes
+    LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.settledPage }
+            .drop(1)
             .distinctUntilChanged()
             .collect { page ->
-                val targetFeed = resolvedFeeds.getOrNull(page)
-                if (targetFeed != null && targetFeed.uri != state.selectedFeedUri) {
+                val targetFeed = currentResolvedFeeds.getOrNull(page)
+                if (targetFeed != null && targetFeed.uri != currentSelectedFeedUri) {
                     hostViewModel.handleEvent(FeedHostEvent.SelectFeed(targetFeed.uri))
                 }
             }
@@ -157,17 +171,39 @@ internal fun FeedHost(
     LaunchedEffect(state.selectedFeedUri, resolvedFeeds) {
         val targetIndex = resolvedFeeds.indexOfFirst { it.uri == state.selectedFeedUri }
         if (targetIndex >= 0 && targetIndex != pagerState.targetPage) {
-            pagerState.animateScrollToPage(targetIndex)
+            pagerState.scrollToPage(targetIndex)
         }
     }
 
-    // Back gesture: navigate to Page 0 (Following) before exiting
-    PredictiveBackHandler(enabled = pagerState.settledPage != 0) { progress ->
+    // Back gesture: navigate to Following before exiting app or popping tab
+    val followingIndex =
+        remember(resolvedFeeds) {
+            resolvedFeeds.indexOfFirst { it.kind == FeedKind.Following }
+        }
+    var backProgress by remember { mutableFloatStateOf(0f) }
+    var isBackGestureActive by remember { mutableStateOf(false) }
+
+    PredictiveBackHandler(
+        enabled = isTopRoute && followingIndex >= 0 && pagerState.settledPage != followingIndex,
+    ) { progress ->
         try {
-            progress.collect { /* predictive back progress */ }
-            pagerState.animateScrollToPage(0)
+            isBackGestureActive = true
+            progress.collect { backEvent ->
+                backProgress = backEvent.progress
+            }
+            pagerState.animateScrollToPage(followingIndex)
         } catch (_: CancellationException) {
-            // User cancelled predictive back gesture
+            withContext(NonCancellable) {
+                animate(
+                    initialValue = backProgress,
+                    targetValue = 0f,
+                ) { value, _ ->
+                    backProgress = value
+                }
+            }
+        } finally {
+            isBackGestureActive = false
+            backProgress = 0f
         }
     }
 
@@ -184,33 +220,40 @@ internal fun FeedHost(
     val chipRowHeightDp = 48.dp
     val density = LocalDensity.current
     val chipRowHeightPx = remember(density) { with(density) { chipRowHeightDp.toPx() } }
-    val chipRowOffsetHeightPx = remember { Animatable(0f) }
+    var chipRowOffsetHeightPx by remember { mutableFloatStateOf(0f) }
 
     val nestedScrollConnection =
-        remember(chipRowHeightPx, coroutineScope) {
+        remember(chipRowHeightPx) {
             object : NestedScrollConnection {
                 override fun onPreScroll(
                     available: Offset,
                     source: NestedScrollSource,
                 ): Offset {
                     val delta = available.y
-                    val newOffset = chipRowOffsetHeightPx.value + delta
-                    coroutineScope.launch {
-                        chipRowOffsetHeightPx.snapTo(newOffset.coerceIn(-chipRowHeightPx, 0f))
-                    }
+                    chipRowOffsetHeightPx = (chipRowOffsetHeightPx + delta).coerceIn(-chipRowHeightPx, 0f)
                     return Offset.Zero
                 }
             }
         }
 
     LaunchedEffect(pagerState.currentPage) {
-        chipRowOffsetHeightPx.animateTo(0f)
+        animate(
+            initialValue = chipRowOffsetHeightPx,
+            targetValue = 0f,
+        ) { value, _ ->
+            chipRowOffsetHeightPx = value
+        }
     }
 
     val tabReTapSignal = LocalTabReTapSignal.current
     LaunchedEffect(tabReTapSignal) {
         tabReTapSignal.collect {
-            chipRowOffsetHeightPx.animateTo(0f)
+            animate(
+                initialValue = chipRowOffsetHeightPx,
+                targetValue = 0f,
+            ) { value, _ ->
+                chipRowOffsetHeightPx = value
+            }
         }
     }
 
@@ -221,6 +264,21 @@ internal fun FeedHost(
         }
     val chipListState = rememberLazyListState(initialFirstVisibleItemIndex = initialChipIndex)
     var showPinnedListsSheet by rememberSaveable { mutableStateOf(false) }
+
+    val predictiveBackModifier =
+        if (isBackGestureActive && followingIndex >= 0) {
+            val direction = if (followingIndex < pagerState.settledPage) 1f else -1f
+            Modifier.graphicsLayer {
+                val scale = 1f - (backProgress * 0.08f)
+                scaleX = scale
+                scaleY = scale
+                translationX = direction * backProgress * size.width * 0.25f
+                shape = RoundedCornerShape((backProgress * 24.dp.toPx()))
+                clip = true
+            }
+        } else {
+            Modifier
+        }
 
     Scaffold(
         modifier = modifier.fillMaxSize().nestedScroll(nestedScrollConnection),
@@ -239,7 +297,7 @@ internal fun FeedHost(
                                     .fillMaxWidth()
                                     .statusBarsPadding()
                                     .height(chipRowHeightDp)
-                                    .offset { IntOffset(x = 0, y = chipRowOffsetHeightPx.value.roundToInt()) }
+                                    .offset { IntOffset(x = 0, y = chipRowOffsetHeightPx.roundToInt()) }
                                     .background(MaterialTheme.colorScheme.surface),
                         ) {
                             FeedChipRow(
@@ -280,7 +338,7 @@ internal fun FeedHost(
             key = { page -> resolvedFeeds.getOrNull(page)?.uri ?: page.toString() },
             userScrollEnabled = isCompact,
             beyondViewportPageCount = 0,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().then(predictiveBackModifier),
         ) { page ->
             val feed = resolvedFeeds.getOrNull(page)
             if (feed != null) {
@@ -346,6 +404,7 @@ private fun FeedPane(
     }
     FeedScreen(
         showChipRow = false,
+        showSnackbarHost = false,
         isPageActive = isPageActive,
         customContentPadding = customContentPadding,
         selectedFeedUri = feedUri,

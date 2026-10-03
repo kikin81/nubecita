@@ -324,9 +324,6 @@ class FeedVideoPlayerCoordinator(
             // direct player.volume mutation, leaving the holder's
             // mode at FeedPreview — see toggleMuteInternal).
             sharedVideoPlayer.setMode(PlaybackMode.FeedPreview)
-            if (sharedVideoPlayer.boundPlaylistUrl.value == target.playlistUrl) {
-                sharedVideoPlayer.seekTo(0)
-            }
             sharedVideoPlayer.bind(playlistUrl = target.playlistUrl, posterUrl = null)
             sharedVideoPlayer.attachSurface()
             _boundPostId.value = target.postId

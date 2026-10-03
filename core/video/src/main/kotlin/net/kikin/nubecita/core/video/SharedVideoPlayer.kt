@@ -569,10 +569,10 @@ private val emulatorSafeMediaCodecSelector =
                 requiresTunnelingDecoder,
             )
         val isEmulator =
-            Build.HARDWARE.contains("ranchu") ||
-                Build.HARDWARE.contains("goldfish") ||
-                Build.FINGERPRINT.contains("generic") ||
-                Build.PRODUCT.contains("sdk_gphone")
+            Build.HARDWARE.contains("ranchu", ignoreCase = true) ||
+                Build.HARDWARE.contains("goldfish", ignoreCase = true) ||
+                Build.FINGERPRINT.contains("generic", ignoreCase = true) ||
+                Build.PRODUCT.contains("sdk_gphone", ignoreCase = true)
         if (isEmulator) {
             decoders.sortedBy { decoder ->
                 if (decoder.name.startsWith("c2.android.") || decoder.name.startsWith("OMX.google.")) 0 else 1
