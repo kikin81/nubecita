@@ -18,10 +18,19 @@ else
   esac
 fi
 
+mkdir -p "$hooks_dir"
+
+# 1. Install pre-commit hooks when pre-commit is available
+if command -v pre-commit >/dev/null 2>&1; then
+  echo "Installing pre-commit hooks..."
+  pre-commit install --hook-type pre-commit
+  pre-commit install --hook-type commit-msg
+  pre-commit install --hook-type pre-push
+fi
+
+# 2. Install repository-tracked custom hooks
 src="$repo_root/scripts/git-hooks/prepare-commit-msg"
 dst="$hooks_dir/prepare-commit-msg"
-
-mkdir -p "$hooks_dir"
 chmod +x "$src"
 ln -sf "$src" "$dst"
 echo "installed: $dst -> $src"

@@ -24,6 +24,46 @@ cp -rf source dest          # NOT: cp -r source dest
 - `apt-get` - use `-y` flag
 - `brew` - use `HOMEBREW_NO_AUTO_UPDATE=1` env var
 
+## Branching & Pull Requests (NEVER Push to `main`)
+
+**NEVER push directly to `main`. ALL code changes destined for `main` MUST go through a feature branch and a Pull Request.**
+
+- **Always work on a feature branch**: Never commit or push directly on `main`. Create a descriptive branch before writing code:
+  ```bash
+  git checkout -b <branch-name> origin/main
+  ```
+  Branch naming convention (required by repository beads workflow in `CLAUDE.md:122-126`): `<type>/<bd-id>-<slug>`.
+  - `<type>`: Conventional Commit type (`feat`, `fix`, `chore`, `refactor`, `docs`, `test`, etc.) inferred from the bd issue type.
+  - `<bd-id>`: Beads issue ID (e.g. `nubecita-aew`).
+  - `<slug>`: Kebab-cased title, capped at 50 chars.
+  - Example: `feat/nubecita-aew-create-mviviewmodel-base-class`
+- **If accidentally on `main` with changes**:
+  - Immediately move uncommitted or committed changes to a feature branch:
+    ```bash
+    git checkout -b <branch-name>
+    # If commits were already made on local main, reset local main back to remote:
+    git branch -f main origin/main
+    ```
+- **Push feature branches only**:
+  ```bash
+  git push -u origin <branch-name>
+  ```
+- **Open a Pull Request**:
+  - Use GitHub CLI (`gh`) to open a PR:
+    ```bash
+    gh pr create --title "<type>(<scope>): <summary>" --body "<details>"
+    ```
+- **Never bypass branch protections**: Even if your credentials or token allow bypassing branch protections or direct pushes to `main`, NEVER bypass them.
+- **Do not merge without review / CI**: Address review comments, ensure all CI checks pass.
+  - **Standalone PRs**: Merge with squash:
+    ```bash
+    gh pr merge <pr-number> --squash --delete-branch
+    ```
+  - **Epic stacked PRs** (`gh stack`): Never merge individual child PRs from the GitHub UI or via `gh pr merge`. Merge the entire stack atomically:
+    ```bash
+    gh stack merge --squash --yes
+    ```
+
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
 ## Beads Issue Tracker
 
@@ -46,27 +86,27 @@ bd close <id>         # Complete work
 
 ## Session Completion
 
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
+**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until changes are pushed to a remote feature branch and a pull request is open.
 
 **MANDATORY WORKFLOW:**
 
 1. **File issues for remaining work** - Create issues for anything that needs follow-up
 2. **Run quality gates** (if code changed) - Tests, linters, builds
 3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
+4. **PUSH BRANCH & OPEN PR** - This is MANDATORY:
    ```bash
-   git pull --rebase
    bd dolt push
-   git push
-   git status  # MUST show "up to date with origin"
+   git push -u origin <branch-name>
+   gh pr create --title "<title>" --body "<body>"  # if not already created
    ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
+5. **Clean up** - Clear stashes, verify working tree is clean
+6. **Verify** - All changes committed, pushed to feature branch, and PR opened
+7. **Hand off** - Provide PR link and context for next session
 
 **CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
+- **NEVER push directly to `main`** — all code changes MUST go through a feature branch and a pull request.
+- Work is NOT complete until `git push -u origin <branch-name>` succeeds AND the pull request is opened (or updated).
+- NEVER stop before pushing the branch and opening the PR - that leaves work stranded locally
+- NEVER say "ready to push when you are" or "ready to create a PR when you are" - YOU must push the branch and open the PR
+- If push or PR creation fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
