@@ -25,8 +25,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -34,7 +32,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -56,8 +53,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -66,7 +61,9 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.designsystem.component.AvatarGroup
 import net.kikin.nubecita.designsystem.component.NubecitaAvatar
+import net.kikin.nubecita.designsystem.component.NubecitaMessageTextField
 import net.kikin.nubecita.designsystem.component.NubecitaPrimaryButton
+import net.kikin.nubecita.designsystem.component.NubecitaSendButton
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.component.avatarFallbackFor
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -341,31 +338,21 @@ private fun ChatComposerRow(
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            OutlinedTextField(
+            NubecitaMessageTextField(
                 state = textFieldState,
                 modifier =
                     Modifier
                         .weight(1f)
                         .onFocusChanged { if (it.isFocused) onFocus() },
                 placeholder = { Text(text = stringResource(R.string.chat_composer_placeholder)) },
-                lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 5),
-                keyboardOptions =
-                    KeyboardOptions(
-                        capitalization = KeyboardCapitalization.Sentences,
-                        imeAction = ImeAction.Send,
-                    ),
                 onKeyboardAction = { if (isSendEnabled) onSend() },
             )
-            IconButton(
+            NubecitaSendButton(
                 onClick = onSend,
                 enabled = isSendEnabled,
-            ) {
-                NubecitaIcon(
-                    name = NubecitaIconName.Send,
-                    contentDescription = stringResource(R.string.chat_composer_send_content_description),
-                    filled = true,
-                )
-            }
+                contentDescription = stringResource(R.string.chat_composer_send_content_description),
+                modifier = Modifier.padding(bottom = 4.dp),
+            )
         }
     }
 }
