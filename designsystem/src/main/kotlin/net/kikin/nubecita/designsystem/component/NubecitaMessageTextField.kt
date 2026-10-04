@@ -5,6 +5,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.KeyboardActionHandler
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -26,6 +27,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  * ([RoundedCornerShape] with 24.dp corners) that looks smooth on a single line
  * and preserves rounded corners as text wraps up to [lineLimits].
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NubecitaMessageTextField(
     state: TextFieldState,
