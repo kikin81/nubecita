@@ -129,7 +129,7 @@ repos:
 
       - id: no-push-to-main
         name: prevent direct push to main
-        entry: ./scripts/check_no_push_to_main.sh
+        entry: bash ./scripts/check_no_push_to_main.sh
         language: system
         stages: [pre-push]
         pass_filenames: false

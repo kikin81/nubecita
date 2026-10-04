@@ -32,7 +32,11 @@ cp -rf source dest          # NOT: cp -r source dest
   ```bash
   git checkout -b <branch-name> origin/main
   ```
-  Branch naming convention: `feat/<name>`, `fix/<name>`, `chore/<name>`, or `<bead-id>-<description>`.
+  Branch naming convention (required by repository beads workflow in `CLAUDE.md:122-126`): `<type>/<bd-id>-<slug>`.
+  - `<type>`: Conventional Commit type (`feat`, `fix`, `chore`, `refactor`, `docs`, `test`, etc.) inferred from the bd issue type.
+  - `<bd-id>`: Beads issue ID (e.g. `nubecita-aew`).
+  - `<slug>`: Kebab-cased title, capped at 50 chars.
+  - Example: `feat/nubecita-aew-create-mviviewmodel-base-class`
 - **If accidentally on `main` with changes**:
   - Immediately move uncommitted or committed changes to a feature branch:
     ```bash
@@ -50,10 +54,15 @@ cp -rf source dest          # NOT: cp -r source dest
     gh pr create --title "<type>(<scope>): <summary>" --body "<details>"
     ```
 - **Never bypass branch protections**: Even if your credentials or token allow bypassing branch protections or direct pushes to `main`, NEVER bypass them.
-- **Do not merge without review / CI**: Address review comments, ensure all CI checks pass, and merge with squash:
-  ```bash
-  gh pr merge <pr-number> --squash --delete-branch
-  ```
+- **Do not merge without review / CI**: Address review comments, ensure all CI checks pass.
+  - **Standalone PRs**: Merge with squash:
+    ```bash
+    gh pr merge <pr-number> --squash --delete-branch
+    ```
+  - **Epic stacked PRs** (`gh stack`): Never merge individual child PRs from the GitHub UI or via `gh pr merge`. Merge the entire stack atomically:
+    ```bash
+    gh stack merge --squash --yes
+    ```
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
 ## Beads Issue Tracker

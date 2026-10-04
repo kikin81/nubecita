@@ -3,4 +3,4 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
-exec "$repo_root/scripts/check_no_push_to_main.sh" "$@"
+exec bash "$repo_root/scripts/check_no_push_to_main.sh" "$@"
