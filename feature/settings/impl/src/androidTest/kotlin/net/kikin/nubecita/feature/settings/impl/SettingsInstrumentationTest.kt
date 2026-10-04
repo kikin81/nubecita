@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import net.kikin.nubecita.core.testing.android.HiltTestActivity
@@ -57,7 +58,7 @@ class SettingsInstrumentationTest {
         }
 
         // Tap the Sign Out button (resolves first via merged tree).
-        composeTestRule.onNodeWithText(signOutLabel).performClick()
+        composeTestRule.onNodeWithText(signOutLabel).performScrollTo().performClick()
         // Dialog now open. The dialog's Confirm button is ALSO labeled
         // with the same string. Use useUnmergedTree to surface the
         // dialog content separately, and pick the second matching node
@@ -116,7 +117,7 @@ class SettingsInstrumentationTest {
             }
         }
 
-        composeTestRule.onNodeWithText(signOutLabel).performClick()
+        composeTestRule.onNodeWithText(signOutLabel).performScrollTo().performClick()
         composeTestRule.waitUntil(timeoutMillis = 5_000) {
             composeTestRule
                 .onAllNodesWithText(signOutLabel, useUnmergedTree = true)

@@ -38,47 +38,61 @@ internal object AuthDataStoreModule {
     private const val PENDING_MASTER_KEY_URI = "android-keystore://nubecita_oauth_pending_master_key"
     private val PENDING_ASSOCIATED_DATA = "nubecita.oauth.pending.v1".encodeToByteArray()
 
+    private val lock = Any()
+
+    @Volatile
+    private var sessionDataStore: DataStore<OAuthSession?>? = null
+
+    @Volatile
+    private var pendingAuthDataStore: DataStore<PendingAuth?>? = null
+
     @Provides
     @Singleton
     fun provideOAuthSessionDataStore(
         @ApplicationContext context: Context,
         telemetry: SessionTelemetry,
     ): DataStore<OAuthSession?> {
-        AeadConfig.register()
-        // Crypto failures at construction time get one non-destructive delayed
-        // retry (a transiently unavailable Keystore presents exactly like a
-        // corrupted keyset — see KeysetRecovery); only a persistent failure —
-        // most commonly KeyPermanentlyInvalidatedException (biometric reset /
-        // factory-wipe of user data) or a corrupted keyset payload — is treated
-        // as "discard the old keyset and regenerate," and every fire is
-        // reported (epic nubecita-09xt).
-        //
-        // Regeneration makes the previously persisted session ciphertext
-        // permanently undecryptable, so the reset also deletes the session
-        // file: the state is then honestly "signed out" (clean re-login)
-        // instead of a session that fails decryption on every cold start —
-        // which under SessionLoadResult would burn the full ReadError retry
-        // schedule behind the splash on every launch, forever.
-        val keysetHandle =
-            KeysetRecovery.buildWithRecovery(
-                build = { buildKeysetHandle(context) },
-                reset = {
-                    context.deleteSharedPreferences(SESSION_KEYSET_PREF_FILE)
-                    context.dataStoreFile(SESSION_FILE_NAME).delete()
-                },
-                onRegenerated = telemetry::onKeysetRegenerated,
-            )
-        val aead = keysetHandle.getPrimitive(RegistryConfiguration.get(), com.google.crypto.tink.Aead::class.java)
-        val encryptedSerializer =
-            AeadSerializer(
-                aead = aead,
-                wrappedSerializer = OAuthSessionSerializer,
-                associatedData = SESSION_ASSOCIATED_DATA,
-            )
-        return DataStoreFactory.create(
-            serializer = encryptedSerializer,
-            produceFile = { context.dataStoreFile(SESSION_FILE_NAME) },
-        )
+        sessionDataStore?.let { return it }
+        return synchronized(lock) {
+            sessionDataStore ?: run {
+                AeadConfig.register()
+                // Crypto failures at construction time get one non-destructive delayed
+                // retry (a transiently unavailable Keystore presents exactly like a
+                // corrupted keyset — see KeysetRecovery); only a persistent failure —
+                // most commonly KeyPermanentlyInvalidatedException (biometric reset /
+                // factory-wipe of user data) or a corrupted keyset payload — is treated
+                // as "discard the old keyset and regenerate," and every fire is
+                // reported (epic nubecita-09xt).
+                //
+                // Regeneration makes the previously persisted session ciphertext
+                // permanently undecryptable, so the reset also deletes the session
+                // file: the state is then honestly "signed out" (clean re-login)
+                // instead of a session that fails decryption on every cold start —
+                // which under SessionLoadResult would burn the full ReadError retry
+                // schedule behind the splash on every launch, forever.
+                val keysetHandle =
+                    KeysetRecovery.buildWithRecovery(
+                        build = { buildKeysetHandle(context) },
+                        reset = {
+                            context.deleteSharedPreferences(SESSION_KEYSET_PREF_FILE)
+                            context.dataStoreFile(SESSION_FILE_NAME).delete()
+                        },
+                        onRegenerated = telemetry::onKeysetRegenerated,
+                    )
+                val aead = keysetHandle.getPrimitive(RegistryConfiguration.get(), com.google.crypto.tink.Aead::class.java)
+                val encryptedSerializer =
+                    AeadSerializer(
+                        aead = aead,
+                        wrappedSerializer = OAuthSessionSerializer,
+                        associatedData = SESSION_ASSOCIATED_DATA,
+                    )
+                DataStoreFactory
+                    .create(
+                        serializer = encryptedSerializer,
+                        produceFile = { context.dataStoreFile(SESSION_FILE_NAME) },
+                    ).also { sessionDataStore = it }
+            }
+        }
     }
 
     /**
@@ -100,29 +114,35 @@ internal object AuthDataStoreModule {
     fun providePendingAuthDataStore(
         @ApplicationContext context: Context,
     ): DataStore<PendingAuth?> {
-        AeadConfig.register()
-        val keysetHandle =
-            KeysetRecovery.buildWithRecovery(
-                build = { buildPendingKeysetHandle(context) },
-                reset = {
-                    context.deleteSharedPreferences(PENDING_KEYSET_PREF_FILE)
-                    context.dataStoreFile(PENDING_FILE_NAME).delete()
-                },
-                onRegenerated = { cause ->
-                    Timber.tag("PendingAuthStore").w(cause, "pending-auth keyset regenerated; in-flight login discarded")
-                },
-            )
-        val aead = keysetHandle.getPrimitive(RegistryConfiguration.get(), com.google.crypto.tink.Aead::class.java)
-        val encryptedSerializer =
-            AeadSerializer(
-                aead = aead,
-                wrappedSerializer = PendingAuthSerializer,
-                associatedData = PENDING_ASSOCIATED_DATA,
-            )
-        return DataStoreFactory.create(
-            serializer = encryptedSerializer,
-            produceFile = { context.dataStoreFile(PENDING_FILE_NAME) },
-        )
+        pendingAuthDataStore?.let { return it }
+        return synchronized(lock) {
+            pendingAuthDataStore ?: run {
+                AeadConfig.register()
+                val keysetHandle =
+                    KeysetRecovery.buildWithRecovery(
+                        build = { buildPendingKeysetHandle(context) },
+                        reset = {
+                            context.deleteSharedPreferences(PENDING_KEYSET_PREF_FILE)
+                            context.dataStoreFile(PENDING_FILE_NAME).delete()
+                        },
+                        onRegenerated = { cause ->
+                            Timber.tag("PendingAuthStore").w(cause, "pending-auth keyset regenerated; in-flight login discarded")
+                        },
+                    )
+                val aead = keysetHandle.getPrimitive(RegistryConfiguration.get(), com.google.crypto.tink.Aead::class.java)
+                val encryptedSerializer =
+                    AeadSerializer(
+                        aead = aead,
+                        wrappedSerializer = PendingAuthSerializer,
+                        associatedData = PENDING_ASSOCIATED_DATA,
+                    )
+                DataStoreFactory
+                    .create(
+                        serializer = encryptedSerializer,
+                        produceFile = { context.dataStoreFile(PENDING_FILE_NAME) },
+                    ).also { pendingAuthDataStore = it }
+            }
+        }
     }
 
     private fun buildKeysetHandle(context: Context) =

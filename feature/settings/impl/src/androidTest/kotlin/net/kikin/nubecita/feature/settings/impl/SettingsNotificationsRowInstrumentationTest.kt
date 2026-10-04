@@ -6,17 +6,15 @@ import android.provider.Settings
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.espresso.intent.Intents
-import androidx.test.espresso.intent.Intents.intended
 import androidx.test.espresso.intent.Intents.intending
 import androidx.test.espresso.intent.matcher.IntentMatchers.hasAction
-import androidx.test.espresso.intent.matcher.IntentMatchers.hasExtra
 import androidx.test.platform.app.InstrumentationRegistry
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import net.kikin.nubecita.core.testing.android.HiltTestActivity
 import net.kikin.nubecita.designsystem.NubecitaTheme
-import org.hamcrest.CoreMatchers.allOf
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -71,13 +69,13 @@ class SettingsNotificationsRowInstrumentationTest {
             }
         }
 
-        composeTestRule.onNodeWithText(notificationsLabel).performClick()
+        composeTestRule.onNodeWithText(notificationsLabel).performScrollTo().performClick()
 
-        intended(
-            allOf(
-                hasAction(Settings.ACTION_APP_NOTIFICATION_SETTINGS),
-                hasExtra(Settings.EXTRA_APP_PACKAGE, targetPackage),
-            ),
-        )
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            Intents.getIntents().any { intent ->
+                intent.action == Settings.ACTION_APP_NOTIFICATION_SETTINGS &&
+                    intent.getStringExtra(Settings.EXTRA_APP_PACKAGE) == targetPackage
+            }
+        }
     }
 }

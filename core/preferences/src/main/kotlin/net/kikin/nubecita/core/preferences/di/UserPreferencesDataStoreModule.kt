@@ -35,23 +35,35 @@ import javax.inject.Singleton
 object UserPreferencesDataStoreModule {
     private const val PREFERENCES_FILE_NAME = "user_preferences"
 
+    private val lock = Any()
+
+    @Volatile
+    private var preferencesDataStore: DataStore<Preferences>? = null
+
     @Provides
     @Singleton
     fun provideUserPreferencesDataStore(
         @ApplicationContext context: Context,
-    ): DataStore<Preferences> =
-        PreferenceDataStoreFactory.create(
-            // `DefaultUserPreferencesRepository.hasSeenOnboarding` absorbs transient
-            // IOException via `.catch`, but a genuinely corrupted on-disk file
-            // throws `CorruptionException` on every read — `.catch` would loop
-            // forever. The corruption handler replaces the file with empty
-            // preferences once, healing the store so future reads / writes
-            // (including the next onboarding flag flip) proceed normally.
-            corruptionHandler =
-                ReplaceFileCorruptionHandler {
-                    Timber.w(it, "User preferences file corrupted; replacing with empty store")
-                    emptyPreferences()
-                },
-            produceFile = { context.preferencesDataStoreFile(PREFERENCES_FILE_NAME) },
-        )
+    ): DataStore<Preferences> {
+        preferencesDataStore?.let { return it }
+        return synchronized(lock) {
+            preferencesDataStore ?: run {
+                PreferenceDataStoreFactory
+                    .create(
+                        // `DefaultUserPreferencesRepository.hasSeenOnboarding` absorbs transient
+                        // IOException via `.catch`, but a genuinely corrupted on-disk file
+                        // throws `CorruptionException` on every read — `.catch` would loop
+                        // forever. The corruption handler replaces the file with empty
+                        // preferences once, healing the store so future reads / writes
+                        // (including the next onboarding flag flip) proceed normally.
+                        corruptionHandler =
+                            ReplaceFileCorruptionHandler {
+                                Timber.w(it, "User preferences file corrupted; replacing with empty store")
+                                emptyPreferences()
+                            },
+                        produceFile = { context.preferencesDataStoreFile(PREFERENCES_FILE_NAME) },
+                    ).also { preferencesDataStore = it }
+            }
+        }
+    }
 }
