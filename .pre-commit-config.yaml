@@ -20,6 +20,8 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
+      - id: no-commit-to-branch
+        args: ["--branch", "main"]
       - id: check-json
       - id: check-yaml
       - id: check-toml
@@ -125,11 +127,4 @@ repos:
         language: system
         stages: [pre-push]
         files: '\.(kt|kts)$'
-        pass_filenames: false
-
-      - id: no-push-to-main
-        name: prevent direct push to main
-        entry: bash ./scripts/check_no_push_to_main.sh
-        language: system
-        stages: [pre-push]
         pass_filenames: false
