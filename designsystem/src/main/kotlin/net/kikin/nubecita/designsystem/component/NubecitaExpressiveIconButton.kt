@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
@@ -30,21 +31,23 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 fun NubecitaExpressiveIconButton(
     onClick: () -> Unit,
     icon: @Composable () -> Unit,
-    contentDescription: String?,
     modifier: Modifier = Modifier,
+    contentDescription: String? = null,
     enabled: Boolean = true,
     shapes: IconButtonShapes = IconButtonDefaults.shapes(),
     colors: IconButtonColors = IconButtonDefaults.filledIconButtonColors(),
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
+    onClickLabel: String? = null,
 ) {
     val semanticsModifier =
-        if (contentDescription != null) {
-            modifier.semantics {
+        modifier.semantics {
+            if (contentDescription != null) {
                 this.contentDescription = contentDescription
-                this.role = Role.Button
             }
-        } else {
-            modifier
+            if (onClickLabel != null) {
+                onClick(label = onClickLabel, action = null)
+            }
+            this.role = Role.Button
         }
 
     FilledIconButton(

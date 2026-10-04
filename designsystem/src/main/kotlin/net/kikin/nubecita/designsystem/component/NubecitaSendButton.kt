@@ -45,7 +45,8 @@ fun NubecitaSendButton(
                 filled = true,
             )
         },
-        contentDescription = contentDescription,
+        contentDescription = null,
+        onClickLabel = contentDescription,
         modifier = modifier,
         enabled = enabled,
         shapes = shapes,
