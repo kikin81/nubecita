@@ -18,10 +18,14 @@ else
   esac
 fi
 
-src="$repo_root/scripts/git-hooks/prepare-commit-msg"
-dst="$hooks_dir/prepare-commit-msg"
-
 mkdir -p "$hooks_dir"
-chmod +x "$src"
-ln -sf "$src" "$dst"
-echo "installed: $dst -> $src"
+
+for hook in "$repo_root"/scripts/git-hooks/*; do
+  if [ -f "$hook" ]; then
+    hook_name="$(basename "$hook")"
+    dst="$hooks_dir/$hook_name"
+    chmod +x "$hook"
+    ln -sf "$hook" "$dst"
+    echo "installed: $dst -> $hook"
+  fi
+done

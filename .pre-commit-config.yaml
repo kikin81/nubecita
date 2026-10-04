@@ -126,3 +126,10 @@ repos:
         stages: [pre-push]
         files: '\.(kt|kts)$'
         pass_filenames: false
+
+      - id: no-push-to-main
+        name: prevent direct push to main
+        entry: ./scripts/check_no_push_to_main.sh
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
