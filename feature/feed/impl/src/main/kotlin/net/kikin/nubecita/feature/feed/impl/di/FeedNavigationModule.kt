@@ -54,14 +54,10 @@ internal object FeedNavigationModule {
                     ),
             ) {
                 val navState = LocalMainShellNavState.current
-                // MediaViewer is registered on the OUTER NavDisplay
-                // (@OuterShell), so push it via LocalAppNavigator — pushing
-                // onto MainShell's inner back stack crashes with
-                // `IllegalStateException: Unknown screen MediaViewerRoute(...)`
-                // because the inner NavDisplay has no handler for that key.
-                // Same contract PostDetailNavigationModule uses.
+                val isTopRoute = navState.backStack.lastOrNull() == Feed
                 val appNavigator = LocalAppNavigator.current
                 FeedHost(
+                    isTopRoute = isTopRoute,
                     onNavigateToPost = { uri -> navState.add(PostDetailRoute(postUri = uri)) },
                     onNavigateToAuthor = { handle -> navState.add(Profile(handle = handle)) },
                     // Image-in-PostCard tap skips PostDetail — open the

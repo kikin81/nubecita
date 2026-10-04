@@ -93,6 +93,10 @@ internal fun PostFeedList(
     // fixtures and the no-coordinator call paths keep describing the ordinary
     // autoplaying feed without restating it.
     videoAutoplayEnabled: Boolean = true,
+    // Whether this feed page is currently active and settled in the pager.
+    // Inactive pages during horizontal swiping unbind from the video coordinator
+    // to preserve the single-player invariant and avoid video/audio collisions.
+    isPageActive: Boolean = true,
     // Optional leading list item (e.g. the Discover "Trending Videos" carousel).
     // A single header item above the posts — it never touches the tuned post-item
     // rendering below; null on non-Discover feeds.
@@ -453,8 +457,8 @@ internal fun PostFeedList(
         // than at the next scroll settle. Back on: the snapshotFlow re-emits
         // the current scroll state at once, so a resting feed rebinds without
         // waiting for the user to scroll.
-        LaunchedEffect(listState, coordinator, videoAutoplayEnabled) {
-            if (!videoAutoplayEnabled) {
+        LaunchedEffect(listState, coordinator, videoAutoplayEnabled, isPageActive) {
+            if (!videoAutoplayEnabled || !isPageActive) {
                 coordinator.bindMostVisibleVideo(null)
                 return@LaunchedEffect
             }

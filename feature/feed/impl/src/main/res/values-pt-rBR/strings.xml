@@ -75,4 +75,5 @@
         <item quantity="one">Mais %1$d resposta neste t\u00f3pico</item>
         <item quantity="other">Mais %1$d respostas neste t\u00f3pico</item>
     </plurals>
+    <string name="feed_following">Seguindo</string>
 </resources>
