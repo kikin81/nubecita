@@ -148,4 +148,5 @@
     <string name="postcard_translation_unavailable">No app available to open the translator</string>
     <string name="postcard_gif_play">play this GIF</string>
     <string name="postcard_gif_default_content_description">Animated GIF</string>
+    <string name="designsystem_action_send">Send</string>
 </resources>

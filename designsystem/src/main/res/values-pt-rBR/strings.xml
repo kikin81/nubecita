@@ -64,4 +64,5 @@
     <string name="postcard_translation_unavailable">Nenhum app disponível para abrir o tradutor</string>
     <string name="postcard_gif_play">reproduzir este GIF</string>
     <string name="postcard_gif_default_content_description">GIF animado</string>
+    <string name="designsystem_action_send">Enviar</string>
 </resources>
