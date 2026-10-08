@@ -38,8 +38,15 @@ internal fun CustomerInfo.hasProEntitlement(): Boolean = PRO_ENTITLEMENT_ID in e
  */
 internal fun CustomerInfo.activeProSubscription(): ActiveSubscription? {
     val pro = entitlements.active[PRO_ENTITLEMENT_ID] ?: return null
+    val planId =
+        pro.productPlanIdentifier?.toSubscriptionPlanId()
+            ?: if (pro.productIdentifier.contains("lifetime", ignoreCase = true)) {
+                SubscriptionPlanId.Lifetime
+            } else {
+                null
+            }
     return ActiveSubscription(
-        planId = pro.productPlanIdentifier?.toSubscriptionPlanId(),
+        planId = planId,
         productId = pro.productIdentifier,
     )
 }

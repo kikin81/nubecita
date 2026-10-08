@@ -17,8 +17,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.data.models.SubscriptionOffering
@@ -121,17 +121,17 @@ private fun PlanCard(
                 BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             },
         modifier =
-            modifier.selectable(
-                selected = selected,
-                role = Role.RadioButton,
-                onClick = onSelect,
-            ),
+            modifier
+                .selectable(
+                    selected = selected,
+                    role = Role.RadioButton,
+                    onClick = onSelect,
+                ).semantics {
+                    contentDescription = planContentDescription
+                },
     ) {
         Column(
-            modifier =
-                Modifier
-                    .padding(MaterialTheme.spacing.s4)
-                    .clearAndSetSemantics { contentDescription = planContentDescription },
+            modifier = Modifier.padding(MaterialTheme.spacing.s4),
             verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s1),
         ) {
             Row(
@@ -195,18 +195,20 @@ private fun LifetimePlanCard(
                 BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             },
         modifier =
-            modifier.selectable(
-                selected = selected,
-                role = Role.RadioButton,
-                onClick = onSelect,
-            ),
+            modifier
+                .selectable(
+                    selected = selected,
+                    role = Role.RadioButton,
+                    onClick = onSelect,
+                ).semantics {
+                    contentDescription = planContentDescription
+                },
     ) {
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(MaterialTheme.spacing.s4)
-                    .clearAndSetSemantics { contentDescription = planContentDescription },
+                    .padding(MaterialTheme.spacing.s4),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {

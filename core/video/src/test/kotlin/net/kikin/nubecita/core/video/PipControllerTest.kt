@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -59,6 +60,21 @@ internal class PipControllerTest {
     }
 
     // isEnabled truth table: enabled only when BOTH device support and user setting hold.
+
+    @Test
+    fun `isEnabled starts false on supported device until preference emits`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val pendingFlow = MutableSharedFlow<Boolean>()
+            val delayedPrefs =
+                object : UserPreferencesRepository by FakePreferences(true) {
+                    override val pipEnabled: Flow<Boolean> get() = pendingFlow
+                }
+            val pip = PipController(deviceSupportsPip = true, delayedPrefs, backgroundScope)
+            assertFalse(pip.isEnabled.value)
+
+            pendingFlow.emit(true)
+            assertTrue(pip.isEnabled.value)
+        }
 
     @Test
     fun `isEnabled is false when the device does not support PiP even if setting enabled`() =

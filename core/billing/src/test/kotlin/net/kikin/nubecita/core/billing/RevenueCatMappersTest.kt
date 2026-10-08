@@ -127,9 +127,12 @@ internal class RevenueCatMappersTest {
     }
 
     @Test
-    fun `activeProSubscription maps a lifetime plan case-insensitively`() {
-        val info = customerInfoWithPro(productPlanIdentifier = "Lifetime", productIdentifier = "pro_lifetime")
-        assertEquals(SubscriptionPlanId.Lifetime, info.activeProSubscription()?.planId)
+    fun `activeProSubscription maps a lifetime plan from base plan or one-time product identifier`() {
+        val infoWithBasePlan = customerInfoWithPro(productPlanIdentifier = "Lifetime", productIdentifier = "pro_sub:lifetime")
+        assertEquals(SubscriptionPlanId.Lifetime, infoWithBasePlan.activeProSubscription()?.planId)
+
+        val infoWithOneTimeProduct = customerInfoWithPro(productPlanIdentifier = null, productIdentifier = "pro_lifetime")
+        assertEquals(SubscriptionPlanId.Lifetime, infoWithOneTimeProduct.activeProSubscription()?.planId)
     }
 
     @Test

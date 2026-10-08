@@ -62,7 +62,7 @@ public class PipController
         public val isEnabled: StateFlow<Boolean> =
             userPreferencesRepository.pipEnabled
                 .map { userEnabled -> deviceSupportsPip && userEnabled }
-                .stateIn(scope, SharingStarted.Eagerly, deviceSupportsPip)
+                .stateIn(scope, SharingStarted.Eagerly, initialValue = false)
 
         private val _isInPip = MutableStateFlow(false)
 

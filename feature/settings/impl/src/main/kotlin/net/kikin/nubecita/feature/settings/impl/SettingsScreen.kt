@@ -55,6 +55,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import androidx.window.core.layout.WindowSizeClass
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.data.models.BillingPeriod
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -526,6 +527,7 @@ internal fun SettingsContent(
     val proRows =
         remember(
             state.isPro,
+            state.isLifetime,
             proCurrentPlanCaption,
             proUpsellLabel,
             proUpsellSupporting,
@@ -534,23 +536,31 @@ internal fun SettingsContent(
             proRestoreLabel,
         ) {
             if (state.isPro) {
-                persistentListOf(
-                    SettingsRow.Info(
-                        icon = NubecitaIconName.WorkspacePremium,
-                        label = proMemberLabel,
-                        supportingText = proCurrentPlanCaption,
-                    ),
-                    SettingsRow.Action(
-                        icon = null,
-                        label = proManageLabel,
-                        onClick = { currentOnEvent(SettingsEvent.ManageSubscriptionTapped) },
-                    ),
-                    SettingsRow.Action(
-                        icon = null,
-                        label = proRestoreLabel,
-                        onClick = { currentOnEvent(SettingsEvent.RestorePurchasesTapped) },
-                    ),
-                )
+                buildList {
+                    add(
+                        SettingsRow.Info(
+                            icon = NubecitaIconName.WorkspacePremium,
+                            label = proMemberLabel,
+                            supportingText = proCurrentPlanCaption,
+                        ),
+                    )
+                    if (!state.isLifetime) {
+                        add(
+                            SettingsRow.Action(
+                                icon = null,
+                                label = proManageLabel,
+                                onClick = { currentOnEvent(SettingsEvent.ManageSubscriptionTapped) },
+                            ),
+                        )
+                    }
+                    add(
+                        SettingsRow.Action(
+                            icon = null,
+                            label = proRestoreLabel,
+                            onClick = { currentOnEvent(SettingsEvent.RestorePurchasesTapped) },
+                        ),
+                    )
+                }.toPersistentList()
             } else {
                 persistentListOf(
                     SettingsRow.Action(

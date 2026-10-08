@@ -77,13 +77,8 @@ internal fun VideoPlayerScreen(
     val onPopOut: (() -> Unit)? =
         if (pipBridge.isPipSupported && pipEnabled) {
             {
-                resolvePopOut(
-                    pipEnabled = true,
-                    enterPip = {
-                        viewModel.onPipReach(entered = true)
-                        pipBridge.enterPip()
-                    },
-                )
+                viewModel.onPipReach(entered = true)
+                pipBridge.enterPip()
             }
         } else {
             null
@@ -98,15 +93,4 @@ internal fun VideoPlayerScreen(
         onPopOut = onPopOut,
         modifier = modifier,
     )
-}
-
-/**
- * Resolve a pop-out tap: enters Picture-in-Picture when [pipEnabled].
- * Extracted as a pure function so the branch is unit-testable without an Activity / PiP harness.
- */
-internal fun resolvePopOut(
-    pipEnabled: Boolean,
-    enterPip: () -> Unit,
-) {
-    if (pipEnabled) enterPip()
 }
