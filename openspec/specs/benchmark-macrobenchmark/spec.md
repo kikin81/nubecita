@@ -5,12 +5,7 @@ The `:benchmark` AndroidX Macrobenchmark suite and the baseline-profile plugin w
 ## Requirements
 ### Requirement: `:benchmark` module exists as an AndroidX Macrobenchmark suite
 
-The repository SHALL contain a top-level Gradle module at `:benchmark` that is an AndroidX Macrobenchmark suite (`com.android.test` shape, depending on the `androidx.benchmark:benchmark-macro-junit4` library — a runtime artifact, not a Gradle plugin) configured via a new `nubecita.android.benchmark` convention plugin in `build-logic/convention`, and is registered in `settings.gradle.kts`. The module:
-
-- MUST set `targetProjectPath = ":app"` so the macrobench tests exercise the real `:app` APK and not a stub.
-- MUST declare `experimentalProperties["android.experimental.self-instrumenting"] = true` per Macrobenchmark's required configuration for AGP 9.
-- MUST sit at the repo root as a sibling of `:app` (not under `:core:*` or `:test:*`), matching the AndroidX template layout.
-- MUST be declared a baseline-profile producer relative to `:app` (`:app` applies the `androidx.baselineprofile` plugin and references `:benchmark` via the `baselineProfile(project(":benchmark"))` dependency). This change does not generate or ship an actual profile; subsequent epic tickets (e.g. `nubecita-crmi.2`) add the `BaselineProfileGenerator` test that produces one.
+The repository SHALL contain a top-level Gradle module `:benchmark` configured as an AndroidX Macrobenchmark suite via `nubecita.android.benchmark` convention plugin. The module MUST set `targetProjectPath = ":app"`, declare `experimentalProperties["android.experimental.self-instrumenting"] = true` for AGP 9, sit at repo root as a sibling of `:app`, and be declared a baseline-profile producer relative to `:app`.
 
 #### Scenario: Module is registered and resolvable
 
@@ -29,14 +24,7 @@ The repository SHALL contain a top-level Gradle module at `:benchmark` that is a
 
 ### Requirement: `:app` applies the baselineprofile plugin and exposes plugin-generated benchmarking variants
 
-The `:app` module SHALL apply the `androidx.baselineprofile` Gradle plugin alongside `nubecita.android.application`. Doing so causes the plugin to auto-generate two additional variants off `:app`'s `release` build type:
-
-- `benchmarkRelease` — R8-minified, profileable, debug-signed. This is the variant the Macrobenchmark suite measures against.
-- `nonMinifiedRelease` — non-R8-minified, profileable, debug-signed. Used by a future `BaselineProfileGenerator` test (filed as `nubecita-crmi.2`) to collect the baseline profile.
-
-The module MUST NOT hand-roll a separate `benchmark` build type. Doing so collides with the plugin's auto-naming (producing awkward `benchmarkBenchmark`-style variants) and provides no functionality the plugin doesn't already offer.
-
-Production `release` is untouched. The plugin operates by adding new variants alongside it, not by mutating its flags.
+The `:app` module SHALL apply `androidx.baselineprofile` alongside `nubecita.android.application` to auto-generate `benchmarkRelease` (R8-minified, profileable, debug-signed) and `nonMinifiedRelease` variants without hand-rolling separate benchmark build types or mutating production `release`.
 
 #### Scenario: Plugin-generated variants exist on :app
 
@@ -55,13 +43,7 @@ Production `release` is untouched. The plugin operates by adding new variants al
 
 ### Requirement: `StartupBenchmark` measures cold/warm/hot start of `MainActivity`
 
-`:benchmark` SHALL contain a `StartupBenchmark` test class that:
-
-- Uses `@RunWith(Parameterized::class)` to run across `StartupMode.COLD`, `StartupMode.WARM`, and `StartupMode.HOT`.
-- Targets `MainActivity` (`packageName = "net.kikin.nubecita"`, `intent` resolves the launcher).
-- Reports `StartupTimingMetric` so each run produces `timeToInitialDisplay` and `timeToFullDisplay`.
-- Uses `CompilationMode.None` for this change. Subsequent tickets in the epic parameterize over compilation modes once a baseline profile exists.
-- Runs the default Macrobenchmark iteration count (5) per `StartupMode`.
+`:benchmark` SHALL contain a `StartupBenchmark` class parameterized across `StartupMode.COLD`, `WARM`, and `HOT` targeting `MainActivity`. It SHALL report `StartupTimingMetric`, use `CompilationMode.None`, and run 5 iterations per `StartupMode`.
 
 #### Scenario: Benchmark runs locally and produces JSON
 
@@ -80,14 +62,7 @@ Production `release` is untouched. The plugin operates by adding new variants al
 
 ### Requirement: `FeedScrollBenchmark` measures Feed scroll frame timing
 
-`:benchmark` SHALL contain a `FeedScrollBenchmark` test class that:
-
-- Launches the app to the `Feed` tab (default landing) and waits for the Feed list to be present.
-- Locates the list via the **single-arg** `UiDevice.findObject(By.res("feed_list"))` — Compose's `testTagsAsResourceId` surfaces the tag on `FeedScreen`'s top-level `LazyColumn` as a bare `resource-id` with no package qualifier, so the two-arg `By.res(packageName, id)` form silently never matches.
-- Performs a fixed scroll gesture (e.g. five `UiObject2.swipe(Direction.UP, percent = 0.8f)` operations with a deterministic gesture duration).
-- Reports `FrameTimingMetric`, producing `frameDurationCpuMs` and `frameOverrunMs` distributions (p50 / p95 / p99) for the captured trace.
-- Uses `CompilationMode.None` (matching `StartupBenchmark`) for this change.
-- Runs the default Macrobenchmark iteration count.
+`:benchmark` SHALL contain a `FeedScrollBenchmark` test class launching to the Feed tab, locating the feed list via single-arg `UiDevice.findObject(By.res("feed_list"))`, performing fixed scroll gestures, and reporting `FrameTimingMetric` distributions (`frameDurationCpuMs`, `frameOverrunMs`) using `CompilationMode.None`.
 
 #### Scenario: Bench locates the Feed list by testTag-derived resource id
 
@@ -106,17 +81,7 @@ Production `release` is untouched. The plugin operates by adding new variants al
 
 ### Requirement: `FeedScreen`'s `LazyColumn` exposes a stable `testTag` for macrobench
 
-`:feature:feed:impl` SHALL declare a `FeedTestTags` object (or equivalent constants holder) exposing at minimum:
-
-```kotlin
-object FeedTestTags {
-    const val LIST = "feed_list"
-}
-```
-
-`FeedScreen` SHALL apply `Modifier.testTag(FeedTestTags.LIST)` to its top-level `LazyColumn`. The host composable's root semantics modifier SHALL enable `testTagsAsResourceId = true` so UIAutomator can select the node via the **single-arg** `By.res("feed_list")` (Compose surfaces the tag as a bare `resource-id` with no package qualifier; the two-arg form silently never matches).
-
-The constant's name and value are part of the testable contract: changing either is a coordinated change spanning `:feature:feed:impl` and `:benchmark`.
+`:feature:feed:impl` SHALL declare `FeedTestTags.LIST = "feed_list"` and apply `Modifier.testTag(FeedTestTags.LIST)` to its top-level `LazyColumn`. Host semantics SHALL enable `testTagsAsResourceId = true` so UIAutomator can select the node via single-arg `By.res("feed_list")`.
 
 #### Scenario: Tag survives FeedScreen refactors
 
@@ -130,13 +95,7 @@ The constant's name and value are part of the testable contract: changing either
 
 ### Requirement: Macrobench results are captured locally and posted to the epic comment thread
 
-This change SHALL produce an initial set of baseline measurements on a known physical device. The bench operator:
-
-- Runs `./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest` against a connected device (Pixel 10 Pro XL or equivalent) with a signed-in app install (the `feed_list` selector requires a loaded feed).
-- Records the produced JSON's headline numbers (`timeToInitialDisplayMs` median for COLD + WARM startup; `frameDurationCpuMs` P50 / P95 / P99 + `frameOverrunMs` P95 for the scroll bench) as a comment on bd issue `nubecita-crmi` (the perf epic).
-- Documents the device model + Android API level so future runs can be compared against like-for-like hardware.
-
-CI runs of the bench are **out of scope for this change** and are filed as a follow-up epic — running Macrobench on cloud runners requires (a) a fake-network/auth flavor so FeedScrollBenchmark has a deterministic feed without hitting the live AT Protocol, and (b) a relative-tracking strategy (e.g. `benchmark-action/github-action-benchmark`) because cloud-runner variance overwhelms absolute Macrobench numbers.
+This change SHALL produce baseline measurements on a physical device by running `./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest` with a signed-in app, recording output numbers (`timeToInitialDisplayMs`, `frameDurationCpuMs`, `frameOverrunMs`) on issue `nubecita-crmi`. Cloud CI runs remain out of scope for this initial change.
 
 #### Scenario: Operator runs the bench and captures numbers
 

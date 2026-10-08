@@ -5,7 +5,7 @@ The Search tab's input affordance and adaptive presentation: the Material 3 Expr
 ## Requirements
 ### Requirement: Search input uses the M3 Expressive SearchBar
 
-The Search tab SHALL present its query input as a Material 3 Expressive `SearchBar` — a collapsed full-corner pill — instead of a bespoke `OutlinedTextField`. The collapsed pill SHALL sit at the top of the Search tab body. A single shared input field (`SearchBarDefaults.InputField` bound to the ViewModel's `TextFieldState` and the screen's `SearchBarState`) SHALL back both the collapsed pill and the expanded overlay. The search bar surfaces MAY opt into the experimental Material 3 APIs (`@ExperimentalMaterial3Api` / `@ExperimentalMaterial3ExpressiveApi`).
+The Search tab SHALL present its query input as a Material 3 Expressive `SearchBar` collapsed full-corner pill at the top of the body. A single shared input field (`SearchBarDefaults.InputField` bound to ViewModel `TextFieldState` and screen `SearchBarState`) SHALL back both the collapsed pill and expanded overlay. Surfaces MAY opt into `@ExperimentalMaterial3Api` or `@ExperimentalMaterial3ExpressiveApi`.
 
 #### Scenario: Collapsed pill is shown at rest
 
@@ -137,7 +137,7 @@ When the user taps a post in Search results, the app SHALL push `PostDetailRoute
 
 ### Requirement: Expanded search is width-gated and pane-scoped on tablets
 
-The expanded search surface SHALL be selected by window width class at a single call site: **Compact → `ExpandedFullScreenSearchBar`** (full-window); **Medium/Expanded → `ExpandedDockedSearchBar`** (a popup scoped to the list-pane region). On Medium/Expanded, expanding the search SHALL leave the detail pane and the navigation rail visible. The collapsed bar, the shared input field, the `SearchBarState`, and the overlay content (recents / typeahead) SHALL be identical across both widths; only the expanded container differs. The full-screen *contained* variant SHALL NOT be used (it covers the whole window and is not pane-scoped).
+The expanded search surface SHALL be selected by window width class: Compact uses `ExpandedFullScreenSearchBar`, while Medium/Expanded uses `ExpandedDockedSearchBar` scoped to the list-pane region. On Medium/Expanded, expanding search SHALL leave the detail pane and navigation rail visible. Collapsed bar, shared input field, `SearchBarState`, and overlay content SHALL be identical across widths. Full-screen contained variant SHALL NOT be used.
 
 #### Scenario: Docked expansion on tablet keeps the detail pane visible
 

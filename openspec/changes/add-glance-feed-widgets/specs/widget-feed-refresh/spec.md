@@ -2,7 +2,7 @@
 
 ### Requirement: Refresh triggers off-scroll image prefetch through a seam
 
-After a feed partition refreshes successfully and is trimmed, the worker SHALL invoke a `WidgetImagePrefetcher` seam (a no-op default in this module; the Glance-backed implementation is supplied by the widgets sub-project) so post thumbnails are decoded off the active-scroll path, mirroring the existing `WidgetUpdater` seam. The prefetch SHALL run inside the same per-feed isolation as the refresh: a prefetch failure SHALL fail only that feed's images and SHALL NOT fail the refresh, change the worker's success/retry outcome, or abort the other feeds. `CancellationException` SHALL propagate. This module SHALL carry no `androidx.glance` dependency and SHALL provide a no-op prefetcher default.
+After a feed partition refreshes successfully and is trimmed, the worker SHALL invoke a `WidgetImagePrefetcher` seam to decode post thumbnails off the active-scroll path. Prefetch SHALL run within per-feed isolation: a prefetch failure SHALL fail only that feed's images and SHALL NOT fail the refresh or affect worker retry outcome. `CancellationException` SHALL propagate. This module SHALL carry no `androidx.glance` dependency and SHALL provide a no-op default.
 
 #### Scenario: Prefetch runs after a successful per-feed refresh
 - **WHEN** a feed partition refreshes successfully and is trimmed

@@ -2,7 +2,7 @@
 
 ### Requirement: Glance widgets render the offline feed cache head
 
-The system SHALL provide Jetpack Glance home-screen widgets that render the most recent posts of a feed by reading `head(feedKey, n)` from `:core:feed-cache`, performing **no network request** on the render path. The MVP SHALL ship a **Following** widget (free) and a fixed **Discover** widget (free). Widgets SHALL obtain dependencies via a Hilt `@EntryPoint` resolved with `EntryPointAccessors.fromApplication` (Glance has no Hilt composition), and any cache/disk read SHALL run off the Glance main thread.
+The system SHALL provide Glance home-screen widgets that render the most recent feed posts by reading `head(feedKey, n)` from `:core:feed-cache` without network requests on the render path. The MVP SHALL ship Following and Discover widgets. Widgets SHALL obtain dependencies via a Hilt `@EntryPoint` resolved via `EntryPointAccessors.fromApplication`, running cache/disk reads off the main thread.
 
 #### Scenario: Following widget renders cached posts
 - **WHEN** the Following widget composes and the signed-in account's Following partition has cached posts
@@ -42,7 +42,7 @@ Each widget SHALL expose a manual-refresh affordance that enqueues `:core:widget
 
 ### Requirement: Per-post media is a single thumbnail with an overflow count
 
-A post with media SHALL render at most **one** image — the first image's thumbnail (or the video poster with a play overlay) from the pre-decoded bitmap cache — overlaid with a **"+N" badge** when the post has more than one image. The widget SHALL NOT reproduce the app's multi-image layouts or carousel. Quote-post and external-link embeds SHALL render text-only for the MVP. The overflow count SHALL be derived from the cached embed without decoding additional images. Media SHALL carry an accessibility description conveying the total count.
+A post with media SHALL render at most one image (first thumbnail or video poster with play overlay) overlaid with a "+N" badge when having multiple images. The widget SHALL NOT reproduce multi-image carousels. Quote-post and external-link embeds render text-only for MVP. Overflow counts derive from cached embeds without decoding extra images. Media SHALL carry accessibility descriptions.
 
 #### Scenario: Multi-image post shows first thumb + count
 - **WHEN** a cached post has four images and its first thumbnail is prefetched
@@ -58,7 +58,7 @@ A post with media SHALL render at most **one** image — the first image's thumb
 
 ### Requirement: Image-prefetch pipeline with bounded eviction
 
-The system SHALL provide a `WidgetImagePrefetcher` implementation that, for each post in a feed's current `head(n)`, decodes **only the first image's thumbnail** (or video poster) off the UI/scroll path to a bounded bitmap (a single fixed bounding box, since the background context cannot know the active responsive cell size), and persists it to a dedicated cache directory with the path/URI stored in widget state keyed by `postUri`. The pipeline SHALL **evict** thumbnails: on each run it SHALL delete the file and key for any `postUri` no longer in the current `head(n)` set, and it SHALL clear an account's thumbnails when that account's cache is cleared (logout). This bounds the image cache to approximately `n` thumbnails per feed.
+The system SHALL provide a `WidgetImagePrefetcher` that decodes only the first image's thumbnail (or video poster) for each post in a feed's `head(n)` to a bounded bitmap and persists it to a cache directory keyed by `postUri`. The pipeline SHALL evict thumbnails when `postUri` leaves the `head(n)` set and clear an account's thumbnails on logout.
 
 #### Scenario: Prefetch decodes one thumbnail per shown post
 - **WHEN** the prefetcher runs for a feed whose head contains posts with media
@@ -98,7 +98,7 @@ Tapping a post in a widget SHALL open that post's thread in the app via `actionS
 
 ### Requirement: Configurable widget with a configuration activity
 
-The system SHALL provide a configurable widget plus a configuration activity (the receiver's `APPWIDGET_CONFIGURE` target) that lists the user's saved/pinned feeds (via `:core:feeds`), persists the chosen `FeedKey` to that widget instance's Glance state, and returns `RESULT_OK` with the `appWidgetId`. If configuration is dismissed, the widget SHALL default to the Following feed so it is never left blank. The entitlement decision for this widget SHALL sit behind an injectable gate seam; in this change the gate SHALL be **always-allowed** (the `isPro` gate + paywall upsell are added by a later change).
+The system SHALL provide a configurable widget and configuration activity (`APPWIDGET_CONFIGURE`) listing saved/pinned feeds via `:core:feeds`, persisting the chosen `FeedKey` to widget state and returning `RESULT_OK` with `appWidgetId`. If dismissed, the widget SHALL default to the Following feed. The entitlement decision SHALL sit behind an injectable gate seam (always-allowed in this change).
 
 #### Scenario: Choosing a feed configures the widget
 - **WHEN** the user picks a saved feed in the configuration activity and confirms
@@ -114,7 +114,7 @@ The system SHALL provide a configurable widget plus a configuration activity (th
 
 ### Requirement: Widgets meet platform widget-quality requirements
 
-Widgets SHALL satisfy Google's widget-quality requirements: fill the widget grid, declare Android-12 `targetCellWidth/Height` plus legacy `minWidth/Height` and `resizeMode` with sensible min/max bounds, use `SizeMode.Responsive` breakpoints, keep every interactive element at a minimum 48×48 dp touch target at the smallest declared size, use the system widget background and inner corner radii (no custom radius), avoid double-padding, support light and dark with dynamic color and WCAG-contrasting colors, and declare a `previewLayout` with real sample content and a non-generic provider `description`.
+Widgets SHALL satisfy platform quality requirements: fill widget grid, declare `targetCellWidth/Height`, `minWidth/Height`, `resizeMode`, `SizeMode.Responsive` breakpoints, 48×48 dp minimum touch targets, system background and inner corner radii, no double-padding, light/dark themes with dynamic color, and a `previewLayout` with sample content and a descriptive provider `description`.
 
 #### Scenario: Touch targets honored at minimum size
 - **WHEN** a widget is rendered at its smallest declared responsive size

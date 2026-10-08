@@ -3,7 +3,7 @@
 ## ADDED Requirements
 
 ### Requirement: Reorder pinned feeds with cross-client merge
-`PinnedFeedsRepository` SHALL expose `suspend fun reorderPinnedFeeds(orderedPinnedUris: List<String>): Result<Unit>` that persists a new pinned order to AT Proto preferences and the Room `saved_feeds` cache. To avoid clobbering changes made on another client, it SHALL re-read the current preferences at commit time and rebuild `SavedFeedsPrefV2.items` as: the pinned entries ordered per `orderedPinnedUris`, with any server-pinned URI absent from that list appended in server order (never dropped), followed by the unpinned saved entries in their prior relative order. Foreign preferences SHALL be preserved. The `FOLLOWING_FEED_URI` sentinel SHALL be mapped back to its `type="timeline"` entry rather than treated as a feed URI.
+`PinnedFeedsRepository` SHALL expose `suspend fun reorderPinnedFeeds(orderedPinnedUris: List<String>): Result<Unit>` persisting pinned order to AT Proto preferences and Room `saved_feeds` cache. It SHALL re-read preferences at commit time and rebuild `SavedFeedsPrefV2.items` with `orderedPinnedUris`, appending unlisted server-pinned URIs and preserving unpinned entries in prior relative order. The `FOLLOWING_FEED_URI` sentinel SHALL be mapped back to its timeline entry.
 
 #### Scenario: Reorder persists the new order
 - **WHEN** `reorderPinnedFeeds` is called with a new URI order
@@ -25,7 +25,7 @@ The reorder commit SHALL run on an injected `@ApplicationScope` coroutine so it 
 - **THEN** no `putPreferences` write is performed
 
 ### Requirement: Stomp-guard against refresh
-The repository SHALL guard the write-through operations (`pinFeed`, `unpinFeed`, `reorderPinnedFeeds`) and the cache-reconciliation section of `refresh()` with a single `Mutex`, and maintain a mutation token — a monotonic generation counter bumped (under the lock) on every successful preference commit. `refresh()` SHALL snapshot the token before fetching and, inside the lock before its reconciliation, SHALL skip the write if the token changed — i.e. a preference write committed while `refresh()` was in flight, so its snapshot is stale and would otherwise stomp the updated state (a just-pinned/unpinned feed, or the reordered positions). (A monotonic token rather than a boolean is required: the write holds the `Mutex` for its whole critical section, so a boolean would always read back false by the time `refresh()` re-acquires the lock.) Concurrent commits SHALL be serialized by the same `Mutex` (last write wins).
+The repository SHALL guard write-through operations (`pinFeed`, `unpinFeed`, `reorderPinnedFeeds`) and cache-reconciliation in `refresh()` with a single `Mutex`, maintaining a monotonic generation token bumped on every commit. `refresh()` SHALL snapshot the token before fetching and skip the write inside the lock if the token changed while in flight. Concurrent commits SHALL be serialized by the `Mutex`.
 
 #### Scenario: Refresh does not stomp a preference write that committed mid-flight
 - **WHEN** a preference write (pin, unpin, or reorder) commits while a `refresh()` is between its network fetch and its Room reconciliation

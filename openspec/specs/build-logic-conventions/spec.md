@@ -19,17 +19,7 @@ The repository SHALL contain a `build-logic/` directory as a sibling of `app/`. 
 
 ### Requirement: Five convention plugins are registered with canonical IDs
 
-`build-logic/convention/build.gradle.kts` SHALL register exactly the following five plugin IDs, each pointing at a `Plugin<Project>` implementation class under `net.kikin.nubecita.buildlogic`:
-
-| Plugin ID | Implementation class |
-|---|---|
-| `nubecita.android.library` | `AndroidLibraryConventionPlugin` |
-| `nubecita.android.library.compose` | `AndroidLibraryComposeConventionPlugin` |
-| `nubecita.android.hilt` | `AndroidHiltConventionPlugin` |
-| `nubecita.android.feature` | `AndroidFeatureConventionPlugin` |
-| `nubecita.android.application` | `AndroidApplicationConventionPlugin` |
-
-Each class SHALL be a Kotlin class implementing `org.gradle.api.Plugin<org.gradle.api.Project>`. Pre-compiled script plugins (`.gradle.kts` files) SHALL NOT be used.
+`build-logic/convention/build.gradle.kts` SHALL register 5 plugin IDs with `Plugin<Project>` implementations under `net.kikin.nubecita.buildlogic`: `nubecita.android.library`, `nubecita.android.library.compose`, `nubecita.android.hilt`, `nubecita.android.feature`, and `nubecita.android.application`. Script plugins SHALL NOT be used.
 
 #### Scenario: Plugin registration inspection
 
@@ -75,7 +65,7 @@ The `nubecita.android.hilt` convention plugin SHALL apply `com.google.dagger.hil
 
 ### Requirement: `nubecita.android.feature` composes library + compose + hilt plus feature-standard deps
 
-The `nubecita.android.feature` convention plugin SHALL be a meta-plugin applying all of `nubecita.android.library`, `nubecita.android.library.compose`, and `nubecita.android.hilt`, and SHALL additionally declare `implementation(project(":core:common"))`, `implementation(project(":designsystem"))`, plus the common feature dep set: `androidx.lifecycle.viewmodel.compose`, `androidx.lifecycle.runtime.compose`, `androidx.hilt.navigation.compose`, `androidx.navigation3.runtime`, `androidx.navigation3.ui`, `kotlinx-collections-immutable`.
+The `nubecita.android.feature` plugin SHALL apply `nubecita.android.library`, `nubecita.android.library.compose`, and `nubecita.android.hilt`, adding `:core:common`, `:designsystem`, `lifecycle.viewmodel.compose`, `lifecycle.runtime.compose`, `hilt.navigation.compose`, `navigation3.runtime`, `navigation3.ui`, and `kotlinx-collections-immutable`.
 
 #### Scenario: Feature impl module applies only `feature` plugin
 
@@ -84,7 +74,7 @@ The `nubecita.android.feature` convention plugin SHALL be a meta-plugin applying
 
 ### Requirement: `nubecita.android.application` applies application plugin with Compose + Hilt + BuildConfig
 
-The `nubecita.android.application` convention plugin SHALL apply `com.android.application` + `com.squareup.sort-dependencies`, configure `compileSdk = 37`, `minSdk = 26`, `targetSdk = 37`, Java 17 source/target compatibility, JVM 17 toolchain, `buildFeatures { buildConfig = true; compose = true }`, and a release build type with standard ProGuard files and `isMinifyEnabled = false`. It SHALL also apply the Hilt + KSP + Compose Kotlin plugins and declare the base Compose + Hilt + hilt-navigation-compose dependency set. It SHALL NOT set `applicationId`, `versionCode`, `versionName`, or `namespace` — those remain `:app`'s responsibility.
+The `nubecita.android.application` plugin SHALL apply `com.android.application`, sort-dependencies, Hilt, KSP, and Compose plugins. It SHALL configure compileSdk 37, minSdk 26, targetSdk 37, JVM 17, `buildConfig = true`, `compose = true`, and standard release settings. It SHALL NOT set `applicationId`, `versionCode`, `versionName`, or `namespace`.
 
 #### Scenario: `:app` declares only what's unique to the application
 
@@ -98,17 +88,7 @@ The `nubecita.android.application` convention plugin SHALL apply `com.android.ap
 
 ### Requirement: Plugin aliases are registered in the version catalog with `version = "unspecified"`
 
-`gradle/libs.versions.toml` under `[plugins]` SHALL register aliases for each of the five convention plugins:
-
-```toml
-nubecita-android-library = { id = "nubecita.android.library", version = "unspecified" }
-nubecita-android-library-compose = { id = "nubecita.android.library.compose", version = "unspecified" }
-nubecita-android-hilt = { id = "nubecita.android.hilt", version = "unspecified" }
-nubecita-android-feature = { id = "nubecita.android.feature", version = "unspecified" }
-nubecita-android-application = { id = "nubecita.android.application", version = "unspecified" }
-```
-
-Consumers SHALL reference them as `alias(libs.plugins.nubecita.android.*)` in their `plugins { }` block.
+`gradle/libs.versions.toml` under `[plugins]` SHALL register aliases for the five convention plugins (`nubecita-android-library`, `nubecita-android-library-compose`, `nubecita-android-hilt`, `nubecita-android-feature`, `nubecita-android-application`) with `version = "unspecified"`. Consumers SHALL reference them as `alias(libs.plugins.nubecita.android.*)` in `plugins { }`.
 
 #### Scenario: Module uses catalog alias instead of plugin ID string
 
@@ -131,7 +111,7 @@ When a convention plugin adds a dependency (e.g. `implementation` of Compose BOM
 
 ### Requirement: `:app`, `:designsystem`, `:core:auth` migrate to convention plugins in this change
 
-Each of the three existing modules' `build.gradle.kts` files SHALL be rewritten to apply only the relevant convention plugins and declare only module-specific content (namespace, module-specific deps, per-module build-type tweaks where they exist). `./gradlew :app:assembleDebug :designsystem:assembleDebug :core:auth:assembleDebug` SHALL produce functionally equivalent output to the pre-change build — same APK `versionName`, same dependencies on the compile classpath, same manifest attributes, same KSP-generated code.
+Each of `:app`, `:designsystem`, and `:core:auth`'s `build.gradle.kts` files SHALL apply relevant convention plugins and declare only module-specific configurations. `./gradlew :app:assembleDebug :designsystem:assembleDebug :core:auth:assembleDebug` SHALL produce functionally equivalent build output to the pre-change build.
 
 #### Scenario: A/B build diff
 

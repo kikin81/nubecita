@@ -64,7 +64,7 @@ The composer SHALL allow up to 10 image attachments (raised from 4). The image p
 - **THEN** the excess images are not added and the total stays at 10
 
 ### Requirement: Automatic promotion and demotion between images and gallery
-When building the post embed, the system SHALL emit `app.bsky.embed.images` for 1–4 images and `app.bsky.embed.gallery` for 5 or more images (the composer caps attachments at 10). Zero attachments SHALL emit no image embed. The posting branch SHALL treat the gallery case as "5 or more" rather than a closed 1–10 range so an unexpected count never silently drops the embed. The embed kind SHALL be derived solely from the attachment count, with no persisted mode flag. Crossing the boundary by adding or removing images SHALL change the emitted embed accordingly. Per-attachment alt text and computed aspect ratio SHALL be preserved across promotion and demotion.
+When building the post embed, the system SHALL emit `app.bsky.embed.images` for 1–4 images and `app.bsky.embed.gallery` for ≥5 images (capped at 10). Zero attachments SHALL emit no image embed. The embed kind SHALL be derived solely from attachment count without persisted mode flags. Crossing the boundary by adding or removing images SHALL update the emitted embed accordingly. Per-attachment alt text and computed aspect ratio SHALL be preserved across promotion and demotion.
 
 #### Scenario: Four images emit an images embed
 - **WHEN** a post is created with 4 images
@@ -79,7 +79,7 @@ When building the post embed, the system SHALL emit `app.bsky.embed.images` for 
 - **THEN** the post emits an images embed and the remaining images keep their alt text
 
 ### Requirement: Per-image alt-text editor
-The composer SHALL provide a per-image alt-text editor opened by tapping an attachment chip, presented as a layer within the composer's own surface (so it inherits the composer's adaptive presentation — full-screen on compact width, within the centered dialog on medium/expanded width — without a second navigation route or stacked dialog). The editor SHALL show the tapped photo focused with its own alt-text field and allow moving between all attachments (paged, with a thumbnail filmstrip), each retaining its own description. Setting alt text SHALL persist it on that attachment, and a chip with non-blank alt text SHALL display an "ALT" indicator in a described state.
+The composer SHALL provide a per-image alt-text editor opened by tapping an attachment chip, presented within the composer's surface without a second navigation route. The editor SHALL focus the tapped photo with its alt-text field and allow navigating between all attachments, each retaining its description. Setting alt text SHALL persist it on that attachment, and a chip with non-blank alt text SHALL display an "ALT" indicator in a described state.
 
 #### Scenario: Editing alt text persists it on the attachment
 - **WHEN** the user opens the editor for an attachment and enters non-blank text
@@ -120,7 +120,7 @@ The composer SHALL allow reordering image attachments by drag, and the post SHAL
 - **THEN** the created post's embed lists that image in position 3
 
 ### Requirement: Per-image aspect ratio
-The system SHALL compute each image's aspect ratio (width and height) via a bounds-only decode during the upload phase on an IO dispatcher (reusing the raw bytes the repository already reads, off the main thread), and include it on every `gallery#image`. The system SHALL also include the computed aspect ratio on each `images#image` (previously omitted). The computed ratio SHALL be correct regardless of any upload re-encode/downscale (aspect ratio is scale-invariant). When dimensions are absent or non-positive, `gallery#image` (whose `aspectRatio` is required) SHALL fall back to 1:1, whereas `images#image` (whose `aspectRatio` is optional) SHALL omit it.
+The system SHALL compute each image's aspect ratio (width and height) via bounds-only decode during upload on an IO dispatcher and include it on every `gallery#image` and `images#image`. The computed ratio SHALL be scale-invariant. When dimensions are absent or non-positive, `gallery#image` (whose `aspectRatio` is required) SHALL fall back to 1:1, whereas `images#image` (whose `aspectRatio` is optional) SHALL omit it.
 
 #### Scenario: Gallery images carry aspect ratio
 - **WHEN** a gallery is uploaded with valid image dimensions

@@ -33,7 +33,7 @@ The module MUST NOT import any of: `atproto:runtime`, `atproto:oauth`, `atproto:
 
 ### Requirement: AT Protocol wire-data primitives are explicitly allowed
 
-The module MUST permit AT Protocol wire-data primitive types as field types on UI models. Specifically: `api(libs.atproto.models)` is the only `atproto:*` dependency the module SHALL declare, and the lexicon-defined primitive types it exposes — currently `Facet`, `Did`, `Handle`, `AtUri`, `Datetime` — MUST be usable directly as field types without an intermediate nubecita-side mirror class. This permission applies ONLY to lexicon primitive values (typed wrappers around strings or simple structs); higher-level abstractions (`PostView`, `FeedViewPost`, response envelopes, paginated cursors) MUST NOT be used.
+The module MUST permit AT Protocol wire-data primitive types as field types on UI models via `api(libs.atproto.models)`. Lexicon-defined primitives (`Facet`, `Did`, `Handle`, `AtUri`, `Datetime`) MAY be used directly without mirror classes. Higher-level service abstractions (`PostView`, `FeedViewPost`, envelopes, cursors) MUST NOT be used.
 
 #### Scenario: PostUi carries a Facet
 
@@ -63,19 +63,7 @@ The `@Stable` annotation requires the module to declare `api(libs.androidx.compo
 
 ### Requirement: PostUi captures everything needed to render a single post
 
-The module MUST define `data class PostUi` with the following fields, all stable, no nullability except where noted, and ordered as listed below for code-review consistency:
-
-- `id: String` — stable identity for `LazyColumn` keying
-- `author: AuthorUi`
-- `createdAt: Instant` (kotlinx-datetime)
-- `text: String`
-- `facets: ImmutableList<Facet>`
-- `embed: EmbedUi` — sealed type; `Empty`, `Images`, or `Unsupported` in v1
-- `stats: PostStatsUi` — reply / repost / like / quote counts
-- `viewer: ViewerStateUi` — current-user-specific flags (isLikedByViewer, isRepostedByViewer)
-- `repostedBy: String?` — display name of the reposter when this post appears in the feed via someone's repost (null otherwise)
-
-Supporting types MUST be defined in the same module: `AuthorUi`, `EmbedUi` (sealed), `ImageUi`, `PostStatsUi`, `ViewerStateUi`.
+The module MUST define `@Stable data class PostUi` with fields: `id: String`, `author: AuthorUi`, `createdAt: Instant`, `text: String`, `facets: ImmutableList<Facet>`, `embed: EmbedUi`, `stats: PostStatsUi`, `viewer: ViewerStateUi`, and `repostedBy: String?`. Supporting types `AuthorUi`, `EmbedUi`, `ImageUi`, `PostStatsUi`, and `ViewerStateUi` MUST reside in `:data:models`.
 
 #### Scenario: Constructing a minimal PostUi for a preview
 
@@ -89,15 +77,7 @@ Supporting types MUST be defined in the same module: `AuthorUi`, `EmbedUi` (seal
 
 ### Requirement: `EmbedUi` exposes a `Video` variant for `app.bsky.embed.video#view`
 
-The `EmbedUi` sealed interface in `:data:models` MUST expose a `Video` data class variant carrying:
-
-- `posterUrl: String?` — fully-qualified URL to the JPEG/WebP poster, or `null` when the lexicon's `view` form omits the optional `thumbnail` field. The render layer falls back to a gradient placeholder when null.
-- `playlistUrl: String` — fully-qualified URL to the HLS .m3u8 playlist. Required by the lexicon `view` form; the mapper falls through to `EmbedUi.Unsupported` when absent.
-- `aspectRatio: Float` — width / height ratio from the lexicon (e.g. `1.777f` for 16:9). Used to size the poster + PlayerView surface. The mapper supplies a 16:9 fallback (`1.777f`) when the lexicon omits the optional `aspectRatio` field, since the render layer needs a stable measurement before the poster loads.
-- `durationSeconds: Int?` — duration in seconds, or `null` when not available. **The `app.bsky.embed.video#view` lexicon does NOT currently expose a duration field** (verified against the upstream Bluesky lexicon; only `cid`, `playlist`, `thumbnail`, `aspectRatio`, `presentation`, `alt` are present). The mapper SHALL pass `null` for v1; the field is reserved for a future phase that sources duration either from a lexicon evolution or from the HLS manifest's `EXT-X-PLAYLIST-TYPE: VOD` segments after the player loads. Render layer renders the duration chip ONLY when this field is non-null.
-- `altText: String?` — optional alt-text for accessibility surfaces.
-
-The `EmbedUi` sealed interface remains `@Immutable` (the convention `EmbedUi` already follows — variants inherit the annotation and MUST contain only immutable value fields). All five new fields are immutable values, so `EmbedUi.Video` satisfies the existing stability contract without per-variant annotation. A null `EmbedUi` instance is NOT permissible — every well-formed video view yields a non-null `EmbedUi.Video`; a malformed view (missing required `playlist`) yields `EmbedUi.Unsupported(typeUri = "app.bsky.embed.video")` instead.
+`EmbedUi` in `:data:models` MUST expose a `@Immutable Video` data class variant with fields: `posterUrl: String?`, `playlistUrl: String`, `aspectRatio: Float`, `durationSeconds: Int?`, and `altText: String?`. All fields are immutable. If `playlist` is absent on the wire, the mapper falls back to `EmbedUi.Unsupported`.
 
 #### Scenario: Video variant is part of the sealed hierarchy
 
@@ -111,17 +91,7 @@ The `EmbedUi` sealed interface remains `@Immutable` (the convention `EmbedUi` al
 
 ### Requirement: `EmbedUi` exposes a `Record` variant for `app.bsky.embed.record#viewRecord`
 
-The `EmbedUi` sealed interface in `:data:models` MUST expose a `Record` data class variant carrying a single `quotedPost: QuotedPostUi` field. `QuotedPostUi` is an `@Immutable` data class with the following shape:
-
-- `uri: String` — the quoted post's AT URI (`at://did:.../app.bsky.feed.post/<rkey>`); used as the post-identity key for navigation and as the video-binding identity when the quoted post carries a video.
-- `cid: String` — the quoted post's content ID; carried for caching and intent-handoff scenarios that require the exact-version contract the AT Protocol provides via `cid`. The render layer does not display this.
-- `author: AuthorUi` — reuses the parent post's author shape; produced via the existing `ProfileViewBasic.toAuthorUi()` extension.
-- `createdAt: Instant` — RFC3339 timestamp parsed from the quoted post's record `createdAt`. Mapper falls through to `EmbedUi.RecordUnavailable(Reason.Unknown)` when this is unparseable (per the malformed-record contract below).
-- `text: String` — full body text of the quoted post; render layer applies no truncation.
-- `facets: ImmutableList<Facet>` — facet annotations (mentions, links, tags) on the quoted post's text; same shape as `PostUi.facets`.
-- `embed: QuotedEmbedUi` — the quoted post's own (one-level-bounded) embed; see the separate requirement below.
-
-`QuotedPostUi` MUST NOT carry counts (`likeCount`, `repostCount`, `replyCount`, `quoteCount`) or a `viewer: ViewerStateUi` field — the v1 quoted-post render does not show interaction stats or viewer-relative state. Reserved for future per-variant copy upgrades.
+`EmbedUi` MUST expose a `@Immutable Record(val quotedPost: QuotedPostUi)` variant. `QuotedPostUi` MUST be an `@Immutable` data class containing: `uri: String`, `cid: String`, `author: AuthorUi`, `createdAt: Instant`, `text: String`, `facets: ImmutableList<Facet>`, and `embed: QuotedEmbedUi`. It MUST NOT carry interaction counts or viewer state.
 
 #### Scenario: Record variant is part of the sealed hierarchy
 
@@ -135,14 +105,7 @@ The `EmbedUi` sealed interface in `:data:models` MUST expose a `Record` data cla
 
 ### Requirement: `EmbedUi` exposes a `RecordUnavailable` variant for the unresolved-quote union members
 
-The `EmbedUi` sealed interface MUST expose a `RecordUnavailable` data class variant carrying a single `reason: Reason` field. `Reason` is a nested enum with four members:
-
-- `NotFound` — wire shape was `app.bsky.embed.record#viewNotFound` (quoted post deleted or never existed).
-- `Blocked` — wire shape was `app.bsky.embed.record#viewBlocked` (block relationship between viewer and the quoted-post author).
-- `Detached` — wire shape was `app.bsky.embed.record#viewDetached` (quoted post's author has detached the quote).
-- `Unknown` — open-union `Unknown` member, OR a `viewRecord` whose record `value` failed to decode as a valid `app.bsky.feed.post`, OR whose `createdAt` failed to parse as an RFC3339 timestamp.
-
-The `Reason` field MUST be carried even though v1 renders identical copy for all four — it enables a future per-variant-copy upgrade without breaking the data contract, and supports telemetry / debug logs that need to distinguish the wire-side cause.
+`EmbedUi` MUST expose a `RecordUnavailable(val reason: Reason)` variant where `Reason` is an enum with values: `NotFound`, `Blocked`, `Detached`, and `Unknown`. The reason MUST be preserved for telemetry, logging, and future per-variant UI copy.
 
 #### Scenario: RecordUnavailable variant is part of the sealed hierarchy
 
@@ -156,18 +119,7 @@ The `Reason` field MUST be carried even though v1 renders identical copy for all
 
 ### Requirement: `QuotedEmbedUi` is a sealed interface that bounds quoted-post recursion at the type system
 
-The `:data:models` module MUST expose a sealed interface `QuotedEmbedUi` representing the inner embed of a `QuotedPostUi`. It MUST contain the following variants and MUST NOT contain a `Record` variant:
-
-- `Empty: QuotedEmbedUi` — the quoted post has no embed.
-- `Images(items: ImmutableList<ImageUi>): QuotedEmbedUi` — same `ImageUi` payload as `EmbedUi.Images`.
-- `Video(posterUrl, playlistUrl, aspectRatio, durationSeconds, altText): QuotedEmbedUi` — same field-set as `EmbedUi.Video`.
-- `External(uri, domain, title, description, thumbUrl): QuotedEmbedUi` — same field-set as `EmbedUi.External` (including the precomputed `domain`).
-- `QuotedThreadChip: QuotedEmbedUi` — sentinel for the recursion-bounded case (a quoted post that itself quotes another post). Carries no payload; the render layer renders a "View thread" placeholder. Produced by the mapper when the quoted post's `embeds` list contains a `RecordView`.
-- `Unsupported(typeUri: String): QuotedEmbedUi` — degradation chip for embed types that are not yet rendered (e.g. `app.bsky.embed.recordWithMedia` while `nubecita-umn` is open).
-
-The deliberate exclusion of a `Record` variant MUST be enforced by the type system, NOT by a runtime check at the dispatch site. The render layer's `when (embed: QuotedEmbedUi)` cannot have a `Record` arm because there's nothing to spell.
-
-`QuotedEmbedUi` MUST be `@Immutable`-annotated at the interface level, mirroring `EmbedUi`'s stability contract.
+`:data:models` MUST expose `@Immutable sealed interface QuotedEmbedUi` representing inner embeds within `QuotedPostUi`. Allowed variants are: `Empty`, `Images(items: ImmutableList<ImageUi>)`, `Video`, `External`, `QuotedThreadChip`, and `Unsupported(typeUri: String)`. It MUST NOT contain a `Record` variant, preventing recursive quote trees at compile time.
 
 #### Scenario: QuotedEmbedUi has no Record variant
 
@@ -181,14 +133,10 @@ The deliberate exclusion of a `Record` variant MUST be enforced by the type syst
 
 ### Requirement: `EmbedUi` exposes `RecordOrUnavailable` and `MediaEmbed` marker sealed interfaces
 
-The `EmbedUi` sealed interface in `:data:models` MUST expose two nested marker sealed interfaces:
-
-- `EmbedUi.RecordOrUnavailable : EmbedUi` — implemented by `EmbedUi.Record` and `EmbedUi.RecordUnavailable` only. No other variant of `EmbedUi` MAY implement this marker. Used to constrain the `record` slot of [EmbedUi.RecordWithMedia] at the type system.
-- `EmbedUi.MediaEmbed : EmbedUi` — implemented by `EmbedUi.Images`, `EmbedUi.Video`, and `EmbedUi.External` only. No other variant of `EmbedUi` MAY implement this marker. Used to constrain the `media` slot of [EmbedUi.RecordWithMedia].
-
-Both markers MUST extend `EmbedUi` directly so any value of either type is automatically an `EmbedUi`. Implementers SHOULD declare just `: RecordOrUnavailable` (or `: MediaEmbed`) without redundant `: EmbedUi` — the marker's parent declaration covers it.
-
-The markers MUST NOT add any abstract members or behavior — they are purely type-discriminating sealed interfaces. They exist solely to express the recursion bound for [EmbedUi.RecordWithMedia] at the compile-time type system.
+`EmbedUi` MUST expose two nested marker sealed interfaces extending `EmbedUi`:
+- `RecordOrUnavailable`: implemented only by `EmbedUi.Record` and `EmbedUi.RecordUnavailable`.
+- `MediaEmbed`: implemented only by `EmbedUi.Images`, `EmbedUi.Video`, and `EmbedUi.External`.
+These markers exist purely to enforce compile-time bounds on `EmbedUi.RecordWithMedia` slots.
 
 #### Scenario: RecordOrUnavailable is implemented by exactly the two record variants
 
@@ -207,21 +155,7 @@ The markers MUST NOT add any abstract members or behavior — they are purely ty
 
 ### Requirement: `EmbedUi` exposes a `RecordWithMedia` variant for `app.bsky.embed.recordWithMedia#view`
 
-The `EmbedUi` sealed interface MUST expose a `RecordWithMedia` data class variant carrying:
-
-- `record: EmbedUi.RecordOrUnavailable` — either a resolved `EmbedUi.Record` (with its `QuotedPostUi`) or an `EmbedUi.RecordUnavailable` (when the wire-side `record.record` is `viewNotFound` / `viewBlocked` / `viewDetached` / Unknown). Same set of values the top-level `EmbedUi.Record` / `RecordUnavailable` variants represent — they are reused verbatim in this slot.
-- `media: EmbedUi.MediaEmbed` — exactly one of `EmbedUi.Images`, `EmbedUi.Video`, or `EmbedUi.External`. Reused verbatim from the top-level variants.
-
-The marker constraints make the following structurally inexpressible at compile time:
-
-- `RecordWithMedia` inside `RecordWithMedia` (any slot) — `RecordWithMedia` itself does NOT implement either marker.
-- `Images` / `Video` / `External` in the `record` slot — they implement `MediaEmbed`, not `RecordOrUnavailable`.
-- `Record` / `RecordUnavailable` in the `media` slot — they implement `RecordOrUnavailable`, not `MediaEmbed`.
-- `Empty` / `Unsupported` in either slot — they implement neither marker.
-
-`RecordWithMedia` itself MUST NOT implement `RecordOrUnavailable` or `MediaEmbed` (would re-open the recursion). It implements only `EmbedUi`.
-
-`RecordWithMedia` is `@Immutable` per the sealed interface's existing stability annotation. Both fields are `@Immutable` types (the markers transitively guarantee this since their implementers are all `@Immutable` data classes).
+`EmbedUi` MUST expose an `@Immutable` `RecordWithMedia(val record: EmbedUi.RecordOrUnavailable, val media: EmbedUi.MediaEmbed)` variant. By using marker interfaces, nesting of `RecordWithMedia` or invalid variants in either slot is prevented at compile time. `RecordWithMedia` itself MUST NOT implement `RecordOrUnavailable` or `MediaEmbed`.
 
 #### Scenario: RecordWithMedia variant is part of the sealed hierarchy
 
@@ -245,20 +179,7 @@ The marker constraints make the following structurally inexpressible at compile 
 
 ### Requirement: `EmbedUi.quotedRecord` extension property centralizes "where do quoted posts hide"
 
-The `:data:models` module MUST expose a public extension property:
-
-```kotlin
-val EmbedUi.quotedRecord: QuotedPostUi?
-    get() = when (this) {
-        is EmbedUi.Record           -> quotedPost
-        is EmbedUi.RecordWithMedia  -> (record as? EmbedUi.Record)?.quotedPost
-        else                        -> null
-    }
-```
-
-This property MUST be the single source of truth for the question "given an `EmbedUi`, where (if anywhere) is a quoted post?" Both feature-feed's slot wiring and feature-feed-video's bind-target resolver MUST consume this property rather than re-deriving the chained casts inline.
-
-When future lexicon evolution introduces another composite embed type that contains a quoted post, this extension property is the single point of update.
+`:data:models` MUST expose public extension property `val EmbedUi.quotedRecord: QuotedPostUi?` returning `quotedPost` for `EmbedUi.Record` and `(record as? EmbedUi.Record)?.quotedPost` for `EmbedUi.RecordWithMedia`, or `null` otherwise. All downstream feature consumers MUST use this property to resolve embedded quoted posts.
 
 #### Scenario: Returns the quoted post for EmbedUi.Record
 
@@ -282,12 +203,7 @@ When future lexicon evolution introduces another composite embed type that conta
 
 ### Requirement: `NotificationItemUi` is a sealed Single / Aggregated type in `:data:models`
 
-`:data:models` SHALL expose `NotificationItemUi` as an `@Stable sealed interface` with two variants:
-
-- `Single` — exactly one actor; carries `subjectPost: PostUi?` (null for follow / verified / starterpack-joined / unverified reasons).
-- `Aggregated` — two or more actors collapsed from same-reason events on the same `reasonSubject` (or same calendar day for `follow`); carries the same `subjectPost: PostUi?` plus the full `actors: ImmutableList<AuthorUi>`.
-
-Both variants SHALL expose: `itemKey: String` (stable LazyColumn key), `reason: NotificationReason`, `indexedAt: kotlin.time.Instant`, `isRead: Boolean`, `actors: ImmutableList<AuthorUi>`.
+`:data:models` SHALL expose `@Stable sealed interface NotificationItemUi` with variants: `Single(itemKey, reason, indexedAt, isRead, actors, subjectPost: PostUi?)` and `Aggregated(itemKey, reason, indexedAt, isRead, actors: ImmutableList<AuthorUi>, subjectPost: PostUi?)`. Both variants expose common notification metadata.
 
 #### Scenario: Single carries one actor
 
@@ -328,14 +244,7 @@ Both variants SHALL expose: `itemKey: String` (stable LazyColumn key), `reason: 
 
 ### Requirement: `:data:models` provides a `FeedItemUi` sealed type for feed projections
 
-`:data:models` SHALL expose a public `FeedItemUi` sealed interface as the projection target for feed mappers (timeline, future profile-feed, future search-feed). The interface SHALL have exactly two variants:
-
-- `data class Single(val post: PostUi) : FeedItemUi` — a standalone feed entry. The wire-level `app.bsky.feed.defs#feedViewPost` carries no `reply`, or carries one whose `parent` cannot be projected to a `PostUi` (lexicon `BlockedPost` / `NotFoundPost`).
-- `data class ReplyCluster(val root: PostUi, val parent: PostUi, val leaf: PostUi, val hasEllipsis: Boolean) : FeedItemUi` — a cross-author or cross-time reply. `leaf` is the post that lives in the user's timeline; `parent` is `replyRef.parent`; `root` is `replyRef.root`. `hasEllipsis = true` indicates that intermediate posts were elided between root and parent.
-
-`FeedItemUi` SHALL NOT carry per-feed metadata (e.g. repost-attribution, feed-context-string from the `app.bsky.feed.getFeed` response). That metadata SHALL remain on the leaf `PostUi` (`repostedBy` and similar fields). The sealed type's job is to express cluster-vs-single rendering shape, not to enrich per-post metadata.
-
-`FeedItemUi` SHALL be `@Stable` so Compose can skip recomposition of feed item containers when the wrapping projection doesn't change.
+`:data:models` SHALL expose public `@Stable sealed interface FeedItemUi` with variants: `Single(val post: PostUi)` and `ReplyCluster(val root: PostUi, val parent: PostUi, val leaf: PostUi, val hasEllipsis: Boolean)`. Per-feed metadata remains on individual `PostUi` models rather than on `FeedItemUi`.
 
 #### Scenario: Single variant carries one PostUi
 
@@ -354,13 +263,7 @@ Both variants SHALL expose: `itemKey: String` (stable LazyColumn key), `reason: 
 
 ### Requirement: `FeedItemUi` exposes a `SelfThreadChain` sealed variant for same-author chains
 
-The system SHALL extend the `net.kikin.nubecita.data.models.FeedItemUi` sealed interface with a third variant `SelfThreadChain` carrying an `ImmutableList<PostUi>` of same-author posts in chronological order. The variant MUST satisfy:
-
-- `posts.size >= 2` — a single-post chain is a `Single`, not a `SelfThreadChain`. Construction sites that produce `posts.size < 2` are programmer errors.
-- All elements of `posts` MUST share the same `author.did`. Mixed-author "chains" are not legal `SelfThreadChain` instances; the producer (the feed mapper) is responsible for upholding this.
-- Posts MUST be ordered root-most first. `posts[0]` is the chain's root post; `posts.last()` is the leaf the user thinks of as "this entry in my timeline".
-- `key: String` MUST equal `posts.last().id` — leaf-anchored, matching `ReplyCluster`'s pagination contract.
-- `SelfThreadChain` MUST NOT carry per-feed metadata (no `repostedBy` field on the chain itself). Per-feed metadata stays on individual `PostUi` elements where applicable; for chains, the `repostedBy` field on every `PostUi` is `null` because reposted entries are excluded from chain links by the producer (see `feature-feed` spec).
+`FeedItemUi` SHALL include a `@Stable` variant `SelfThreadChain(val posts: ImmutableList<PostUi>)` for chronological same-author thread chains. It MUST have `posts.size >= 2`, identical `author.did` across all posts, order starting from root post to leaf post, and `key == posts.last().id`.
 
 #### Scenario: A 3-post chain has size 3 and ends on the leaf
 

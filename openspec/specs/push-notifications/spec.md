@@ -28,7 +28,7 @@ The application SHALL register a `NubecitaFcmService` subclass of `FirebaseMessa
 
 ### Requirement: Push registration uses the user's PDS with the gateway proxy header
 
-The application SHALL register the device's FCM token by calling `app.bsky.notification.registerPush` against the user's PDS, passing the HTTP header `atproto-proxy: did:web:push.nubecita.app#bsky_notif`. The request body SHALL be the JSON shape `{ "serviceDid": "did:web:push.nubecita.app", "token": <fcm_token>, "platform": "android", "appId": <android.package.name> }`. The call SHALL use the user's existing ATproto session for authentication. The same call shape with NSID `app.bsky.notification.unregisterPush` SHALL be used for the unregistration path.
+The application SHALL register the FCM token via `app.bsky.notification.registerPush` on the user's PDS with header `atproto-proxy: did:web:push.nubecita.app#bsky_notif` and JSON body `{ "serviceDid": "did:web:push.nubecita.app", "token": <fcm_token>, "platform": "android", "appId": <package_name> }` authenticated via session. The unregistration path SHALL use NSID `app.bsky.notification.unregisterPush` with matching structure.
 
 #### Scenario: Register request carries the proxy header
 - **WHEN** `PushRegistrationRepository.register(did, fcmToken)` is invoked
@@ -205,7 +205,7 @@ The application SHALL set `setGroup("nubecita:${reason}")` on every individual p
 
 ### Requirement: Tap deep-links via translated `nubecita://` URIs through existing handlers
 
-The application SHALL set the notification's content intent (`PendingIntent`) to launch `MainActivity` with `data` derived from translating the AT-URI in `payload.subject ?: payload.uri`. The translation SHALL produce a `nubecita://profile/{didOrHandle}[/post/{rkey}]` URI that matches the existing manifest `<data android:scheme="nubecita" android:host="profile" />` `<intent-filter>`. The application SHALL NOT set an `at://` URI on the Intent — Android does not register `at` as a URI scheme and no manifest `<intent-filter>` matches it. No new manifest `<intent-filter>` SHALL be introduced for this purpose.
+The application SHALL set the notification's content intent to launch `MainActivity` with `data` translating the AT-URI in `payload.subject ?: payload.uri` into `nubecita://profile/{didOrHandle}[/post/{rkey}]` matching existing manifest filters. The application SHALL NOT set `at://` URIs or introduce new intent filters.
 
 #### Scenario: Tap on a post-shaped notification opens post detail
 - **GIVEN** a push of reason `like` with `subject = "at://did:plc:alice/app.bsky.feed.post/abc"`
@@ -237,7 +237,7 @@ The Settings screen SHALL include a "Notifications" row that opens the Android s
 
 ### Requirement: Firebase Messaging is available on the runtime classpath
 
-The application SHALL bundle `firebase-messaging` as a runtime dependency in `:app`, version-managed by the existing `firebase-bom` pin already used by the Analytics / App Check / App Distribution modules. No explicit initialization in `Application.onCreate()` is required for Messaging itself — FCM auto-initializes via its `ContentProvider`, gated by the manifest's `firebase_messaging_auto_init_enabled` meta (set to `false` for instrumented-test safety; re-enabled at runtime via `PushRegistrationCoordinator.start()` once the real `NubecitaApplication` has booted).
+The application SHALL bundle `firebase-messaging` in `:app` version-managed by `firebase-bom`. Messaging auto-initializes via `ContentProvider` gated by manifest `firebase_messaging_auto_init_enabled` (set false for test safety; re-enabled at runtime via `PushRegistrationCoordinator.start()`).
 
 #### Scenario: Firebase Messaging class is on the runtime classpath
 - **WHEN** the debug APK is built
@@ -251,7 +251,7 @@ The application SHALL bundle `firebase-messaging` as a runtime dependency in `:a
 
 ### Requirement: Reply, mention, and quote notifications carry the notifying post's text as the body
 
-For `reply`, `mention`, and `quote` push notifications, the gateway SHALL set the notification body to the text of the notifying post (the reply / mention / quote post itself), sourced from the Jetstream firehose event it already consumes — without any additional network request. The body SHALL be truncated to a bounded length on a UTF-8 rune boundary. The text SHALL also be carried in the FCM `data` map as `bodyText` so the client can render it. For `like`, `repost`, and `follow` (and their via-repost variants), the body is unchanged — those events have no post text.
+For `reply`, `mention`, and `quote` notifications, the gateway SHALL set the notification body to the notifying post's text from the Jetstream firehose, truncated on UTF-8 rune boundaries, and include it in FCM `data` map as `bodyText`. For `like`, `repost`, and `follow`, notification bodies remain unchanged without post text.
 
 #### Scenario: Quote notification shows the quoting post's text
 

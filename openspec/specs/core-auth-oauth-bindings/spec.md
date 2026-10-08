@@ -5,7 +5,7 @@
 ## Requirements
 ### Requirement: `:core:auth` provides an `AtOAuth` Hilt binding
 
-`:core:auth` SHALL provide a `@Singleton`-scoped Hilt binding for `io.github.kikin81.atproto.oauth.AtOAuth`, constructed from (a) a `clientMetadataUrl: String` sourced from `BuildConfig.OAUTH_CLIENT_METADATA_URL`, (b) the `OAuthSessionStore` already bound by `:core:auth`, and (c) a Ktor `HttpClient` (either injected or constructed by the module). The binding SHALL NOT hard-code the client metadata URL. The `AtOAuth` type SHALL NOT appear in any `:app` `@Inject` parameter (consumers inject `AuthRepository` instead).
+`:core:auth` SHALL provide a `@Singleton`-scoped Hilt binding for `AtOAuth`, constructed from `BuildConfig.OAUTH_CLIENT_METADATA_URL`, `OAuthSessionStore`, and a Ktor `HttpClient`. The binding SHALL NOT hard-code the metadata URL. The `AtOAuth` type SHALL NOT appear in `:app` `@Inject` parameters (consumers inject `AuthRepository`).
 
 #### Scenario: Consumer injects AtOAuth through the DI graph
 
@@ -24,7 +24,7 @@
 
 ### Requirement: `:core:auth` provides an `AuthRepository` interface and Hilt binding
 
-`:core:auth` SHALL expose an `AuthRepository` interface (public to consumers) with at minimum a method `suspend fun beginLogin(handle: String): Result<String>` that returns an authorization URL on success. The interface's implementation SHALL delegate to `AtOAuth.beginLogin` and SHALL convert thrown exceptions into `Result.failure(...)`. `:core:auth` SHALL `@Binds` the implementation to the interface inside `SingletonComponent`. The implementation SHALL be `internal` to `:core:auth`; consumers SHALL only see the interface.
+`:core:auth` SHALL expose public `AuthRepository` with `suspend fun beginLogin(handle: String): Result<String>` returning an authorization URL on success. The implementation SHALL delegate to `AtOAuth.beginLogin`, converting exceptions to `Result.failure`. `:core:auth` SHALL `@Binds` the internal implementation to `AuthRepository` in `SingletonComponent`.
 
 #### Scenario: LoginViewModel injects AuthRepository
 
@@ -68,12 +68,7 @@ The default implementation SHALL delegate to `AtOAuth.completeLogin(redirectUri)
 
 ### Requirement: `:core:auth` provides an `OAuthRedirectBroker` Hilt singleton
 
-`:core:auth` SHALL expose a public `OAuthRedirectBroker` interface and an internal `DefaultOAuthRedirectBroker` implementation, bound `@Singleton` in `SingletonComponent`. The interface SHALL declare:
-
-- `val redirects: Flow<String>` — the redirect URIs published since the broker was constructed, delivered at-most-once to a single collector.
-- `suspend fun publish(redirectUri: String)` — emits the URI; suspends only if the buffered channel fills (highly unlikely — at most one redirect is in flight per OAuth flow).
-
-The implementation SHALL use a `Channel<String>(Channel.BUFFERED)` exposed via `receiveAsFlow()`. The broker SHALL NOT use `SharedFlow` with replay or `StateFlow` (replay-on-subscribe semantics would re-deliver stale redirects on subsequent collector subscriptions).
+`:core:auth` SHALL expose public `OAuthRedirectBroker` (`val redirects: Flow<String>`, `suspend fun publish(redirectUri: String)`) and internal implementation bound `@Singleton` in `SingletonComponent`. The implementation SHALL use `Channel<String>(Channel.BUFFERED).receiveAsFlow()`, avoiding `SharedFlow` replay or `StateFlow`.
 
 #### Scenario: Cold-start redirect is buffered until the consumer subscribes
 
@@ -94,9 +89,7 @@ The implementation SHALL use a `Channel<String>(Channel.BUFFERED)` exposed via `
 suspend fun signOut(): Result<Unit>
 ```
 
-The default implementation SHALL delegate to `AtOAuth.logout()` (which performs a server-side revocation POST and clears the local `OAuthSessionStore`) and SHALL convert any thrown exception into `Result.failure(...)`. After a successful logout, the implementation SHALL trigger a `SessionStateProvider.refresh()` so reactive consumers transition to `SessionState.SignedOut` automatically.
-
-`signOut` SHALL NOT silently swallow network revocation failures by clearing only the local store — failures propagate as `Result.failure` so callers can choose retry / force-clear / surface-error behavior.
+The implementation SHALL delegate to `AtOAuth.logout()`, converting thrown exceptions to `Result.failure`. On successful logout, it SHALL trigger `SessionStateProvider.refresh()` so reactive consumers transition to `SignedOut`. `signOut` SHALL NOT silently swallow network revocation failures.
 
 #### Scenario: Successful signOut returns success and triggers SignedOut transition
 
@@ -110,9 +103,7 @@ The default implementation SHALL delegate to `AtOAuth.logout()` (which performs 
 
 ### Requirement: `AuthRepository.completeLogin` triggers a SessionStateProvider refresh on success
 
-The `completeLogin(redirectUri)` implementation SHALL call `sessionStateProvider.refresh()` after the underlying `AtOAuth.completeLogin` succeeds and the new session is persisted. This makes the post-login `SignedIn` transition observable to reactive consumers (e.g. `MainActivity`'s splash routing) without explicit fan-out from each caller.
-
-The refresh SHALL run within the same `runCatching` boundary that wraps `AtOAuth.completeLogin` — if either the upstream call or the refresh throws, the result is `Result.failure`. (In practice `refresh()` only suspends to call `sessionStore.load()`, which is unlikely to fail right after `AtOAuth.completeLogin` succeeded.)
+`completeLogin(redirectUri)` SHALL call `sessionStateProvider.refresh()` within the same `runCatching` boundary after `AtOAuth.completeLogin` succeeds, allowing reactive consumers to observe the `SignedIn` transition.
 
 #### Scenario: Successful completeLogin emits SignedIn before returning
 
@@ -126,17 +117,7 @@ The refresh SHALL run within the same `runCatching` boundary that wraps `AtOAuth
 
 ### Requirement: `:core:auth` provides an `XrpcClientProvider` Hilt binding
 
-`:core:auth` SHALL expose a public `XrpcClientProvider` interface and an `internal class DefaultXrpcClientProvider` implementation, bound `@Singleton` in `SingletonComponent`. The interface SHALL declare:
-
-```kotlin
-interface XrpcClientProvider {
-    suspend fun authenticated(): XrpcClient
-}
-```
-
-`authenticated()` MUST delegate to `AtOAuth.createClient()` (suspend, performs DPoP setup) for the currently-persisted session. The returned `XrpcClient` MUST be cached across calls keyed by the active session's DID. The cache MUST invalidate when the session DID changes (login as a different account, signOut, refresh-failure clearing the session). When no session is persisted, `authenticated()` MUST throw `NoSessionException` (a `:core:auth`-defined `IllegalStateException` subclass) rather than returning a non-authenticated client.
-
-The implementation MUST use a `Mutex` to serialize concurrent `authenticated()` calls so a single cache miss produces exactly one `AtOAuth.createClient()` invocation, not N parallel ones.
+`:core:auth` SHALL expose `XrpcClientProvider` interface (`suspend fun authenticated(): XrpcClient`) and `DefaultXrpcClientProvider` bound `@Singleton` in `SingletonComponent`. `authenticated()` MUST delegate to `AtOAuth.createClient()`, caching `XrpcClient` by session DID and invalidating on session change. When no session exists, it MUST throw `NoSessionException`. Concurrent calls MUST serialize via `Mutex`.
 
 #### Scenario: First call constructs a client; second call returns the cached instance
 

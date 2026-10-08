@@ -96,11 +96,7 @@ Accepting SHALL call `chat.bsky.convo.acceptConvo` for the conversation. On succ
 
 ### Requirement: The thread offers accept only; declining is a list action
 
-The accept surface SHALL offer accept as its only committing action. It SHALL NOT offer decline or block.
-
-Declining is offered on the conversation row in the Requests segment, where it is recoverable through the existing deferred-undo leave. Offering it in the thread as well would mean either duplicating that undo machinery in a second presenter or handing a deferred action across screens; a decline that is undoable from one surface and immediate from another is worse than a decline that lives in one place.
-
-Blocking is likewise not offered: it has no single meaning for a group request, and the Requests segment does not offer it today. Safety actions against an individual remain available through the existing profile surface.
+The accept surface SHALL offer accept as its only committing action. It SHALL NOT offer decline or block. Declining is restricted to the conversation row in the Requests segment with deferred-undo support. Safety actions against an individual remain available via profile surfaces.
 
 #### Scenario: The thread does not commit a decline
 

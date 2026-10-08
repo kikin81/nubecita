@@ -19,7 +19,7 @@ The system SHALL expose `net.kikin.nubecita.feature.feed.impl.FeedViewModel` as 
 
 ### Requirement: `FeedRepository` is the only layer that calls `FeedService` directly
 
-The system SHALL expose an `internal interface FeedRepository` in `:feature:feed:impl` with at minimum a single method `suspend fun getTimeline(cursor: String?, limit: Int = TIMELINE_PAGE_LIMIT): Result<TimelinePage>`. The `DefaultFeedRepository` implementation MUST be the only class in `:feature:feed:impl` that imports `io.github.kikin81.atproto.app.bsky.feed.FeedService`. `FeedViewModel` MUST inject the interface, never the concrete class. The interface and its implementation MUST stay `internal` to `:feature:feed:impl` until a second consumer (post detail, search) requires the same fetch surface — at that point a follow-on change promotes them to a `:core:feed` module.
+The system SHALL expose `internal interface FeedRepository` in `:feature:feed:impl` with `suspend fun getTimeline(cursor: String?, limit: Int = TIMELINE_PAGE_LIMIT): Result<TimelinePage>`. `DefaultFeedRepository` MUST be the only class in `:feature:feed:impl` that imports `io.github.kikin81.atproto.app.bsky.feed.FeedService`. `FeedViewModel` MUST inject the interface rather than the concrete class.
 
 #### Scenario: VM injects the interface
 
@@ -33,13 +33,7 @@ The system SHALL expose an `internal interface FeedRepository` in `:feature:feed
 
 ### Requirement: `FeedViewPostMapper` is pure and total over the response shape
 
-The system SHALL expose top-level `internal` mapping functions in `:feature:feed:impl` package `data` (no class wrapper):
-
-- `internal fun FeedViewPost.toPostUiOrNull(): PostUi?`
-- `internal fun PostViewEmbedUnion?.toEmbedUi(): EmbedUi`
-- Any helpers required to extract `text` / `facets` from `PostView.record: JsonObject`.
-
-`toPostUiOrNull` MUST return `null` for inputs whose embedded `record` JSON cannot be decoded as a well-formed `app.bsky.feed.post` record (missing required fields, malformed types). It MUST NOT throw. Every spec-conforming `FeedViewPost` MUST yield a non-null `PostUi`. The mapper MUST NOT perform I/O, MUST NOT depend on Android types, and MUST be unit-testable as pure functions against fixture JSON.
+The system SHALL expose internal mapping functions in `:feature:feed:impl` package `data`: `FeedViewPost.toPostUiOrNull(): PostUi?`, `PostViewEmbedUnion?.toEmbedUi(): EmbedUi`, and text/facet decoders. `toPostUiOrNull` MUST return `null` without throwing when `record` JSON cannot be decoded as a valid `app.bsky.feed.post`. The mapper MUST be pure and free of I/O or Android dependencies.
 
 #### Scenario: Spec-conforming post produces a non-null PostUi
 
@@ -58,7 +52,7 @@ The system SHALL expose top-level `internal` mapping functions in `:feature:feed
 
 ### Requirement: Pagination cursor advances only on successful append
 
-The system SHALL preserve `FeedState.nextCursor` on append failure. After a successful `LoadMore`, the VM MUST update `nextCursor` to the cursor returned by the repository (which may be `null` to signal end-of-feed). On `LoadMore` failure (the repository returns `Result.failure`), the VM MUST leave `nextCursor` unchanged so a subsequent retry can re-attempt with the same cursor. On a successful response with `cursor == null`, the VM MUST set `endReached = true` and treat further `LoadMore` events as no-ops.
+The system SHALL preserve `FeedState.nextCursor` on append failure. After a successful `LoadMore`, the VM updates `nextCursor` to the returned cursor. On `LoadMore` failure, `nextCursor` MUST remain unchanged for retry. On a successful response with `cursor == null`, the VM MUST set `endReached = true` and treat subsequent `LoadMore` calls as no-ops.
 
 #### Scenario: Successful append advances the cursor
 
@@ -77,22 +71,7 @@ The system SHALL preserve `FeedState.nextCursor` on append failure. After a succ
 
 ### Requirement: Embed dispatch in the mapper mirrors PostCard v1 scope
 
-The system's `toEmbedUi` mapping function SHALL produce:
-
-- `EmbedUi.Empty` for `null` (no embed)
-- `EmbedUi.Images` for `app.bsky.embed.images#view` (1–4 images)
-- `EmbedUi.Video` for `app.bsky.embed.video#view` (per the `feature-feed-video` spec)
-- `EmbedUi.External` for `app.bsky.embed.external#view` (per `nubecita-aku`)
-- `EmbedUi.Record` for `app.bsky.embed.record#viewRecord` (per `nubecita-6vq`)
-- `EmbedUi.RecordUnavailable` for `app.bsky.embed.record#view{NotFound,Blocked,Detached}` and the `Unknown` open-union fallback (per `nubecita-6vq`)
-- `EmbedUi.RecordWithMedia` for `app.bsky.embed.recordWithMedia#view` (per `nubecita-umn`)
-- `EmbedUi.Unsupported(typeUri = ...)` for any unknown `Unknown`-variant payload from the open union
-
-The `typeUri` field in `EmbedUi.Unsupported` MUST carry the fully-qualified lexicon NSID so PostCard's `PostCardUnsupportedEmbed` can render the friendly-name label per the design-system spec.
-
-This dispatch MUST be exhaustive over the `PostViewEmbedUnion` sealed type. Future lexicon evolution that adds a new embed type MUST be handled in the same change that adds the variant — the sealed type makes this a compile error otherwise.
-
-The construction of `EmbedUi.Images` / `EmbedUi.Video` / `EmbedUi.External` MUST go through three wrapper-construction helpers (`ImagesView.toEmbedUiImages`, `VideoView.toEmbedUiVideo`, `ExternalView.toEmbedUiExternal`) shared between the top-level dispatch and the media-side dispatch in `RecordWithMediaView.toEmbedUiRecordWithMedia`. **These helpers — and the top-level `toEmbedUi` dispatch itself — live in the `:core:feed-mapping` module per the `core-feed-mapping` capability spec.** `:feature:feed:impl/data/FeedViewPostMapper.kt` consumes them via `implementation(project(":core:feed-mapping"))`; it MUST NOT redeclare any wrapper-construction helper inline. Inline duplicated construction at any call site is forbidden — it would risk drift (e.g. an `aspectRatio` calculation tweak applied in one path and forgotten in the other) and would defeat the cross-feature single-source-of-truth contract that lets `:feature:postdetail:impl`'s `PostThreadMapper` produce identical embed projections.
+The system's `toEmbedUi` function in `:core:feed-mapping` SHALL map `PostViewEmbedUnion` exhaustively to `EmbedUi` variants: `Empty`, `Images`, `Video`, `External`, `Record`, `RecordUnavailable`, `RecordWithMedia`, or `Unsupported(typeUri)`. Wrapper construction helpers MUST be shared between top-level and `RecordWithMedia` dispatch. `:feature:feed:impl` MUST consume these shared helpers without inline duplication.
 
 #### Scenario: Images embed maps to EmbedUi.Images
 
@@ -141,7 +120,7 @@ The construction of `EmbedUi.Images` / `EmbedUi.Video` / `EmbedUi.External` MUST
 
 ### Requirement: `FeedState` exposes a sealed `FeedLoadStatus` for mutually-exclusive load modes
 
-The system's `FeedState` MUST declare a single field `loadStatus: FeedLoadStatus` of type `sealed interface FeedLoadStatus` with at minimum the variants `Idle`, `InitialLoading`, `Refreshing`, `Appending`, and `InitialError(error: FeedError)`. The state MUST NOT use independent boolean fields (`isInitialLoading`, `isRefreshing`, `isAppending`) for these modes — the type system MUST make invalid combinations unrepresentable. `posts: ImmutableList<PostUi>`, `nextCursor: String?`, and `endReached: Boolean` remain flat fields on the state per their independent semantics.
+`FeedState` MUST declare `loadStatus: FeedLoadStatus` of sealed type `FeedLoadStatus` with variants `Idle`, `InitialLoading`, `Refreshing`, `Appending`, and `InitialError(error: FeedError)`. The state MUST NOT use independent boolean fields for these modes. `posts: ImmutableList<PostUi>`, `nextCursor: String?`, and `endReached: Boolean` remain flat fields.
 
 #### Scenario: Initial load transitions through InitialLoading
 
@@ -174,9 +153,7 @@ The system's VM MUST set `loadStatus = FeedLoadStatus.InitialError(error)` only 
 
 ### Requirement: `FeedEvent` declares the full screen-interaction surface from day one
 
-The system's `FeedEvent` sealed interface MUST include `OnPostTapped`, `OnAuthorTapped`, `OnLikeClicked`, `OnRepostClicked`, `OnReplyClicked`, and `OnShareClicked` variants from the initial implementation, even before the write-path follow-on ticket lands. The VM MAY handle the tap / author events by emitting `FeedEffect.NavigateToPost` / `NavigateToAuthor` and MUST handle the like / repost / reply / share events as no-ops in this initial implementation (no state mutation, no repository call, no effect).
-
-The shape of these events is acknowledged-as-illusory lock-in: the write-path follow-on is allowed to amend the contract if it discovers the surface is wrong (e.g., needs optimistic UI state, undo support, confirm-on-failure follow-up events). The justification is that `nubecita-1d5` (the screen ticket) can wire `PostCallbacks` to dispatch real event names instead of `TODO` placeholders, regardless of when the write path lands.
+`FeedEvent` MUST include `OnPostTapped`, `OnAuthorTapped`, `OnLikeClicked`, `OnRepostClicked`, `OnReplyClicked`, and `OnShareClicked`. `FeedViewModel` handles tap and author events by emitting navigation effects (`FeedEffect.NavigateToPost`, `NavigateToAuthor`), and handles like, repost, reply, and share events as no-ops until write paths land.
 
 #### Scenario: Like dispatch is a no-op on state and repository
 
@@ -204,17 +181,7 @@ The system SHALL replace the placeholder `FeedScreen` in `:feature:feed:impl` wi
 
 ### Requirement: Screen renders a state-shape matrix that is total over `FeedState`
 
-The system's `FeedScreen` MUST render exactly one of the following branches based on `FeedState.loadStatus` and `FeedState.posts`. The branches MUST be exhaustive — every `(loadStatus, posts.isEmpty())` combination produced by the VM MUST map to a defined branch.
-
-| `loadStatus`                              | `posts.isEmpty()` | Render                                                                |
-|-------------------------------------------|-------------------|-----------------------------------------------------------------------|
-| `InitialLoading`                          | `true`            | `LazyColumn` of `PostCardShimmer` rows (initial-load skeleton)        |
-| `InitialError(error)`                     | `true`            | Full-screen `FeedErrorState(error)` with a retry button               |
-| `Idle`                                    | `true`            | `FeedEmptyState`                                                      |
-| `Idle` or `Refreshing`                    | `false`           | `LazyColumn` of `PostCard(state.posts[i])`                            |
-| `Appending`                               | `false`           | `LazyColumn` of `PostCard(state.posts[i])` plus a tail shimmer row    |
-
-`Refreshing` MUST NOT swap the list out — the existing posts SHALL stay visible while the `PullToRefreshBox` indicator overlays them.
+`FeedScreen` MUST render exhaustively based on `(loadStatus, posts.isEmpty())`: `InitialLoading` with empty posts renders a shimmer list; `InitialError` with empty posts renders full-screen `FeedErrorState`; `Idle` with empty posts renders `FeedEmptyState`; non-empty posts at `Idle` or `Refreshing` render `PostCard` items; `Appending` renders posts plus a tail shimmer row. Existing posts stay visible during `Refreshing`.
 
 #### Scenario: Empty + idle renders the empty state
 
@@ -276,9 +243,7 @@ The system's `FeedScreen` SHALL wrap its `LazyColumn` in `androidx.compose.mater
 
 ### Requirement: Append-on-scroll triggers `FeedEvent.LoadMore` exactly once per threshold crossing
 
-The system's `FeedScreen` SHALL dispatch `FeedEvent.LoadMore` when the last visible item index in the `LazyListState` exceeds `posts.size - 5`. The trigger MUST emit at most once per crossing of the threshold (a scroll-up-then-down that re-crosses the threshold MAY emit again only if the threshold was first un-crossed). The trigger MUST NOT emit when `state.endReached == true` or when `state.loadStatus != FeedLoadStatus.Idle`.
-
-The implementation SHALL use `snapshotFlow` over `LazyListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index` with `distinctUntilChanged` so that recomposition without a layout-info change does not re-trigger the dispatch.
+`FeedScreen` SHALL dispatch `FeedEvent.LoadMore` when `visibleItemsInfo.lastOrNull()?.index > posts.size - 5`. It MUST emit at most once per threshold crossing using `snapshotFlow` with `distinctUntilChanged`. The trigger MUST NOT emit when `state.endReached == true` or when `state.loadStatus != FeedLoadStatus.Idle`.
 
 #### Scenario: Threshold crossing while idle dispatches LoadMore
 
@@ -302,9 +267,7 @@ The implementation SHALL use `snapshotFlow` over `LazyListState.layoutInfo.visib
 
 ### Requirement: `LazyListState` is hoisted via `rememberSaveable` for back-nav and config-change retention
 
-The system's `FeedScreen` SHALL construct its `LazyListState` via `rememberSaveable(saver = LazyListState.Saver) { LazyListState() }` (or the equivalent `rememberLazyListState` overload that participates in `SaveableStateHolder`). The first-visible-item-index and offset MUST survive (a) navigation away and back to the `Feed` entry and (b) configuration change (rotation).
-
-Process-death back-stack persistence is out of scope here — the application's back stack is currently in-memory in `DefaultNavigator`. The migration to `rememberNavBackStack`-backed storage is tracked under `nubecita-3it`; once it lands, this same `rememberSaveable` shape will round-trip through process death without further changes to `FeedScreen`.
+`FeedScreen` SHALL construct its `LazyListState` via `rememberSaveable(saver = LazyListState.Saver) { LazyListState() }`. The scroll position (`firstVisibleItemIndex` and scroll offset) MUST survive navigation away and back to the feed entry, as well as activity configuration changes (such as rotation).
 
 #### Scenario: Back-nav restores scroll position
 
@@ -332,13 +295,7 @@ The system's `FeedScreen` SHALL dispatch `FeedEvent.Load` from a `LaunchedEffect
 
 ### Requirement: `FeedEffect` is collected once and surfaces snackbar + navigation
 
-The system's `FeedScreen` SHALL collect `viewModel.effects` from a single `LaunchedEffect(Unit)` for the screen's lifetime. The effect handler MUST:
-
-- Map `FeedEffect.ShowError(error)` to a snackbar shown via the screen-internal `SnackbarHostState`. Before showing, any current snackbar MUST be dismissed so consecutive errors do not stack.
-- Map `FeedEffect.NavigateToPost(post)` to an injected `onNavigateToPost: (PostUi) -> Unit` callback supplied by the Nav3 entry installer.
-- Map `FeedEffect.NavigateToAuthor(authorDid)` to an injected `onNavigateToAuthor: (String) -> Unit` callback supplied by the Nav3 entry installer.
-
-The Nav3 entry installer MAY supply `{ }` no-op callbacks until `PostDetail` and `Profile` screens exist.
+`FeedScreen` SHALL collect `viewModel.effects` in a single `LaunchedEffect(Unit)`. It MUST map `FeedEffect.ShowError(error)` to a snackbar (dismissing any existing snackbar first), `NavigateToPost(post)` to hoisted `onNavigateToPost(post)`, and `NavigateToAuthor(did)` to hoisted `onNavigateToAuthor(did)`.
 
 #### Scenario: ShowError emits a snackbar
 
@@ -371,18 +328,7 @@ The system's `FeedScreen` SHALL construct exactly one `PostCallbacks` instance v
 
 ### Requirement: Screen ships preview matrix, screenshot tests, and Compose UI tests
 
-The system's `FeedScreen` SHALL ship with:
-
-- `@Preview`s in `FeedScreen.kt` covering: empty, initial-loading,
-  initial-error (per `FeedError` variant), loaded, refreshing, and
-  appending — each in light + dark.
-- Screenshot tests under `feature/feed/impl/src/screenshotTest/kotlin/...`
-  capturing the same matrix on at least one device profile (the
-  existing `:designsystem` profile).
-- Compose UI tests under `feature/feed/impl/src/androidTest/kotlin/...`
-  covering: pagination dispatch on threshold crossing, pull-to-refresh
-  dispatch, retry click on the error layout, empty-state rendering, and
-  back-nav scroll-position retention via `ActivityScenario.recreate`.
+`:feature:feed:impl` SHALL maintain `@Preview`s covering empty, initial-loading, error variants, loaded, refreshing, and appending in light/dark themes. It MUST maintain matching screenshot tests under `screenshotTest/` and Compose UI tests under `androidTest/` verifying pagination dispatch, retry click, pull-to-refresh, empty state, and scroll retention.
 
 #### Scenario: Preview matrix exists
 
@@ -430,7 +376,7 @@ The system SHALL place `FeedEmptyState` and `FeedErrorState` composables under `
 
 ### Requirement: `FeedScreen` propagates `Scaffold` inset padding to every state branch
 
-`FeedScreen`'s outer `Scaffold` MUST consume the `innerPadding` lambda value in **all** state branches it dispatches to: `FeedScreenViewState.InitialLoading`, `FeedScreenViewState.Empty`, `FeedScreenViewState.InitialError`, and `FeedScreenViewState.Loaded`. Branches MUST NOT silently drop the `padding` reference. Scrollable surfaces (`LazyColumn` inside `InitialLoading` and inside `LoadedFeedContent`) consume the padding via `contentPadding = padding`; non-scrollable full-screen surfaces (`FeedEmptyState`, `FeedErrorState`) consume it via the new `contentPadding` parameter on those composables (see the next requirement). The Scaffold itself MUST stay `fillMaxSize()` (or unspecified, deferring to its default) so the underlying surface continues to extend behind translucent system bars — only the content inside the inset region is repositioned.
+`FeedScreen`'s outer `Scaffold` MUST propagate `innerPadding` to all view branches: scrollable surfaces (`LazyColumn` in `InitialLoading` and `LoadedFeedContent`) pass `contentPadding = innerPadding`; non-scrollable layouts (`FeedEmptyState`, `FeedErrorState`) apply it via their `contentPadding` parameter. Inset padding MUST NOT be dropped.
 
 #### Scenario: InitialLoading branch consumes padding
 
@@ -473,7 +419,7 @@ The system SHALL place `FeedEmptyState` and `FeedErrorState` composables under `
 
 ### Requirement: `LoadedFeedContent` consumes Scaffold padding without clipping the scroll surface
 
-`LoadedFeedContent` MUST accept a `contentPadding: PaddingValues` parameter and propagate it to the inner `LazyColumn`'s `contentPadding`. The `PullToRefreshBox` and the `LazyColumn` themselves MUST stay `fillMaxSize()` (no outer `Modifier.padding(contentPadding)`) so that scroll behavior + the pull-to-refresh indicator continue to extend behind translucent system bars. The pagination snapshot-flow logic (lastVisibleIndex threshold) is unaffected — `LazyColumn`'s `visibleItemsInfo` already accounts for `contentPadding`.
+`LoadedFeedContent` MUST accept `contentPadding: PaddingValues` and pass it to `LazyColumn`'s `contentPadding`. The `PullToRefreshBox` and `LazyColumn` themselves MUST remain `fillMaxSize()` without outer padding modifiers, allowing list content and the refresh indicator to scroll behind translucent system bars.
 
 #### Scenario: First item respects top inset
 
@@ -492,13 +438,7 @@ The system SHALL place `FeedEmptyState` and `FeedErrorState` composables under `
 
 ### Requirement: `FeedScreen` hosts a `FeedVideoPlayerCoordinator` scoped to its composition lifetime and supplies the `videoEmbedSlot` to PostCard
 
-`FeedScreen` MUST host a `FeedVideoPlayerCoordinator` scoped to its composition lifetime — created in the screen's `LoadedFeedContent` `remember { }` block and released via `DisposableEffect.onDispose`. The coordinator is the single owner of the screen's `ExoPlayer` instance per the `feature-feed-video` spec.
-
-For each visible feed item, `LoadedFeedContent` MUST build a `videoEmbedSlot: @Composable (EmbedUi.Video) -> Unit` lambda keyed by `(post.id, coordinator)` and pass it as the `videoEmbedSlot` parameter to `PostCard`. The slot's body invokes `PostCardVideoEmbed(video, postId = post.id, coordinator)` for the autoplay path, falling through to the phase-B static-poster path under `LocalInspectionMode.current`.
-
-For each visible feed item, `LoadedFeedContent` MUST ALSO build a `quotedVideoEmbedSlot: @Composable ((QuotedEmbedUi.Video) -> Unit)?` lambda when `post.embed.quotedRecord != null`, keyed by `(post.embed.quotedRecord!!.uri, coordinator)`, and pass it as the `quotedVideoEmbedSlot` parameter to `PostCard`. The slot is null when the post carries no quoted post (whether top-level or inside a `RecordWithMedia.record`).
-
-The `EmbedUi.quotedRecord` extension property (defined in `:data:models`) is the canonical answer to "where does this post's quoted content live." `LoadedFeedContent` MUST NOT inline the chained-cast pattern (e.g. `(post.embed as? EmbedUi.Record)?.quotedPost?.uri`) at the slot-builder site — single source of truth in the model layer.
+`FeedScreen` MUST host a composition-scoped `FeedVideoPlayerCoordinator` created via `remember` and disposed via `DisposableEffect.onDispose { coordinator.release() }`. For each visible post, `LoadedFeedContent` supplies `videoEmbedSlot` and optional `quotedVideoEmbedSlot` (when `post.embed.quotedRecord != null`) to `PostCard`.
 
 #### Scenario: Coordinator is composition-scoped to FeedScreen
 
@@ -522,17 +462,7 @@ The `EmbedUi.quotedRecord` extension property (defined in `:data:models`) is the
 
 ### Requirement: Inner-embed mapping for quoted posts is bounded at one level by the type system
 
-The system MUST expose an internal mapper extension `RecordViewRecordEmbedsUnion?.toQuotedEmbedUi(): QuotedEmbedUi` that dispatches the quoted post's `embeds` list (the lexicon allows multiple but in practice carries 0–1) and produces:
-
-- `QuotedEmbedUi.Empty` for `null` (no inner embed) or an empty list — the mapper consumes `embeds.firstOrNull()`.
-- `QuotedEmbedUi.Images` for an inner `ImagesView` (same payload as the parent `EmbedUi.Images` mapping).
-- `QuotedEmbedUi.Video` for an inner `VideoView` whose `playlist` is non-blank; otherwise `QuotedEmbedUi.Unsupported(typeUri = "app.bsky.embed.video")`.
-- `QuotedEmbedUi.External` for an inner `ExternalView` (with the same precomputed `domain` as the parent `EmbedUi.External` mapping; the existing `displayDomainOf` helper is reused).
-- `QuotedEmbedUi.QuotedThreadChip` for an inner `RecordView` — this is the recursion-bound sentinel; the mapper does NOT recurse into the doubly-quoted post.
-- `QuotedEmbedUi.Unsupported("app.bsky.embed.recordWithMedia")` for an inner `RecordWithMediaView` (out of scope; tracked under `nubecita-umn`).
-- `QuotedEmbedUi.Unsupported(typeUri)` for the `Unknown` open-union member, carrying the wire `$type`.
-
-To avoid logic duplication between the parent and inner mappers, the per-variant payload construction MUST be extracted into private helpers (e.g. `ImagesView.toImageUiList()`, `VideoView.toVideoPayload()`) called from both dispatch sites. Wrapper-type duplication (`EmbedUi.Images` vs `QuotedEmbedUi.Images`) is acceptable because the underlying payloads (`ImmutableList<ImageUi>`, etc.) are shared.
+The system MUST map quoted post embeds via `RecordViewRecordEmbedsUnion?.toQuotedEmbedUi()`: `Empty`, `Images`, `Video`, `External`, `QuotedThreadChip` for inner `RecordView` (bounding recursion at one level), and `Unsupported` for other unions. Per-variant payload construction MUST be shared with parent mappers.
 
 #### Scenario: Inner Images embed maps to QuotedEmbedUi.Images
 
@@ -561,9 +491,7 @@ To avoid logic duplication between the parent and inner mappers, the per-variant
 
 ### Requirement: A malformed quoted record never drops the parent post
 
-The system MUST decode a `RecordViewRecord.value: JsonObject` defensively. If the embedded post record cannot be decoded as a valid `app.bsky.feed.post` (missing required `text` / `createdAt`, type-incompatible value), OR if the decoded `createdAt` is not a parseable RFC3339 timestamp, the mapper MUST produce `EmbedUi.RecordUnavailable(Reason.Unknown)` for that embed slot. The parent post MUST still map to a non-null `PostUi` — a malformed quoted record is NEVER a reason to drop the parent post from the feed.
-
-This contract preserves the existing `FeedViewPostMapper` total-over-the-response-shape rule from the parent-post decoding path — both layers use the same `runCatching { ... }.getOrNull()` shape against the same shared `recordJson` instance.
+When a quoted record JSON cannot be decoded as a valid `app.bsky.feed.post` or carries an unparseable `createdAt`, the mapper MUST produce `EmbedUi.RecordUnavailable(Reason.Unknown)`. The parent post MUST still project to a non-null `PostUi` — malformed quoted records MUST NEVER drop the parent post.
 
 #### Scenario: Quoted post with malformed value yields RecordUnavailable.Unknown but the parent still maps
 
@@ -605,12 +533,7 @@ The `@MainShell`-qualified `EntryProviderInstaller` provided by `:feature:feed:i
 
 ### Requirement: `FeedScreen` consumes `LocalTabReTapSignal` and hosts the compose FAB
 
-`FeedScreen` SHALL opt into the `core-common-navigation` tab-re-tap contract (renamed from the prior `ScrollToTopSignal` after sibling tabs adopted the same signal for non-scroll actions) AND host the compose-new-post entry point in its Scaffold's `floatingActionButton` slot. Two coordinated behaviors:
-
-1. **Signal collector.** A `LaunchedEffect` keyed on `(LocalTabReTapSignal.current, listState)` collects the flow and calls `listState.animateScrollToItem(0)` on each emission. Both keys are required so the collector restarts cleanly if either reference changes (e.g., a new MainShell composition or a fresh `LazyListState` from `rememberSaveable` after process death). This behavior is preserved verbatim from the prior scroll-to-top change.
-2. **Compose FAB.** A badge-wrappable, icon-only FAB (`FloatingActionButton`, `LargeFloatingActionButton`, or `SmallFloatingActionButton` — NOT `ExtendedFloatingActionButton`, which the `:core:drafts` follow-up cannot cleanly badge) rendered in the existing `Scaffold.floatingActionButton` slot whenever the feed view-state is `FeedScreenViewState.Loaded`. The FAB size SHALL adapt to width class: `FloatingActionButton` (56dp) at Compact width, `LargeFloatingActionButton` (96dp) at Medium and Expanded widths per the M3 expressive guidance. The FAB MUST NOT be gated on scroll position — it is visible at `firstVisibleItemIndex == 0` and at any deeper position. Its content is an `Icon(Icons.Default.Edit, ...)` (or M3's expressive create-equivalent) with a localized content description (`R.string.feed_compose_new_post`). Its `onClick` invokes a width-class-conditional launcher: at Compact width it pushes `ComposerRoute()` onto `LocalMainShellNavState.current`; at Medium/Expanded widths it transitions the `MainShell`-scoped composer-launcher state holder to `Open(replyToUri = null)`. The FAB MUST NOT appear over `InitialLoading`, `Empty`, or `InitialError` view-states.
-
-The `FeedViewModel` is unchanged. No new state field, no new event, no new effect. Both the compose FAB onClick and the signal collector run at the screen Composable layer; they don't cross the VM boundary (per the `mvi-foundation` capability's "VMs don't see CompositionLocals" rule).
+`FeedScreen` SHALL collect `LocalTabReTapSignal.current` via `LaunchedEffect` and call `listState.animateScrollToItem(0)`. In `Loaded` state, it renders an icon-only compose FAB in `Scaffold.floatingActionButton` (`FloatingActionButton` 56dp on Compact, `LargeFloatingActionButton` 96dp on Medium/Expanded). Tapping pushes `ComposerRoute` on Compact or opens the dialog overlay on Medium/Expanded.
 
 #### Scenario: Compose FAB visible over a loaded feed at scroll position 0
 
@@ -664,7 +587,7 @@ The `FeedViewModel` is unchanged. No new state field, no new event, no new effec
 
 ### Requirement: Each post in the feed exposes a reply tap target that opens the composer in reply mode via the width-class-conditional launcher
 
-The system SHALL render a reply affordance on every `PostCard` in `FeedScreen`'s loaded list. Tapping the affordance MUST invoke the same width-class-conditional `launchComposer(replyToUri = post.uri.toString())` helper used by the Feed-tab compose FAB (see the *Adaptive container* requirement in `feature-composer`'s spec) — at Compact width that pushes `ComposerRoute(...)` onto `LocalMainShellNavState.current`; at Medium/Expanded width it transitions the `MainShell`-scoped composer-launcher state to `Open`. The affordance MUST be reachable through the existing `PostCard` action row (no new card-level state shape). The tap path MUST NOT involve `FeedViewModel` — navigation flows from the card's onClick lambda through a screen-level handler that calls the launcher directly. An earlier draft of this requirement hard-coded `LocalMainShellNavState.current.add(...)` for both width classes; that conflicted with the adaptive-container requirement and is corrected here.
+Each `PostCard` in `FeedScreen`'s loaded list SHALL expose a reply affordance in its action row. Tapping invokes `launchComposer(replyToUri = post.uri.toString())`: pushing `ComposerRoute(replyToUri)` on Compact width, or opening the composer dialog on Medium/Expanded width. Reply navigation MUST bypass `FeedViewModel`.
 
 #### Scenario: Reply tap at Compact width pushes ComposerRoute
 
@@ -688,39 +611,7 @@ The system SHALL render a reply affordance on every `PostCard` in `FeedScreen`'s
 
 ### Requirement: The feed renders at most one item per thread root within a session
 
-The feed SHALL render at most one item per thread root, retaining the FIRST
-occurrence in list order.
-
-This exists because the timeline returns entries in post-time order, so several
-replies into the same thread arrive as separate `FeedViewPost` entries. Each
-would otherwise project to its own `FeedItemUi.ReplyCluster` and re-render that
-thread's root as context, drawing the same post repeatedly.
-
-Because the timeline is newest-first and
-pagination walks backward in time, the retained item is always the newest reply
-in that thread and every dropped sibling is strictly older.
-
-The thread root of an item SHALL be derived as:
-
-- `ReplyCluster` — the `root` post's id
-- `SelfThreadChain` — the first chained post's id
-- `Single` — the post's own id, so a standalone post reserves its own thread
-- `Blocked` / `NotFound` — no thread root; these are never dropped
-
-An item whose leaf carries a repost attribution SHALL NOT be dropped, but SHALL
-still register its thread root. This mirrors the official client, where an
-endorsement by someone the viewer follows is treated as its own signal.
-
-The de-duplication SHALL be a pure function over `List<FeedItemUi>` applied to
-the accumulated list, so that it spans pagination without a stateful tuner and
-resets naturally on refresh.
-
-Thread-root de-duplication SHALL be applied BEFORE cluster-context
-de-duplication. The two passes are not commutative: running cluster-context
-first can drop a `Single` for being some cluster's parent, and if the
-thread-root pass then drops that cluster for reusing an already-seen root, the
-post is rendered nowhere and counted nowhere. No post that reached the timeline
-may be silently lost.
+The feed SHALL render at most one item per thread root, retaining the first occurrence in list order. Root ID is derived as: `ReplyCluster` uses root ID, `SelfThreadChain` uses first post ID, `Single` uses post ID, and tombstones have no root (never dropped). Reposts are never dropped. De-duplication is a pure function over `List<FeedItemUi>` applied before cluster-context de-duplication.
 
 #### Scenario: Two replies to the same thread arrive in one page
 
@@ -768,29 +659,7 @@ may be silently lost.
 
 ### Requirement: A de-duplicated feed item reports how many sibling replies were suppressed
 
-A surviving feed item SHALL carry a suppressed-reply count, and the feed SHALL
-surface that count as an affordance leading to the full thread.
-
-Dropping sibling replies hides real content — one thread root was observed with
-seven replies on a production account — so the count exists to keep that content
-discoverable rather than silently lost.
-
-This is a deliberate divergence from the official client, which drops silently.
-
-The count SHALL be measured in **posts, not feed items**, because the affordance
-is read by a viewer who has no notion of the app's internal grouping. A dropped
-`SelfThreadChain` therefore contributes each of its posts, not one.
-
-A suppressed post that is already rendered elsewhere in the list SHALL NOT be
-counted. In particular, when a `Single` is dropped because its post is already
-shown as the surviving item's `root` or `parent` context, the viewer can already
-see it, so the count SHALL NOT increase.
-
-The count SHALL be carried by every rendered variant that can survive
-de-duplication, including `Single`. A standalone post can reserve a thread root
-and suppress later replies into that thread; without a count on `Single` those
-replies would be hidden with no affordance, which is the exact failure this
-requirement exists to prevent.
+A surviving feed item SHALL carry a suppressed-reply count displayed as an affordance leading to the full thread. The count is measured in total suppressed posts (not feed items). Posts already visible as context in the list are not counted. Every surviving item variant, including `Single`, carries the count.
 
 #### Scenario: Suppressed siblings are counted in posts, not items
 
@@ -819,15 +688,7 @@ requirement exists to prevent.
 
 ### Requirement: `FeedViewPostMapper` exposes `toFeedItemUiOrNull` as the entry-point projection
 
-`:feature:feed:impl/data/FeedViewPostMapper.kt` SHALL expose an `internal fun FeedViewPost.toFeedItemUiOrNull(): FeedItemUi?` extension as the entry-point mapper from a wire `FeedViewPost` to a renderable `FeedItemUi`. (The existing mapper API is module-`internal`; this matches that visibility.) The function SHALL return:
-
-- `FeedItemUi.Single(leaf)` when `reply` is null or when `reply.parent` is a non-`PostView` lexicon variant (`BlockedPost`, `NotFoundPost`).
-- `FeedItemUi.ReplyCluster(root, parent, leaf, hasEllipsis)` when `reply.parent` is a `PostView` AND `reply.root` is a `PostView`. The `hasEllipsis` field SHALL be `true` when `replyRef.grandparentAuthor != null && grandparentAuthor.did != root.author.did`, else `false`.
-- `null` when the leaf post itself cannot be projected (malformed `post.record` JSON, unparseable `createdAt`) — same contract as the prior `toPostUiOrNull(...)`.
-
-The existing `internal fun FeedViewPost.toPostUiOrNull()` SHALL remain available unchanged for the existing test surface, and SHALL be re-implemented to share its projection logic with the new entry point via a private `PostView`-receiver helper. New consumers (the repository, future feature mappers) SHALL use `toFeedItemUiOrNull` exclusively; `toPostUiOrNull` is retained for backwards compatibility with the existing 18+ mapper tests and will be removed in a future cleanup ticket once those tests migrate.
-
-The mapper SHALL log a `Timber.w(...)` when falling back from `ReplyCluster` to `Single` due to a `BlockedPost` / `NotFoundPost` parent — production builds use Timber's release tree (no-op), so this is only visible in dev builds.
+`:feature:feed:impl` SHALL expose `internal fun FeedViewPost.toFeedItemUiOrNull(): FeedItemUi?` projecting wire posts to `FeedItemUi.Single`, `FeedItemUi.ReplyCluster(hasEllipsis)`, or `null` (for unparseable records). If a reply's parent is blocked or not found, it falls back to `Single` with a warning log.
 
 #### Scenario: Reply with renderable parent + root produces ReplyCluster
 
@@ -857,9 +718,7 @@ The mapper SHALL log a `Timber.w(...)` when falling back from `ReplyCluster` to 
 
 ### Requirement: `FeedScreenViewState.Loaded` carries `feedItems: ImmutableList<FeedItemUi>`
 
-`FeedScreenViewState.Loaded`'s `posts: ImmutableList<PostUi>` field SHALL be renamed to `feedItems: ImmutableList<FeedItemUi>` and changed type. The `FeedViewModel`'s projection from session state to view state SHALL invoke `toFeedItemUiOrNull(...)` per `FeedViewPost` (instead of `toPostUiOrNull(...)`) and collect the non-null results into the immutable list.
-
-Pagination + scroll behavior is unchanged: each `FeedItemUi` (whether `Single` or `ReplyCluster`) is one logical feed entry with one stable identifier (the leaf's URI, exposed via a `FeedItemUi.key` property or computed at the LazyColumn `key` lambda).
+`FeedScreenViewState.Loaded` SHALL expose `feedItems: ImmutableList<FeedItemUi>`. `FeedViewModel` projects timeline entries to `FeedItemUi` via `toFeedItemUiOrNull(...)`. In `LazyColumn`, `items` uses the leaf post URI as the stable key (`post.id` for `Single`, `leaf.id` for `ReplyCluster`).
 
 #### Scenario: Loaded carries FeedItemUi instead of PostUi
 
@@ -873,12 +732,7 @@ Pagination + scroll behavior is unchanged: each `FeedItemUi` (whether `Single` o
 
 ### Requirement: `FeedScreen` dispatches on `FeedItemUi` to render `PostCard` or `ThreadCluster`
 
-`LoadedFeedContent` SHALL dispatch on each `FeedItemUi` variant:
-
-- `FeedItemUi.Single(post)` — render `PostCard(post = post, callbacks = ..., videoEmbedSlot = ...)` exactly as before.
-- `FeedItemUi.ReplyCluster(root, parent, leaf, hasEllipsis)` — render `ThreadCluster(root = root, parent = parent, leaf = leaf, hasEllipsis = hasEllipsis, callbacks = ..., leafVideoEmbedSlot = ...)`.
-
-`ThreadCluster` SHALL receive the `videoEmbedSlot` parameter for the **leaf** only; root + parent inside the cluster receive `videoEmbedSlot = null` (static-poster fallback for any video embeds in those posts).
+`LoadedFeedContent` SHALL render `PostCard` for `FeedItemUi.Single`, and `ThreadCluster` for `FeedItemUi.ReplyCluster`. In `ThreadCluster`, only the leaf post receives `videoEmbedSlot`; root and parent posts use `videoEmbedSlot = null` (static poster fallback).
 
 #### Scenario: Single feed item renders PostCard
 
@@ -899,18 +753,7 @@ Pagination + scroll behavior is unchanged: each `FeedItemUi` (whether `Single` o
 
 ### Requirement: Feed mapping produces `SelfThreadChain` for consecutive same-author self-replies
 
-The system's `:feature:feed:impl` mapping layer SHALL include a top-level pass `internal fun List<FeedViewPost>.toFeedItemsUi(): ImmutableList<FeedItemUi>` that runs after per-entry projection (`FeedViewPost.toFeedItemUiOrNull`) and groups consecutive feed entries into `FeedItemUi.SelfThreadChain` instances.
-
-Two consecutive feed entries `e[i-1]` and `e[i]` SHALL link into a chain if and only if **all** of the following hold:
-
-1. `e[i].reply != null`
-2. `e[i].reply.parent` is a `PostView` (not `BlockedPost`, not `NotFoundPost`, not the open-union `Unknown` fallback)
-3. `e[i].reply.parent.author.did == e[i].post.author.did` (same-author self-reply)
-4. `e[i].reply.parent.uri == e[i-1].post.uri` (the link is unbroken in the wire response — strict)
-5. `e[i-1].reason !is ReasonRepost` AND `e[i].reason !is ReasonRepost` (reposted entries cannot be chain links)
-6. `e[i-1].toPostUiOrNull()` and `e[i].toPostUiOrNull()` both return non-null `PostUi` values (per the existing mapper-purity contract)
-
-A chain SHALL be a maximal run of linked entries (size ≥ 2). Non-linked entries SHALL flow through the existing per-entry projection paths (`FeedItemUi.Single` / `FeedItemUi.ReplyCluster`) unchanged.
+`:feature:feed:impl` SHALL expose `internal fun List<FeedViewPost>.toFeedItemsUi(): ImmutableList<FeedItemUi>` grouping consecutive entries into `FeedItemUi.SelfThreadChain` when entries share the same author DID, parent URI matches previous post URI, neither is a repost, and both project to valid `PostUi`. Runs of size ≥ 2 form chains.
 
 #### Scenario: Three consecutive same-author self-replies project to one SelfThreadChain
 
@@ -939,13 +782,7 @@ A chain SHALL be a maximal run of linked entries (size ≥ 2). Non-linked entrie
 
 ### Requirement: Page-boundary chain merge preserves chains across pagination cuts
 
-The system's `FeedViewModel` SHALL merge chains across pagination boundaries in the `LoadMore` reducer step (appending a new page). The VM MUST attempt to absorb the existing tail of `feedItems` into the incoming page's first feed item before appending, so an arbitrary cursor cut never visually splits a self-thread chain.
-
-The merge runs only in `LoadMore`. `applyInitialPage` and `Refresh` REPLACE `feedItems` entirely, so there is no existing tail to merge — chain detection within the new page is already complete via the page-internal `toFeedItemsUi` projection.
-
-The merge is a single-step extension, not an iterative loop. The page-internal projection has already grouped consecutive linked entries within the new page into one `SelfThreadChain` at the head; the boundary merge prepends the existing tail's posts to that head item. Subsequent new-page entries are unaffected — the strict link rule's adjacency requirement is preserved by construction.
-
-The merge logic operates over both projected `FeedItemUi` values AND the wire-level `FeedViewPost` data (for the `reply.parent.uri` check). The new `TimelinePage` carrier MUST expose both surfaces. The merge MUST also strip a leading cursor-resync overlap (a new-page wire entry whose `post.uri` matches the existing tail's leaf URI) before running the link check, so the chain extends across the overlap rather than rejecting and rendering visually split.
+`FeedViewModel`'s `LoadMore` reducer SHALL merge chains across pagination boundaries by checking whether the existing tail links to the incoming page's head item. Leading cursor-resync overlaps are stripped before linking. A valid link prepends tail posts into the incoming chain.
 
 #### Scenario: Chain extends across a pagination boundary
 
@@ -976,13 +813,7 @@ The merge logic operates over both projected `FeedItemUi` values AND the wire-le
 
 ### Requirement: `SelfThreadChain` rendering uses existing `PostCard` connector flags
 
-The system's `FeedScreen` render dispatch SHALL include a render branch for `FeedItemUi.SelfThreadChain` that iterates `chain.posts` and renders each post via `:designsystem`'s existing `PostCard` with connector flags wired by index:
-
-- The first post (`index == 0`): `connectAbove = false`, `connectBelow = true`
-- Middle posts (`0 < index < posts.lastIndex`): `connectAbove = true`, `connectBelow = true`
-- The last post (`index == posts.lastIndex`): `connectAbove = true`, `connectBelow = false`
-
-The chain SHALL render as a single LazyColumn item (one `Column` containing N `PostCard`s). No new `:designsystem` composable is introduced; the render branch composes existing primitives.
+`FeedScreen` SHALL render `FeedItemUi.SelfThreadChain` as a single `LazyColumn` item containing stacked `PostCard`s: the first post has `connectBelow = true`, middle posts have `connectAbove = true, connectBelow = true`, and the last post has `connectAbove = true`.
 
 #### Scenario: Chain renders with continuous gutter line
 

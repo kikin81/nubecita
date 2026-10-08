@@ -5,7 +5,7 @@ The user profile screen (`:feature:profile:impl`), resolving the `Profile` and `
 ## Requirements
 ### Requirement: `:feature:profile:impl` resolves the `Profile` and `Settings` NavKeys
 
-The new `:feature:profile:impl` module SHALL apply the `nubecita.android.feature` convention plugin and SHALL provide `@Provides @IntoSet @MainShell` `EntryProviderInstaller` bindings for both `Profile(handle: String? = null)` and `Settings` `NavKey`s declared in `:feature:profile:api`. The `Profile` provider MUST resolve both `handle == null` (own profile) and `handle != null` (other user) variants through a single screen Composable that branches on the handle internally. The `:app`-side placeholder providers for `Profile(handle = null)` and `Settings` previously registered by `:app`'s `MainShellPlaceholderModule` MUST be removed in lockstep with the `:impl` providers being added.
+The `:feature:profile:impl` module SHALL apply `nubecita.android.feature` and provide `@MainShell EntryProviderInstaller` bindings for `Profile(handle: String? = null)` and `Settings` from `:feature:profile:api`. The `Profile` provider MUST resolve both own profile (`handle == null`) and other user (`handle != null`) via a single Composable. Placeholder providers in `:app` MUST be removed.
 
 #### Scenario: You tab activation renders the real profile screen
 
@@ -24,7 +24,7 @@ The new `:feature:profile:impl` module SHALL apply the `nubecita.android.feature
 
 ### Requirement: `ProfileScreenViewState` uses flat fields for independent flags and per-tab sealed `TabLoadStatus`
 
-The `ProfileViewModel` SHALL extend `net.kikin.nubecita.ui.mvi.MviViewModel<ProfileScreenViewState, ProfileEvent, ProfileEffect>` and expose `ProfileScreenViewState` with: a nullable `header: ProfileHeaderUi?` (null while loading), a `selectedTab: ProfileTab` flat field with values `Posts | Replies | Media`, an `ownProfile: Boolean` flat field, a `viewerRelationship: ViewerRelationship` flat field with values `None | Self | Following | NotFollowing`, and three independent `TabLoadStatus` fields: `postsStatus`, `repliesStatus`, `mediaStatus`. The `TabLoadStatus` MUST be a sealed sum with variants `Idle`, `InitialLoading`, `Loaded(items: ImmutableList<TabItemUi>, isAppending: Boolean, isRefreshing: Boolean, hasMore: Boolean, cursor: String?)`, and `InitialError(error: ProfileError)`. The state MUST NOT model the three tabs' loading states as flat booleans — invalid combinations (e.g. `isLoadingPosts && hasPostsError`) MUST be unrepresentable.
+`ProfileViewModel` SHALL extend `MviViewModel<ProfileScreenViewState, ProfileEvent, ProfileEffect>`. `ProfileScreenViewState` MUST contain `header: ProfileHeaderUi?`, `selectedTab: ProfileTab`, `ownProfile: Boolean`, `viewerRelationship: ViewerRelationship`, and three `TabLoadStatus` fields: `postsStatus`, `repliesStatus`, `mediaStatus`. `TabLoadStatus` MUST be a sealed sum: `Idle`, `InitialLoading`, `Loaded`, and `InitialError`. Tab loading states MUST NOT use flat booleans.
 
 #### Scenario: Posts tab refreshing leaves Replies and Media states untouched
 
@@ -43,7 +43,7 @@ The `ProfileViewModel` SHALL extend `net.kikin.nubecita.ui.mvi.MviViewModel<Prof
 
 ### Requirement: Hero card renders bold-derived gradient with banner palette extraction
 
-The hero card SHALL render the user's profile header inside a `Surface` whose backdrop is the gradient produced by `BoldHeroGradient` (from `:designsystem`). When `profile.banner` is present, `BoldHeroGradient` MUST extract a palette from the banner via `androidx.palette.graphics.Palette` off the main thread, cache the result keyed on the banner blob `cid`, and derive the gradient from the palette swatches. When `profile.banner` is absent, the gradient MUST be derived from `avatarHue` (a deterministic hue computed from the user's `did` plus the first character of `handle`). The hero MUST NOT render the banner image literally as the backdrop — neither at full opacity nor under a scrim. The hero MUST render the avatar (80–96 dp), the user's display name in Fraunces 600 with the `SOFT` variable axis set to 70, the handle in JetBrains Mono 13 sp, and the bio at 14.5 sp / 21 sp line-height with text-wrap pretty.
+The hero card SHALL render the header in a `Surface` with a `BoldHeroGradient` backdrop. When `profile.banner` is present, `BoldHeroGradient` MUST extract a palette using `Palette` off the main thread, cached by banner blob `cid`. Without a banner, the gradient MUST derive from `avatarHue`. The banner image itself MUST NOT be rendered as the backdrop. The hero MUST render avatar, display name, handle, and bio.
 
 #### Scenario: User with a banner shows a palette-derived gradient
 
@@ -62,7 +62,7 @@ The hero card SHALL render the user's profile header inside a `Surface` whose ba
 
 ### Requirement: Inline stats and meta row replace the chip variant
 
-The hero card SHALL render the user's stats as an inline single-line label: `<postsCount> Posts · <followersCount> Followers · <followingCount> Following`, with numbers formatted via locale-aware short-scale abbreviation (e.g. `2.1k`, `1.4M`). The chip variant of the stats (shown in earlier design iterations) MUST NOT be present. The meta row SHALL render up to three optional rows in vertical order, each preceded by a 14 dp `NubecitaIcon`: link (when `profile.link` is non-null), location (when `profile.location` is non-null), and joined date (always present, formatted as `Joined <Month YYYY>`).
+The hero card SHALL render stats as an inline single-line label: `<postsCount> Posts · <followersCount> Followers · <followingCount> Following` using locale-aware short-scale abbreviation. Chip-style stats MUST NOT be used. The meta row SHALL render up to three optional rows in vertical order with a 14 dp `NubecitaIcon`: link (if present), location (if present), and joined date formatted as `Joined <Month YYYY>`.
 
 #### Scenario: Inline stats are rendered as a single line
 
@@ -76,7 +76,7 @@ The hero card SHALL render the user's stats as an inline single-line label: `<po
 
 ### Requirement: Actions row ships as stubs that emit `ProfileEffect.ShowMessage`
 
-The actions row SHALL render the design's three buttons at full visual fidelity. For `ownProfile = true`, the row MUST render an Edit button and an overflow button. For `ownProfile = false`, the row MUST render a Follow button, a Message button, and an overflow button. Tapping any of Edit, Follow, or Message MUST cause the ViewModel to emit `ProfileEffect.ShowMessage(UiText.StringResource(R.string.profile_action_coming_soon))`. The screen Composable's effect collector MUST surface the message via the screen's `SnackbarHostState`. No write API MAY be invoked from any of the three handlers in this change.
+The actions row SHALL render three buttons: Edit and overflow when `ownProfile = true`; Follow, Message, and overflow when `ownProfile = false`. Tapping Edit, Follow, or Message MUST emit `ProfileEffect.ShowMessage(UiText.StringResource(R.string.profile_action_coming_soon))`, surfaced via `SnackbarHostState`. No write API MAY be invoked from these actions.
 
 #### Scenario: Follow tap surfaces a Coming Soon snackbar
 
@@ -109,7 +109,7 @@ The hero region SHALL render three pill-style tabs (`Posts`, `Replies`, `Media`)
 
 ### Requirement: Posts, Replies, and Media bodies render per-tab
 
-The Posts tab body SHALL render a `LazyColumn` of `:designsystem.PostCard`s derived from `app.bsky.feed.getAuthorFeed(filter = posts_no_replies)`. The Replies tab body SHALL render a `LazyColumn` of `PostCard`s derived from `getAuthorFeed(filter = posts_with_replies)`. The Media tab body SHALL render a `LazyVerticalGrid(GridCells.Fixed(3))` of media thumbs derived from `getAuthorFeed(filter = posts_with_media)`, using the first image from each post's embed as the grid cell content. Each tab MUST handle its own pagination — when the user scrolls within `PREFETCH_DISTANCE` items of the end of its `items` list and `hasMore == true`, the ViewModel SHALL receive a `ProfileEvent.LoadMore(tab)` and issue a `getAuthorFeed` call with the tab's current cursor. `PREFETCH_DISTANCE` MUST be a `private const val` inside `:feature:profile:impl` mirroring the existing convention in `:feature:feed:impl/FeedScreen.kt` (`private const val PREFETCH_DISTANCE = 5`); the numeric value MAY differ across features but the name MUST match so future grep-tooling stays consistent.
+Posts and Replies tab bodies SHALL render a `LazyColumn` of `PostCard`s using `getAuthorFeed` (with `posts_no_replies` and `posts_with_replies` respectively). Media tab body SHALL render a 3-column `LazyVerticalGrid` of media thumbnails using `getAuthorFeed(filter = posts_with_media)`. Each tab MUST handle pagination with `PREFETCH_DISTANCE = 5`, emitting `ProfileEvent.LoadMore(tab)` with its current cursor.
 
 #### Scenario: Media grid renders three columns
 
@@ -128,7 +128,7 @@ The Posts tab body SHALL render a `LazyColumn` of `:designsystem.PostCard`s deri
 
 ### Requirement: Post tap inside the profile body emits `NavigateToPost` and integrates with `ListDetailSceneStrategy`
 
-Tapping a `PostCard` or media grid cell inside any tab body SHALL cause the ViewModel to emit `ProfileEffect.NavigateToPost(postUri: String)`. The screen Composable's effect collector MUST call `LocalMainShellNavState.current.add(PostDetailRoute(postUri))`. The profile screen's `@MainShell` entry provider MUST be registered with `androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy.listPane { … }` metadata so that on Medium / Expanded widths the strategy renders the profile in the list pane and the pushed `PostDetailRoute` in the detail pane. On Compact widths the strategy passes through, rendering the `PostDetailRoute` full-screen via the existing `PostDetail` provider.
+Tapping a `PostCard` or media cell SHALL emit `ProfileEffect.NavigateToPost(postUri)`. The screen collector MUST call `LocalMainShellNavState.current.add(PostDetailRoute(postUri))`. The profile entry provider MUST register `ListDetailSceneStrategy.listPane` metadata so Medium/Expanded widths render profile in list pane and post detail in detail pane, while Compact widths render post detail full-screen.
 
 #### Scenario: Compact post tap navigates full-screen
 
@@ -170,19 +170,7 @@ The `Settings` `NavKey` SHALL resolve to a one-screen Composable rendered by `:f
 
 ### Requirement: Screenshot-test contract covers hero, tabs, actions row, and adaptive layouts
 
-`:feature:profile:impl/src/screenshotTest/` SHALL contain Compose screenshot tests covering at minimum the following fixtures, each at light and dark themes:
-
-- Own profile hero with a banner (Palette-derived gradient)
-- Own profile hero without a banner (avatarHue-derived gradient)
-- Other-user profile hero (with banner)
-- Posts tab body — loaded with at least one PostCard
-- Replies tab body — loaded with at least one PostCard
-- Media tab body — loaded with a 3×N grid
-- Each tab in `InitialLoading` state
-- Each tab in `InitialError` state
-- Each tab in `Loaded(items = [])` empty state
-- Actions row variants — own (Edit + overflow), other (Follow + Message + overflow)
-- Settings stub screen
+`:feature:profile:impl/src/screenshotTest/` SHALL contain screenshot tests covering at minimum: own profile hero with and without banner, other-user profile hero, Posts and Replies loaded bodies, Media 3-column grid, and each tab's `InitialLoading`, `InitialError`, and empty states, plus action row variants and Settings stub, in both light and dark themes.
 
 #### Scenario: Screenshot suite renders deterministically
 

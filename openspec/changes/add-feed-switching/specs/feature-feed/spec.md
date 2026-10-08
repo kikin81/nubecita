@@ -2,25 +2,11 @@
 
 ### Requirement: `FeedRepository` is the only layer that calls `FeedService` directly
 
-The system SHALL expose an `internal interface FeedRepository` in `:feature:feed:impl`
-that fetches a page for each supported feed kind, each method returning
-`Result<TimelinePage>`:
-
-- `suspend fun getTimeline(cursor: String?, limit: Int = TIMELINE_PAGE_LIMIT)` — the
-  Following timeline (`app.bsky.feed.getTimeline`).
-- `suspend fun getFeed(feedUri: String, cursor: String?, limit: Int = TIMELINE_PAGE_LIMIT)`
-  — a generator/custom feed (`app.bsky.feed.getFeed`).
-- `suspend fun getListFeed(listUri: String, cursor: String?, limit: Int = TIMELINE_PAGE_LIMIT)`
-  — a list feed (`app.bsky.feed.getListFeed`).
-
-All three responses are `List<FeedViewPost>` and MUST flow through the same
-`toFeedItemsUi()` mapping, dedupe, and chain-merge so `TimelinePage` has one shape
-regardless of kind. The `DefaultFeedRepository` implementation MUST be the only class in
-`:feature:feed:impl` that imports `io.github.kikin81.atproto.app.bsky.feed.FeedService`.
-`FeedViewModel` MUST inject the interface, never the concrete class. The interface and its
-implementation MUST stay `internal` to `:feature:feed:impl` until a second consumer (post
-detail, search) requires the same fetch surface — at that point a follow-on change
-promotes them to a `:core:feed` module.
+The system SHALL expose an `internal interface FeedRepository` in `:feature:feed:impl` fetching pages for supported feed kinds, each returning `Result<TimelinePage>`:
+- `getTimeline`: Following timeline (`app.bsky.feed.getTimeline`).
+- `getFeed`: Generator/custom feed (`app.bsky.feed.getFeed`).
+- `getListFeed`: List feed (`app.bsky.feed.getListFeed`).
+All responses MUST flow through `toFeedItemsUi()` mapping. `DefaultFeedRepository` MUST be the sole class in `:feature:feed:impl` importing `FeedService`. `FeedViewModel` MUST inject the interface.
 
 #### Scenario: VM injects the interface
 
@@ -64,16 +50,7 @@ successful append) MUST be identical across kinds.
 
 ### Requirement: The main Feed hosts a feed switcher with per-feed retention
 
-The system SHALL host the main Feed through a `FeedHost` composable backed by a
-`FeedHostViewModel : MviViewModel<FeedHostState, FeedHostEvent, FeedHostEffect>` that owns
-only the chip list and the current selection (`feedChips`, `pinnedLists`,
-`selectedFeedUri`, a mutually-exclusive `FeedHostStatus` of `Loading | Ready |
-ErrorFallback`). `FeedHostViewModel` MUST NOT own per-feed timeline state. Each selected
-feed MUST render as a `FeedPane` whose `FeedViewModel` is obtained via
-`hiltViewModel(key = feedUri)` and is wrapped in a `SaveableStateHolder` via
-`SaveableStateProvider(feedUri)`. Switching away from and back to a feed MUST restore its
-loaded posts, pagination cursor, and scroll position without re-fetching. At most one pane
-MUST be composed at a time.
+The system SHALL host the main Feed via `FeedHost` backed by `FeedHostViewModel` owning chip list and selection (`feedChips`, `pinnedLists`, `selectedFeedUri`, `FeedHostStatus`). `FeedHostViewModel` MUST NOT own per-feed timeline state. Each feed MUST render as a `FeedPane` keyed by `feedUri` wrapped in `SaveableStateHolder`. Switching feeds MUST restore loaded posts, cursor, and scroll position without re-fetching. At most one pane MUST be composed at a time.
 
 #### Scenario: Switching back retains posts and scroll
 
@@ -96,14 +73,7 @@ MUST be composed at a time.
 
 ### Requirement: Chips render pinned feeds; lists collapse into a disclosure chip
 
-The chip row SHALL render each pinned feed (`Following`, `Generator`) as an individual
-`FilterChip` in pinned order within a horizontally scrollable row, and SHALL collapse all
-pinned lists into a single disclosure chip rendered only when ≥1 list is pinned. The
-disclosure chip MUST open a `ModalBottomSheet` single-select radio list of the pinned
-lists; selecting a list MUST make it the active feed and relabel the chip to its name.
-Exactly one feed (or one list) is selected at a time. A selected chip MUST keep its feed
-avatar/glyph visible (selection is shown via the filled container), and MUST NOT swap the
-leading slot to the default selection checkmark.
+The chip row SHALL render pinned feeds as individual `FilterChip`s in pinned order and collapse pinned lists into a single disclosure chip when ≥1 list is pinned. The disclosure chip MUST open a `ModalBottomSheet` single-select radio list of pinned lists; selecting a list MUST make it the active feed and relabel the chip. Exactly one feed is selected at a time. A selected chip MUST keep its avatar visible and MUST NOT swap the leading slot to the default checkmark.
 
 #### Scenario: Lists collapse to one chip
 
@@ -125,13 +95,7 @@ leading slot to the default selection checkmark.
 
 ### Requirement: The chip row scrolls away and is list-pane-scoped on tablet
 
-The chip row SHALL hide on downward scroll and reveal on upward scroll, driven by a
-nested-scroll connection to the active pane's `LazyListState`, and its reveal state MUST
-reset to shown on feed switch. The chip row MUST be a child of the Feed's own `Scaffold`
-content so it spans full width on compact widths and the list-pane width (412dp medium /
-440dp expanded) when the Feed renders as the list pane of the `ListDetailPaneScaffold`. No
-shell-level or full-window header is introduced; the detail pane retains PostDetail's own
-`TopAppBar`.
+The chip row SHALL hide on downward scroll and reveal on upward scroll via nested scroll on the active pane's `LazyListState`, resetting to shown on feed switch. The chip row MUST be a child of the Feed's `Scaffold` content so it spans full width on compact widths and list-pane width (412dp medium / 440dp expanded) when Feed renders as the list pane of `ListDetailPaneScaffold`. The detail pane retains its own `TopAppBar`.
 
 #### Scenario: Header hides while reading and returns
 

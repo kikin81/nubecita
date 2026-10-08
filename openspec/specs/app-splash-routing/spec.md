@@ -5,7 +5,7 @@ Cold-start routing: the `Splash` start destination held on screen by the system 
 ## Requirements
 ### Requirement: `:app` defines a `Splash` NavKey as the start destination
 
-`:app` SHALL define `@Serializable data object Splash : NavKey` as the start destination returned by `StartDestinationModule.provideStartDestination()`. `MainNavigation` SHALL register an `entry<Splash>` rendering a `NubecitaLogomark` (from `:designsystem`) centered over `MaterialTheme.colorScheme.background`. The system SplashScreen API overlays this composable via `setKeepOnScreenCondition` while session bootstrap runs; once the system splash dismisses, the composable below is already drawing the same brand cloud, eliminating any flash of empty surface between dismiss and the route swap to Login or Main.
+`:app` SHALL define `@Serializable data object Splash : NavKey` as start destination via `StartDestinationModule`. `MainNavigation` SHALL register `entry<Splash>` rendering centered `NubecitaLogomark` over background. The SplashScreen API overlays this composable via `setKeepOnScreenCondition` while session bootstrap runs, avoiding flicker before swapping routes to Login or Main.
 
 #### Scenario: Cold start shows the system splash, then the routed destination
 
@@ -19,14 +19,7 @@ Cold-start routing: the `Splash` start destination held on screen by the system 
 
 ### Requirement: `MainActivity` installs the SplashScreen API and holds it while session is Loading
 
-`MainActivity.onCreate` SHALL:
-
-1. Call `installSplashScreen()` BEFORE `super.onCreate(savedInstanceState)`.
-2. Call `splashScreen.setKeepOnScreenCondition { sessionStateProvider.state.value is SessionState.Loading }` so the system splash remains visible until the bootstrap resolves.
-3. Inject `SessionStateProvider` (`@Inject lateinit var sessionStateProvider: SessionStateProvider`).
-4. After `setContent`, launch a `lifecycleScope` coroutine that calls `sessionStateProvider.refresh()` to drive the initial state read off the splash.
-
-The keep-on-screen predicate SHALL be cheap (a synchronous `state.value` read) — it's invoked from the platform's frame callback, not a coroutine context.
+`MainActivity.onCreate` SHALL call `installSplashScreen()` before `super.onCreate`, call `splashScreen.setKeepOnScreenCondition { sessionStateProvider.state.value is SessionState.Loading }`, inject `SessionStateProvider`, and after `setContent` launch a coroutine calling `sessionStateProvider.refresh()`. The keep-on-screen predicate SHALL be a cheap synchronous read.
 
 #### Scenario: SplashScreen is installed before super.onCreate
 
@@ -40,15 +33,7 @@ The keep-on-screen predicate SHALL be cheap (a synchronous `state.value` read) �
 
 ### Requirement: `MainActivity` reactively replaces the back stack when SessionState changes
 
-`MainActivity.onCreate` SHALL launch a second `lifecycleScope` coroutine that collects `sessionStateProvider.state` and calls:
-
-- `navigator.replaceTo(Login)` on `SessionState.SignedOut`.
-- `navigator.replaceTo(Main)` on `SessionState.SignedIn`.
-- No-op on `SessionState.Loading`.
-
-The collector SHALL run for the lifetime of the activity (not just for the bootstrap window) so subsequent state transitions — most importantly a future `signOut()` while the user is on `Main` — automatically swap the back stack to `Login` without any explicit caller-side navigation.
-
-`navigator.replaceTo` is idempotent — emitting the same state twice produces a no-op visible change.
+`MainActivity.onCreate` SHALL collect `sessionStateProvider.state` across activity lifetime and invoke `navigator.replaceTo(Login)` on `SessionState.SignedOut` or `navigator.replaceTo(Main)` on `SessionState.SignedIn` (no-op on `Loading`). `navigator.replaceTo` SHALL be idempotent.
 
 #### Scenario: SignedIn transition replaces Splash with Main on cold start
 
@@ -67,13 +52,7 @@ The collector SHALL run for the lifetime of the activity (not just for the boots
 
 ### Requirement: `Theme.Nubecita` is configured as a `Theme.SplashScreen`
 
-`app/src/main/res/values/themes.xml` SHALL parent `Theme.Nubecita` to `Theme.SplashScreen` (from `androidx.core:core-splashscreen`) and SHALL define the following items:
-
-- `windowSplashScreenBackground` MUST be `@color/brand_sky_blue` (`#FF0A7AFF`).
-- `windowSplashScreenAnimatedIcon` MUST be `@drawable/ic_launcher_foreground` (the brand cloud foreground vector).
-- `postSplashScreenTheme` MUST be `@style/Theme.Nubecita.PostSplash`, where `Theme.Nubecita.PostSplash` is parented to `android:Theme.Material.Light.NoActionBar` (preserves the prior post-splash activity look).
-
-The `:app` `<application>` (and/or `MainActivity`'s `<activity>`) entry in `AndroidManifest.xml` SHALL continue to reference `@style/Theme.Nubecita` — no manifest change is required.
+`themes.xml` SHALL parent `Theme.Nubecita` to `Theme.SplashScreen` defining `windowSplashScreenBackground` as `@color/brand_sky_blue`, `windowSplashScreenAnimatedIcon` as `@drawable/ic_launcher_foreground`, and `postSplashScreenTheme` as `@style/Theme.Nubecita.PostSplash` (parented to `android:Theme.Material.Light.NoActionBar`). `AndroidManifest.xml` references `@style/Theme.Nubecita`.
 
 #### Scenario: System splash renders the brand cloud on `#0A7AFF`
 
@@ -87,13 +66,7 @@ The `:app` `<application>` (and/or `MainActivity`'s `<activity>`) entry in `Andr
 
 ### Requirement: Adaptive launcher icon renders the brand cloud
 
-`app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml` and `mipmap-anydpi-v26/ic_launcher_round.xml` SHALL define a three-layer adaptive icon:
-
-- `<background android:drawable="@drawable/ic_launcher_background"/>` — solid `@color/brand_sky_blue` 108dp rect.
-- `<foreground android:drawable="@drawable/ic_launcher_foreground"/>` — white brand cloud (3 circles + rounded rect base) ported from `openspec/references/design-system/assets/logomark.svg`, sized to fit within the 72dp adaptive safe zone.
-- `<monochrome android:drawable="@drawable/ic_launcher_monochrome"/>` — same cloud silhouette as the foreground, suitable for Android 13+ themed icons (the system tints it via the device accent).
-
-The dpi-bucketed raster fallbacks under `mipmap-{m,h,xh,xxh,xxxh}dpi/ic_launcher*.webp` SHALL NOT exist — `:app` `minSdk = 28`, so the adaptive icon is always used and the rasters are dead code. Lint warnings about a missing raster fallback for `mipmap-anydpi-v26` are acceptable.
+Adaptive icons in `mipmap-anydpi-v26/ic_launcher*.xml` SHALL define three layers: background (`@drawable/ic_launcher_background`), foreground (`@drawable/ic_launcher_foreground` brand cloud in safe zone), and monochrome (`@drawable/ic_launcher_monochrome` silhouette for themed icons). Raster fallbacks under `mipmap-*dpi` SHALL NOT exist.
 
 #### Scenario: Launcher renders brand cloud in any mask shape
 

@@ -32,15 +32,7 @@ The `:feature:notifications:impl` Hilt module SHALL provide an `@IntoSet @MainSh
 
 ### Requirement: `NotificationsState` is flat with a sealed `NotificationsLoadStatus` for lifecycle
 
-`NotificationsState` SHALL expose, at minimum:
-
-- `items: ImmutableList<NotificationItemUi>`
-- `activeFilter: NotificationFilter` (default `All`)
-- `loadStatus: NotificationsLoadStatus` (default `InitialLoading`)
-- `cursor: String?`
-- `hasMore: Boolean`
-
-`NotificationsLoadStatus` SHALL be a `sealed interface` with mutually-exclusive variants `Idle`, `InitialLoading`, `Refreshing`, `Appending`, and `InitialError(error: NotificationsError)`. The state SHALL NOT wrap remote data in an `Async<T>` / `Result<T>` envelope.
+`NotificationsState` SHALL expose `items: ImmutableList<NotificationItemUi>`, `activeFilter: NotificationFilter` (default `All`), `loadStatus: NotificationsLoadStatus` (default `InitialLoading`), `cursor: String?`, and `hasMore: Boolean`. `NotificationsLoadStatus` SHALL be a sealed interface with variants `Idle`, `InitialLoading`, `Refreshing`, `Appending`, and `InitialError(error: NotificationsError)`. The state SHALL NOT wrap remote data in an `Async<T>` or `Result<T>` envelope.
 
 #### Scenario: Refreshing and Appending are mutually exclusive
 
@@ -83,7 +75,7 @@ A `NotificationFilter` enum SHALL define exactly the values `All`, `Mentions`, `
 
 ### Requirement: Notifications are aggregated client-side into single-actor and multi-actor rows
 
-A `NotificationsMapper` SHALL group same-page **engagement-style** notifications — `like`, `like-via-repost`, `repost`, `repost-via-repost` — by `(reason, reasonSubject)` into one `NotificationItemUi.Aggregated` row with `actors` populated by the union of contributors, ordered by `indexedAt` descending. `follow` notifications (where `reasonSubject` is null) SHALL aggregate by `(reason, sameCalendarDay)`. **Content-bearing reasons** — `reply`, `quote`, `mention`, `subscribed-post` — and **rare per-actor reasons** — `starterpack-joined`, `verified`, `unverified`, `contact-match`, `Unknown` — SHALL each render as their own `NotificationItemUi.Single` row regardless of `reasonSubject` overlap, because the row's load-bearing content (the actor's new post, the verification record, the joined-starterpack identity) is distinct per actor. Single-event groups in aggregatable categories SHALL render as `NotificationItemUi.Single`. Aggregation SHALL be page-scoped (no cross-page merging in this slice).
+A `NotificationsMapper` SHALL group same-page engagement notifications (`like`, `repost`, via-repost variants) by `(reason, reasonSubject)` into `NotificationItemUi.Aggregated` with contributors ordered by `indexedAt` descending. `follow` notifications SHALL aggregate by `(reason, sameCalendarDay)`. Content-bearing and per-actor reasons (`reply`, `quote`, `mention`, `subscribed-post`, etc.) and single-event groups SHALL render as `NotificationItemUi.Single`. Aggregation SHALL be page-scoped.
 
 #### Scenario: Three likes of the same post collapse into one Aggregated row
 
@@ -121,14 +113,11 @@ The VM SHALL emit `NotificationsEvent.TabExited` (or equivalent) when the screen
 ### Requirement: Row taps deep-link to the source surface
 
 `NotificationsEvent.RowTapped(item)` SHALL resolve a `NavKey` target by `reason`:
-
-- `like`, `repost`, `like-via-repost`, `repost-via-repost`, `subscribed-post` → PostDetail derived from `reasonSubject` (AT-URI → DID + rkey)
-- `reply`, `quote`, `mention` → PostDetail derived from the notification's `uri`
-- `follow`, `contact-match`, `starterpack-joined` → Profile of the actor (`actor.did`)
-- `verified`, `unverified` → Profile of the recipient (the session DID)
-- Unknown reason → no effect emitted (debug-log only)
-
-The VM SHALL emit `NotificationsEffect.NavigateTo(target)`. The screen Composable SHALL collect effects and call `LocalMainShellNavState.current.add(target)`. The VM SHALL NOT inject `MainShellNavState` or any navigator.
+- `like`/`repost`/`subscribed-post` → PostDetail from `reasonSubject`.
+- `reply`/`quote`/`mention` → PostDetail from notification `uri`.
+- `follow`/`contact-match`/`starterpack-joined` → Profile of `actor.did`.
+- `verified`/`unverified` → Profile of session DID.
+The VM SHALL emit `NotificationsEffect.NavigateTo(target)` collected by the screen. The VM SHALL NOT inject navigators.
 
 #### Scenario: Like row navigates to PostDetail
 
@@ -188,7 +177,7 @@ When the list is empty and `loadStatus == Idle`, the screen SHALL render the `:d
 
 ### Requirement: Polling of `getUnreadCount` is app-foregrounded and lifecycle-aware
 
-A Hilt-singleton `NotificationsUnreadCountStore` SHALL expose a `StateFlow<Int>` of the current unread count. A `ProcessLifecycleOwner`-scoped observer registered in `NubecitaApplication.onCreate` SHALL run `lifecycle.repeatOnLifecycle(STARTED) { while (isActive) { fetch(); delay(60.seconds) } }`. While the app is backgrounded (lifecycle below `STARTED`), polling MUST stop. Polling MUST be single-flight (overlapping requests skipped) and MUST apply exponential backoff on failure (60s → 120s → 240s → cap 300s, reset on success). The store MUST clear (set count to 0) on logout.
+A Hilt-singleton `NotificationsUnreadCountStore` SHALL expose `StateFlow<Int>` of current unread count. A `ProcessLifecycleOwner` observer SHALL poll every 60s while `STARTED`. When backgrounded, polling MUST stop. Polling MUST be single-flight and apply exponential backoff on failure (60s to 300s cap, reset on success). The store MUST clear to 0 on logout.
 
 #### Scenario: Backgrounding stops polling
 

@@ -35,17 +35,7 @@ white video frame.
 
 ### Requirement: The overlay control component set lives in `:designsystem`
 
-`:designsystem` SHALL own the overlay control components. Feature modules SHALL consume them and
-MUST NOT hand-roll an overlay control.
-
-The component set SHALL cover both layouts already present in the app: an **icon-only** control
-(the fullscreen player's secondary controls: back, skip ±10s, mute, and PiP buttons) and an
-**icon-with-count** control stacked vertically (the trending feed's rail cells: like, repost,
-bookmark, reply, share, overflow and mute).
-
-The primary transport play/pause control is deliberately distinct: it is the primary filled action
-button with dedicated sizing (72dp) and morphing shape interaction, so it retains its primary button
-styling rather than blending in as a circular scrim overlay control.
+`:designsystem` SHALL own overlay control components. Feature modules SHALL consume them and MUST NOT hand-roll overlay controls. The set SHALL cover icon-only controls (fullscreen player secondary controls) and vertically stacked icon-with-count controls (feed rail cells). The primary transport play/pause control retains dedicated filled action button styling (72dp).
 
 #### Scenario: Feature module renders an overlay control
 
@@ -78,15 +68,7 @@ Toggleable overlay controls SHALL use `Role.Switch` semantics with `contentDescr
 
 ### Requirement: The public API MUST NOT expose the backing treatment
 
-The overlay control components' public API MUST NOT expose how a control is backed. It MUST NOT
-carry a scrim color, an alpha, a blur parameter, a quality mode, or a backdrop-source handle, and
-MUST NOT reference any third-party effect library type.
-
-Callers SHALL describe what the control *is* — its icon, label, count, toggled state and action —
-never how it is rendered. The component SHALL resolve its own treatment internally.
-
-This is what allows the treatment to change — including gaining background blur in a later change,
-or varying by API level or surface — without editing any call site.
+The overlay control components' public API MUST NOT expose backing treatments (scrim color, alpha, blur, quality mode, backdrop-source handle, or effect library types). Callers SHALL describe control semantics (icon, label, count, toggled state, and action). The component SHALL resolve its treatment internally.
 
 #### Scenario: No treatment parameters on the public API
 
@@ -105,15 +87,7 @@ or varying by API level or surface — without editing any call site.
 
 ### Requirement: The backing treatment MUST NOT require sampling the media behind it
 
-The treatment MUST render correctly without reading the pixels beneath the control, and MUST NOT
-depend on the media surface being capturable.
-
-This keeps the surface type a pure playback concern: a surface may use
-`SURFACE_TYPE_TEXTURE_VIEW` or `SURFACE_TYPE_SURFACE_VIEW`, and may be switched between them for
-battery or compositing reasons, without affecting its controls. Content drawn by the window
-compositor in a separate hardware layer — notably a `SurfaceView` — cannot be sampled from the
-Compose render tree at all, so a treatment that required sampling would be unavailable on exactly
-the surface that most needs legible controls.
+The backing treatment MUST render correctly without reading pixels beneath the control or requiring the media surface to be capturable, ensuring support across both `SurfaceView` and `TextureView`.
 
 #### Scenario: Media renders into a SurfaceView
 

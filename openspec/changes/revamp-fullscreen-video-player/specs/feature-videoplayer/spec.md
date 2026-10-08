@@ -2,16 +2,7 @@
 
 ### Requirement: Fullscreen player resolves the full post and carries its social state
 
-The fullscreen player MUST resolve its post (reached via
-`VideoPlayerRoute(postUri)`) through `:core:posts`
-`PostRepository.getPost(uri)`, so player state carries the complete `PostUi` —
-author (`AuthorUi`), social counts (`PostStatsUi`: like/repost/reply), viewer
-interaction state (`ViewerStateUi`: like/repost flags + record URIs), and the
-`EmbedUi.Video` (playlist, poster, aspect ratio, alt-text). The player MUST NOT
-re-project `PostView` locally; the embed-only `VideoPostResolver` /
-`ResolvedVideoPost` is removed. The mutually-exclusive load lifecycle
-(`Resolving` → `Ready` / `Error`) is preserved; social fields populate when the
-fetch resolves, and a fetch failure routes to the retryable `Error` state.
+The fullscreen player MUST resolve its post (`VideoPlayerRoute(postUri)`) through `:core:posts` `PostRepository.getPost(uri)` so player state carries the complete `PostUi` (author, social counts, viewer state, `EmbedUi.Video`). The player MUST NOT re-project `PostView` locally. The load lifecycle (`Resolving` → `Ready` / `Error`) is preserved; social fields populate on resolve, and failure routes to retryable `Error`.
 
 #### Scenario: Resolution hydrates playback and social data from one read
 
@@ -65,14 +56,7 @@ end-of-stream.
 
 ### Requirement: Mute and picture-in-picture live in a utility row under play/pause
 
-Mute/unmute and the pop-out (picture-in-picture) affordance MUST render together
-in a secondary control row beneath the play/pause button — grouped as player
-controls, distinct from the post-action group. The PiP affordance MUST remain
-gated by the existing device × Pro capability flag: it is shown only where the
-device supports PiP, and a tap enters PiP for entitled (Pro) users or routes a
-non-entitled user to the paywall (the `resolvePopOut` decision stays in the
-Compose layer, never the ViewModel). When PiP is unsupported, the row shows mute
-alone.
+Mute/unmute and picture-in-picture affordances MUST render together in a secondary control row beneath play/pause. The PiP affordance MUST remain gated by device × Pro capability flags: shown only when supported, tapping enters PiP for Pro users or routes non-entitled users to the paywall (`resolvePopOut` stays in Compose). When PiP is unsupported, the row shows mute alone.
 
 #### Scenario: Non-Pro pop-out tap upsells the paywall
 
@@ -97,15 +81,7 @@ author's Profile.
 
 ### Requirement: Chrome fades through a three-state auto-hide ladder
 
-Chrome visibility MUST be a mutually-exclusive lifecycle —
-`Shown` / `Peeking` / `Hidden` — not a set of independent booleans.
-`Shown` renders all controls (top bar, author chip, center transport, caption,
-wavy bar, action group with counts). `Peeking` lightens the scrim and renders
-the top bar, author chip, caption, wavy bar, and action glyphs WITHOUT their
-counts, with the center transport hidden. `Hidden` renders no chrome — only a
-centered tap-to-play affordance and a thin bottom progress hairline. Auto-advance
-through the ladder MUST occur only while playing; a tap returns to `Shown`, and
-pausing pins `Shown`.
+Chrome visibility MUST be a mutually-exclusive lifecycle (`Shown` / `Peeking` / `Hidden`). `Shown` renders all controls. `Peeking` lightens the scrim and renders top bar, author chip, caption, wavy bar, and action glyphs without counts and with center transport hidden. `Hidden` renders only a centered tap-to-play affordance and bottom progress hairline. Auto-advance occurs only while playing; tapping returns to `Shown`, and pausing pins `Shown`.
 
 #### Scenario: Idle playback advances Shown → Peeking → Hidden
 
@@ -121,14 +97,7 @@ pausing pins `Shown`.
 
 ### Requirement: A connected action group exposes Like, Repost, Comment, and Share
 
-The player MUST render a Material 3 `ButtonGroup` with Like, Repost, Comment, and
-Share actions reflecting the resolved post's counts and viewer state. Like MUST
-toggle optimistically through `:core:post-interactions`
-(`LikeRepostRepository` + `PostInteractionsCache`) so the player and the feed/
-post-detail surfaces stay consistent for the same post. Repost MUST present a
-Repost / Quote choice (a plain repost toggles optimistically; Quote opens the
-composer in quote mode). Share MUST launch the system share sheet via the
-existing `PostShareLauncher`. Comment MUST open the comments sheet.
+The player MUST render a Material 3 `ButtonGroup` with Like, Repost, Comment, and Share actions reflecting post counts and viewer state. Like MUST toggle optimistically via `:core:post-interactions`. Repost MUST present a Repost / Quote choice (repost toggles optimistically; Quote opens composer). Share MUST launch the system share sheet via `PostShareLauncher`. Comment MUST open the comments sheet.
 
 #### Scenario: Liking in the player reflects in the feed
 

@@ -57,15 +57,7 @@ The login screen SHALL render: (a) an input field for a Bluesky handle (e.g. `al
 
 ### Requirement: `LoginViewModel` drives `beginLogin` and emits `LaunchCustomTab` on success
 
-`LoginViewModel` SHALL extend `MviViewModel<LoginState, LoginEvent, LoginEffect>`. On receiving `LoginEvent.SubmitLogin` with a non-blank handle, it SHALL (a) set `isLoading = true`, (b) call `authRepository.beginLogin(state.handle)`, (c) on success emit `LoginEffect.LaunchCustomTab(url)` and reset `isLoading`, (d) on failure classify the wrapped `Throwable` into a typed `LoginError` variant and set `state.errorMessage` accordingly without forwarding any library text to the screen. Blank-handle submissions SHALL set `errorMessage = LoginError.BlankHandle` without invoking the repository.
-
-The failure-classification SHALL distinguish at least the following variants of `LoginError`:
-
-- `LoginError.HandleNotFound(handle: String)` — the submitted handle did not resolve to a DID. Detected by `Throwable is OAuthDiscoveryException && message?.startsWith("Failed to resolve handle") == true`.
-- `LoginError.Network` — a network failure occurred during discovery. Detected by walking the `Throwable.cause` chain for an `IOException`, `UnknownHostException`, or `SocketTimeoutException` (all JDK stdlib types; Ktor types are intentionally excluded because Ktor is not on `:feature:login:impl`'s compile classpath).
-- `LoginError.Generic` — any other `Throwable`. The library message SHALL NOT be exposed to the UI.
-
-`LoginError.Failure(cause: String?)` is **removed** by this change; no production code in `:feature:login:impl` SHALL reference it after the migration.
+`LoginViewModel` SHALL extend `MviViewModel<LoginState, LoginEvent, LoginEffect>`. On receiving non-blank `LoginEvent.SubmitLogin`, it SHALL set `isLoading = true`, call `authRepository.beginLogin(state.handle)`, emit `LoginEffect.LaunchCustomTab(url)` on success, or map failures into typed `LoginError` variants (`HandleNotFound`, `Network`, `Generic`). Blank handle submissions SHALL set `errorMessage = LoginError.BlankHandle`. `LoginError.Failure` MUST NOT be used.
 
 #### Scenario: Successful beginLogin emits LaunchCustomTab
 
@@ -122,12 +114,7 @@ The failure-classification SHALL distinguish at least the following variants of 
 
 ### Requirement: `LoginViewModel` collects from `OAuthRedirectBroker` and completes login
 
-`LoginViewModel` SHALL inject `OAuthRedirectBroker` and `AuthRepository` and, in its `init` block, launch a coroutine in `viewModelScope` that collects `broker.redirects`. For each emitted URI it SHALL call `authRepository.completeLogin(uri)`:
-
-- on success, it SHALL emit `LoginEffect.LoginSucceeded`;
-- on failure, it SHALL classify the wrapped `Throwable` using the same mapping as the `beginLogin` failure arm (handle-not-found / network / generic) and set `state.errorMessage` to the resulting `LoginError` variant. The classification SHALL NOT forward library text. The handle used for any `LoginError.HandleNotFound` variant SHALL be `state.handle` at the time of failure (the `completeLogin` path normally cannot produce a handle-not-found result, but the mapping table is shared for consistency). No navigation effect SHALL be emitted on failure.
-
-The collection SHALL persist for the lifetime of the VM and SHALL stop when `viewModelScope` is cancelled (i.e., when the VM is cleared).
+`LoginViewModel` SHALL inject `OAuthRedirectBroker` and `AuthRepository` and collect `broker.redirects` in `viewModelScope`. For each emitted URI it SHALL invoke `authRepository.completeLogin(uri)`. On success it SHALL emit `LoginEffect.LoginSucceeded`; on failure it SHALL classify the `Throwable` into a typed `LoginError` variant (`HandleNotFound`, `Network`, or `Generic`) and set `state.errorMessage` without exposing library error text or emitting navigation effects.
 
 #### Scenario: Broker emission triggers completeLogin and emits LoginSucceeded
 
@@ -155,12 +142,10 @@ The collection SHALL persist for the lifetime of the VM and SHALL stop when `vie
 
 ### Requirement: `LoginScreen` `LaunchedEffect` handles both side-effecting effects
 
-The stateful `LoginScreen()` overload SHALL collect `viewModel.effects` inside a single `LaunchedEffect(viewModel)` and dispatch:
-
-- `LoginEffect.LaunchCustomTab(url)` → `CustomTabsIntent.Builder().build().launchUrl(context, url.toUri())`, where `context` is `LocalContext.current`.
-- `LoginEffect.LoginSucceeded` → **no-op**. Post-login destination routing is owned by `MainActivity`'s reactive observer of `SessionStateProvider.state`; the screen no longer pops the back stack itself. The branch remains in the `when` so the compiler enforces exhaustiveness when future `LoginEffect` variants are added.
-
-Subsequent variants of `LoginEffect` added in future PRs SHALL be handled here; the `when` must remain exhaustive.
+The stateful `LoginScreen()` SHALL collect `viewModel.effects` in a single `LaunchedEffect(viewModel)`:
+- `LoginEffect.LaunchCustomTab(url)` launches `url` using `CustomTabsIntent`.
+- `LoginEffect.LoginSucceeded` is a no-op at screen level because post-login routing is handled reactively by `MainActivity` observing `SessionStateProvider.state`.
+The effect-handling `when` expression MUST remain exhaustive.
 
 #### Scenario: LaunchCustomTab opens the URL in a Custom Tab
 
@@ -179,12 +164,7 @@ Subsequent variants of `LoginEffect` added in future PRs SHALL be handled here; 
 
 ### Requirement: `:app` AndroidManifest captures the OAuth redirect via deep link
 
-`app/src/main/AndroidManifest.xml` SHALL declare:
-
-- `android:launchMode="singleTask"` on the `MainActivity` element so OAuth redirects re-deliver to the existing activity instance via `onNewIntent` instead of spawning a new task.
-- A new `<intent-filter>` on `MainActivity` matching `<action android:name="android.intent.action.VIEW" />`, `<category android:name="android.intent.category.DEFAULT" />`, `<category android:name="android.intent.category.BROWSABLE" />`, `<data android:scheme="net.kikin.nubecita" />`. The scheme MUST equal the app's `applicationId` and the `redirect_uris` registered in `client-metadata.json`.
-
-The existing `LAUNCHER` intent filter SHALL remain untouched.
+`app/src/main/AndroidManifest.xml` SHALL declare `android:launchMode="singleTask"` on `MainActivity` so OAuth redirects re-deliver via `onNewIntent`. `MainActivity` SHALL declare an `<intent-filter>` matching `VIEW` and `BROWSABLE` for scheme `net.kikin.nubecita`. The scheme MUST equal the app's `applicationId` and the `redirect_uris` registered in `client-metadata.json`. The `LAUNCHER` filter SHALL remain untouched.
 
 #### Scenario: Manifest declares both intent filters
 
@@ -193,12 +173,7 @@ The existing `LAUNCHER` intent filter SHALL remain untouched.
 
 ### Requirement: `MainActivity` publishes captured redirect URIs to `OAuthRedirectBroker`
 
-`MainActivity` SHALL inject `OAuthRedirectBroker` and SHALL handle the OAuth redirect intent in both `onCreate` (cold-start case) and `onNewIntent` (warm-start case). When an incoming intent's `data` is non-null and its `scheme` equals `net.kikin.nubecita`, `MainActivity` SHALL:
-
-1. Launch a coroutine on `lifecycleScope` calling `broker.publish(intent.data.toString())`.
-2. Set `intent.data = null` to prevent configuration changes (rotation, theme switch) from re-firing the redirect handler.
-
-Intents whose scheme is not `net.kikin.nubecita` (e.g., the `LAUNCHER` MAIN intent on cold-start) SHALL be ignored by this handler.
+`MainActivity` SHALL inject `OAuthRedirectBroker` and handle incoming OAuth redirect intents in `onCreate` and `onNewIntent`. When an incoming intent's scheme matches `net.kikin.nubecita`, `MainActivity` SHALL launch a coroutine to call `broker.publish(intent.data.toString())` and set `intent.data = null` to prevent re-firing on configuration changes. Intents with other schemes SHALL be ignored.
 
 #### Scenario: Warm-start redirect publishes through the broker
 
@@ -212,7 +187,7 @@ Intents whose scheme is not `net.kikin.nubecita` (e.g., the `LAUNCHER` MAIN inte
 
 ### Requirement: `LoginScreen` wraps content in a `Scaffold` with `WindowInsets.safeDrawing`
 
-The stateless `LoginScreen(state, onEvent, modifier)` composable MUST wrap its content `Column` inside a `Scaffold(contentWindowInsets = WindowInsets.safeDrawing)`. The Scaffold's content lambda receives `innerPadding` which the inner Column applies via `Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)`. This satisfies the edge-to-edge skill's "RIGHT" pattern for a screen with a `TextField` whose visibility must be preserved when the IME opens, while keeping content out of the status bar and gesture bar without an opaque scrim.
+The stateless `LoginScreen` composable MUST wrap its content in a `Scaffold(contentWindowInsets = WindowInsets.safeDrawing)` and apply the inner padding to its inner content with `Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)`. This ensures proper edge-to-edge support, keeps fields visible when the IME opens, and prevents status and gesture bar occlusion.
 
 #### Scenario: IME opens without occluding the handle field
 
@@ -231,15 +206,7 @@ The stateless `LoginScreen(state, onEvent, modifier)` composable MUST wrap its c
 
 ### Requirement: Login screen exposes a "Create one on Bluesky" sign-up affordance
 
-`LoginScreen` SHALL render a secondary call-to-action below the primary "Sign in" button that lets a user without a Bluesky account reach Bluesky's web sign-up flow. The CTA SHALL be:
-
-- Always visible (not gated behind an error state).
-- A separate tappable button — not a clickable span inside an error message.
-- Composed of supporting copy from `R.string.login_signup_cta_supporting` ("Don't have an account?") and a button labelled `R.string.login_signup_cta_label` ("Create one on Bluesky").
-
-Tapping the button SHALL dispatch `LoginEvent.OpenSignup`. `LoginViewModel` SHALL respond by emitting `LoginEffect.LaunchCustomTab("https://bsky.app/")`. The screen's existing `LaunchedEffect(viewModel)` collector dispatches `LaunchCustomTab` to a Chrome Custom Tab via `CustomTabsIntent`; no separate effect variant is required.
-
-The sign-up URL SHALL be an `internal const val` inside `LoginViewModel.kt` (`BLUESKY_SIGNUP_URL = "https://bsky.app/"`) so the production URL is asserted by a single source — production code and the instrumentation test reference the same constant. `https://bsky.app/signup` was the original placeholder; it 404s, and the unauthenticated `bsky.app/` landing surfaces a "Create account" button directly.
+`LoginScreen` SHALL render a secondary call-to-action below the sign-in button using supporting copy `R.string.login_signup_cta_supporting` and button label `R.string.login_signup_cta_label`. Tapping it SHALL dispatch `LoginEvent.OpenSignup`. `LoginViewModel` SHALL emit `LoginEffect.LaunchCustomTab("https://bsky.app/")`, handled via `CustomTabsIntent`. The target URL SHALL be defined as an `internal const val` in `LoginViewModel.kt`.
 
 #### Scenario: CTA is rendered on the login screen
 
@@ -263,16 +230,7 @@ The sign-up URL SHALL be an `internal const val` inside `LoginViewModel.kt` (`BL
 
 ### Requirement: `LoginError` is a typed sum with no free-form cause string
 
-`LoginError` SHALL be a `sealed interface` whose only allowed implementations are:
-
-- `data object BlankHandle : LoginError` — blank or whitespace-only handle submitted.
-- `data class HandleNotFound(val handle: String) : LoginError` — the submitted handle did not resolve to a DID. The `handle` SHALL be the literal string submitted by the user (after trim).
-- `data object Network : LoginError` — a network failure occurred during the login flow.
-- `data object Generic : LoginError` — any unclassified failure.
-
-Each implementation SHALL be `@Immutable`-annotated to preserve Compose stability inference across module boundaries. `LoginError.Failure(cause: String?)` SHALL NOT exist after this change; no production code in `:feature:login:impl` SHALL reference it.
-
-The screen SHALL own the `LoginError` → user-facing string resolution via a `displayStringFor(error: LoginError): String` `@Composable` helper that maps each variant to a `stringResource(...)` call. The VM SHALL NOT depend on Android resources or hold any user-facing string.
+`LoginError` SHALL be a `@Immutable` `sealed interface` with implementations: `BlankHandle`, `HandleNotFound(val handle: String)`, `Network`, and `Generic`. `LoginError.Failure(cause: String?)` MUST NOT exist. The screen SHALL resolve `LoginError` to user-facing strings via a composable helper mapping each variant to a `stringResource(...)`. The ViewModel MUST NOT reference Android resources.
 
 #### Scenario: Sum exhaustiveness
 

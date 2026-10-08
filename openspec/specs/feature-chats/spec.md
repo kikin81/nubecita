@@ -45,7 +45,7 @@ Long-pressing a conversation row SHALL enter a selection mode in which the top a
 
 ### Requirement: Selection actions adapt to count and segment
 
-The available actions SHALL be derived from the number of selected conversations and the active segment, so that invalid combinations cannot be represented. The bulk-capable actions (Leave, Mute/Unmute) SHALL be presented as inline icons in the contextual bar; the single-only actions (Go to profile, Report, Block) SHALL be grouped under an overflow (⋮) menu that is shown only when exactly one conversation is selected. In the Chats segment with exactly one conversation selected, the actions SHALL be Leave, Mute or Unmute (inline) plus Go to profile, Report, and Block (overflow). With two or more selected, only the inline bulk actions Leave and Mute/Unmute SHALL be offered and the overflow SHALL be hidden. In the Requests segment with one selected, the actions SHALL be Accept and Leave (decline) inline plus Go to profile in the overflow; with two or more selected, only bulk Accept and Leave SHALL be offered.
+Available actions SHALL be derived from selected conversation count and active segment. Bulk actions (Leave, Mute/Unmute) SHALL be presented inline in the contextual bar. Single-only actions (Go to profile, Report, Block) SHALL be grouped under an overflow menu shown only when exactly one conversation is selected. In Requests with one selected, actions SHALL be Accept and Leave inline plus Go to profile in overflow; with multiple selected, only bulk Accept and Leave SHALL be offered.
 
 #### Scenario: Single selection in Chats
 - **WHEN** exactly one accepted conversation is selected
@@ -81,7 +81,7 @@ The available actions SHALL be derived from the number of selected conversations
 
 ### Requirement: Leaving a conversation is recoverable via deferred undo
 
-Leaving one or more conversations SHALL remove the rows from the list immediately and present a Snackbar with an Undo affordance. The `chat.bsky.convo.leaveConvo` network call SHALL NOT be issued until the leave is **committed** — when the Snackbar dismisses, when a new leave supersedes it, or when the hosting screen is destroyed normally (navigated away). Undo SHALL restore the removed rows without issuing any network call. Only one pending-leave batch SHALL exist at a time; starting a new leave while a batch is pending SHALL commit the pending batch first. A committed leave SHALL complete even if the screen's lifecycle scope is torn down during the call. A leave that is still pending (uncommitted) when the hosting process is destroyed — where normal teardown callbacks do not run — SHALL be dropped rather than executed.
+Leaving conversations SHALL remove rows immediately and present a Snackbar with Undo affordance. Network call `chat.bsky.convo.leaveConvo` SHALL NOT be issued until committed (Snackbar dismiss, superseding leave, or normal screen destruction). Undo SHALL restore rows without network calls. Only one pending-leave batch SHALL exist at a time. An uncommitted leave pending during process destruction SHALL be dropped rather than executed.
 
 #### Scenario: Leave shows undo and defers the call
 - **WHEN** the user leaves a conversation

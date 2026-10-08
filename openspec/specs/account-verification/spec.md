@@ -53,7 +53,7 @@ The system SHALL render a larger verification badge next to the display name in 
 
 ### Requirement: Explain verification in a bottom sheet naming the verifiers
 
-The verification sheet SHALL present client-authored explanatory copy describing what the badge means (distinct copy for `Verified` vs `TrustedVerifier`), and SHALL list the accounts that verified this account together with the verification date. Because the protocol response contains no explanatory text and only issuer DIDs, the system SHALL resolve issuer DIDs to display names/handles via a batched profile lookup, and SHALL perform that lookup lazily when the sheet opens (not on every profile view). Only verifications with `isValid == true` are listed.
+The verification sheet SHALL present client-authored explanatory copy describing what the badge means (distinct copy for `Verified` vs `TrustedVerifier`), and SHALL list valid verifier accounts with verification dates. The system SHALL resolve issuer DIDs to display names and handles via a batched profile lookup performed lazily when the sheet opens. Only verifications with `isValid == true` are listed.
 
 #### Scenario: Sheet lists resolved verifiers
 - **WHEN** the sheet opens for an account with one or more valid verifications

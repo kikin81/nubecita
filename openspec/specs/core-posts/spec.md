@@ -5,9 +5,7 @@
 ## Requirements
 ### Requirement: `:core:posts` exposes `PostRepository` for single-post fetches
 
-The system SHALL expose `net.kikin.nubecita.core.posts.PostRepository` as a public interface in `:core:posts` with the method `suspend fun getPost(uri: String): Result<PostUi>`. The `uri` parameter is a plain `String` matching the rest of the project's URI surface; `AtUri` wrapping (if any) is internal to the implementation. The interface MUST live in `:core:posts` (not `:feature:postdetail:impl`, not `:core:posting`). `:core:posting` continues to own the *write* surface (`PostingRepository` for creating posts, attachments, reply refs); `:core:posts` owns the *read* surface for resolving a single post by URI.
-
-The default implementation MUST be the only class in the project that calls atproto-kotlin's `app.bsky.feed.getPosts` with `uris.size == 1`. The implementation MUST project the wire-level `PostView` to `PostUi` via `:core:feed-mapping`'s shared `toPostUiCore` helper — never via a divergent local projection. This guarantees that the `EmbedUi`, `AuthorUi`, and `ViewerStateUi` projections that show up in the feed and post-detail surfaces are byte-identical when the same wire post arrives via this read path.
+The system SHALL expose `net.kikin.nubecita.core.posts.PostRepository` in `:core:posts` with method `suspend fun getPost(uri: String): Result<PostUi>`. The interface MUST live in `:core:posts` to own the read surface for resolving posts by URI. The default implementation MUST be the only project class calling `app.bsky.feed.getPosts` with a single URI, and MUST project wire `PostView` to `PostUi` via `:core:feed-mapping`'s shared `toPostUiCore` helper.
 
 #### Scenario: ViewModel injects the interface
 

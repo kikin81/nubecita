@@ -19,7 +19,7 @@ The system SHALL expose three empty marker interfaces — `UiState`, `UiEvent`, 
 
 ### Requirement: MviViewModel base class
 
-The system SHALL provide an abstract generic `MviViewModel<S : UiState, E : UiEvent, F : UiEffect>(initialState: S)` extending `androidx.lifecycle.ViewModel`. The base class SHALL expose read-only `uiState: StateFlow<S>` and `effects: Flow<F>`, provide protected `setState(reducer: S.() -> S)` and `sendEffect(effect: F)` operations, and require subclasses to implement `fun handleEvent(event: E)`. The base class SHALL NOT provide `Flow`/coroutine wrapping helpers — feature VMs inline `Flow.onEach { }.catch { }.launchIn(viewModelScope)` and `viewModelScope.launch { try { } catch { } }`.
+The system SHALL provide an abstract generic `MviViewModel<S : UiState, E : UiEvent, F : UiEffect>(initialState: S)` extending `androidx.lifecycle.ViewModel`. The base class SHALL expose read-only `uiState: StateFlow<S>` and `effects: Flow<F>`, provide protected `setState(reducer: S.() -> S)` and `sendEffect(effect: F)` operations, and require subclasses to implement `fun handleEvent(event: E)`. It SHALL NOT provide coroutine wrapping helpers.
 
 #### Scenario: State is exposed as a hot StateFlow with the initial value
 
@@ -50,16 +50,7 @@ The system SHALL provide an abstract generic `MviViewModel<S : UiState, E : UiEv
 
 ### Requirement: Flat UI-ready state with effect-based errors
 
-Feature state classes SHALL be flat and UI-ready: concrete fields (`isLoading: Boolean`, `items: ImmutableList<T>`, `selected: Foo?`, …) that composables can read directly. Feature state classes SHALL NOT wrap remote data in a generic VM-layer sum type such as `Async<T>` or `Result<T>` — that shape leaks presentation vocabulary the UI should not care about. Errors from remote sources SHALL be emitted as a `FooEffect.ShowError(message: String)` (or equivalent) rather than stored in state, unless the screen explicitly needs a sticky error indicator (in which case the indicator is a concrete field on `FooState`, e.g. `errorBanner: String?`).
-
-The flat-fields rule applies to **independent** flags — fields whose values can vary independently of one another (e.g., `isLoading` and `errorBanner` may be true simultaneously during a "retry-while-still-showing-stale-error" interaction). For **mutually-exclusive view modes** — sets of states where exactly one is active at any instant and where multiple-true combinations would be invalid (e.g., a feed's `idle / initial-loading / refreshing / appending / initial-error` lifecycle) — feature state classes SHALL declare a per-screen `sealed interface FooStatus` (or `FooLoadStatus`, `FooMode`, etc.) and expose it as a single field on `FooState`. The host composable branches via `when (state.status)` and the type system makes invalid combinations unrepresentable.
-
-The decision rule between flat booleans and a sealed status sum is:
-
-- **Flat boolean** when two or more flags can legitimately coexist (e.g., `isLoading: Boolean`, `errorBanner: String?`).
-- **Sealed status sum** when the flags are mutually exclusive and a combinatorial invariant ("exactly one true at a time") would otherwise need to be enforced by reducer code rather than by the type system.
-
-This is NOT a license to wrap remote data in a generic `Async<T>` — the prohibition on framework-style data wrappers stands. Sealed status sums are per-screen, named after the screen's specific lifecycle (`FeedLoadStatus`, not `FetchState<T>`), and may carry per-variant payloads (e.g., `data class InitialError(val error: FeedError) : FeedLoadStatus`).
+Feature state classes SHALL be flat and UI-ready with concrete fields that composables read directly, and SHALL NOT wrap remote data in generic VM-layer types such as `Async<T>` or `Result<T>`. Errors from remote sources SHALL be emitted as effects unless sticky UI state is required. For mutually-exclusive view modes, feature state classes SHALL declare a per-screen sealed status interface exposed as a single field on the state class.
 
 #### Scenario: State default values form a usable initial UI
 

@@ -8,7 +8,7 @@ The spec was authored as the openspec change `add-feature-feed-video-embeds` (ar
 ## Requirements
 ### Requirement: `FeedViewPostMapper` dispatches `app.bsky.embed.video#view` to `EmbedUi.Video`
 
-`FeedViewPostMapper.toEmbedUi` MUST recognize the `app.bsky.embed.video#view` discriminator on the embed union and produce an `EmbedUi.Video` instance carrying the optional poster URL, the HLS playlist URL (m3u8), the aspect ratio (`width:height` from the lexicon, defaulting to 16:9 when absent), and the optional alt-text. The `durationSeconds` field MUST be `null` for v1 — the lexicon does not currently expose duration. Posts whose video lexicon is well-formed (contains a non-empty `playlist`) MUST yield a non-null `EmbedUi.Video`. Posts whose video lexicon is missing the required `playlist` field MUST fall through to `EmbedUi.Unsupported(typeUri = "app.bsky.embed.video")` rather than throwing. Posts whose video view omits the optional `thumbnail` MUST still yield `EmbedUi.Video` (with `posterUrl = null`); the render layer handles the null case.
+`FeedViewPostMapper.toEmbedUi` MUST map `app.bsky.embed.video#view` to `EmbedUi.Video` carrying poster URL, HLS playlist URL, aspect ratio (`width:height`, defaulting to 16:9), and optional alt-text (`durationSeconds` is null in v1). Posts with missing required `playlist` MUST fall through to `EmbedUi.Unsupported(typeUri = "app.bsky.embed.video")` without throwing. Missing optional `thumbnail` yields `EmbedUi.Video` with `posterUrl = null`.
 
 #### Scenario: Well-formed video view produces EmbedUi.Video
 
@@ -32,15 +32,7 @@ The spec was authored as the openspec change `add-feature-feed-video-embeds` (ar
 
 ### Requirement: PostCard's video slot autoplays muted on scroll-into-view; mute/unmute icon is the only inline control
 
-PostCard's `EmbedSlot` (in `:designsystem`) MUST dispatch on `EmbedUi.Video` by invoking a host-supplied `videoEmbedSlot: @Composable (EmbedUi.Video) -> Unit` lambda. The feed feature MUST supply a `PostCardVideoEmbed` composable (defined in `:feature:feed:impl`) that satisfies all of:
-
-- Renders the poster image filling the card width with the lexicon's aspect ratio. When `posterUrl` is null, renders a gradient placeholder filling the same aspect ratio.
-- Renders a duration chip in the bottom-right corner formatted as `m:ss` (or `h:mm:ss` for ≥ 1h) **only when `durationSeconds` is non-null**. The lexicon does not currently expose duration, so v1 ships with no chip rendered for any post; the chip code path stays in place for the future when duration is sourced.
-- When the post is the coordinator's currently-bound post (most-visible video card whose `visible-fraction > 0.6`), renders `PlayerSurface(player = coordinator.player, surfaceType = SURFACE_TYPE_TEXTURE_VIEW)` underneath the poster and cross-fades the poster out as the first frame arrives. Other video cards in the same composition tree MUST pass `player = null` to their `PlayerSurface` (or omit it) so only one surface holds the shared `ExoPlayer`.
-- Renders a mute / unmute icon overlay in the top-right corner, driven by `coordinator.isUnmuted: StateFlow<Boolean>`. Tapping the icon MUST call `coordinator.toggleMute()` directly (PostCardVideoEmbed lives in `:feature:feed:impl`, same module as the coordinator — no `PostCallbacks` round-trip needed).
-- Tap on the card body (anywhere outside the mute icon's hit area) MUST invoke `PostCallbacks.onTap(post)` — the existing PostCard tap callback — which the feed feature wires to navigate to the post-detail screen.
-
-The card MUST NOT render a centered play affordance, a play/pause button, or a progress bar in v1. The mute icon SHALL be the only inline control; videos play automatically while bound, and the detail screen owns the full controls + audio focus.
+`PostCard`'s `EmbedSlot` MUST dispatch on `EmbedUi.Video` via host `videoEmbedSlot`. `PostCardVideoEmbed` in `:feature:feed:impl` MUST render poster image with aspect ratio, bound `PlayerSurface` when `visible-fraction > 0.6` (other cards pass `player = null`), and a mute/unmute overlay driven by `coordinator.isUnmuted` (tapping calls `coordinator.toggleMute()`). Tapping card body calls `PostCallbacks.onTap(post)`. Mute icon is the sole inline control without progress bar or play button.
 
 #### Scenario: Card autoplays muted on scroll-into-view
 
@@ -78,34 +70,7 @@ The system SHALL maintain at most one materialized `ExoPlayer` instance across t
 
 ### Requirement: Coordinator binds to the most-visible video card based purely on scroll position
 
-The system's `FeedVideoPlayerCoordinator` MUST bind the player to the topmost feed item whose visible-fraction exceeds 0.6 AND which carries an addressable video target. There is NO separate user gesture required to "play" a video; binding is purely scroll-driven. When the bound card scrolls below the threshold (no visible video card meets the criterion), the coordinator MUST `pause()` the player AND release audio focus IF currently held (i.e. `isUnmuted` was `true` — the user had unmuted this card). The `isUnmuted` state MUST also reset to `false` on this scroll-away — unmute does not carry over to the next visible video; the user must explicitly unmute the new bound card if they want audio.
-
-A feed item is "addressable" for video binding when ANY of:
-
-- its `embed is EmbedUi.Video` (parent video), OR
-- its `embed is EmbedUi.RecordWithMedia` whose `media is EmbedUi.Video` (recordWithMedia media video), OR
-- its `embed is EmbedUi.RecordWithMedia` whose `record is EmbedUi.Record` whose `quotedPost.embed is QuotedEmbedUi.Video` (recordWithMedia nested quoted-post video), OR
-- its `embed is EmbedUi.Record` whose `quotedPost.embed is QuotedEmbedUi.Video` (quoted-post video).
-
-When a feed item is addressable through more than one of these paths simultaneously, the resolver MUST apply this precedence:
-
-1. Parent video (top-level `EmbedUi.Video`) wins over everything else.
-2. RecordWithMedia.media video wins over the nested quoted-post video inside the same `RecordWithMedia`.
-3. Top-level `EmbedUi.Record`'s quoted-post video and `EmbedUi.RecordWithMedia.record`'s quoted-post video are at the same precedence level — they don't co-occur structurally (a post's `embed` is exactly one of `Record` or `RecordWithMedia`), so the precedence question is moot.
-
-The reasoning for media beating nested quoted: the media is the user's primary upload — explicitly attached to THIS post — while the nested quoted-post-video is contextual content authored by someone else. Letting the nested quoted-video win would create disjointed UX (large frozen poster at the top with a smaller autoplaying video tucked inside the quoted card below).
-
-The `VideoBindingTarget(postId, playlistUrl)` data class shape MUST NOT change. The bind identity (`postId`) MUST be the URI of the post whose video plays:
-
-- For a parent video: `postId = post.id` (the parent's AT URI; unchanged from prior behavior).
-- For a RecordWithMedia media video: `postId = post.id` (same item, same identity — precedence above guarantees only one of parent or media-video binds at a time per item).
-- For a quoted-post video (whether top-level `Record` or inside `RecordWithMedia.record`): `postId = quotedPost.uri` (the quoted post's AT URI).
-
-This makes bind identities naturally distinct between a parent-side video and a quoted-side video for the same feed item, and across different feed items' quoted videos, without a `Source` tag or a synthetic `#quoted` suffix on the bind key. The coordinator's existing "is this the same target as before?" rebind logic continues to work unchanged.
-
-The visibility math MUST remain at the parent feed-item granularity — it MUST NOT use `Modifier.onGloballyPositioned` callbacks, sub-rect computation, or any per-composable position reporting. A nested video binds when its parent feed item passes the existing 0.6 visible-fraction threshold; a sub-rect refinement (true "where on screen is the nested video") is explicitly out of scope and is the natural promotion path if real-world feedback shows the parent-item-granular bind picks the wrong target.
-
-The internal `videoBindingFor(post: PostUi): VideoBindingTarget?` resolver MUST consult the `EmbedUi.quotedRecord` extension property (from `:data:models`) when looking for the quoted-post-video path — single source of truth for "where do quotes hide" across feature-feed and feature-feed-video.
+`FeedVideoPlayerCoordinator` MUST bind the player to the topmost feed item whose visible-fraction exceeds 0.6 with an addressable video target (`EmbedUi.Video`, `RecordWithMedia.media`, or quoted-post video). Binding is scroll-driven. Scrolling below threshold MUST pause, release focus, and reset `isUnmuted` to false. Precedence: parent video > RecordWithMedia media video > quoted video. Target identity `postId` uses `quotedPost.uri` for quotes and `post.id` otherwise.
 
 #### Scenario: Scroll between two video cards (both muted)
 
@@ -160,9 +125,7 @@ The internal `videoBindingFor(post: PostUi): VideoBindingTarget?` resolver MUST 
 
 ### Requirement: Audio focus is claimed ONLY on explicit user unmute; never on autoplay
 
-The autoplay flow (most-visible card binds + plays at `volume = 0`) MUST NOT request audio focus and MUST NOT register the BECOMING_NOISY receiver. Opening the app to read the feed while listening to music MUST NOT interrupt the user's audio. Audio focus is requested ONLY when the user explicitly taps the unmute icon on the bound card; it is released on user mute, scroll-away from an unmuted card, or screen exit.
-
-When focus IS held (post-unmute) and the OS signals loss (`AUDIOFOCUS_LOSS_TRANSIENT` from incoming call, music app gaining focus; `ACTION_AUDIO_BECOMING_NOISY` from headphones unplug), the coordinator MUST: pause the player; set `volume = 0`; release audio focus; unregister the BECOMING_NOISY receiver; set `coordinator.playbackHint = FocusLost`; LEAVE `coordinator.isUnmuted == true` (user's intent preserved). The bound card collects `playbackHint` directly and renders a localized "tap to resume" overlay when non-`None`. Tapping the overlay calls `coordinator.resume()` which: reacquires focus, re-registers BECOMING_NOISY, sets `volume = 1`, resumes player, clears `playbackHint = None`. The hint MUST NOT round-trip through the VM event stream or `FeedEffect`.
+Autoplay (muted at `volume = 0`) MUST NOT request audio focus or register BECOMING_NOISY. Audio focus is requested ONLY when the user taps unmute, and released on mute, scroll-away, or screen exit. On focus loss, coordinator MUST pause player, set `volume = 0`, release focus, unregister receiver, and set `playbackHint = FocusLost` while keeping `isUnmuted == true`. Tapping "tap to resume" calls `coordinator.resume()` to reacquire focus, restore volume, and resume playback.
 
 #### Scenario: App cold-start while music is playing does NOT interrupt audio
 
@@ -201,7 +164,7 @@ The video card's outermost container MUST set `Modifier.aspectRatio(post.embed.a
 
 ### Requirement: HLS playback starts at the lowest variant; ABR upgrade unlocked after 10 seconds of sustained playback per video
 
-The system SHALL configure the HLS data source via `media3-exoplayer-hls`'s default `HlsMediaSource.Factory`. The `DefaultTrackSelector` MUST be configured with `setForceLowestBitrate(true)` for the initial selection. **After 10 seconds of sustained playback on a single video** (NOT after the first segment loads — that would unlock ABR for videos the user merely glanced at and scrolled past), the coordinator MUST clear the `forceLowestBitrate` flag, allowing ABR to upgrade based on observed throughput. If the bound video changes (scroll-driven rebind to a different card) before the 10-second mark, the next playback session restarts the 10-second timer at the lowest variant.
+The system SHALL configure the HLS data source via `HlsMediaSource.Factory` with `DefaultTrackSelector.setForceLowestBitrate(true)` initially. After 10 seconds of sustained playback on a single video, the coordinator MUST clear `forceLowestBitrate` to unlock ABR upgrades. Rebinding to another video before 10 seconds restarts the timer at the lowest variant.
 
 #### Scenario: First playback segment is the lowest variant
 
