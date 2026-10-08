@@ -5,9 +5,7 @@ The unified post composer (`:feature:composer:api` + `:impl`) for new posts and 
 ## Requirements
 ### Requirement: `:feature:composer:api` exposes exactly one `NavKey`
 
-The system SHALL expose `net.kikin.nubecita.feature.composer.api.ComposerRoute` as the sole `NavKey` for the composer capability. `ComposerRoute` MUST be declared as `data class ComposerRoute(val replyToUri: String? = null, val quotePostUri: String? = null, val mentionHandle: String? = null, val sharedText: String? = null, val sharedImageUri: String? = null) : NavKey`. Every field is typed as `String?`, NOT the lexicon `AtUri` value class — keeps `:feature:composer:api` atproto-runtime-free, mirroring the existing `:feature:postdetail:api`'s `PostDetailRoute(postUri: String)` precedent. Consumers wrap to `AtUri` at the call site to the atproto runtime. The `:api` module MUST NOT contain Composables, ViewModels, repositories, Hilt modules, or any dependency on Compose runtime, atproto SDK record types, or `:feature:composer:impl`. A `null` `replyToUri` MUST mean "compose a new top-level post"; a non-null `replyToUri` MUST mean "compose a reply to that post". No second `NavKey` (e.g. `NewPostRoute`, `ReplyRoute`, `ShareRoute`) SHALL exist for any mode.
-
-`sharedText` and `sharedImageUri` carry inbound Android share-target (`ACTION_SEND`) content and both default to `null`. They are carried on the serialized `NavKey` so navigation restores them across process death. `ComposerViewModel` SHALL seed its `TextFieldState` from `sharedText` and resolve `sharedImageUri` into a `ComposerAttachment`. `sharedText` is lower precedence than `mentionHandle` (an explicit compose-from-profile action). `sharedImageUri` MUST be an app-owned file URI — never a transient `content://` grant — so it survives process death with the serialized route. Existing `replyToUri` / `quotePostUri` / `mentionHandle` behavior and all existing call sites are unchanged, since the new params default to `null`.
+The system SHALL expose `net.kikin.nubecita.feature.composer.api.ComposerRoute` as the sole `NavKey` for the composer capability: `data class ComposerRoute(val replyToUri: String? = null, val quotePostUri: String? = null, val mentionHandle: String? = null, val sharedText: String? = null, val sharedImageUri: String? = null) : NavKey`. Fields use `String?` rather than `AtUri`. The `:api` module MUST NOT contain UI components, ViewModels, or atproto SDK dependencies.
 
 #### Scenario: Single NavKey for both modes
 
@@ -26,7 +24,7 @@ The system SHALL expose `net.kikin.nubecita.feature.composer.api.ComposerRoute` 
 
 ### Requirement: `ComposerViewModel` is the canonical presenter
 
-The system SHALL expose `net.kikin.nubecita.feature.composer.impl.ComposerViewModel` as the only `ViewModel` for the composer screen. It MUST extend `MviViewModel<ComposerState, ComposerEvent, ComposerEffect>`, MUST be `@HiltViewModel(assistedFactory = ComposerViewModel.Factory::class)`-annotated, and MUST receive its `route: ComposerRoute` through Hilt **assisted injection** — the canonical Nav3 pattern in this codebase, mirroring `:feature:postdetail:impl`'s `PostDetailViewModel.Factory`. The screen Composable MUST consume the VM via `hiltViewModel<ComposerViewModel, ComposerViewModel.Factory>(creationCallback = { it.create(route) })`; no other class in the project SHALL instantiate or extend `ComposerViewModel`. The VM additionally exposes `val textFieldState: TextFieldState` as the canonical text source for the composer's primary input — the field is constructed in the VM's init block and observed via `snapshotFlow` to drive both the grapheme counter and the typeahead pipeline. Process death survival is **explicitly out of V1** — no `SavedStateHandle` plumbing for state persistence; the in-memory `TextFieldState` is lost on process death along with the rest of the composer's working state. The `:core:drafts` follow-up addresses non-empty drafts surviving via disk persistence.
+The system SHALL expose `net.kikin.nubecita.feature.composer.impl.ComposerViewModel` as the only `ViewModel` for the composer screen. It MUST extend `MviViewModel<ComposerState, ComposerEvent, ComposerEffect>`, be `@HiltViewModel`-annotated with assisted factory `ComposerViewModel.Factory`, and receive `route: ComposerRoute` via assisted injection. It MUST expose `val textFieldState: TextFieldState` as the canonical text input source.
 
 #### Scenario: Screen consumes ComposerViewModel via assisted injection
 
@@ -45,16 +43,7 @@ The system SHALL expose `net.kikin.nubecita.feature.composer.impl.ComposerViewMo
 
 ### Requirement: `ComposerState` carries count, attachments, and submit status as flat UI-ready fields
 
-The system SHALL expose `ComposerState` as a `data class` implementing `UiState` with at minimum:
-
-- `graphemeCount: Int` — the SDK-derived grapheme count of the current `textFieldState.text`. Recomputed by the VM's `snapshotFlow` collector on every text/selection change.
-- `isOverLimit: Boolean` — `true` iff `graphemeCount > 300`. Derived; reducer MUST keep it consistent with `graphemeCount` on every state update.
-- `attachments: ImmutableList<ComposerAttachment>` from `kotlinx.collections.immutable`, capped at 4. Default `persistentListOf()`.
-- `replyToUri: String?` — copied from the route argument (carries the AT URI of the parent post when in reply mode); `null` for new-post mode.
-- `replyParentLoad: ParentLoadStatus?` — `null` in new-post mode; non-null in reply mode.
-- `submitStatus: ComposerSubmitStatus` — defaulting to `ComposerSubmitStatus.Idle`.
-
-`ComposerState` MUST NOT contain a `text: String` field — composer text is owned by `ComposerViewModel.textFieldState: TextFieldState` per the canonical-presenter requirement. `ComposerState` MUST NOT expose any `Async<T>`, `Result<T>`, or generic remote-data wrapper. Composables MUST read these fields directly without a `when` on a sum-type wrapper at the UI boundary.
+The system SHALL expose `ComposerState` implementing `UiState` with flat UI-ready fields: `graphemeCount: Int`, `isOverLimit: Boolean` (`graphemeCount > 300`), `attachments: ImmutableList<ComposerAttachment>` (max 4), `replyToUri: String?`, `replyParentLoad: ParentLoadStatus?`, and `submitStatus: ComposerSubmitStatus`. `ComposerState` MUST NOT contain a `text: String` field or remote data wrappers like `Async<T>` or `Result<T>`.
 
 #### Scenario: Default state has zero count and idle submit
 
@@ -73,13 +62,7 @@ The system SHALL expose `ComposerState` as a `data class` implementing `UiState`
 
 ### Requirement: Submission lifecycle is modeled as a sealed status sum
 
-The system SHALL declare `sealed interface ComposerSubmitStatus` with exactly four variants: `Idle`, `Submitting`, `Success`, and `Error(val cause: ComposerError)`. The reducer MUST never set two of these states simultaneously and MUST NOT introduce flat boolean mirrors (`isSubmitting`, `submitError`) of the same information. Transitions follow:
-
-- `Idle → Submitting` on `Submit` event when `textFieldState.text.isNotBlank() || attachments.isNotEmpty()`, `!isOverLimit`, and (in reply mode) `replyParentLoad is ParentLoadStatus.Loaded`.
-- `Submitting → Success` on successful record creation.
-- `Submitting → Error(cause)` on any failure (blob upload, record creation, network).
-- `Error(_) → Submitting` on a subsequent `Submit` event (retry replaces the prior error).
-- `Success` is terminal; the screen Composable consumes it to dismiss and emits no further `Submit` events.
+The system SHALL declare `sealed interface ComposerSubmitStatus` with variants `Idle`, `Submitting`, `Success`, and `Error(val cause: ComposerError)`. Reducer MUST NOT set multiple states simultaneously or introduce flat boolean mirrors. Submission transitions `Idle -> Submitting` on valid input, `Submitting -> Success` on post creation, and `Submitting -> Error(cause)` on failure.
 
 #### Scenario: Submit transitions to Submitting
 
@@ -122,7 +105,7 @@ The system SHALL declare `sealed interface ParentLoadStatus` with variants `Load
 
 ### Requirement: Character limit is enforced at 300 Unicode extended grapheme clusters
 
-The system SHALL count characters as Unicode extended grapheme clusters — what AT Protocol's `app.bsky.richtext.facet` `MAX_GRAPHEMES = 300` measures, NOT Java/Kotlin `String.length` (UTF-16 code units) or codepoint count. The atproto-kotlin 5.3.0 SDK does not ship a grapheme-counting helper; V1 wraps `java.text.BreakIterator.getCharacterInstance()` in a small `GraphemeCounter` utility inside `:feature:composer:impl`. JVM/Android Unicode-version skew on ZWJ-joined emoji sequences is a known limitation — the JVM's bundled tables predate Unicode 15+ emoji_zwj_sequences, so JVM unit tests cover platform-stable cases (ASCII boundary + BMP-pair emoji); Android's runtime ICU-backed `BreakIterator` (API 24+, our minSdk) handles them correctly. Future swap to ICU4J or a Unicode-version-pinned segmenter is a backlog task; the contract on the counter ("Unicode extended grapheme cluster count") doesn't change. The Post button MUST be disabled when `state.isOverLimit == true` OR when `textFieldState.text.isBlank() && state.attachments.isEmpty()`. Submission MUST NOT silently truncate text that exceeds 300 graphemes.
+The system SHALL count characters as Unicode extended grapheme clusters (`MAX_GRAPHEMES = 300`) using `java.text.BreakIterator.getCharacterInstance()`. The Post button MUST be disabled when `state.isOverLimit == true` or when `textFieldState.text.isBlank() && state.attachments.isEmpty()`. Submission MUST NOT silently truncate text exceeding 300 graphemes.
 
 #### Scenario: Counter matches grapheme count for emoji input
 
@@ -146,7 +129,7 @@ The system SHALL count characters as Unicode extended grapheme clusters — what
 
 ### Requirement: Image attachments cap at 4 and use the system photo picker
 
-The system SHALL allow up to 4 image attachments per composition. Attachments MUST be added via `androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia` configured with `maxItems = 4 - state.attachments.size` so the picker reflects the *remaining* capacity rather than the absolute cap. When the remaining capacity is `1`, the screen SHALL fall back to single-pick (`ActivityResultContracts.PickVisualMedia`) because `PickMultipleVisualMedia` rejects `maxItems < 2`. Because `rememberLauncherForActivityResult` captures the contract at registration time, the launcher Composable MUST be wrapped in a `key(remainingCapacity) { … }` block so the registration is refreshed when capacity changes. The "Add image" affordance MUST be hidden or disabled when `state.attachments.size == 4`. The reducer MUST defensively cap at 4 even if the picker returns more URIs. Removing an attachment MUST be possible from the attachment chip strip.
+The system SHALL allow up to 4 image attachments per composition using `PickMultipleVisualMedia` configured with `maxItems = 4 - state.attachments.size` (falling back to `PickVisualMedia` when remaining capacity is 1). The Add Image affordance MUST be disabled when `attachments.size == 4`. The reducer MUST defensively cap attachments at 4.
 
 #### Scenario: Picker invocation respects the cap
 
@@ -189,9 +172,7 @@ The system SHALL upload all attached image blobs in parallel (via `coroutineScop
 
 ### Requirement: Submitted records carry a `langs` field derived from the device's primary locale
 
-The system SHALL ensure every successfully created `app.bsky.feed.post` record carries a non-empty `langs` BCP-47 array, defaulting to the device's primary locale when the composer does not specify otherwise. This is required so language-filtered Bluesky feeds (the default home feed for many users) surface posts authored in Nubecita; without `langs`, posts are dropped by every locale-curated feed.
-
-The default is sourced from `java.util.Locale.getDefault().toLanguageTag()` on the JVM via an injected `LocaleProvider` abstraction inside `:core:posting`. `PostingRepository.createPost` accepts a `langs: List<String>? = null` parameter — V1's `ComposerViewModel` always passes `null` (no per-post override UI yet), and the repository fills in the device-locale default. A future per-post override UI plumbs caller-chosen tags through this same parameter; the repository validates each tag by round-tripping through `Locale.forLanguageTag` and silently drops anything that resolves to the JVM's `und` ("undetermined") sentinel. An explicit empty list (`emptyList()`) means "this caller deliberately wants no langs" and MUST NOT fall back to the device locale; the resulting record omits the field entirely.
+The system SHALL ensure created `app.bsky.feed.post` records carry a non-empty `langs` BCP-47 array, defaulting to the device's primary locale via an injected `LocaleProvider`. When `langs` is explicitly supplied, valid non-empty tags override the default; invalid tags are dropped. When explicitly passed an empty list, the record MUST omit the `langs` field without locale fallback.
 
 #### Scenario: V1 composer's submission carries the device-locale tag
 
@@ -220,11 +201,7 @@ The default is sourced from `java.util.Locale.getDefault().toLanguageTag()` on t
 
 ### Requirement: Composer language chip exposes a per-post BCP-47 override
 
-The system SHALL render an M3 `AssistChip` (leading globe icon, dynamic label) inside a `ComposerOptionsChipRow` between `ComposerScreen`'s text-field surface and `ComposerAttachmentRow`. The chip's label SHALL reflect what the next `PostingRepository.createPost` call will send: when `state.selectedLangs == null` the label is the localized display name of `ComposerViewModel.deviceLocaleTag` (resolved from the injected `LocaleProvider`); when `state.selectedLangs.size == 1` the label is the localized display name of the selected tag; when `state.selectedLangs.size >= 2` the label is the first tag's display name plus `"+N"` overflow (`"+1"` or `"+2"`).
-
-Tapping the chip SHALL open a multi-select picker preselected with `state.selectedLangs ?: listOf(deviceLocaleTag)`. The picker SHALL be a `ModalBottomSheet` at Compact width and a `Popup` overlaying an M3 `Surface(widthIn(max = 480.dp))` at Medium / Expanded width — the same width-class branching `ComposerDiscardDialog` uses to avoid the double-scrim problem when the composer is itself a Compose `Dialog`. The picker SHALL enforce a cap of 3 selections by rendering unchecked checkboxes as `enabled = false` once `draftSelection.size == 3`. The reducer for `ComposerEvent.LanguageSelectionConfirmed(tags)` SHALL also defensively no-op when `tags.size > 3`.
-
-Selection-while-the-picker-is-open SHALL be local to the picker's draft state. Tapping `Done` dispatches `LanguageSelectionConfirmed(tags)`; tapping `Cancel`, dragging the bottom sheet down, scrim-tapping the popup, or pressing back SHALL dismiss without dispatching. The list of selectable tags SHALL be the static `BLUESKY_LANGUAGE_TAGS` constant in `:core:posting`, sorted with currently-selected tags pinned at the top, then the device-locale tag (if not selected), then everything else alphabetical by `Locale.forLanguageTag(tag).getDisplayLanguage(Locale.getDefault())`.
+The system SHALL render an M3 `AssistChip` in `ComposerOptionsChipRow` showing current language tags (localized display name or `"+N"` overflow). Tapping opens a multi-select picker (`ModalBottomSheet` on Compact, `Popup` on Medium/Expanded) with up to 3 selections from `BLUESKY_LANGUAGE_TAGS`. Dismissing without confirmation preserves previous state.
 
 #### Scenario: Chip label reflects device-locale fallback when no override is set
 
@@ -270,7 +247,7 @@ Selection-while-the-picker-is-open SHALL be local to the picker's draft state. T
 
 ### Requirement: Tab-internal navigation flows through `ComposerEffect`, not a Hilt-injected navigator
 
-The system SHALL declare `sealed interface ComposerEffect : UiEffect` with at minimum `NavigateBack : ComposerEffect`, `ShowError(val error: ComposerError) : ComposerEffect`, and `OnSubmitSuccess(val newPostUri: AtUri) : ComposerEffect`. `ShowError` carries the typed `ComposerError` (from `:core:posting`) — matching `FeedEffect.ShowError(error: FeedError)` and `PostDetailEffect.ShowError(error: PostDetailError)` — so the screen Composable can pre-resolve every error string via `stringResource(...)` at composition time and switch on the sealed-error type inside the collector. The VM MUST NOT carry Android resource ids or pre-localized strings on the effect. The screen Composable MUST collect these effects in a single `LaunchedEffect` block and route navigation calls through `LocalMainShellNavState.current` (e.g. `removeLast()` for back, `add(...)` for forward). `ComposerViewModel` MUST NOT inject `MainShellNavState` or any object backed by it. The outer `Navigator` MUST NOT be injected either.
+The system SHALL declare `sealed interface ComposerEffect : UiEffect` with variants `NavigateBack`, `ShowError(val error: ComposerError)`, and `OnSubmitSuccess(val newPostUri: AtUri)`. Effects MUST NOT carry Android resource IDs. The screen Composable collects effects in `LaunchedEffect` and controls `LocalMainShellNavState.current`. `ComposerViewModel` MUST NOT inject navigation controllers.
 
 #### Scenario: VM constructor has no navigation state holder
 
@@ -289,14 +266,7 @@ The system SHALL declare `sealed interface ComposerEffect : UiEffect` with at mi
 
 ### Requirement: Discard confirmation follows the M3 full-screen-dialog discard pattern
 
-The system SHALL show a "Discard draft?" confirmation when a back-press is received and the composition is non-empty (`textFieldState.text.isNotBlank() || state.attachments.isNotEmpty()`). The confirmation MUST follow the canonical M3 full-screen-dialog discard pattern as specified at [m3.material.io/components/dialogs/guidelines](https://m3.material.io/components/dialogs/guidelines): a small basic dialog card overlaid on the composer surface, presenting V1 actions `Cancel` (dismisses the confirmation, leaves the composer open) and `Discard` (destructive — dismisses the composer). The confirmation MUST NOT appear when both `textFieldState.text` and `attachments` are empty. Back-press MUST be ignored entirely while `submitStatus == Submitting`.
-
-The Compose primitive backing the confirmation card SHALL differ by width class to avoid double-scrim regressions:
-
-- **Compact width**: the confirmation is rendered via `androidx.compose.material3.BasicAlertDialog` shaped as an M3 dialog card (rounded `Surface` using `AlertDialogDefaults.shape` / `containerColor` / `tonalElevation` for visual parity with `AlertDialog`). Because the composer at Compact is a full-screen Nav3 route (not a Compose `Dialog`), `BasicAlertDialog` adds exactly one `Window`-level scrim — matching the M3 spec's single-dim layer. `BasicAlertDialog` is preferred over the higher-level `AlertDialog` because the same custom-content card is rendered at both Compact and Medium/Expanded widths (only the wrapping primitive differs); using `BasicAlertDialog` keeps the inner card definition shared between both paths.
-- **Medium / Expanded widths**: the confirmation is rendered via `androidx.compose.ui.window.Popup` shaped as an M3 dialog card (rounded `Surface` with `tonalElevation`, `Modifier.padding`, and standard M3 dialog typography), NOT via `Dialog` / `AlertDialog`. Because the composer at Medium/Expanded is itself a Compose `Dialog` with its own `Window` and scrim, stacking a second `Dialog` on top would composite two scrims (no `scrimColor` knob exists on `DialogProperties`) and visibly darken the canvas beyond the M3 spec's single-dim layer. `Popup` does not add a scrim — it overlays as a content layer on the existing composer Dialog's Window, so the user sees one scrim total. The visual treatment is indistinguishable from `AlertDialog`; only the underlying Compose primitive differs.
-
-A future contributor MUST NOT swap the Medium/Expanded `Popup` for a `Dialog` / `AlertDialog` without simultaneously solving the double-scrim issue (e.g., a hand-rolled Dialog with `WindowManager.LayoutParams.dimAmount = 0f` on the inner Window). The `Popup` choice is an intentional Compose-implementation detail in service of the M3 visual spec, not an arbitrary primitive pick.
+The system SHALL show a "Discard draft?" confirmation when back is pressed on a non-empty composition (`textFieldState.text.isNotBlank() || attachments.isNotEmpty()`), offering `Cancel` and `Discard` actions. Back-press MUST be ignored while `submitStatus == Submitting`. The confirmation card uses `BasicAlertDialog` on Compact width and `Popup` on Medium/Expanded width to ensure exactly one scrim layer without double-dimming.
 
 #### Scenario: Confirmation appears for non-empty draft
 
@@ -344,13 +314,7 @@ The system SHALL request focus on the composer text field on first composition s
 
 ### Requirement: Material 3 Expressive treatment for the Post button and counter
 
-The system SHALL render the Post action as an expressive M3 component (FilledButton or expressive FAB) whose visual treatment morphs across submit states:
-
-- `Idle` (with valid input): standard expressive filled-button presentation.
-- `Submitting`: button morphs to display a wavy M3 progress indicator inline; tap is disabled.
-- `Error`: button returns to enabled-filled but the inline error state is reflected in surface/border tone.
-
-The character counter MUST render as a circular progress arc whose tonal band shifts at 240 graphemes (warning) and 290 graphemes (error). At `graphemeCount > 300`, the input field MUST also adopt the M3 error border tone.
+The system SHALL render the Post action with expressive M3 styling: standard filled-button at `Idle`, inline wavy progress indicator when `Submitting` (tap disabled), and error-tone surface on `Error`. The counter arc tone shifts at 240 (warning) and 290 (error) graphemes. When `graphemeCount > 300`, the input outline MUST adopt the M3 error tone.
 
 #### Scenario: Submitting button shows wavy progress
 
@@ -374,7 +338,7 @@ The character counter MUST render as a circular progress arc whose tonal band sh
 
 ### Requirement: Composer registers as an `@MainShell` Nav3 entry for Compact-width hosting
 
-The system SHALL contribute the `ComposerRoute` entry via a Hilt `@Provides @IntoSet @MainShell EntryProviderInstaller` declared in `:feature:composer:impl`. The provider MUST NOT also be qualified `@OuterShell`. The contributed entry MUST resolve `ComposerScreen` against the `ComposerRoute` argument by handing it to `ComposerViewModel.Factory.create(route)` via the assisted-inject `creationCallback` of `hiltViewModel(...)`. This entry is the hosting path for **Compact** widths only — at Medium/Expanded widths the composer is overlaid as a Dialog (see *Adaptive container* requirement) and is not pushed onto `NavDisplay`.
+The system SHALL contribute the `ComposerRoute` entry via `@Provides @IntoSet @MainShell EntryProviderInstaller` in `:feature:composer:impl` without `@OuterShell`. It resolves `ComposerScreen` by passing `route` to `ComposerViewModel.Factory.create(route)` via assisted injection. This entry hosts Compact width; Medium/Expanded width uses a Dialog overlay.
 
 #### Scenario: MainShell qualifier on the entry installer
 
@@ -388,12 +352,7 @@ The system SHALL contribute the `ComposerRoute` entry via a Hilt `@Provides @Int
 
 ### Requirement: Adaptive container — full-screen route on Compact, centered Dialog on Medium/Expanded
 
-The system SHALL host `ComposerScreen` in a width-class-adaptive container:
-
-- **Compact width** (`WindowWidthSizeClass.COMPACT`): the launching surface (Feed FAB, in-feed reply affordance) MUST push `ComposerRoute` onto `LocalMainShellNavState.current`. `ComposerScreen` renders inside its own `Scaffold` filling the inner `NavDisplay` pane.
-- **Medium / Expanded widths** (`WindowWidthSizeClass.MEDIUM` and `EXPANDED`): the launching surface MUST NOT push onto `NavDisplay`. Instead it MUST toggle a `MainShell`-scoped composer-launcher state holder (e.g. `ComposerOverlayState`). `MainShell` MUST observe this state and overlay a `Dialog(properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false))` whose content wraps `ComposerScreen` in `Modifier.widthIn(max = 640.dp)`. The Dialog's default scrim is the only background dimming; `ComposerScreen` itself is the same Composable used at Compact, with no Compose-level mode flag.
-
-`ComposerViewModel` MUST be obtained via `hiltViewModel<ComposerViewModel, ComposerViewModel.Factory>(creationCallback = { factory -> factory.create(route) })` in both code paths. The `route: ComposerRoute` argument is constructed at the launching surface (Compact: the `entry<ComposerRoute>` block receives it from Nav3; Medium/Expanded: the `MainShell`-scoped composer-launcher state holder constructs `ComposerRoute(replyToUri = state.replyToUri)` at overlay time). The VM's constructor MUST NOT branch on width class.
+The system SHALL host `ComposerScreen` adaptively: on Compact width, it pushes `ComposerRoute` to `LocalMainShellNavState.current`; on Medium/Expanded width, it opens a centered `Dialog` constrained to `Modifier.widthIn(max = 640.dp)` via `ComposerOverlayState`. `ComposerScreen` Composable MUST NOT branch on width class. Both paths obtain `ComposerViewModel` via assisted injection.
 
 #### Scenario: Compact launches via NavDisplay push
 
@@ -432,7 +391,7 @@ The system SHALL host `ComposerScreen` in a width-class-adaptive container:
 
 ### Requirement: Discard confirmation dialog uses an extensible action set
 
-The "Discard draft?" confirmation dialog SHALL be implemented such that its action set is supplied as a list/lambda-collection rather than hard-coded button slots. V1 ships exactly two actions (`Cancel`, `Discard`) per the M3 full-screen-dialog discard pattern; the dialog implementation MUST NOT statically encode a two-button layout that would resist the addition of a third action (e.g. `Save as draft`) in the follow-up `:core:drafts` epic. The dialog MUST be implementable such that adding a third action is a pure addition to a list, not a layout rewrite. The same data-driven action list MUST drive both the Compact `BasicAlertDialog` rendering and the Medium/Expanded `Popup`-based rendering.
+The "Discard draft?" dialog SHALL render its actions from an iterable parameter (e.g. `ImmutableList<ComposerDialogAction>`) rather than hard-coded button slots. V1 MUST supply exactly two actions (`Cancel`, `Discard`) driven by the same data-driven list across both Compact (`BasicAlertDialog`) and Medium/Expanded (`Popup`) implementations.
 
 #### Scenario: Action set is data-driven
 
@@ -451,7 +410,7 @@ The "Discard draft?" confirmation dialog SHALL be implemented such that its acti
 
 ### Requirement: Top-bar action row reserves space for a future drafts entry point
 
-`ComposerScreen`'s top app bar SHALL position its V1 actions (`close` on the navigation slot, `post` or post-related controls on the action slot) such that one additional `IconButton`-equivalent slot can be inserted between them in a follow-up change without forcing a relayout of either action. The reservation is documented in code via a top-level `// reserved for drafts entry point (see :core:drafts follow-up)` comment near the action row, and the layout MUST NOT pin actions to the absolute edges of the top bar in a way that would push existing actions off-screen when a new icon is added.
+`ComposerScreen`'s top app bar SHALL position its close and post actions so that an additional icon button can be inserted between them without forcing a relayout or pushing actions off-screen. The reservation MUST be noted with `// reserved for drafts entry point` near the action row.
 
 #### Scenario: Top-bar layout has room to grow
 
@@ -460,7 +419,7 @@ The "Discard draft?" confirmation dialog SHALL be implemented such that its acti
 
 ### Requirement: `ComposerViewModel` constructor leaves room for a future `DraftRepository`
 
-`ComposerViewModel`'s constructor SHALL be declared such that adding a `draftRepository: DraftRepository` parameter in a follow-up change is a pure addition — no existing parameter is repositioned, renamed, or removed. V1 ships with one `@Assisted` parameter (`route: ComposerRoute`) plus two Hilt-resolved parameters (`PostingRepository` and `ParentFetchSource`). The contract that matters is *append-only*: future Hilt-resolved additions go to the end of the parameter list, after `parentFetchSource`. The type MUST remain `@HiltViewModel(assistedFactory = ComposerViewModel.Factory::class)`-annotated so Hilt resolves new dependencies without binding-graph rewiring.
+`ComposerViewModel`'s constructor SHALL declare `@Assisted route: ComposerRoute` followed by `@Inject` parameters `postingRepository: PostingRepository` and `parentFetchSource: ParentFetchSource` in order. Future dependencies MUST append after `parentFetchSource` without repositioning existing parameters.
 
 #### Scenario: V1 constructor signature
 
@@ -469,7 +428,7 @@ The "Discard draft?" confirmation dialog SHALL be implemented such that its acti
 
 ### Requirement: FAB component on launching surfaces is badge-wrappable
 
-Any FloatingActionButton that launches the composer (V1: the Feed-tab compose FAB) SHALL be implemented using a component that supports `BadgedBox` wrapping — concretely, `FloatingActionButton`, `LargeFloatingActionButton`, or `SmallFloatingActionButton`. The launching FAB MUST NOT use `ExtendedFloatingActionButton` with a text label, because the M3 spec for `BadgedBox` does not cleanly support badging an extended/labeled FAB. This constraint reserves the ability to add a "drafts available" badge in the follow-up `:core:drafts` epic.
+Any FloatingActionButton launching the composer SHALL use a component supporting `BadgedBox` (`FloatingActionButton`, `LargeFloatingActionButton`, or `SmallFloatingActionButton`). It MUST NOT use `ExtendedFloatingActionButton`, reserving support for drafts badges.
 
 #### Scenario: Feed compose FAB is icon-only and wrappable
 
@@ -478,7 +437,7 @@ Any FloatingActionButton that launches the composer (V1: the Feed-tab compose FA
 
 ### Requirement: `:feature:composer:impl` follows the standard module conventions
 
-The `:feature:composer:impl` module SHALL apply the `nubecita.android.feature` convention plugin. It MUST declare a unique `namespace` of `net.kikin.nubecita.feature.composer.impl`. It MUST depend on `:feature:composer:api`, `:core:posting`, `:core:common:navigation`, `:core:designsystem`, and (transitively or directly) the atproto SDK identifier types only as needed; it MUST NOT depend on `:app`. The `:feature:composer:api` module SHALL apply `nubecita.android.library` and depend only on `:core:common:navigation`.
+`:feature:composer:impl` SHALL apply `nubecita.android.feature` and declare namespace `net.kikin.nubecita.feature.composer.impl`. It depends on `:feature:composer:api`, `:core:posting`, `:core:common:navigation`, and `:core:designsystem`, but MUST NOT depend on `:app`. `:feature:composer:api` applies `nubecita.android.library`.
 
 #### Scenario: impl applies the feature convention plugin
 
@@ -492,16 +451,7 @@ The `:feature:composer:impl` module SHALL apply the `nubecita.android.feature` c
 
 ### Requirement: Screenshot test contract covers five content states plus an adaptive-Dialog baseline
 
-The system SHALL ship Compose screenshot tests covering these six fixtures, each rendered in Light and Dark themes (12 images total):
-
-- **Empty composer** (new-post mode, no text, no attachments, idle, Compact width).
-- **Near-limit composer** (new-post mode, `graphemeCount` in the warn band — fixture pins to 295 — no attachments, idle, Compact width).
-- **Submitting composer** (new-post mode, mid-submission — Post button morphs to inline circular progress, close button is gated off, the text field is disabled, no attachments, Compact width). Locks the in-flight visual state introduced when the Post button's submit-status morph shipped.
-- **Composer with attached images** (new-post mode, 3 attached image fixtures, short text, idle, Compact width). Uses fake `content://` URIs that don't resolve so each chip renders the design system's `NubecitaAsyncImage` placeholder painter — keeps the baseline byte-for-byte deterministic without depending on a real `ImageLoader`.
-- **Reply mode** (reply mode, `replyParentLoad == ParentLoadStatus.Loaded(...)`, parent post card rendered above the input, short text, idle, Compact width).
-- **Empty composer at Expanded width as Dialog overlay** (new-post mode, no text, no attachments, idle, rendered inside the adaptive Dialog with `widthIn(max = 640.dp)` over a stub backing surface to validate the centered/scrim treatment).
-
-All fixtures MUST use deterministic `ComposerState` values (no live data, no real picker URIs), MUST run under `android.experimental.enableScreenshotTest`, and MUST be co-located with the `:feature:composer:impl` `screenshotTest` source set. The remaining width-class × content-state combinations (near-limit at Expanded, with-images at Expanded, reply at Expanded, plus all foldable postures) are explicitly deferred to follow-up changes — V1 pins one Expanded-width fixture as the adaptive-Dialog baseline rather than a full matrix.
+The system SHALL maintain Compose screenshot tests in `:feature:composer:impl` covering six fixtures in Light and Dark themes (12 images): empty composer, near-limit (295 graphemes), submitting, attached images (3 chips), reply mode, and empty composer at Expanded width as Dialog overlay (`widthIn(max = 640.dp)`). All fixtures MUST use deterministic test data.
 
 #### Scenario: Empty fixture pair exists
 
@@ -540,23 +490,7 @@ All fixtures MUST use deterministic `ComposerState` values (no live data, no rea
 
 ### Requirement: Unit-test coverage for the composer state machine
 
-The system SHALL ship JUnit unit tests for `ComposerViewModel` covering at minimum:
-
-- Initial state in new-post mode.
-- Initial state in reply mode (Loading → Loaded path).
-- Initial state in reply mode (Loading → Failed path).
-- `snapshotFlow` collector observes `textFieldState` text changes and updates `graphemeCount` and `isOverLimit` on `ComposerState`.
-- Grapheme counting boundary at 300 with emoji input.
-- `AddAttachments` cap enforcement at 4.
-- `RemoveAttachment` mutation.
-- `Submit` transitions Idle → Submitting → Success on happy path.
-- `Submit` transitions Idle → Submitting → Error on `PostingRepository` failure.
-- `Submit` is a no-op when `isOverLimit`.
-- `Submit` is a no-op when reply parent is not `Loaded`.
-- Retry from `Error` re-enters `Submitting`.
-- Reply mode `Submit` carries both `parentRef` and `rootRef` to the repository.
-
-Tests MUST use a fake `PostingRepository` and a fake parent-fetch source — never the live atproto client.
+The system SHALL maintain unit tests in `:feature:composer:impl` covering: initial states (new post, reply loading/loaded/failed), `snapshotFlow` text tracking and limit derivation, grapheme counter emoji boundary, attachment cap and removal, submission transitions (idle/submitting/success/error), retry, and reply refs. Tests MUST use fakes and run offline.
 
 #### Scenario: Test suite enumerates the canonical state transitions
 
@@ -570,7 +504,7 @@ Tests MUST use a fake `PostingRepository` and a fake parent-fetch source — nev
 
 ### Requirement: Composer text input is owned by Compose `TextFieldState`
 
-The system SHALL hold the canonical composer text in a `androidx.compose.foundation.text.input.TextFieldState` exposed by `ComposerViewModel` as a public `val textFieldState: TextFieldState`. `ComposerScreen` MUST consume the field via the `OutlinedTextField(state = vm.textFieldState, ...)` overload from Compose Foundation 1.7+. The legacy `value: String` / `onValueChange: (String) -> Unit` overload SHALL NOT be used for the composer's text input. `ComposerState` SHALL NOT contain a `text: String` field; `ComposerEvent` SHALL NOT contain a `TextChanged(text: String)` variant. The IME's writes to the field MUST NOT round-trip through `MviViewModel.handleEvent` or `MviViewModel.setState`.
+`ComposerViewModel` SHALL expose canonical text in `val textFieldState: TextFieldState`. `ComposerScreen` MUST use `OutlinedTextField(state = vm.textFieldState, ...)`. Legacy `value`/`onValueChange` overloads SHALL NOT be used. `ComposerState` MUST NOT contain a `text` field, and `ComposerEvent` MUST NOT contain a `TextChanged` variant.
 
 #### Scenario: Screen wires TextFieldState directly
 
@@ -603,7 +537,7 @@ The system SHALL hold the canonical composer text in a `androidx.compose.foundat
 
 ### Requirement: Active mention token is detected by a pure helper
 
-The system SHALL expose `net.kikin.nubecita.feature.composer.impl.internal.currentMentionToken(text: CharSequence, cursor: Int): String?` returning the active mention token at the cursor position, without the leading `@`, or `null` when no token is active. The function MUST be pure (no Compose, no coroutines, no I/O). The function MUST treat the following as "no active token": (a) cursor is at position 0 or no `@` precedes the cursor before a whitespace/second-`@` boundary; (b) the candidate `@` is preceded by a regex word char `[A-Za-z0-9_]` (email-like context — matches the `[$|\W]` boundary in the official AT Protocol handle regex); (c) the substring between the `@` and the cursor is empty (cursor immediately after a bare `@`). The walk-back from `cursor - 1` toward `0` MUST stop on whitespace or a second `@` — those characters terminate the candidate token.
+The system SHALL expose pure function `net.kikin.nubecita.feature.composer.impl.internal.currentMentionToken(text: CharSequence, cursor: Int): String?` returning the active mention token without leading `@`, or `null`. It returns `null` at position 0, after bare `@`, after word chars (e.g. email context), or across whitespace/second-`@` boundaries.
 
 #### Scenario: Cursor after a single-character token
 
@@ -637,14 +571,7 @@ The system SHALL expose `net.kikin.nubecita.feature.composer.impl.internal.curre
 
 ### Requirement: Typeahead state is a sealed status sum on `ComposerState`
 
-`ComposerState` SHALL contain a non-null field `typeahead: TypeaheadStatus` defaulting to `TypeaheadStatus.Idle`. `TypeaheadStatus` MUST be a `sealed interface` in `:feature:composer:impl/state` with exactly these variants:
-
-- `data object Idle : TypeaheadStatus`
-- `data class Querying(val query: String) : TypeaheadStatus`
-- `data class Suggestions(val query: String, val results: ImmutableList<ActorTypeaheadUi>) : TypeaheadStatus`
-- `data class NoResults(val query: String) : TypeaheadStatus`
-
-Additional internal states (e.g., transient errors) MUST collapse to `Idle` before being assigned to `state.typeahead`.
+`ComposerState` SHALL contain `typeahead: TypeaheadStatus` (default `Idle`). `TypeaheadStatus` MUST be a sealed interface with variants `Idle`, `Querying(val query: String)`, `Suggestions(val query: String, val results: ImmutableList<ActorTypeaheadUi>)`, and `NoResults(val query: String)`. Transient errors collapse to `Idle`.
 
 #### Scenario: Initial state is Idle
 
@@ -668,7 +595,7 @@ Additional internal states (e.g., transient errors) MUST collapse to `Idle` befo
 
 ### Requirement: Typeahead pipeline guarantees debounce semantics + distinctUntilChanged + mapLatest
 
-`ComposerViewModel` MUST drive the typeahead lookup from a per-VM `MutableSharedFlow<String>` collected via `launchIn(viewModelScope)`. The pipeline SHALL guarantee three semantics: (1) **debounce** — non-empty tokens MUST wait at least 150ms after the last keystroke before resolving, suppressing in-flight fan-out during fast typing. (2) **distinctUntilChanged** — consecutive identical tokens MUST NOT trigger a second repository call. (3) **mapLatest** — when a newer token arrives, any in-flight slow query for an older token MUST be cancelled, and any pending debounce delay for the older token MUST also be cancelled. The operator chain is `.distinctUntilChanged().mapLatest { token -> if (token.isNotEmpty()) delay(150.milliseconds); repo.searchTypeahead(token) }` — placing the `delay(...)` *inside* `mapLatest` (rather than upstream `.debounce(...)`) is the canonical shape because the empty-token sentinel ("no active token") MUST cancel both an in-flight repository call and any pending delay immediately, which an upstream `.debounce(...)` cannot do.
+`ComposerViewModel` MUST drive typeahead queries using `.distinctUntilChanged().mapLatest { token -> if (token.isNotEmpty()) delay(150.milliseconds); repo.searchTypeahead(token) }`. The pipeline guarantees 150ms debounce for non-empty tokens, suppression of consecutive duplicate queries, and cancellation of in-flight lookups when newer tokens arrive.
 
 #### Scenario: mapLatest cancels in-flight queries
 
@@ -684,13 +611,7 @@ Additional internal states (e.g., transient errors) MUST collapse to `Idle` befo
 
 ### Requirement: Selecting a suggestion atomically replaces the active token
 
-The system SHALL provide `ComposerEvent.TypeaheadResultClicked(actor: ActorTypeaheadUi)`. When dispatched, `ComposerViewModel` MUST:
-
-1. Snapshot `textFieldState.text.toString()` and `textFieldState.selection.end`.
-2. Locate the active `@`-position via the same logic `currentMentionToken` uses.
-3. If the `@`-position cannot be located (concurrent edit raced the click), the event SHALL be a no-op.
-4. Otherwise, the substring `[@-position, cursor)` SHALL be replaced with `@<actor.handle> ` (trailing space) via a single `textFieldState.edit { replace(...); placeCursorBeforeCharAt(end-of-insertion) }` block.
-5. The next `snapshotFlow` emission SHALL drive `state.typeahead` to `Idle` (the helper sees the trailing whitespace boundary and returns `null`).
+`ComposerViewModel` SHALL handle `ComposerEvent.TypeaheadResultClicked(actor: ActorTypeaheadUi)` by replacing the active mention substring `[@-position, cursor)` with `@<actor.handle> ` via `textFieldState.edit`. If the `@`-position cannot be found, it no-ops. After replacement, the typeahead state transitions to `Idle`.
 
 #### Scenario: Replacement inserts canonical handle with trailing space
 
@@ -711,7 +632,7 @@ The system SHALL provide `ComposerEvent.TypeaheadResultClicked(actor: ActorTypea
 
 ### Requirement: Suggestion list renders inline above the IME
 
-`ComposerScreenContent` MUST render the typeahead suggestions inline in the composer's primary `Column`, between the `OutlinedTextField` and the `ComposerAttachmentRow`, **only** when `state.typeahead` is `Suggestions` or `NoResults`. The container SHALL be a Material 3 `OutlinedCard` filling the available width with a `LazyColumn` of `Modifier.heightIn(max = 240.dp)`. Each suggestion row SHALL display an `NubecitaAsyncImage` 40.dp circular avatar, the `displayName` (or the `handle` when displayName is null) styled `MaterialTheme.typography.titleSmall`, and the `@<handle>` styled `MaterialTheme.typography.bodySmall` with `MaterialTheme.colorScheme.onSurfaceVariant`. Rows SHALL be separated by `HorizontalDivider`. The `LazyColumn` items SHALL use `actor.did` as the stable key. The container SHALL NOT render in `Idle` or `Querying` states.
+When `state.typeahead` is `Suggestions` or `NoResults`, `ComposerScreenContent` SHALL render suggestions inline in an M3 `OutlinedCard` (`LazyColumn(heightIn(max = 240.dp))`) between the text field and attachment row. Each row shows avatar, display name, and `@handle`, tapping which dispatches `TypeaheadResultClicked`. It does not render in `Idle` or `Querying`.
 
 #### Scenario: Suggestions visible only in Suggestions or NoResults
 

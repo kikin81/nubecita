@@ -34,7 +34,7 @@ The engine SHALL keep at most one **active** (audible, playing) playback at any 
 
 ### Requirement: Shared playback infrastructure
 
-The engine SHALL provide reusable `:core:video` playback building blocks — a `SimpleCache`, a cache-backed `MediaSource.Factory`, track/codec selectors, `LoadControl` configuration, and an ExoPlayer factory that assembles them. These are **new** components (the existing `SharedVideoPlayer` is a bare `ExoPlayer` with none of them, so nothing is extracted). The building blocks SHALL be designed for reuse by any `:core:video` player; the `SimpleCache` MUST be constructed off the main thread. This change SHALL NOT modify `SharedVideoPlayer` — it stays a bare player with no behavior change (zero regression surface). Migrating `SharedVideoPlayer` to adopt the shared cache is deferred to a separate, independently-measured change (a caching/buffering behavior change on the feed player).
+The engine SHALL provide reusable `:core:video` playback building blocks, including a `SimpleCache`, cache-backed `MediaSource.Factory`, track/codec selectors, `LoadControl` configuration, and an ExoPlayer factory assembling them. Building blocks SHALL be reusable by any `:core:video` player, and `SimpleCache` MUST be constructed off the main thread. Existing `SharedVideoPlayer` SHALL NOT be modified in this change.
 
 #### Scenario: Cache constructed off-main
 

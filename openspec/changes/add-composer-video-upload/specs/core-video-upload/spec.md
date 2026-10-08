@@ -2,9 +2,7 @@
 
 ### Requirement: `VideoUploadRepository` exposes the pipeline as an observable state machine
 
-The system SHALL expose `net.kikin.nubecita.core.videoupload.VideoUploadRepository` as a Kotlin interface in the `:core:video-upload` capability, declaring a single function `upload(uri: Uri): Flow<VideoUploadState>`. The returned flow SHALL be cold — collection starts the pipeline, cancellation of the collecting coroutine aborts it — and SHALL emit a strictly non-decreasing sequence of stages terminating in exactly one of `Ready` or `Failed`. No consumer SHALL be required to know that the pipeline spans three hosts and two auth schemes.
-
-`VideoUploadState` SHALL be a sealed interface with the variants `CheckingLimits`, `Compressing(progress: Float)`, `Uploading(progress: Float)`, `Processing(progress: Float)`, `Ready(blob: Blob, aspectRatio: AspectRatio)`, and `Failed(error: VideoUploadError)`. All `progress` values SHALL be in `0f..1f`.
+The system SHALL expose `VideoUploadRepository` in `:core:video-upload` declaring cold flow `upload(uri: Uri): Flow<VideoUploadState>` terminating in `Ready` or `Failed`. `VideoUploadState` SHALL be a sealed interface with variants `CheckingLimits`, `Compressing(progress: Float)`, `Uploading(progress: Float)`, `Processing(progress: Float)`, `Ready(blob: Blob, aspectRatio: AspectRatio)`, and `Failed(error: VideoUploadError)`. Progress values SHALL be in `0f..1f`.
 
 #### Scenario: Happy path emits every stage in order
 
@@ -23,9 +21,7 @@ The system SHALL expose `net.kikin.nubecita.core.videoupload.VideoUploadReposito
 
 ### Requirement: Upload limits are checked before any transcoding work begins
 
-The system SHALL call `app.bsky.video.getUploadLimits` and evaluate `canUpload` **before** starting compression. When `canUpload` is `false`, the pipeline SHALL terminate with `Failed(VideoUploadError.NotPermitted(message))` carrying the server-supplied `message` verbatim, and SHALL NOT invoke the transcoder.
-
-This ordering is normative, not incidental: transcoding is the most expensive stage in both battery and thermal budget, and the two real rejection causes — an unverified account email and an exhausted daily quota — are both knowable before a single frame is re-encoded.
+The system SHALL call `app.bsky.video.getUploadLimits` and evaluate `canUpload` before starting compression. When `canUpload` is `false`, the pipeline SHALL terminate with `Failed(VideoUploadError.NotPermitted(message))` carrying the server-supplied message and SHALL NOT invoke the transcoder, avoiding unnecessary re-encoding on unverified or quota-exhausted accounts.
 
 #### Scenario: Rejected account never transcodes
 
@@ -39,13 +35,7 @@ This ordering is normative, not incidental: transcoding is the most expensive st
 
 ### Requirement: Compression bounds output size as a function of clip duration
 
-The system SHALL re-encode the source clip with `androidx.media3.transformer.Transformer` before upload, targeting H.264 video and AAC audio with the longest edge capped at 1080 px. For a strictly positive `durationSeconds`, the target video bitrate SHALL be computed as `min(defaultBitrate, (SIZE_BUDGET_BYTES * 8) / durationSeconds)` where `SIZE_BUDGET_BYTES` is a margin below the 100 MB service cap, so that output size is bounded by construction rather than by assumption.
-
-When the duration is non-positive or cannot be read — `MediaMetadataRetriever` returns null for a corrupt container — the system SHALL fall back to `defaultBitrate` rather than dividing.
-
-Because that fallback abandons the computed bound, the system SHALL additionally verify the encoded file against the service cap after transcoding and terminate with `CompressionFailed` if it exceeds it, rather than beginning an upload the service will reject. This check applies on every path, so the size bound is enforced rather than merely computed.
-
-A fixed bitrate SHALL NOT be used: at any bitrate high enough to look acceptable on a short clip, a clip near the duration limit would exceed the cap.
+The system SHALL re-encode clips with `Transformer` targeting H.264/AAC with longest edge capped at 1080px. For positive duration, target bitrate SHALL be `min(defaultBitrate, (SIZE_BUDGET_BYTES * 8) / durationSeconds)` below 100MB cap; unreadable duration falls back to `defaultBitrate`. Transcoded files exceeding the service cap SHALL terminate with `CompressionFailed`.
 
 #### Scenario: Long clip gets a proportionally lower bitrate
 
@@ -74,11 +64,7 @@ A fixed bitrate SHALL NOT be used: at any bitrate high enough to look acceptable
 
 ### Requirement: Aspect ratio accounts for container rotation metadata
 
-The system SHALL derive the `AspectRatio` written to `app.bsky.embed.video` from the source's `METADATA_KEY_VIDEO_WIDTH` and `METADATA_KEY_VIDEO_HEIGHT`, and SHALL swap width and height when `METADATA_KEY_VIDEO_ROTATION` is `90` or `270`.
-
-When either dimension is non-positive or unreadable, the system SHALL **omit** the aspect ratio rather than publishing a placeholder. `app.bsky.embed.video`'s `aspectRatio` is optional (`AtField.Missing`), so omission is representable — and a substituted 1:1 would be a silent lie that every client renders, letterboxing the video exactly as an unrotated value would. An absent ratio lets each client fall back to its own measurement; a wrong one does not.
-
-Portrait phone recordings are commonly stored as landscape frames plus a 90-degree rotation flag. Reporting the unrotated dimensions would make every such video render letterboxed in every AT Protocol client, not only in Nubecita.
+The system SHALL derive `AspectRatio` from `METADATA_KEY_VIDEO_WIDTH` and `METADATA_KEY_VIDEO_HEIGHT`, swapping width and height when rotation is 90 or 270 degrees. When dimensions are non-positive or unreadable, the system SHALL omit the aspect ratio rather than publishing placeholders.
 
 #### Scenario: Portrait recording reports portrait dimensions
 
@@ -97,11 +83,7 @@ Portrait phone recordings are commonly stored as landscape frames plus a 90-degr
 
 ### Requirement: The upload leg uses service auth against the video service host
 
-The system SHALL obtain a service-auth token via `com.atproto.server.getServiceAuth` against the user's PDS with `aud` set to `did:web:<pds-host>`, `lxm` set to `com.atproto.repo.uploadBlob`, and `exp` set to 30 minutes ahead. It SHALL then `POST` the compressed bytes to `https://video.bsky.app/xrpc/app.bsky.video.uploadVideo` with the query parameters `did` and `name`, the header `Authorization: Bearer <serviceAuthToken>`, `Content-Type: video/mp4`, and an explicit `Content-Length`.
-
-The `lxm` value SHALL be `com.atproto.repo.uploadBlob` and not `app.bsky.video.uploadVideo`; the `aud` SHALL be the user's PDS and not the video service. Both are counter-intuitive and both are required by the service.
-
-This request SHALL NOT be routed through the shared `XrpcClient`: that client is bound to a single PDS `baseUrl` and installs DPoP-bound OAuth credentials, neither of which applies to this host, and it exposes no upload-progress callback.
+The system SHALL obtain a service-auth token via `com.atproto.server.getServiceAuth` against the user's PDS (`aud = did:web:<pds-host>`, `lxm = com.atproto.repo.uploadBlob`, `exp = 30m`) and POST compressed bytes to `https://video.bsky.app/xrpc/app.bsky.video.uploadVideo` with parameters `did` and `name`, `Authorization: Bearer <token>`, `Content-Type: video/mp4`, and explicit `Content-Length`. Requests SHALL NOT route through the shared `XrpcClient`.
 
 #### Scenario: Service auth is requested with the documented parameters
 
@@ -120,9 +102,7 @@ This request SHALL NOT be routed through the shared `XrpcClient`: that client is
 
 ### Requirement: Job status is polled until the blob is available
 
-After a successful upload the system SHALL poll `app.bsky.video.getJobStatus` with the returned `jobId` until the response carries a non-null `blob`, mapping intermediate responses to `Processing(progress)` from the job's `progress` field. A job state indicating failure SHALL terminate the pipeline with `Failed(VideoUploadError.ProcessingFailed(message))` carrying the job's `error` or `message`.
-
-Because the lexicon documents that any unrecognized state means the job is still running, the implementation SHALL treat unknown states as in-progress rather than as failures.
+After upload, the system SHALL poll `app.bsky.video.getJobStatus` with `jobId` until receiving a non-null `blob`, mapping intermediate states to `Processing(progress)`. Unrecognized states SHALL be treated as in-progress. Job failure SHALL terminate with `Failed(VideoUploadError.ProcessingFailed(message))`.
 
 #### Scenario: Polling resolves to a blob
 

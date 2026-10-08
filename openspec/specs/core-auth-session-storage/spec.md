@@ -19,7 +19,7 @@ The `:core:auth` module SHALL provide a singleton-scoped Hilt binding for `io.gi
 
 ### Requirement: Session round-trips through `save` and `load`
 
-The store SHALL persist an `OAuthSession` via `save(session)` such that a subsequent `load()` returns an `OAuthSession` whose every field (including `accessToken`, `refreshToken`, `did`, `handle`, `pdsUrl`, `tokenEndpoint`, `revocationEndpoint`, `clientId`, `dpopPrivateKey`, `dpopPublicKey`, `authServerNonce`, `clockOffsetSeconds`, `pdsNonce`) is byte-for-byte equal to the saved value. The `ByteArray` fields holding DPoP key material SHALL survive encoding and decoding without truncation or mutation.
+The store SHALL persist an `OAuthSession` via `save(session)` such that a subsequent `load()` returns an `OAuthSession` whose every field is byte-for-byte equal to the saved value. The `ByteArray` fields holding DPoP key material SHALL survive encoding and decoding without truncation or mutation.
 
 #### Scenario: Freshly-saved session loads identically
 

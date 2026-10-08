@@ -5,14 +5,7 @@ The shared navigation primitives in `:core:common`: the injectable outer `Naviga
 ## Requirements
 ### Requirement: `:core:common` provides a `Navigator` Hilt singleton owning the app back stack
 
-`:core:common` SHALL expose a public `Navigator` interface and an internal `DefaultNavigator` implementation, bound `@Singleton` in Hilt's `SingletonComponent`. The interface SHALL expose:
-
-- `val backStack: SnapshotStateList<NavKey>` — the live back stack, observable from Compose.
-- `fun goTo(key: NavKey)` — appends `key` to the top of the stack.
-- `fun goBack()` — removes the top of the stack (no-op if empty).
-- `fun replaceTo(key: NavKey)` — clears the stack and appends `key`.
-
-The default implementation SHALL initialize `backStack` containing the application's start destination (`Main`).
+`:core:common` SHALL expose a public `Navigator` interface and internal `DefaultNavigator` bound `@Singleton` in `SingletonComponent`. The interface SHALL expose `val backStack: SnapshotStateList<NavKey>`, `fun goTo(key: NavKey)`, `fun goBack()`, and `fun replaceTo(key: NavKey)`. `backStack` SHALL initialize containing start destination `Main`.
 
 #### Scenario: ViewModel injects Navigator and pops the back stack
 
@@ -40,21 +33,7 @@ The default implementation SHALL initialize `backStack` containing the applicati
 
 ### Requirement: `:core:common:navigation` provides `MainShellNavState` Compose-owned multi-tab state holder
 
-`:core:common:navigation` SHALL expose a public `MainShellNavState` class and a `@Composable rememberMainShellNavState(startRoute: NavKey, topLevelRoutes: List<NavKey>): MainShellNavState` factory. `topLevelRoutes` SHALL be a `List` (not `Set`) because the factory issues one `rememberNavBackStack(key)` call per element in iteration order and Compose keys those `remember` slots by composer position; a reordered iteration would re-associate persisted stacks with the wrong keys. The factory SHALL `require` that `topLevelRoutes` contains unique elements and includes `startRoute`. The class SHALL hold:
-
-- `topLevelKey: NavKey` — the active tab, mutable.
-- A per-top-level-route map of back stacks (`NavBackStack<NavKey>` per route).
-- A flattened `backStack: SnapshotStateList<NavKey>` view suitable for passing to `NavDisplay.backStack`, computed across the active tabs in "exit through home" order.
-
-The class SHALL expose:
-
-- `addTopLevel(key: NavKey)` — switch active tab; preserve the outgoing tab's stack.
-- `add(key: NavKey)` — push `key` onto the active tab's stack.
-- `removeLast()` — pop. If the popped key is a top-level route, the active tab SHALL switch back toward the start route per the recipe's "exit through home" rule.
-
-The factory SHALL persist `topLevelKey` via `rememberSerializable(... NavKeySerializer ...)` and per-tab back stacks via `rememberNavBackStack(...)`, so configuration change and process death restore the prior state.
-
-The class SHALL NOT be `@Inject`-able. It is intended to be created inside a Composable's body.
+`:core:common:navigation` SHALL expose `MainShellNavState` and `@Composable rememberMainShellNavState(startRoute: NavKey, topLevelRoutes: List<NavKey>): MainShellNavState`. It holds `topLevelKey: NavKey`, a per-route map of back stacks, and flattened `backStack: SnapshotStateList<NavKey>`. It exposes `addTopLevel(key)`, `add(key)`, and `removeLast()`. State is persisted via `rememberSerializable` and `rememberNavBackStack`. The class is not `@Inject`-able.
 
 #### Scenario: Tab switch preserves outgoing stack
 
@@ -84,12 +63,7 @@ ViewModels SHALL NOT access `LocalMainShellNavState`. CompositionLocals are not 
 
 ### Requirement: `:core:common:navigation` provides `@OuterShell` and `@MainShell` Hilt qualifier annotations
 
-`:core:common:navigation` SHALL expose two `@Qualifier`-annotated annotations:
-
-- `@OuterShell` — for `EntryProviderInstaller` providers contributing to the outer `NavDisplay` (Splash, Login, the `Main` wrapper entry).
-- `@MainShell` — for `EntryProviderInstaller` providers contributing to the inner `NavDisplay` hosted by `MainShell` (Feed, Search, Chats, You + their sub-routes).
-
-Both qualifiers SHALL be retained at `BINARY` level. Feature modules contributing entries SHALL annotate their `@Provides @IntoSet` declarations with exactly one of these qualifiers. `:app`'s `NavigationEntryPoint` SHALL expose two distinct accessor methods, one annotated with each qualifier, returning `Set<@JvmSuppressWildcards EntryProviderInstaller>`.
+`:core:common:navigation` SHALL expose `@Qualifier` annotations `@OuterShell` (for outer `NavDisplay`) and `@MainShell` (for inner `NavDisplay` hosted by `MainShell`), retained at `BINARY` level. Feature module `@Provides @IntoSet EntryProviderInstaller` declarations SHALL use exactly one qualifier. `:app`'s `NavigationEntryPoint` SHALL expose separate accessors for each qualifier.
 
 #### Scenario: Outer-shell binding is collected via @OuterShell accessor
 
@@ -117,12 +91,7 @@ Both qualifiers SHALL be retained at `BINARY` level. Feature modules contributin
 
 ### Requirement: `LocalTabReTapSignal` exposes a feature-agnostic tab-re-tap broadcast
 
-The system SHALL expose a `ProvidableCompositionLocal<SharedFlow<Unit>>` named `LocalTabReTapSignal` from `:core:common:navigation`. The contract:
-
-- The flow MUST be a hot `SharedFlow<Unit>` with `replay = 0` and a single-slot drop-oldest buffer (`extraBufferCapacity = 1`, `BufferOverflow.DROP_OLDEST`). The buffer guarantees `tryEmit` always succeeds even when the consumer's `collect { ... }` body is mid-suspend (e.g. running an animation from a prior emission, or briefly restarting between recompositions). Rapid double-taps from the producer collapse into a single delivered emission (DROP_OLDEST discards the older buffered one).
-- The default value MUST be an empty `SharedFlow<Unit>` (a `MutableSharedFlow<Unit>(replay = 0).asSharedFlow()`) so previews / screenshot tests / detached compositions don't need to wrap the host in a custom `CompositionLocalProvider`. Reading the default and collecting from it MUST be a runtime no-op.
-- The producer (typically `MainShell`) is the sole writer; consumers are read-only via the `SharedFlow<Unit>` shape (not `MutableSharedFlow`). The CompositionLocal MUST NOT expose write capability to consumers. The producer SHOULD `remember` the `asSharedFlow()` wrapper so the CompositionLocal value stays stable across recompositions (otherwise consumers' `LaunchedEffect`s keyed on the flow restart unnecessarily).
-- Consumers (feature screens) collect the flow inside a `LaunchedEffect` keyed on `(signal, listState)` (or equivalent stable keys) and perform their re-tap action — typically `LazyListState.animateScrollToItem(0)`, though sibling tabs MAY bind non-scroll actions to the same signal. The signal carries no payload — it's a pure trigger.
+`:core:common:navigation` SHALL expose `LocalTabReTapSignal: ProvidableCompositionLocal<SharedFlow<Unit>>`. The hot flow MUST have `replay = 0`, `extraBufferCapacity = 1`, and `BufferOverflow.DROP_OLDEST`. The default value MUST be an empty `SharedFlow<Unit>`. `MainShell` is sole writer via `MutableSharedFlow`; consumers read via `SharedFlow<Unit>`. Feature screens collect the flow in `LaunchedEffect` to trigger re-tap actions (e.g., scroll to top).
 
 #### Scenario: Producer emits, single consumer scrolls
 
@@ -151,11 +120,7 @@ The system SHALL expose a `ProvidableCompositionLocal<SharedFlow<Unit>>` named `
 
 ### Requirement: MainShell emits the signal on bottom-nav tab RE-TAP only
 
-The `:app/MainShell` composable SHALL provide a `LocalTabReTapSignal` value via `CompositionLocalProvider` and emit `Unit` from its bottom-nav tab-tap handler when and only when the tapped tab equals the currently-active tab.
-
-- A tap that switches tabs (`tappedTab != activeTab`) MUST navigate as before and MUST NOT emit the signal. The destination tab restores its last scroll position via Nav3's existing back-stack semantics; firing scroll-to-top on a fresh tab landing would defeat that.
-- A tap that re-selects the active tab (`tappedTab == activeTab`) MUST call `tryEmit(Unit)` on the underlying `MutableSharedFlow` and MUST NOT navigate. The user remains on the same tab; the signal is the only side effect.
-- The tab-tap handler MUST resolve `activeTab` from the post-mutation MainShell state (not the pre-tap snapshot) so a rapid double-tap during a tab-switch animation is interpreted correctly.
+`:app/MainShell` SHALL provide `LocalTabReTapSignal` and call `tryEmit(Unit)` when and only when the tapped bottom-nav tab equals `activeTab`. Switching tabs (`tappedTab != activeTab`) MUST navigate without emitting the signal. Re-tapping active tab MUST call `tryEmit(Unit)` and MUST NOT navigate. `activeTab` MUST resolve from post-mutation state.
 
 #### Scenario: Re-tap on the active tab fires the signal
 

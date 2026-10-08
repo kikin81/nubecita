@@ -5,7 +5,7 @@ The report flow: the `Report` `@MainShell` sub-route and its `ReportSubject` sum
 ## Requirements
 ### Requirement: `:feature:moderation:api` exposes the `Report` NavKey + `ReportSubject` sealed sum
 
-The system SHALL ship a new `:feature:moderation:api` Android library module. The module SHALL define a single `@Serializable Report(subject: ReportSubject) : NavKey` and a sealed `ReportSubject` with exactly two variants: `data class Post(uri: String, cid: String) : ReportSubject` and `data class Account(did: String) : ReportSubject`. The `uri` / `cid` / `did` fields MUST be plain `String`s (not the atproto SDK's generated value-class types and not typealiases) — matching the codebase's established convention (see `PostDetailRoute.postUri` and `PostUi.id` / `PostUi.cid`); consumers wrap to lexicon-typed values at the XRPC boundary. The `:api` module MUST NOT depend on Hilt, Compose, Coil, or any `:feature:moderation:impl` symbol; it depends only on `androidx.navigation3.runtime` (for `NavKey`) and `kotlinx.serialization.json`.
+The system SHALL provide `:feature:moderation:api` declaring `@Serializable Report(subject: ReportSubject) : NavKey` and sealed `ReportSubject` with variants `Post(uri: String, cid: String)` and `Account(did: String)`. Identifiers MUST be plain `String`s. The module MUST NOT depend on Hilt, Compose, Coil, or `:feature:moderation:impl`, depending only on `androidx.navigation3.runtime` and `kotlinx.serialization.json`.
 
 #### Scenario: Caller constructs a post report NavKey without `:impl` dependency
 
@@ -19,7 +19,7 @@ The system SHALL ship a new `:feature:moderation:api` Android library module. Th
 
 ### Requirement: `:feature:moderation:impl` registers a `@MainShell` `EntryProviderInstaller` for the `Report` NavKey
 
-The system SHALL ship a new `:feature:moderation:impl` Android library module applying the `nubecita.android.feature` convention plugin. The module SHALL provide a Hilt `@Provides @IntoSet @MainShell EntryProviderInstaller` binding that registers an entry for the `Report` NavKey declared in `:feature:moderation:api`. The entry MUST render an `androidx.compose.material3.ModalBottomSheet` hosting the report dialog content. The entry MUST NOT carry `ListDetailSceneStrategy.listPane { }` or `detailPane { }` metadata — the Report sub-route is a transient overlay that the scene strategy resolves wherever it fits.
+The system SHALL provide `:feature:moderation:impl` with a Hilt `@MainShell EntryProviderInstaller` binding registering an entry for `Report`. The entry MUST render a `ModalBottomSheet` hosting the report dialog content without `listPane` or `detailPane` metadata, popping `Report` off `LocalMainShellNavState.current` on dismissal.
 
 #### Scenario: Report sub-route renders on push
 
@@ -33,29 +33,7 @@ The system SHALL ship a new `:feature:moderation:impl` Android library module ap
 
 ### Requirement: `ReportReasons` exposes granular `tools.ozone.report.defs` and legacy `com.atproto.moderation.defs` tokens as `String` constants
 
-The system SHALL ship a `ReportReasons` Kotlin `object` (in `:feature:moderation:impl`) holding each granular `tools.ozone.report.defs` reason and each legacy `com.atproto.moderation.defs` fallback reason as a `const val String` whose value matches the canonical lexicon token string verbatim (case- and prefix-sensitive). The object MUST include the following granular tokens from `tools.ozone.report.defs#reasonType`:
-
-- `REASON_OTHER` = `"tools.ozone.report.defs#reasonOther"`
-- `REASON_APPEAL` = `"tools.ozone.report.defs#reasonAppeal"`
-- Violence: `REASON_VIOLENCE_ANIMAL`, `REASON_VIOLENCE_THREATS`, `REASON_VIOLENCE_GRAPHIC_CONTENT`, `REASON_VIOLENCE_GLORIFICATION`, `REASON_VIOLENCE_EXTREMIST_CONTENT`, `REASON_VIOLENCE_TRAFFICKING`, `REASON_VIOLENCE_OTHER`
-- Sexual: `REASON_SEXUAL_ABUSE_CONTENT`, `REASON_SEXUAL_NCII`, `REASON_SEXUAL_DEEPFAKE`, `REASON_SEXUAL_ANIMAL`, `REASON_SEXUAL_UNLABELED`, `REASON_SEXUAL_OTHER`
-- Child safety: `REASON_CHILD_SAFETY_CSAM`, `REASON_CHILD_SAFETY_GROOM`, `REASON_CHILD_SAFETY_PRIVACY`, `REASON_CHILD_SAFETY_HARASSMENT`, `REASON_CHILD_SAFETY_OTHER`
-- Harassment: `REASON_HARASSMENT_TROLL`, `REASON_HARASSMENT_TARGETED`, `REASON_HARASSMENT_HATE_SPEECH`, `REASON_HARASSMENT_DOXXING`, `REASON_HARASSMENT_OTHER`
-- Misleading: `REASON_MISLEADING_BOT`, `REASON_MISLEADING_IMPERSONATION`, `REASON_MISLEADING_SPAM`, `REASON_MISLEADING_SCAM`, `REASON_MISLEADING_ELECTIONS`, `REASON_MISLEADING_OTHER`
-- Rule violation: `REASON_RULE_SITE_SECURITY`, `REASON_RULE_PROHIBITED_SALES`, `REASON_RULE_BAN_EVASION`, `REASON_RULE_OTHER`
-- Self-harm: `REASON_SELF_HARM_CONTENT`, `REASON_SELF_HARM_ED`, `REASON_SELF_HARM_STUNTS`, `REASON_SELF_HARM_SUBSTANCES`, `REASON_SELF_HARM_OTHER`
-
-The object MUST also include these legacy fallbacks from `com.atproto.moderation.defs#reasonType`:
-
-- `REASON_LEGACY_SPAM` = `"com.atproto.moderation.defs#reasonSpam"`
-- `REASON_LEGACY_VIOLATION` = `"com.atproto.moderation.defs#reasonViolation"`
-- `REASON_LEGACY_MISLEADING` = `"com.atproto.moderation.defs#reasonMisleading"`
-- `REASON_LEGACY_SEXUAL` = `"com.atproto.moderation.defs#reasonSexual"`
-- `REASON_LEGACY_RUDE` = `"com.atproto.moderation.defs#reasonRude"`
-- `REASON_LEGACY_OTHER` = `"com.atproto.moderation.defs#reasonOther"`
-- `REASON_LEGACY_APPEAL` = `"com.atproto.moderation.defs#reasonAppeal"`
-
-The object SHALL also expose `OTHER_REPORT_REASONS: Set<String>` containing every `*Other`-suffixed granular token plus the top-level granular `REASON_OTHER` (the catch-all fallback). Legacy fallbacks are NOT included in `OTHER_REPORT_REASONS`.
+`ReportReasons` in `:feature:moderation:impl` SHALL expose canonical reason string constants for `tools.ozone.report.defs` (Violence, Sexual, ChildSafety, Harassment, Misleading, RuleViolation, SelfHarm, Appeal, and Other) and legacy `com.atproto.moderation.defs` fallback tokens (such as `REASON_LEGACY_SPAM`). It SHALL expose `OTHER_REPORT_REASONS: Set<String>` containing all granular `*Other` tokens and top-level `REASON_OTHER`.
 
 #### Scenario: `OTHER_REPORT_REASONS` contains exactly the granular `*Other` tokens plus the top-level granular `reasonOther`
 
@@ -74,19 +52,7 @@ The object SHALL also expose `OTHER_REPORT_REASONS: Set<String>` containing ever
 
 ### Requirement: `ReportCategory` sealed sum models the 9 dialog cards and their child reasons
 
-The system's UI / VM layer SHALL define a sealed `ReportCategory` with exactly 9 variants: `Spam`, `Sexual`, `Violence`, `ChildSafety`, `Harassment`, `Misleading`, `RuleViolation`, `SelfHarm`, `Other`. Each variant SHALL expose a `reasons: List<String>` property whose entries are token strings from `ReportReasons`. Sub-reason ordering within each category MUST match the order declared in the design document (matching the lexicon's `knownValues` ordering).
-
-The 9 variants and their canonical `reasons` lists are:
-
-- `Spam`: `[REASON_LEGACY_SPAM]` (single legacy token — there is no granular `reasonSpam` under the ozone hierarchy; the Spam top-level card submits the legacy spam reason directly and bypasses the sub-reason step)
-- `Violence`: `[REASON_VIOLENCE_ANIMAL, REASON_VIOLENCE_THREATS, REASON_VIOLENCE_GRAPHIC_CONTENT, REASON_VIOLENCE_GLORIFICATION, REASON_VIOLENCE_EXTREMIST_CONTENT, REASON_VIOLENCE_TRAFFICKING, REASON_VIOLENCE_OTHER]`
-- `Sexual`: `[REASON_SEXUAL_ABUSE_CONTENT, REASON_SEXUAL_NCII, REASON_SEXUAL_DEEPFAKE, REASON_SEXUAL_ANIMAL, REASON_SEXUAL_UNLABELED, REASON_SEXUAL_OTHER]`
-- `ChildSafety`: `[REASON_CHILD_SAFETY_CSAM, REASON_CHILD_SAFETY_GROOM, REASON_CHILD_SAFETY_PRIVACY, REASON_CHILD_SAFETY_HARASSMENT, REASON_CHILD_SAFETY_OTHER]`
-- `Harassment`: `[REASON_HARASSMENT_TROLL, REASON_HARASSMENT_TARGETED, REASON_HARASSMENT_HATE_SPEECH, REASON_HARASSMENT_DOXXING, REASON_HARASSMENT_OTHER]`
-- `Misleading`: `[REASON_MISLEADING_BOT, REASON_MISLEADING_IMPERSONATION, REASON_MISLEADING_SPAM, REASON_MISLEADING_SCAM, REASON_MISLEADING_ELECTIONS, REASON_MISLEADING_OTHER]`
-- `RuleViolation`: `[REASON_RULE_SITE_SECURITY, REASON_RULE_PROHIBITED_SALES, REASON_RULE_BAN_EVASION, REASON_RULE_OTHER]`
-- `SelfHarm`: `[REASON_SELF_HARM_CONTENT, REASON_SELF_HARM_ED, REASON_SELF_HARM_STUNTS, REASON_SELF_HARM_SUBSTANCES, REASON_SELF_HARM_OTHER]`
-- `Other`: `[REASON_OTHER]` (single granular token — the catch-all `tools.ozone.report.defs#reasonOther`)
+The system SHALL define sealed `ReportCategory` with 9 variants: `Spam`, `Sexual`, `Violence`, `ChildSafety`, `Harassment`, `Misleading`, `RuleViolation`, `SelfHarm`, and `Other`. Each variant SHALL expose `reasons: List<String>` matching lexicon reason tokens. `Spam` SHALL contain `[REASON_LEGACY_SPAM]` bypassing the sub-reason step; `Other` SHALL contain `[REASON_OTHER]`.
 
 #### Scenario: ChildSafety category exposes the five granular child-safety reasons in lexicon order
 
@@ -105,7 +71,7 @@ The 9 variants and their canonical `reasons` lists are:
 
 ### Requirement: `ReportDialogViewModel` extends `MviViewModel` with a sealed `ReportDialogStep`
 
-The system SHALL ship `ReportDialogViewModel` extending `net.kikin.nubecita.ui.mvi.MviViewModel<ReportDialogState, ReportDialogEvent, ReportDialogEffect>`. `ReportDialogState` MUST contain a `subject: ReportSubject` flat field (the navigated subject), an optional `subjectPreview: SubjectPreview?` flat field (null while resolving the subject's display name), a `step: ReportDialogStep` sealed sum (`Subject | Category | SubReason | Details`), `selectedCategory: ReportCategory?` and `selectedReason: String?` flat fields, a `details: String` flat field, a derived `detailsRequired: Boolean` flat field, and a `submission: SubmissionStatus` sealed sum (`Idle | Submitting | Success(sentAt: Instant) | Failed(message: String)`). The VM MUST NOT model the 4 steps as flat booleans and MUST NOT model the submission status as flat booleans — invalid step / submission combinations MUST be unrepresentable.
+`ReportDialogViewModel` SHALL extend `MviViewModel<ReportDialogState, ReportDialogEvent, ReportDialogEffect>`. `ReportDialogState` MUST contain `subject: ReportSubject`, optional `subjectPreview: SubjectPreview?`, sealed `step: ReportDialogStep` (`Subject | Category | SubReason | Details`), `selectedCategory: ReportCategory?`, `selectedReason: String?`, `details: String`, `detailsRequired: Boolean`, and sealed `submission: SubmissionStatus`. Flat booleans MUST NOT represent steps or submission.
 
 #### Scenario: Initial state for a post report
 
@@ -148,7 +114,7 @@ The system's `ReportDialogState` SHALL expose a derived `canSubmit: Boolean` fla
 
 ### Requirement: `ModerationRepository` submits `com.atproto.moderation.createReport` with the correct subject union variant
 
-The system SHALL ship `ModerationRepository` (interface) with `suspend fun reportPost(uri: String, cid: String, reasonToken: String, details: String?): Result<Unit>` and `suspend fun reportAccount(did: String, reasonToken: String, details: String?): Result<Unit>`. `uri` / `cid` / `did` are plain `String`s carrying wire-format AT URIs / CIDs / DIDs; the implementation wraps them to lexicon-typed values at the XRPC boundary. `DefaultModerationRepository` MUST implement both by invoking `ModerationService(client).createReport(...)` with: (a) the `reasonType` field set to `reasonToken` verbatim, (b) the `subject` field set to a `StrongRef` constructed from `uri` + `cid` for `reportPost` and a `RepoRef` constructed from `did` for `reportAccount`, (c) the `reason` field set to `details` truncated to a maximum of 2000 graphemes (or `AtField.Missing` when `details` is null or blank), and (d) the `modTool` field set to `CreateReportModTool(name = "nubecita/android", meta = AtField.Missing)`. Both methods MUST return `Result.success(Unit)` on a 2xx and `Result.failure(...)` on any thrown exception.
+`ModerationRepository` SHALL provide `suspend fun reportPost(uri: String, cid: String, reasonToken: String, details: String?): Result<Unit>` and `suspend fun reportAccount(did: String, reasonToken: String, details: String?): Result<Unit>`. It MUST invoke `createReport` with `reasonToken`, subject `StrongRef` (post) or `RepoRef` (account), details truncated to 2000 graphemes, and modTool `CreateReportModTool(name = "nubecita/android")`.
 
 #### Scenario: `reportPost` uses `StrongRef` subject
 
@@ -172,7 +138,7 @@ The system SHALL ship `ModerationRepository` (interface) with `suspend fun repor
 
 ### Requirement: Successful submission renders an in-dialog success card before auto-dismiss
 
-When `ReportDialogViewModel` receives a `ReportDialogEvent.OnSubmitClicked` and the underlying `ModerationRepository` call succeeds, the VM SHALL transition `submission` to `SubmissionStatus.Success(sentAt = <now>)`. The dialog Composable SHALL replace its form content with a success card identifying the report as submitted ("Report submitted. Thanks — Bluesky moderation will review it.") for approximately 2.5 seconds (longer when `AccessibilityManager.isEnabled`), then emit `ReportDialogEffect.RequestDismiss` which the screen translates to a pop of the `Report` NavKey. The host Feed or Profile screen MUST NOT receive a separate success snackbar — the success acknowledgement lives entirely inside the dialog.
+On successful submission, `ReportDialogViewModel` SHALL transition `submission` to `SubmissionStatus.Success`. The dialog SHALL replace form content with a success card for approximately 2.5 seconds (longer if accessibility is enabled), then emit `ReportDialogEffect.RequestDismiss` to pop the `Report` NavKey. No separate snackbar SHALL be surfaced by host screens.
 
 #### Scenario: Submission success renders the success card
 
@@ -186,7 +152,7 @@ When `ReportDialogViewModel` receives a `ReportDialogEvent.OnSubmitClicked` and 
 
 ### Requirement: Submission failure renders an inline error banner; the form retains selection for retry
 
-When `ReportDialogViewModel` receives `OnSubmitClicked` and the underlying `ModerationRepository` call returns `Result.failure(...)`, the VM SHALL transition `submission` to `SubmissionStatus.Failed(message)` where `message` is either the underlying exception's `localizedMessage` or — when null or blank — a generic fallback `"Couldn't submit report. Please try again."`. The dialog Composable SHALL render the message in an inline error banner above the Submit CTA. The form's `selectedCategory`, `selectedReason`, and `details` values MUST be preserved unchanged. Tapping Submit again MUST re-attempt the submission.
+On submission failure, `ReportDialogViewModel` SHALL transition `submission` to `SubmissionStatus.Failed(message)` using the localized failure message or a fallback string. The dialog SHALL display an inline error banner above the Submit button while preserving `selectedCategory`, `selectedReason`, and `details` for retry.
 
 #### Scenario: Submission failure preserves form state
 
@@ -200,7 +166,7 @@ When `ReportDialogViewModel` receives `OnSubmitClicked` and the underlying `Mode
 
 ### Requirement: Back-button collapses through dialog steps; Back from `Subject` dismisses the sub-route
 
-The dialog Composable SHALL register an `androidx.activity.compose.BackHandler { ... }` whose enabled condition is `state.step != ReportDialogStep.Subject`. When enabled, the handler MUST dispatch `ReportDialogEvent.OnBackPressed`, which the VM reduces by transitioning `step` backward (Details → SubReason → Category → Subject) and clearing the field that was set during the abandoned step (e.g. `Details → SubReason` clears `details` to `""`; `SubReason → Category` clears `selectedReason` to null). When `state.step == ReportDialogStep.Subject`, the `BackHandler` MUST NOT be enabled, allowing the system back-press to fall through to the bottom sheet's `onDismissRequest` and pop the sub-route.
+The dialog SHALL register a `BackHandler` enabled when `state.step != ReportDialogStep.Subject`. On back press, the VM MUST step backward (`Details → SubReason → Category → Subject`), clearing the field from the abandoned step. When `step == ReportDialogStep.Subject`, `BackHandler` MUST be disabled, allowing system back to trigger `onDismissRequest` and pop `Report`.
 
 #### Scenario: Back from Details returns to SubReason and clears details
 
@@ -214,7 +180,7 @@ The dialog Composable SHALL register an `androidx.activity.compose.BackHandler {
 
 ### Requirement: PostCard overflow Report row routes to the Report dialog via `LocalMainShellNavState`
 
-When a user activates the `PostOverflowAction.ReportPost` row in the PostCard overflow menu (from any host that wires the menu — Feed timeline, Profile tabs, PostDetail), the host's ViewModel SHALL emit a `NavigateTo` effect carrying `Report(subject = ReportSubject.Post(uri = post.uri, cid = post.cid))`. The screen's effect collector SHALL push the NavKey onto `LocalMainShellNavState.current`. Hosts MUST NOT render an inline modal, dialog, or snackbar in response to the Report row activation — the only correct response is navigation to the Report sub-route.
+When `PostOverflowAction.ReportPost` is tapped in the PostCard overflow menu, the host ViewModel SHALL emit a navigation effect with `Report(subject = ReportSubject.Post(uri = post.uri, cid = post.cid))`. The screen collector MUST push the NavKey onto `LocalMainShellNavState.current`. Hosts MUST NOT show inline dialogs or snackbars.
 
 #### Scenario: Feed VM routes the Report overflow action
 
@@ -223,7 +189,7 @@ When a user activates the `PostOverflowAction.ReportPost` row in the PostCard ov
 
 ### Requirement: ProfileHero overflow Report row routes to the Report dialog and removes the snackbar stub
 
-The system SHALL remove the `ProfileEffect.ShowComingSoon(StubbedAction.Report)` branch and the `R.string.profile_snackbar_report_coming_soon` string resource from `:feature:profile:impl`. The `StubbedAction` enum MUST no longer contain a `Report` variant. The Profile screen's overflow menu SHALL emit a new `ProfileEvent` variant (`OnReportAccountRequested` or its closest established name) that the `ProfileViewModel` reduces to `ProfileEffect.NavigateTo(Report(subject = ReportSubject.Account(did = profileHeader.did)))`. The Profile screen's effect collector SHALL push the resulting NavKey onto `LocalMainShellNavState.current`. The other `StubbedAction` variants (`Edit`, `Block`, `Mute`) MUST remain intact pending their own moderation-epic children.
+`ProfileEffect.ShowComingSoon(StubbedAction.Report)` and `R.string.profile_snackbar_report_coming_soon` SHALL be removed from `:feature:profile:impl`. Tapping Report on ProfileHero SHALL emit `ProfileEffect.NavigateTo(Report(subject = ReportSubject.Account(did = profileHeader.did)))`, and the screen collector MUST push the NavKey onto `LocalMainShellNavState.current`.
 
 #### Scenario: Profile VM routes the Report tap to navigation
 

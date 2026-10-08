@@ -5,7 +5,7 @@ The post-composition domain's read side: the `ActorTypeaheadRepository` backing 
 ## Requirements
 ### Requirement: `ActorTypeaheadRepository` exposes a typeahead query
 
-The system SHALL expose `net.kikin.nubecita.core.posting.ActorTypeaheadRepository` as a Kotlin interface in the `:core:posting` capability. The interface MUST declare a single suspending function `searchTypeahead(query: String): Result<List<ActorTypeaheadUi>>`. Returning `Result.success(emptyList())` SHALL signify "the call succeeded but no actors match"; returning `Result.failure(...)` SHALL signify any non-success outcome (network, auth, server, parse). Consumers SHALL NOT distinguish failure subtypes from this surface in V1.
+The system SHALL expose `net.kikin.nubecita.core.posting.ActorTypeaheadRepository` in `:core:posting`. The interface MUST declare `suspend fun searchTypeahead(query: String): Result<List<ActorTypeaheadUi>>`. Returning `Result.success(emptyList())` SHALL signify successful call with no matches; `Result.failure(...)` SHALL signify any non-success outcome (network, auth, server, parse). Consumers SHALL NOT distinguish failure subtypes in V1.
 
 #### Scenario: Interface contract
 
@@ -14,7 +14,7 @@ The system SHALL expose `net.kikin.nubecita.core.posting.ActorTypeaheadRepositor
 
 ### Requirement: `ActorTypeaheadUi` is the boundary type returned to consumers
 
-The system SHALL expose `net.kikin.nubecita.core.posting.ActorTypeaheadUi` as a Kotlin `data class` with exactly the fields `did: String`, `handle: String`, `displayName: String?`, `avatarUrl: String?`. The class MUST NOT expose `io.github.kikin81.atproto.*` types in its constructor or properties. The class MUST NOT carry the Compose `@Stable` annotation: `:core:posting` is a non-Compose library module, and a data class of `String` / `String?` properties is already implicitly stable to Compose at the consumer end. `displayName` SHALL be `null` when the upstream `ProfileViewBasic.displayName` is missing or blank. `avatarUrl` SHALL be `null` when the upstream `ProfileViewBasic.avatar` is missing.
+The system SHALL expose `net.kikin.nubecita.core.posting.ActorTypeaheadUi` as a data class with fields `did: String`, `handle: String`, `displayName: String?`, `avatarUrl: String?`. The class MUST NOT expose `io.github.kikin81.atproto.*` types or carry Compose `@Stable`. `displayName` SHALL be `null` when upstream `ProfileViewBasic.displayName` is missing or blank. `avatarUrl` SHALL be `null` when upstream `ProfileViewBasic.avatar` is missing.
 
 #### Scenario: Consumers do not see SDK types
 
@@ -29,7 +29,7 @@ The system SHALL expose `net.kikin.nubecita.core.posting.ActorTypeaheadUi` as a 
 
 ### Requirement: `DefaultActorTypeaheadRepository` calls `searchActorsTypeahead` with `q`
 
-The default implementation `net.kikin.nubecita.core.posting.internal.DefaultActorTypeaheadRepository` MUST be the only production binding of `ActorTypeaheadRepository`. It MUST call `ActorService.searchActorsTypeahead(SearchActorsTypeaheadRequest(q = query, limit = 8))` via an `XrpcClient` obtained from the same `XrpcClientProvider.authenticated()` accessor used by the rest of `:core:posting`. The implementation MUST use the `q` parameter and SHALL NOT use the deprecated `term` parameter. The `limit` SHALL be 8 in V1.
+The default implementation `net.kikin.nubecita.core.posting.internal.DefaultActorTypeaheadRepository` MUST be the only production binding of `ActorTypeaheadRepository`. It MUST call `ActorService.searchActorsTypeahead(SearchActorsTypeaheadRequest(q = query, limit = 8))` via an authenticated `XrpcClient`. The implementation MUST use parameter `q` and SHALL NOT use deprecated `term`. The `limit` SHALL be 8 in V1.
 
 #### Scenario: Wire format uses q parameter
 

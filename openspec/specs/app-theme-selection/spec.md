@@ -16,18 +16,7 @@ the rendering contract.
 ## Requirements
 ### Requirement: The app offers exactly three mutually-exclusive themes
 
-The app MUST offer the user a single mutually-exclusive choice among three themes — `Dynamic`, `Light`, and `Dark` — modeled as `net.kikin.nubecita.designsystem.AppTheme`. Exactly one is active at any time; there is no separate "use wallpaper colors" control, and no combination of options is reachable.
-
-Two distinct types carry this choice, and requirements below name whichever one they constrain: `AppTheme` (in `:designsystem`) is the **rendering** identity whose constants are `Dynamic` / `Light` / `Dark`; `ThemePreference` (in `:core:preferences`) is the **persisted** identity whose constants are `DYNAMIC` / `LIGHT` / `DARK`. The composition root maps the latter to the former.
-
-- `Dynamic` MUST resolve to Material You wallpaper-derived color with light/dark following the OS setting.
-- `Light` MUST resolve to the Nubecita brand palette in its light variant, regardless of the OS light/dark setting.
-- `Dark` MUST resolve to the Nubecita brand palette in its dark variant, regardless of the OS light/dark setting.
-
-The brand palette these options render is owned by the `design-system` capability.
-`Dynamic` is unaffected by brand palette changes: it sources every role from
-`dynamicLightColorScheme` / `dynamicDarkColorScheme` and no brand color is
-reachable through it on API 31+.
+The app MUST offer a mutually-exclusive choice among three themes: `Dynamic`, `Light`, and `Dark`, modeled as `net.kikin.nubecita.designsystem.AppTheme` for rendering and `net.kikin.nubecita.core.preferences.ThemePreference` for persistence. Exactly one theme is active at any time. `Dynamic` resolves to Material You wallpaper-derived colors, while `Light` and `Dark` resolve to the Nubecita brand palette regardless of the OS setting.
 
 #### Scenario: Dynamic follows the OS light/dark setting
 

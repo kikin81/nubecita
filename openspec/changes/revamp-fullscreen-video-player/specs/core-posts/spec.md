@@ -2,17 +2,7 @@
 
 ### Requirement: `:core:posts` exposes `PostThreadRepository` for thread fetches
 
-The system SHALL expose `net.kikin.nubecita.core.posts.PostThreadRepository` as
-a public interface in `:core:posts` for resolving a post's thread (focus post +
-ancestors + direct replies/folds) via `app.bsky.feed.getPostThread`. The
-interface MUST live in `:core:posts` (relocated from
-`:feature:postdetail:impl/data`) so that both `:feature:postdetail:impl` and the
-fullscreen player's comments sheet (`:feature:videoplayer:impl`) consume one
-shared read surface rather than duplicating the fetch or coupling feature impl
-modules to each other. The method SHALL accept a plain `String` URI (consistent
-with `PostRepository.getPost`) and return a `Result` whose success value carries
-the focus post and its replies projected to `:data:models` types via
-`:core:feed-mapping`'s shared helpers — never a divergent local projection.
+The system SHALL expose `net.kikin.nubecita.core.posts.PostThreadRepository` in `:core:posts` for resolving a post's thread via `app.bsky.feed.getPostThread`. The interface MUST live in `:core:posts` so both `:feature:postdetail:impl` and the fullscreen player's comments sheet (`:feature:videoplayer:impl`) consume one shared read surface. The method SHALL accept a `String` URI and return a `Result` carrying focus post and replies projected to `:data:models` types via `:core:feed-mapping`.
 
 #### Scenario: Consumers inject the interface, not the implementation
 

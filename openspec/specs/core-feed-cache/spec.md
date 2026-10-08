@@ -18,7 +18,7 @@ The system SHALL provide a `:core:feed-cache` module that owns feed fetching, wi
 
 ### Requirement: Feed posts are cached in a DID-keyed offline store
 
-The system SHALL persist fetched feed posts in a `feed_post` table keyed by `(accountDid, feedType, feedUri, position)` (the post's wire form serialized into a `post_blob` column alongside denormalized query columns), and paging cursors in a `feed_remote_keys` table keyed by `(accountDid, feedType, feedUri)`. `feedType` SHALL distinguish Following, Discover, custom, and list feeds; `feedUri` SHALL hold the feed-generator / list AT-URI for those (and an empty sentinel for Following). The store SHALL index `uri` and `authorDid`.
+The system SHALL persist fetched feed posts in a `feed_post` table keyed by `(accountDid, feedType, feedUri, position)` with post blobs and query columns, and paging cursors in a `feed_remote_keys` table keyed by `(accountDid, feedType, feedUri)`. `feedType` SHALL distinguish Following, Discover, custom, and list feeds. `feedUri` SHALL hold the feed-generator or list AT-URI (empty sentinel for Following). The store SHALL index `uri` and `authorDid`.
 
 #### Scenario: Fetched posts are stored under the account partition
 - **WHEN** a feed page is fetched for the signed-in account

@@ -5,15 +5,7 @@
 ## Requirements
 ### Requirement: `:core:feed-mapping` is the single owner of atproto-wire-type → UI-model conversion helpers
 
-The system SHALL host the shared atproto-wire-type → UI-model conversion primitives in a new `:core:feed-mapping` Android library module. The module MUST expose at minimum:
-
-- `toPostUiCore(postView: PostView): PostUi?` — the per-post projection core. Returns `null` when the embedded `record` JSON cannot be decoded as a well-formed `app.bsky.feed.post` record (mirrors the existing `FeedViewPost.toPostUiOrNull` shape in `:feature:feed:impl`).
-- `toAuthorUi(profile: ProfileViewBasic): AuthorUi`
-- `toViewerStateUi(viewer: ViewerState?): ViewerStateUi`
-- `toEmbedUi(embed: PostViewEmbedUnion?): EmbedUi` — the embed dispatch covering Empty / Images / Video / External / Record / RecordWithMedia / Unsupported, including the placeholder variants (`RecordViewNotFound` / `RecordViewBlocked` / `RecordViewDetached`) the existing feed mapper handles.
-- The three private wrapper-construction helpers (`ImagesView.toEmbedUiImages`, `VideoView.toEmbedUiVideo`, `ExternalView.toEmbedUiExternal`) used by both the top-level dispatch and the `RecordWithMediaView` media-side dispatch.
-
-The helpers MUST be pure (no I/O, no Android types, no coroutines), MUST be unit-testable as functions against fixture JSON, and MUST NOT depend on `:feature:feed:impl` or `:feature:postdetail:impl` (dependency direction is one-way: features depend on `:core:feed-mapping`).
+The system SHALL expose top-level pure mapping functions in `:core:feed-mapping` package `net.kikin.nubecita.core.feedmapping`: `toPostUiCore`, `toAuthorUi`, `toViewerStateUi`, `toEmbedUi`, and media wrapper constructors. Helpers MUST be pure, unit-testable against fixture JSON, and MUST NOT depend on `:feature:feed:impl` or `:feature:postdetail:impl`.
 
 #### Scenario: Both consumers compile against the shared module
 
@@ -32,9 +24,7 @@ The helpers MUST be pure (no I/O, no Android types, no coroutines), MUST be unit
 
 ### Requirement: Feed timeline rendering is byte-for-byte unchanged through the extraction
 
-The extraction of helpers from `:feature:feed:impl` to `:core:feed-mapping` SHALL preserve `FeedViewPostMapper`'s observable behavior. The `:feature:feed:impl` screenshot-test suite (with the same fixtures it had before this change) MUST continue to pass without baseline regeneration. The `:feature:feed:impl` unit-test suite MUST continue to pass.
-
-This is the regression contract: the extraction is a pure relocation. Same inputs produce same outputs from the same code, just compiled in a different module.
+Extracting helpers from `:feature:feed:impl` to `:core:feed-mapping` SHALL preserve `FeedViewPostMapper` observable behavior. The `:feature:feed:impl` screenshot-test suite and unit-test suite MUST continue to pass without baseline regeneration.
 
 #### Scenario: Feed screenshot baselines unchanged
 

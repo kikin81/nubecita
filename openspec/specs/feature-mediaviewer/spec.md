@@ -12,7 +12,7 @@ it is hidden.
 ## Requirements
 ### Requirement: `MediaViewerRoute` is the canonical NavKey for the fullscreen image viewer
 
-The system SHALL expose `net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute(postUri: String, imageIndex: Int)` as the only `androidx.navigation3.runtime.NavKey` that navigates to the fullscreen image viewer. Both fields are primitives — `postUri` is a plain `String` (not the lexicon-typed `AtUri` value class) matching `PostDetailRoute.postUri` and the rest of the project's NavKey shape, and `imageIndex` is an `Int` referring to the position inside the post's `app.bsky.embed.images` payload (zero-based). The route MUST live in `:feature:mediaviewer:api` (NavKey-only module per the api/impl convention in `CLAUDE.md`).
+The system SHALL expose `net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute(postUri: String, imageIndex: Int)` as the only `androidx.navigation3.runtime.NavKey` that navigates to the fullscreen image viewer. Both fields MUST be primitives: `postUri` as a plain `String` and `imageIndex` as a zero-based `Int`. The route MUST live in `:feature:mediaviewer:api`.
 
 #### Scenario: Post-detail focus-image tap navigates via MediaViewerRoute
 
@@ -26,13 +26,7 @@ The system SHALL expose `net.kikin.nubecita.feature.mediaviewer.api.MediaViewerR
 
 ### Requirement: `MediaViewerViewModel` state machine has a sealed load-status sum
 
-The system SHALL expose `MediaViewerViewModel` extending `MviViewModel<MediaViewerState, MediaViewerEvent, MediaViewerEffect>` per the project's MVI conventions. `MediaViewerState` MUST carry a `loadStatus: MediaViewerLoadStatus` field (sealed sum). `MediaViewerLoadStatus` is a `sealed interface` with exactly the variants:
-
-- `Loading` — initial fetch in flight; no payload
-- `Loaded(images: ImmutableList<ImageUi>, currentIndex: Int, isChromeVisible: Boolean, isAltSheetOpen: Boolean)` — all viewer-active state lives here
-- `Error(error: UiText)` — sticky; the screen renders an error layout with a retry affordance
-
-The state MUST NOT use a flat `isLoading: Boolean` — these lifecycle phases are mutually exclusive per the project's MVI flat-vs-sealed rule in `CLAUDE.md`. The per-`Loaded` fields (`currentIndex`, `isChromeVisible`, `isAltSheetOpen`) only make sense when `images` is populated, so they live inside the `Loaded` variant rather than as flat top-level fields that would require runtime invariants.
+The system SHALL expose `MediaViewerViewModel` extending `MviViewModel<MediaViewerState, MediaViewerEvent, MediaViewerEffect>`. `MediaViewerState` MUST carry a `loadStatus: MediaViewerLoadStatus` sealed sum with variants: `Loading`, `Loaded(images: ImmutableList<ImageUi>, currentIndex: Int, isChromeVisible: Boolean, isAltSheetOpen: Boolean)`, and `Error(error: UiText)`. The state MUST NOT use a flat `isLoading: Boolean`.
 
 #### Scenario: Initial load transitions Loading → Loaded
 
@@ -56,9 +50,7 @@ The state MUST NOT use a flat `isLoading: Boolean` — these lifecycle phases ar
 
 ### Requirement: ViewModel re-fetches via `:core:posts`'s `PostRepository`; NavKey carries no image payload
 
-The viewer SHALL fetch the post's image set via `:core:posts`'s `PostRepository.getPost(uri)` — given only `(postUri, imageIndex)` from the NavKey. The ViewModel MUST NOT receive the image list inline through the NavKey; the NavKey contract stays narrow (two primitives). Coil's existing disk cache (already populated by the feed / post-detail's thumbnail render) makes thumbnail re-rendering instant; the `@fullsize` URL streams in as a separate cache key.
-
-If the post has been deleted server-side between the time the user opened post-detail and tapped the image, the fetch returns failure and the viewer renders `Error` rather than bouncing back to post-detail — the user explicitly opened the viewer, so the surface stays visible with a retry affordance until the user dismisses. If the fetch succeeds but the post's `embed` is not `EmbedUi.Images` (defensive — the viewer was opened on a non-image post via some out-of-band path), the viewer renders `Error` with a "This post has no images" message rather than rendering an empty pager.
+The viewer SHALL fetch the post's image set via `:core:posts`'s `PostRepository.getPost(uri)` using `(postUri, imageIndex)` from the NavKey. The ViewModel MUST NOT receive the image list through the NavKey. If fetching fails or the post embed is not `EmbedUi.Images`, the viewer MUST render `Error` with a retry affordance or error message rather than an empty pager.
 
 #### Scenario: ViewModel loads via PostRepository from :core:posts
 
@@ -77,11 +69,7 @@ If the post has been deleted server-side between the time the user opened post-d
 
 ### Requirement: Viewer renders fullsize CDN images via `ImageUi.url`
 
-The viewer SHALL render each page directly from `ImageUi.url`. The `:core:feed-mapping` projection (`toImageUiList`) maps `image.fullsize.raw` into `ImageUi.url`, so the URL is already the fullsize CDN variant — no per-page URL transform is required at this layer.
-
-A previous draft of this spec called for an `ImageUi.fullsizeUrl()` helper that would swap a `@feed_thumbnail` token for `@fullsize`; that helper was a no-op in production because the input URL never carries the `@feed_thumbnail` token (the mapper resolves to `image.fullsize.raw`, which uses the `feed_fullsize` path segment, not a `@<size>` suffix). The helper was removed under PR #139 / Copilot review feedback.
-
-A separate follow-up (`nubecita-w70`) tracks switching the feed-side mapper to `image.thumb.raw` so feed PostCards stop downloading fullsize bytes for thumbnail-sized cells. Once that change ships, the viewer will need its own thumb→fullsize URL transform — either re-introducing a helper or deriving fullsize at the viewer layer. Until then, the viewer reads `ImageUi.url` as-is.
+The viewer SHALL render each page directly from `ImageUi.url`. Because the `:core:feed-mapping` projection (`toImageUiList`) maps `image.fullsize.raw` into `ImageUi.url`, the URL is already the fullsize CDN variant, and no per-page URL transform SHALL be applied at this layer.
 
 #### Scenario: ZoomableAsyncImage receives ImageUi.url unchanged
 
@@ -90,11 +78,7 @@ A separate follow-up (`nubecita-w70`) tracks switching the feed-side mapper to `
 
 ### Requirement: Pinch-to-zoom + paging + swipe-down dismiss compose without conflicts
 
-The viewer screen SHALL render each page via `me.saket.telephoto:zoomable-image-coil3`'s `ZoomableAsyncImage` and host the pages in `androidx.compose.foundation.pager.HorizontalPager`. Gesture composition rules:
-
-- `HorizontalPager.userScrollEnabled` MUST be bound to `currentZoomFactor <= 1f` so swipe-paging is disabled while the current page is zoomed (telephoto's pan absorbs the gesture instead).
-- A vertical `Modifier.draggable` on the pager wrapper (the swipe-down-to-dismiss layer) MUST be enabled only when the current page is at min-zoom; above min-zoom the draggable is disabled and the gesture goes to telephoto's pan.
-- Single-tap on the image dispatches `MediaViewerEvent.OnTapImage` (chrome toggle); double-tap is reserved for telephoto's double-tap-zoom; long-press is unbound in v1.
+The viewer screen SHALL render each page via `ZoomableAsyncImage` in `HorizontalPager`. `HorizontalPager.userScrollEnabled` MUST be disabled when `currentZoomFactor > 1f`. The vertical swipe-down dismiss `Modifier.draggable` MUST be enabled only when at minimum zoom. Single tap MUST dispatch `MediaViewerEvent.OnTapImage`, while double-tap is reserved for telephoto's zoom.
 
 #### Scenario: Paging disabled while zoomed
 
@@ -118,14 +102,7 @@ The viewer screen SHALL render each page via `me.saket.telephoto:zoomable-image-
 
 ### Requirement: Tap-to-toggle chrome with auto-fade and per-image alt-text sheet
 
-The viewer SHALL render an overlay chrome layer containing (from left to right) a close button, a page indicator (`"${currentIndex + 1} / ${images.size}"` shown only when `images.size > 1`), and an `ALT` badge (shown only when `images[currentIndex].altText != null`). The chrome's visibility MUST be driven by `state.isChromeVisible`:
-
-- Chrome MUST be visible on entry (`isChromeVisible = true` in the initial `Loaded` state).
-- Chrome MUST auto-fade after 3 seconds of inactivity. The 3-second timer resets when `isChromeVisible` transitions to `true` and when `currentIndex` changes.
-- A single tap on the image MUST dispatch `OnTapImage`, toggling `isChromeVisible`.
-- The `ALT` badge MUST open a `ModalBottomSheet` with the full alt text on click. The sheet's `onDismissRequest` MUST clear `isAltSheetOpen`; tapping outside the sheet or pressing back while the sheet is open MUST dismiss the sheet rather than the viewer.
-
-The chrome MUST be implemented with `androidx.compose.animation.AnimatedVisibility` and `androidx.compose.material3.ModalBottomSheet` — never with hand-rolled animation or hand-positioned scrims.
+The viewer SHALL render overlay chrome containing a close button, page indicator (if `images.size > 1`), and ALT badge (if `altText != null`). Chrome MUST be visible on entry and auto-fade after 3 seconds of inactivity. Tapping the image MUST toggle `isChromeVisible`. Tapping the ALT badge MUST open a `ModalBottomSheet` displaying full alt text. Chrome MUST use Compose `AnimatedVisibility` and `ModalBottomSheet`.
 
 #### Scenario: Chrome visible on entry then auto-fades
 
@@ -173,11 +150,7 @@ The chrome MUST be implemented with `androidx.compose.animation.AnimatedVisibili
 
 ### Requirement: `:feature:mediaviewer:impl` registers an `@OuterShell`-qualified `EntryProviderInstaller`
 
-The viewer's `:impl` module MUST contribute a `@Provides @IntoSet @OuterShell EntryProviderInstaller` registering `MediaViewerRoute` in the OUTER `NavDisplay` (`MainNavigation` in `:app`), not inside `MainShell`'s inner `NavDisplay`. Hosting on the outer shell escapes `MainShell`'s `NavigationSuiteScaffold` — the bottom nav bar / rail does NOT render while the viewer is open, giving a true fullscreen canvas. This deviates from the project's general convention (per `CLAUDE.md`, `@OuterShell` collects `Splash → Login → Main`; tab-internal sub-routes live on `@MainShell`) deliberately, because the viewer is a fullscreen modal that should escape the tab structure entirely.
-
-Pop semantics: `goBack()` on the outer Navigator pops the viewer and lands on `Main`, which preserves `MainShell`'s inner back stack. The user returns to the same `PostDetailScreen` they tapped from with screen state intact.
-
-The entry block MUST resolve the per-route `MediaViewerViewModel` via the assisted-inject Hilt bridge (`hiltViewModel<MediaViewerViewModel, MediaViewerViewModel.Factory>(creationCallback = { it.create(route) })`) — same pattern as `PostDetailNavigationModule`. The block MUST read the outer Navigator via `LocalAppNavigator.current` (a `CompositionLocal` provided by `MainNavigation` at the root of the outer `NavDisplay`'s composition) and wire `onDismiss = { navigator.goBack() }`.
+The `:feature:mediaviewer:impl` module MUST provide an `@OuterShell`-qualified `EntryProviderInstaller` registering `MediaViewerRoute` in the outer `NavDisplay`. This ensures the viewer escapes `MainShell`'s navigation chrome. Back navigation MUST pop the outer navigator, restoring `MainShell` state. The entry provider MUST resolve `MediaViewerViewModel` via Hilt assisted injection and bind dismiss to `navigator.goBack()`.
 
 #### Scenario: OuterShell qualifier on the entry provider
 

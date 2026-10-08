@@ -2,9 +2,7 @@
 
 ### Requirement: A picked video uploads eagerly, not on submit
 
-Selecting a video SHALL start `VideoUploadRepository.upload(uri)` immediately and mirror its emissions into `ComposerState.video`, so that by the time the user finishes typing the blob is usually already available and submission is instant. Submission SHALL NOT be the trigger for compression or upload.
-
-The upload job SHALL be owned by `ComposerViewModel` and scoped to `viewModelScope`, and SHALL be cancelled when the video is removed or the composer is discarded. No server-side cleanup call SHALL be made for an abandoned upload — the job expires on its own, and inventing a cancel call would add a failure mode without removing one.
+Selecting a video SHALL start `VideoUploadRepository.upload(uri)` immediately and mirror its emissions into `ComposerState.video`, ensuring the blob is available before submission. Submission SHALL NOT trigger compression or upload. The upload job SHALL be owned by `ComposerViewModel`, scoped to `viewModelScope`, and cancelled when the video is removed or the composer is discarded.
 
 #### Scenario: Picking a video starts the pipeline
 
@@ -84,9 +82,7 @@ Unlike the gallery rule, blank video alt text SHALL NOT block submission — the
 
 ### Requirement: A submitted video outranks every other media embed
 
-When a post is submitted with an attached video whose upload reached `Ready`, the wire embed SHALL be `app.bsky.embed.video` carrying the blob, the alt text, and the aspect ratio. When a quoted post is also present, the embed SHALL be `app.bsky.embed.recordWithMedia` with the video as its media.
-
-Video SHALL take priority over images, gallery, and external cards in the media slot. The mutual-exclusion rules make the conflict unreachable through the UI; the resolver states the precedence anyway so that no reachable state can silently drop the most expensive attachment the user provided.
+When a post is submitted with an attached video whose upload reached `Ready`, the wire embed SHALL be `app.bsky.embed.video` carrying the blob, the alt text, and the aspect ratio. When a quoted post is also present, the embed SHALL be `app.bsky.embed.recordWithMedia` with the video as its media. Video SHALL take priority over images, gallery, and external cards in the media slot.
 
 #### Scenario: Video-only post emits a video embed
 

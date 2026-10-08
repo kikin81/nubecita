@@ -124,7 +124,7 @@ ViewModels rendered inside `MainShell`'s inner `NavDisplay` SHALL NOT inject or 
 
 ### Requirement: Cross-tab navigation links push onto the active tab's stack
 
-Tapping an interactive element inside one tab whose target is a `NavKey` registered as a different tab's content (e.g. tapping an author handle inside a Feed post when the target screen is `Profile`) SHALL push that target onto the **currently active** tab's back stack. The active tab SHALL NOT change as a side effect of the link. On Medium/Expanded widths, when the push occurs while a detail-region entry is present, a pane-tagged pushed target SHALL stack within the detail region per **Sub-routes opened from a detail pane stack within the detail region** — it SHALL NOT re-anchor or replace the list pane, even if the target carries `listPane()` metadata.
+Tapping a link whose target `NavKey` belongs to another tab (e.g. author handle targeting `Profile`) SHALL push that target onto the active tab's back stack without changing the active tab. On Medium/Expanded widths with a detail entry present, pane-tagged targets SHALL stack in the detail region without replacing the list pane, even if carrying `listPane()` metadata.
 
 #### Scenario: Profile link in Feed pushes onto Feed stack
 
@@ -138,9 +138,7 @@ Tapping an interactive element inside one tab whose target is a `NavKey` registe
 
 ### Requirement: Empty tabs render `:app`-side placeholder Composables
 
-Until each of `:feature:search:impl` and `:feature:chats:impl` exists, `:app` SHALL provide internal `@MainShell`-qualified `EntryProviderInstaller` bindings that register placeholder Composables for the corresponding top-level destinations. Each placeholder SHALL identify the destination and indicate that the feature is not yet implemented (e.g. "Search — coming soon").
-
-`:feature:profile:impl` ships in the `add-profile-feature` change and provides its own `@MainShell` `EntryProviderInstaller` bindings for both `Profile(handle: String? = null)` (covering both own profile and other-user profile in a single provider) and the `Settings` sub-route (rendering a one-screen stub with a Sign Out affordance). When `:feature:profile:impl` is present in the build, `:app` MUST NOT register placeholders for `Profile` or `Settings` — both are owned by `:feature:profile:impl`. The placeholder mechanism remains in place for Search and Chats until their respective `:impl` modules graduate.
+Until `:feature:search:impl` and `:feature:chats:impl` exist, `:app` SHALL provide internal `@MainShell`-qualified `EntryProviderInstaller` bindings registering placeholder Composables for unimplemented top-level destinations. `:feature:profile:impl` provides its own `@MainShell` bindings for `Profile` and `Settings`, so `:app` MUST NOT register placeholders for them.
 
 #### Scenario: Search tab without :impl renders placeholder
 
@@ -168,7 +166,7 @@ When the outer `Navigator` transitions away from `Main` (e.g. `replaceTo(Login)`
 
 ### Requirement: Inner `NavDisplay` applies a `ListDetailSceneStrategy`
 
-`MainShell`'s inner `NavDisplay` SHALL be invoked with a non-empty `sceneStrategies` list that includes a list-detail scene strategy backed by `androidx.compose.material3.adaptive.navigation3`. Additional scene strategies (e.g. the `AdaptiveDialogSceneStrategy` overlay) MAY be supplied; when multiple strategies are present, overlay strategies SHALL precede the list-detail strategy in the list. The list-detail strategy SHALL assign panes per **Sub-routes opened from a detail pane stack within the detail region** — i.e. the first `listPane()` entry anchors the list pane and all later pane-tagged entries occupy the detail region; a later `listPane()`-tagged entry does NOT re-anchor the list. The outer `NavDisplay` in `app/Navigation.kt` SHALL NOT be given any scene strategy.
+`MainShell`'s inner `NavDisplay` SHALL include a list-detail scene strategy (`material3.adaptive.navigation3`). Overlay strategies (such as `AdaptiveDialogSceneStrategy`) SHALL precede the list-detail strategy. The strategy SHALL anchor the list pane to the first `listPane()` entry, routing subsequent pane-tagged entries to the detail region. Outer `NavDisplay` SHALL NOT receive scene strategies.
 
 #### Scenario: Inner NavDisplay receives a list-detail scene strategy
 
@@ -215,7 +213,7 @@ Entries pushed onto the inner back stack that are intended to fully obscure the 
 
 ### Requirement: `:feature:moderation:impl` registers the `Report` sub-route as a `@MainShell` entry
 
-`:feature:moderation:impl` SHALL provide a `@Provides @IntoSet @MainShell EntryProviderInstaller` binding for the `Report` `NavKey` declared in `:feature:moderation:api`. The provider SHALL render a Material 3 `ModalBottomSheet` hosting the report dialog content (the dialog Composable + its `ReportDialogViewModel` via `hiltViewModel()`). The Report entry MUST NOT carry `ListDetailSceneStrategy.listPane { }` or `detailPane { }` metadata — the Report sub-route is a transient overlay-style entry that the scene strategy may place in either pane on Medium / Expanded widths. `:app`'s `MainShellPlaceholderModule` MUST NOT register any placeholder for the `Report` NavKey (it was never a placeholder destination — Report is a sub-route, not a top-level tab).
+`:feature:moderation:impl` SHALL provide `@Provides @IntoSet @MainShell EntryProviderInstaller` for the `Report` `NavKey`, rendering a `ModalBottomSheet` hosting report dialog content. The Report entry MUST NOT carry `listPane` or `detailPane` metadata, enabling flexible overlay placement. `:app` MUST NOT register placeholders for `Report`.
 
 #### Scenario: Report sub-route renders on push from any tab
 
@@ -229,7 +227,7 @@ Entries pushed onto the inner back stack that are intended to fully obscure the 
 
 ### Requirement: List-detail panes are computed from the active tab's stack segment
 
-On Medium and Expanded widths, the inner `NavDisplay`'s list-detail pane assignment SHALL be derived **only from the active tab's back-stack segment** (`mainShellNavState.topLevelKey` and that tab's per-tab stack). Entries belonging to other tabs — including the start-tab (Feed) stack that `MainShellNavState` concatenates beneath the active tab for predictive/system-back — SHALL NOT contribute to the list or detail pane. When the active tab changes, both panes SHALL recompute from the new active tab's segment: the list pane SHALL render the new tab's list, and the detail pane SHALL render the new tab's current detail entry or, if that tab has no detail entry, its list-pane `detailPlaceholder`.
+On Medium and Expanded widths, list-detail pane assignments SHALL derive only from the active tab's back-stack segment (`topLevelKey` and active per-tab stack). Inactive tabs' back stacks SHALL NOT contribute to either pane. When active tab changes, panes SHALL recompute: left pane renders the new tab list, and detail pane renders the current detail entry or `detailPlaceholder`.
 
 #### Scenario: Switching tabs resets the detail pane
 
@@ -245,9 +243,7 @@ On Medium and Expanded widths, the inner `NavDisplay`'s list-detail pane assignm
 
 ### Requirement: Sub-routes opened from a detail pane stack within the detail region
 
-On Medium and Expanded widths, within a list-detail surface, the inner `NavDisplay`'s scene assignment SHALL treat the **first `listPane()` entry of the active tab's segment** (per **List-detail panes are computed from the active tab's stack segment**) as the list anchor and SHALL treat **every pane-tagged entry after that anchor, within that tab's segment,** as belonging to the **detail region**, rendered in the detail (right) pane. A pane-tagged sub-route pushed onto the active tab's stack while a detail-region entry is already present SHALL stack within the detail region (becoming the visible detail content) and SHALL NOT re-anchor or replace the list pane — **even if that sub-route carries `ListDetailSceneStrategy.listPane()` metadata** (as `Profile` does, because `Profile` is also a top-level tab). The list pane SHALL remain visible and retain its scroll state. On Compact width, the same push SHALL stack full-screen as it does today (single-pane).
-
-This requirement governs all `@MainShell` list-detail surfaces (Feed, Search, Chats) and the pane-tagged sub-routes reachable from a detail pane (e.g. `Profile` via an author tap, a nested or quoted `PostDetail`). Sub-routes that carry **no** pane metadata (e.g. `Settings`) are intentionally outside this rule — they continue to render full-screen / single-pane per **Full-screen sub-routes do not declare `detailPane` metadata**, which this requirement does not override.
+On Medium and Expanded widths, the first `listPane()` entry in the active tab's segment anchors the list pane, and all subsequent pane-tagged entries stack within the detail region (even if carrying `listPane()` metadata). The list pane SHALL remain visible and retain scroll state. On Compact width, pushes stack full-screen. Sub-routes without pane metadata continue to render full-screen.
 
 #### Scenario: Author tap from PostDetail keeps the list pane
 

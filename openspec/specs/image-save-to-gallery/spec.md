@@ -72,9 +72,7 @@ Withholding a partial image from the gallery is not sufficient on its own — th
 
 ### Requirement: Content type is determined from the image's own bytes
 
-The system SHALL determine each saved image's content type by inspecting the image data itself. It MUST NOT derive the content type from the URL, whose suffix is a request parameter rather than a guarantee about the bytes returned, nor from a fixed default.
-
-Animated GIF is deliberately absent from the recognised set: `EmbedUi.Gif` is not an `ImageContainerEmbed`, so a GIF embed resolves to no images and never reaches this viewer. If a surface that *can* carry a GIF gains a save action, that is the point to extend the recognised set.
+The system SHALL determine each saved image's content type by inspecting the image data itself. It MUST NOT derive the content type from the URL or a fixed default. Recognized types include PNG, WebP, and JPEG.
 
 #### Scenario: A PNG is saved as a PNG
 
@@ -93,16 +91,7 @@ Animated GIF is deliberately absent from the recognised set: `EmbedUi.Gif` is no
 
 ### Requirement: Alt text is not carried into the gallery entry
 
-The system SHALL NOT attempt to record the poster's alt text against the saved
-gallery entry.
-
-`MediaStore`'s `DESCRIPTION` column is declared `readOnly` and is *derived* by
-the provider from the file's EXIF `ImageDescription` tag — a value written
-through `ContentValues` is silently discarded. The only way to populate it is
-to inject EXIF into the saved file, which would break the byte-identical
-guarantee above and would work only for formats `ExifInterface` can write.
-Preserving alt text is therefore out of scope rather than best-effort, so the
-code does not carry a write that does nothing.
+The system SHALL NOT attempt to record the poster's alt text against the saved gallery entry, preserving byte-identical output without modifying file EXIF tags.
 
 #### Scenario: No description is recorded
 
@@ -112,9 +101,7 @@ code does not carry a write that does nothing.
 
 ### Requirement: The capability declares no Android permission
 
-The application SHALL NOT declare any storage or media permission in order to provide this capability. Where a platform version cannot write to the shared gallery without such a permission, the capability SHALL report itself unsupported rather than requesting one.
-
-This exists to protect the store listing. Declaring a storage permission would add the application's first *dangerous* permission — visible to every prospective user — in order to serve a measured 1.0% of active users (76 of 7,258, 90-day window). It could not be confirmed that capping the declaration by platform version removes it from the store listing's permission display, and that uncertainty runs entirely against the user.
+The application SHALL NOT declare any storage or media permission to provide this capability. Where a platform version cannot write to the shared gallery without such permission, the capability SHALL report itself unsupported rather than requesting one.
 
 #### Scenario: No storage permission is declared
 

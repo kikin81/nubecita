@@ -26,7 +26,7 @@ The promotion workflow SHALL let an operator select any non-empty combination of
 
 ### Requirement: Promotion sourced from the internal track
 
-The system SHALL promote a build to each selected track from the **internal** track via `track_promote_to` (`upload_to_play_store(track: "internal", track_promote_to: <target>, version_code: <vc>, skip_upload_aab: true)`). supply resolves the release from the source (internal) track and copies it to the target **without removing it from internal**, so one dispatch can promote the same build to multiple tracks. The production "advance rollout" re-run is the sole exception: when the versionCode is already on production, the rollout is updated in place (`track: "production"`, no `track_promote_to`).
+The system SHALL promote a build to each selected track from the internal track via `track_promote_to`. Releases are copied from internal without removing them, enabling multi-track promotion from one dispatch. When a versionCode is already on production, the rollout SHALL be updated in place (`track: "production"`, no `track_promote_to`).
 
 #### Scenario: Promote latest internal build to a new track
 

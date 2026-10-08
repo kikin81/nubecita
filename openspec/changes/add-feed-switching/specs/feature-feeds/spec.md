@@ -2,14 +2,7 @@
 
 ### Requirement: A `Feeds` navigation stub exists for the deferred management screen
 
-The system SHALL provide a `:feature:feeds:api` module exposing a single `Feeds` `NavKey`
-(a `@Serializable data object Feeds : NavKey`), and `:app` SHALL register a `@MainShell`
-`EntryProviderInstaller` rendering a placeholder Composable for that key ("Manage feeds —
-coming soon"). The placeholder MUST follow the `:api`-first stub convention so the full
-`:feature:feeds:impl` lands later in its own epic without bridging artifacts. The Feed
-chip row's trailing button MUST navigate to this key via
-`LocalMainShellNavState.current.add(Feeds)` (the ViewModel MUST NOT inject the navigation
-state holder).
+The system SHALL provide a `:feature:feeds:api` module exposing a single `Feeds` `NavKey` (`@Serializable data object Feeds : NavKey`), and `:app` SHALL register a `@MainShell` `EntryProviderInstaller` rendering a placeholder Composable for that key. The placeholder MUST follow the `:api`-first stub convention. The Feed chip row trailing button MUST navigate via `LocalMainShellNavState.current.add(Feeds)`.
 
 #### Scenario: Trailing button opens the placeholder
 

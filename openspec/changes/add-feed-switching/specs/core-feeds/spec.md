@@ -2,17 +2,7 @@
 
 ### Requirement: `PinnedFeedsRepository` reads the user's pinned feeds from `SavedFeedsPrefV2`
 
-The system SHALL expose a `PinnedFeedsRepository` in a new `:core:feeds` module
-(`nubecita.android.library` + `nubecita.android.hilt`) that returns the user's pinned
-feeds as an ordered `ImmutableList<PinnedFeedUi>`. The repository MUST call
-`ActorService.getPreferences` (`app.bsky.actor.getPreferences`), locate the
-`SavedFeedsPrefV2` entry, filter its `items` to those with `pinned == true`, and preserve
-the stored order. It MUST split items by `SavedFeed.type`: `"timeline"` → a Following
-entry, `"feed"` → a generator entry, `"list"` → a list entry. For `"feed"` entries it
-MUST hydrate display name and avatar by batch-calling `FeedService.getFeedGenerators`
-(`app.bsky.feed.getFeedGenerators`). The repository MUST be the only layer that reads
-saved-feeds preferences; feature modules depend on `:core:feeds`, never on
-`getPreferences` directly.
+The system SHALL expose a `PinnedFeedsRepository` in `:core:feeds` returning pinned feeds as an ordered `ImmutableList<PinnedFeedUi>`. The repository MUST call `app.bsky.actor.getPreferences`, locate `SavedFeedsPrefV2`, filter items where `pinned == true`, and preserve stored order. Items MUST be mapped by `SavedFeed.type` (timeline, feed, list). For `"feed"` entries, display name and avatar MUST be hydrated via `app.bsky.feed.getFeedGenerators`. Feature modules MUST depend on `:core:feeds`.
 
 #### Scenario: Pinned feeds are returned in stored order
 
