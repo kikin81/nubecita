@@ -71,8 +71,11 @@ jobs:
       # spotless enforcement; the `lint-android` job no longer re-runs
       # `spotlessCheck`), and openspec-validate. No `github-token` (only used
       # to clone private hook repos, which we don't have).
+      # Skip no-commit-to-branch in CI: on pushes to main, the checkout is on main.
       - name: Pre-commit
         uses: open-turo/action-pre-commit@v3
+        env:
+          SKIP: no-commit-to-branch
 
       # App token + release-notes preview run only on same-repo PRs (fork PRs
       # can't see the bot secrets). Token generation is gated on the same

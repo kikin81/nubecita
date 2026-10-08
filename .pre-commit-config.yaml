@@ -22,6 +22,7 @@ repos:
     hooks:
       - id: no-commit-to-branch
         args: ["--branch", "main"]
+        stages: [pre-commit]
       - id: check-json
       - id: check-yaml
       - id: check-toml
