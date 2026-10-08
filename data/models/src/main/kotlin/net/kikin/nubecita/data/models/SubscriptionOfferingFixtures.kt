@@ -22,7 +22,10 @@ public object SubscriptionOfferingFixtures {
         monthlyPriceAmountMicros: Long = 1_990_000,
         annualFormattedPrice: String = "$19.99",
         annualPriceAmountMicros: Long = 19_990_000,
+        lifetimeFormattedPrice: String = "$9.99",
+        lifetimePriceAmountMicros: Long = 9_990_000,
         currencyCode: String = "USD",
+        hasLifetime: Boolean = true,
     ): SubscriptionOffering =
         SubscriptionOffering(
             monthly =
@@ -41,5 +44,17 @@ public object SubscriptionOfferingFixtures {
                     priceAmountMicros = annualPriceAmountMicros,
                     priceCurrencyCode = currencyCode,
                 ),
+            lifetime =
+                if (hasLifetime) {
+                    SubscriptionPlan(
+                        id = SubscriptionPlanId.Lifetime,
+                        period = BillingPeriod.Lifetime,
+                        formattedPrice = lifetimeFormattedPrice,
+                        priceAmountMicros = lifetimePriceAmountMicros,
+                        priceCurrencyCode = currencyCode,
+                    )
+                } else {
+                    null
+                },
         )
 }

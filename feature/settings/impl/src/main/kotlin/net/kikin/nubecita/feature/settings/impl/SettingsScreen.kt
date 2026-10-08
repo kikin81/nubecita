@@ -519,6 +519,8 @@ internal fun SettingsContent(
                 stringResource(R.string.settings_pro_current_plan_annual, planPrice)
             state.currentPlanPeriod == BillingPeriod.Monthly && planPrice != null ->
                 stringResource(R.string.settings_pro_current_plan_monthly, planPrice)
+            state.currentPlanPeriod == BillingPeriod.Lifetime && planPrice != null ->
+                stringResource(R.string.settings_pro_current_plan_lifetime, planPrice)
             else -> stringResource(R.string.settings_pro_current_plan_active)
         }
     val proRows =

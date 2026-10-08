@@ -124,11 +124,27 @@ internal class DefaultUserPreferencesRepository
             dataStore.edit { prefs -> prefs[Keys.AUTOPLAY_GIFS] = enabled }
         }
 
+        override val pipEnabled: Flow<Boolean> =
+            dataStore.data
+                .catch { error ->
+                    if (error is IOException) {
+                        Timber.w(error, "Failed to read user preferences; defaulting pipEnabled to true")
+                        emit(emptyPreferences())
+                    } else {
+                        throw error
+                    }
+                }.map { prefs -> prefs[Keys.PIP_ENABLED] ?: true }
+
+        override suspend fun setPipEnabled(enabled: Boolean) {
+            dataStore.edit { prefs -> prefs[Keys.PIP_ENABLED] = enabled }
+        }
+
         private object Keys {
             val HAS_SEEN_ONBOARDING = booleanPreferencesKey("has_seen_onboarding")
             val LAST_SELECTED_FEED_URI = stringPreferencesKey("last_selected_feed_uri")
             val THEME_PREFERENCE = stringPreferencesKey("theme_preference")
             val AUTOPLAY_PREFERENCE = stringPreferencesKey("autoplay_preference")
             val AUTOPLAY_GIFS = booleanPreferencesKey("autoplay_gifs")
+            val PIP_ENABLED = booleanPreferencesKey("pip_enabled")
         }
     }

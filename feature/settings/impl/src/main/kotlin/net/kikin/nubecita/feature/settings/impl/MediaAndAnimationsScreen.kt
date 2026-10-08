@@ -191,6 +191,29 @@ internal fun MediaAndAnimationsContent(
                     },
                 )
             }
+
+            Text(
+                text = stringResource(R.string.media_pip_header),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+
+            NubecitaListGroup(items = PIP_ROW) { _, shapes ->
+                NubecitaListItem(
+                    shapes = shapes,
+                    headlineContent = { Text(stringResource(R.string.media_pip_toggle)) },
+                    supportingContent = { Text(stringResource(R.string.media_pip_toggle_supporting)) },
+                    checked = state.pipEnabled,
+                    onCheckedChange = { enabled ->
+                        onEvent(MediaAndAnimationsEvent.PipToggled(enabled))
+                    },
+                    trailingContent = {
+                        // Display-only: the row owns the toggle gesture.
+                        Switch(checked = state.pipEnabled, onCheckedChange = null)
+                    },
+                )
+            }
         }
     }
 }
@@ -201,6 +224,7 @@ private val AUTOPLAY_OPTIONS = AutoplayPreference.entries.toImmutableList()
 // the option list above; NubecitaListGroup shapes by position, so a lone item
 // reads as a complete card rather than a fragment.
 private val GIF_ROW = persistentListOf(Unit)
+private val PIP_ROW = persistentListOf(Unit)
 
 /**
  * The option's display label. `internal` because the Settings root row captions

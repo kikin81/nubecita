@@ -452,6 +452,7 @@ enum class PaywallPlan(
 ) {
     Monthly("monthly"),
     Annual("annual"),
+    Lifetime("lifetime"),
 }
 
 /** Terminal outcome of a user-initiated Restore-purchases tap. */

@@ -10,4 +10,5 @@ package net.kikin.nubecita.data.models
 public enum class SubscriptionPlanId {
     Monthly,
     Annual,
+    Lifetime,
 }

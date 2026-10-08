@@ -66,4 +66,12 @@ internal class FakeUserPreferencesRepository
         override suspend fun setAutoplayGifs(enabled: Boolean) {
             gifs.value = enabled
         }
+
+        private val pip = MutableStateFlow(true)
+
+        override val pipEnabled: Flow<Boolean> = pip.asStateFlow()
+
+        override suspend fun setPipEnabled(enabled: Boolean) {
+            pip.value = enabled
+        }
     }

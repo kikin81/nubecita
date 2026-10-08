@@ -13,8 +13,6 @@ import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.core.common.navigation.LocalPipController
 import net.kikin.nubecita.core.common.navigation.rememberIsInPipMode
 import net.kikin.nubecita.core.common.screen.KeepScreenOnWhile
-import net.kikin.nubecita.feature.paywall.api.PaywallRoute
-import net.kikin.nubecita.feature.paywall.api.PaywallSource
 import net.kikin.nubecita.feature.videoplayer.impl.ui.VideoPlayerContent
 
 /**
@@ -73,23 +71,17 @@ internal fun VideoPlayerScreen(
         }
     }
 
-    // Explicit pop-out affordance (nubecita-q5ge.8). Shown only where the device
-    // supports PiP; the tap either enters PiP (Pro) or upsells the paywall
-    // (not Pro). Driven from here, not the VM (design D5). The paywall push uses
-    // the OUTER navigator — PaywallRoute is dual-registered @OuterShell so it
-    // renders over the (also @OuterShell) player.
+    // Explicit pop-out affordance. Shown only where the device
+    // supports PiP AND the user has not disabled it in Settings.
+    // Tapping directly enters PiP.
     val onPopOut: (() -> Unit)? =
-        if (pipBridge.isPipSupported) {
+        if (pipBridge.isPipSupported && pipEnabled) {
             {
                 resolvePopOut(
-                    pipEnabled = pipEnabled,
+                    pipEnabled = true,
                     enterPip = {
                         viewModel.onPipReach(entered = true)
                         pipBridge.enterPip()
-                    },
-                    navigateToPaywall = {
-                        viewModel.onPipReach(entered = false)
-                        navigator.goTo(PaywallRoute(PaywallSource.Pip))
                     },
                 )
             }
@@ -109,15 +101,12 @@ internal fun VideoPlayerScreen(
 }
 
 /**
- * Resolve a pop-out tap: a Pro user (PiP [pipEnabled]) enters Picture-in-Picture;
- * everyone else is routed to the paywall (nubecita-q5ge.8). Extracted as a pure
- * function so the branch is unit-testable without an Activity / PiP harness —
- * design D5 keeps this decision in the Compose layer, never the ViewModel.
+ * Resolve a pop-out tap: enters Picture-in-Picture when [pipEnabled].
+ * Extracted as a pure function so the branch is unit-testable without an Activity / PiP harness.
  */
 internal fun resolvePopOut(
     pipEnabled: Boolean,
     enterPip: () -> Unit,
-    navigateToPaywall: () -> Unit,
 ) {
-    if (pipEnabled) enterPip() else navigateToPaywall()
+    if (pipEnabled) enterPip()
 }

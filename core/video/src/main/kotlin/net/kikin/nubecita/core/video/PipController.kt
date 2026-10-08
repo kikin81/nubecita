@@ -10,8 +10,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import net.kikin.nubecita.core.billing.EntitlementRepository
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
+import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import javax.inject.Inject
 import javax.inject.Qualifier
 import javax.inject.Singleton
@@ -36,14 +36,14 @@ public fun Context.supportsPip(): Boolean =
         packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
 
 /**
- * The single declarative gate for every Picture-in-Picture call site (design D4).
- * [isEnabled] folds the two independent conditions — the device physically
- * supports PiP, and the user holds Pro — into one boolean, so no call site
- * re-derives the entitlement branch. PiP is offered only while [isEnabled].
+ * The single declarative gate for every Picture-in-Picture call site.
+ * [isEnabled] folds the two conditions — the device physically supports PiP,
+ * and the user hasn't turned it off in Settings — into one boolean, so no call site
+ * re-derives the preference or hardware check. PiP is offered only while [isEnabled].
  *
- * PiP itself is driven from the Activity / Compose layer (design D5); this
+ * PiP itself is driven from the Activity / Compose layer; this
  * `@Singleton` holds the shared state those layers read. [isInPip] is set by the
- * Activity's `onPictureInPictureModeChanged` bridge (a later task) and read by
+ * Activity's `onPictureInPictureModeChanged` bridge and read by
  * the `SharedVideoPlayer` background-pause seam and the player chrome.
  */
 @Singleton
@@ -51,20 +51,18 @@ public class PipController
     @Inject
     internal constructor(
         @param:PipDeviceSupport private val deviceSupportsPip: Boolean,
-        entitlementRepository: EntitlementRepository,
+        userPreferencesRepository: UserPreferencesRepository,
         @ApplicationScope scope: CoroutineScope,
     ) {
         /**
-         * `deviceSupports && isPro`, kept hot so the ~4 PiP call sites can read
+         * `deviceSupports && userEnabled`, kept hot so the PiP call sites can read
          * `.value` synchronously. On a device without PiP this is constant `false`
-         * regardless of entitlement; otherwise it tracks [EntitlementRepository.isPro].
+         * regardless of preference; otherwise it tracks [UserPreferencesRepository.pipEnabled].
          */
         public val isEnabled: StateFlow<Boolean> =
-            entitlementRepository.isPro
-                .map { isPro -> deviceSupportsPip && isPro }
-                // Seed from the current entitlement so `.value` is correct at construction
-                // (no false→true flicker if Pro is already active before the collector runs).
-                .stateIn(scope, SharingStarted.Eagerly, deviceSupportsPip && entitlementRepository.isPro.value)
+            userPreferencesRepository.pipEnabled
+                .map { userEnabled -> deviceSupportsPip && userEnabled }
+                .stateIn(scope, SharingStarted.Eagerly, deviceSupportsPip)
 
         private val _isInPip = MutableStateFlow(false)
 

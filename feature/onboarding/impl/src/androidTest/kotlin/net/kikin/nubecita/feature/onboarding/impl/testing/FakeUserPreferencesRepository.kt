@@ -58,4 +58,8 @@ internal class FakeUserPreferencesRepository
         override val autoplayGifs: Flow<Boolean> = flowOf(true)
 
         override suspend fun setAutoplayGifs(enabled: Boolean) = Unit
+
+        override val pipEnabled: Flow<Boolean> = flowOf(true)
+
+        override suspend fun setPipEnabled(enabled: Boolean) = Unit
     }

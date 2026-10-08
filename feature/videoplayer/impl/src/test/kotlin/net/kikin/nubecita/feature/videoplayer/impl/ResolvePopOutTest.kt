@@ -12,32 +12,26 @@ import org.junit.jupiter.api.Test
  */
 internal class ResolvePopOutTest {
     @Test
-    fun `enters PiP when enabled (Pro), does not route to paywall`() {
+    fun `enters PiP when enabled`() {
         var enteredPip = false
-        var routedToPaywall = false
 
         resolvePopOut(
             pipEnabled = true,
             enterPip = { enteredPip = true },
-            navigateToPaywall = { routedToPaywall = true },
         )
 
         assertTrue(enteredPip)
-        assertFalse(routedToPaywall)
     }
 
     @Test
-    fun `routes to paywall when not enabled (non-Pro), does not enter PiP`() {
+    fun `does not enter PiP when disabled`() {
         var enteredPip = false
-        var routedToPaywall = false
 
         resolvePopOut(
             pipEnabled = false,
             enterPip = { enteredPip = true },
-            navigateToPaywall = { routedToPaywall = true },
         )
 
         assertFalse(enteredPip)
-        assertTrue(routedToPaywall)
     }
 }

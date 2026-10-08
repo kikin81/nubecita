@@ -44,34 +44,48 @@ internal fun PaywallPlanPicker(
     onPlanSelect: (SubscriptionPlanId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    Column(
         modifier = modifier.fillMaxWidth().selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s3),
+        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s3),
     ) {
-        PlanCard(
-            plan = offering.annual,
-            planLabel = stringResource(R.string.paywall_plan_annual),
-            periodCaption = stringResource(R.string.paywall_plan_per_year_caption),
-            savingsPercent = offering.annualSavingsPercent,
-            monthlyEquivalent =
-                formatCurrency(
-                    micros = offering.annualMonthlyEquivalentMicros,
-                    currencyCode = offering.annual.priceCurrencyCode,
-                ),
-            selected = selectedPlan == SubscriptionPlanId.Annual,
-            onSelect = { onPlanSelect(SubscriptionPlanId.Annual) },
-            modifier = Modifier.weight(1f),
-        )
-        PlanCard(
-            plan = offering.monthly,
-            planLabel = stringResource(R.string.paywall_plan_monthly),
-            periodCaption = stringResource(R.string.paywall_plan_per_month_caption),
-            savingsPercent = 0,
-            monthlyEquivalent = null,
-            selected = selectedPlan == SubscriptionPlanId.Monthly,
-            onSelect = { onPlanSelect(SubscriptionPlanId.Monthly) },
-            modifier = Modifier.weight(1f),
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s3),
+        ) {
+            PlanCard(
+                plan = offering.annual,
+                planLabel = stringResource(R.string.paywall_plan_annual),
+                periodCaption = stringResource(R.string.paywall_plan_per_year_caption),
+                savingsPercent = offering.annualSavingsPercent,
+                monthlyEquivalent =
+                    formatCurrency(
+                        micros = offering.annualMonthlyEquivalentMicros,
+                        currencyCode = offering.annual.priceCurrencyCode,
+                    ),
+                selected = selectedPlan == SubscriptionPlanId.Annual,
+                onSelect = { onPlanSelect(SubscriptionPlanId.Annual) },
+                modifier = Modifier.weight(1f),
+            )
+            PlanCard(
+                plan = offering.monthly,
+                planLabel = stringResource(R.string.paywall_plan_monthly),
+                periodCaption = stringResource(R.string.paywall_plan_per_month_caption),
+                savingsPercent = 0,
+                monthlyEquivalent = null,
+                selected = selectedPlan == SubscriptionPlanId.Monthly,
+                onSelect = { onPlanSelect(SubscriptionPlanId.Monthly) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+        val lifetime = offering.lifetime
+        if (lifetime != null) {
+            LifetimePlanCard(
+                plan = lifetime,
+                selected = selectedPlan == SubscriptionPlanId.Lifetime,
+                onSelect = { onPlanSelect(SubscriptionPlanId.Lifetime) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 
@@ -157,8 +171,87 @@ private fun PlanCard(
 }
 
 @Composable
+private fun LifetimePlanCard(
+    plan: SubscriptionPlan,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val planLabel = stringResource(R.string.paywall_plan_lifetime)
+    val planContentDescription =
+        stringResource(R.string.paywall_plan_content_description, planLabel, plan.formattedPrice)
+    Surface(
+        shape = RoundedCornerShape(MaterialTheme.spacing.s4),
+        color =
+            if (selected) {
+                MaterialTheme.colorScheme.surfaceContainerHigh
+            } else {
+                MaterialTheme.colorScheme.surfaceContainer
+            },
+        border =
+            if (selected) {
+                BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+            } else {
+                BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            },
+        modifier =
+            modifier.selectable(
+                selected = selected,
+                role = Role.RadioButton,
+                onClick = onSelect,
+            ),
+    ) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(MaterialTheme.spacing.s4)
+                    .clearAndSetSemantics { contentDescription = planContentDescription },
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s1),
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s2),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = planLabel,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Badge(text = stringResource(R.string.paywall_plan_lifetime_badge))
+                }
+                Text(
+                    text = stringResource(R.string.paywall_plan_lifetime_caption),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text(
+                text = plan.formattedPrice,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
+}
+
+@Composable
 private fun SavingsBadge(
     percent: Int,
+    modifier: Modifier = Modifier,
+) {
+    Badge(text = stringResource(R.string.paywall_plan_savings_badge, percent), modifier = modifier)
+}
+
+@Composable
+private fun Badge(
+    text: String,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -168,7 +261,7 @@ private fun SavingsBadge(
         modifier = modifier,
     ) {
         Text(
-            text = stringResource(R.string.paywall_plan_savings_badge, percent),
+            text = text,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
             modifier =

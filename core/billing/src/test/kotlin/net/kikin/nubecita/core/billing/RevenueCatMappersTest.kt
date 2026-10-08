@@ -39,12 +39,14 @@ internal class RevenueCatMappersTest {
     private fun offerings(
         monthly: Package?,
         annual: Package?,
+        lifetime: Package? = null,
         hasCurrent: Boolean = true,
     ): Offerings {
         val offering =
             mockk<Offering> {
                 every { this@mockk.monthly } returns monthly
                 every { this@mockk.annual } returns annual
+                every { this@mockk.lifetime } returns lifetime
             }
         return mockk<Offerings> { every { current } returns (if (hasCurrent) offering else null) }
     }
@@ -55,6 +57,7 @@ internal class RevenueCatMappersTest {
             offerings(
                 monthly = pkg("$1.99", 1_990_000),
                 annual = pkg("$19.99", 19_990_000),
+                lifetime = pkg("$9.99", 9_990_000),
             ).toSubscriptionOfferingResult()
 
         val offering = result.getOrThrow()
@@ -68,6 +71,11 @@ internal class RevenueCatMappersTest {
         assertEquals(BillingPeriod.Annual, offering.annual.period)
         assertEquals("$19.99", offering.annual.formattedPrice)
         assertEquals(19_990_000L, offering.annual.priceAmountMicros)
+
+        assertEquals(SubscriptionPlanId.Lifetime, offering.lifetime?.id)
+        assertEquals(BillingPeriod.Lifetime, offering.lifetime?.period)
+        assertEquals("$9.99", offering.lifetime?.formattedPrice)
+        assertEquals(9_990_000L, offering.lifetime?.priceAmountMicros)
     }
 
     @Test
@@ -116,6 +124,12 @@ internal class RevenueCatMappersTest {
     fun `activeProSubscription maps a monthly base plan case-insensitively`() {
         val info = customerInfoWithPro(productPlanIdentifier = "MONTHLY", productIdentifier = "pro_sub:monthly")
         assertEquals(SubscriptionPlanId.Monthly, info.activeProSubscription()?.planId)
+    }
+
+    @Test
+    fun `activeProSubscription maps a lifetime plan case-insensitively`() {
+        val info = customerInfoWithPro(productPlanIdentifier = "Lifetime", productIdentifier = "pro_lifetime")
+        assertEquals(SubscriptionPlanId.Lifetime, info.activeProSubscription()?.planId)
     }
 
     @Test

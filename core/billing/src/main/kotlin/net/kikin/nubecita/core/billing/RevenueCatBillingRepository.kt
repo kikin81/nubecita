@@ -91,6 +91,7 @@ internal class RevenueCatBillingRepository
                 when (planId) {
                     SubscriptionPlanId.Monthly -> current.monthly
                     SubscriptionPlanId.Annual -> current.annual
+                    SubscriptionPlanId.Lifetime -> current.lifetime
                 }
             }
 

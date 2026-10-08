@@ -192,6 +192,28 @@ internal class DefaultUserPreferencesRepositoryTest {
             assertEquals(AutoplayPreference.NEVER, repo.autoplayPreference.first())
         }
 
+    @Test
+    fun `pipEnabled starts as true on a fresh store`() =
+        runTest {
+            val repo = DefaultUserPreferencesRepository(newDataStore(this))
+
+            assertTrue(repo.pipEnabled.first())
+        }
+
+    @Test
+    fun `setPipEnabled flips the flag to false and back to true`() =
+        runTest {
+            val repo = DefaultUserPreferencesRepository(newDataStore(this))
+
+            repo.pipEnabled.test {
+                assertTrue(awaitItem())
+                repo.setPipEnabled(false)
+                assertFalse(awaitItem())
+                repo.setPipEnabled(true)
+                assertTrue(awaitItem())
+            }
+        }
+
     @JvmField
     @TempDir
     var tempDir: File = File("")

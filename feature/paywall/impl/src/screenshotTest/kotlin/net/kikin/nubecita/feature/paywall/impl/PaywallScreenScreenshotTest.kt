@@ -85,6 +85,34 @@ private fun PaywallReadyMonthlyScreenshot() {
 }
 
 @PreviewTest
+@Preview(name = "paywall-ready-lifetime-light", showBackground = true, heightDp = 920)
+@Preview(
+    name = "paywall-ready-lifetime-dark",
+    showBackground = true,
+    heightDp = 920,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun PaywallReadyLifetimeScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        PaywallContent(
+            state =
+                PaywallState(
+                    status = PaywallStatus.Ready(SubscriptionOfferingFixtures.proOffering()),
+                    selectedPlan = SubscriptionPlanId.Lifetime,
+                ),
+            onClose = {},
+            onRetry = {},
+            onPlanSelect = {},
+            onPurchase = {},
+            onRestore = {},
+            onTerms = {},
+            onPrivacy = {},
+        )
+    }
+}
+
+@PreviewTest
 @Preview(name = "paywall-loading-light", showBackground = true, heightDp = 720)
 @Preview(
     name = "paywall-loading-dark",

@@ -49,6 +49,7 @@ private fun String.toSubscriptionPlanId(): SubscriptionPlanId? =
     when (lowercase()) {
         "monthly" -> SubscriptionPlanId.Monthly
         "annual" -> SubscriptionPlanId.Annual
+        "lifetime" -> SubscriptionPlanId.Lifetime
         else -> null
     }
 
@@ -63,9 +64,11 @@ internal fun Offerings.toSubscriptionOfferingResult(): Result<SubscriptionOfferi
         val offering = requireNotNull(current) { "RevenueCat returned no current offering" }
         val monthly = requireNotNull(offering.monthly) { "Current offering has no monthly package" }
         val annual = requireNotNull(offering.annual) { "Current offering has no annual package" }
+        val lifetime = offering.lifetime?.toSubscriptionPlan(SubscriptionPlanId.Lifetime, BillingPeriod.Lifetime)
         SubscriptionOffering(
             monthly = monthly.toSubscriptionPlan(SubscriptionPlanId.Monthly, BillingPeriod.Monthly),
             annual = annual.toSubscriptionPlan(SubscriptionPlanId.Annual, BillingPeriod.Annual),
+            lifetime = lifetime,
         )
     }
 

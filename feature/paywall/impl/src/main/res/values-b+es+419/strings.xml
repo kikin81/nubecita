@@ -7,15 +7,20 @@
     <string name="paywall_subhead">Nubecita es un cliente de Bluesky nativo e independiente, creado por una sola persona. Hacerte Apoyador financia el trabajo continuo — y desbloquea un par de beneficios como agradecimiento.</string>
 
     <string name="paywall_perks_title">Lo que obtienes</string>
-    <string name="paywall_perk_pip_title">Video en imagen en imagen</string>
-    <string name="paywall_perk_pip_body">Reproduce un video en una ventana flotante y sigue viéndolo mientras navegas.</string>
     <string name="paywall_perk_badge_title">Insignia de Apoyador</string>
-    <string name="paywall_perk_badge_body">Una pequeña insignia en tu propio perfil — un agradecimiento discreto, solo para ti.</string>
+    <string name="paywall_perk_badge_body">Una pequeña insignia en tu perfil — un agradecimiento discreto, solo para ti.</string>
+    <string name="paywall_perk_support_title">Apoya el desarrollo independiente</string>
+    <string name="paywall_perk_support_body">Ayuda a mantener a Nubecita rápida, nativa y sin anuncios, creada con esmero por un desarrollador independiente.</string>
+    <string name="paywall_perk_upcoming_title">Widgets y temas personalizados</string>
+    <string name="paywall_perk_upcoming_body">Próximamente: personaliza Nubecita con temas y widgets en la pantalla de inicio.</string>
 
     <string name="paywall_plan_monthly">Mensual</string>
     <string name="paywall_plan_annual">Anual</string>
+    <string name="paywall_plan_lifetime">De por vida</string>
     <string name="paywall_plan_per_month_caption">al mes</string>
     <string name="paywall_plan_per_year_caption">al año</string>
+    <string name="paywall_plan_lifetime_caption">paga una vez · para siempre</string>
+    <string name="paywall_plan_lifetime_badge">Pago único</string>
     <string name="paywall_plan_savings_badge">Ahorra %1$d%%</string>
     <string name="paywall_plan_annual_monthly_equivalent">≈ %1$s/mes</string>
     <string name="paywall_plan_content_description">%1$s, %2$s</string>
@@ -25,7 +30,7 @@
     <string name="paywall_restore">Restaurar compras</string>
     <string name="paywall_terms">Términos del servicio</string>
     <string name="paywall_privacy">Política de privacidad</string>
-    <string name="paywall_disclosure">El pago se carga a tu cuenta de Google Play. Tu suscripción se renueva automáticamente al mismo precio a menos que la canceles al menos 24 horas antes de que termine el período. Administra o cancela cuando quieras en Google Play.</string>
+    <string name="paywall_disclosure">El pago se carga a tu cuenta de Google Play. Las suscripciones se renuevan automáticamente al mismo precio a menos que las canceles al menos 24 horas antes de que termine el período. Administra tus suscripciones en cualquier momento en Google Play.</string>
 
     <string name="paywall_error_title">No se pudieron cargar los planes</string>
     <string name="paywall_error_body">Revisa tu conexión y vuelve a intentarlo.</string>

@@ -15,6 +15,7 @@ import androidx.compose.runtime.Immutable
 public data class SubscriptionOffering(
     val monthly: SubscriptionPlan,
     val annual: SubscriptionPlan,
+    val lifetime: SubscriptionPlan? = null,
 ) {
     /**
      * The annual plan's price expressed as a per-month figure (micros),

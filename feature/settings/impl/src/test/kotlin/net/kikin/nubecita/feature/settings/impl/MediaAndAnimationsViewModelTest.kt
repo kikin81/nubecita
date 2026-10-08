@@ -141,17 +141,62 @@ internal class MediaAndAnimationsViewModelTest {
             }
         }
 
+    @Test
+    fun `toggling picture-in-picture writes it through`() =
+        runTest {
+            val repository = repositoryFor(MutableStateFlow(AutoplayPreference.ALWAYS), MutableStateFlow(true), MutableStateFlow(true))
+            val vm = MediaAndAnimationsViewModel(repository)
+            runCurrent()
+
+            vm.handleEvent(MediaAndAnimationsEvent.PipToggled(false))
+            runCurrent()
+
+            coVerify(exactly = 1) { repository.setPipEnabled(false) }
+        }
+
+    @Test
+    fun `toggling picture-in-picture to the already active value performs no write`() =
+        runTest {
+            val repository = repositoryFor(MutableStateFlow(AutoplayPreference.ALWAYS), MutableStateFlow(true), MutableStateFlow(true))
+            val vm = MediaAndAnimationsViewModel(repository)
+            runCurrent()
+
+            vm.handleEvent(MediaAndAnimationsEvent.PipToggled(true))
+            runCurrent()
+
+            coVerify(exactly = 0) { repository.setPipEnabled(any()) }
+            assertTrue(vm.uiState.value.pipEnabled)
+        }
+
+    @Test
+    fun `a failed picture-in-picture write surfaces a save error`() =
+        runTest {
+            val repository = repositoryFor(MutableStateFlow(AutoplayPreference.ALWAYS), MutableStateFlow(true), MutableStateFlow(true))
+            coEvery { repository.setPipEnabled(any()) } throws IllegalStateException("disk full")
+            val vm = MediaAndAnimationsViewModel(repository)
+            runCurrent()
+
+            vm.effects.test {
+                vm.handleEvent(MediaAndAnimationsEvent.PipToggled(false))
+                runCurrent()
+                assertEquals(MediaAndAnimationsEffect.ShowSaveError, awaitItem())
+            }
+        }
+
     private fun repositoryFor(
         autoplay: MutableStateFlow<AutoplayPreference>,
         gifs: MutableStateFlow<Boolean>,
+        pip: MutableStateFlow<Boolean> = MutableStateFlow(true),
     ): UserPreferencesRepository =
         mockk<UserPreferencesRepository>(relaxed = true).also {
             every { it.autoplayPreference } returns autoplay
             every { it.autoplayGifs } returns gifs
+            every { it.pipEnabled } returns pip
         }
 
     private fun viewModelWith(
         autoplay: MutableStateFlow<AutoplayPreference>,
         gifs: MutableStateFlow<Boolean>,
-    ): MediaAndAnimationsViewModel = MediaAndAnimationsViewModel(repositoryFor(autoplay, gifs))
+        pip: MutableStateFlow<Boolean> = MutableStateFlow(true),
+    ): MediaAndAnimationsViewModel = MediaAndAnimationsViewModel(repositoryFor(autoplay, gifs, pip))
 }

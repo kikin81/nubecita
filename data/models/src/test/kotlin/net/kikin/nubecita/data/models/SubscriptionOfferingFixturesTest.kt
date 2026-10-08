@@ -15,6 +15,10 @@ internal class SubscriptionOfferingFixturesTest {
         assertEquals(SubscriptionPlanId.Annual, offering.annual.id)
         assertEquals(BillingPeriod.Annual, offering.annual.period)
         assertEquals("$19.99", offering.annual.formattedPrice)
+
+        assertEquals(SubscriptionPlanId.Lifetime, offering.lifetime?.id)
+        assertEquals(BillingPeriod.Lifetime, offering.lifetime?.period)
+        assertEquals("$9.99", offering.lifetime?.formattedPrice)
     }
 
     @Test
