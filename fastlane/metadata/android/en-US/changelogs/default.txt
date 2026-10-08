@@ -1,6 +1,6 @@
 Thanks for using nubecita! What's new:
+• Swipe between feeds — swipe horizontally to switch smoothly between your pinned feeds.
+• Video Picture-in-Picture — keep watching videos in a floating window while browsing or using other apps, now free for everyone.
 • Save images — download photos straight to your gallery from the viewer.
-• Clearer video controls — easy to see even over bright backgrounds.
-• Refreshed look — fresh Azure colors with improved contrast and readability.
-• Smoother video playback when watching trending videos and quote posts.
+• Smoother video playback and performance improvements.
 Thanks for being here. 💙
