@@ -217,6 +217,7 @@ private fun net.kikin.nubecita.data.models.SubscriptionOffering.planFor(id: Subs
     when (id) {
         SubscriptionPlanId.Monthly -> monthly
         SubscriptionPlanId.Annual -> annual
+        SubscriptionPlanId.Lifetime -> requireNotNull(lifetime) { "Lifetime plan requested but not present in offering" }
     }
 
 /** Map the domain plan id onto the analytics enum (keeps `:core:analytics` free of `:data:models`). */
@@ -224,6 +225,7 @@ private fun SubscriptionPlanId.toAnalyticsPlan(): PaywallPlan =
     when (this) {
         SubscriptionPlanId.Monthly -> PaywallPlan.Monthly
         SubscriptionPlanId.Annual -> PaywallPlan.Annual
+        SubscriptionPlanId.Lifetime -> PaywallPlan.Lifetime
     }
 
 private fun PaywallSource.toAnalyticsSource(): AnalyticsPaywallSource =

@@ -325,14 +325,19 @@ private fun PaywallReadyBody(
                 verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s4),
             ) {
                 PaywallPerkRow(
-                    icon = NubecitaIconName.PlayArrow,
-                    title = stringResource(R.string.paywall_perk_pip_title),
-                    body = stringResource(R.string.paywall_perk_pip_body),
-                )
-                PaywallPerkRow(
-                    icon = NubecitaIconName.Verified,
+                    icon = NubecitaIconName.WorkspacePremium,
                     title = stringResource(R.string.paywall_perk_badge_title),
                     body = stringResource(R.string.paywall_perk_badge_body),
+                )
+                PaywallPerkRow(
+                    icon = NubecitaIconName.Favorite,
+                    title = stringResource(R.string.paywall_perk_support_title),
+                    body = stringResource(R.string.paywall_perk_support_body),
+                )
+                PaywallPerkRow(
+                    icon = NubecitaIconName.Palette,
+                    title = stringResource(R.string.paywall_perk_upcoming_title),
+                    body = stringResource(R.string.paywall_perk_upcoming_body),
                 )
             }
 

@@ -407,6 +407,25 @@ internal class SettingsViewModelTest {
         }
 
     @Test
+    fun `Pro state resolves the lifetime plan caption and flags isLifetime`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm =
+                createVm(
+                    auth = mockk(relaxed = true),
+                    isPro = true,
+                    activeSub = ActiveSubscription(planId = SubscriptionPlanId.Lifetime, productId = "pro_lifetime"),
+                )
+            advanceUntilIdle()
+
+            val state = vm.uiState.value
+            assertTrue(state.isPro)
+            assertTrue(state.isLifetime)
+            assertEquals(BillingPeriod.Lifetime, state.currentPlanPeriod)
+            assertEquals("$9.99", state.currentPlanFormattedPrice)
+            assertEquals("pro_lifetime", state.manageSku)
+        }
+
+    @Test
     fun `an unrecognized plan id leaves the period null but keeps the manage sku`() =
         runTest(mainDispatcher.dispatcher) {
             val vm =

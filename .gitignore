@@ -49,6 +49,7 @@ __pycache__/
 .dolt/
 *.db
 .beads-credential-key
+.beads/dolt-server-config.yaml
 # bd runtime lock. Untracked-but-committed once (PR #906) via `git add -A`,
 # which then blocked `git pull` for anyone whose local bd had created its own
 # copy — git will not overwrite an untracked file with a newly tracked one.

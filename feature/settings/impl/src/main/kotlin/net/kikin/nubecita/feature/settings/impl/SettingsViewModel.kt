@@ -111,7 +111,12 @@ internal class SettingsViewModel
             // loadPlans() can't overwrite the newer plan/price (latest-wins).
             viewModelScope.launch {
                 entitlementRepository.activeSubscription.collectLatest { active ->
-                    setState { copy(manageSku = active?.productId) }
+                    setState {
+                        copy(
+                            manageSku = active?.productId,
+                            isLifetime = active?.planId == SubscriptionPlanId.Lifetime,
+                        )
+                    }
                     resolvePlanLabel(active)
                 }
             }
@@ -189,12 +194,21 @@ internal class SettingsViewModel
             billingRepository
                 .loadPlans()
                 .onSuccess { offering ->
-                    val plan = if (planId == SubscriptionPlanId.Annual) offering.annual else offering.monthly
-                    setState {
-                        copy(
-                            currentPlanPeriod = plan.period,
-                            currentPlanFormattedPrice = plan.formattedPrice,
-                        )
+                    val plan =
+                        when (planId) {
+                            SubscriptionPlanId.Annual -> offering.annual
+                            SubscriptionPlanId.Monthly -> offering.monthly
+                            SubscriptionPlanId.Lifetime -> offering.lifetime
+                        }
+                    if (plan != null) {
+                        setState {
+                            copy(
+                                currentPlanPeriod = plan.period,
+                                currentPlanFormattedPrice = plan.formattedPrice,
+                            )
+                        }
+                    } else {
+                        setState { copy(currentPlanPeriod = null, currentPlanFormattedPrice = null) }
                     }
                 }.onFailure {
                     // Keep the section usable without the price — the row

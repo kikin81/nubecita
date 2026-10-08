@@ -38,12 +38,17 @@ internal class MediaAndAnimationsViewModel
             userPreferencesRepository.autoplayGifs
                 .onEach { enabled -> setState { copy(autoplayGifs = enabled) } }
                 .launchIn(viewModelScope)
+
+            userPreferencesRepository.pipEnabled
+                .onEach { enabled -> setState { copy(pipEnabled = enabled) } }
+                .launchIn(viewModelScope)
         }
 
         override fun handleEvent(event: MediaAndAnimationsEvent) {
             when (event) {
                 is MediaAndAnimationsEvent.AutoplaySelected -> selectAutoplay(event.preference)
                 is MediaAndAnimationsEvent.AutoplayGifsToggled -> setGifs(event.enabled)
+                is MediaAndAnimationsEvent.PipToggled -> setPip(event.enabled)
             }
         }
 
@@ -62,6 +67,13 @@ internal class MediaAndAnimationsViewModel
             if (enabled == uiState.value.autoplayGifs) return
             persist("the GIF autoplay preference") {
                 userPreferencesRepository.setAutoplayGifs(enabled)
+            }
+        }
+
+        private fun setPip(enabled: Boolean) {
+            if (enabled == uiState.value.pipEnabled) return
+            persist("the picture-in-picture preference") {
+                userPreferencesRepository.setPipEnabled(enabled)
             }
         }
 

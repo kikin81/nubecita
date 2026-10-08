@@ -68,6 +68,7 @@
     <!-- %1$s is the store-localized price string, e.g. "$19.99". -->
     <string name="settings_pro_current_plan_annual">Annual · %1$s/yr</string>
     <string name="settings_pro_current_plan_monthly">Monthly · %1$s/mo</string>
+    <string name="settings_pro_current_plan_lifetime">Lifetime · %1$s</string>
     <string name="settings_pro_manage_label">Manage subscription</string>
     <string name="settings_pro_restore_label">Restore purchases</string>
     <string name="settings_pro_restore_success">Purchases restored.</string>
@@ -163,4 +164,7 @@
     <string name="media_autoplay_gifs_supporting">Turn off to show the first frame until you tap.</string>
     <string name="media_save_error">Couldn\'t save your change. Try again.</string>
     <string name="media_row_value">Autoplay: %1$s</string>
+    <string name="media_pip_header">Picture-in-picture</string>
+    <string name="media_pip_toggle">Picture-in-picture</string>
+    <string name="media_pip_toggle_supporting">Allow videos to keep playing in a floating window when leaving the app.</string>
 </resources>

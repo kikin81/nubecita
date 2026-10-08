@@ -69,6 +69,8 @@ data class SettingsViewState(
      * package-level Play subscriptions page.
      */
     val manageSku: String? = null,
+    /** True when the active Pro purchase is a one-time Lifetime tier (no Play subscription to manage). */
+    val isLifetime: Boolean = false,
     /** True while a Restore-purchases request is in flight (single-flight guard + row spinner). */
     val isRestoring: Boolean = false,
     /**

@@ -16,8 +16,6 @@ dependencies {
     implementation(project(":core:posts"))
     implementation(project(":core:video"))
     implementation(project(":data:models"))
-    // PaywallRoute — the non-Pro pop-out tap routes to the paywall (nubecita-q5ge.8).
-    implementation(project(":feature:paywall:api"))
     implementation(libs.media3.ui.compose)
     implementation(libs.timber)
 

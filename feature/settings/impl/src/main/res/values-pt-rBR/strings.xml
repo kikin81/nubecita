@@ -32,6 +32,7 @@
     <string name="settings_pro_current_plan_active">Ativo</string>
     <string name="settings_pro_current_plan_annual">Anual · %1$s/ano</string>
     <string name="settings_pro_current_plan_monthly">Mensal · %1$s/mês</string>
+    <string name="settings_pro_current_plan_lifetime">Vitalício · %1$s</string>
     <string name="settings_pro_manage_label">Gerenciar assinatura</string>
     <string name="settings_pro_restore_label">Restaurar compras</string>
     <string name="settings_pro_restore_success">Compras restauradas.</string>
@@ -118,4 +119,7 @@
     <string name="media_autoplay_gifs_supporting">Desative para mostrar o primeiro quadro até você tocar.</string>
     <string name="media_save_error">Não foi possível salvar a alteração. Tente novamente.</string>
     <string name="media_row_value">Reprodução automática: %1$s</string>
+    <string name="media_pip_header">Picture-in-picture</string>
+    <string name="media_pip_toggle">Picture-in-picture</string>
+    <string name="media_pip_toggle_supporting">Permite que os vídeos continuem sendo reproduzidos em uma janela flutuante ao sair do aplicativo.</string>
 </resources>

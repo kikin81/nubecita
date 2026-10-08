@@ -22,8 +22,8 @@ dependencies {
     api(libs.media3.exoplayer)
 
     implementation(project(":core:analytics"))
-    implementation(project(":core:billing"))
     implementation(project(":core:common"))
+    implementation(project(":core:preferences"))
     implementation(libs.androidx.lifecycle.process)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.media3.database)

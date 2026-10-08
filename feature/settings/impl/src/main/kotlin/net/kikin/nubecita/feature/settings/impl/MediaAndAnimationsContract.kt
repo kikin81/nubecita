@@ -21,6 +21,7 @@ import net.kikin.nubecita.core.preferences.AutoplayPreference
 internal data class MediaAndAnimationsState(
     val autoplay: AutoplayPreference,
     val autoplayGifs: Boolean,
+    val pipEnabled: Boolean = true,
 ) : UiState
 
 internal sealed interface MediaAndAnimationsEvent : UiEvent {
@@ -35,6 +36,11 @@ internal sealed interface MediaAndAnimationsEvent : UiEvent {
 
     /** User toggled the GIF-autoplay switch. */
     data class AutoplayGifsToggled(
+        val enabled: Boolean,
+    ) : MediaAndAnimationsEvent
+
+    /** User toggled the Picture-in-picture switch. */
+    data class PipToggled(
         val enabled: Boolean,
     ) : MediaAndAnimationsEvent
 }

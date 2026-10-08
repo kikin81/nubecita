@@ -113,6 +113,32 @@ internal class PaywallViewModelTest {
         }
 
     @Test
+    fun `purchase success with Lifetime buys the lifetime plan`() =
+        runTest(mainDispatcher.dispatcher) {
+            val activity = mockk<Activity>(relaxed = true)
+            val lifetimePlan = requireNotNull(offering.lifetime)
+            val billing =
+                mockk<BillingRepository> {
+                    coEvery { loadPlans() } returns Result.success(offering)
+                    coEvery { purchase(activity, lifetimePlan) } returns PurchaseResult.Success
+                }
+            val vm = createVm(billing)
+            advanceUntilIdle()
+
+            vm.handleEvent(PaywallEvent.PlanSelected(SubscriptionPlanId.Lifetime))
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(PaywallEvent.PurchaseClicked(activity))
+                advanceUntilIdle()
+                assertEquals(PaywallEffect.PurchaseSucceeded, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            coVerify(exactly = 1) { billing.purchase(activity, lifetimePlan) }
+            assertFalse(vm.uiState.value.isPurchasing)
+        }
+
+    @Test
     fun `purchase success buys the selected plan and emits PurchaseSucceeded`() =
         runTest(mainDispatcher.dispatcher) {
             val activity = mockk<Activity>(relaxed = true)
@@ -383,8 +409,10 @@ internal class PaywallViewModelTest {
             advanceUntilIdle()
 
             vm.handleEvent(PaywallEvent.PlanSelected(SubscriptionPlanId.Monthly))
-
             assertTrue(analytics.events.contains(PaywallPlanSelected(PaywallPlan.Monthly)))
+
+            vm.handleEvent(PaywallEvent.PlanSelected(SubscriptionPlanId.Lifetime))
+            assertTrue(analytics.events.contains(PaywallPlanSelected(PaywallPlan.Lifetime)))
         }
 
     @Test

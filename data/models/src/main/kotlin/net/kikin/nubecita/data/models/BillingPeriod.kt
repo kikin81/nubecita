@@ -14,4 +14,5 @@ package net.kikin.nubecita.data.models
 public enum class BillingPeriod {
     Monthly,
     Annual,
+    Lifetime,
 }

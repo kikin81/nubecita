@@ -114,6 +114,7 @@ class AnalyticsModelTest {
 
         assertEquals("paywall_plan_selected", PaywallPlanSelected(PaywallPlan.Annual).name)
         assertEquals(mapOf("plan" to Str("annual")), PaywallPlanSelected(PaywallPlan.Annual).params)
+        assertEquals(mapOf("plan" to Str("lifetime")), PaywallPlanSelected(PaywallPlan.Lifetime).params)
 
         assertEquals("paywall_checkout_started", PaywallCheckoutStarted(PaywallPlan.Monthly).name)
         assertEquals(mapOf("plan" to Str("monthly")), PaywallCheckoutStarted(PaywallPlan.Monthly).params)

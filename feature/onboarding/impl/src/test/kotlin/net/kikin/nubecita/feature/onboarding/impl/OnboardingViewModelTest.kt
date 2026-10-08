@@ -99,6 +99,10 @@ internal class OnboardingViewModelTest {
         override val autoplayGifs: Flow<Boolean> = flowOf(true)
 
         override suspend fun setAutoplayGifs(enabled: Boolean) = Unit
+
+        override val pipEnabled: Flow<Boolean> = flowOf(true)
+
+        override suspend fun setPipEnabled(enabled: Boolean) = Unit
     }
 
     private class FailingPreferences : UserPreferencesRepository {
@@ -126,5 +130,9 @@ internal class OnboardingViewModelTest {
         override val autoplayGifs: Flow<Boolean> = flowOf(true)
 
         override suspend fun setAutoplayGifs(enabled: Boolean) = Unit
+
+        override val pipEnabled: Flow<Boolean> = flowOf(true)
+
+        override suspend fun setPipEnabled(enabled: Boolean) = Unit
     }
 }

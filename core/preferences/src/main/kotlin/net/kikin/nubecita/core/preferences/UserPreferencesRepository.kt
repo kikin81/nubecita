@@ -72,4 +72,13 @@ interface UserPreferencesRepository {
 
     /** Persist the user's GIF-autoplay choice. */
     suspend fun setAutoplayGifs(enabled: Boolean)
+
+    /**
+     * Whether Picture-in-Picture mode is enabled for videos. Defaults to `true`
+     * on devices that support PiP. Users can turn it off in Settings > Media and animations.
+     */
+    val pipEnabled: Flow<Boolean>
+
+    /** Persist the user's Picture-in-Picture choice. */
+    suspend fun setPipEnabled(enabled: Boolean)
 }
