@@ -1,6 +1,6 @@
 ¡Gracias por usar nubecita! Novedades:
+• Desliza entre feeds: desliza horizontalmente para cambiar con fluidez entre tus feeds fijados.
+• Imagen en imagen para videos: sigue viendo videos en una ventana flotante mientras navegas o usas otras apps, ahora gratis para todos.
 • Guarda imágenes: descarga fotos directamente a tu galería desde el visor.
-• Controles de video más claros: fáciles de ver incluso sobre fondos brillantes.
-• Diseño renovado: nueva paleta Azure con mejor contraste y legibilidad.
-• Reproducción de video más fluida en videos populares y citas.
+• Reproducción de video más fluida y mejoras de rendimiento.
 ¡Gracias por acompañarnos! 💙
