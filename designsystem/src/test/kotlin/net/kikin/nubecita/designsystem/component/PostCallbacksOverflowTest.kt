@@ -42,6 +42,7 @@ class PostCallbacksOverflowTest {
         val variants =
             listOf(
                 PostOverflowAction.ReportPost,
+                PostOverflowAction.ReportAuthor,
                 PostOverflowAction.MuteAuthor,
                 PostOverflowAction.UnmuteAuthor,
                 PostOverflowAction.BlockAuthor,

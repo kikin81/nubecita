@@ -42,6 +42,7 @@ import net.kikin.nubecita.data.models.PostUi
 @Serializable
 data class Report(
     val subject: ReportSubject,
+    val initialCategory: String? = null,
 ) : NavKey {
     companion object {
         /**
@@ -50,7 +51,14 @@ data class Report(
          * handles `PostOverflowAction.ReportPost` — Feed, PostDetail,
          * and Profile's Posts/Replies tabs.
          */
-        fun forPost(post: PostUi): Report = Report(subject = ReportSubject.Post(uri = post.id, cid = post.cid))
+        fun forPost(
+            post: PostUi,
+            initialCategory: String? = null,
+        ): Report =
+            Report(
+                subject = ReportSubject.Post(uri = post.id, cid = post.cid),
+                initialCategory = initialCategory,
+            )
 
         /**
          * Build a `Report` NavKey targeting an account by [did]. Used
@@ -59,6 +67,13 @@ data class Report(
          * account's decentralized identifier; the report submission
          * resolves it to a `RepoRef` at the XRPC boundary.
          */
-        fun forAccount(did: String): Report = Report(subject = ReportSubject.Account(did = did))
+        fun forAccount(
+            did: String,
+            initialCategory: String? = null,
+        ): Report =
+            Report(
+                subject = ReportSubject.Account(did = did),
+                initialCategory = initialCategory,
+            )
     }
 }

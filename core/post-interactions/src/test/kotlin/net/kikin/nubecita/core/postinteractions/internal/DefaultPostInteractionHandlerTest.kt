@@ -420,6 +420,21 @@ internal class DefaultPostInteractionHandlerTest {
         }
 
     @Test
+    fun `onOverflowAction ReportAuthor emits NavigateToReportAccount`() =
+        runTest(mainDispatcher.dispatcher) {
+            val handler = makeHandler()
+            handler.bind(PostSurface.Feed, this)
+            val post = unlikedPost()
+
+            handler.interactionEffects.test {
+                handler.onOverflowAction(post, PostOverflowAction.ReportAuthor)
+
+                val effect = awaitItem() as InteractionEffect.NavigateToReportAccount
+                assertEquals(post.author.did, effect.did)
+            }
+        }
+
+    @Test
     fun `onOverflowAction BlockAuthor emits NavigateToBlock`() =
         runTest(mainDispatcher.dispatcher) {
             val handler = makeHandler()

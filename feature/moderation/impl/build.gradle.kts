@@ -14,6 +14,7 @@ dependencies {
     implementation(project(":core:common"))
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
+    implementation(libs.androidx.browser)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.timber)

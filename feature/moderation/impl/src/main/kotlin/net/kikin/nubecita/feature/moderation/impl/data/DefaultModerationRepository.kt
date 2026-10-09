@@ -44,24 +44,28 @@ internal class DefaultModerationRepository
             cid: String,
             reasonToken: String,
             details: String?,
+            labelerDid: String?,
         ): Result<Unit> =
             submit(
                 subject = { StrongRef(uri = AtUri(uri), cid = Cid(cid)) },
                 reasonToken = reasonToken,
                 details = details,
                 subjectLabel = "post",
+                labelerDid = labelerDid,
             )
 
         override suspend fun reportAccount(
             did: String,
             reasonToken: String,
             details: String?,
+            labelerDid: String?,
         ): Result<Unit> =
             submit(
                 subject = { RepoRef(did = Did(did)) },
                 reasonToken = reasonToken,
                 details = details,
                 subjectLabel = "account",
+                labelerDid = labelerDid,
             )
 
         // Both methods share the same envelope — only the subject union
@@ -73,6 +77,7 @@ internal class DefaultModerationRepository
             reasonToken: String,
             details: String?,
             subjectLabel: String,
+            labelerDid: String?,
         ): Result<Unit> =
             withContext(dispatcher) {
                 runCatchingCancellable {
@@ -84,7 +89,8 @@ internal class DefaultModerationRepository
                             reason = encodeReason(details),
                             modTool = AtField.Defined(MOD_TOOL),
                         )
-                    ModerationService(client).createReport(request)
+                    val proxy = resolveProxy(labelerDid)
+                    ModerationService(client).createReport(request = request, proxy = proxy)
                     Unit
                 }.onFailure { throwable ->
                     Timber.tag(TAG).w(
@@ -107,8 +113,21 @@ internal class DefaultModerationRepository
                 else -> AtField.Defined(GraphemeText.truncate(details, max = REASON_MAX_GRAPHEMES))
             }
 
-        private companion object {
+        companion object {
             const val TAG = "ModerationRepository"
+
+            // Default Bluesky moderation service (BMS) DID and labeler service endpoint proxy
+            const val DEFAULT_LABELER_DID = "did:plc:ar7c4by46qjdydhdevvrndac"
+            const val DEFAULT_LABELER_PROXY = "did:plc:ar7c4by46qjdydhdevvrndac#atproto_labeler"
+
+            /**
+             * Resolves the `atproto-proxy` target header value for moderation reports.
+             * Targets the designated labeler or defaults to the official Bluesky moderation service.
+             */
+            fun resolveProxy(labelerDid: String?): String {
+                val target = labelerDid?.takeIf { it.isNotBlank() } ?: DEFAULT_LABELER_DID
+                return if (target.contains("#")) target else "$target#atproto_labeler"
+            }
 
             // Lexicon `reason.maxGraphemes` for createReport. Audit
             // against the upstream lexicon at

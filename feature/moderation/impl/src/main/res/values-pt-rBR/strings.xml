@@ -81,4 +81,44 @@
     <string name="report_reason_self_harm_other">Outra preocupação de automutilação</string>
     <string name="report_reason_other">Outra coisa</string>
     <string name="report_reason_unknown_fallback">Outro</string>
+
+    <!-- Category Subtitles -->
+    <string name="report_category_child_safety_subtitle">CSAM, exploração sexual, aliciamento ou danos a menores</string>
+    <string name="report_category_spam_subtitle">Conteúdo comercial não solicitado, repetitivo ou enganoso</string>
+    <string name="report_category_misleading_subtitle">Golpes, falsidade ideológica, bots ou desinformação</string>
+    <string name="report_category_harassment_subtitle">Discurso de ódio, ameaças ou assédio direcionado</string>
+    <string name="report_category_sexual_subtitle">Conteúdo não consensual, deepfakes ou material adulto</string>
+    <string name="report_category_violence_subtitle">Ameaças, violência explícita ou exaltação da violência</string>
+    <string name="report_category_self_harm_subtitle">Transtornos alimentares, suicídio ou automutilação</string>
+    <string name="report_category_rule_violation_subtitle">Vendas proibidas ou evasão de suspensão</string>
+    <string name="report_category_other_subtitle">Outros problemas não cobertos acima</string>
+
+    <!-- Safety & Reporting screen -->
+    <string name="safety_reporting_title">Segurança e denúncias</string>
+    <string name="safety_reporting_back">Voltar</string>
+    <string name="safety_child_safety_title">Padrões de segurança infantil</string>
+    <string name="safety_child_safety_badge">Tolerância zero</string>
+    <string name="safety_child_safety_description">O Nubecita adota uma política rigorosa de tolerância zero contra Material de Abuso Sexual Infantil (CSAM) e exploração sexual de menores. Todas as denúncias de segurança infantil são tratadas com prioridade imediata e reportadas ao Centro Nacional para Crianças Desaparecidas e Exploradas (NCMEC) e às autoridades competentes.</string>
+    <string name="safety_report_child_safety_action">Denunciar um problema de segurança infantil</string>
+    <string name="safety_reporting_tools_title">Moderação e denúncias no aplicativo</string>
+    <string name="safety_reporting_tools_description">Você pode denunciar postagens e contas diretamente no app sem sair dele. As denúncias são enviadas com segurança aos serviços de moderação do AT Protocol.</string>
+    <string name="safety_report_account_action">Denunciar uma conta</string>
+    <string name="safety_how_to_report_title">Como denunciar conteúdo</string>
+    <string name="safety_how_to_report_posts_body">Para denunciar um post: Toque nos três pontinhos (···) no post e selecione \"Denunciar post\" ou \"Denunciar @handle\".</string>
+    <string name="safety_how_to_report_accounts_body">Para denunciar um usuário: Visite o perfil e toque no ícone de bandeira ou no menu de três pontinhos (···) para selecionar \"Denunciar conta\".</string>
+    <string name="safety_resources_title">Recursos e ajuda externa</string>
+    <string name="safety_resource_ncmec">Denunciar ao CyberTipline (NCMEC)</string>
+    <string name="safety_resource_bluesky_guidelines">Diretrizes da Comunidade Bluesky</string>
+    <string name="safety_tools_title">Ferramentas de moderação</string>
+    <string name="safety_blocked_accounts_label">Contas bloqueadas</string>
+    <string name="safety_content_filters_label">Filtros de conteúdo</string>
+
+    <!-- Report Account Dialog in Safety screen -->
+    <string name="safety_report_account_dialog_title">Denunciar conta</string>
+    <string name="safety_report_account_dialog_message">Digite o nome de usuário (ex. usuario.bsky.social) ou DID da conta que deseja denunciar.</string>
+    <string name="safety_report_account_dialog_placeholder">usuario.bsky.social ou did:plc:...</string>
+    <string name="safety_report_account_dialog_confirm">Continuar</string>
+    <string name="safety_report_account_dialog_cancel">Cancelar</string>
+    <string name="safety_report_account_invalid_error">Por favor, insira um usuário ou DID válido.</string>
+
 </resources>

@@ -25,6 +25,7 @@
     <string name="postcard_action_copy_link">Copiar enlace a la publicación</string>
     <string name="postcard_action_more">Más opciones</string>
     <string name="moderation_action_report_post">Denunciar publicación</string>
+    <string name="moderation_action_report_author">Denunciar a \@%1$s</string>
     <string name="moderation_action_mute_author">Silenciar a \@%1$s</string>
     <string name="moderation_action_unmute_author">Dejar de silenciar a \@%1$s</string>
     <string name="moderation_action_block_author">Bloquear a \@%1$s</string>

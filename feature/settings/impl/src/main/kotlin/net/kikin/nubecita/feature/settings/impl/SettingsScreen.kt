@@ -60,6 +60,7 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.data.models.BillingPeriod
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.feature.moderation.api.SafetyAndReporting
 import net.kikin.nubecita.feature.paywall.api.PaywallRoute
 import net.kikin.nubecita.feature.paywall.api.PaywallSource
 import net.kikin.nubecita.feature.profile.api.Profile
@@ -189,6 +190,10 @@ internal fun SettingsScreen(
                 SettingsEffect.OpenModeration ->
                     // Push the Moderation hub sub-route (screen owns the NavKey).
                     currentOnNavigateTo(Moderation)
+
+                SettingsEffect.OpenSafetyReporting ->
+                    // Push the Safety & reporting sub-route.
+                    currentOnNavigateTo(SafetyAndReporting)
 
                 SettingsEffect.OpenFeedPreferences ->
                     // Push the Feed preferences sub-route (screen owns the NavKey).
@@ -577,6 +582,7 @@ internal fun SettingsContent(
     // row → the Moderation hub (content filters + blocked accounts), keeping
     // the Settings page lean as more moderation tools land.
     val moderationLabel = stringResource(R.string.settings_moderation_label)
+    val safetyReportingLabel = stringResource(R.string.settings_safety_reporting_label)
     val feedPreferencesLabel = stringResource(R.string.settings_feed_preferences_label)
     val contentModerationSectionLabel = stringResource(R.string.settings_content_moderation_section)
     // "Display" — slot 2 of the canonical roster, previously unfilled. The row
@@ -609,7 +615,7 @@ internal fun SettingsContent(
         }
 
     val contentModerationRows =
-        remember(moderationLabel, feedPreferencesLabel) {
+        remember(safetyReportingLabel, moderationLabel, feedPreferencesLabel) {
             persistentListOf(
                 // Feed preferences sits above Moderation: it governs what the
                 // timeline shows, which users reach for far more often than the
@@ -621,6 +627,11 @@ internal fun SettingsContent(
                 ),
                 SettingsRow.Action(
                     icon = NubecitaIconName.Flag,
+                    label = safetyReportingLabel,
+                    onClick = { currentOnEvent(SettingsEvent.SafetyReportingTapped) },
+                ),
+                SettingsRow.Action(
+                    icon = null,
                     label = moderationLabel,
                     onClick = { currentOnEvent(SettingsEvent.ModerationTapped) },
                 ),

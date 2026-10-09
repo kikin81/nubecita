@@ -50,6 +50,7 @@ internal class DefaultModerationRepositoryTest {
             assertTrue(result.isSuccess, "expected success, got ${result.exceptionOrNull()}")
             val request = capture.requests.single()
             assertEquals("/xrpc/com.atproto.moderation.createReport", request.url.encodedPath)
+            assertEquals(DefaultModerationRepository.DEFAULT_LABELER_PROXY, request.headers["atproto-proxy"])
             val body = jsonBody(capture.bodies.single())
 
             // reasonType is passed verbatim
@@ -60,6 +61,26 @@ internal class DefaultModerationRepositoryTest {
             assertEquals("com.atproto.repo.strongRef", subject["\$type"]!!.jsonPrimitive.content)
             assertEquals(postUri, subject["uri"]!!.jsonPrimitive.content)
             assertEquals(postCid, subject["cid"]!!.jsonPrimitive.content)
+        }
+
+    @Test
+    fun `reportPost with explicit labelerDid sends formatted atproto-proxy header`() =
+        runTest {
+            val capture = RecordingEngine.respondingWith(emptyOkBody())
+            val repo = newRepository(capture.engine, UnconfinedTestDispatcher(testScheduler))
+
+            val result =
+                repo.reportPost(
+                    uri = postUri,
+                    cid = postCid,
+                    reasonToken = ReportReasons.REASON_LEGACY_SPAM,
+                    details = null,
+                    labelerDid = "did:plc:customlabeler123",
+                )
+
+            assertTrue(result.isSuccess)
+            val request = capture.requests.single()
+            assertEquals("did:plc:customlabeler123#atproto_labeler", request.headers["atproto-proxy"])
         }
 
     @Test

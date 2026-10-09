@@ -101,6 +101,36 @@ internal class ReportDialogViewModelTest {
             assertEquals(ReportDialogStep.Subject, vm.uiState.value.step)
         }
 
+    @Test
+    fun `initialCategory childSafety seeds SubReason step with ChildSafety category`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm =
+                newVm(
+                    route = Report(subject = POST_SUBJECT, initialCategory = "childSafety"),
+                )
+            advanceUntilIdle()
+
+            val state = vm.uiState.value
+            assertEquals(ReportDialogStep.SubReason, state.step)
+            assertEquals(ReportCategory.ChildSafety, state.selectedCategory)
+            assertNull(state.selectedReason)
+        }
+
+    @Test
+    fun `back from fast-tracked childSafety SubReason step transitions to Category step`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm =
+                newVm(
+                    route = Report(subject = POST_SUBJECT, initialCategory = "childSafety"),
+                )
+            advanceUntilIdle()
+
+            vm.handleEvent(ReportDialogEvent.OnBackPressed)
+            val state = vm.uiState.value
+            assertEquals(ReportDialogStep.Category, state.step)
+            assertEquals(ReportCategory.ChildSafety, state.selectedCategory)
+        }
+
     // ---------- forward transitions ----------------------------------------
 
     @Test
@@ -436,12 +466,13 @@ internal class ReportDialogViewModelTest {
 
     private fun newVm(
         subject: ReportSubject = POST_SUBJECT,
+        route: Report = Report(subject = subject),
         repository: ModerationRepository = FakeModerationRepository(),
         resolver: SubjectPreviewResolver = FakeResolver(),
         clock: Clock = fixedClock(Instant.parse("2026-05-19T12:00:00Z")),
     ): ReportDialogViewModel =
         ReportDialogViewModel(
-            route = Report(subject = subject),
+            route = route,
             moderationRepository = repository,
             subjectPreviewResolver = resolver,
             clock = clock,
@@ -484,12 +515,14 @@ internal class FakeModerationRepository(
         val cid: String,
         val reasonToken: String,
         val details: String?,
+        val labelerDid: String? = null,
     )
 
     data class AccountInvocation(
         val did: String,
         val reasonToken: String,
         val details: String?,
+        val labelerDid: String? = null,
     )
 
     val postInvocations: MutableList<PostInvocation> = mutableListOf()
@@ -500,8 +533,9 @@ internal class FakeModerationRepository(
         cid: String,
         reasonToken: String,
         details: String?,
+        labelerDid: String?,
     ): Result<Unit> {
-        postInvocations.add(PostInvocation(uri, cid, reasonToken, details))
+        postInvocations.add(PostInvocation(uri, cid, reasonToken, details, labelerDid))
         return reportPostResult()
     }
 
@@ -509,8 +543,9 @@ internal class FakeModerationRepository(
         did: String,
         reasonToken: String,
         details: String?,
+        labelerDid: String?,
     ): Result<Unit> {
-        accountInvocations.add(AccountInvocation(did, reasonToken, details))
+        accountInvocations.add(AccountInvocation(did, reasonToken, details, labelerDid))
         return reportAccountResult()
     }
 }

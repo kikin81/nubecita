@@ -79,6 +79,7 @@
          (Block/Unblock), and oftc.5 (Mute/Unmute/MuteThread). oftc.2 wires
          the labels and surfaces a coming-soon snackbar on tap. -->
     <string name="moderation_action_report_post">Report post</string>
+    <string name="moderation_action_report_author">Report \@%1$s</string>
     <string name="moderation_action_mute_author">Mute \@%1$s</string>
     <string name="moderation_action_unmute_author">Unmute \@%1$s</string>
     <string name="moderation_action_block_author">Block \@%1$s</string>

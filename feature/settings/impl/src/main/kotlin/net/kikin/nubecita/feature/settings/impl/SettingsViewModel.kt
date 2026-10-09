@@ -166,6 +166,8 @@ internal class SettingsViewModel
                     sendEffect(SettingsEffect.OpenAbout)
                 SettingsEvent.ModerationTapped ->
                     sendEffect(SettingsEffect.OpenModeration)
+                SettingsEvent.SafetyReportingTapped ->
+                    sendEffect(SettingsEffect.OpenSafetyReporting)
                 SettingsEvent.FeedPreferencesTapped -> sendEffect(SettingsEffect.OpenFeedPreferences)
                 SettingsEvent.AppearanceTapped -> sendEffect(SettingsEffect.OpenAppearance)
                 SettingsEvent.MediaAndAnimationsTapped ->

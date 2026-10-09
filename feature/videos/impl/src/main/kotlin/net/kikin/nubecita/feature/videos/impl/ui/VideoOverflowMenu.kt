@@ -32,6 +32,7 @@ internal fun videoOverflowActions(
         // likelier to want.
         if (viewer.isOwnPost) add(PostOverflowAction.DeletePost)
         add(PostOverflowAction.ReportPost)
+        if (!viewer.isOwnPost) add(PostOverflowAction.ReportAuthor)
         add(if (viewer.isAuthorMutedByViewer) PostOverflowAction.UnmuteAuthor else PostOverflowAction.MuteAuthor)
         add(if (viewer.isAuthorBlockedByViewer) PostOverflowAction.UnblockAuthor else PostOverflowAction.BlockAuthor)
         add(PostOverflowAction.MuteThread)
@@ -76,6 +77,7 @@ private fun overflowActionLabel(
 ): String =
     when (action) {
         PostOverflowAction.ReportPost -> stringResource(DesignSystemR.string.moderation_action_report_post)
+        PostOverflowAction.ReportAuthor -> stringResource(DesignSystemR.string.moderation_action_report_author, handle)
         PostOverflowAction.MuteAuthor -> stringResource(DesignSystemR.string.moderation_action_mute_author, handle)
         PostOverflowAction.UnmuteAuthor -> stringResource(DesignSystemR.string.moderation_action_unmute_author, handle)
         PostOverflowAction.BlockAuthor -> stringResource(DesignSystemR.string.moderation_action_block_author, handle)

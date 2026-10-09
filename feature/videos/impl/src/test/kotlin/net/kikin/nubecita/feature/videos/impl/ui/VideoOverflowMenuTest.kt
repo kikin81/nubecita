@@ -13,6 +13,7 @@ internal class VideoOverflowMenuTest {
         assertEquals(
             listOf(
                 PostOverflowAction.ReportPost,
+                PostOverflowAction.ReportAuthor,
                 PostOverflowAction.MuteAuthor,
                 PostOverflowAction.BlockAuthor,
                 PostOverflowAction.MuteThread,

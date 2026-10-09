@@ -21,6 +21,7 @@ import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
 import net.kikin.nubecita.feature.moderation.api.Block
 import net.kikin.nubecita.feature.moderation.api.BlockedAccounts
 import net.kikin.nubecita.feature.moderation.api.Report
+import net.kikin.nubecita.feature.moderation.api.SafetyAndReporting
 import net.kikin.nubecita.feature.notifications.api.NotificationsTab
 import net.kikin.nubecita.feature.onboarding.api.Onboarding
 import net.kikin.nubecita.feature.paywall.api.PaywallRoute
@@ -150,6 +151,7 @@ class MainShellRouteCoverageTest {
                 PaywallSuccessRoute,
                 Report.forAccount(did = "did:plc:test"),
                 Block.forAccount(did = "did:plc:test", handle = "test.bsky.social"),
+                SafetyAndReporting,
                 Feeds,
             )
 

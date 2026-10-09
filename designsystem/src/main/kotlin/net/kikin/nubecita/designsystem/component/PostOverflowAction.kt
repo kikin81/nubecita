@@ -24,6 +24,8 @@ import androidx.compose.runtime.Immutable
 sealed interface PostOverflowAction {
     data object ReportPost : PostOverflowAction
 
+    data object ReportAuthor : PostOverflowAction
+
     data object MuteAuthor : PostOverflowAction
 
     data object UnmuteAuthor : PostOverflowAction

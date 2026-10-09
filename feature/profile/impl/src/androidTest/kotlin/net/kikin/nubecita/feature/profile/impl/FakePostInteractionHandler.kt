@@ -65,6 +65,8 @@ internal class FakePostInteractionHandler : PostInteractionHandler {
         when (action) {
             PostOverflowAction.ReportPost ->
                 _interactionEffects.trySend(InteractionEffect.NavigateToReport(post))
+            PostOverflowAction.ReportAuthor ->
+                _interactionEffects.trySend(InteractionEffect.NavigateToReportAccount(did = post.author.did))
             PostOverflowAction.BlockAuthor ->
                 _interactionEffects.trySend(
                     InteractionEffect.NavigateToBlock(did = post.author.did, handle = post.author.handle),

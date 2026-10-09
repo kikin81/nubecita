@@ -216,6 +216,13 @@ sealed interface SettingsEvent : UiEvent {
     data object ModerationTapped : SettingsEvent
 
     /**
+     * User tapped "Safety & reporting". VM responds with
+     * [SettingsEffect.OpenSafetyReporting]; the screen pushes the
+     * `SafetyAndReporting` NavKey onto the inner back stack.
+     */
+    data object SafetyReportingTapped : SettingsEvent
+
+    /**
      * User tapped "Feed preferences". The VM re-emits
      * [SettingsEffect.OpenFeedPreferences]; the screen pushes the
      * `FeedPreferences` sub-route.
@@ -325,6 +332,9 @@ sealed interface SettingsEffect : UiEffect {
      * the screen collects this and calls `onNavigateTo(Moderation)`.
      */
     data object OpenModeration : SettingsEffect
+
+    /** Push the `SafetyAndReporting` route onto MainShell's inner back stack. */
+    data object OpenSafetyReporting : SettingsEffect
 
     /** Push the Feed preferences sub-route. */
     data object OpenFeedPreferences : SettingsEffect

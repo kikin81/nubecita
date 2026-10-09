@@ -39,7 +39,7 @@ internal class ReportDialogViewModel
         private val subjectPreviewResolver: SubjectPreviewResolver,
         private val clock: Clock,
     ) : MviViewModel<ReportDialogState, ReportDialogEvent, ReportDialogEffect>(
-            ReportDialogState(subject = route.subject),
+            createInitialState(route),
         ) {
         @AssistedFactory
         interface Factory {
@@ -243,6 +243,44 @@ internal class ReportDialogViewModel
         private companion object {
             /** Auto-dismiss timer for the success card. See design Decision 5. */
             const val SUCCESS_DISMISS_DELAY_MS = 2_500L
+
+            fun createInitialState(route: Report): ReportDialogState {
+                val initialCategory = resolveInitialCategory(route.initialCategory)
+                return if (initialCategory != null) {
+                    val single = initialCategory.reasons.singleOrNull()
+                    if (single != null) {
+                        ReportDialogState(
+                            subject = route.subject,
+                            selectedCategory = initialCategory,
+                            selectedReason = single,
+                            detailsRequired = single in ReportReasons.OTHER_REPORT_REASONS,
+                            step = ReportDialogStep.Details,
+                        ).recomputeCanSubmit()
+                    } else {
+                        ReportDialogState(
+                            subject = route.subject,
+                            selectedCategory = initialCategory,
+                            step = ReportDialogStep.SubReason,
+                        ).recomputeCanSubmit()
+                    }
+                } else {
+                    ReportDialogState(subject = route.subject)
+                }
+            }
+
+            fun resolveInitialCategory(token: String?): ReportCategory? =
+                when (token?.lowercase()) {
+                    "childsafety", "child_safety" -> ReportCategory.ChildSafety
+                    "spam" -> ReportCategory.Spam
+                    "sexual" -> ReportCategory.Sexual
+                    "violence" -> ReportCategory.Violence
+                    "harassment" -> ReportCategory.Harassment
+                    "misleading" -> ReportCategory.Misleading
+                    "selfharm", "self_harm" -> ReportCategory.SelfHarm
+                    "ruleviolation", "rule_violation" -> ReportCategory.RuleViolation
+                    "other" -> ReportCategory.Other
+                    else -> null
+                }
         }
     }
 
