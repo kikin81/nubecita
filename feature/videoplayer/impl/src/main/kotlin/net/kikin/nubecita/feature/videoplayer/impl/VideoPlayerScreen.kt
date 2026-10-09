@@ -48,8 +48,8 @@ internal fun VideoPlayerScreen(
 
     // PiP wiring (design D5): the screen — not the VM — drives the Activity PiP
     // bridge. Republish params whenever play state / aspect / entitlement /
-    // measured video bounds change, so auto-enter (API 31+) is armed only while
-    // enabled + playing and disarms when Pro lapses.
+    // measured video bounds change so aspect ratio, action, and source rect
+    // are up-to-date for explicit PiP entry.
     val pipBridge = LocalPipController.current
     val isInPip by rememberIsInPipMode()
     val pipEnabled by pipBridge.isEnabled.collectAsStateWithLifecycle()
