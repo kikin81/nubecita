@@ -47,7 +47,7 @@ internal fun VideoPlayerScreen(
     val currentNavigator by rememberUpdatedState(navigator)
 
     // PiP wiring (design D5): the screen — not the VM — drives the Activity PiP
-    // bridge. Republish params whenever play state / aspect / entitlement /
+    // bridge. Republish params whenever play state / aspect / PiP enablement /
     // measured video bounds change so aspect ratio, action, and source rect
     // are up-to-date for explicit PiP entry.
     val pipBridge = LocalPipController.current

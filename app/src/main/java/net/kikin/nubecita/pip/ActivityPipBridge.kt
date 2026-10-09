@@ -15,6 +15,8 @@ import androidx.activity.ComponentActivity
 import androidx.core.app.PictureInPictureModeChangedInfo
 import androidx.core.content.ContextCompat
 import androidx.core.util.Consumer
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import kotlinx.coroutines.flow.StateFlow
 import net.kikin.nubecita.R
 import net.kikin.nubecita.core.common.navigation.PipBridge
@@ -36,9 +38,10 @@ import kotlin.math.roundToInt
  *   source-rect hint). Auto-enter on backgrounding is disabled; PiP is entered
  *   strictly on explicit user invocation via [enterPip] (design D7).
  * - Mirror the system PiP mode into [PipController.isInPip] via the Activity's
- *   `onPictureInPictureModeChanged` listener. Pausing on a real dismiss is the
- *   job of `SharedVideoPlayer`'s background-pause observer once it becomes
- *   PiP-aware (design D6 / a later task) — not duplicated here.
+ *   `onPictureInPictureModeChanged` listener. When PiP is dismissed (swiped away
+ *   or closed via 'X'), the platform stops the Activity without dispatching
+ *   `onPictureInPictureModeChanged(false)` — the Activity lifecycle observer
+ *   handles this on `onStop` by resetting `isInPip` and pausing [sharedVideoPlayer].
  * - Service the in-window play/pause [RemoteAction] through a
  *   `RECEIVER_NOT_EXPORTED` broadcast receiver wired to [SharedVideoPlayer].
  *
@@ -74,6 +77,19 @@ class ActivityPipBridge(
             pipController.setInPip(info.isInPictureInPictureMode)
         }
 
+    private val activityLifecycleObserver =
+        object : DefaultLifecycleObserver {
+            override fun onStop(owner: LifecycleOwner) {
+                // When an activity in PiP is dismissed by the user (swiped away or closed via 'X'),
+                // Android stops the activity without firing onPictureInPictureModeChanged(false).
+                // Reset the PiP state and pause playback so audio does not leak in the background.
+                if (pipController.isInPip.value) {
+                    pipController.setInPip(false)
+                    sharedVideoPlayer.pause()
+                }
+            }
+        }
+
     private val toggleReceiver =
         object : BroadcastReceiver() {
             override fun onReceive(
@@ -90,10 +106,11 @@ class ActivityPipBridge(
             }
         }
 
-    /** Register the PiP-mode listener and the play/pause receiver. Call from `onCreate`. */
+    /** Register the PiP-mode listener, lifecycle observer, and the play/pause receiver. Call from `onCreate`. */
     fun start() {
         if (registered) return
         registered = true
+        activity.lifecycle.addObserver(activityLifecycleObserver)
         activity.addOnPictureInPictureModeChangedListener(pipModeListener)
         ContextCompat.registerReceiver(
             activity,
@@ -103,13 +120,18 @@ class ActivityPipBridge(
         )
     }
 
-    /** Remove the listener and unregister the receiver (symmetric with [start]). Call from `onDestroy`. */
+    /** Remove listeners and unregister the receiver (symmetric with [start]). Call from `onDestroy`. */
     fun stop() {
         if (!registered) return
         registered = false
+        activity.lifecycle.removeObserver(activityLifecycleObserver)
         activity.removeOnPictureInPictureModeChangedListener(pipModeListener)
         runCatching { activity.unregisterReceiver(toggleReceiver) }
             .onFailure { Timber.tag(TAG).w(it, "PiP receiver already unregistered") }
+        if (pipController.isInPip.value) {
+            pipController.setInPip(false)
+            sharedVideoPlayer.pause()
+        }
     }
 
     override fun enterPip() {
@@ -143,14 +165,6 @@ class ActivityPipBridge(
         sourceRectHint?.let { lastSourceRectHint = it }
         runCatching { activity.setPictureInPictureParams(buildParams(aspectRatio, isPlaying, sourceRectHint)) }
             .onFailure { Timber.tag(TAG).w(it, "setPictureInPictureParams failed") }
-    }
-
-    /**
-     * No-op: PiP is strictly explicit-only (entered via [enterPip]).
-     * Kept for backward compatibility with calls from `MainActivity.onUserLeaveHint`.
-     */
-    fun onUserLeaveHint() {
-        // Deliberately no-op. PiP only applies to videos upon explicit user invocation.
     }
 
     private fun buildParams(
