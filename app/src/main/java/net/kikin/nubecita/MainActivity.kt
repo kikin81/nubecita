@@ -149,9 +149,8 @@ class MainActivity : ComponentActivity() {
         disableNavigationBarContrast()
 
         // Activity PiP bridge: mirrors system PiP mode into PipController and
-        // services the in-window play/pause action. Inert until the Compose
-        // layer (a later task) drives updateParams; auto-enter / onUserLeaveHint
-        // only fire when PipController.isEnabled (device supports PiP AND Pro).
+        // services the in-window play/pause action. PiP is entered strictly upon
+        // explicit user action (e.g. pop-out button).
         pipBridge = ActivityPipBridge(this, pipController, sharedVideoPlayer)
         pipBridge.start()
 
@@ -310,12 +309,6 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             inAppUpdateController.onResume(updateLauncher)
         }
-    }
-
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        // API 26–30 manual-entry fallback (no setAutoEnterEnabled); no-op on 31+.
-        pipBridge.onUserLeaveHint()
     }
 
     /**

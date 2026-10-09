@@ -15,6 +15,8 @@ import androidx.activity.ComponentActivity
 import androidx.core.app.PictureInPictureModeChangedInfo
 import androidx.core.content.ContextCompat
 import androidx.core.util.Consumer
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import kotlinx.coroutines.flow.StateFlow
 import net.kikin.nubecita.R
 import net.kikin.nubecita.core.common.navigation.PipBridge
@@ -33,17 +35,18 @@ import kotlin.math.roundToInt
  *
  * Responsibilities:
  * - Build & apply [PictureInPictureParams] (aspect ratio, play/pause action,
- *   source-rect hint), arming **auto-enter on API 31+** and falling back to
- *   manual entry via [onUserLeaveHint] on API 26–30 (design D7).
+ *   source-rect hint). Auto-enter on backgrounding is disabled; PiP is entered
+ *   strictly on explicit user invocation via [enterPip] (design D7).
  * - Mirror the system PiP mode into [PipController.isInPip] via the Activity's
- *   `onPictureInPictureModeChanged` listener. Pausing on a real dismiss is the
- *   job of `SharedVideoPlayer`'s background-pause observer once it becomes
- *   PiP-aware (design D6 / a later task) — not duplicated here.
+ *   `onPictureInPictureModeChanged` listener. When PiP is dismissed (swiped away
+ *   or closed via 'X'), the platform stops the Activity without dispatching
+ *   `onPictureInPictureModeChanged(false)` — the Activity lifecycle observer
+ *   handles this on `onStop` by resetting `isInPip` and pausing [sharedVideoPlayer].
  * - Service the in-window play/pause [RemoteAction] through a
  *   `RECEIVER_NOT_EXPORTED` broadcast receiver wired to [SharedVideoPlayer].
  *
  * Never offers PiP when [PipController.isEnabled] is false (device unsupported
- * or not Pro): [updateParams] no-ops and auto-enter stays disarmed.
+ * or disabled by user in Settings).
  */
 class ActivityPipBridge(
     private val activity: ComponentActivity,
@@ -74,6 +77,19 @@ class ActivityPipBridge(
             pipController.setInPip(info.isInPictureInPictureMode)
         }
 
+    private val activityLifecycleObserver =
+        object : DefaultLifecycleObserver {
+            override fun onStop(owner: LifecycleOwner) {
+                // When an activity in PiP is dismissed by the user (swiped away or closed via 'X'),
+                // Android stops the activity without firing onPictureInPictureModeChanged(false).
+                // Reset the PiP state and pause playback so audio does not leak in the background.
+                if (pipController.isInPip.value) {
+                    pipController.setInPip(false)
+                    sharedVideoPlayer.pause()
+                }
+            }
+        }
+
     private val toggleReceiver =
         object : BroadcastReceiver() {
             override fun onReceive(
@@ -90,10 +106,11 @@ class ActivityPipBridge(
             }
         }
 
-    /** Register the PiP-mode listener and the play/pause receiver. Call from `onCreate`. */
+    /** Register the PiP-mode listener, lifecycle observer, and the play/pause receiver. Call from `onCreate`. */
     fun start() {
         if (registered) return
         registered = true
+        activity.lifecycle.addObserver(activityLifecycleObserver)
         activity.addOnPictureInPictureModeChangedListener(pipModeListener)
         ContextCompat.registerReceiver(
             activity,
@@ -103,21 +120,24 @@ class ActivityPipBridge(
         )
     }
 
-    /** Remove the listener and unregister the receiver (symmetric with [start]). Call from `onDestroy`. */
+    /** Remove listeners and unregister the receiver (symmetric with [start]). Call from `onDestroy`. */
     fun stop() {
         if (!registered) return
         registered = false
+        activity.lifecycle.removeObserver(activityLifecycleObserver)
         activity.removeOnPictureInPictureModeChangedListener(pipModeListener)
         runCatching { activity.unregisterReceiver(toggleReceiver) }
             .onFailure { Timber.tag(TAG).w(it, "PiP receiver already unregistered") }
+        if (pipController.isInPip.value) {
+            pipController.setInPip(false)
+            sharedVideoPlayer.pause()
+        }
     }
 
     override fun enterPip() {
-        // Explicit pop-out button (design D5; nubecita-q5ge.8). Unlike
-        // onUserLeaveHint, this is a deliberate user action, so we enter
-        // regardless of play state (the caller already checked isEnabled for
-        // the Pro gate). Build params from the current player so the in-window
-        // play/pause action + aspect are correct on entry.
+        // Explicit pop-out button (design D5; nubecita-q5ge.8). PiP is only
+        // entered upon explicit user action. Build params from the current
+        // player so the in-window play/pause action + aspect are correct on entry.
         if (!deviceSupportsPip) return
         val params =
             buildParams(
@@ -137,10 +157,7 @@ class ActivityPipBridge(
         sourceRectHint: Rect?,
     ) {
         // Gate the *call* on device support (setPictureInPictureParams throws on a
-        // device without PiP). Whether auto-enter is ARMED is decided inside
-        // buildParams via `isEnabled && isPlaying` — so always re-publishing here
-        // also disarms auto-enter the moment Pro lapses, rather than leaving stale
-        // params that could still auto-enter (design risk: entitlement loss).
+        // device without PiP).
         if (!deviceSupportsPip) return
         // Remember the latest non-null hint so manual entry ([enterPip]) can
         // reuse it; the in-PiP play/pause toggle re-publishes with a null hint,
@@ -148,20 +165,6 @@ class ActivityPipBridge(
         sourceRectHint?.let { lastSourceRectHint = it }
         runCatching { activity.setPictureInPictureParams(buildParams(aspectRatio, isPlaying, sourceRectHint)) }
             .onFailure { Timber.tag(TAG).w(it, "setPictureInPictureParams failed") }
-    }
-
-    /**
-     * Manual-entry fallback for API 26–30, which lack `setAutoEnterEnabled`.
-     * Called from `MainActivity.onUserLeaveHint`; enters PiP only while the perk
-     * is enabled and something is playing. A no-op on API 31+, where auto-enter
-     * (armed in [buildParams]) handles the transition.
-     */
-    fun onUserLeaveHint() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) return
-        if (!pipController.isEnabled.value || !sharedVideoPlayer.isPlaying.value) return
-        val params = buildParams(sharedVideoPlayer.videoAspectRatio.value, isPlaying = true, sourceRectHint = null)
-        runCatching { activity.enterPictureInPictureMode(params) }
-            .onFailure { Timber.tag(TAG).w(it, "enterPictureInPictureMode failed") }
     }
 
     private fun buildParams(
@@ -177,7 +180,7 @@ class ActivityPipBridge(
                 .setActions(listOf(toggleAction(isPlaying)))
         if (sourceRectHint != null) builder.setSourceRectHint(sourceRectHint)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            builder.setAutoEnterEnabled(pipController.isEnabled.value && isPlaying)
+            builder.setAutoEnterEnabled(false)
             builder.setSeamlessResizeEnabled(true)
         }
         return builder.build()
