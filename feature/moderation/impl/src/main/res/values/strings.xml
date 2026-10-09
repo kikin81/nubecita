@@ -126,7 +126,7 @@
     <string name="safety_reporting_back">Back</string>
     <string name="safety_child_safety_title">Child safety standards</string>
     <string name="safety_child_safety_badge">Zero tolerance</string>
-    <string name="safety_child_safety_description">Nubecita enforces a strict zero-tolerance policy against Child Sexual Abuse Material (CSAM) and child sexual exploitation and abuse (CSAE). All reports involving child safety are prioritized for immediate review and reported directly to the National Center for Missing &amp; Exploited Children (NCMEC) and relevant authorities.</string>
+    <string name="safety_child_safety_description">Nubecita enforces a strict zero-tolerance policy against Child Sexual Abuse Material (CSAM) and child sexual exploitation and abuse (CSAE). All reports involving child safety are prioritized for immediate review and submitted directly to Bluesky moderation services. You can also report incidents directly to the National Center for Missing &amp; Exploited Children (NCMEC) using the link below.</string>
     <string name="safety_report_child_safety_action">Report a child safety concern</string>
     <string name="safety_reporting_tools_title">In-app moderation &amp; reporting</string>
     <string name="safety_reporting_tools_description">You can report posts and accounts directly within the app without leaving. Reports are submitted securely to AT Protocol moderation services.</string>

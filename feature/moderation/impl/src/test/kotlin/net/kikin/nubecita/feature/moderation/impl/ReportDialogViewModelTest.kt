@@ -85,6 +85,66 @@ internal class ReportDialogViewModelTest {
         }
 
     @Test
+    fun `account report with handle resolves to canonical DID and enables submission`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeModerationRepository()
+            val handleSubject = ReportSubject.Account(did = "spammer.example.com")
+            val vm =
+                newVm(
+                    subject = handleSubject,
+                    repository = repo,
+                    resolver =
+                        FakeResolver(
+                            accountResult = Result.success(SAMPLE_ACCOUNT_PREVIEW),
+                        ),
+                )
+            advanceUntilIdle()
+
+            // Subject should be updated with canonical DID
+            val state = vm.uiState.value
+            assertEquals(ReportSubject.Account(did = "did:plc:xyz"), state.subject)
+            assertEquals(SAMPLE_ACCOUNT_PREVIEW, state.subjectPreview)
+
+            // Drive through flow to submit
+            vm.handleEvent(ReportDialogEvent.OnContinueClicked)
+            vm.handleEvent(ReportDialogEvent.OnCategorySelected(ReportCategory.Spam))
+            assertTrue(vm.uiState.value.canSubmit)
+
+            vm.handleEvent(ReportDialogEvent.OnSubmitClicked)
+            advanceUntilIdle()
+
+            // Repo invocation must receive the canonical DID, not the handle
+            assertEquals(1, repo.accountInvocations.size)
+            assertEquals("did:plc:xyz", repo.accountInvocations[0].did)
+        }
+
+    @Test
+    fun `account report with handle prevents submission if DID resolution fails`() =
+        runTest(mainDispatcher.dispatcher) {
+            val handleSubject = ReportSubject.Account(did = "spammer.example.com")
+            val vm =
+                newVm(
+                    subject = handleSubject,
+                    resolver =
+                        FakeResolver(
+                            accountResult = Result.failure(IOException("actor not found")),
+                        ),
+                )
+            advanceUntilIdle()
+
+            val state = vm.uiState.value
+            assertEquals(handleSubject, state.subject)
+            assertNull(state.subjectPreview)
+
+            // Step Category -> Spam Details
+            vm.handleEvent(ReportDialogEvent.OnContinueClicked)
+            vm.handleEvent(ReportDialogEvent.OnCategorySelected(ReportCategory.Spam))
+
+            // canSubmit must remain false because handle is not a valid DID
+            assertFalse(vm.uiState.value.canSubmit)
+        }
+
+    @Test
     fun `subject preview resolution failure leaves subjectPreview null`() =
         runTest(mainDispatcher.dispatcher) {
             val vm =
@@ -500,7 +560,11 @@ internal class ReportDialogViewModelTest {
             )
 
         val SAMPLE_ACCOUNT_PREVIEW =
-            SubjectPreview.Account(handle = "spammer.example.com", displayName = "Spammer")
+            SubjectPreview.Account(
+                handle = "spammer.example.com",
+                displayName = "Spammer",
+                did = "did:plc:xyz",
+            )
     }
 }
 
@@ -560,7 +624,13 @@ internal class FakeResolver(
             ),
         ),
     private val accountResult: Result<SubjectPreview.Account> =
-        Result.success(SubjectPreview.Account(handle = "fake.bsky.social", displayName = "Fake")),
+        Result.success(
+            SubjectPreview.Account(
+                handle = "fake.bsky.social",
+                displayName = "Fake",
+                did = "did:plc:fake",
+            ),
+        ),
 ) : SubjectPreviewResolver {
     override suspend fun resolvePost(uri: String): Result<SubjectPreview.Post> = postResult
 

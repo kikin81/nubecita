@@ -254,6 +254,11 @@ private fun SubjectStep(
     preview: SubjectPreview?,
     onContinue: () -> Unit,
 ) {
+    val canContinue =
+        when (subject) {
+            is ReportSubject.Post -> true
+            is ReportSubject.Account -> subject.did.startsWith("did:")
+        }
     Column(
         modifier =
             Modifier
@@ -264,6 +269,7 @@ private fun SubjectStep(
         SubjectPreviewCard(subject = subject, preview = preview)
         Button(
             onClick = onContinue,
+            enabled = canContinue,
             modifier =
                 Modifier
                     .fillMaxWidth()
@@ -301,12 +307,16 @@ private fun SubjectPreviewCard(
 @Composable
 private fun SubjectPreviewSkeleton(subject: ReportSubject) {
     // Generic header copy while the resolver coroutine is in flight (or
-    // after it fails). The Subject step doesn't gate on the preview —
-    // the user can still proceed.
+    // after it fails).
     val fallback =
         when (subject) {
             is ReportSubject.Post -> stringResource(R.string.report_dialog_subject_fallback_post)
-            is ReportSubject.Account -> stringResource(R.string.report_dialog_subject_fallback_account)
+            is ReportSubject.Account ->
+                if (subject.did.startsWith("did:")) {
+                    stringResource(R.string.report_dialog_subject_fallback_account)
+                } else {
+                    "@${subject.did}"
+                }
         }
     Text(text = fallback, style = MaterialTheme.typography.bodyMedium)
 }

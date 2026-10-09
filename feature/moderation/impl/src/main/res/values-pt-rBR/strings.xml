@@ -98,7 +98,7 @@
     <string name="safety_reporting_back">Voltar</string>
     <string name="safety_child_safety_title">Padrões de segurança infantil</string>
     <string name="safety_child_safety_badge">Tolerância zero</string>
-    <string name="safety_child_safety_description">O Nubecita adota uma política rigorosa de tolerância zero contra Material de Abuso Sexual Infantil (CSAM) e exploração sexual de menores. Todas as denúncias de segurança infantil são tratadas com prioridade imediata e reportadas ao Centro Nacional para Crianças Desaparecidas e Exploradas (NCMEC) e às autoridades competentes.</string>
+    <string name="safety_child_safety_description">O Nubecita adota uma política rigorosa de tolerância zero contra Material de Abuso Sexual Infantil (CSAM) e exploração sexual de menores. Todas as denúncias de segurança infantil são tratadas com prioridade imediata e enviadas aos serviços de moderação do Bluesky. Você também pode denunciar incidentes diretamente ao Centro Nacional para Crianças Desaparecidas e Exploradas (NCMEC) pelo link abaixo.</string>
     <string name="safety_report_child_safety_action">Denunciar um problema de segurança infantil</string>
     <string name="safety_reporting_tools_title">Moderação e denúncias no aplicativo</string>
     <string name="safety_reporting_tools_description">Você pode denunciar postagens e contas diretamente no app sem sair dele. As denúncias são enviadas com segurança aos serviços de moderação do AT Protocol.</string>

@@ -119,11 +119,12 @@ internal sealed interface SubjectPreview {
         val snippet: String,
     ) : SubjectPreview
 
-    /** Account preview — handle + optional display name. */
+    /** Account preview — handle, optional display name, and resolved DID. */
     @Immutable
     data class Account(
         val handle: String,
         val displayName: String?,
+        val did: String = "",
     ) : SubjectPreview
 }
 

@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,7 +52,6 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.moderation.api.BlockedAccounts
 import net.kikin.nubecita.feature.moderation.api.Report
-import net.kikin.nubecita.feature.moderation.impl.data.DefaultModerationRepository
 
 private const val NCMEC_CYBERTIPLINE_URL = "https://report.cybertip.org/"
 private const val BLUESKY_COMMUNITY_GUIDELINES_URL = "https://bsky.social/about/support/community-guidelines"
@@ -60,7 +60,6 @@ private const val BLUESKY_COMMUNITY_GUIDELINES_URL = "https://bsky.social/about/
  * Dedicated Safety & Reporting screen ensuring Google Play Child Safety Standards
  * compliance and comprehensive in-app reporting discoverability.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun SafetyAndReportingScreen(
     onBack: () -> Unit,
@@ -68,6 +67,7 @@ internal fun SafetyAndReportingScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val currentOnNavigateTo by rememberUpdatedState(onNavigateTo)
     var showReportDialog by remember { mutableStateOf(false) }
     var isChildSafetyReport by remember { mutableStateOf(false) }
 
@@ -83,6 +83,49 @@ internal fun SafetyAndReportingScreen(
         }
     }
 
+    SafetyAndReportingContent(
+        onBack = onBack,
+        onReportChildSafetyClick = {
+            isChildSafetyReport = true
+            showReportDialog = true
+        },
+        onReportAccountClick = {
+            isChildSafetyReport = false
+            showReportDialog = true
+        },
+        onNavigateToBlockedAccounts = { currentOnNavigateTo(BlockedAccounts) },
+        onOpenUrl = ::launchUrl,
+        modifier = modifier,
+    )
+
+    if (showReportDialog) {
+        ReportAccountEntryDialog(
+            isChildSafety = isChildSafetyReport,
+            onDismiss = { showReportDialog = false },
+            onConfirm = { input ->
+                showReportDialog = false
+                val sanitized = input.trim().removePrefix("@")
+                currentOnNavigateTo(
+                    Report.forAccount(
+                        did = sanitized,
+                        initialCategory = if (isChildSafetyReport) "childSafety" else null,
+                    ),
+                )
+            },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+internal fun SafetyAndReportingContent(
+    onBack: () -> Unit,
+    onReportChildSafetyClick: () -> Unit,
+    onReportAccountClick: () -> Unit,
+    onNavigateToBlockedAccounts: () -> Unit,
+    onOpenUrl: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surface,
@@ -165,10 +208,7 @@ internal fun SafetyAndReportingScreen(
                     )
 
                     Button(
-                        onClick = {
-                            isChildSafetyReport = true
-                            showReportDialog = true
-                        },
+                        onClick = onReportChildSafetyClick,
                         colors =
                             ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.error,
@@ -253,10 +293,7 @@ internal fun SafetyAndReportingScreen(
                     }
 
                     OutlinedButton(
-                        onClick = {
-                            isChildSafetyReport = false
-                            showReportDialog = true
-                        },
+                        onClick = onReportAccountClick,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         NubecitaIcon(
@@ -271,12 +308,12 @@ internal fun SafetyAndReportingScreen(
 
             // 3. Moderation Tools Group
             val toolsItems =
-                remember {
+                remember(onNavigateToBlockedAccounts) {
                     persistentListOf(
                         ModerationToolItem(
                             titleRes = R.string.safety_blocked_accounts_label,
                             icon = NubecitaIconName.Block,
-                            onClick = { onNavigateTo(BlockedAccounts) },
+                            onClick = onNavigateToBlockedAccounts,
                         ),
                     )
                 }
@@ -318,29 +355,12 @@ internal fun SafetyAndReportingScreen(
                     headlineContent = { Text(stringResource(item.titleRes)) },
                     leadingContent = { NubecitaIcon(name = NubecitaIconName.Article, contentDescription = null) },
                     trailingContent = { NubecitaIcon(name = NubecitaIconName.ChevronRight, contentDescription = null) },
-                    onClick = { launchUrl(item.url) },
+                    onClick = { onOpenUrl(item.url) },
                 )
             }
 
             Spacer(Modifier.height(16.dp))
         }
-    }
-
-    if (showReportDialog) {
-        ReportAccountEntryDialog(
-            isChildSafety = isChildSafetyReport,
-            onDismiss = { showReportDialog = false },
-            onConfirm = { input ->
-                showReportDialog = false
-                val sanitized = input.trim().removePrefix("@")
-                onNavigateTo(
-                    Report.forAccount(
-                        did = sanitized,
-                        initialCategory = if (isChildSafetyReport) "childSafety" else null,
-                    ),
-                )
-            },
-        )
     }
 }
 
@@ -356,13 +376,15 @@ private data class ResourceItem(
 )
 
 @Composable
-private fun ReportAccountEntryDialog(
+internal fun ReportAccountEntryDialog(
     isChildSafety: Boolean,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
+    initialInput: String = "",
+    initialError: Boolean = false,
 ) {
-    var input by remember { mutableStateOf("") }
-    var showError by remember { mutableStateOf(false) }
+    var input by remember { mutableStateOf(initialInput) }
+    var showError by remember { mutableStateOf(initialError) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -401,24 +423,16 @@ private fun ReportAccountEntryDialog(
                         },
                     modifier = Modifier.fillMaxWidth(),
                 )
-
-                if (isChildSafety) {
-                    TextButton(
-                        onClick = {
-                            input = DefaultModerationRepository.DEFAULT_LABELER_DID
-                            showError = false
-                        },
-                    ) {
-                        Text("Use Bluesky Trust & Safety Service")
-                    }
-                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
                     val trimmed = input.trim().removePrefix("@")
-                    if (trimmed.isEmpty()) {
+                    val isValid =
+                        trimmed.startsWith("did:") ||
+                            (trimmed.contains(".") && !trimmed.contains(" ") && trimmed.length >= 3)
+                    if (!isValid) {
                         showError = true
                     } else {
                         onConfirm(trimmed)

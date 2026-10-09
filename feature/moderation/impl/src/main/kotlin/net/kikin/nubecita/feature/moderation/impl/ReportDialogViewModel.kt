@@ -226,13 +226,24 @@ internal class ReportDialogViewModel
         private fun resolveSubjectPreview() {
             viewModelScope.launch {
                 val result =
-                    when (val subject = route.subject) {
+                    when (val subject = uiState.value.subject) {
                         is ReportSubject.Post -> subjectPreviewResolver.resolvePost(subject.uri)
                         is ReportSubject.Account ->
                             subjectPreviewResolver.resolveAccount(subject.did)
                     }
                 result.onSuccess { preview ->
-                    setState { copy(subjectPreview = preview) }
+                    setState {
+                        val canonicalSubject =
+                            if (preview is SubjectPreview.Account && preview.did.isNotBlank()) {
+                                ReportSubject.Account(did = preview.did)
+                            } else {
+                                subject
+                            }
+                        copy(
+                            subject = canonicalSubject,
+                            subjectPreview = preview,
+                        ).recomputeCanSubmit()
+                    }
                 }
                 // Failure is silent — `subjectPreview` stays null and the
                 // Subject step renders the generic header card. The
@@ -264,12 +275,12 @@ internal class ReportDialogViewModel
                         ).recomputeCanSubmit()
                     }
                 } else {
-                    ReportDialogState(subject = route.subject)
+                    ReportDialogState(subject = route.subject).recomputeCanSubmit()
                 }
             }
 
             fun resolveInitialCategory(token: String?): ReportCategory? =
-                when (token?.lowercase()) {
+                when (token?.lowercase(java.util.Locale.ROOT)) {
                     "childsafety", "child_safety" -> ReportCategory.ChildSafety
                     "spam" -> ReportCategory.Spam
                     "sexual" -> ReportCategory.Sexual
@@ -286,8 +297,8 @@ internal class ReportDialogViewModel
 
 /**
  * Recompute [ReportDialogState.canSubmit] from the flat fields per the
- * spec rule: a reason is chosen, details satisfy validation, and no
- * submission is in flight.
+ * spec rule: a reason is chosen, details satisfy validation, no
+ * submission is in flight, and the subject has valid wire identifiers.
  *
  * Lives as an extension so reducers can chain `.recomputeCanSubmit()`
  * after every `copy(...)` without each branch having to duplicate the
@@ -298,5 +309,10 @@ internal fun ReportDialogState.recomputeCanSubmit(): ReportDialogState {
     val reasonChosen = selectedReason != null
     val detailsOk = !detailsRequired || detailsGraphemeCount in 1..REPORT_DETAILS_MAX_GRAPHEMES
     val notSubmitting = submission !is SubmissionStatus.Submitting
-    return copy(canSubmit = reasonChosen && detailsOk && notSubmitting)
+    val validSubject =
+        when (val s = subject) {
+            is ReportSubject.Post -> s.uri.isNotBlank() && s.cid.isNotBlank()
+            is ReportSubject.Account -> s.did.startsWith("did:")
+        }
+    return copy(canSubmit = reasonChosen && detailsOk && notSubmitting && validSubject)
 }

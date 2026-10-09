@@ -167,12 +167,14 @@ private class AndroidTestFakeModerationRepository : ModerationRepository {
         cid: String,
         reasonToken: String,
         details: String?,
+        labelerDid: String?,
     ): Result<Unit> = Result.success(Unit)
 
     override suspend fun reportAccount(
         did: String,
         reasonToken: String,
         details: String?,
+        labelerDid: String?,
     ): Result<Unit> = Result.success(Unit)
 }
 
@@ -186,5 +188,5 @@ private class AndroidTestFakeResolver : SubjectPreviewResolver {
             ),
         )
 
-    override suspend fun resolveAccount(did: String): Result<SubjectPreview.Account> = Result.success(SubjectPreview.Account(handle = "test.bsky.social", displayName = "Test"))
+    override suspend fun resolveAccount(did: String): Result<SubjectPreview.Account> = Result.success(SubjectPreview.Account(handle = "test.bsky.social", displayName = "Test", did = "did:plc:test"))
 }
