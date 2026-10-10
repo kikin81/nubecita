@@ -81,6 +81,7 @@ internal class DefaultSubjectPreviewResolver
                     SubjectPreview.Account(
                         handle = response.handle.toString(),
                         displayName = response.displayName,
+                        did = response.did.toString(),
                     )
                 }.onFailure { throwable ->
                     Timber.tag(TAG).w(

@@ -134,6 +134,7 @@ internal fun ProfileScreenContent(
                 onBack = onBack,
                 onSettings = { onEvent(ProfileEvent.SettingsTapped) },
                 onBookmarks = { onEvent(ProfileEvent.BookmarksTapped) },
+                onReport = { onEvent(ProfileEvent.OnReportAccountRequested) },
             )
         },
         floatingActionButton = {

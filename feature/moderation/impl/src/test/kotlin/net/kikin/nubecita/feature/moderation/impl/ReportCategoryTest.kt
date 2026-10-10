@@ -143,4 +143,9 @@ class ReportCategoryTest {
         assertEquals(9, all.size)
         assertEquals(9, all.distinct().size)
     }
+
+    @Test
+    fun childSafetyCategoryIsFirstInDisplayOrder() {
+        assertEquals(ReportCategory.ChildSafety, CATEGORY_ORDER.first())
+    }
 }

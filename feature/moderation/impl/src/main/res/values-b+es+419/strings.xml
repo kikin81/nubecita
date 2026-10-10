@@ -81,4 +81,44 @@
     <string name="report_reason_self_harm_other">Otra preocupación de autolesión</string>
     <string name="report_reason_other">Otra cosa</string>
     <string name="report_reason_unknown_fallback">Otro</string>
+
+    <!-- Category Subtitles -->
+    <string name="report_category_child_safety_subtitle">CSAM, explotación sexual, acoso de menores o daños</string>
+    <string name="report_category_spam_subtitle">Contenido publicitario no deseado, repetitivo o engañoso</string>
+    <string name="report_category_misleading_subtitle">Estafas, suplantación, bots o desinformación</string>
+    <string name="report_category_harassment_subtitle">Discurso de odio, amenazas o acoso dirigido</string>
+    <string name="report_category_sexual_subtitle">Contenido no consentido, deepfakes o material para adultos</string>
+    <string name="report_category_violence_subtitle">Amenazas, violencia explícita o incitación al daño</string>
+    <string name="report_category_self_harm_subtitle">Trastornos alimenticios, suicidio o autolesiones</string>
+    <string name="report_category_rule_violation_subtitle">Artículos prohibidos o evasión de bloqueo</string>
+    <string name="report_category_other_subtitle">Cualquier otro problema no listado arriba</string>
+
+    <!-- Safety & Reporting screen -->
+    <string name="safety_reporting_title">Seguridad y denuncias</string>
+    <string name="safety_reporting_back">Atrás</string>
+    <string name="safety_child_safety_title">Estándares de seguridad infantil</string>
+    <string name="safety_child_safety_badge">Tolerancia cero</string>
+    <string name="safety_child_safety_description">Nubecita aplica una estricta política de tolerancia cero frente al material de abuso sexual infantil (CSAM) y la explotación sexual infantil. Todas las denuncias de seguridad infantil se priorizan para revisión inmediata y se envían a los servicios de moderación de Bluesky. También puedes reportar incidentes directamente al Centro Nacional para Menores Desaparecidos y Explotados (NCMEC) mediante el enlace a continuación.</string>
+    <string name="safety_report_child_safety_action">Denunciar un problema de seguridad infantil</string>
+    <string name="safety_reporting_tools_title">Herramientas de moderación en la app</string>
+    <string name="safety_reporting_tools_description">Puedes denunciar publicaciones y cuentas directamente en la app sin salir de ella. Las denuncias se envían de forma segura a los servicios de moderación de AT Protocol.</string>
+    <string name="safety_report_account_action">Denunciar una cuenta</string>
+    <string name="safety_how_to_report_title">Cómo denunciar contenido</string>
+    <string name="safety_how_to_report_posts_body">Para denunciar una publicación: Toca los tres puntos (···) en la publicación y selecciona \"Denunciar publicación\" o \"Denunciar a @handle\".</string>
+    <string name="safety_how_to_report_accounts_body">Para denunciar un usuario: Visita su perfil y toca el icono de bandera o el menú de tres puntos (···) para seleccionar \"Denunciar cuenta\".</string>
+    <string name="safety_resources_title">Recursos y ayuda externa</string>
+    <string name="safety_resource_ncmec">Reportar a CyberTipline (NCMEC)</string>
+    <string name="safety_resource_bluesky_guidelines">Normas de la comunidad de Bluesky</string>
+    <string name="safety_tools_title">Herramientas de moderación</string>
+    <string name="safety_blocked_accounts_label">Cuentas bloqueadas</string>
+    <string name="safety_content_filters_label">Filtros de contenido</string>
+
+    <!-- Report Account Dialog in Safety screen -->
+    <string name="safety_report_account_dialog_title">Denunciar cuenta</string>
+    <string name="safety_report_account_dialog_message">Ingresa el nombre de usuario (ej. usuario.bsky.social) o DID de la cuenta que deseas denunciar.</string>
+    <string name="safety_report_account_dialog_placeholder">usuario.bsky.social o did:plc:...</string>
+    <string name="safety_report_account_dialog_confirm">Continuar</string>
+    <string name="safety_report_account_dialog_cancel">Cancelar</string>
+    <string name="safety_report_account_invalid_error">Por favor ingresa un usuario o DID válido.</string>
+
 </resources>

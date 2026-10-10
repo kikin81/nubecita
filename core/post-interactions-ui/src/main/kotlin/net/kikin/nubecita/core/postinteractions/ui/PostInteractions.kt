@@ -249,6 +249,7 @@ fun rememberPostInteractions(
                     val message =
                         when (effect.action) {
                             PostOverflowAction.ReportPost -> currentStrings.reportComingSoon
+                            PostOverflowAction.ReportAuthor -> currentStrings.reportComingSoon
                             PostOverflowAction.MuteAuthor -> currentStrings.muteComingSoon
                             PostOverflowAction.UnmuteAuthor -> currentStrings.unmuteComingSoon
                             PostOverflowAction.BlockAuthor -> currentStrings.blockComingSoon
@@ -280,6 +281,9 @@ fun rememberPostInteractions(
 
                 is InteractionEffect.NavigateToReport ->
                     currentNavState.add(Report.forPost(effect.post))
+
+                is InteractionEffect.NavigateToReportAccount ->
+                    currentNavState.add(Report.forAccount(effect.did))
 
                 is InteractionEffect.NavigateToBlock ->
                     currentNavState.add(Block.forAccount(did = effect.did, handle = effect.handle))

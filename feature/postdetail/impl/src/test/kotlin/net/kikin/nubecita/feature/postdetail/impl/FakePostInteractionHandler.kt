@@ -108,6 +108,8 @@ internal class FakePostInteractionHandler(
         when (action) {
             PostOverflowAction.ReportPost ->
                 emit(InteractionEffect.NavigateToReport(post))
+            PostOverflowAction.ReportAuthor ->
+                emit(InteractionEffect.NavigateToReportAccount(post.author.did))
             PostOverflowAction.BlockAuthor ->
                 // block→real in PR4: emit NavigateToBlock so the Block dialog
                 // opens (real) rather than a coming-soon snackbar.

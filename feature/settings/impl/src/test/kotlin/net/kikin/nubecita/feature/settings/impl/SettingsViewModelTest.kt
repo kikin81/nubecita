@@ -526,4 +526,16 @@ internal class SettingsViewModelTest {
             assertNull(vm.uiState.value.avatarUrl)
             coVerify(exactly = 0) { actorProfile.fetchProfile(any()) }
         }
+
+    @Test
+    fun `SafetyReportingTapped emits OpenSafetyReporting`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = createVm(auth = mockk(relaxed = true))
+            vm.effects.test {
+                vm.handleEvent(SettingsEvent.SafetyReportingTapped)
+                advanceUntilIdle()
+                assertEquals(SettingsEffect.OpenSafetyReporting, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
 }

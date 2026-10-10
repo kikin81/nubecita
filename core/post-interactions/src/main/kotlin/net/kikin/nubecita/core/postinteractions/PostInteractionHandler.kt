@@ -111,6 +111,15 @@ sealed interface InteractionEffect {
     ) : InteractionEffect
 
     /**
+     * Navigate to the Report sub-route for an account identified by [did].
+     * The consuming screen constructs `Report.forAccount(did)`
+     * (`:feature:moderation:api`) and pushes it onto `MainShell`'s inner back stack.
+     */
+    data class NavigateToReportAccount(
+        val did: String,
+    ) : InteractionEffect
+
+    /**
      * Navigate to the Block sub-route for the author identified by [did]
      * and [handle]. The consuming screen constructs
      * `Block.forAccount(did, handle)` and pushes it onto the inner stack.

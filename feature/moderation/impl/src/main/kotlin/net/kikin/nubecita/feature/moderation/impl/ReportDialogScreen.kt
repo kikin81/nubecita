@@ -254,6 +254,11 @@ private fun SubjectStep(
     preview: SubjectPreview?,
     onContinue: () -> Unit,
 ) {
+    val canContinue =
+        when (subject) {
+            is ReportSubject.Post -> true
+            is ReportSubject.Account -> subject.did.startsWith("did:")
+        }
     Column(
         modifier =
             Modifier
@@ -264,6 +269,7 @@ private fun SubjectStep(
         SubjectPreviewCard(subject = subject, preview = preview)
         Button(
             onClick = onContinue,
+            enabled = canContinue,
             modifier =
                 Modifier
                     .fillMaxWidth()
@@ -301,12 +307,16 @@ private fun SubjectPreviewCard(
 @Composable
 private fun SubjectPreviewSkeleton(subject: ReportSubject) {
     // Generic header copy while the resolver coroutine is in flight (or
-    // after it fails). The Subject step doesn't gate on the preview —
-    // the user can still proceed.
+    // after it fails).
     val fallback =
         when (subject) {
             is ReportSubject.Post -> stringResource(R.string.report_dialog_subject_fallback_post)
-            is ReportSubject.Account -> stringResource(R.string.report_dialog_subject_fallback_account)
+            is ReportSubject.Account ->
+                if (subject.did.startsWith("did:")) {
+                    stringResource(R.string.report_dialog_subject_fallback_account)
+                } else {
+                    "@${subject.did}"
+                }
         }
     Text(text = fallback, style = MaterialTheme.typography.bodyMedium)
 }
@@ -377,6 +387,8 @@ private fun CategoryRow(
     onClick: () -> Unit,
 ) {
     val labelRes = labelResForCategory(category)
+    val subtitleRes = subtitleResForCategory(category)
+    val isChildSafety = category is ReportCategory.ChildSafety
     Card(
         modifier =
             Modifier
@@ -389,17 +401,26 @@ private fun CategoryRow(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             NubecitaIcon(
-                name = NubecitaIconName.Error,
+                name = if (isChildSafety) NubecitaIconName.Flag else NubecitaIconName.Error,
                 contentDescription = null,
+                filled = isChildSafety,
+                tint = if (isChildSafety) MaterialTheme.colorScheme.error else LocalContentColor.current,
             )
-            Text(
-                text = stringResource(labelRes),
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f),
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(labelRes),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = if (isChildSafety) FontWeight.Bold else FontWeight.SemiBold,
+                )
+                Text(
+                    text = stringResource(subtitleRes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
@@ -646,6 +667,19 @@ private fun labelResForCategory(category: ReportCategory): Int =
         ReportCategory.Other -> R.string.report_category_other
     }
 
+private fun subtitleResForCategory(category: ReportCategory): Int =
+    when (category) {
+        ReportCategory.ChildSafety -> R.string.report_category_child_safety_subtitle
+        ReportCategory.Spam -> R.string.report_category_spam_subtitle
+        ReportCategory.Misleading -> R.string.report_category_misleading_subtitle
+        ReportCategory.Harassment -> R.string.report_category_harassment_subtitle
+        ReportCategory.Sexual -> R.string.report_category_sexual_subtitle
+        ReportCategory.Violence -> R.string.report_category_violence_subtitle
+        ReportCategory.SelfHarm -> R.string.report_category_self_harm_subtitle
+        ReportCategory.RuleViolation -> R.string.report_category_rule_violation_subtitle
+        ReportCategory.Other -> R.string.report_category_other_subtitle
+    }
+
 private fun labelResForReasonToken(token: String): Int =
     when (token) {
         ReportReasons.REASON_LEGACY_SPAM -> R.string.report_reason_legacy_spam
@@ -702,14 +736,14 @@ private fun labelResForReasonToken(token: String): Int =
  * the Kotlin `List` interface is unstable even when the underlying
  * backing collection never mutates.
  */
-private val CATEGORY_ORDER: ImmutableList<ReportCategory> =
+internal val CATEGORY_ORDER: ImmutableList<ReportCategory> =
     persistentListOf(
+        ReportCategory.ChildSafety,
         ReportCategory.Spam,
         ReportCategory.Misleading,
         ReportCategory.Harassment,
         ReportCategory.Sexual,
         ReportCategory.Violence,
-        ReportCategory.ChildSafety,
         ReportCategory.SelfHarm,
         ReportCategory.RuleViolation,
         ReportCategory.Other,

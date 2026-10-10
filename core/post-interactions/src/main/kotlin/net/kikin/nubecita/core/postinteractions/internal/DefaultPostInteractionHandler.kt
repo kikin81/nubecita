@@ -230,6 +230,9 @@ internal class DefaultPostInteractionHandler
                 PostOverflowAction.ReportPost ->
                     emit(InteractionEffect.NavigateToReport(post))
 
+                PostOverflowAction.ReportAuthor ->
+                    emit(InteractionEffect.NavigateToReportAccount(post.author.did))
+
                 PostOverflowAction.BlockAuthor ->
                     emit(
                         InteractionEffect.NavigateToBlock(

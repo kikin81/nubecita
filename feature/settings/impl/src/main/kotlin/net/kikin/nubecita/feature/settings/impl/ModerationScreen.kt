@@ -22,16 +22,17 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.moderation.api.BlockedAccounts
+import net.kikin.nubecita.feature.moderation.api.SafetyAndReporting
 import net.kikin.nubecita.feature.settings.api.ContentFilters
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsRow
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsSection
 
 /**
  * Moderation hub (`nubecita-oftc.17`) — a settings sub-screen grouping the
- * moderation tools so the main Settings page stays lean. Today: Content filters
- * (a settings sub-route) + Blocked accounts (a `:feature:moderation` route);
- * room for muted accounts/words/lists later. Pure navigation — no VM; rows push
- * their NavKey via [onNavigateTo].
+ * moderation tools so the main Settings page stays lean. Today: Safety & reporting
+ * (child safety standards & reporting hub) + Content filters (a settings sub-route) +
+ * Blocked accounts (a `:feature:moderation` route); room for muted accounts/words/lists later.
+ * Pure navigation — no VM; rows push their NavKey via [onNavigateTo].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,12 +41,18 @@ internal fun ModerationScreen(
     onNavigateTo: (NavKey) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val safetyReportingLabel = stringResource(R.string.settings_safety_reporting_label)
     val contentFiltersLabel = stringResource(R.string.settings_content_filters_label)
     val blockedAccountsLabel = stringResource(R.string.settings_blocked_accounts_label)
     val currentOnNavigateTo by rememberUpdatedState(onNavigateTo)
     val rows =
-        remember(contentFiltersLabel, blockedAccountsLabel) {
+        remember(safetyReportingLabel, contentFiltersLabel, blockedAccountsLabel) {
             persistentListOf(
+                SettingsRow.Action(
+                    icon = NubecitaIconName.Flag,
+                    label = safetyReportingLabel,
+                    onClick = { currentOnNavigateTo(SafetyAndReporting) },
+                ),
                 SettingsRow.Action(
                     icon = null,
                     label = contentFiltersLabel,

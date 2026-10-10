@@ -12,6 +12,7 @@ dependencies {
     implementation(project(":core:actors"))
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
+    implementation(libs.androidx.browser)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)

@@ -21,12 +21,14 @@ import net.kikin.nubecita.core.common.navigation.adaptiveDialog
 import net.kikin.nubecita.feature.moderation.api.Block
 import net.kikin.nubecita.feature.moderation.api.BlockedAccounts
 import net.kikin.nubecita.feature.moderation.api.Report
+import net.kikin.nubecita.feature.moderation.api.SafetyAndReporting
 import net.kikin.nubecita.feature.moderation.impl.BlockDialogScreen
 import net.kikin.nubecita.feature.moderation.impl.BlockDialogViewModel
 import net.kikin.nubecita.feature.moderation.impl.BlockedAccountsScreen
 import net.kikin.nubecita.feature.moderation.impl.BlockedAccountsViewModel
 import net.kikin.nubecita.feature.moderation.impl.ReportDialogScreen
 import net.kikin.nubecita.feature.moderation.impl.ReportDialogViewModel
+import net.kikin.nubecita.feature.moderation.impl.SafetyAndReportingScreen
 
 /**
  * Provides the `@MainShell`-qualified `EntryProviderInstaller` that
@@ -154,6 +156,14 @@ internal object ModerationNavigationModule {
                 BlockedAccountsScreen(
                     viewModel = hiltViewModel<BlockedAccountsViewModel>(),
                     onBack = { navState.removeLast() },
+                )
+            }
+            // Safety & Reporting hub (Settings → Safety & reporting or Moderation → Safety & reporting)
+            entry<SafetyAndReporting>(metadata = adaptiveDialog()) {
+                val navState = LocalMainShellNavState.current
+                SafetyAndReportingScreen(
+                    onBack = { navState.removeLast() },
+                    onNavigateTo = { key -> navState.add(key) },
                 )
             }
         }

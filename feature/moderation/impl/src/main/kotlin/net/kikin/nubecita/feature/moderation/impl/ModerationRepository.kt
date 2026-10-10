@@ -33,12 +33,16 @@ interface ModerationRepository {
      * @param details optional free-text context, up to 300 graphemes
      *   from the UI (truncated to 2000 at the repository before send).
      *   Null or blank elides the field entirely from the wire payload.
+     * @param labelerDid optional target AT Protocol labeler DID (e.g.
+     *   `did:plc:ar7c4by46qjdydhdevvrndac`). Defaults to null, which routes
+     *   to Bluesky's default moderation service via proxy header.
      */
     suspend fun reportPost(
         uri: String,
         cid: String,
         reasonToken: String,
         details: String?,
+        labelerDid: String? = null,
     ): Result<Unit>
 
     /**
@@ -47,10 +51,12 @@ interface ModerationRepository {
      * @param did the account's DID (plain `String`, wire format).
      * @param reasonToken see [reportPost].
      * @param details see [reportPost].
+     * @param labelerDid see [reportPost].
      */
     suspend fun reportAccount(
         did: String,
         reasonToken: String,
         details: String?,
+        labelerDid: String? = null,
     ): Result<Unit>
 }

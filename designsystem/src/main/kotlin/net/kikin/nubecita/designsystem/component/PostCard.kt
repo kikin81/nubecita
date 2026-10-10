@@ -783,6 +783,22 @@ private fun PostOverflowAffordance(
                     onAction(PostOverflowAction.ReportPost)
                 },
             )
+            if (!post.viewer.isOwnPost) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            stringResource(
+                                R.string.moderation_action_report_author,
+                                post.author.handle,
+                            ),
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onAction(PostOverflowAction.ReportAuthor)
+                    },
+                )
+            }
             // Mute / Unmute pair — exactly one renders. Keyed on the
             // post's viewer projection so oftc.1's mapper population is
             // load-bearing.

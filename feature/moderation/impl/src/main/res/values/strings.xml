@@ -110,4 +110,43 @@
     <string name="report_reason_other">Something else</string>
     <string name="report_reason_unknown_fallback">Other</string>
 
+    <!-- Category Subtitles -->
+    <string name="report_category_child_safety_subtitle">CSAM, sexual exploitation, grooming, or harm to minors</string>
+    <string name="report_category_spam_subtitle">Unwanted commercial, repetitive, or deceptive content</string>
+    <string name="report_category_misleading_subtitle">Scams, impersonation, bots, or misinformation</string>
+    <string name="report_category_harassment_subtitle">Hate speech, threats, doxxing, or targeted harassment</string>
+    <string name="report_category_sexual_subtitle">Non-consensual content, deepfakes, or adult material</string>
+    <string name="report_category_violence_subtitle">Threats, graphic violence, or glorification of harm</string>
+    <string name="report_category_self_harm_subtitle">Eating disorders, suicide, or self-harm encouragement</string>
+    <string name="report_category_rule_violation_subtitle">Prohibited goods, copyright, or ban evasion</string>
+    <string name="report_category_other_subtitle">Any other issue not covered above</string>
+
+    <!-- Safety & Reporting screen -->
+    <string name="safety_reporting_title">Safety &amp; reporting</string>
+    <string name="safety_reporting_back">Back</string>
+    <string name="safety_child_safety_title">Child safety standards</string>
+    <string name="safety_child_safety_badge">Zero tolerance</string>
+    <string name="safety_child_safety_description">Nubecita enforces a strict zero-tolerance policy against Child Sexual Abuse Material (CSAM) and child sexual exploitation and abuse (CSAE). All reports involving child safety are prioritized for immediate review and submitted directly to Bluesky moderation services. You can also report incidents directly to the National Center for Missing &amp; Exploited Children (NCMEC) using the link below.</string>
+    <string name="safety_report_child_safety_action">Report a child safety concern</string>
+    <string name="safety_reporting_tools_title">In-app moderation &amp; reporting</string>
+    <string name="safety_reporting_tools_description">You can report posts and accounts directly within the app without leaving. Reports are submitted securely to AT Protocol moderation services.</string>
+    <string name="safety_report_account_action">Report an account</string>
+    <string name="safety_how_to_report_title">How to report content</string>
+    <string name="safety_how_to_report_posts_body">To report a post: Tap the three dots (···) on the post card and select \"Report post\" or \"Report @handle\".</string>
+    <string name="safety_how_to_report_accounts_body">To report a user: Visit their profile and tap the flag icon or the three dots (···) menu to select \"Report account\".</string>
+    <string name="safety_resources_title">Resources &amp; external help</string>
+    <string name="safety_resource_ncmec">Report to CyberTipline (NCMEC)</string>
+    <string name="safety_resource_bluesky_guidelines">Bluesky Community Guidelines</string>
+    <string name="safety_tools_title">Moderation tools</string>
+    <string name="safety_blocked_accounts_label">Blocked accounts</string>
+    <string name="safety_content_filters_label">Content filters</string>
+
+    <!-- Report Account Dialog in Safety screen -->
+    <string name="safety_report_account_dialog_title">Report account</string>
+    <string name="safety_report_account_dialog_message">Enter the handle (e.g. user.bsky.social) or DID of the account you want to report.</string>
+    <string name="safety_report_account_dialog_placeholder">handle.bsky.social or did:plc:...</string>
+    <string name="safety_report_account_dialog_confirm">Continue</string>
+    <string name="safety_report_account_dialog_cancel">Cancel</string>
+    <string name="safety_report_account_invalid_error">Please enter a valid handle or DID.</string>
+
 </resources>
