@@ -67,14 +67,43 @@ In both surfaces, tapping the comment action currently dispatches `ComposerRoute
 - **[Risk] PiP capture snapshot captures collapsing sheet** → Mitigation: Instant `snapTo(Hidden)` / conditional composition bypass on `isInPip`.
 - **[Risk] Heavy thread fetching stutters video playback** → Mitigation: Run `PostThreadRepository.getPostThread()` asynchronously on `Dispatchers.IO` and project to immutable UI models before emitting to `UiState`.
 - **[Risk] Inset collision with gesture navigation bar** → Mitigation: Apply `.navigationBarsPadding()` directly to the docked comment pill and test on 3-button and gesture navigation modes.
+- **[Risk] Premature semantic-release triggers on incomplete feature** → Mitigation: Employ 4-layer `gh stack` and restrict the `feat:` conventional commit type strictly to the Layer 3 integration PR.
 
-## Migration Plan
+## Migration Plan & Delivery Strategy (`gh stack`)
 
-1. Scaffold adaptive `VideoCommentsSheetScaffold` in `:designsystem` behind unit tests.
-2. Build comments thread UI with empty/error states and Phase 1 docked pill in `:feature:comments`.
-3. Wire into Reel Player (`:feature:videos`) and Feed Detail Player (`:feature:videoplayer`), incorporating settled-state guards.
-4. Validate 120Hz frame pacing and instant PiP collapse with Macrobenchmarks.
-5. Land Phase 2 headless composer spike (`nubecita-76q8.9`) as a follow-up.
+To prevent premature Semantic Release bumps on partially baked code while preserving reviewer velocity and 120Hz quality bars, implementation is delivered via **GitHub Stacked Pull Requests (`gh stack`)** across 4 reviewable layers:
+
+```
+(main)
+  ▲
+  │ Layer 1: refactor/nubecita-76q8-sheet-foundations (Tasks 1, 2, 3)
+  │          • State models & MVI state machine (:core:posts / :feature:comments)
+  │          • VideoCommentsSheetScaffold (SupportingPaneScaffold / BottomSheet in :designsystem)
+  │          • Settled-state gesture arbitration & NestedScrollConnection
+  ▲
+  │ Layer 2: refactor/nubecita-76q8-comments-ui (Tasks 4, 5)
+  │          • Comments LazyColumn (Loaded, Empty, Error) & optimistic likes
+  │          • Docked comment pill & ComposerRoute navigation contract
+  │          • Component-only @Preview screenshot baselines
+  ▲
+  │ Layer 3: feat/nubecita-76q8-video-comments-sheet (Tasks 6, 7, 8)  <-- SEMANTIC RELEASE TRIGGER
+  │          • Reel Player integration (with settled-page & auto-advance guards)
+  │          • Detail Player integration (with two-pane scoped IME)
+  │          • Instant PiP snap & Predictive BackHandler
+  │          • Full-screen integration screenshot baselines
+  ▲
+  │ Layer 4: test/nubecita-76q8-benchmarks-and-spike (Tasks 9, 10)
+             • 120Hz Macrobenchmark frame timing and jank stats
+             • Phase 2 Headless Composer extraction spike report
+```
+
+### Stack Hygiene & Execution Rules
+1. **Semantic Release Hygiene**: Layers 1 and 2 use `refactor(video):` or `chore(video):` so intermediate commits never trigger premature user-facing Play Store releases. Only Layer 3 uses `feat(video):`, triggering exactly one minor version bump when the feature turns on end-to-end.
+2. **Screenshot Baseline Isolation**: Component-level screenshot baselines are checked in with Layer 2. Full-screen integration baselines are added in Layer 3. This eliminates binary diff churn when rebasing lower layers.
+3. **Atomic Merge Protocol**: In accordance with `AGENTS.md`, never merge child PRs individually from GitHub. Once all layers pass CI and review, merge the entire stack atomically via:
+   ```bash
+   gh stack merge --squash --yes
+   ```
 
 ## Open Questions
 
