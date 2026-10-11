@@ -55,7 +55,7 @@ slackComposeLints = "1.6.1"
 sortDependencies = "0.21.0"
 spotless = "8.10.4"
 ktlint = "1.4.1"
-composeKtlintRules = "0.6.7"
+composeKtlintRules = "0.6.8"
 telephoto = "0.19.0"
 timber = "5.0.1"
 
