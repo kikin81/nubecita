@@ -23,5 +23,7 @@ internal class FakeAuthRepository
 
         override suspend fun completeLogin(redirectUri: String): Result<Unit> = Result.success(Unit)
 
+        override suspend fun beginSignup(): Result<String> = Result.success("https://bench.invalid/oauth/authorize?bench=true&signup=true")
+
         override suspend fun signOut(): Result<Unit> = Result.success(Unit)
     }

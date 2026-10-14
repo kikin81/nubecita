@@ -41,6 +41,29 @@ interface AuthRepository {
     suspend fun completeLogin(redirectUri: String): Result<Unit>
 
     /**
+     * Begins an OAuth-initiated signup flow against `bsky.social` with
+     * OIDC `prompt=create`. Unlike [beginLogin], no handle or DID is
+     * required — the auth server is known up-front, discovery is
+     * short-circuited, and PAR carries `prompt=create` so the auth
+     * server renders its signup UI inside the OAuth roundtrip.
+     *
+     * The returned URL is opened in a Chrome Custom Tab the same way
+     * the login authorization URL is. After signup completes, the
+     * standard `net.kikin.nubecita:/oauth-redirect?code=...` redirect
+     * lands back at `MainActivity`, flows through `OAuthRedirectBroker`,
+     * and is exchanged for tokens by the existing [completeLogin] path
+     * — the user comes back signed in to the freshly-minted account
+     * with no re-typing of their new handle.
+     *
+     * @return [Result.success] with the authorization URL on success;
+     *   [Result.failure] wrapping the underlying exception on any
+     *   failure (network error, malformed metadata,
+     *   `OAuthSignupNotSupportedException` if the auth server doesn't
+     *   advertise `"create"` in `prompt_values_supported`, etc.).
+     */
+    suspend fun beginSignup(): Result<String>
+
+    /**
      * Revokes the current session at the authorization server's
      * revocation endpoint and clears the local `OAuthSessionStore`. On
      * success, also triggers a [SessionStateProvider.refresh] so reactive
