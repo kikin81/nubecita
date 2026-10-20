@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.common.navigation.ComposerSubmitEvent
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.posts.PostThreadRepository
@@ -326,6 +327,75 @@ class VideoCommentsViewModelTest {
         }
 
     @Test
+    fun `optimistic like toggle and undo update comment state in loaded thread`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakePostThreadRepository()
+            val cache = FakePostInteractionsCache()
+            val viewModel = VideoCommentsViewModel(repo, cache)
+
+            val reply = samplePost("at://reply1", cid = "cid1", text = "Toggle and undo like", likeCount = 3, isLiked = false)
+            repo.nextResult =
+                Result.success(
+                    persistentListOf(ThreadItem.Reply(post = reply, depth = 1)),
+                )
+            viewModel.handleEvent(VideoCommentsEvent.OpenComments("at://focus"))
+            advanceUntilIdle()
+
+            // 1. Initial state
+            assertFalse(
+                viewModel.uiState.value.comments[0]
+                    .isLiked,
+            )
+            assertEquals(
+                3L,
+                viewModel.uiState.value.comments[0]
+                    .likeCount,
+            )
+
+            // 2. Viewer taps like
+            viewModel.handleEvent(VideoCommentsEvent.LikeComment("at://reply1"))
+            advanceUntilIdle()
+            assertEquals(listOf("at://reply1" to "cid1"), cache.toggleLikeCalls)
+
+            // Cache emits optimistic liked state
+            cache.emit(
+                persistentMapOf(
+                    "at://reply1" to
+                        PostInteractionState(
+                            viewerLikeUri = "at://like/new_uri",
+                            likeCount = 4,
+                        ),
+                ),
+            )
+            advanceUntilIdle()
+
+            val likedComment = viewModel.uiState.value.comments[0]
+            assertTrue(likedComment.isLiked)
+            assertEquals(4L, likedComment.likeCount)
+
+            // 3. Viewer taps unlike (undo)
+            viewModel.handleEvent(VideoCommentsEvent.LikeComment("at://reply1"))
+            advanceUntilIdle()
+            assertEquals(listOf("at://reply1" to "cid1", "at://reply1" to "cid1"), cache.toggleLikeCalls)
+
+            // Cache emits reverted (undo) state
+            cache.emit(
+                persistentMapOf(
+                    "at://reply1" to
+                        PostInteractionState(
+                            viewerLikeUri = null,
+                            likeCount = 3,
+                        ),
+                ),
+            )
+            advanceUntilIdle()
+
+            val revertedComment = viewModel.uiState.value.comments[0]
+            assertFalse(revertedComment.isLiked)
+            assertEquals(3L, revertedComment.likeCount)
+        }
+
+    @Test
     fun `RetryLoad re-triggers fetch for current postUri`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
@@ -349,6 +419,110 @@ class VideoCommentsViewModelTest {
             assertFalse(viewModel.uiState.value.isError)
             assertEquals(1, viewModel.uiState.value.comments.size)
             assertEquals(listOf("at://focus", "at://focus"), repo.requestedUris)
+        }
+
+    @Test
+    fun `OpenComposer emits NavigateToComposer effect with current postUri`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakePostThreadRepository()
+            val cache = FakePostInteractionsCache()
+            val viewModel = VideoCommentsViewModel(repo, cache)
+
+            viewModel.handleEvent(VideoCommentsEvent.OpenComments("at://focus"))
+            advanceUntilIdle()
+
+            viewModel.effects.test {
+                viewModel.handleEvent(VideoCommentsEvent.OpenComposer)
+                advanceUntilIdle()
+
+                val effect = awaitItem()
+                assertTrue(effect is VideoCommentsEffect.NavigateToComposer)
+                assertEquals("at://focus", (effect as VideoCommentsEffect.NavigateToComposer).parentPostUri)
+            }
+        }
+
+    @Test
+    fun `OnComposerSubmitted with matching replyToUri triggers thread reload and updates comments`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakePostThreadRepository()
+            val cache = FakePostInteractionsCache()
+            val viewModel = VideoCommentsViewModel(repo, cache)
+
+            val initialReply = samplePost("at://reply1", text = "First comment")
+            repo.nextResult =
+                Result.success(
+                    persistentListOf(
+                        ThreadItem.Focus(samplePost("at://focus")),
+                        ThreadItem.Reply(post = initialReply, depth = 1),
+                    ),
+                )
+
+            viewModel.handleEvent(VideoCommentsEvent.OpenComments("at://focus"))
+            advanceUntilIdle()
+            assertEquals(1, viewModel.uiState.value.comments.size)
+
+            // Setup new reply submitted by user
+            val newReply = samplePost("at://reply2", text = "Brand new user comment")
+            repo.nextResult =
+                Result.success(
+                    persistentListOf(
+                        ThreadItem.Focus(samplePost("at://focus")),
+                        ThreadItem.Reply(post = initialReply, depth = 1),
+                        ThreadItem.Reply(post = newReply, depth = 1),
+                    ),
+                )
+
+            viewModel.handleEvent(
+                VideoCommentsEvent.OnComposerSubmitted(
+                    ComposerSubmitEvent(
+                        newPostUri = "at://reply2",
+                        replyToUri = "at://focus",
+                    ),
+                ),
+            )
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertFalse(state.isRefreshing)
+            assertEquals(2, state.comments.size)
+            assertEquals("at://reply2", state.comments[1].id)
+            assertEquals("Brand new user comment", state.comments[1].text)
+            assertEquals(listOf("at://focus", "at://focus"), repo.requestedUris)
+        }
+
+    @Test
+    fun `OnComposerSubmitted with different replyToUri does not trigger reload`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakePostThreadRepository()
+            val cache = FakePostInteractionsCache()
+            val viewModel = VideoCommentsViewModel(repo, cache)
+
+            val initialReply = samplePost("at://reply1", text = "First comment")
+            repo.nextResult =
+                Result.success(
+                    persistentListOf(
+                        ThreadItem.Focus(samplePost("at://focus")),
+                        ThreadItem.Reply(post = initialReply, depth = 1),
+                    ),
+                )
+
+            viewModel.handleEvent(VideoCommentsEvent.OpenComments("at://focus"))
+            advanceUntilIdle()
+            assertEquals(1, viewModel.uiState.value.comments.size)
+
+            viewModel.handleEvent(
+                VideoCommentsEvent.OnComposerSubmitted(
+                    ComposerSubmitEvent(
+                        newPostUri = "at://other_reply",
+                        replyToUri = "at://other_parent",
+                    ),
+                ),
+            )
+            advanceUntilIdle()
+
+            // Requested URIs remain only the initial one
+            assertEquals(listOf("at://focus"), repo.requestedUris)
+            assertEquals(1, viewModel.uiState.value.comments.size)
         }
 
     private fun samplePost(

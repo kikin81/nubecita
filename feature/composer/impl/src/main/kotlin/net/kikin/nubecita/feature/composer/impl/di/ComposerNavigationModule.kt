@@ -8,9 +8,11 @@ import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.ComposerSubmitEvent
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
+import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEventsEmitter
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
+import net.kikin.nubecita.core.common.navigation.OuterShell
 import net.kikin.nubecita.core.common.navigation.adaptiveDialog
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.ComposerScreen
@@ -73,6 +75,43 @@ internal object ComposerNavigationModule {
                             ),
                         )
                         navState.removeLast()
+                    },
+                    viewModel = viewModel,
+                )
+            }
+        }
+
+    /**
+     * `@OuterShell`-qualified [EntryProviderInstaller] that registers
+     * [ComposerRoute] on the outer `NavDisplay`. Enables cross-shell composer
+     * navigation from the fullscreen detail video player (which lives on
+     * `@OuterShell`).
+     *
+     * Wires `LocalAppNavigator`'s `goBack()` for dismissal, preserving the
+     * underlying video player surface and comments sheet detent.
+     */
+    @Provides
+    @IntoSet
+    @OuterShell
+    fun provideOuterComposerEntries(): EntryProviderInstaller =
+        {
+            entry<ComposerRoute>(metadata = adaptiveDialog()) { route ->
+                val navigator = LocalAppNavigator.current
+                val composerSubmitEventsEmitter = LocalComposerSubmitEventsEmitter.current
+                val viewModel =
+                    hiltViewModel<ComposerViewModel, ComposerViewModel.Factory>(
+                        creationCallback = { factory -> factory.create(route) },
+                    )
+                ComposerScreen(
+                    onNavigateBack = { navigator.goBack() },
+                    onSubmitSuccess = { newPostUri, replyToUri ->
+                        composerSubmitEventsEmitter.emit(
+                            ComposerSubmitEvent(
+                                newPostUri = newPostUri.raw,
+                                replyToUri = replyToUri,
+                            ),
+                        )
+                        navigator.goBack()
                     },
                     viewModel = viewModel,
                 )

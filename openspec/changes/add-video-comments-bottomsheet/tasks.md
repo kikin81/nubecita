@@ -8,10 +8,10 @@
 
 ## Layer 2: Comments UI & Docked Pill (`refactor/nubecita-76q8-comments-ui`)
 
-- [ ] 2.1 Render `LazyColumn` of comments in `:core:post-interactions-ui` with author avatar, name, handle, timestamp, body text, empty state banner, and retryable error state (`nubecita-76q8.4`). Screenshot test: `VideoCommentsListScreenshotTest` in loaded, empty, and error states.
-- [ ] 2.2 Wire comment like button to `LikeRepostRepository` + `PostInteractionsCache` with haptic feedback (`PostHaptics.likeOn/likeOff`) (`nubecita-76q8.4`). Unit test: `VideoCommentsViewModelTest` verifying optimistic like updates and undo.
-- [ ] 2.3 Implement docked comment pill `[Avatar] "Add a comment..." [Send]` pinned to bottom with `.navigationBarsPadding()` and accessibility semantics (`Role.Button`, decorative icons) (`nubecita-76q8.5`). Screenshot test: `DockedCommentPillScreenshotTest`.
-- [ ] 2.4 Register `ComposerRoute` in `@OuterShell` within `ComposerNavigationModule` to enable cross-shell navigation from detail player. On `ComposerSubmitEvent`, increment parent post's `replyCount` badge on action rail and trigger hydration refetch; on cancel, restore exact sheet state and scroll offset (`nubecita-76q8.5`). Unit test: navigation effect and submit-event hydration.
+- [x] 2.1 Render `LazyColumn` of comments in `:core:post-interactions-ui` with author avatar, name, handle, timestamp, body text, empty state banner, and retryable error state (`nubecita-76q8.4`). Screenshot test: `VideoCommentsListScreenshotTest` in loaded, empty, and error states.
+- [x] 2.2 Wire comment like button to `LikeRepostRepository` + `PostInteractionsCache` with haptic feedback (`PostHaptics.likeOn/likeOff`) (`nubecita-76q8.4`). Unit test: `VideoCommentsViewModelTest` verifying optimistic like updates and undo.
+- [x] 2.3 Implement docked comment pill `[Avatar] "Add a comment..." [Send]` pinned to bottom with `.navigationBarsPadding()` and accessibility semantics (`Role.Button`, decorative icons) (`nubecita-76q8.5`). Screenshot test: `DockedCommentPillScreenshotTest`.
+- [x] 2.4 Register `ComposerRoute` in `@OuterShell` within `ComposerNavigationModule` to enable cross-shell navigation from detail player. On `ComposerSubmitEvent`, increment parent post's `replyCount` badge on action rail and trigger hydration refetch; on cancel, restore exact sheet state and scroll offset (`nubecita-76q8.5`). Unit test: navigation effect and submit-event hydration.
 
 ## Layer 3: Surfaces Integration & Lifecycle (`feat/nubecita-76q8-video-comments-sheet`)
 
