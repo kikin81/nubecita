@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Button
@@ -39,6 +40,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.common.Player
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
 import androidx.media3.ui.compose.state.rememberPresentationState
@@ -47,7 +49,9 @@ import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.screen.KeepScreenOnWhile
 import net.kikin.nubecita.core.video.playback.PlaylistPlaybackState
+import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
+import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.videos.impl.ui.VideoFeedPage
 import net.kikin.nubecita.feature.videos.impl.ui.VideoPageChrome
 import net.kikin.nubecita.feature.videos.impl.ui.VideoProgressBar
@@ -71,6 +75,7 @@ internal fun VideoFeedScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: VideoFeedViewModel = hiltViewModel(),
+    isSheetSettledHidden: Boolean = true,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val activePlayer by viewModel.activePlayer.collectAsStateWithLifecycle()
@@ -128,192 +133,237 @@ internal fun VideoFeedScreen(
                 }
 
             is VideoFeedStatus.Content -> {
-                // Open at the VM's initial active index (route.startIndex, e.g. from the
-                // Trending carousel); rememberPagerState only reads initialPage on first use.
-                val pagerState = rememberPagerState(initialPage = state.activeIndex, pageCount = { status.items.size })
-                LaunchedEffect(pagerState) {
-                    snapshotFlowSettledPage(pagerState) { settled ->
+                VideoFeedContent(
+                    status = status,
+                    activeIndex = state.activeIndex,
+                    activePlayer = activePlayer,
+                    isPaused = state.isPaused,
+                    isMuted = state.isMuted,
+                    onActiveIndexChange = { settled ->
                         viewModel.handleEvent(VideoFeedEvent.ActiveIndexChanged(settled))
-                    }
-                }
-                // Full-bleed reference for the drag translation below. The surface
-                // itself is letterboxed by `.aspectRatio(settledAspectRatio)`, so its
-                // own `size.height` inside graphicsLayer is SMALLER than the distance
-                // the pager actually scrolls (e.g. a 9:16 video on a taller screen) —
-                // using it would scale the translation down and detach the video from
-                // the finger mid-drag. This outer Box is unclipped and always matches
-                // the pager's true page height, so read from here instead. `by` +
-                // mutableIntStateOf is a deferred state read inside graphicsLayer's
-                // block, not a composition-scope val, so a swipe still costs zero
-                // recompositions.
-                var pageHeightPx by remember { mutableIntStateOf(0) }
-                Box(contentModifier.onSizeChanged { pageHeightPx = it.height }) {
-                    // ONE persistent video surface for the whole feed, sitting behind the
-                    // pager. Because it is never recreated as the active page changes,
-                    // promoting a pooled player only re-binds it — there is no async
-                    // surface-attach race and no black first frame. The pool guarantees
-                    // exactly one active player, so a single surface is all the feed needs.
-                    val settledItem = status.items.getOrNull(pagerState.settledPage)
-                    // rememberPresentationState accepts a nullable player, so it is called
-                    // unconditionally rather than inside activePlayer?.let — the surface's
-                    // presentation state must stay observable even in the brief window where
-                    // the pool has no active player.
-                    // key(activePlayer) is required: media3 1.10.1's rememberPresentationState
-                    // is `remember { PresentationState(...) }`, UNKEYED, so without this the
-                    // SAME instance — and its `coverSurface` value — survives a pool
-                    // promotion. maybeHideSurface only sets coverSurface = true when the
-                    // player has no tracks, or has tracks but no selected video track; a
-                    // prewarmed player already has both, so neither branch fires and
-                    // coverSurface stays false, carried over from the outgoing clip — the
-                    // incoming page's poster reads as transparent while the surface still
-                    // shows the outgoing clip's last frame. key(activePlayer) forces a fresh
-                    // instance on every promotion, which starts at coverSurface = true and
-                    // only clears on EVENT_RENDERED_FIRST_FRAME from the newly attached
-                    // surface — exactly the crossfade signal.
-                    val presentationState = key(activePlayer) { rememberPresentationState(activePlayer) }
-                    // Size the SURFACE from the active player's DECODED size when known, falling
-                    // back to the settled item's declared ratio before the first frame. The
-                    // TextureView fills its box (no letterbox), so it must match the real video
-                    // or the clip stretches — and the declared ratio is unreliable: the optional
-                    // app.bsky.embed.video aspectRatio is fabricated to 16:9 by the mapper when a
-                    // record omits it, which stretched aspectRatio-less portrait clips
-                    // (nubecita-mfac). The decoded size is the ACTIVE player's, so it belongs to
-                    // whatever clip the surface is showing — no cross-page lag (the poster keeps
-                    // its per-page declared ratio, so a swipe still can't squish it — nubecita-opqt).
-                    val decodedSize = presentationState.videoSizeDp
-                    val settledAspectRatio =
-                        videoFeedSurfaceAspectRatio(
-                            decodedWidthDp = decodedSize?.width,
-                            decodedHeightDp = decodedSize?.height,
-                            declaredAspectRatio = settledItem?.aspectRatio,
-                        )
-
-                    activePlayer?.let { player ->
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            PlayerSurface(
-                                player = player,
-                                surfaceType = FEED_SURFACE_TYPE,
-                                modifier =
-                                    Modifier
-                                        .aspectRatio(settledAspectRatio)
-                                        // Deferred read: a swipe re-runs only this layer
-                                        // block, never composition or layout. That is what
-                                        // holds the gesture at 120hz.
-                                        .graphicsLayer {
-                                            translationY =
-                                                surfaceTranslationPx(
-                                                    currentPage = pagerState.currentPage,
-                                                    currentPageOffsetFraction = pagerState.currentPageOffsetFraction,
-                                                    settledPage = pagerState.settledPage,
-                                                    pageHeightPx = pageHeightPx.toFloat(),
-                                                )
-                                        },
-                            )
-                        }
-                    }
-                    // The pager is a transparent gesture + snapping layer on top. Its pages
-                    // carry the poster (and, from PR2, the chrome), so the surface behind
-                    // shows through wherever the poster has faded out. A stable per-item key
-                    // keeps page state aligned as the feed paginates (appends).
-                    VerticalPager(
-                        state = pagerState,
-                        modifier = Modifier.fillMaxSize().testTag(VideoFeedTestTags.PAGER),
-                        key = { index -> status.items[index].post.id },
-                    ) { page ->
-                        val item = status.items[page]
-                        val isSettled = page == pagerState.settledPage
-                        val targetAlpha =
-                            posterAlphaTarget(
-                                isSettledPage = isSettled,
-                                coverSurface = presentationState.coverSurface,
-                            )
-                        // Keep this a State, not a `by`-unwrapped Float: unwrapping at
-                        // composition scope would invalidate this page's composition (and its
-                        // image subtree) on every animation frame. VideoFeedPage reads the
-                        // value inside its graphicsLayer block instead, so a running crossfade
-                        // costs zero recomposition.
-                        val posterAlphaState =
-                            animateFloatAsState(
-                                targetValue = targetAlpha,
-                                // MotionScheme, not a raw tween: defaultEffectsSpec()
-                                // collapses to a short linear tween under reduce-motion — a
-                                // hand-rolled tween() would silently ignore that preference.
-                                animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
-                                label = "VideoFeedPoster-alpha",
-                            )
-                        // Caption expansion is per-page Compose state, not VM state: it is a
-                        // presentation detail with no bearing on playback, and keying it on the
-                        // post id keeps it correct as the pager recycles pages.
-                        var captionExpanded by rememberSaveable(item.post.id) { mutableStateOf(false) }
-                        VideoFeedPage(
-                            posterUrl = item.posterUrl,
-                            // Every page's poster uses its own declared ratio through the same
-                            // guarded helper as the surface — for the settled page this equals
-                            // settledAspectRatio, so poster and surface always match, and a
-                            // non-positive declared ratio can never reach Modifier.aspectRatio.
-                            aspectRatio = videoFeedSurfaceAspectRatio(item.aspectRatio),
-                            posterAlpha = { posterAlphaState.value },
-                            // Resets the page's heart-burst state when this page is
-                            // rebound to a different post (same key the caption uses).
-                            pageKey = item.post.id,
-                            // isPaused is screen-level, so gate on isSettled or every
-                            // composed neighbour would render the glyph too.
-                            isPaused = state.isPaused && isSettled,
-                            onTogglePlayPause = { viewModel.handleEvent(VideoFeedEvent.TogglePlayPause) },
-                            onDoubleTapLike = {
-                                if (!item.post.viewer.isLikedByViewer) haptics.likeOn()
-                                viewModel.handleEvent(VideoFeedEvent.DoubleTapLike(item.post))
-                            },
-                        ) {
-                            VideoPageChrome(
-                                post = item.post,
-                                isMuted = state.isMuted,
-                                captionExpanded = captionExpanded,
-                                onCaptionToggle = { captionExpanded = !captionExpanded },
-                                onAuthorTap = { viewModel.handleEvent(VideoFeedEvent.AuthorTapped(item.post)) },
-                                // Delegation-forwarded: the handler owns the optimistic write.
-                                onLike = {
-                                    if (item.post.viewer.isLikedByViewer) haptics.likeOff() else haptics.likeOn()
-                                    viewModel.onLike(item.post)
-                                },
-                                onRepost = {
-                                    if (item.post.viewer.isRepostedByViewer) haptics.repostOff() else haptics.repostOn()
-                                    viewModel.onRepost(item.post)
-                                },
-                                // Routed through the helper's callbacks so its composer-navigation
-                                // and share-sheet effects fire.
-                                onReply = { callbacks.onReply(item.post) },
-                                onShare = { callbacks.onShare(item.post) },
-                                onBookmark = {
-                                    if (item.post.viewer.isBookmarked) haptics.bookmarkOff() else haptics.bookmarkOn()
-                                    callbacks.onBookmark(item.post)
-                                },
-                                onOverflowAction = { action -> callbacks.onOverflowAction?.invoke(item.post, action) },
-                                onMuteToggle = { viewModel.handleEvent(VideoFeedEvent.ToggleMute) },
-                            )
-                        }
-                    }
-                    // Read-only playback progress at the foot of the feed. One
-                    // screen-level instance over the pager, reading the active
-                    // player + isPaused — its withFrameNanos loop advances only
-                    // the draw phase (see VideoProgressBar).
-                    //
-                    // No navigationBarsPadding: the Scaffold already insets this
-                    // content Box by innerPadding (which includes the nav-bar
-                    // inset), so adding it again double-counts and shoves the bar
-                    // up into the caption/author block. An 8dp lift off the
-                    // already-safe content bottom sits it just below the caption.
-                    VideoProgressBar(
-                        player = activePlayer,
-                        isPlaying = !state.isPaused,
-                        modifier =
-                            Modifier
-                                .align(Alignment.BottomCenter)
-                                .padding(bottom = 8.dp),
-                    )
-                }
+                    },
+                    onTogglePlayPause = { viewModel.handleEvent(VideoFeedEvent.TogglePlayPause) },
+                    onDoubleTapLike = { post ->
+                        if (!post.viewer.isLikedByViewer) haptics.likeOn()
+                        viewModel.handleEvent(VideoFeedEvent.DoubleTapLike(post))
+                    },
+                    onAuthorTap = { post -> viewModel.handleEvent(VideoFeedEvent.AuthorTapped(post)) },
+                    onLike = { post ->
+                        if (post.viewer.isLikedByViewer) haptics.likeOff() else haptics.likeOn()
+                        viewModel.onLike(post)
+                    },
+                    onRepost = { post ->
+                        if (post.viewer.isRepostedByViewer) haptics.repostOff() else haptics.repostOn()
+                        viewModel.onRepost(post)
+                    },
+                    onReply = { post -> callbacks.onReply(post) },
+                    onShare = { post -> callbacks.onShare(post) },
+                    onBookmark = { post ->
+                        if (post.viewer.isBookmarked) haptics.bookmarkOff() else haptics.bookmarkOn()
+                        callbacks.onBookmark(post)
+                    },
+                    onOverflowAction = callbacks.onOverflowAction,
+                    onMuteToggle = { viewModel.handleEvent(VideoFeedEvent.ToggleMute) },
+                    isSheetSettledHidden = isSheetSettledHidden,
+                    modifier = contentModifier,
+                )
             }
         }
+    }
+}
+
+@Composable
+internal fun VideoFeedContent(
+    status: VideoFeedStatus.Content,
+    activeIndex: Int,
+    activePlayer: Player?,
+    isPaused: Boolean,
+    isMuted: Boolean,
+    onActiveIndexChange: (Int) -> Unit,
+    onTogglePlayPause: () -> Unit,
+    onDoubleTapLike: (PostUi) -> Unit,
+    onAuthorTap: (PostUi) -> Unit,
+    onLike: (PostUi) -> Unit,
+    onRepost: (PostUi) -> Unit,
+    onReply: (PostUi) -> Unit,
+    onShare: (PostUi) -> Unit,
+    onBookmark: (PostUi) -> Unit,
+    onOverflowAction: ((PostUi, PostOverflowAction) -> Unit)?,
+    onMuteToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+    isSheetSettledHidden: Boolean = true,
+    pagerState: PagerState = rememberPagerState(initialPage = activeIndex, pageCount = { status.items.size }),
+) {
+    val currentOnActiveIndexChange by rememberUpdatedState(onActiveIndexChange)
+    LaunchedEffect(pagerState) {
+        snapshotFlowSettledPage(pagerState) { settled ->
+            currentOnActiveIndexChange(settled)
+        }
+    }
+    // Full-bleed reference for the drag translation below. The surface
+    // itself is letterboxed by `.aspectRatio(settledAspectRatio)`, so its
+    // own `size.height` inside graphicsLayer is SMALLER than the distance
+    // the pager actually scrolls (e.g. a 9:16 video on a taller screen) —
+    // using it would scale the translation down and detach the video from
+    // the finger mid-drag. This outer Box is unclipped and always matches
+    // the pager's true page height, so read from here instead. `by` +
+    // mutableIntStateOf is a deferred state read inside graphicsLayer's
+    // block, not a composition-scope val, so a swipe still costs zero
+    // recompositions.
+    var pageHeightPx by remember { mutableIntStateOf(0) }
+    Box(modifier.onSizeChanged { pageHeightPx = it.height }) {
+        // ONE persistent video surface for the whole feed, sitting behind the
+        // pager. Because it is never recreated as the active page changes,
+        // promoting a pooled player only re-binds it — there is no async
+        // surface-attach race and no black first frame. The pool guarantees
+        // exactly one active player, so a single surface is all the feed needs.
+        val settledItem = status.items.getOrNull(pagerState.settledPage)
+        // rememberPresentationState accepts a nullable player, so it is called
+        // unconditionally rather than inside activePlayer?.let — the surface's
+        // presentation state must stay observable even in the brief window where
+        // the pool has no active player.
+        // key(activePlayer) is required: media3 1.10.1's rememberPresentationState
+        // is `remember { PresentationState(...) }`, UNKEYED, so without this the
+        // SAME instance — and its `coverSurface` value — survives a pool
+        // promotion. maybeHideSurface only sets coverSurface = true when the
+        // player has no tracks, or has tracks but no selected video track; a
+        // prewarmed player already has both, so neither branch fires and
+        // coverSurface stays false, carried over from the outgoing clip — the
+        // incoming page's poster reads as transparent while the surface still
+        // shows the outgoing clip's last frame. key(activePlayer) forces a fresh
+        // instance on every promotion, which starts at coverSurface = true and
+        // only clears on EVENT_RENDERED_FIRST_FRAME from the newly attached
+        // surface — exactly the crossfade signal.
+        val presentationState = key(activePlayer) { rememberPresentationState(activePlayer) }
+        // Size the SURFACE from the active player's DECODED size when known, falling
+        // back to the settled item's declared ratio before the first frame. The
+        // TextureView fills its box (no letterbox), so it must match the real video
+        // or the clip stretches — and the declared ratio is unreliable: the optional
+        // app.bsky.embed.video aspectRatio is fabricated to 16:9 by the mapper when a
+        // record omits it, which stretched aspectRatio-less portrait clips
+        // (nubecita-mfac). The decoded size is the ACTIVE player's, so it belongs to
+        // whatever clip the surface is showing — no cross-page lag (the poster keeps
+        // its per-page declared ratio, so a swipe still can't squish it — nubecita-opqt).
+        val decodedSize = presentationState.videoSizeDp
+        val settledAspectRatio =
+            videoFeedSurfaceAspectRatio(
+                decodedWidthDp = decodedSize?.width,
+                decodedHeightDp = decodedSize?.height,
+                declaredAspectRatio = settledItem?.aspectRatio,
+            )
+
+        activePlayer?.let { player ->
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                PlayerSurface(
+                    player = player,
+                    surfaceType = FEED_SURFACE_TYPE,
+                    modifier =
+                        Modifier
+                            .aspectRatio(settledAspectRatio)
+                            // Deferred read: a swipe re-runs only this layer
+                            // block, never composition or layout. That is what
+                            // holds the gesture at 120hz.
+                            .graphicsLayer {
+                                translationY =
+                                    surfaceTranslationPx(
+                                        currentPage = pagerState.currentPage,
+                                        currentPageOffsetFraction = pagerState.currentPageOffsetFraction,
+                                        settledPage = pagerState.settledPage,
+                                        pageHeightPx = pageHeightPx.toFloat(),
+                                    )
+                            },
+                )
+            }
+        }
+        // The pager is a transparent gesture + snapping layer on top. Its pages
+        // carry the poster (and, from PR2, the chrome), so the surface behind
+        // shows through wherever the poster has faded out. A stable per-item key
+        // keeps page state aligned as the feed paginates (appends).
+        VerticalPager(
+            state = pagerState,
+            userScrollEnabled = isSheetSettledHidden,
+            modifier = Modifier.fillMaxSize().testTag(VideoFeedTestTags.PAGER),
+            key = { index -> status.items[index].post.id },
+        ) { page ->
+            val item = status.items[page]
+            val isSettled = page == pagerState.settledPage
+            val targetAlpha =
+                posterAlphaTarget(
+                    isSettledPage = isSettled,
+                    coverSurface = presentationState.coverSurface,
+                )
+            // Keep this a State, not a `by`-unwrapped Float: unwrapping at
+            // composition scope would invalidate this page's composition (and its
+            // image subtree) on every animation frame. VideoFeedPage reads the
+            // value inside its graphicsLayer block instead, so a running crossfade
+            // costs zero recomposition.
+            val posterAlphaState =
+                animateFloatAsState(
+                    targetValue = targetAlpha,
+                    // MotionScheme, not a raw tween: defaultEffectsSpec()
+                    // collapses to a short linear tween under reduce-motion — a
+                    // hand-rolled tween() would silently ignore that preference.
+                    animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+                    label = "VideoFeedPoster-alpha",
+                )
+            // Caption expansion is per-page Compose state, not VM state: it is a
+            // presentation detail with no bearing on playback, and keying it on the
+            // post id keeps it correct as the pager recycles pages.
+            var captionExpanded by rememberSaveable(item.post.id) { mutableStateOf(false) }
+            VideoFeedPage(
+                posterUrl = item.posterUrl,
+                // Every page's poster uses its own declared ratio through the same
+                // guarded helper as the surface — for the settled page this equals
+                // settledAspectRatio, so poster and surface always match, and a
+                // non-positive declared ratio can never reach Modifier.aspectRatio.
+                aspectRatio = videoFeedSurfaceAspectRatio(item.aspectRatio),
+                posterAlpha = { posterAlphaState.value },
+                // Resets the page's heart-burst state when this page is
+                // rebound to a different post (same key the caption uses).
+                pageKey = item.post.id,
+                // isPaused is screen-level, so gate on isSettled or every
+                // composed neighbour would render the glyph too.
+                isPaused = isPaused && isSettled,
+                onTogglePlayPause = onTogglePlayPause,
+                onDoubleTapLike = { onDoubleTapLike(item.post) },
+            ) {
+                VideoPageChrome(
+                    post = item.post,
+                    isMuted = isMuted,
+                    captionExpanded = captionExpanded,
+                    onCaptionToggle = { captionExpanded = !captionExpanded },
+                    onAuthorTap = { onAuthorTap(item.post) },
+                    // Delegation-forwarded: the handler owns the optimistic write.
+                    onLike = { onLike(item.post) },
+                    onRepost = { onRepost(item.post) },
+                    // Routed through the helper's callbacks so its composer-navigation
+                    // and share-sheet effects fire.
+                    onReply = { onReply(item.post) },
+                    onShare = { onShare(item.post) },
+                    onBookmark = { onBookmark(item.post) },
+                    onOverflowAction = { action -> onOverflowAction?.invoke(item.post, action) },
+                    onMuteToggle = onMuteToggle,
+                )
+            }
+        }
+        // Read-only playback progress at the foot of the feed. One
+        // screen-level instance over the pager, reading the active
+        // player + isPaused — its withFrameNanos loop advances only
+        // the draw phase (see VideoProgressBar).
+        //
+        // No navigationBarsPadding: the Scaffold already insets this
+        // content Box by innerPadding (which includes the nav-bar
+        // inset), so adding it again double-counts and shoves the bar
+        // up into the caption/author block. An 8dp lift off the
+        // already-safe content bottom sits it just below the caption.
+        VideoProgressBar(
+            player = activePlayer,
+            isPlaying = !isPaused,
+            modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 8.dp),
+        )
     }
 }
 
