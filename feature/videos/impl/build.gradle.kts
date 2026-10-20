@@ -23,6 +23,7 @@ dependencies {
     implementation(project(":core:video-feed"))
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
+    implementation(project(":feature:composer:api"))
     implementation(project(":feature:postdetail:api"))
     implementation(project(":feature:profile:api"))
     implementation(libs.coil.compose)

@@ -12,6 +12,13 @@
     <!-- Pop-out / enter Picture-in-Picture affordance (nubecita-q5ge.8). -->
     <string name="video_player_pip_content_description">Play in a floating window</string>
 
+    <!-- Social action group. -->
+    <string name="video_player_action_like">Like</string>
+    <string name="video_player_action_repost">Repost</string>
+    <string name="video_player_action_comments">Comments</string>
+    <string name="video_player_reply_sent">Reply sent</string>
+    <string name="video_player_post_sent">Post sent</string>
+
     <!-- Resolving + error states. -->
     <string name="video_player_loading_content_description">Loading video</string>
     <string name="video_player_error_network_title">No connection</string>

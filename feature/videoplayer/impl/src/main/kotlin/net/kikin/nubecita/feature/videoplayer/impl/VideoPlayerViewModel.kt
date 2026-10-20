@@ -17,9 +17,12 @@ import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.PipAttempt
 import net.kikin.nubecita.core.analytics.PipOutcome
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
+import net.kikin.nubecita.core.postinteractions.mergeInteractionState
 import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.core.video.PlaybackMode
 import net.kikin.nubecita.core.video.SharedVideoPlayer
+import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.video
 import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
 import timber.log.Timber
@@ -72,13 +75,15 @@ internal class VideoPlayerViewModel
         val sharedVideoPlayer: SharedVideoPlayer,
         private val postRepository: PostRepository,
         private val analytics: AnalyticsClient,
+        private val postInteractionsCache: PostInteractionsCache,
     ) : MviViewModel<VideoPlayerState, VideoPlayerEvent, VideoPlayerEffect>(VideoPlayerState()) {
         @AssistedFactory
         interface Factory {
             fun create(route: VideoPlayerRoute): VideoPlayerViewModel
         }
 
-        private val postUri: String = route.postUri
+        val postUri: String = route.postUri
+        private var resolvedPost: PostUi? = null
 
         private var autoHideJob: Job? = null
         private var autoHideArmed: Boolean = false
@@ -109,6 +114,21 @@ internal class VideoPlayerViewModel
             sharedVideoPlayer.videoAspectRatio
                 .onEach { ratio ->
                     if (ratio != null) setState { copy(aspectRatio = ratio) }
+                }.launchIn(viewModelScope)
+
+            postInteractionsCache.state
+                .onEach { interactionMap ->
+                    val post = resolvedPost ?: return@onEach
+                    val interactionState = interactionMap[post.id] ?: return@onEach
+                    val merged = post.mergeInteractionState(interactionState)
+                    resolvedPost = merged
+                    setState {
+                        copy(
+                            author = merged.author,
+                            stats = merged.stats,
+                            viewer = merged.viewer,
+                        )
+                    }
                 }.launchIn(viewModelScope)
 
             // Project holder flows → flat VideoPlayerState.
@@ -233,6 +253,46 @@ internal class VideoPlayerViewModel
                     sharedVideoPlayer.clearPlaybackError()
                     resolveAndBind(force = true)
                 }
+                VideoPlayerEvent.OpenComments -> {
+                    cancelChromeAutoHide()
+                    setState { copy(isCommentsOpen = true) }
+                }
+                VideoPlayerEvent.DismissComments -> {
+                    setState { copy(isCommentsOpen = false) }
+                    if (uiState.value.chromeVisible) {
+                        scheduleChromeAutoHide()
+                    }
+                }
+                is VideoPlayerEvent.OnReplySubmitted -> {
+                    val current = resolvedPost
+                    if (current != null && current.id == event.parentUri) {
+                        val updatedStats = current.stats.copy(replyCount = current.stats.replyCount + 1)
+                        resolvedPost = current.copy(stats = updatedStats)
+                        setState { copy(stats = updatedStats) }
+                    } else if (uiState.value.stats != null) {
+                        setState { copy(stats = stats?.copy(replyCount = stats.replyCount + 1)) }
+                    }
+                }
+                VideoPlayerEvent.LikeClicked -> {
+                    val current = resolvedPost ?: return
+                    viewModelScope.launch {
+                        postInteractionsCache.toggleLike(
+                            postUri = current.id,
+                            postCid = current.cid,
+                        )
+                    }
+                    scheduleChromeAutoHide()
+                }
+                VideoPlayerEvent.RepostClicked -> {
+                    val current = resolvedPost ?: return
+                    viewModelScope.launch {
+                        postInteractionsCache.toggleRepost(
+                            postUri = current.id,
+                            postCid = current.cid,
+                        )
+                    }
+                    scheduleChromeAutoHide()
+                }
             }
         }
 
@@ -295,7 +355,8 @@ internal class VideoPlayerViewModel
                         // videoAspectRatio collector. Don't clobber that
                         // measured value with the (possibly fallback)
                         // lexicon hint — fall back to the hint only
-                        // when no decoded value has arrived yet.
+                        resolvedPost = post
+                        postInteractionsCache.seed(listOf(post))
                         setState {
                             copy(
                                 loadStatus = VideoPlayerLoadStatus.Ready,
@@ -362,10 +423,13 @@ internal class VideoPlayerViewModel
         private fun scheduleChromeAutoHide() {
             autoHideJob?.cancel()
             setState { copy(chromeVisible = true) }
+            if (uiState.value.isCommentsOpen) return
             autoHideJob =
                 viewModelScope.launch {
                     delay(CHROME_AUTO_HIDE_MS)
-                    setState { copy(chromeVisible = false) }
+                    if (!uiState.value.isCommentsOpen) {
+                        setState { copy(chromeVisible = false) }
+                    }
                 }
         }
 

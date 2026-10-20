@@ -94,7 +94,19 @@ class VideoFeedViewModel
                     setState {
                         val current = status
                         if (current is VideoFeedStatus.Content) {
-                            copy(status = current.copy(items = current.items.applyInteractions(snapshot)))
+                            val updatedActivePost =
+                                activeCommentsPost?.let { post ->
+                                    val interaction = snapshot[post.id]
+                                    if (interaction != null && !interaction.isDeleted) {
+                                        post.mergeInteractionState(interaction)
+                                    } else {
+                                        post
+                                    }
+                                }
+                            copy(
+                                status = current.copy(items = current.items.applyInteractions(snapshot)),
+                                activeCommentsPost = updatedActivePost ?: activeCommentsPost,
+                            )
                         } else {
                             this
                         }
@@ -131,6 +143,74 @@ class VideoFeedViewModel
 
                 is VideoFeedEvent.PostTapped ->
                     sendEffect(VideoFeedEffect.NavigateTo(PostDetailRoute(postUri = event.post.id)))
+
+                is VideoFeedEvent.OpenComments -> {
+                    setState {
+                        copy(
+                            isCommentsOpen = true,
+                            activeCommentsPost = event.post,
+                            isAutoAdvanceSuspended = true,
+                        )
+                    }
+                }
+
+                VideoFeedEvent.DismissComments -> {
+                    setState {
+                        copy(
+                            isCommentsOpen = false,
+                            activeCommentsPost = null,
+                            isAutoAdvanceSuspended = false,
+                        )
+                    }
+                }
+
+                VideoFeedEvent.AutoAdvance -> {
+                    if (!uiState.value.isAutoAdvanceSuspended && !uiState.value.isCommentsOpen) {
+                        val currentStatus = uiState.value.status
+                        if (currentStatus is VideoFeedStatus.Content) {
+                            val nextIndex = uiState.value.activeIndex + 1
+                            if (nextIndex < currentStatus.items.size) {
+                                onActiveIndexChanged(nextIndex)
+                            }
+                        }
+                    }
+                }
+
+                is VideoFeedEvent.OnReplySubmittedToParent -> incrementParentReplyCount(event.parentUri)
+            }
+        }
+
+        private fun incrementParentReplyCount(parentUri: String) {
+            setState {
+                val current = status
+                if (current is VideoFeedStatus.Content) {
+                    val updatedItems =
+                        current.items
+                            .map { item ->
+                                if (item.post.id == parentUri) {
+                                    val updatedPost =
+                                        item.post.copy(
+                                            stats = item.post.stats.copy(replyCount = item.post.stats.replyCount + 1),
+                                        )
+                                    item.copy(post = updatedPost)
+                                } else {
+                                    item
+                                }
+                            }.toImmutableList()
+                    copy(
+                        status = current.copy(items = updatedItems),
+                        activeCommentsPost =
+                            if (activeCommentsPost?.id == parentUri) {
+                                activeCommentsPost.copy(
+                                    stats = activeCommentsPost.stats.copy(replyCount = activeCommentsPost.stats.replyCount + 1),
+                                )
+                            } else {
+                                activeCommentsPost
+                            },
+                    )
+                } else {
+                    this
+                }
             }
         }
 

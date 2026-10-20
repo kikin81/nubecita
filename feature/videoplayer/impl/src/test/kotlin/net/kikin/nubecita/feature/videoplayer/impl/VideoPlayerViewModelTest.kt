@@ -6,11 +6,14 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -19,6 +22,8 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import net.kikin.nubecita.core.analytics.NoOpAnalyticsClient
+import net.kikin.nubecita.core.postinteractions.PostInteractionState
+import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.core.video.PlaybackMode
 import net.kikin.nubecita.core.video.SharedVideoPlayer
@@ -40,6 +45,7 @@ import kotlin.time.Instant
 internal class VideoPlayerViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private val postRepository = mockk<PostRepository>()
+    private val postInteractionsCache = FakePostInteractionsCache()
 
     private lateinit var isPlayingFlow: MutableStateFlow<Boolean>
     private lateinit var positionMsFlow: MutableStateFlow<Long>
@@ -649,7 +655,92 @@ internal class VideoPlayerViewModelTest {
             sharedVideoPlayer = holder,
             postRepository = postRepository,
             analytics = NoOpAnalyticsClient(),
+            postInteractionsCache = postInteractionsCache,
         )
+
+    @Test
+    fun openComments_setsIsCommentsOpen_andCancelsChromeAutoHide() =
+        runTest {
+            stubVideo()
+            val vm = newVm()
+            runCurrent()
+
+            vm.handleEvent(VideoPlayerEvent.OpenComments)
+            assertTrue(vm.uiState.value.isCommentsOpen)
+            assertTrue(vm.uiState.value.chromeVisible)
+
+            // Advance past auto-hide timeout: chrome stays visible while comments are open
+            advanceTimeBy(4_000L)
+            assertTrue(vm.uiState.value.chromeVisible)
+        }
+
+    @Test
+    fun dismissComments_resetsIsCommentsOpen_andSchedulesChromeAutoHide() =
+        runTest {
+            stubVideo()
+            val vm = newVm()
+            runCurrent()
+
+            vm.handleEvent(VideoPlayerEvent.OpenComments)
+            assertTrue(vm.uiState.value.isCommentsOpen)
+
+            vm.handleEvent(VideoPlayerEvent.DismissComments)
+            org.junit.jupiter.api.Assertions
+                .assertFalse(vm.uiState.value.isCommentsOpen)
+
+            advanceTimeBy(3_100L)
+            org.junit.jupiter.api.Assertions
+                .assertFalse(vm.uiState.value.chromeVisible)
+        }
+
+    @Test
+    fun onReplySubmitted_incrementsReplyCount() =
+        runTest {
+            stubVideo(stats = PostStatsUi(replyCount = 5))
+            val vm = newVm()
+            runCurrent()
+
+            assertEquals(
+                5,
+                vm.uiState.value.stats
+                    ?.replyCount,
+            )
+
+            vm.handleEvent(VideoPlayerEvent.OnReplySubmitted(parentUri = AT_URI))
+            assertEquals(
+                6,
+                vm.uiState.value.stats
+                    ?.replyCount,
+            )
+        }
+
+    @Test
+    fun likeClicked_callsPostInteractionsCache() =
+        runTest {
+            stubVideo()
+            val vm = newVm()
+            runCurrent()
+
+            vm.handleEvent(VideoPlayerEvent.LikeClicked)
+            runCurrent()
+
+            assertEquals(1, postInteractionsCache.toggleLikeCalls.size)
+            assertEquals(AT_URI to CID, postInteractionsCache.toggleLikeCalls.first())
+        }
+
+    @Test
+    fun repostClicked_callsPostInteractionsCache() =
+        runTest {
+            stubVideo()
+            val vm = newVm()
+            runCurrent()
+
+            vm.handleEvent(VideoPlayerEvent.RepostClicked)
+            runCurrent()
+
+            assertEquals(1, postInteractionsCache.toggleRepostCalls.size)
+            assertEquals(AT_URI to CID, postInteractionsCache.toggleRepostCalls.first())
+        }
 
     private companion object {
         const val AT_URI = "at://did:plc:abc/app.bsky.feed.post/3abc"
@@ -664,5 +755,47 @@ internal class VideoPlayerViewModelTest {
                 displayName = "Sana Okafor",
                 avatarUrl = null,
             )
+    }
+
+    private class FakePostInteractionsCache : PostInteractionsCache {
+        private val _state = MutableStateFlow<PersistentMap<String, PostInteractionState>>(persistentMapOf())
+        override val state: StateFlow<PersistentMap<String, PostInteractionState>> = _state.asStateFlow()
+
+        val seededPosts = mutableListOf<List<PostUi>>()
+        val toggleLikeCalls = mutableListOf<Pair<String, String>>()
+        val toggleRepostCalls = mutableListOf<Pair<String, String>>()
+
+        override fun seed(posts: List<PostUi>) {
+            seededPosts += posts
+        }
+
+        override suspend fun toggleLike(
+            postUri: String,
+            postCid: String,
+        ): Result<Unit> {
+            toggleLikeCalls += (postUri to postCid)
+            return Result.success(Unit)
+        }
+
+        override suspend fun toggleRepost(
+            postUri: String,
+            postCid: String,
+        ): Result<Unit> {
+            toggleRepostCalls += (postUri to postCid)
+            return Result.success(Unit)
+        }
+
+        override suspend fun toggleBookmark(
+            postUri: String,
+            postCid: String,
+        ): Result<Unit> = Result.success(Unit)
+
+        override fun markDeleted(postUri: String) {}
+
+        override fun clear() {}
+
+        fun emit(map: PersistentMap<String, PostInteractionState>) {
+            _state.value = map
+        }
     }
 }

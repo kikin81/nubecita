@@ -9,6 +9,11 @@
     <string name="video_player_back_content_description">Fechar player</string>
     <string name="video_player_seek_content_description">Ajustar posição do vídeo</string>
     <string name="video_player_pip_content_description">Reproduzir em uma janela flutuante</string>
+    <string name="video_player_action_like">Curtir</string>
+    <string name="video_player_action_repost">Repostar</string>
+    <string name="video_player_action_comments">Comentários</string>
+    <string name="video_player_reply_sent">Resposta enviada</string>
+    <string name="video_player_post_sent">Publicação enviada</string>
     <string name="video_player_loading_content_description">Carregando vídeo</string>
     <string name="video_player_error_network_title">Sem conexão</string>
     <string name="video_player_error_network_body">Verifique sua conexão e tente de novo.</string>

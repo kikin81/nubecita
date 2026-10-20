@@ -30,4 +30,6 @@
     <string name="videos_snackbar_overflow_unblock_coming_soon">Desbloquear: próximamente</string>
     <string name="videos_snackbar_overflow_mute_thread_coming_soon">Silenciar hilo: próximamente</string>
     <string name="videos_snackbar_overflow_unmute_thread_coming_soon">Dejar de silenciar el hilo: próximamente</string>
+    <string name="videos_reply_sent">Respuesta enviada</string>
+    <string name="videos_post_sent">Publicación enviada</string>
 </resources>

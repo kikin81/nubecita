@@ -38,4 +38,6 @@
     <string name="videos_snackbar_overflow_unblock_coming_soon">Unblock — coming soon</string>
     <string name="videos_snackbar_overflow_mute_thread_coming_soon">Mute thread — coming soon</string>
     <string name="videos_snackbar_overflow_unmute_thread_coming_soon">Unmute thread — coming soon</string>
+    <string name="videos_reply_sent">Reply sent</string>
+    <string name="videos_post_sent">Post sent</string>
 </resources>

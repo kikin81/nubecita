@@ -2,6 +2,7 @@
 
 package net.kikin.nubecita.feature.videos.impl
 
+import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
@@ -11,11 +12,14 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -44,14 +48,26 @@ import androidx.media3.common.Player
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
 import androidx.media3.ui.compose.state.rememberPresentationState
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
+import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.screen.KeepScreenOnWhile
+import net.kikin.nubecita.core.postinteractions.ui.comments.VideoCommentsEffect
+import net.kikin.nubecita.core.postinteractions.ui.comments.VideoCommentsEvent
+import net.kikin.nubecita.core.postinteractions.ui.comments.VideoCommentsSheetContent
+import net.kikin.nubecita.core.postinteractions.ui.comments.VideoCommentsViewModel
 import net.kikin.nubecita.core.video.playback.PlaylistPlaybackState
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.designsystem.adaptive.VideoCommentsSheetScaffold
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
+import net.kikin.nubecita.feature.composer.api.ComposerRoute
+import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
+import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.videos.impl.ui.VideoFeedPage
 import net.kikin.nubecita.feature.videos.impl.ui.VideoPageChrome
 import net.kikin.nubecita.feature.videos.impl.ui.VideoProgressBar
@@ -70,21 +86,52 @@ import net.kikin.nubecita.feature.videos.impl.ui.videoFeedSurfaceAspectRatio
  * page above the poster; its interactions are delegated to the shared
  * PostInteractionHandler. Tap gestures and playback progress land in PR3.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun VideoFeedScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: VideoFeedViewModel = hiltViewModel(),
-    isSheetSettledHidden: Boolean = true,
+    commentsViewModel: VideoCommentsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val commentsState by commentsViewModel.uiState.collectAsStateWithLifecycle()
     val activePlayer by viewModel.activePlayer.collectAsStateWithLifecycle()
     val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()
+
+    val sheetState =
+        rememberBottomSheetState(
+            initialValue = SheetValue.Hidden,
+            enabledValues = setOf(SheetValue.Hidden, SheetValue.PartiallyExpanded, SheetValue.Expanded),
+        )
+
+    val isSheetSettledHidden =
+        !state.isCommentsOpen ||
+            (sheetState.currentValue == SheetValue.Hidden && !sheetState.isAnimationRunning)
 
     // Only while genuinely playing. Buffering is excluded on purpose: a stall
     // on a dead network would otherwise hold the screen awake indefinitely,
     // and a real stall is far shorter than any screen timeout.
     KeepScreenOnWhile(playbackState is PlaylistPlaybackState.Playing)
+
+    // Auto-advance to next video when playback ends, suspended while comments sheet is open
+    DisposableEffect(activePlayer) {
+        val player = activePlayer
+        if (player == null) {
+            onDispose {}
+        } else {
+            val listener =
+                object : Player.Listener {
+                    override fun onPlaybackStateChanged(playbackState: Int) {
+                        if (playbackState == Player.STATE_ENDED) {
+                            viewModel.handleEvent(VideoFeedEvent.AutoAdvance)
+                        }
+                    }
+                }
+            player.addListener(listener)
+            onDispose { player.removeListener(listener) }
+        }
+    }
 
     // Drive the pool's decoder handoff off the surface lifecycle (release on background).
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -115,61 +162,142 @@ internal fun VideoFeedScreen(
         }
     }
 
-    Scaffold(
-        modifier = modifier,
-        containerColor = Color.Black,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { innerPadding ->
-        val contentModifier = Modifier.fillMaxSize().padding(innerPadding)
-        when (val status = state.status) {
-            VideoFeedStatus.Loading ->
-                Box(contentModifier, contentAlignment = Alignment.Center) { NubecitaWavyProgressIndicator() }
-
-            VideoFeedStatus.Error ->
-                Box(contentModifier, contentAlignment = Alignment.Center) {
-                    Button(onClick = { viewModel.handleEvent(VideoFeedEvent.Retry) }) {
-                        Text(stringResource(R.string.videos_retry))
-                    }
+    LaunchedEffect(commentsViewModel) {
+        commentsViewModel.effects.collect { effect ->
+            when (effect) {
+                is VideoCommentsEffect.NavigateToComposer -> {
+                    navState.add(ComposerRoute(replyToUri = effect.parentPostUri))
                 }
 
-            is VideoFeedStatus.Content -> {
-                VideoFeedContent(
-                    status = status,
-                    activeIndex = state.activeIndex,
-                    activePlayer = activePlayer,
-                    isPaused = state.isPaused,
-                    isMuted = state.isMuted,
-                    onActiveIndexChange = { settled ->
-                        viewModel.handleEvent(VideoFeedEvent.ActiveIndexChanged(settled))
-                    },
-                    onTogglePlayPause = { viewModel.handleEvent(VideoFeedEvent.TogglePlayPause) },
-                    onDoubleTapLike = { post ->
-                        if (!post.viewer.isLikedByViewer) haptics.likeOn()
-                        viewModel.handleEvent(VideoFeedEvent.DoubleTapLike(post))
-                    },
-                    onAuthorTap = { post -> viewModel.handleEvent(VideoFeedEvent.AuthorTapped(post)) },
-                    onLike = { post ->
-                        if (post.viewer.isLikedByViewer) haptics.likeOff() else haptics.likeOn()
-                        viewModel.onLike(post)
-                    },
-                    onRepost = { post ->
-                        if (post.viewer.isRepostedByViewer) haptics.repostOff() else haptics.repostOn()
-                        viewModel.onRepost(post)
-                    },
-                    onReply = { post -> callbacks.onReply(post) },
-                    onShare = { post -> callbacks.onShare(post) },
-                    onBookmark = { post ->
-                        if (post.viewer.isBookmarked) haptics.bookmarkOff() else haptics.bookmarkOn()
-                        callbacks.onBookmark(post)
-                    },
-                    onOverflowAction = callbacks.onOverflowAction,
-                    onMuteToggle = { viewModel.handleEvent(VideoFeedEvent.ToggleMute) },
-                    isSheetSettledHidden = isSheetSettledHidden,
-                    modifier = contentModifier,
-                )
+                is VideoCommentsEffect.ShowError -> {
+                    launch {
+                        snackbarHostState.showSnackbar(effect.message)
+                    }
+                }
             }
         }
     }
+
+    val composerSubmitEvents = LocalComposerSubmitEvents.current
+    val replySentMessage = stringResource(R.string.videos_reply_sent)
+    val postSentMessage = stringResource(R.string.videos_post_sent)
+    LaunchedEffect(composerSubmitEvents, viewModel, commentsViewModel) {
+        composerSubmitEvents.collectLatest { event ->
+            event.replyToUri?.let { parentUri ->
+                viewModel.handleEvent(VideoFeedEvent.OnReplySubmittedToParent(parentUri))
+            }
+            commentsViewModel.handleEvent(VideoCommentsEvent.OnComposerSubmitted(event))
+            val message =
+                if (event.replyToUri != null) replySentMessage else postSentMessage
+            snackbarHostState.currentSnackbarData?.dismiss()
+            snackbarHostState.showSnackbar(message = message)
+        }
+    }
+
+    // Predictive back gesture: smoothly dismisses comments sheet when open.
+    PredictiveBackHandler(enabled = state.isCommentsOpen) { progress ->
+        try {
+            progress.collect { /* progress updates */ }
+            viewModel.handleEvent(VideoFeedEvent.DismissComments)
+            commentsViewModel.handleEvent(VideoCommentsEvent.DismissComments)
+        } catch (_: CancellationException) {
+            // Back gesture cancelled
+        }
+    }
+
+    val onDismissComments = {
+        viewModel.handleEvent(VideoFeedEvent.DismissComments)
+        commentsViewModel.handleEvent(VideoCommentsEvent.DismissComments)
+    }
+
+    VideoCommentsSheetScaffold(
+        isCommentsOpen = state.isCommentsOpen,
+        onDismiss = onDismissComments,
+        sheetState = sheetState,
+        commentsContent = {
+            VideoCommentsSheetContent(
+                state = commentsState,
+                onLikeClick = { comment ->
+                    commentsViewModel.handleEvent(VideoCommentsEvent.LikeComment(comment.id))
+                },
+                onRetryClick = {
+                    commentsViewModel.handleEvent(VideoCommentsEvent.RetryLoad)
+                },
+                onRefresh = {
+                    commentsViewModel.handleEvent(VideoCommentsEvent.Refresh)
+                },
+                onOpenComposer = {
+                    commentsViewModel.handleEvent(VideoCommentsEvent.OpenComposer)
+                },
+                onAuthorClick = { author ->
+                    navState.add(Profile(handle = author.did))
+                },
+                onCommentClick = { comment ->
+                    navState.add(PostDetailRoute(postUri = comment.id))
+                },
+            )
+        },
+        videoContent = {
+            Scaffold(
+                modifier = modifier,
+                containerColor = Color.Black,
+                snackbarHost = { SnackbarHost(snackbarHostState) },
+            ) { innerPadding ->
+                val contentModifier = Modifier.fillMaxSize().padding(innerPadding)
+                when (val status = state.status) {
+                    VideoFeedStatus.Loading ->
+                        Box(contentModifier, contentAlignment = Alignment.Center) { NubecitaWavyProgressIndicator() }
+
+                    VideoFeedStatus.Error ->
+                        Box(contentModifier, contentAlignment = Alignment.Center) {
+                            Button(onClick = { viewModel.handleEvent(VideoFeedEvent.Retry) }) {
+                                Text(stringResource(R.string.videos_retry))
+                            }
+                        }
+
+                    is VideoFeedStatus.Content -> {
+                        VideoFeedContent(
+                            status = status,
+                            activeIndex = state.activeIndex,
+                            activePlayer = activePlayer,
+                            isPaused = state.isPaused,
+                            isMuted = state.isMuted,
+                            onActiveIndexChange = { settled ->
+                                viewModel.handleEvent(VideoFeedEvent.ActiveIndexChanged(settled))
+                            },
+                            onTogglePlayPause = { viewModel.handleEvent(VideoFeedEvent.TogglePlayPause) },
+                            onDoubleTapLike = { post ->
+                                if (!post.viewer.isLikedByViewer) haptics.likeOn()
+                                viewModel.handleEvent(VideoFeedEvent.DoubleTapLike(post))
+                            },
+                            onAuthorTap = { post -> viewModel.handleEvent(VideoFeedEvent.AuthorTapped(post)) },
+                            onLike = { post ->
+                                if (post.viewer.isLikedByViewer) haptics.likeOff() else haptics.likeOn()
+                                viewModel.onLike(post)
+                            },
+                            onRepost = { post ->
+                                if (post.viewer.isRepostedByViewer) haptics.repostOff() else haptics.repostOn()
+                                viewModel.onRepost(post)
+                            },
+                            onReply = { post ->
+                                viewModel.handleEvent(VideoFeedEvent.OpenComments(post))
+                                commentsViewModel.handleEvent(VideoCommentsEvent.OpenComments(post.id))
+                            },
+                            onShare = { post -> callbacks.onShare(post) },
+                            onBookmark = { post ->
+                                if (post.viewer.isBookmarked) haptics.bookmarkOff() else haptics.bookmarkOn()
+                                callbacks.onBookmark(post)
+                            },
+                            onOverflowAction = callbacks.onOverflowAction,
+                            onMuteToggle = { viewModel.handleEvent(VideoFeedEvent.ToggleMute) },
+                            isSheetSettledHidden = isSheetSettledHidden,
+                            modifier = contentModifier,
+                        )
+                    }
+                }
+            }
+        },
+    )
 }
 
 @Composable
