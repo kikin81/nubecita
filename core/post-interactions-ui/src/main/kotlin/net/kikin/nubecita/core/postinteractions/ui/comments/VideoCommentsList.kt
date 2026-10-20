@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -264,7 +265,7 @@ fun VideoCommentsList(
                     LazyColumn(
                         state = lazyListState,
                         contentPadding = contentPadding,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().testTag(VideoCommentsTestTags.COMMENTS_LIST),
                     ) {
                         items(
                             items = state.comments,
