@@ -142,6 +142,21 @@ class VideoCommentsViewModel
                         loadThread(uri, isInitial = false)
                     }
                 }
+
+                VideoCommentsEvent.OpenComposer -> {
+                    val uri = uiState.value.postUri
+                    if (uri != null) {
+                        sendEffect(VideoCommentsEffect.NavigateToComposer(uri))
+                    }
+                }
+
+                is VideoCommentsEvent.OnComposerSubmitted -> {
+                    val uri = uiState.value.postUri
+                    if (uri != null && event.event.replyToUri == uri) {
+                        setState { copy(isRefreshing = true) }
+                        loadThread(uri, isInitial = false)
+                    }
+                }
             }
         }
 

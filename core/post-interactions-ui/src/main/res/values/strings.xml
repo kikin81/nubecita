@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="video_comments_header_title">Comments</string>
+    <string name="video_comments_header_with_count">Comments (%1$d)</string>
+    <string name="video_comments_author_handle">\@%1$s</string>
+    <string name="video_comments_relative_time">· %1$s</string>
+    <string name="video_comments_author_meta">\@%1$s · %2$s</string>
+    <string name="video_comments_empty_title">No comments yet</string>
+    <string name="video_comments_empty_subtitle">Be the first to reply!</string>
+    <string name="video_comments_error_title">Couldn\'t load comments</string>
+    <string name="video_comments_retry">Retry</string>
+    <string name="video_comments_loading">Loading comments…</string>
+    <string name="video_comments_like_action">Like</string>
+    <string name="video_comments_docked_pill_placeholder">Add a comment…</string>
+    <string name="video_comments_docked_pill_action">Add a comment</string>
+    <string name="video_comments_send">Send</string>
+</resources>
