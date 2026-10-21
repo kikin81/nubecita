@@ -15,10 +15,10 @@
 
 ## Layer 3: Surfaces Integration & Lifecycle (`feat/nubecita-76q8-video-comments-sheet`)
 
-- [ ] 3.1 Integrate `VideoCommentsSheetScaffold` into `VideoFeedScreen`. Wire `VideoPageChrome` comment CTA with settled-page guard resolved against active filtered list (`status.items[page]`), suspend feed auto-advance while sheet is open, and suspend chrome auto-fade during loading (`nubecita-76q8.6`). Unit test: `VideoFeedViewModelTest` verifies comment trigger and auto-advance suspension.
-- [ ] 3.2 Integrate `VideoCommentsSheetScaffold` into `VideoPlayerScreen` and wire social action group comment CTA to toggle sheet via outer shell navigator (`nubecita-76q8.7`). Screenshot test: detail player with open comments sheet in Compact, Medium, and Expanded.
-- [ ] 3.3 Wire `PredictiveBackHandler(enabled = isCommentsSheetOpen)` with gesture progress collection to translate sheet offset interactively, with `BackHandler` fallback on older APIs (`nubecita-76q8.8`). Unit test: predictive back progress updates sheet offset.
-- [ ] 3.4 Integrate with `LocalPipController` / `rememberIsInPipMode()` to instantly snap comments sheet to `Hidden` (no animation) upon PiP entry to prevent sheet capture in the PiP window snapshot (`nubecita-76q8.8`). Unit test: PiP transition triggers instant sheet drop.
+- [x] 3.1 Integrate `VideoCommentsSheetScaffold` into `VideoFeedScreen`. Wire `VideoPageChrome` comment CTA with settled-page guard resolved against active filtered list (`status.items[page]`), suspend feed auto-advance while sheet is open, and suspend chrome auto-fade during loading (`nubecita-76q8.6`). Unit test: `VideoFeedViewModelTest` verifies comment trigger and auto-advance suspension.
+- [x] 3.2 Integrate `VideoCommentsSheetScaffold` into `VideoPlayerScreen` and wire social action group comment CTA to toggle sheet via outer shell navigator (`nubecita-76q8.7`). Screenshot test: detail player with open comments sheet in Compact, Medium, and Expanded.
+- [x] 3.3 Wire `PredictiveBackHandler(enabled = isCommentsSheetOpen)` with gesture progress collection to translate sheet offset interactively, with `BackHandler` fallback on older APIs (`nubecita-76q8.8`). Unit test: predictive back progress updates sheet offset.
+- [x] 3.4 Integrate with `LocalPipController` / `rememberIsInPipMode()` to instantly snap comments sheet to `Hidden` (no animation) upon PiP entry to prevent sheet capture in the PiP window snapshot (`nubecita-76q8.8`). Unit test: PiP transition triggers instant sheet drop.
 
 ## Layer 4: Verification, Benchmarks & Phase 2 Spike (`test/nubecita-76q8-benchmarks-and-spike`)
 

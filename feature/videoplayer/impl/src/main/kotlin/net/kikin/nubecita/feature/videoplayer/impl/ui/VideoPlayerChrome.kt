@@ -5,6 +5,8 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +29,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,16 +38,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import net.kikin.nubecita.core.common.text.rememberCompactCount
 import net.kikin.nubecita.designsystem.component.NubecitaOverlayIconButton
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.designsystem.semanticColors
 import net.kikin.nubecita.feature.videoplayer.impl.R
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerError
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerEvent
@@ -217,6 +225,10 @@ internal fun VideoPlayerChrome(
                     style = MaterialTheme.typography.labelMedium,
                 )
             }
+            VideoPlayerActionGroup(
+                state = state,
+                onEvent = onEvent,
+            )
         }
     }
 }
@@ -433,6 +445,113 @@ internal fun VideoPlayerErrorBody(
         )
         OutlinedButton(onClick = onRetry) {
             Text(stringResource(R.string.video_player_error_retry))
+        }
+    }
+}
+
+@Composable
+internal fun VideoPlayerActionGroup(
+    state: VideoPlayerState,
+    onEvent: (VideoPlayerEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val stats = state.stats
+    val viewer = state.viewer
+    val isLiked = viewer?.isLikedByViewer == true
+    val isReposted = viewer?.isRepostedByViewer == true
+
+    Row(
+        modifier =
+            modifier
+                .clip(CircleShape)
+                .background(MaterialTheme.semanticColors.videoOverlayScrim, CircleShape)
+                .border(1.dp, MaterialTheme.semanticColors.onVideoOverlay.copy(alpha = 0.16f), CircleShape),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        VideoPlayerActionItem(
+            icon = NubecitaIconName.Favorite,
+            count = stats?.likeCount?.toLong(),
+            active = isLiked,
+            activeColor = MaterialTheme.semanticColors.likeAccent,
+            accessibilityLabel = stringResource(R.string.video_player_action_like),
+            onClick = { onEvent(VideoPlayerEvent.LikeClicked) },
+            testTag = "video_player_like_button",
+        )
+
+        Box(
+            modifier =
+                Modifier
+                    .size(width = 1.dp, height = 20.dp)
+                    .background(MaterialTheme.semanticColors.onVideoOverlay.copy(alpha = 0.16f)),
+        )
+
+        VideoPlayerActionItem(
+            icon = NubecitaIconName.Repeat,
+            count = stats?.repostCount?.toLong(),
+            active = isReposted,
+            activeColor = MaterialTheme.semanticColors.repostAccent,
+            accessibilityLabel = stringResource(R.string.video_player_action_repost),
+            onClick = { onEvent(VideoPlayerEvent.RepostClicked) },
+            testTag = "video_player_repost_button",
+        )
+
+        Box(
+            modifier =
+                Modifier
+                    .size(width = 1.dp, height = 20.dp)
+                    .background(MaterialTheme.semanticColors.onVideoOverlay.copy(alpha = 0.16f)),
+        )
+
+        VideoPlayerActionItem(
+            icon = NubecitaIconName.ChatBubble,
+            count = stats?.replyCount?.toLong(),
+            active = state.isCommentsOpen,
+            activeColor = MaterialTheme.colorScheme.primary,
+            accessibilityLabel = stringResource(R.string.video_player_action_comments),
+            onClick = { onEvent(VideoPlayerEvent.OpenComments) },
+            testTag = "video_player_comment_button",
+        )
+    }
+}
+
+@Composable
+private fun VideoPlayerActionItem(
+    icon: NubecitaIconName,
+    accessibilityLabel: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    count: Long? = null,
+    active: Boolean = false,
+    activeColor: Color? = null,
+    testTag: String? = null,
+) {
+    val contentColor = MaterialTheme.semanticColors.onVideoOverlay
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier =
+            modifier
+                .minimumInteractiveComponentSize()
+                .clickable(
+                    role = Role.Button,
+                    onClickLabel = accessibilityLabel,
+                    onClick = onClick,
+                ).then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+    ) {
+        NubecitaIcon(
+            name = icon,
+            contentDescription = null,
+            filled = active,
+            tint = if (active) activeColor ?: contentColor else contentColor,
+            opticalSize = 18.dp,
+        )
+        if (count != null && count > 0L) {
+            Text(
+                text = rememberCompactCount(count),
+                style = MaterialTheme.typography.labelMedium,
+                color = if (active) activeColor ?: contentColor else contentColor,
+            )
         }
     }
 }

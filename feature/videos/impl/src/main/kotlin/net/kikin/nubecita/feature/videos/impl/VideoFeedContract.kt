@@ -44,6 +44,9 @@ data class VideoFeedState(
     val activeIndex: Int = 0,
     val isMuted: Boolean = false,
     val isPaused: Boolean = false,
+    val isCommentsOpen: Boolean = false,
+    val activeCommentsPost: PostUi? = null,
+    val isAutoAdvanceSuspended: Boolean = false,
 ) : UiState
 
 sealed interface VideoFeedEvent : UiEvent {
@@ -75,6 +78,27 @@ sealed interface VideoFeedEvent : UiEvent {
     /** The post itself was tapped (e.g. the reply affordance) — open the thread. */
     data class PostTapped(
         val post: PostUi,
+    ) : VideoFeedEvent
+
+    /** Tapped comment action on settled video post — open comments sheet. */
+    data class OpenComments(
+        val post: PostUi,
+    ) : VideoFeedEvent
+
+    /** Dismiss the comments sheet. */
+    data object DismissComments : VideoFeedEvent
+
+    /**
+     * Advance to the next video item in the feed when current video completes.
+     * Suspended (no-op) when comments sheet is open or [isAutoAdvanceSuspended] is true.
+     */
+    data object AutoAdvance : VideoFeedEvent
+
+    /**
+     * Optimistic reply count increment on parent video after composer submit.
+     */
+    data class OnReplySubmittedToParent(
+        val parentUri: String,
     ) : VideoFeedEvent
 }
 

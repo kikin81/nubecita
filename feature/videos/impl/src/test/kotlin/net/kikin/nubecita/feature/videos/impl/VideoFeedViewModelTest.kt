@@ -655,6 +655,76 @@ class VideoFeedViewModelTest {
             verify(exactly = 0) { handler.onLike(any()) }
         }
 
+    @Test
+    fun openComments_setsIsCommentsOpen_andSuspendsAutoAdvance() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(listOf(videoPost("a")), cursor = null))
+            val viewModel = vm()
+            advanceUntilIdle()
+
+            val postA = videoPost("a")
+            viewModel.handleEvent(VideoFeedEvent.OpenComments(postA))
+
+            val state = viewModel.uiState.value
+            assertTrue(state.isCommentsOpen)
+            assertEquals("a", state.activeCommentsPost?.id)
+            assertTrue(state.isAutoAdvanceSuspended)
+
+            viewModel.handleEvent(VideoFeedEvent.DismissComments)
+
+            val dismissedState = viewModel.uiState.value
+            assertFalse(dismissedState.isCommentsOpen)
+            assertEquals(null, dismissedState.activeCommentsPost)
+            assertFalse(dismissedState.isAutoAdvanceSuspended)
+        }
+
+    @Test
+    fun autoAdvance_advancesActiveIndex_onlyWhenNotSuspended() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(listOf(videoPost("a"), videoPost("b")), cursor = null))
+            val viewModel = vm()
+            advanceUntilIdle()
+
+            assertEquals(0, viewModel.uiState.value.activeIndex)
+
+            // When comments sheet is open, AutoAdvance is suspended (no-op)
+            viewModel.handleEvent(VideoFeedEvent.OpenComments(videoPost("a")))
+            viewModel.handleEvent(VideoFeedEvent.AutoAdvance)
+            advanceUntilIdle()
+
+            assertEquals(0, viewModel.uiState.value.activeIndex)
+
+            // Once comments are dismissed, AutoAdvance proceeds to next video
+            viewModel.handleEvent(VideoFeedEvent.DismissComments)
+            viewModel.handleEvent(VideoFeedEvent.AutoAdvance)
+            advanceUntilIdle()
+
+            assertEquals(1, viewModel.uiState.value.activeIndex)
+        }
+
+    @Test
+    fun onReplySubmittedToParent_incrementsReplyCountOnParentPost() =
+        runTest(mainDispatcher.dispatcher) {
+            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(listOf(videoPost("a")), cursor = null))
+            val viewModel = vm()
+            advanceUntilIdle()
+
+            val postA = videoPost("a")
+            assertEquals(0, postA.stats.replyCount)
+
+            viewModel.handleEvent(VideoFeedEvent.OpenComments(postA))
+            viewModel.handleEvent(VideoFeedEvent.OnReplySubmittedToParent("a"))
+
+            val state = viewModel.uiState.value
+            val content = state.status as VideoFeedStatus.Content
+            assertEquals(
+                1,
+                content.items[0]
+                    .post.stats.replyCount,
+            )
+            assertEquals(1, state.activeCommentsPost?.stats?.replyCount)
+        }
+
     // --- fixtures ---
 
     private fun videoPost(id: String): PostUi =

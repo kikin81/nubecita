@@ -45,6 +45,7 @@ internal data class VideoPlayerState(
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
     val chromeVisible: Boolean = true,
+    val isCommentsOpen: Boolean = false,
     /**
      * The resolved post's social metadata (nubecita-6rdb.2). Null until
      * the post resolves; populated together when [loadStatus] reaches
@@ -104,6 +105,18 @@ internal sealed interface VideoPlayerEvent : UiEvent {
     data object BackClicked : VideoPlayerEvent
 
     data object RetryClicked : VideoPlayerEvent
+
+    data object OpenComments : VideoPlayerEvent
+
+    data object DismissComments : VideoPlayerEvent
+
+    data class OnReplySubmitted(
+        val parentUri: String,
+    ) : VideoPlayerEvent
+
+    data object LikeClicked : VideoPlayerEvent
+
+    data object RepostClicked : VideoPlayerEvent
 }
 
 internal sealed interface VideoPlayerEffect : UiEffect {
