@@ -44,6 +44,7 @@
     <string name="video_poster_default_content_description">Reproducir video</string>
     <string name="nubecita_detail_pane_select_post">Selecciona una publicación para leer</string>
     <string name="nubecita_detail_pane_select_conversation">Selecciona una conversación</string>
+    <string name="nubecita_detail_pane_select_notification">Selecciona una notificación para ver los detalles</string>
     <string name="media_warning_sensitive">Contenido sensible</string>
     <string name="media_warning_show">Mostrar de todos modos</string>
     <string name="media_warning_cat_adult">Contenido para adultos</string>

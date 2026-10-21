@@ -39,6 +39,7 @@ dependencies {
     // against the process-wide lifecycle so polling pauses on backgrounding
     // and resumes on foregrounding.
     implementation(libs.androidx.lifecycle.process)
+    implementation(libs.androidx.compose.material3.adaptive.navigation3)
     // repeatOnLifecycle extension — needed by NotificationsPollingObserver.
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.atproto.models)

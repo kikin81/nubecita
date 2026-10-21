@@ -67,9 +67,12 @@ internal fun NotificationRow(
     onClick: () -> Unit,
     onAvatarStackClick: () -> Unit,
     modifier: Modifier = Modifier,
+    selected: Boolean = false,
 ) {
     val backgroundColor =
-        if (item.isRead) {
+        if (selected) {
+            MaterialTheme.colorScheme.secondaryContainer
+        } else if (item.isRead) {
             MaterialTheme.colorScheme.surface
         } else {
             MaterialTheme.colorScheme.surfaceContainerLow
