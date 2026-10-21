@@ -22,6 +22,6 @@
 
 ## Layer 4: Verification, Benchmarks & Phase 2 Spike (`test/nubecita-76q8-benchmarks-and-spike`)
 
-- [ ] 4.1 Produce architectural blueprint and spike report for extracting headless composer state (`:core:composer-engine`) to enable inline text commenting directly in the sheet (`nubecita-76q8.9`).
-- [ ] 4.2 Run full unit test suite and generate checked-in screenshot baselines across Compact, Medium, and Expanded configurations (`nubecita-76q8.10`).
-- [ ] 4.3 Add Macrobenchmark measuring frame timing during sheet drag over active video playback to confirm 120Hz frame pacing, pre-resolving all UIAutomator selectors in setup prior to `measureRepeated` (`nubecita-76q8.10`).
+- [x] 4.1 Produce architectural blueprint and spike report for extracting headless composer state (`:core:composer-engine`) to enable inline text commenting directly in the sheet (`nubecita-76q8.9`).
+- [x] 4.2 Run full unit test suite and generate checked-in screenshot baselines across Compact, Medium, and Expanded configurations (`nubecita-76q8.10`).
+- [x] 4.3 Add Macrobenchmark measuring frame timing during sheet drag over active video playback to confirm 120Hz frame pacing, pre-resolving all UIAutomator selectors in setup prior to `measureRepeated` (`nubecita-76q8.10`).

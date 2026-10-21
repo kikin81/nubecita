@@ -102,3 +102,24 @@ internal const val VIDEO_FEED_RES_ID: String = "video_feed"
  * the shape of a green number that means nothing (nubecita-6rdb.15).
  */
 internal const val VIDEO_FEED_RAIL_LIKE_RES_ID: String = "video_feed_like"
+
+/**
+ * The vertical feed's right-rail reply/comment cell — pinned to
+ * `VideoFeedTestTags.RAIL_REPLY` by `:feature:videos:impl/VideoFeedTestTagsTest`.
+ * Tapped in `setupBlock` of `VideoCommentsSheetBenchmark` to present the sheet.
+ */
+internal const val VIDEO_FEED_RAIL_REPLY_RES_ID: String = "video_feed_reply"
+
+/**
+ * The comments sheet's scrollable `LazyColumn` — pinned to
+ * `VideoCommentsTestTags.COMMENTS_LIST` by
+ * `:core:post-interactions-ui/VideoCommentsTestTagsTest`.
+ */
+internal const val VIDEO_COMMENTS_LIST_RES_ID: String = "video_comments_list"
+
+/**
+ * The docked comment pill at the bottom of the sheet — pinned to
+ * `VideoCommentsTestTags.DOCKED_PILL` by
+ * `:core:post-interactions-ui/VideoCommentsTestTagsTest`.
+ */
+internal const val DOCKED_COMMENT_PILL_RES_ID: String = "docked_comment_pill"
