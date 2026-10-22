@@ -2,11 +2,13 @@ package net.kikin.nubecita.designsystem.component
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -54,6 +56,9 @@ import kotlin.time.Instant
  * @param hasEllipsis Whether to render a [ThreadFold] between root and
  *   parent. Wired from the mapper's grandparentAuthor heuristic — see
  *   `add-feed-cross-author-thread-cluster` design decision D5.
+ * @param showBottomDivider Whether to render a hairline [HorizontalDivider]
+ *   below the cluster content and optional footer. Defaults to `true` to
+ *   match the contiguous feed reading flow.
  * @param leafVideoEmbedSlot Forwarded to the leaf `PostCard`. Root and
  *   parent receive `null`.
  * @param leafQuotedVideoEmbedSlot Forwarded to the leaf `PostCard`'s quoted
@@ -69,12 +74,13 @@ fun ThreadCluster(
     modifier: Modifier = Modifier,
     callbacks: PostCallbacks = PostCallbacks.None,
     hasEllipsis: Boolean = false,
+    showBottomDivider: Boolean = true,
     // Surface tokens exposed as params so feed call sites (inside
     // LazyColumn items) can hoist the CompositionLocal reads ONCE at the
     // outer scope and pass the cached values per item. Defaults still
     // read MaterialTheme so previews / standalone callers Just Work.
-    color: Color = MaterialTheme.colorScheme.surfaceContainer,
-    shape: Shape = MaterialTheme.shapes.medium,
+    color: Color = MaterialTheme.colorScheme.surface,
+    shape: Shape = RectangleShape,
     leafVideoEmbedSlot: (@Composable (EmbedUi.Video, cover: MediaCover?) -> Unit)? = null,
     leafQuotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null,
     onFoldTap: () -> Unit = {},
@@ -154,6 +160,9 @@ fun ThreadCluster(
                 onRevealMedia = { onRevealMedia(leaf.id) },
             )
             footer?.invoke()
+            if (showBottomDivider) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
         }
     }
 }
