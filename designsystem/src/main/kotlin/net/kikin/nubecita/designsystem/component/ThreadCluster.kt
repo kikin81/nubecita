@@ -56,6 +56,9 @@ import kotlin.time.Instant
  * @param hasEllipsis Whether to render a [ThreadFold] between root and
  *   parent. Wired from the mapper's grandparentAuthor heuristic — see
  *   `add-feed-cross-author-thread-cluster` design decision D5.
+ * @param showBottomDivider Whether to render a hairline [HorizontalDivider]
+ *   below the cluster content and optional footer. Defaults to `true` to
+ *   match the contiguous feed reading flow.
  * @param leafVideoEmbedSlot Forwarded to the leaf `PostCard`. Root and
  *   parent receive `null`.
  * @param leafQuotedVideoEmbedSlot Forwarded to the leaf `PostCard`'s quoted
@@ -71,6 +74,7 @@ fun ThreadCluster(
     modifier: Modifier = Modifier,
     callbacks: PostCallbacks = PostCallbacks.None,
     hasEllipsis: Boolean = false,
+    showBottomDivider: Boolean = true,
     // Surface tokens exposed as params so feed call sites (inside
     // LazyColumn items) can hoist the CompositionLocal reads ONCE at the
     // outer scope and pass the cached values per item. Defaults still
@@ -156,7 +160,9 @@ fun ThreadCluster(
                 onRevealMedia = { onRevealMedia(leaf.id) },
             )
             footer?.invoke()
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            if (showBottomDivider) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
         }
     }
 }

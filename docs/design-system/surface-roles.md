@@ -8,14 +8,14 @@ Reading order top→bottom is back→front in the visual stack.
 |---|---|---|
 | **Screen canvas** | `surface` | Scaffold root, modal root, full-screen routes, and timeline feed posts (continuous reading flow). Every screen paints exactly one canvas root. |
 | **Item card / Notice** | `surfaceContainer` | Discrete content cards or passive notices sitting on the canvas: settings sections, chat convo rows, post-position placeholders (`BlockedPostCard`, `NotFoundPostCard`). |
-| **Recessed inset** | `surfaceContainerLow` | Anything nested *inside* a post or item card: quoted posts, external link embeds, "record unavailable" / "unsupported embed" placeholders inside a post body. In dark mode this token is darker than `surfaceContainer`, producing the carved-in feel. |
+| **Recessed inset** | `surfaceContainerLow` | Anything nested *inside* a post or item card: quoted posts, external link embeds, "record unavailable" / "unsupported embed" placeholders inside a post body. Relative to an item card on `surfaceContainer`, this token is darker in dark mode (producing the carved-in feel); when nested inside timeline posts on `surface`, it provides a subtle, readable contrast boundary in both light and dark themes. |
 | **Raised affordance** | `surfaceContainerHigh` | Things sitting on top of an item card: chat message bubbles, day-separator chips, video-poster top gradient stop. Also the **segments of a connected/segmented list** (`NubecitaListGroup` / M3 `SegmentedListItem`, e.g. Settings sections): the 2dp gaps expose the canvas between segments, so the raised tone keeps each segment legible on dark where `surfaceContainer` sits too close to the near-black canvas. |
 | **Strong fill** | `surfaceContainerHighest` | Thumbnail placeholders, shimmer base, image-load placeholders, character-counter track, disabled fills. Independent of nesting depth. |
 | **Reserved** | `surfaceDim`, `surfaceBright`, `surfaceContainerLowest` | Documented unused in v1. Code review enforces — a custom lint rule was considered (workstream 4) and deferred indefinitely per the nubecita-zw4k decision. |
 
 ## Structural rule
 
-> **Anything nested directly inside an item card uses the recessed-inset role**, with one exception: thumbnail / shimmer / placeholder fills always use the strong-fill role regardless of nesting depth.
+> **Anything nested directly inside a post or item card uses the recessed-inset role**, with one exception: thumbnail / shimmer / placeholder fills always use the strong-fill role regardless of nesting depth.
 
 This is the rule reviewers apply. Code review enforces the nesting check, the reserved-token check, and the `Scaffold` `containerColor` check. A custom lint rule for the mechanizable parts was considered (workstream 4) and deferred indefinitely per the nubecita-zw4k decision — the cascade is fully in place across the codebase and review discipline is sufficient until drift becomes a real problem.
 
