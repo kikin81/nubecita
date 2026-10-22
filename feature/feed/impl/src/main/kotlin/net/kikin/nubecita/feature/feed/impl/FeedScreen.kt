@@ -8,8 +8,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallExtendedFloatingActionButton
@@ -47,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -347,13 +349,11 @@ internal fun FeedScreenContent(
 
     // Hoist the per-card Surface tokens above the LazyColumn so each
     // visible item doesn't re-subscribe to LocalColorScheme /
-    // LocalShapes individually. Per Compose perf docs: "CompositionLocal
-    // lookups can cause unnecessary recompositions if used inside a lazy
-    // list item." One subscription for the screen vs. one per visible
-    // post on theme change. Passed into Surface wraps below and into
-    // ThreadCluster's new color/shape params.
-    val cardColor = MaterialTheme.colorScheme.surfaceContainer
-    val cardShape = MaterialTheme.shapes.medium
+    // LocalShapes individually. Per Option A, feed posts render flush on the
+    // screen canvas (surface) with rectangular shape, separated by dividers,
+    // avoiding the "unread/actionable tile" look of isolated container cards.
+    val cardColor = MaterialTheme.colorScheme.surface
+    val cardShape = RectangleShape
 
     val hasSelector = showChipRow && (feedChips.isNotEmpty() || pinnedLists.isNotEmpty() || status == FeedHostStatus.Loading)
     val nestedScrollModifier =
@@ -479,7 +479,6 @@ internal fun FeedScreenContent(
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = effectivePadding,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(count = SHIMMER_PREVIEW_COUNT, key = { "shimmer-$it" }) { index ->
                         Surface(
@@ -487,7 +486,10 @@ internal fun FeedScreenContent(
                             shape = cardShape,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            PostCardShimmer(showImagePlaceholder = index % 2 == 0)
+                            Column {
+                                PostCardShimmer(showImagePlaceholder = index % 2 == 0)
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            }
                         }
                     }
                 }

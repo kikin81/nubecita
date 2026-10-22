@@ -1,6 +1,5 @@
 package net.kikin.nubecita.feature.feed.impl.ui
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -9,6 +8,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
@@ -137,10 +137,12 @@ internal fun PostFeedList(
             // pagination snapshotFlow's visibleItemsInfo already accounts
             // for contentPadding so the prefetch threshold is unaffected.
             contentPadding = contentPadding,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (header != null) {
-                item(key = "feed-header", contentType = "feed-header") { header() }
+                item(key = "feed-header", contentType = "feed-header") {
+                    header()
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
             }
             items(
                 items = feedItems,
@@ -305,6 +307,7 @@ internal fun PostFeedList(
                                     count = item.suppressedReplyCount,
                                     onClick = { callbacks.onTap(item.post) },
                                 )
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             }
                         }
                     is FeedItemUi.ReplyCluster ->
@@ -382,6 +385,7 @@ internal fun PostFeedList(
                                     count = item.suppressedReplyCount,
                                     onClick = { callbacks.onTap(item.posts.last()) },
                                 )
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             }
                         }
                     }
