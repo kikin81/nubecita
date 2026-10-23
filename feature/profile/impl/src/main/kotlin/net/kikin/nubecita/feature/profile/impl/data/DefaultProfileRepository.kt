@@ -354,36 +354,48 @@ internal class DefaultProfileRepository
             selfDid: String,
             plan: LinkWritePlan,
         ): List<JsonObject> =
-            plan.writes.map { write ->
-                val link = write.link
-                when (write) {
-                    is LinkWrite.Reuse -> strongRef(requireNotNull(link.uri), requireNotNull(link.cid))
-                    is LinkWrite.Create -> {
-                        val response =
-                            repo.createRecord(
-                                CreateRecordRequest(
-                                    collection = Nsid(LINK_NSID),
-                                    repo = AtIdentifier(selfDid),
-                                    record = buildLinkRecord(repo, link),
-                                ),
-                            )
-                        strongRef(response.uri.raw, response.cid.raw)
-                    }
-                    is LinkWrite.Put -> {
-                        val uri = requireNotNull(link.uri)
-                        val response =
-                            repo.putRecord(
-                                PutRecordRequest(
-                                    collection = Nsid(LINK_NSID),
-                                    repo = AtIdentifier(selfDid),
-                                    rkey = RecordKey(uri.substringAfterLast('/')),
-                                    record = buildLinkRecord(repo, link),
-                                ),
-                            )
-                        strongRef(response.uri.raw, response.cid.raw)
-                    }
+            // Independent writes run concurrently; awaitAll keeps display order.
+            // Any failure cancels the rest and fails the save before the profile write.
+            coroutineScope {
+                plan.writes
+                    .map { write -> async { writeLinkRecord(repo, selfDid, write) } }
+                    .awaitAll()
+            }
+
+        private suspend fun writeLinkRecord(
+            repo: RepoService,
+            selfDid: String,
+            write: LinkWrite,
+        ): JsonObject {
+            val link = write.link
+            return when (write) {
+                is LinkWrite.Reuse -> strongRef(requireNotNull(link.uri), requireNotNull(link.cid))
+                is LinkWrite.Create -> {
+                    val response =
+                        repo.createRecord(
+                            CreateRecordRequest(
+                                collection = Nsid(LINK_NSID),
+                                repo = AtIdentifier(selfDid),
+                                record = buildLinkRecord(repo, link),
+                            ),
+                        )
+                    strongRef(response.uri.raw, response.cid.raw)
+                }
+                is LinkWrite.Put -> {
+                    val uri = requireNotNull(link.uri)
+                    val response =
+                        repo.putRecord(
+                            PutRecordRequest(
+                                collection = Nsid(LINK_NSID),
+                                repo = AtIdentifier(selfDid),
+                                rkey = RecordKey(uri.substringAfterLast('/')),
+                                record = buildLinkRecord(repo, link),
+                            ),
+                        )
+                    strongRef(response.uri.raw, response.cid.raw)
                 }
             }
+        }
 
         /**
          * The `app.bsky.actor.link` body for a create / put. A put merges onto
@@ -426,26 +438,32 @@ internal class DefaultProfileRepository
                 null
             }
 
-        /** Deletes unreferenced link records. Best-effort: an orphan is invisible. */
+        /** Deletes unreferenced link records, concurrently. Best-effort: an orphan is invisible. */
         private suspend fun deleteLinkRecords(
             repo: RepoService,
             selfDid: String,
             uris: List<String>,
         ) {
-            uris.forEach { uri ->
-                try {
-                    repo.deleteRecord(
-                        DeleteRecordRequest(
-                            collection = Nsid(LINK_NSID),
-                            repo = AtIdentifier(selfDid),
-                            rkey = RecordKey(uri.substringAfterLast('/')),
-                        ),
-                    )
-                } catch (cancellation: CancellationException) {
-                    throw cancellation
-                } catch (throwable: Throwable) {
-                    Timber.tag(TAG).w("link record delete failed: %s", throwable.javaClass.name)
-                }
+            if (uris.isEmpty()) return
+            coroutineScope {
+                uris
+                    .map { uri ->
+                        async {
+                            try {
+                                repo.deleteRecord(
+                                    DeleteRecordRequest(
+                                        collection = Nsid(LINK_NSID),
+                                        repo = AtIdentifier(selfDid),
+                                        rkey = RecordKey(uri.substringAfterLast('/')),
+                                    ),
+                                )
+                            } catch (cancellation: CancellationException) {
+                                throw cancellation
+                            } catch (throwable: Throwable) {
+                                Timber.tag(TAG).w("link record delete failed: %s", throwable.javaClass.name)
+                            }
+                        }
+                    }.awaitAll()
             }
         }
 

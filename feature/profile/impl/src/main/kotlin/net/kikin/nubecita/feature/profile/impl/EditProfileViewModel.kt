@@ -244,13 +244,17 @@ internal class EditProfileViewModel
             }
         }
 
-        /** True when [input] normalizes to a URL another draft link (not [editingId]) already has. */
-        private fun isDuplicate(
+        /**
+         * True when [input] normalizes to a URL another draft link (not [editingId])
+         * already has. A receiver function so reducers read the state being reduced,
+         * never `uiState.value`.
+         */
+        private fun EditProfileViewState.isDuplicate(
             input: String,
             editingId: String?,
         ): Boolean {
             val url = normalizeLinkUrl(input) ?: return false
-            return uiState.value.links.any { it.localId != editingId && it.url.equals(url, ignoreCase = true) }
+            return links.any { it.localId != editingId && it.url.equals(url, ignoreCase = true) }
         }
 
         private fun onBackPressed() {
@@ -287,7 +291,8 @@ internal class EditProfileViewModel
             }
         }
 
-        private fun dirty(
+        /** A receiver function so reducers stay pure functions of the state being reduced. */
+        private fun EditProfileViewState.dirty(
             displayName: String,
             description: String,
             avatar: ImageSlot,
@@ -298,7 +303,7 @@ internal class EditProfileViewModel
                 description != initialDescription ||
                 avatar != initialAvatar ||
                 banner != initialBanner ||
-                (uiState.value.linksStatus == LinksLoadStatus.Loaded && links != initialLinks)
+                (linksStatus == LinksLoadStatus.Loaded && links != initialLinks)
 
         /** Only a loaded, changed list is ever written; anything else is [LinksChange.Unchanged]. */
         private fun EditProfileViewState.toLinksChange(): LinksChange =
