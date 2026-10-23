@@ -89,6 +89,8 @@ data class ProfileScreenViewState(
     val verifiers: ImmutableList<VerifierUi> = persistentListOf(),
     val resolvedVerifierRefs: ImmutableList<VerifierRef>? = null,
     val verifiersError: Boolean = false,
+    /** Whether the "+N" profile-links overflow sheet is open. */
+    val linksSheetVisible: Boolean = false,
 ) : UiState {
     /**
      * Whether to render the Pro "Supporter" badge on the hero. True only
@@ -294,6 +296,33 @@ data class ProfileHeaderUi(
      * the count/dates are known. Empty when the profile is unverified.
      */
     val verifierRefs: ImmutableList<VerifierRef> = persistentListOf(),
+    /**
+     * The profile's links (`app.bsky.actor.defs#profileLinkView`), in display
+     * order, with links the viewer's moderation prefs hide or warn on already
+     * dropped by the mapper. Empty when the profile has none.
+     */
+    val links: ImmutableList<ProfileLinkUi> = persistentListOf(),
+)
+
+/**
+ * One profile link, UI-ready. Mapped from `ProfileLinkView` by
+ * [net.kikin.nubecita.feature.profile.impl.data.AuthorProfileMapper].
+ *
+ * - [uri]: the `app.bsky.actor.link` record's AT URI — the stable key.
+ * - [label]: the custom title when set, else [host] (full, untruncated; pills
+ *   truncate at render time, the overflow sheet shows it whole).
+ * - [host]: the destination host minus `www.`, for a11y labels so a custom
+ *   title can't disguise where the link goes.
+ * - [isSupportLink]: points at a recognized support platform → emphasized pill.
+ */
+@Immutable
+data class ProfileLinkUi(
+    val uri: String,
+    val url: String,
+    val label: String,
+    val host: String,
+    val iconUrl: String? = null,
+    val isSupportLink: Boolean = false,
 )
 
 /**
@@ -567,6 +596,12 @@ sealed interface ProfileEvent : UiEvent {
 
     /** User dismissed the verification explanation sheet. */
     data object VerificationSheetDismissed : ProfileEvent
+
+    /** User tapped the "+N" pill in the profile-links row — open the full list. */
+    data object LinksOverflowTapped : ProfileEvent
+
+    /** User dismissed the profile-links overflow sheet. */
+    data object LinksSheetDismissed : ProfileEvent
 
     /**
      * User selected an overflow-menu entry on a PostCard inside one of

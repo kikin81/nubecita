@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.profile.impl.data
 
 import io.github.kikin81.atproto.app.bsky.actor.ProfileAssociated
 import io.github.kikin81.atproto.app.bsky.actor.ProfileAssociatedChat
+import io.github.kikin81.atproto.app.bsky.actor.ProfileLinkView
 import io.github.kikin81.atproto.app.bsky.actor.ProfileViewDetailed
 import io.github.kikin81.atproto.app.bsky.actor.ViewerState
 import io.github.kikin81.atproto.runtime.AtUri
@@ -9,6 +10,11 @@ import io.github.kikin81.atproto.runtime.Datetime
 import io.github.kikin81.atproto.runtime.Did
 import io.github.kikin81.atproto.runtime.Handle
 import io.github.kikin81.atproto.runtime.Uri
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
+import net.kikin.nubecita.core.moderation.ContentLabel
+import net.kikin.nubecita.core.moderation.LabelVisibility
+import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.feature.profile.impl.ViewerModerationState
 import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -318,6 +324,102 @@ internal class AuthorProfileMapperTest {
         assertEquals(true, followed.canMessage)
     }
 
+    // --- profile links ---
+
+    @Test
+    fun `links map in server order with title-or-host labels`() {
+        val ui =
+            sampleView(
+                links =
+                    links(
+                        linkJson("l1", "https://ko-fi.com/alice", title = "Support me", icon = "https://cdn.bsky.app/icon/1"),
+                        linkJson("l2", "https://www.example.com/x"),
+                    ),
+            ).toProfileHeaderUi()
+
+        assertEquals(listOf("Support me", "example.com"), ui.links.map { it.label })
+        val first = ui.links[0]
+        assertEquals("at://did:plc:alice123/app.bsky.actor.link/l1", first.uri)
+        assertEquals("https://ko-fi.com/alice", first.url)
+        assertEquals("ko-fi.com", first.host)
+        assertEquals("https://cdn.bsky.app/icon/1", first.iconUrl)
+        assertEquals(true, first.isSupportLink)
+        assertEquals(false, ui.links[1].isSupportLink)
+        assertNull(ui.links[1].iconUrl)
+    }
+
+    @Test
+    fun `absent links map to an empty list`() {
+        assertEquals(0, sampleView(links = null).toProfileHeaderUi().links.size)
+    }
+
+    @Test
+    fun `a link the viewer's prefs hide is dropped, keeping the rest in order`() {
+        val ui =
+            sampleView(
+                links =
+                    links(
+                        linkJson("l1", "https://a.example"),
+                        linkJson("l2", "https://b.example", label = "porn"),
+                        linkJson("l3", "https://c.example"),
+                    ),
+            ).toProfileHeaderUi(viewerDid = "did:plc:viewer")
+
+        assertEquals(listOf("a.example", "c.example"), ui.links.map { it.label })
+    }
+
+    @Test
+    fun `a link the viewer's prefs only warn on is dropped too`() {
+        val warnSexual =
+            ModerationPrefs.DEFAULT.copy(
+                adultContentEnabled = true,
+                visibilities = ModerationPrefs.DEFAULT.visibilities + (ContentLabel.SEXUAL to LabelVisibility.WARN),
+            )
+        val ui =
+            sampleView(links = links(linkJson("l1", "https://a.example", label = "sexual")))
+                .toProfileHeaderUi(viewerDid = "did:plc:viewer", moderationPrefs = warnSexual)
+
+        assertEquals(0, ui.links.size)
+    }
+
+    @Test
+    fun `a viewer's own labeled links are never filtered`() {
+        val ui =
+            sampleView(links = links(linkJson("l1", "https://a.example", label = "porn")))
+                .toProfileHeaderUi(viewerDid = "did:plc:alice123")
+
+        assertEquals(1, ui.links.size)
+    }
+
+    private val json = Json { ignoreUnknownKeys = true }
+
+    private fun links(vararg items: String): List<ProfileLinkView> = json.decodeFromString(ListSerializer(ProfileLinkView.serializer()), items.joinToString(prefix = "[", postfix = "]"))
+
+    private fun linkJson(
+        rkey: String,
+        url: String,
+        title: String? = null,
+        icon: String? = null,
+        label: String? = null,
+    ): String {
+        val uri = "at://did:plc:alice123/app.bsky.actor.link/$rkey"
+        val fields =
+            buildList {
+                add("\"uri\":\"$uri\"")
+                add("\"cid\":\"bafyreib2rxk3rh6kzwq\"")
+                add("\"url\":\"$url\"")
+                title?.let { add("\"title\":\"$it\"") }
+                icon?.let { add("\"icon\":\"$it\"") }
+                label?.let {
+                    add(
+                        "\"labels\":[{\"src\":\"did:plc:labeler\",\"uri\":\"$uri\"," +
+                            "\"val\":\"$it\",\"cts\":\"2026-01-01T00:00:00Z\"}]",
+                    )
+                }
+            }
+        return fields.joinToString(prefix = "{", postfix = "}")
+    }
+
     private fun sampleView(
         did: String = "did:plc:alice123",
         handle: String = "alice.bsky.social",
@@ -332,6 +434,7 @@ internal class AuthorProfileMapperTest {
         followsCount: Long? = null,
         viewer: ViewerState? = null,
         associated: ProfileAssociated? = null,
+        links: List<ProfileLinkView>? = null,
     ): ProfileViewDetailed =
         ProfileViewDetailed(
             did = Did(did),
@@ -347,5 +450,6 @@ internal class AuthorProfileMapperTest {
             followsCount = followsCount,
             viewer = viewer,
             associated = associated,
+            links = links,
         )
 }

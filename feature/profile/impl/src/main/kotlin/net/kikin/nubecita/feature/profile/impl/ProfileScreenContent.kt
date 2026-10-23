@@ -43,6 +43,7 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.tabs.ProfilePillTabs
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileHero
+import net.kikin.nubecita.feature.profile.impl.ui.ProfileLinksSheet
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileTopBar
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileVerbsRow
 import net.kikin.nubecita.feature.profile.impl.ui.VerificationSheet
@@ -191,6 +192,7 @@ internal fun ProfileScreenContent(
                         showSupporterBadge = state.showSupporterBadge,
                         onRetryHeader = { onEvent(ProfileEvent.Refresh) },
                         onVerificationBadgeClick = { onEvent(ProfileEvent.VerificationBadgeTapped) },
+                        onLinksOverflowClick = { onEvent(ProfileEvent.LinksOverflowTapped) },
                         topInset = topBarPadding,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -327,6 +329,16 @@ internal fun ProfileScreenContent(
             isLoading = state.verifiersLoading,
             isError = state.verifiersError,
             onDismiss = { onEvent(ProfileEvent.VerificationSheetDismissed) },
+        )
+    }
+
+    val links = state.header?.links
+    // Same guard as the verification sheet: don't host an empty sheet if a
+    // refresh clears the header or its links while the sheet is open.
+    if (state.linksSheetVisible && !links.isNullOrEmpty()) {
+        ProfileLinksSheet(
+            links = links,
+            onDismiss = { onEvent(ProfileEvent.LinksSheetDismissed) },
         )
     }
 }

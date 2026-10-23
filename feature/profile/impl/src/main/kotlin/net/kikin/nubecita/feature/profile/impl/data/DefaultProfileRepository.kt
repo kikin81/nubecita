@@ -79,7 +79,10 @@ internal class DefaultProfileRepository
                 runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     val response = ActorService(client).getProfile(buildGetProfileRequest(actor))
-                    response.toProfileHeaderWithViewer()
+                    response.toProfileHeaderWithViewer(
+                        viewerDid = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did,
+                        moderationPrefs = moderationPreferences.prefs.value,
+                    )
                 }.onFailure { throwable ->
                     // `actor` is a raw DID or handle (PII). Log only the
                     // error identity — matches the redaction discipline
