@@ -136,13 +136,18 @@ fun NubecitaLinkFavicon(
     }
     val painter = rememberAsyncImagePainter(model = iconUrl)
     val state by painter.state.collectAsState()
-    if (state is AsyncImagePainter.State.Error) {
-        NubecitaIcon(name = NubecitaIconName.Public, contentDescription = null, opticalSize = size, modifier = modifier)
-    } else {
+    Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
+        // The globe stands in until the favicon succeeds (loading or failed).
+        if (state !is AsyncImagePainter.State.Success) {
+            NubecitaIcon(name = NubecitaIconName.Public, contentDescription = null, opticalSize = size)
+        }
+        // Always drawn: with no explicit request size, Coil resolves the size
+        // from the painter's first draw, so gating the Image on Success would
+        // stall the load forever. It paints nothing until the image arrives.
         Image(
             painter = painter,
             contentDescription = null,
-            modifier = modifier.size(size).clip(CircleShape),
+            modifier = Modifier.size(size).clip(CircleShape),
         )
     }
 }
