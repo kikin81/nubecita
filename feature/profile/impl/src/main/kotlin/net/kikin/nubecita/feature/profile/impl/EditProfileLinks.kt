@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.IconButton
@@ -278,6 +279,12 @@ internal fun LinkEditorForm(
             supportingText = {
                 Text(stringResource(R.string.edit_profile_grapheme_counter, editor.titleGraphemes, MAX_LINK_TITLE_GRAPHEMES))
             },
+            // The last field: IME "Done" confirms the link, same gate as the button.
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions =
+                KeyboardActions(onDone = {
+                    if (editor.canConfirm) onEvent(EditProfileEvent.LinkEditorConfirmed)
+                }),
         )
         if (editor.isInsecure) LinkWarning(stringResource(R.string.edit_profile_link_warning_insecure))
         if (editor.isShortener) LinkWarning(stringResource(R.string.edit_profile_link_warning_shortener))
