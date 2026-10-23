@@ -35,6 +35,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.dropWhile
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.data.models.AuthorUi
@@ -137,13 +138,19 @@ internal fun NotificationsScreen(
     // `state.actorListSheet` (a reducer-managed field) and is rendered
     // outside this collector at the bottom of the Root composable.
     LaunchedEffect(viewModel) {
+        // Each snackbar runs in its own child job: awaiting showSnackbar inline
+        // would hold the collector for the snackbar's whole duration, so a
+        // NavigateTo emitted meanwhile (a row tap) would wait until it's dismissed.
+        val effectScope = this
         viewModel.effects.collect { effect ->
             when (effect) {
                 is NotificationsEffect.NavigateTo -> mainShellNavState.replaceTop(effect.target)
                 is NotificationsEffect.ShowError -> {
                     val message = currentContext.getString(effect.error.snackbarMessageRes())
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = message)
+                    effectScope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(message = message)
+                    }
                 }
             }
         }
