@@ -83,7 +83,24 @@ internal class BenchFakeProfileRepository
             description: String?,
             avatar: ImageChange,
             banner: ImageChange,
+            links: LinksChange,
         ): Result<Unit> = Result.success(Unit)
+
+        // Bench: the fixture's links as saved records so the editor's Links
+        // section renders offline. Saves are no-ops (see updateProfile).
+        override suspend fun fetchOwnLinks(): Result<List<EditableProfileLink>> =
+            ensureLoaded().map { dto ->
+                dto.header.links.map { link ->
+                    EditableProfileLink(
+                        localId = link.uri,
+                        url = link.url,
+                        title = link.title,
+                        uri = link.uri,
+                        cid = "bafyreibenchlink0000000000000000000000000000000000000000",
+                        iconPreviewUrl = link.iconUrl,
+                    )
+                }
+            }
 
         private suspend fun ensureLoaded(): Result<BenchProfileDto> =
             withContext(dispatcher) {

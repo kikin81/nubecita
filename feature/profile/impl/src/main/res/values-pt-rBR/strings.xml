@@ -88,6 +88,25 @@
     <string name="edit_profile_error_swap_conflict">O perfil mudou em outro lugar. Recarregue e tente de novo.</string>
     <string name="edit_profile_error_unauthorized">Você saiu da conta.</string>
     <string name="edit_profile_error_network">Não foi possível salvar seu perfil. Tente de novo.</string>
+    <string name="edit_profile_links_title">Links</string>
+    <string name="edit_profile_links_loading">Carregando seus links…</string>
+    <string name="edit_profile_links_load_failed">Não foi possível carregar seus links.</string>
+    <string name="edit_profile_links_retry">Tentar de novo</string>
+    <string name="edit_profile_links_empty">Adicione seu site, newsletter ou outras contas.</string>
+    <string name="edit_profile_links_add">Adicionar link</string>
+    <string name="edit_profile_links_limit">Você pode adicionar até %1$d links.</string>
+    <string name="edit_profile_link_edit_action">Editar %1$s</string>
+    <string name="edit_profile_link_remove">Remover %1$s</string>
+    <string name="edit_profile_link_add_title">Adicionar link</string>
+    <string name="edit_profile_link_edit_title">Editar link</string>
+    <string name="edit_profile_link_save">Concluir</string>
+    <string name="edit_profile_link_cancel">Cancelar</string>
+    <string name="edit_profile_link_url_label">URL</string>
+    <string name="edit_profile_link_title_label">Título (opcional)</string>
+    <string name="edit_profile_link_url_invalid">Digite um endereço da web válido.</string>
+    <string name="edit_profile_link_url_duplicate">Você já adicionou este link.</string>
+    <string name="edit_profile_link_warning_insecure">Este link não é seguro (http). Use https se o site permitir.</string>
+    <string name="edit_profile_link_warning_shortener">Links encurtados escondem o destino. Considere usar o endereço completo.</string>
 
     <!-- Muted-user inline notice in the hero (Task 5, nubecita-oftc.5) -->
     <string name="profile_muted_notice">Você silenciou este usuário</string>

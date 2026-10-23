@@ -120,6 +120,25 @@
     <string name="edit_profile_error_swap_conflict">Profile changed elsewhere. Reload and try again.</string>
     <string name="edit_profile_error_unauthorized">You\'re signed out.</string>
     <string name="edit_profile_error_network">Couldn\'t save your profile. Try again.</string>
+    <string name="edit_profile_links_title">Links</string>
+    <string name="edit_profile_links_loading">Loading your links…</string>
+    <string name="edit_profile_links_load_failed">Couldn\'t load your links.</string>
+    <string name="edit_profile_links_retry">Retry</string>
+    <string name="edit_profile_links_empty">Add your website, newsletter, or other accounts.</string>
+    <string name="edit_profile_links_add">Add link</string>
+    <string name="edit_profile_links_limit">You can add up to %1$d links.</string>
+    <string name="edit_profile_link_edit_action">Edit %1$s</string>
+    <string name="edit_profile_link_remove">Remove %1$s</string>
+    <string name="edit_profile_link_add_title">Add link</string>
+    <string name="edit_profile_link_edit_title">Edit link</string>
+    <string name="edit_profile_link_save">Done</string>
+    <string name="edit_profile_link_cancel">Cancel</string>
+    <string name="edit_profile_link_url_label">URL</string>
+    <string name="edit_profile_link_title_label">Title (optional)</string>
+    <string name="edit_profile_link_url_invalid">Enter a valid web address.</string>
+    <string name="edit_profile_link_url_duplicate">You\'ve already added this link.</string>
+    <string name="edit_profile_link_warning_insecure">This link isn\'t secure (http). Use https if the site supports it.</string>
+    <string name="edit_profile_link_warning_shortener">Shortened links hide where they go. Consider using the full address.</string>
 
     <!-- Verification explanation sheet (Task 4, nubecita-vw45.4) -->
     <string name="verification_sheet_title_verified">Verified account</string>

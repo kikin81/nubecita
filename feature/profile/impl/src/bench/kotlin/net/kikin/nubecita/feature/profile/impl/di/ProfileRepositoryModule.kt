@@ -5,6 +5,8 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.feature.profile.impl.data.BenchFakeProfileRepository
+import net.kikin.nubecita.feature.profile.impl.data.BenchLinkFaviconFetcher
+import net.kikin.nubecita.feature.profile.impl.data.LinkFaviconFetcher
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import javax.inject.Singleton
 
@@ -14,4 +16,7 @@ internal interface ProfileRepositoryModule {
     @Binds
     @Singleton
     fun bindProfileRepository(impl: BenchFakeProfileRepository): ProfileRepository
+
+    @Binds
+    fun bindLinkFaviconFetcher(impl: BenchLinkFaviconFetcher): LinkFaviconFetcher
 }

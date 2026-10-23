@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
@@ -481,6 +483,303 @@ class DefaultProfileRepositoryUpdateProfileTest {
             val cause = result.exceptionOrNull()
             assertNotNull(cause as? ProfileUpdateError.BlobUploadFailed, "expected BlobUploadFailed, got: $cause")
             assertTrue(engine.requestHistory.none { it.url.encodedPath.endsWith("putRecord") })
+        }
+
+    // ---------- links ----------
+
+    private fun linkUri(rkey: String) = "at://$testDid/app.bsky.actor.link/$rkey"
+
+    private fun saved(
+        rkey: String,
+        url: String,
+        title: String? = null,
+        cid: String = "cid-$rkey",
+    ) = EditableProfileLink(
+        localId = linkUri(rkey),
+        url = url,
+        title = title,
+        uri = linkUri(rkey),
+        cid = cid,
+        record =
+            Json
+                .parseToJsonElement(
+                    """{"${'$'}type":"app.bsky.actor.link","url":"$url","createdAt":"2026-10-01T12:00:00Z",""" +
+                        """"icon":{"${'$'}type":"blob","ref":{"${'$'}link":"bafold$rkey"},"mimeType":"image/png","size":10}}""",
+                ).jsonObject,
+    )
+
+    private val HttpRequestData.isLinkWrite: Boolean
+        get() = body.toBodyString().contains("\"collection\":\"app.bsky.actor.link\"")
+
+    /** Routes the full links save sequence; [linkPutCid] answers a link putRecord. */
+    private suspend fun MockRequestHandleScope.linksHandler(
+        request: HttpRequestData,
+        profileBody: CompletableDeferred<String>,
+        linkBodies: MutableList<String>,
+        profileValue: String = """{"${'$'}type":"app.bsky.actor.profile"}""",
+        profilePut: (MockRequestHandleScope.() -> HttpResponseData)? = null,
+        deleteResponse: (MockRequestHandleScope.() -> HttpResponseData)? = null,
+        uploadFails: Boolean = false,
+    ): HttpResponseData {
+        val path = request.url.encodedPath
+        return when {
+            request.isGetRecord() -> okJson(getRecordJson(cid = "bafcid", value = profileValue))
+            path.endsWith("uploadBlob") ->
+                if (uploadFails) {
+                    errorJson(HttpStatusCode.InternalServerError, "InternalError", "boom")
+                } else {
+                    okJson(uploadBlobJson(link = "bafnewicon", mime = "image/png", size = 3))
+                }
+            path.endsWith("createRecord") -> {
+                linkBodies += request.body.toBodyString()
+                okJson("""{"uri":"${linkUri("new1")}","cid":"cid-new1"}""")
+            }
+            request.isPutRecord() && request.isLinkWrite -> {
+                val body = request.body.toBodyString()
+                linkBodies += body
+                val rkey = checkNotNull(Regex("\"rkey\":\"([^\"]+)\"").find(body)).groupValues[1]
+                okJson("""{"uri":"${linkUri(rkey)}","cid":"cid-$rkey-v2"}""")
+            }
+            request.isPutRecord() -> {
+                profileBody.complete(request.body.toBodyString())
+                profilePut?.invoke(this) ?: okJson(putRecordJson(cid = "bafnew"))
+            }
+            path.endsWith("deleteRecord") -> deleteResponse?.invoke(this) ?: okJson("{}")
+            else -> error("Unexpected request: ${request.url}")
+        }
+    }
+
+    @Test
+    fun unchangedLinks_touchNoLinkRecord_andPreserveTheLinksKey() =
+        runTest {
+            val profileBody = CompletableDeferred<String>()
+            val linkBodies = mutableListOf<String>()
+            val (engine, repo) =
+                newRepo(signedIn = true) { request ->
+                    linksHandler(
+                        request,
+                        profileBody,
+                        linkBodies,
+                        profileValue = """{"${'$'}type":"app.bsky.actor.profile","links":[{"uri":"${linkUri("a")}","cid":"cid-a"}]}""",
+                    )
+                }
+
+            val result = repo.updateProfile("n", "d", ImageChange.Unchanged, ImageChange.Unchanged)
+
+            assertTrue(result.isSuccess, "got ${result.exceptionOrNull()}")
+            assertTrue(profileBody.await().contains(linkUri("a")), "links key must survive")
+            assertTrue(engine.requestHistory.none { it.url.encodedPath.endsWith("createRecord") || it.url.encodedPath.endsWith("deleteRecord") })
+            assertTrue(linkBodies.isEmpty())
+        }
+
+    @Test
+    fun mixedLinkChanges_writeRecordsBeforeProfile_andDeleteAfter() =
+        runTest {
+            val profileBody = CompletableDeferred<String>()
+            val linkBodies = mutableListOf<String>()
+            val (engine, repo) = newRepo(signedIn = true) { request -> linksHandler(request, profileBody, linkBodies) }
+            val a = saved("a", "https://a.example", "A")
+            val b = saved("b", "https://b.example", "B")
+            val d = saved("d", "https://d.example")
+            val c = EditableProfileLink(localId = "new-1", url = "https://c.example", title = "C")
+
+            val result =
+                repo.updateProfile(
+                    "n",
+                    "d",
+                    ImageChange.Unchanged,
+                    ImageChange.Unchanged,
+                    links = LinksChange.Replaced(links = listOf(a, b.copy(title = "B2"), c), original = listOf(a, b, d)),
+                )
+
+            assertTrue(result.isSuccess, "got ${result.exceptionOrNull()}")
+            val paths = engine.requestHistory.map { it.url.encodedPath.substringAfterLast('.') }
+            val profilePut = paths.lastIndexOf("putRecord")
+            assertTrue(paths.indexOf("createRecord") in 0 until profilePut, "create must precede the profile write: $paths")
+            assertTrue(paths.indexOf("deleteRecord") > profilePut, "delete must follow the profile write: $paths")
+            assertEquals(1, paths.count { it == "createRecord" })
+            assertEquals(1, paths.count { it == "deleteRecord" })
+
+            val body = profileBody.await()
+            val expected =
+                """"links":[{"uri":"${linkUri("a")}","cid":"cid-a"},{"uri":"${linkUri("b")}","cid":"cid-b-v2"},""" +
+                    """{"uri":"${linkUri("new1")}","cid":"cid-new1"}]"""
+            assertTrue(body.contains(expected), "links refs wrong: $body")
+            // Retitled B keeps its stored icon and createdAt (URL unchanged).
+            val bPut = linkBodies.single { it.contains("\"rkey\":\"b\"") }
+            assertTrue(bPut.contains("\"title\":\"B2\"") && bPut.contains("bafoldb") && bPut.contains("2026-10-01T12:00:00Z"), bPut)
+            assertTrue(
+                engine.requestHistory
+                    .last { it.url.encodedPath.endsWith("deleteRecord") }
+                    .body
+                    .toBodyString()
+                    .contains("\"rkey\":\"d\""),
+            )
+        }
+
+    @Test
+    fun urlChangedWithoutNewIcon_dropsTheOldIcon() =
+        runTest {
+            val linkBodies = mutableListOf<String>()
+            val (_, repo) = newRepo(signedIn = true) { request -> linksHandler(request, CompletableDeferred(), linkBodies) }
+            val b = saved("b", "https://b.example")
+
+            repo.updateProfile(
+                "n",
+                "d",
+                ImageChange.Unchanged,
+                ImageChange.Unchanged,
+                links = LinksChange.Replaced(links = listOf(b.copy(url = "https://elsewhere.example")), original = listOf(b)),
+            )
+
+            val put = linkBodies.single()
+            assertTrue(put.contains("https://elsewhere.example") && !put.contains("bafoldb"), put)
+        }
+
+    @Test
+    fun pendingIcon_isUploadedAsPng_andSetOnTheRecord() =
+        runTest {
+            val linkBodies = mutableListOf<String>()
+            val (engine, repo) = newRepo(signedIn = true) { request -> linksHandler(request, CompletableDeferred(), linkBodies) }
+            val c = EditableProfileLink(localId = "new-1", url = "https://c.example", title = null, pendingIcon = PendingIcon(byteArrayOf(1, 2, 3)))
+
+            val result =
+                repo.updateProfile("n", "d", ImageChange.Unchanged, ImageChange.Unchanged, LinksChange.Replaced(listOf(c), emptyList()))
+
+            assertTrue(result.isSuccess)
+            val upload = engine.requestHistory.single { it.isUploadBlob() }
+            assertEquals("image/png", upload.body.contentType?.toString())
+            assertTrue(linkBodies.single().contains("bafnewicon"), linkBodies.single())
+        }
+
+    @Test
+    fun iconUploadFailure_savesTheLinkWithoutAnIcon() =
+        runTest {
+            val linkBodies = mutableListOf<String>()
+            val (_, repo) =
+                newRepo(signedIn = true) { request -> linksHandler(request, CompletableDeferred(), linkBodies, uploadFails = true) }
+            val c = EditableProfileLink(localId = "new-1", url = "https://c.example", title = null, pendingIcon = PendingIcon(byteArrayOf(1)))
+
+            val result =
+                repo.updateProfile("n", "d", ImageChange.Unchanged, ImageChange.Unchanged, LinksChange.Replaced(listOf(c), emptyList()))
+
+            assertTrue(result.isSuccess, "got ${result.exceptionOrNull()}")
+            assertFalse(linkBodies.single().contains("\"icon\""), linkBodies.single())
+        }
+
+    @Test
+    fun removingEveryLink_dropsTheKey_andDeletesTheRecords() =
+        runTest {
+            val profileBody = CompletableDeferred<String>()
+            val (engine, repo) =
+                newRepo(signedIn = true) { request ->
+                    linksHandler(
+                        request,
+                        profileBody,
+                        mutableListOf(),
+                        profileValue = """{"${'$'}type":"app.bsky.actor.profile","links":[{"uri":"${linkUri("a")}","cid":"cid-a"}]}""",
+                    )
+                }
+            val a = saved("a", "https://a.example")
+
+            repo.updateProfile("n", "d", ImageChange.Unchanged, ImageChange.Unchanged, LinksChange.Replaced(emptyList(), listOf(a)))
+
+            assertFalse(profileBody.await().contains("\"links\""))
+            assertEquals(1, engine.requestHistory.count { it.url.encodedPath.endsWith("deleteRecord") })
+        }
+
+    @Test
+    fun profileSwapConflict_deletesNothing() =
+        runTest {
+            val (engine, repo) =
+                newRepo(signedIn = true) { request ->
+                    linksHandler(
+                        request,
+                        CompletableDeferred(),
+                        mutableListOf(),
+                        profilePut = { errorJson(HttpStatusCode.BadRequest, "InvalidSwap", "stale") },
+                    )
+                }
+            val a = saved("a", "https://a.example")
+
+            val result =
+                repo.updateProfile("n", "d", ImageChange.Unchanged, ImageChange.Unchanged, LinksChange.Replaced(emptyList(), listOf(a)))
+
+            assertEquals(ProfileUpdateError.SwapConflict, result.exceptionOrNull())
+            assertTrue(engine.requestHistory.none { it.url.encodedPath.endsWith("deleteRecord") })
+        }
+
+    @Test
+    fun deleteFailure_doesNotFailTheSave() =
+        runTest {
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    linksHandler(
+                        request,
+                        CompletableDeferred(),
+                        mutableListOf(),
+                        deleteResponse = { errorJson(HttpStatusCode.InternalServerError, "InternalError", "boom") },
+                    )
+                }
+            val a = saved("a", "https://a.example")
+
+            val result =
+                repo.updateProfile("n", "d", ImageChange.Unchanged, ImageChange.Unchanged, LinksChange.Replaced(emptyList(), listOf(a)))
+
+            assertTrue(result.isSuccess, "got ${result.exceptionOrNull()}")
+        }
+
+    @Test
+    fun fetchOwnLinks_readsRecordsInRefOrder_skipsDangling_andJoinsIcons() =
+        runTest {
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    val path = request.url.encodedPath
+                    val collection = request.url.parameters["collection"]
+                    val rkey = request.url.parameters["rkey"]
+                    when {
+                        request.isGetRecord() && collection == "app.bsky.actor.profile" ->
+                            okJson(
+                                getRecordJson(
+                                    cid = "bafcid",
+                                    value =
+                                        """{"${'$'}type":"app.bsky.actor.profile","links":[""" +
+                                            """{"uri":"${linkUri("b")}","cid":"x"},{"uri":"${linkUri("gone")}","cid":"x"},{"uri":"${linkUri("a")}","cid":"x"}]}""",
+                                ),
+                            )
+                        request.isGetRecord() && rkey == "gone" -> errorJson(HttpStatusCode.BadRequest, "RecordNotFound", "gone")
+                        request.isGetRecord() ->
+                            okJson(
+                                """{"uri":"${linkUri(checkNotNull(rkey))}","cid":"cid-$rkey","value":""" +
+                                    """{"${'$'}type":"app.bsky.actor.link","url":"https://$rkey.example","title":"T$rkey","createdAt":"2026-10-01T12:00:00Z"}}""",
+                            )
+                        path.endsWith("getProfile") ->
+                            okJson(
+                                """{"did":"$testDid","handle":"alice.test","links":[""" +
+                                    """{"uri":"${linkUri("a")}","cid":"cid-a","url":"https://a.example","icon":"https://cdn.example/a.png"}]}""",
+                            )
+                        else -> error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val links = repo.fetchOwnLinks().getOrThrow()
+
+            assertEquals(listOf(linkUri("b"), linkUri("a")), links.map { it.uri })
+            assertEquals(listOf("https://b.example", "https://a.example"), links.map { it.url })
+            assertEquals(listOf("cid-b", "cid-a"), links.map { it.cid })
+            assertEquals(listOf("Tb", "Ta"), links.map { it.title })
+            assertEquals(listOf(null, "https://cdn.example/a.png"), links.map { it.iconPreviewUrl })
+        }
+
+    @Test
+    fun fetchOwnLinks_noProfileRecord_isEmpty() =
+        runTest {
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    if (request.isGetRecord()) errorJson(HttpStatusCode.BadRequest, "RecordNotFound", "none") else error("Unexpected ${request.url}")
+                }
+
+            assertEquals(emptyList<EditableProfileLink>(), repo.fetchOwnLinks().getOrThrow())
         }
 
     // ---------- harness ----------

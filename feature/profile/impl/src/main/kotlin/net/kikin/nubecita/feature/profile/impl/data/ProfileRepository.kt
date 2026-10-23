@@ -101,6 +101,13 @@ interface ProfileRepository {
      * [displayName] / [description]: a non-blank string sets the key; a
      * `null`-or-blank value drops it.
      *
+     * [links]: [LinksChange.Unchanged] (the default) touches no link record
+     * and preserves the profile's `links` key verbatim. [LinksChange.Replaced]
+     * uploads pending favicons, writes link records (reuse / put / create)
+     * BEFORE the profile write, sets `links` to the ordered strongRefs, and
+     * only after the profile write succeeds deletes records it no longer
+     * references (a failed delete doesn't fail the save).
+     *
      * On failure, returns a [ProfileUpdateError] through `Result`'s
      * exception channel.
      */
@@ -109,7 +116,18 @@ interface ProfileRepository {
         description: String?,
         avatar: ImageChange,
         banner: ImageChange,
+        links: LinksChange = LinksChange.Unchanged,
     ): Result<Unit>
+
+    /**
+     * Reads the signed-in user's links for editing, from their own repo
+     * (not the AppView): the `app.bsky.actor.profile/self` record's `links`
+     * refs, then each referenced `app.bsky.actor.link` record. A ref whose
+     * record is gone is skipped. Re-saving a link needs its stored icon blob,
+     * which profile views don't carry. Icon preview URLs are joined from the
+     * AppView's profile view on a best-effort basis.
+     */
+    suspend fun fetchOwnLinks(): Result<List<EditableProfileLink>>
 }
 
 /**
