@@ -49,7 +49,7 @@ Tapping the "+N" pill SHALL open a modal bottom sheet listing all of the profile
 
 ### Requirement: Link pills open the destination and reveal the full URL on long-press
 
-Tapping a link pill or sheet row SHALL open the URL in an in-app Custom Tab using the same path as bio links. Long-pressing SHALL reveal the full URL. Each pill's accessibility semantics SHALL include the destination host so a custom title cannot disguise the destination. A pill without `iconUrl`, or whose icon fails to load, SHALL show the globe glyph.
+Tapping a link pill or sheet row SHALL open the URL in an in-app Custom Tab using the same path as bio links. Long-pressing SHALL reveal the full URL. Pills SHALL use `Role.Button` with an `onClickLabel` that includes the destination host, so a custom title cannot disguise the destination, and SHALL keep the leading icon decorative (`contentDescription = null`). A pill without `iconUrl`, or whose icon fails to load, SHALL show the globe glyph.
 
 #### Scenario: Tap opens a Custom Tab
 
@@ -60,6 +60,11 @@ Tapping a link pill or sheet row SHALL open the URL in an in-app Custom Tab usin
 
 - **WHEN** the user long-presses a pill titled "Support our work!" pointing at `https://patreon.com/sarah`
 - **THEN** the full URL `https://patreon.com/sarah` is shown
+
+#### Scenario: Screen reader announces label once, with host
+
+- **WHEN** TalkBack focuses a pill titled "Support our work!" pointing at `https://patreon.com/sarah`
+- **THEN** it announces the label once as a button whose click action names `patreon.com`, and the icon is not announced
 
 ### Requirement: Support-platform links render with the emphasized pill variant
 

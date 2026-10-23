@@ -105,8 +105,10 @@ carries the screenshot baselines, the `ModalBottomSheet` wrapper does not.
 - **Long-press**: reveal the full URL (the announcement: "tap and hold a link to
   preview the full URL"). Builder's call on the affordance (tooltip vs. small
   sheet) — keep it consistent between pill and sheet row.
-- **Accessibility**: pill `onClickLabel` = "Open <label>", content description
-  includes the host so a custom title can't disguise the destination.
+- **Accessibility**: pill uses `Role.Button` with `onClickLabel` = "Open
+  <label> (<host>)", so a custom title can't disguise the destination. The
+  leading icon (favicon or globe) stays decorative (`contentDescription = null`)
+  so TalkBack doesn't announce the label twice.
 
 ### D4. Support-platform emphasis
 
