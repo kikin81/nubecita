@@ -1,18 +1,27 @@
 package net.kikin.nubecita.feature.profile.impl.data
 
+import io.github.kikin81.atproto.app.bsky.actor.ProfileLinkView
 import io.github.kikin81.atproto.app.bsky.actor.ProfileViewDetailed
 import io.github.kikin81.atproto.app.bsky.actor.VerificationState
 import io.github.kikin81.atproto.app.bsky.actor.ViewerState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import net.kikin.nubecita.core.feedmapping.toModerationLabels
+import net.kikin.nubecita.core.moderation.ContentModerator
+import net.kikin.nubecita.core.moderation.MediaModerationDecision
+import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.core.profile.canViewerMessage
 import net.kikin.nubecita.data.models.toVerifiedBadge
 import net.kikin.nubecita.feature.profile.impl.PinnedPostRef
 import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
+import net.kikin.nubecita.feature.profile.impl.ProfileLinkUi
 import net.kikin.nubecita.feature.profile.impl.VerifierRef
 import net.kikin.nubecita.feature.profile.impl.ViewerModerationState
 import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
+import net.kikin.nubecita.feature.profile.impl.links.isSupportLink
+import net.kikin.nubecita.feature.profile.impl.links.linkHost
+import net.kikin.nubecita.feature.profile.impl.links.linkLabel
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -32,8 +41,15 @@ import kotlin.time.Instant
  * Unwraps the atproto runtime value classes (`Did`, `Handle`, `Uri`,
  * `Datetime`) into raw strings so consumers downstream of this point
  * never see atproto wire types — the boundary is here.
+ *
+ * [viewerDid] + [moderationPrefs] drive the profile-links moderation filter
+ * (see [toProfileLinkUis]); the defaults (no viewer, Bluesky's shipped prefs)
+ * only matter to tests and fixtures.
  */
-internal fun ProfileViewDetailed.toProfileHeaderUi(): ProfileHeaderUi =
+internal fun ProfileViewDetailed.toProfileHeaderUi(
+    viewerDid: String? = null,
+    moderationPrefs: ModerationPrefs = ModerationPrefs.DEFAULT,
+): ProfileHeaderUi =
     ProfileHeaderUi(
         did = did.raw,
         handle = handle.raw,
@@ -53,7 +69,39 @@ internal fun ProfileViewDetailed.toProfileHeaderUi(): ProfileHeaderUi =
         viewerModeration = viewer.toViewerModerationState(),
         verifiedBadge = verification.toVerifiedBadge(),
         verifierRefs = verification.toVerifierRefs(),
+        links = links.toProfileLinkUis(authorDid = did.raw, viewerDid = viewerDid, prefs = moderationPrefs),
     )
+
+/**
+ * Maps the profile's links, preserving server (display) order. A link whose
+ * labels resolve to anything but `Show` for the viewer is dropped: a blurred
+ * pill has no sensible UI, so a warn hides it too (matching the official
+ * client). Same label coverage as posts — [ContentModerator] honors the four
+ * global media categories, and a viewer's own links are never filtered.
+ */
+internal fun List<ProfileLinkView>?.toProfileLinkUis(
+    authorDid: String,
+    viewerDid: String?,
+    prefs: ModerationPrefs,
+): ImmutableList<ProfileLinkUi> =
+    this
+        ?.asSequence()
+        ?.filter { view ->
+            ContentModerator.decide(view.labels.toModerationLabels(), authorDid, viewerDid, prefs) ==
+                MediaModerationDecision.Show
+        }?.map { view ->
+            val url = view.url.raw
+            ProfileLinkUi(
+                uri = view.uri.raw,
+                url = url,
+                label = linkLabel(view.title, url),
+                host = linkHost(url),
+                iconUrl = view.icon?.raw,
+                isSupportLink = isSupportLink(url),
+            )
+        }?.toList()
+        ?.toImmutableList()
+        ?: persistentListOf()
 
 /**
  * Extract the profile's **valid** verifications as unresolved [VerifierRef]s
@@ -139,9 +187,12 @@ data class ProfileHeaderWithViewer(
  * doesn't know about own/other-user. See
  * [net.kikin.nubecita.feature.profile.impl.ProfileViewModel.launchHeaderLoad].
  */
-internal fun ProfileViewDetailed.toProfileHeaderWithViewer(): ProfileHeaderWithViewer =
+internal fun ProfileViewDetailed.toProfileHeaderWithViewer(
+    viewerDid: String? = null,
+    moderationPrefs: ModerationPrefs = ModerationPrefs.DEFAULT,
+): ProfileHeaderWithViewer =
     ProfileHeaderWithViewer(
-        header = toProfileHeaderUi(),
+        header = toProfileHeaderUi(viewerDid, moderationPrefs),
         viewerRelationship = viewer.toViewerRelationship(),
     )
 

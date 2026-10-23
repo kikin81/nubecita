@@ -88,10 +88,35 @@
     <string name="edit_profile_error_swap_conflict">El perfil cambió en otro lugar. Recarga e inténtalo de nuevo.</string>
     <string name="edit_profile_error_unauthorized">Cerraste sesión.</string>
     <string name="edit_profile_error_network">No se pudo guardar tu perfil. Inténtalo de nuevo.</string>
+    <string name="edit_profile_links_title">Enlaces</string>
+    <string name="edit_profile_links_loading">Cargando tus enlaces…</string>
+    <string name="edit_profile_links_load_failed">No se pudieron cargar tus enlaces.</string>
+    <string name="edit_profile_links_retry">Reintentar</string>
+    <string name="edit_profile_links_empty">Agrega tu sitio web, boletín u otras cuentas.</string>
+    <string name="edit_profile_links_add">Agregar enlace</string>
+    <string name="edit_profile_links_limit">Puedes agregar hasta %1$d enlaces.</string>
+    <string name="edit_profile_link_edit_action">Editar %1$s</string>
+    <string name="edit_profile_link_remove">Quitar %1$s</string>
+    <string name="edit_profile_link_move_up">Mover hacia arriba</string>
+    <string name="edit_profile_link_move_down">Mover hacia abajo</string>
+    <string name="edit_profile_link_add_title">Agregar enlace</string>
+    <string name="edit_profile_link_edit_title">Editar enlace</string>
+    <string name="edit_profile_link_save">Listo</string>
+    <string name="edit_profile_link_cancel">Cancelar</string>
+    <string name="edit_profile_link_url_label">URL</string>
+    <string name="edit_profile_link_title_label">Título (opcional)</string>
+    <string name="edit_profile_link_url_invalid">Ingresa una dirección web válida.</string>
+    <string name="edit_profile_link_url_duplicate">Ya agregaste este enlace.</string>
+    <string name="edit_profile_link_warning_insecure">Este enlace no es seguro (http). Usa https si el sitio lo admite.</string>
+    <string name="edit_profile_link_warning_shortener">Los enlaces acortados ocultan su destino. Considera usar la dirección completa.</string>
 
     <!-- Muted-user inline notice in the hero (Task 5, nubecita-oftc.5) -->
     <string name="profile_muted_notice">Silenciaste a este usuario</string>
     <string name="profile_follows_you">Te sigue</string>
+    <string name="profile_links_overflow_action">Mostrar todos los enlaces</string>
+    <string name="profile_link_open">Abrir enlace a %1$s</string>
+    <string name="profile_link_show_url">Mostrar enlace completo</string>
+    <string name="profile_links_sheet_title">Enlaces</string>
 
     <!-- Verification explanation sheet (Task 4, nubecita-vw45.4) -->
     <string name="verification_sheet_title_verified">Cuenta verificada</string>

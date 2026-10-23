@@ -12,7 +12,39 @@
     "postsCount": 12,
     "followersCount": 420,
     "followsCount": 69,
-    "verifiedBadge": "verified"
+    "verifiedBadge": "verified",
+    "links": [
+      {
+        "uri": "at://did:plc:benchnubecita0000000000000/app.bsky.actor.link/link0000001",
+        "url": "https://ko-fi.com/nubecita",
+        "title": "Support Nubecita"
+      },
+      {
+        "uri": "at://did:plc:benchnubecita0000000000000/app.bsky.actor.link/link0000002",
+        "url": "https://nubecita.app",
+        "title": "Website",
+        "iconUrl": "file:///android_asset/img/brand/app-icon.png"
+      },
+      {
+        "uri": "at://did:plc:benchnubecita0000000000000/app.bsky.actor.link/link0000003",
+        "url": "https://github.com/kikin81/nubecita"
+      },
+      {
+        "uri": "at://did:plc:benchnubecita0000000000000/app.bsky.actor.link/link0000004",
+        "url": "https://www.patreon.com/nubecita",
+        "title": "Patreon"
+      },
+      {
+        "uri": "at://did:plc:benchnubecita0000000000000/app.bsky.actor.link/link0000005",
+        "url": "https://bsky.app/profile/nubecita.app",
+        "title": "Nubecita on Bluesky"
+      },
+      {
+        "uri": "at://did:plc:benchnubecita0000000000000/app.bsky.actor.link/link0000006",
+        "url": "https://example.com/a-very-long-path/that-keeps-going",
+        "title": "A deliberately long link title here"
+      }
+    ]
   },
   "posts": [
     {

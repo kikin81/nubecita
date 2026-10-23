@@ -68,6 +68,7 @@ internal fun ProfileHero(
     onRetryHeader: () -> Unit,
     onVerificationBadgeClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onLinksOverflowClick: () -> Unit = {},
     topInset: Dp = 0.dp,
 ) {
     when {
@@ -76,6 +77,7 @@ internal fun ProfileHero(
                 header = header,
                 showSupporterBadge = showSupporterBadge,
                 onVerificationBadgeClick = onVerificationBadgeClick,
+                onLinksOverflowClick = onLinksOverflowClick,
                 modifier = modifier,
                 topInset = topInset,
             )
@@ -95,6 +97,7 @@ private fun ProfileHeroLoaded(
     header: ProfileHeaderUi,
     showSupporterBadge: Boolean,
     onVerificationBadgeClick: () -> Unit,
+    onLinksOverflowClick: () -> Unit,
     modifier: Modifier = Modifier,
     topInset: Dp = 0.dp,
 ) {
@@ -258,6 +261,11 @@ private fun ProfileHeroLoaded(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
                 )
+            }
+
+            if (header.links.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                ProfileLinksRow(links = header.links, onOverflowClick = onLinksOverflowClick)
             }
 
             ProfileStatsRow(

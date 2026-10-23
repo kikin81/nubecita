@@ -2065,6 +2065,20 @@ internal class ProfileViewModelTest {
     )
 
     @Test
+    fun `links overflow tap opens the sheet and dismiss closes it`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(repo = FakeProfileRepository())
+            advanceUntilIdle()
+            assertFalse(vm.uiState.value.linksSheetVisible)
+
+            vm.handleEvent(ProfileEvent.LinksOverflowTapped)
+            assertTrue(vm.uiState.value.linksSheetVisible)
+
+            vm.handleEvent(ProfileEvent.LinksSheetDismissed)
+            assertFalse(vm.uiState.value.linksSheetVisible)
+        }
+
+    @Test
     fun `verifiers are NOT resolved on profile load - only lazily on badge tap`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = verifiedRepo()
@@ -2577,7 +2591,10 @@ internal class ProfileViewModelTest {
             description: String?,
             avatar: net.kikin.nubecita.feature.profile.impl.data.ImageChange,
             banner: net.kikin.nubecita.feature.profile.impl.data.ImageChange,
+            links: net.kikin.nubecita.feature.profile.impl.data.LinksChange,
         ): Result<Unit> = Result.success(Unit)
+
+        override suspend fun fetchOwnLinks(): Result<List<net.kikin.nubecita.feature.profile.impl.data.EditableProfileLink>> = Result.success(emptyList())
     }
 
     /**

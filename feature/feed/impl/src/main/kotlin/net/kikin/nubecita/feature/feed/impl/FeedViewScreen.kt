@@ -1,7 +1,7 @@
 package net.kikin.nubecita.feature.feed.impl
 
 import android.content.res.Configuration
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
@@ -27,9 +28,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
@@ -190,8 +191,8 @@ internal fun FeedViewScreenContent(
 ) {
     // Hoist per-card Surface tokens so the LazyColumn items lambda doesn't
     // re-subscribe to LocalColorScheme / LocalShapes per visible item.
-    val cardColor = MaterialTheme.colorScheme.surfaceContainer
-    val cardShape = MaterialTheme.shapes.medium
+    val cardColor = MaterialTheme.colorScheme.surface
+    val cardShape = RectangleShape
 
     val pinContentDescription =
         if (isPinned) {
@@ -249,7 +250,6 @@ internal fun FeedViewScreenContent(
                             .fillMaxSize()
                             .consumeWindowInsets(padding),
                     contentPadding = padding,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(count = SHIMMER_PREVIEW_COUNT, key = { "shimmer-$it" }) { index ->
                         Surface(
@@ -257,7 +257,10 @@ internal fun FeedViewScreenContent(
                             shape = cardShape,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            PostCardShimmer(showImagePlaceholder = index % 2 == 0)
+                            Column {
+                                PostCardShimmer(showImagePlaceholder = index % 2 == 0)
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            }
                         }
                     }
                 }

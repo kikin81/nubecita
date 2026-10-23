@@ -226,8 +226,23 @@ Pass all three to `CronCreate` with this decision logic in the prompt (write the
 - Checks still pending **and** the unresolved count unchanged since the last poll → say nothing, wait for the next poll.
 - All checks terminal (pass / fail / skipping / cancel) **and** zero unresolved threads **and** the newest bot review is newer than the last commit → cancel the cron with `CronDelete` and report `✅ CI passed — N/N green, no open review threads, latest commit reviewed`.
 - Any check failed → fetch logs via `gh run view <RUN-ID> --log-failed` and propose a fix. Do **not** cancel.
-- Unresolved threads present → report how many, from whom, and a one-line summary of each. Do **not** cancel; the PR is not ready.
+- Unresolved threads present → address them per **Addressing review threads** below (no need to ask first), then report what was fixed vs. declined. Do **not** cancel until every thread is resolved.
 - Newest bot review older than the last commit → say so explicitly, re-request review with the two commands above, and keep polling. Do **not** cancel and do **not** report the PR as ready.
+
+**Addressing review threads** — a standing step of every PR, not a report-and-wait. Branch protection blocks merge until **every** thread is resolved, bots included, and pushing a fix only marks a thread *outdated*, never *resolved*. For each unresolved thread:
+
+1. **Evaluate** it on the merits (`superpowers:receiving-code-review` rigor — don't apply blindly). Valid → fix. Not needed → no change.
+2. **Push** the fixes as one commit per review round (in a stack, every push restacks and re-fires CI above it).
+3. **Reply** on the thread. Changed → cite the commit: `Fixed in <short-sha>: <one line>`. Not changed → one or two sentences on why.
+4. **Resolve** the thread — declined ones too; the reply carries the reasoning. REST can't set thread state; use GraphQL:
+
+```bash
+gh api -X POST repos/<OWNER>/<REPO>/pulls/<PR-NUMBER>/comments/<COMMENT-ID>/replies -f body="Fixed in <sha>: ..."
+gh api graphql -f query='{ repository(owner:"<OWNER>",name:"<REPO>"){ pullRequest(number:<PR-NUMBER>){ reviewThreads(last:50){ nodes { id isResolved } } } } }' --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false) | .id'
+gh api graphql -f query='mutation { resolveReviewThread(input:{threadId:"<THREAD-ID>"}) { thread { isResolved } } }'
+```
+
+5. Re-check CI on the new commit and the review-currency rule below — a fix commit is itself unreviewed.
 
 Cancel the cron only when CI is terminal, every thread is resolved, **and** the newest commit has been reviewed. A green PR with open threads still blocks merge (see the merge rule above — every thread counts, bots included), so a poll that stops at green trains the wrong reflex.
 

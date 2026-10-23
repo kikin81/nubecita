@@ -81,6 +81,7 @@ dependencies {
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)
+    implementation(libs.reorderable)
     implementation(libs.timber)
 
     // Compose UI tests for ProfileScreen — mirrors :feature:feed:impl and

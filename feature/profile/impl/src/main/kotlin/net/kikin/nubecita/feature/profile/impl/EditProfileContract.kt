@@ -1,9 +1,17 @@
 package net.kikin.nubecita.feature.profile.impl
 
 import android.net.Uri
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.feature.profile.impl.data.EditableProfileLink
+import net.kikin.nubecita.feature.profile.impl.links.MAX_LINK_TITLE_GRAPHEMES
+import net.kikin.nubecita.feature.profile.impl.links.MAX_PROFILE_LINKS
+import net.kikin.nubecita.feature.profile.impl.links.isInsecureLink
+import net.kikin.nubecita.feature.profile.impl.links.isShortenerLink
+import net.kikin.nubecita.feature.profile.impl.links.normalizeLinkUrl
 
 /** `app.bsky.actor.profile` display-name limit (graphemes). */
 internal const val MAX_DISPLAY_NAME_GRAPHEMES = 64
@@ -42,6 +50,44 @@ internal sealed interface ImageSlot {
     data object Removed : ImageSlot
 }
 
+/**
+ * Lifecycle of the editor's link list, loaded asynchronously from the owner's
+ * repo (the rest of the form is seeded synchronously from the route). Exactly
+ * one is active, hence a sealed status rather than flags. While not [Loaded]
+ * link editing is disabled and Save sends links as unchanged.
+ */
+internal sealed interface LinksLoadStatus {
+    data object Loading : LinksLoadStatus
+
+    data object Loaded : LinksLoadStatus
+
+    data object Failed : LinksLoadStatus
+}
+
+/**
+ * The add / edit link form. [editingId] is the draft link's `localId` being
+ * edited, or null when adding. Validation is derived from the raw inputs;
+ * [isDuplicate] is computed by the VM (it needs the other draft links).
+ */
+internal data class LinkEditorState(
+    val editingId: String? = null,
+    val urlInput: String = "",
+    val titleInput: String = "",
+    val titleGraphemes: Int = 0,
+    val isDuplicate: Boolean = false,
+    /** True while the favicon for a new / changed URL is being fetched on confirm. */
+    val isFetchingIcon: Boolean = false,
+) {
+    /** The canonical URL, or null when the input isn't a usable link. */
+    val normalizedUrl: String? get() = normalizeLinkUrl(urlInput)
+    val isUrlInvalid: Boolean get() = urlInput.isNotBlank() && normalizedUrl == null
+    val isInsecure: Boolean get() = normalizedUrl?.let(::isInsecureLink) == true
+    val isShortener: Boolean get() = normalizedUrl?.let(::isShortenerLink) == true
+    val isTitleOverLimit: Boolean get() = titleGraphemes > MAX_LINK_TITLE_GRAPHEMES
+    val canConfirm: Boolean
+        get() = normalizedUrl != null && !isDuplicate && !isTitleOverLimit && !isFetchingIcon
+}
+
 /** A pending crop: the picked [uri] for [slot], shown full-screen until confirmed/cancelled. */
 internal data class CropRequest(
     val uri: Uri,
@@ -67,7 +113,16 @@ internal data class EditProfileViewState(
     val isDirty: Boolean = false,
     val isSaving: Boolean = false,
     val showDiscardDialog: Boolean = false,
+    /** Draft links in display order. Only meaningful once [linksStatus] is [LinksLoadStatus.Loaded]. */
+    val links: ImmutableList<EditableProfileLink> = persistentListOf(),
+    val linksStatus: LinksLoadStatus = LinksLoadStatus.Loading,
+    /** Non-null while the add / edit link form is open. */
+    val linkEditor: LinkEditorState? = null,
 ) : UiState {
+    /** Links can be edited only once loaded, below the cap, and with no save in flight. */
+    val canEditLinks: Boolean get() = linksStatus == LinksLoadStatus.Loaded && !isSaving
+    val canAddLink: Boolean get() = canEditLinks && links.size < MAX_PROFILE_LINKS
+
     val isDisplayNameOverLimit: Boolean get() = displayNameGraphemes > MAX_DISPLAY_NAME_GRAPHEMES
     val isDescriptionOverLimit: Boolean get() = descriptionGraphemes > MAX_DESCRIPTION_GRAPHEMES
 
@@ -114,6 +169,41 @@ internal sealed interface EditProfileEvent : UiEvent {
     data object DiscardConfirmed : EditProfileEvent
 
     data object DiscardDismissed : EditProfileEvent
+
+    /** Retry loading the link list after a failure. */
+    data object RetryLinksLoad : EditProfileEvent
+
+    data object AddLinkTapped : EditProfileEvent
+
+    data class EditLinkTapped(
+        val localId: String,
+    ) : EditProfileEvent
+
+    data class RemoveLink(
+        val localId: String,
+    ) : EditProfileEvent
+
+    data class LinkUrlChanged(
+        val value: String,
+    ) : EditProfileEvent
+
+    data class LinkTitleChanged(
+        val value: String,
+    ) : EditProfileEvent
+
+    /** Confirm the link form: fetches the favicon for a new / changed URL, then applies. */
+    data object LinkEditorConfirmed : EditProfileEvent
+
+    data object LinkEditorDismissed : EditProfileEvent
+
+    /**
+     * Move the link at [from] to [to] (indices into the draft). Sent when a
+     * drag settles and by the move-up / move-down accessibility actions.
+     */
+    data class MoveLink(
+        val from: Int,
+        val to: Int,
+    ) : EditProfileEvent
 }
 
 internal sealed interface EditProfileEffect : UiEffect {

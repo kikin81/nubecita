@@ -4,6 +4,8 @@ import io.github.kikin81.atproto.app.bsky.actor.ActorService
 import io.github.kikin81.atproto.app.bsky.actor.GetProfilesRequest
 import io.github.kikin81.atproto.app.bsky.feed.FeedService
 import io.github.kikin81.atproto.app.bsky.feed.GetActorLikesRequest
+import io.github.kikin81.atproto.com.atproto.repo.CreateRecordRequest
+import io.github.kikin81.atproto.com.atproto.repo.DeleteRecordRequest
 import io.github.kikin81.atproto.com.atproto.repo.GetRecordRequest
 import io.github.kikin81.atproto.com.atproto.repo.PutRecordRequest
 import io.github.kikin81.atproto.com.atproto.repo.RepoService
@@ -21,13 +23,18 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
@@ -42,6 +49,7 @@ import net.kikin.nubecita.feature.profile.impl.ProfileTab
 import net.kikin.nubecita.feature.profile.impl.VerifierRef
 import timber.log.Timber
 import javax.inject.Inject
+import kotlin.time.Clock
 import kotlinx.serialization.json.Json as KotlinxJson
 
 /**
@@ -79,7 +87,10 @@ internal class DefaultProfileRepository
                 runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     val response = ActorService(client).getProfile(buildGetProfileRequest(actor))
-                    response.toProfileHeaderWithViewer()
+                    response.toProfileHeaderWithViewer(
+                        viewerDid = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did,
+                        moderationPrefs = moderationPreferences.prefs.value,
+                    )
                 }.onFailure { throwable ->
                     // `actor` is a raw DID or handle (PII). Log only the
                     // error identity — matches the redaction discipline
@@ -181,6 +192,7 @@ internal class DefaultProfileRepository
             description: String?,
             avatar: ImageChange,
             banner: ImageChange,
+            links: LinksChange,
         ): Result<Unit> =
             withContext(dispatcher) {
                 // Explicit try/catch (not runCatching) so cancellation
@@ -217,7 +229,20 @@ internal class DefaultProfileRepository
                             description = description,
                             avatar = avatar,
                             banner = banner,
-                        )
+                        ).toMutableMap()
+
+                    // Links: write link records BEFORE the profile so the
+                    // profile never points at a record that doesn't exist yet.
+                    val deletes =
+                        when (links) {
+                            LinksChange.Unchanged -> emptyList()
+                            is LinksChange.Replaced -> {
+                                val plan = planLinkWrites(links.links, links.original)
+                                val refs = writeLinkRecords(repo, selfDid, plan)
+                                if (refs.isEmpty()) merged.remove(KEY_LINKS) else merged[KEY_LINKS] = JsonArray(refs)
+                                plan.deletes
+                            }
+                        }
 
                     // Step 4: write back. swapRecord is present only when we
                     // read a prior CID — the create path omits it so a
@@ -227,7 +252,7 @@ internal class DefaultProfileRepository
                             collection = Nsid(PROFILE_NSID),
                             repo = AtIdentifier(selfDid),
                             rkey = RecordKey(PROFILE_RKEY),
-                            record = merged,
+                            record = JsonObject(merged),
                             // Present only when we read a prior CID. On the
                             // create path we omit swapRecord entirely (leave
                             // the default AtField.Missing) so the first write
@@ -238,6 +263,8 @@ internal class DefaultProfileRepository
                     // Tell any live own-profile screen to refetch its header so
                     // the saved fields (incl. the new avatar/banner CDN URLs)
                     // show without a manual refresh.
+                    // Only now that the profile no longer references them.
+                    deleteLinkRecords(repo, selfDid, deletes)
                     _ownProfileUpdates.tryEmit(Unit)
                     Result.success(Unit)
                 } catch (cancellation: CancellationException) {
@@ -247,6 +274,210 @@ internal class DefaultProfileRepository
                     Result.failure(mapToProfileUpdateError(throwable))
                 }
             }
+
+        override suspend fun fetchOwnLinks(): Result<List<EditableProfileLink>> =
+            withContext(dispatcher) {
+                runCatchingCancellable {
+                    val selfDid =
+                        (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
+                            ?: throw ProfileUpdateError.Unauthorized
+                    val client = xrpcClientProvider.authenticated()
+                    val repo = RepoService(client)
+                    val (profile, _) = fetchProfileRecord(repo, selfDid)
+                    val refs =
+                        (profile[KEY_LINKS] as? JsonArray)
+                            .orEmpty()
+                            .mapNotNull { (it as? JsonObject)?.get("uri").stringOrNull() }
+                    if (refs.isEmpty()) return@runCatchingCancellable emptyList()
+                    coroutineScope {
+                        // Best-effort: the AppView's view carries the icon CDN URLs the
+                        // records (blob refs) can't render. Missing → globe. Fetched in
+                        // parallel with the (up to 10) link records.
+                        val icons =
+                            async {
+                                runCatchingCancellable {
+                                    ActorService(client)
+                                        .getProfile(buildGetProfileRequest(selfDid))
+                                        .links
+                                        .orEmpty()
+                                        .associate { it.uri.raw to it.icon?.raw }
+                                }.getOrDefault(emptyMap())
+                            }
+                        val records = refs.map { uri -> async { fetchLinkRecord(repo, selfDid, uri) } }.awaitAll()
+                        val iconByUri = icons.await()
+                        refs.zip(records).mapNotNull { (uri, record) ->
+                            val (value, cid) = record ?: return@mapNotNull null
+                            val url = value[KEY_URL].stringOrNull() ?: return@mapNotNull null
+                            EditableProfileLink(
+                                localId = uri,
+                                url = url,
+                                title = value[KEY_TITLE].stringOrNull(),
+                                uri = uri,
+                                cid = cid,
+                                record = value,
+                                iconPreviewUrl = iconByUri[uri],
+                            )
+                        }
+                    }
+                }.onFailure { throwable ->
+                    Timber.tag(TAG).w(throwable, "fetchOwnLinks failed: %s", throwable.javaClass.name)
+                }
+            }
+
+        /** One link record + its current CID, or null when it no longer exists. */
+        private suspend fun fetchLinkRecord(
+            repo: RepoService,
+            selfDid: String,
+            uri: String,
+        ): Pair<JsonObject, String?>? =
+            try {
+                val response =
+                    repo.getRecord(
+                        GetRecordRequest(
+                            collection = Nsid(LINK_NSID),
+                            repo = AtIdentifier(selfDid),
+                            rkey = RecordKey(uri.substringAfterLast('/')),
+                        ),
+                    )
+                response.value to response.cid?.raw
+            } catch (error: XrpcError) {
+                // The profile can point at a record that was since deleted.
+                if (error.errorName == ERROR_RECORD_NOT_FOUND) null else throw error
+            }
+
+        /**
+         * Executes [plan]'s link writes in display order and returns the
+         * strongRefs for the profile's `links` field.
+         */
+        private suspend fun writeLinkRecords(
+            repo: RepoService,
+            selfDid: String,
+            plan: LinkWritePlan,
+        ): List<JsonObject> =
+            // Independent writes run concurrently; awaitAll keeps display order.
+            // Any failure cancels the rest and fails the save before the profile write.
+            coroutineScope {
+                plan.writes
+                    .map { write -> async { writeLinkRecord(repo, selfDid, write) } }
+                    .awaitAll()
+            }
+
+        private suspend fun writeLinkRecord(
+            repo: RepoService,
+            selfDid: String,
+            write: LinkWrite,
+        ): JsonObject {
+            val link = write.link
+            return when (write) {
+                is LinkWrite.Reuse -> strongRef(requireNotNull(link.uri), requireNotNull(link.cid))
+                is LinkWrite.Create -> {
+                    val response =
+                        repo.createRecord(
+                            CreateRecordRequest(
+                                collection = Nsid(LINK_NSID),
+                                repo = AtIdentifier(selfDid),
+                                record = buildLinkRecord(repo, link),
+                            ),
+                        )
+                    strongRef(response.uri.raw, response.cid.raw)
+                }
+                is LinkWrite.Put -> {
+                    val uri = requireNotNull(link.uri)
+                    val response =
+                        repo.putRecord(
+                            PutRecordRequest(
+                                collection = Nsid(LINK_NSID),
+                                repo = AtIdentifier(selfDid),
+                                rkey = RecordKey(uri.substringAfterLast('/')),
+                                record = buildLinkRecord(repo, link),
+                            ),
+                        )
+                    strongRef(response.uri.raw, response.cid.raw)
+                }
+            }
+        }
+
+        /**
+         * The `app.bsky.actor.link` body for a create / put. A put merges onto
+         * the record as read (keeping self-labels and unknown keys). The icon:
+         * a pending favicon is uploaded and set; otherwise an unchanged URL keeps
+         * the stored icon and a changed URL drops it (it was the old site's).
+         * An icon upload failure drops the icon rather than failing the save.
+         */
+        private suspend fun buildLinkRecord(
+            repo: RepoService,
+            link: EditableProfileLink,
+        ): JsonObject {
+            val base = link.record
+            val record = base?.toMutableMap() ?: mutableMapOf()
+            record[KEY_TYPE] = JsonPrimitive(LINK_NSID)
+            val urlChanged = base?.get(KEY_URL).stringOrNull() != link.url
+            record[KEY_URL] = JsonPrimitive(link.url)
+            val title = link.title?.trim()
+            if (title.isNullOrEmpty()) record.remove(KEY_TITLE) else record[KEY_TITLE] = JsonPrimitive(title)
+            val pending = link.pendingIcon
+            val uploaded = pending?.let { uploadLinkIcon(repo, it) }
+            when {
+                uploaded != null -> record[KEY_ICON] = blobJson.encodeToJsonElement(Blob.serializer(), uploaded)
+                pending != null || urlChanged -> record.remove(KEY_ICON)
+            }
+            if (record[KEY_CREATED_AT] == null) record[KEY_CREATED_AT] = JsonPrimitive(Clock.System.now().toString())
+            return JsonObject(record)
+        }
+
+        private suspend fun uploadLinkIcon(
+            repo: RepoService,
+            icon: PendingIcon,
+        ): Blob? =
+            try {
+                repo.uploadBlob(input = icon.bytes, inputContentType = ContentType.Image.PNG).blob
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
+                Timber.tag(TAG).w("link icon upload failed: %s", throwable.javaClass.name)
+                null
+            }
+
+        /** Deletes unreferenced link records, concurrently. Best-effort: an orphan is invisible. */
+        private suspend fun deleteLinkRecords(
+            repo: RepoService,
+            selfDid: String,
+            uris: List<String>,
+        ) {
+            if (uris.isEmpty()) return
+            coroutineScope {
+                uris
+                    .map { uri ->
+                        async {
+                            try {
+                                repo.deleteRecord(
+                                    DeleteRecordRequest(
+                                        collection = Nsid(LINK_NSID),
+                                        repo = AtIdentifier(selfDid),
+                                        rkey = RecordKey(uri.substringAfterLast('/')),
+                                    ),
+                                )
+                            } catch (cancellation: CancellationException) {
+                                throw cancellation
+                            } catch (throwable: Throwable) {
+                                Timber.tag(TAG).w("link record delete failed: %s", throwable.javaClass.name)
+                            }
+                        }
+                    }.awaitAll()
+            }
+        }
+
+        /**
+         * The string value of a field read from the PDS, or null when it's absent
+         * or not a string. Records are untrusted: a malformed field must skip the
+         * link, not throw (`jsonPrimitive` throws on objects and arrays).
+         */
+        private fun JsonElement?.stringOrNull(): String? = (this as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
+
+        private fun strongRef(
+            uri: String,
+            cid: String,
+        ): JsonObject = JsonObject(mapOf("uri" to JsonPrimitive(uri), "cid" to JsonPrimitive(cid)))
 
         /**
          * Fetches the `app.bsky.actor.profile`/`self` record. Returns the
@@ -399,6 +630,13 @@ internal class DefaultProfileRepository
             const val KEY_DESCRIPTION = "description"
             const val KEY_AVATAR = "avatar"
             const val KEY_BANNER = "banner"
+            const val KEY_LINKS = "links"
+
+            const val LINK_NSID = "app.bsky.actor.link"
+            const val KEY_URL = "url"
+            const val KEY_TITLE = "title"
+            const val KEY_ICON = "icon"
+            const val KEY_CREATED_AT = "createdAt"
 
             // XRPC error names discriminated on the write path. getRecord
             // on a brand-new account returns RecordNotFound (→ create);
