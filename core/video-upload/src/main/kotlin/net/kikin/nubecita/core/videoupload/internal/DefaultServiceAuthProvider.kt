@@ -2,7 +2,6 @@ package net.kikin.nubecita.core.videoupload.internal
 
 import io.github.kikin81.atproto.com.atproto.server.GetServiceAuthRequest
 import io.github.kikin81.atproto.com.atproto.server.ServerService
-import io.github.kikin81.atproto.runtime.Did
 import io.github.kikin81.atproto.runtime.Nsid
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -61,7 +60,7 @@ internal class DefaultServiceAuthProvider(
             ServerService(xrpcClientProvider.authenticated())
                 .getServiceAuth(
                     GetServiceAuthRequest(
-                        aud = Did(key.audience),
+                        aud = key.audience,
                         lxm = Nsid(key.lxm),
                         exp = expiresAt.epochSeconds,
                     ),
