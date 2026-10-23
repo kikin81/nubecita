@@ -14,6 +14,12 @@ internal class LinkInputTest {
     }
 
     @Test
+    fun `uppercase or mixed-case hosts and TLDs are accepted`() {
+        assertEquals("https://Example.COM/Path", normalizeLinkUrl("Example.COM/Path"))
+        assertEquals("https://example.Com", normalizeLinkUrl("https://example.Com"))
+    }
+
+    @Test
     fun `explicit scheme is kept, including http`() {
         assertEquals("https://example.com/x", normalizeLinkUrl("https://example.com/x"))
         assertEquals("http://example.com", normalizeLinkUrl("http://example.com"))

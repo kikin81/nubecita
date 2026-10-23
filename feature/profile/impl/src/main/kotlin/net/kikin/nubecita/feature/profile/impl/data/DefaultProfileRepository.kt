@@ -35,7 +35,6 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
@@ -288,7 +287,7 @@ internal class DefaultProfileRepository
                     val refs =
                         (profile[KEY_LINKS] as? JsonArray)
                             .orEmpty()
-                            .mapNotNull { (it as? JsonObject)?.get("uri")?.jsonPrimitive?.contentOrNull }
+                            .mapNotNull { (it as? JsonObject)?.get("uri").stringOrNull() }
                     if (refs.isEmpty()) return@runCatchingCancellable emptyList()
                     coroutineScope {
                         // Best-effort: the AppView's view carries the icon CDN URLs the
@@ -308,11 +307,11 @@ internal class DefaultProfileRepository
                         val iconByUri = icons.await()
                         refs.zip(records).mapNotNull { (uri, record) ->
                             val (value, cid) = record ?: return@mapNotNull null
-                            val url = value[KEY_URL]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                            val url = value[KEY_URL].stringOrNull() ?: return@mapNotNull null
                             EditableProfileLink(
                                 localId = uri,
                                 url = url,
-                                title = value[KEY_TITLE]?.jsonPrimitive?.contentOrNull,
+                                title = value[KEY_TITLE].stringOrNull(),
                                 uri = uri,
                                 cid = cid,
                                 record = value,
@@ -400,7 +399,7 @@ internal class DefaultProfileRepository
             val base = link.record
             val record = base?.toMutableMap() ?: mutableMapOf()
             record[KEY_TYPE] = JsonPrimitive(LINK_NSID)
-            val urlChanged = base?.get(KEY_URL)?.jsonPrimitive?.contentOrNull != link.url
+            val urlChanged = base?.get(KEY_URL).stringOrNull() != link.url
             record[KEY_URL] = JsonPrimitive(link.url)
             val title = link.title?.trim()
             if (title.isNullOrEmpty()) record.remove(KEY_TITLE) else record[KEY_TITLE] = JsonPrimitive(title)
@@ -449,6 +448,13 @@ internal class DefaultProfileRepository
                 }
             }
         }
+
+        /**
+         * The string value of a field read from the PDS, or null when it's absent
+         * or not a string. Records are untrusted: a malformed field must skip the
+         * link, not throw (`jsonPrimitive` throws on objects and arrays).
+         */
+        private fun JsonElement?.stringOrNull(): String? = (this as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
 
         private fun strongRef(
             uri: String,

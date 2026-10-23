@@ -772,6 +772,38 @@ class DefaultProfileRepositoryUpdateProfileTest {
         }
 
     @Test
+    fun fetchOwnLinks_skipsMalformedRefsAndRecords_insteadOfFailing() =
+        runTest {
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    val collection = request.url.parameters["collection"]
+                    val rkey = request.url.parameters["rkey"]
+                    when {
+                        request.isGetRecord() && collection == "app.bsky.actor.profile" ->
+                            okJson(
+                                getRecordJson(
+                                    cid = "bafcid",
+                                    value =
+                                        """{"${'$'}type":"app.bsky.actor.profile","links":[""" +
+                                            """{"uri":{"nested":true},"cid":"x"},{"uri":"${linkUri("bad")}","cid":"x"},{"uri":"${linkUri("ok")}","cid":"x"}]}""",
+                                ),
+                            )
+                        request.isGetRecord() && rkey == "bad" ->
+                            okJson("""{"uri":"${linkUri("bad")}","cid":"cid-bad","value":{"url":{"not":"a string"},"createdAt":"2026-10-01T12:00:00Z"}}""")
+                        request.isGetRecord() ->
+                            okJson("""{"uri":"${linkUri("ok")}","cid":"cid-ok","value":{"url":"https://ok.example","title":["x"],"createdAt":"2026-10-01T12:00:00Z"}}""")
+                        request.url.encodedPath.endsWith("getProfile") -> okJson("""{"did":"$testDid","handle":"alice.test"}""")
+                        else -> error("Unexpected request: ${request.url}")
+                    }
+                }
+
+            val links = repo.fetchOwnLinks().getOrThrow()
+
+            assertEquals(listOf(linkUri("ok")), links.map { it.uri })
+            assertEquals(listOf<String?>(null), links.map { it.title })
+        }
+
+    @Test
     fun fetchOwnLinks_noProfileRecord_isEmpty() =
         runTest {
             val (_, repo) =
