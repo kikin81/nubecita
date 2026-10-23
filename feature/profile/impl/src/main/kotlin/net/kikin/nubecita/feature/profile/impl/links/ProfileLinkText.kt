@@ -30,7 +30,11 @@ internal fun parseWebUrl(url: String): WebUrl? {
         }
     val scheme = uri.scheme?.lowercase() ?: return null
     if (scheme != "http" && scheme != "https") return null
-    val host = uri.host?.lowercase()?.takeIf { it.isNotEmpty() } ?: return null
+    // `URI.host` is null for hostnames RFC 2396 rejects but browsers accept,
+    // like `my_portfolio.com` (underscore) — fall back to the authority,
+    // minus any userinfo and port.
+    val rawHost = uri.host ?: uri.rawAuthority?.substringAfterLast('@')?.substringBefore(':')
+    val host = rawHost?.lowercase()?.takeIf { it.isNotEmpty() } ?: return null
     return WebUrl(scheme = scheme, host = host, path = uri.rawPath.orEmpty())
 }
 

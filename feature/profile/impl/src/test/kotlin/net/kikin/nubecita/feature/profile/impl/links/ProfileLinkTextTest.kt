@@ -19,6 +19,13 @@ internal class ProfileLinkTextTest {
     }
 
     @Test
+    fun `underscore hostnames still yield a clean host`() {
+        assertEquals("my_portfolio.com", linkLabel(null, "https://www.my_portfolio.com"))
+        assertEquals("my_site.example.com", linkHost("https://user@my_site.example.com:8443/x"))
+        assertEquals(true, isSupportLink("https://my_name.itch.io"))
+    }
+
+    @Test
     fun `host of an unparseable url is the raw string`() {
         assertEquals("not a url", linkHost("not a url"))
     }
