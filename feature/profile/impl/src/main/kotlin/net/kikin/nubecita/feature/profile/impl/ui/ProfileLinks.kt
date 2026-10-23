@@ -24,6 +24,7 @@ import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -75,7 +76,9 @@ internal fun ProfileLinksRow(
         // already leaves a 16dp visual gap between rows.
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
-        visible.forEach { link -> ProfileLinkPill(link = link) }
+        visible.forEach { link ->
+            key(link.uri) { ProfileLinkPill(link = link) }
+        }
         if (overflowCount > 0) {
             NubecitaLinkChip(
                 label = stringResource(R.string.profile_links_overflow, overflowCount),
@@ -160,7 +163,9 @@ internal fun ProfileLinksSheetContent(
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
         )
-        links.forEach { link -> ProfileLinkSheetRow(link = link) }
+        links.forEach { link ->
+            key(link.uri) { ProfileLinkSheetRow(link = link) }
+        }
     }
 }
 
