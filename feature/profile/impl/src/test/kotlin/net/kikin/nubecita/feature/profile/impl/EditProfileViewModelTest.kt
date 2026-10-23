@@ -443,6 +443,55 @@ class EditProfileViewModelTest {
         assertFalse(vm.uiState.value.isDirty)
     }
 
+    // --- reorder ---
+
+    @Test
+    fun moving_a_link_reorders_the_draft_and_marks_dirty() {
+        val repo = FakeProfileRepository(linksResult = Result.success(listOf(savedA, savedB)))
+        val vm = viewModel(EditProfile(), repository = repo)
+        vm.handleEvent(EditProfileEvent.MoveLink(from = 1, to = 0))
+        assertEquals(listOf(savedB, savedA), vm.uiState.value.links)
+        assertTrue(vm.uiState.value.isDirty)
+    }
+
+    @Test
+    fun moving_back_to_the_original_order_clears_dirty() {
+        val repo = FakeProfileRepository(linksResult = Result.success(listOf(savedA, savedB)))
+        val vm = viewModel(EditProfile(), repository = repo)
+        vm.handleEvent(EditProfileEvent.MoveLink(from = 0, to = 1))
+        vm.handleEvent(EditProfileEvent.MoveLink(from = 1, to = 0))
+        assertFalse(vm.uiState.value.isDirty)
+    }
+
+    @Test
+    fun out_of_range_and_no_op_moves_are_ignored() {
+        val repo = FakeProfileRepository(linksResult = Result.success(listOf(savedA, savedB)))
+        val vm = viewModel(EditProfile(), repository = repo)
+        vm.handleEvent(EditProfileEvent.MoveLink(from = 0, to = 5))
+        vm.handleEvent(EditProfileEvent.MoveLink(from = -1, to = 0))
+        vm.handleEvent(EditProfileEvent.MoveLink(from = 1, to = 1))
+        assertEquals(listOf(savedA, savedB), vm.uiState.value.links)
+        assertFalse(vm.uiState.value.isDirty)
+    }
+
+    @Test
+    fun moves_are_ignored_until_links_load() {
+        val repo = FakeProfileRepository(linksResult = Result.failure(RuntimeException("offline")))
+        val vm = viewModel(EditProfile(), repository = repo)
+        vm.handleEvent(EditProfileEvent.MoveLink(from = 0, to = 1))
+        assertFalse(vm.uiState.value.isDirty)
+    }
+
+    @Test
+    fun reorder_only_save_sends_the_new_order() =
+        runTest {
+            val repo = FakeProfileRepository(linksResult = Result.success(listOf(savedA, savedB)))
+            val vm = viewModel(EditProfile(), repository = repo)
+            vm.handleEvent(EditProfileEvent.MoveLink(from = 1, to = 0))
+            vm.handleEvent(EditProfileEvent.SaveTapped)
+            assertEquals(LinksChange.Replaced(links = listOf(savedB, savedA), original = listOf(savedA, savedB)), repo.lastLinks)
+        }
+
     private fun EditProfileViewModel.editor(): LinkEditorState = checkNotNull(uiState.value.linkEditor)
 
     private fun viewModel(

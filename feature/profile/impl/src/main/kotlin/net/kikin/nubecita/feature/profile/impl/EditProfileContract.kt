@@ -195,6 +195,15 @@ internal sealed interface EditProfileEvent : UiEvent {
     data object LinkEditorConfirmed : EditProfileEvent
 
     data object LinkEditorDismissed : EditProfileEvent
+
+    /**
+     * Move the link at [from] to [to] (indices into the draft). Sent when a
+     * drag settles and by the move-up / move-down accessibility actions.
+     */
+    data class MoveLink(
+        val from: Int,
+        val to: Int,
+    ) : EditProfileEvent
 }
 
 internal sealed interface EditProfileEffect : UiEffect {
