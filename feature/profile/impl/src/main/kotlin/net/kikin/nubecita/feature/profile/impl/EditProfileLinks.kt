@@ -120,8 +120,7 @@ internal fun EditProfileLinksSection(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                }
-                if (state.links.isNotEmpty()) {
+                } else {
                     ReorderableLinkList(
                         links = state.links,
                         enabled = state.canEditLinks,
@@ -261,40 +260,52 @@ private fun EditProfileLinkRow(
         shape = RoundedCornerShape(16.dp),
         // A drag-lift shadow only — no tonal lift on an in-layout surface.
         shadowElevation = elevation,
-        modifier = modifier.fillMaxWidth().semantics { customActions = a11yActions },
+        modifier = modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier =
-                Modifier
-                    .clickable(
-                        enabled = enabled,
-                        role = Role.Button,
-                        onClickLabel = stringResource(R.string.edit_profile_link_edit_action, label),
-                        onClick = onEdit,
-                    ).heightIn(min = 56.dp)
-                    .padding(end = 4.dp),
+            modifier = Modifier.heightIn(min = 56.dp).padding(end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            // The handle and the ✕ sit outside the tappable area, so a tap on
+            // the handle doesn't also open the editor.
             dragHandle()
-            Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                NubecitaLinkFavicon(icon = link.pendingIcon?.bytes ?: link.iconPreviewUrl)
-            }
-            Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = link.url,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+            // The one TalkBack-focusable node for the row: tap-to-edit plus the
+            // move up / move down actions, which must live on the node TalkBack
+            // focuses (a parent's custom actions aren't offered on a merged child).
+            Row(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .heightIn(min = 56.dp)
+                        .clickable(
+                            enabled = enabled,
+                            role = Role.Button,
+                            onClickLabel = stringResource(R.string.edit_profile_link_edit_action, label),
+                            onClick = onEdit,
+                        ).semantics { customActions = a11yActions }
+                        .padding(horizontal = 4.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                    NubecitaLinkFavicon(icon = link.pendingIcon?.bytes ?: link.iconPreviewUrl)
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = link.url,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             IconButton(onClick = onRemove, enabled = enabled) {
                 NubecitaIcon(
