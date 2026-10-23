@@ -6,12 +6,18 @@ import io.mockk.mockk
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.data.models.VerifierUi
 import net.kikin.nubecita.feature.profile.api.EditProfile
+import net.kikin.nubecita.feature.profile.impl.data.EditableProfileLink
 import net.kikin.nubecita.feature.profile.impl.data.ImageChange
+import net.kikin.nubecita.feature.profile.impl.data.LinkFaviconFetcher
+import net.kikin.nubecita.feature.profile.impl.data.LinksChange
+import net.kikin.nubecita.feature.profile.impl.data.PendingIcon
 import net.kikin.nubecita.feature.profile.impl.data.ProfileHeaderWithViewer
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
@@ -21,10 +27,17 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.api.extension.RegisterExtension
 
-@ExtendWith(MainDispatcherExtension::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 class EditProfileViewModelTest {
+    // Unconfined so the VM's init-time links load (and other viewModelScope
+    // launches) run eagerly — the default StandardTestDispatcher would leave
+    // them queued with no scheduler driving them in non-runTest tests.
+    @JvmField
+    @RegisterExtension
+    val mainDispatcher = MainDispatcherExtension(UnconfinedTestDispatcher())
+
     @Test
     fun init_prefillsFromRoute_andIsNotDirty() {
         val vm = viewModel(EditProfile(displayName = "Alice", description = "hi there"))
@@ -239,15 +252,229 @@ class EditProfileViewModelTest {
         assertFalse(vm.uiState.value.showDiscardDialog)
     }
 
+    // --- links ---
+
+    private val savedA =
+        EditableProfileLink(localId = "at://me/app.bsky.actor.link/a", url = "https://a.example", title = "A", uri = "at://me/app.bsky.actor.link/a", cid = "cidA")
+    private val savedB =
+        EditableProfileLink(localId = "at://me/app.bsky.actor.link/b", url = "https://b.example", title = null, uri = "at://me/app.bsky.actor.link/b", cid = "cidB")
+
+    @Test
+    fun links_load_on_init_and_are_not_dirty() {
+        val repo = FakeProfileRepository(linksResult = Result.success(listOf(savedA, savedB)))
+        val vm = viewModel(EditProfile(displayName = "Alice"), repository = repo)
+        val state = vm.uiState.value
+        assertEquals(LinksLoadStatus.Loaded, state.linksStatus)
+        assertEquals(listOf(savedA, savedB), state.links)
+        assertFalse(state.isDirty)
+    }
+
+    @Test
+    fun failed_load_then_name_edit_saves_links_as_unchanged() =
+        runTest {
+            val repo = FakeProfileRepository(linksResult = Result.failure(RuntimeException("offline")))
+            val vm = viewModel(EditProfile(displayName = "Alice"), repository = repo)
+            assertEquals(LinksLoadStatus.Failed, vm.uiState.value.linksStatus)
+            assertFalse(vm.uiState.value.canAddLink)
+
+            vm.handleEvent(EditProfileEvent.DisplayNameChanged("Alicia"))
+            vm.handleEvent(EditProfileEvent.SaveTapped)
+
+            assertEquals(1, repo.updateCalls)
+            assertEquals(LinksChange.Unchanged, repo.lastLinks)
+        }
+
+    @Test
+    fun retry_reloads_links() {
+        val repo = FakeProfileRepository(linksResult = Result.failure(RuntimeException("offline")))
+        val vm = viewModel(EditProfile(), repository = repo)
+        repo.linksResult = Result.success(listOf(savedA))
+        vm.handleEvent(EditProfileEvent.RetryLinksLoad)
+        assertEquals(2, repo.fetchLinksCalls)
+        assertEquals(LinksLoadStatus.Loaded, vm.uiState.value.linksStatus)
+        assertEquals(listOf(savedA), vm.uiState.value.links)
+    }
+
+    @Test
+    fun adding_a_link_normalizes_fetches_favicon_and_marks_dirty() {
+        val fetcher = FakeFaviconFetcher(bytes = byteArrayOf(1, 2, 3))
+        val vm = viewModel(EditProfile(), faviconFetcher = fetcher)
+        vm.handleEvent(EditProfileEvent.AddLinkTapped)
+        vm.handleEvent(EditProfileEvent.LinkUrlChanged("patreon.com/sarah"))
+        vm.handleEvent(EditProfileEvent.LinkEditorConfirmed)
+
+        val state = vm.uiState.value
+        assertNull(state.linkEditor)
+        val added = state.links.single()
+        assertEquals("https://patreon.com/sarah", added.url)
+        assertNull(added.uri)
+        assertEquals(PendingIcon(byteArrayOf(1, 2, 3)), added.pendingIcon)
+        assertEquals(listOf("https://patreon.com/sarah"), fetcher.fetched)
+        assertTrue(state.isDirty)
+    }
+
+    @Test
+    fun favicon_failure_still_adds_the_link() {
+        val vm = viewModel(EditProfile(), faviconFetcher = FakeFaviconFetcher(bytes = null))
+        vm.handleEvent(EditProfileEvent.AddLinkTapped)
+        vm.handleEvent(EditProfileEvent.LinkUrlChanged("https://example.com"))
+        vm.handleEvent(EditProfileEvent.LinkEditorConfirmed)
+        assertNull(
+            vm.uiState.value.links
+                .single()
+                .pendingIcon,
+        )
+    }
+
+    @Test
+    fun title_only_edit_keeps_icon_and_skips_the_fetch() {
+        val fetcher = FakeFaviconFetcher(bytes = byteArrayOf(9))
+        val repo = FakeProfileRepository(linksResult = Result.success(listOf(savedA)))
+        val vm = viewModel(EditProfile(), repository = repo, faviconFetcher = fetcher)
+        vm.handleEvent(EditProfileEvent.EditLinkTapped(savedA.localId))
+        vm.handleEvent(EditProfileEvent.LinkTitleChanged("Renamed"))
+        vm.handleEvent(EditProfileEvent.LinkEditorConfirmed)
+
+        val edited =
+            vm.uiState.value.links
+                .single()
+        assertEquals("Renamed", edited.title)
+        assertEquals(savedA.uri, edited.uri)
+        assertNull(edited.pendingIcon)
+        assertTrue(fetcher.fetched.isEmpty())
+    }
+
+    @Test
+    fun url_edit_refetches_and_clears_the_old_preview() {
+        val repo = FakeProfileRepository(linksResult = Result.success(listOf(savedA.copy(iconPreviewUrl = "https://cdn/old"))))
+        val vm = viewModel(EditProfile(), repository = repo, faviconFetcher = FakeFaviconFetcher(bytes = byteArrayOf(7)))
+        vm.handleEvent(EditProfileEvent.EditLinkTapped(savedA.localId))
+        vm.handleEvent(EditProfileEvent.LinkUrlChanged("https://new.example"))
+        vm.handleEvent(EditProfileEvent.LinkEditorConfirmed)
+
+        val edited =
+            vm.uiState.value.links
+                .single()
+        assertEquals("https://new.example", edited.url)
+        assertEquals(savedA.uri, edited.uri)
+        assertNull(edited.iconPreviewUrl)
+        assertEquals(PendingIcon(byteArrayOf(7)), edited.pendingIcon)
+    }
+
+    @Test
+    fun invalid_and_duplicate_urls_block_confirm() {
+        val repo = FakeProfileRepository(linksResult = Result.success(listOf(savedA)))
+        val vm = viewModel(EditProfile(), repository = repo)
+        vm.handleEvent(EditProfileEvent.AddLinkTapped)
+
+        vm.handleEvent(EditProfileEvent.LinkUrlChanged("not a url"))
+        assertTrue(vm.editor().isUrlInvalid)
+        assertFalse(vm.editor().canConfirm)
+
+        vm.handleEvent(EditProfileEvent.LinkUrlChanged("a.example"))
+        assertTrue(vm.editor().isDuplicate)
+        assertFalse(vm.editor().canConfirm)
+    }
+
+    @Test
+    fun over_limit_title_blocks_confirm() {
+        val vm = viewModel(EditProfile())
+        vm.handleEvent(EditProfileEvent.AddLinkTapped)
+        vm.handleEvent(EditProfileEvent.LinkUrlChanged("example.com"))
+        vm.handleEvent(EditProfileEvent.LinkTitleChanged("x".repeat(41)))
+        assertTrue(vm.editor().isTitleOverLimit)
+        assertFalse(vm.editor().canConfirm)
+    }
+
+    @Test
+    fun shortener_and_http_warn_without_blocking() {
+        val vm = viewModel(EditProfile())
+        vm.handleEvent(EditProfileEvent.AddLinkTapped)
+        vm.handleEvent(EditProfileEvent.LinkUrlChanged("https://bit.ly/abc"))
+        assertTrue(vm.editor().isShortener)
+        assertTrue(vm.editor().canConfirm)
+        vm.handleEvent(EditProfileEvent.LinkUrlChanged("http://example.com"))
+        assertTrue(vm.editor().isInsecure)
+        assertTrue(vm.editor().canConfirm)
+    }
+
+    @Test
+    fun add_is_unavailable_at_ten_links() {
+        val ten = (1..10).map { savedA.copy(localId = "id$it", url = "https://s$it.example", uri = "at://me/app.bsky.actor.link/$it") }
+        val vm = viewModel(EditProfile(), repository = FakeProfileRepository(linksResult = Result.success(ten)))
+        assertFalse(vm.uiState.value.canAddLink)
+        vm.handleEvent(EditProfileEvent.AddLinkTapped)
+        assertNull(vm.uiState.value.linkEditor)
+    }
+
+    @Test
+    fun removing_then_saving_sends_replaced_with_the_original() =
+        runTest {
+            val repo = FakeProfileRepository(linksResult = Result.success(listOf(savedA, savedB)))
+            val vm = viewModel(EditProfile(), repository = repo)
+            vm.handleEvent(EditProfileEvent.RemoveLink(savedA.localId))
+            assertTrue(vm.uiState.value.isDirty)
+            vm.handleEvent(EditProfileEvent.SaveTapped)
+
+            assertEquals(LinksChange.Replaced(links = listOf(savedB), original = listOf(savedA, savedB)), repo.lastLinks)
+        }
+
+    @Test
+    fun untouched_links_save_as_unchanged() =
+        runTest {
+            val repo = FakeProfileRepository(linksResult = Result.success(listOf(savedA)))
+            val vm = viewModel(EditProfile(displayName = "Alice"), repository = repo)
+            vm.handleEvent(EditProfileEvent.DisplayNameChanged("Alicia"))
+            vm.handleEvent(EditProfileEvent.SaveTapped)
+            assertEquals(LinksChange.Unchanged, repo.lastLinks)
+        }
+
+    @Test
+    fun dismissing_the_editor_discards_it() {
+        val vm = viewModel(EditProfile())
+        vm.handleEvent(EditProfileEvent.AddLinkTapped)
+        vm.handleEvent(EditProfileEvent.LinkUrlChanged("example.com"))
+        vm.handleEvent(EditProfileEvent.LinkEditorDismissed)
+        assertNull(vm.uiState.value.linkEditor)
+        assertTrue(
+            vm.uiState.value.links
+                .isEmpty(),
+        )
+        assertFalse(vm.uiState.value.isDirty)
+    }
+
+    private fun EditProfileViewModel.editor(): LinkEditorState = checkNotNull(uiState.value.linkEditor)
+
     private fun viewModel(
         route: EditProfile,
         repository: ProfileRepository = FakeProfileRepository(),
-    ) = EditProfileViewModel(route = route, repository = repository)
+        faviconFetcher: LinkFaviconFetcher = FakeFaviconFetcher(),
+    ) = EditProfileViewModel(route = route, repository = repository, faviconFetcher = faviconFetcher)
+
+    private class FakeFaviconFetcher(
+        private val bytes: ByteArray? = null,
+    ) : LinkFaviconFetcher {
+        val fetched = mutableListOf<String>()
+
+        override suspend fun fetch(url: String): ByteArray? {
+            fetched += url
+            return bytes
+        }
+    }
 
     private class FakeProfileRepository(
         private val updateResult: Result<Unit> = Result.success(Unit),
         private val gate: CompletableDeferred<Unit>? = null,
+        var linksResult: Result<List<EditableProfileLink>> = Result.success(emptyList()),
     ) : ProfileRepository {
+        var fetchLinksCalls = 0
+        var lastLinks: LinksChange? = null
+
+        override suspend fun fetchOwnLinks(): Result<List<EditableProfileLink>> {
+            fetchLinksCalls++
+            return linksResult
+        }
+
         override val ownProfileUpdates = MutableSharedFlow<Unit>()
 
         override suspend fun resolveVerifiers(refs: ImmutableList<VerifierRef>): Result<ImmutableList<VerifierUi>> = Result.success(persistentListOf())
@@ -263,8 +490,10 @@ class EditProfileViewModelTest {
             description: String?,
             avatar: ImageChange,
             banner: ImageChange,
+            links: LinksChange,
         ): Result<Unit> {
             updateCalls++
+            lastLinks = links
             lastDisplayName = displayName
             lastDescription = description
             lastAvatar = avatar

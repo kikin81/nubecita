@@ -111,7 +111,7 @@ private fun ProfileLinkPill(
         NubecitaLinkChip(
             label = truncatePillLabel(link.label),
             emphasized = link.isSupportLink,
-            icon = { NubecitaLinkFavicon(iconUrl = link.iconUrl) },
+            icon = { NubecitaLinkFavicon(icon = link.iconUrl) },
             onClick = { openBioLinkInCustomTab(context, link.url) },
             onClickLabel = stringResource(R.string.profile_link_open, link.host),
             onLongClick = { scope.launch { tooltipState.show() } },
@@ -201,7 +201,7 @@ private fun ProfileLinkSheetRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                NubecitaLinkFavicon(iconUrl = link.iconUrl)
+                NubecitaLinkFavicon(icon = link.iconUrl)
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(

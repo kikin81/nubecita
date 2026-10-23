@@ -2591,7 +2591,10 @@ internal class ProfileViewModelTest {
             description: String?,
             avatar: net.kikin.nubecita.feature.profile.impl.data.ImageChange,
             banner: net.kikin.nubecita.feature.profile.impl.data.ImageChange,
+            links: net.kikin.nubecita.feature.profile.impl.data.LinksChange,
         ): Result<Unit> = Result.success(Unit)
+
+        override suspend fun fetchOwnLinks(): Result<List<net.kikin.nubecita.feature.profile.impl.data.EditableProfileLink>> = Result.success(emptyList())
     }
 
     /**

@@ -51,5 +51,5 @@ private fun NubecitaLinkChipScreenshot() {
 
 @Composable
 private fun GlobeIcon() {
-    NubecitaLinkFavicon(iconUrl = null)
+    NubecitaLinkFavicon(icon = null)
 }

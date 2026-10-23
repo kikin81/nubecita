@@ -196,6 +196,11 @@ internal fun EditProfileScreenContent(
         )
     }
 
+    val linkEditor = state.linkEditor
+    if (linkEditor != null) {
+        LinkEditorDialog(editor = linkEditor, onEvent = onEvent)
+    }
+
     if (state.showDiscardDialog) {
         DiscardChangesDialog(
             onConfirm = { onEvent(EditProfileEvent.DiscardConfirmed) },
@@ -273,6 +278,8 @@ internal fun EditProfileContent(
                 )
             },
         )
+
+        EditProfileLinksSection(state = state, onEvent = onEvent)
     }
 }
 

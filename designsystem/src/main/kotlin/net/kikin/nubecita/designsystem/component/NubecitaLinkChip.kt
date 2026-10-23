@@ -120,21 +120,22 @@ fun NubecitaLinkChip(
 
 /**
  * A link's site icon (favicon) for [NubecitaLinkChip]'s icon slot and link
- * rows, falling back to the globe glyph when [iconUrl] is null or fails to
- * load. Always decorative (`contentDescription = null`) — the surrounding
+ * rows, falling back to the globe glyph when [icon] is null, still loading, or
+ * fails to load. [icon] is any Coil model — a CDN URL for a saved link, or the
+ * raw bytes of a freshly fetched favicon not uploaded yet. Always decorative (`contentDescription = null`) — the surrounding
  * label carries the accessible name.
  */
 @Composable
 fun NubecitaLinkFavicon(
-    iconUrl: String?,
+    icon: Any?,
     modifier: Modifier = Modifier,
     size: Dp = ChipIconSize,
 ) {
-    if (iconUrl == null) {
+    if (icon == null) {
         NubecitaIcon(name = NubecitaIconName.Public, contentDescription = null, opticalSize = size, modifier = modifier)
         return
     }
-    val painter = rememberAsyncImagePainter(model = iconUrl)
+    val painter = rememberAsyncImagePainter(model = icon)
     val state by painter.state.collectAsState()
     Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
         // The globe stands in until the favicon succeeds (loading or failed).
