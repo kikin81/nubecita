@@ -232,6 +232,8 @@ internal class ProfileViewModel
                 is ProfileEvent.OnPostOverflowAction -> onOverflowAction(event.post, event.action)
                 ProfileEvent.VerificationBadgeTapped -> onVerificationBadgeTapped()
                 ProfileEvent.VerificationSheetDismissed -> setState { copy(verificationSheetVisible = false) }
+                ProfileEvent.LinksOverflowTapped -> setState { copy(linksSheetVisible = true) }
+                ProfileEvent.LinksSheetDismissed -> setState { copy(linksSheetVisible = false) }
             }
         }
 

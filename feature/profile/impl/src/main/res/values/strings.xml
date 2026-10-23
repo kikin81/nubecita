@@ -88,6 +88,11 @@
     <!-- Muted-user inline notice in the hero (Task 5, nubecita-oftc.5) -->
     <string name="profile_muted_notice">You\'ve muted this user</string>
     <string name="profile_follows_you">Follows you</string>
+    <string name="profile_links_overflow" translatable="false">+%1$d</string>
+    <string name="profile_links_overflow_action">Show all links</string>
+    <string name="profile_link_open">Open link to %1$s</string>
+    <string name="profile_link_show_url">Show full link</string>
+    <string name="profile_links_sheet_title">Links</string>
 
     <!-- Header inline-error -->
     <string name="profile_header_error_title">Couldn\'t load profile</string>

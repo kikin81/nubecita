@@ -32,6 +32,16 @@ internal data class BenchProfileHeaderDto(
     val followsCount: Long = 0,
     /** `"verified"`, `"trustedVerifier"`, or null/omitted for no badge. */
     val verifiedBadge: String? = null,
+    val links: List<BenchProfileLinkDto> = emptyList(),
+)
+
+/** A profile link (`app.bsky.actor.defs#profileLinkView`) in the bench fixture. */
+@Serializable
+internal data class BenchProfileLinkDto(
+    val uri: String,
+    val url: String,
+    val title: String? = null,
+    val iconUrl: String? = null,
 )
 
 @Serializable

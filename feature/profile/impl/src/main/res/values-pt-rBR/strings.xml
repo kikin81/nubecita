@@ -92,6 +92,10 @@
     <!-- Muted-user inline notice in the hero (Task 5, nubecita-oftc.5) -->
     <string name="profile_muted_notice">Você silenciou este usuário</string>
     <string name="profile_follows_you">Segue você</string>
+    <string name="profile_links_overflow_action">Mostrar todos os links</string>
+    <string name="profile_link_open">Abrir link para %1$s</string>
+    <string name="profile_link_show_url">Mostrar link completo</string>
+    <string name="profile_links_sheet_title">Links</string>
 
     <!-- Verification explanation sheet (Task 4, nubecita-vw45.4) -->
     <string name="verification_sheet_title_verified">Conta verificada</string>

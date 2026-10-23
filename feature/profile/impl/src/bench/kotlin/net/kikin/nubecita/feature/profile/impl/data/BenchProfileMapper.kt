@@ -11,8 +11,12 @@ import net.kikin.nubecita.data.models.VerifiedBadge
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.feature.profile.impl.PinnedPostRef
 import net.kikin.nubecita.feature.profile.impl.ProfileHeaderUi
+import net.kikin.nubecita.feature.profile.impl.ProfileLinkUi
 import net.kikin.nubecita.feature.profile.impl.TabItemUi
 import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
+import net.kikin.nubecita.feature.profile.impl.links.isSupportLink
+import net.kikin.nubecita.feature.profile.impl.links.linkHost
+import net.kikin.nubecita.feature.profile.impl.links.linkLabel
 import timber.log.Timber
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -45,6 +49,18 @@ internal object BenchProfileMapper {
                         cid = "bafyreibenchpinned00000000000000000000000000000000000001",
                     ),
                 verifiedBadge = dto.verifiedBadge.toVerifiedBadge(),
+                links =
+                    dto.links
+                        .map { link ->
+                            ProfileLinkUi(
+                                uri = link.uri,
+                                url = link.url,
+                                label = linkLabel(link.title, link.url),
+                                host = linkHost(link.url),
+                                iconUrl = link.iconUrl,
+                                isSupportLink = isSupportLink(link.url),
+                            )
+                        }.toPersistentList(),
             )
         return ProfileHeaderWithViewer(header = header, viewerRelationship = ViewerRelationship.None)
     }
