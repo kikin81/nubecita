@@ -24,10 +24,8 @@ import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -95,7 +93,7 @@ private fun ProfileLinkPill(
     link: ProfileLinkUi,
     modifier: Modifier = Modifier,
 ) {
-    val context by rememberUpdatedState(LocalContext.current)
+    val context = LocalContext.current
     val tooltipState = rememberTooltipState()
     val scope = rememberCoroutineScope()
     TooltipBox(
@@ -172,7 +170,7 @@ private fun ProfileLinkSheetRow(
     link: ProfileLinkUi,
     modifier: Modifier = Modifier,
 ) {
-    val context by rememberUpdatedState(LocalContext.current)
+    val context = LocalContext.current
     val tooltipState = rememberTooltipState()
     val scope = rememberCoroutineScope()
     TooltipBox(
