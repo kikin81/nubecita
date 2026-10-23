@@ -24,6 +24,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -237,22 +238,24 @@ private fun EditProfileLinkRow(
     val moveUpLabel = stringResource(R.string.edit_profile_link_move_up)
     val moveDownLabel = stringResource(R.string.edit_profile_link_move_down)
     val a11yActions =
-        buildList {
-            if (enabled && index > 0) {
-                add(
-                    CustomAccessibilityAction(moveUpLabel) {
-                        onMove(index, index - 1)
-                        true
-                    },
-                )
-            }
-            if (enabled && index < itemCount - 1) {
-                add(
-                    CustomAccessibilityAction(moveDownLabel) {
-                        onMove(index, index + 1)
-                        true
-                    },
-                )
+        remember(enabled, index, itemCount, moveUpLabel, moveDownLabel, onMove) {
+            buildList {
+                if (enabled && index > 0) {
+                    add(
+                        CustomAccessibilityAction(moveUpLabel) {
+                            onMove(index, index - 1)
+                            true
+                        },
+                    )
+                }
+                if (enabled && index < itemCount - 1) {
+                    add(
+                        CustomAccessibilityAction(moveDownLabel) {
+                            onMove(index, index + 1)
+                            true
+                        },
+                    )
+                }
             }
         }
     Surface(
