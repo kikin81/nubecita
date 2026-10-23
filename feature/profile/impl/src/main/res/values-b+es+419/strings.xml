@@ -97,6 +97,8 @@
     <string name="edit_profile_links_limit">Puedes agregar hasta %1$d enlaces.</string>
     <string name="edit_profile_link_edit_action">Editar %1$s</string>
     <string name="edit_profile_link_remove">Quitar %1$s</string>
+    <string name="edit_profile_link_move_up">Mover hacia arriba</string>
+    <string name="edit_profile_link_move_down">Mover hacia abajo</string>
     <string name="edit_profile_link_add_title">Agregar enlace</string>
     <string name="edit_profile_link_edit_title">Editar enlace</string>
     <string name="edit_profile_link_save">Listo</string>

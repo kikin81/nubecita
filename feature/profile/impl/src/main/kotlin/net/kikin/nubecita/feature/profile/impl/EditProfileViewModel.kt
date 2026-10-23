@@ -162,6 +162,8 @@ internal class EditProfileViewModel
 
                 EditProfileEvent.LinkEditorConfirmed -> confirmEditor()
 
+                is EditProfileEvent.MoveLink -> moveLink(event.from, event.to)
+
                 EditProfileEvent.LinkEditorDismissed -> {
                     faviconJob?.cancel()
                     setState { copy(linkEditor = null) }
@@ -223,6 +225,18 @@ internal class EditProfileViewModel
                             ?: EditableProfileLink(localId = "new-${++newLinkCounter}", url = url, title = title, pendingIcon = icon)
                     applyLink(link)
                 }
+        }
+
+        /** Reorders the draft only; Save then writes the new ref order (no link-record writes). */
+        private fun moveLink(
+            from: Int,
+            to: Int,
+        ) {
+            if (!uiState.value.canEditLinks || from == to) return
+            updateLinks { links ->
+                if (from !in links.indices || to !in links.indices) return@updateLinks links
+                links.toMutableList().apply { add(to, removeAt(from)) }
+            }
         }
 
         /** Replaces the link with the same localId, or appends a new one; closes the form. */

@@ -129,6 +129,8 @@
     <string name="edit_profile_links_limit">You can add up to %1$d links.</string>
     <string name="edit_profile_link_edit_action">Edit %1$s</string>
     <string name="edit_profile_link_remove">Remove %1$s</string>
+    <string name="edit_profile_link_move_up">Move up</string>
+    <string name="edit_profile_link_move_down">Move down</string>
     <string name="edit_profile_link_add_title">Add link</string>
     <string name="edit_profile_link_edit_title">Edit link</string>
     <string name="edit_profile_link_save">Done</string>

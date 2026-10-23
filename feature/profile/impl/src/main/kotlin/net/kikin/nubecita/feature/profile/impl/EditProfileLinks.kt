@@ -1,5 +1,7 @@
 package net.kikin.nubecita.feature.profile.impl
 
+import android.os.Build
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,16 +22,25 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlinx.collections.immutable.ImmutableList
 import net.kikin.nubecita.designsystem.component.NubecitaLinkFavicon
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -38,6 +49,7 @@ import net.kikin.nubecita.feature.profile.impl.data.EditableProfileLink
 import net.kikin.nubecita.feature.profile.impl.links.MAX_LINK_TITLE_GRAPHEMES
 import net.kikin.nubecita.feature.profile.impl.links.MAX_PROFILE_LINKS
 import net.kikin.nubecita.feature.profile.impl.links.linkLabel
+import sh.calvin.reorderable.ReorderableColumn
 
 /** Test tags for the Edit Profile links surfaces. */
 internal object EditProfileLinksTestTags {
@@ -109,16 +121,12 @@ internal fun EditProfileLinksSection(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                }
-                state.links.forEach { link ->
-                    key(link.localId) {
-                        EditProfileLinkRow(
-                            link = link,
-                            enabled = state.canEditLinks,
-                            onEdit = { onEvent(EditProfileEvent.EditLinkTapped(link.localId)) },
-                            onRemove = { onEvent(EditProfileEvent.RemoveLink(link.localId)) },
-                        )
-                    }
+                } else {
+                    ReorderableLinkList(
+                        links = state.links,
+                        enabled = state.canEditLinks,
+                        onEvent = onEvent,
+                    )
                 }
                 if (state.canAddLink) {
                     TextButton(
@@ -143,51 +151,164 @@ internal fun EditProfileLinksSection(
     }
 }
 
+/**
+ * The draft links as a drag-to-reorder list. Edit Profile is a non-lazy
+ * `verticalScroll` column holding at most 10 links, so the library's
+ * [ReorderableColumn] (not the lazy variant). A drag only reorders the draft —
+ * [EditProfileEvent.MoveLink] is sent once, when the drop settles — and Save
+ * writes the new order. Drag isn't reachable with TalkBack, so each row also
+ * carries move up / move down custom actions.
+ */
+@Composable
+private fun ReorderableLinkList(
+    links: ImmutableList<EditableProfileLink>,
+    enabled: Boolean,
+    onEvent: (EditProfileEvent) -> Unit,
+) {
+    val haptics = LocalHapticFeedback.current
+    // SegmentFrequentTick is API 34+ and Compose doesn't guard it; fall back to the
+    // text-handle tick below that (same choice as ManageFeedsScreen).
+    val reorderTick =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            HapticFeedbackType.SegmentFrequentTick
+        } else {
+            HapticFeedbackType.TextHandleMove
+        }
+    ReorderableColumn(
+        list = links,
+        onSettle = { from, to -> onEvent(EditProfileEvent.MoveLink(from, to)) },
+        // A tick each time the dragged row swaps past another — the library ships no haptics.
+        onMove = { haptics.performHapticFeedback(reorderTick) },
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) { index, link, isDragging ->
+        // ReorderableColumn iterates without keys; key by the stable draft id so
+        // per-row state (image load, ripple) follows the link as it moves.
+        key(link.localId) {
+            ReorderableItem {
+                val elevation by animateDpAsState(
+                    targetValue = if (isDragging) DragElevation else 0.dp,
+                    label = "edit-profile-link-drag-elevation",
+                )
+                EditProfileLinkRow(
+                    link = link,
+                    index = index,
+                    itemCount = links.size,
+                    enabled = enabled,
+                    elevation = elevation,
+                    onEdit = { onEvent(EditProfileEvent.EditLinkTapped(link.localId)) },
+                    onRemove = { onEvent(EditProfileEvent.RemoveLink(link.localId)) },
+                    onMove = { from, to -> onEvent(EditProfileEvent.MoveLink(from, to)) },
+                    dragHandle = {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .draggableHandle(enabled = enabled)
+                                    .size(48.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            NubecitaIcon(
+                                name = NubecitaIconName.Menu,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    },
+                )
+            }
+        }
+    }
+}
+
+private val DragElevation = 6.dp
+
 @Composable
 private fun EditProfileLinkRow(
     link: EditableProfileLink,
+    index: Int,
+    itemCount: Int,
     enabled: Boolean,
+    elevation: Dp,
     onEdit: () -> Unit,
     onRemove: () -> Unit,
+    onMove: (from: Int, to: Int) -> Unit,
+    dragHandle: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val label = linkLabel(link.title, link.url)
+    val moveUpLabel = stringResource(R.string.edit_profile_link_move_up)
+    val moveDownLabel = stringResource(R.string.edit_profile_link_move_down)
+    val a11yActions =
+        remember(enabled, index, itemCount, moveUpLabel, moveDownLabel, onMove) {
+            buildList {
+                if (enabled && index > 0) {
+                    add(
+                        CustomAccessibilityAction(moveUpLabel) {
+                            onMove(index, index - 1)
+                            true
+                        },
+                    )
+                }
+                if (enabled && index < itemCount - 1) {
+                    add(
+                        CustomAccessibilityAction(moveDownLabel) {
+                            onMove(index, index + 1)
+                            true
+                        },
+                    )
+                }
+            }
+        }
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
         shape = RoundedCornerShape(16.dp),
+        // A drag-lift shadow only — no tonal lift on an in-layout surface.
+        shadowElevation = elevation,
         modifier = modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier =
-                Modifier
-                    .clickable(
-                        enabled = enabled,
-                        role = Role.Button,
-                        onClickLabel = stringResource(R.string.edit_profile_link_edit_action, label),
-                        onClick = onEdit,
-                    ).heightIn(min = 56.dp)
-                    .padding(start = 16.dp, end = 4.dp),
+            modifier = Modifier.heightIn(min = 56.dp).padding(end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                NubecitaLinkFavicon(icon = link.pendingIcon?.bytes ?: link.iconPreviewUrl)
-            }
-            Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = link.url,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+            // The handle and the ✕ sit outside the tappable area, so a tap on
+            // the handle doesn't also open the editor.
+            dragHandle()
+            // The one TalkBack-focusable node for the row: tap-to-edit plus the
+            // move up / move down actions, which must live on the node TalkBack
+            // focuses (a parent's custom actions aren't offered on a merged child).
+            Row(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .heightIn(min = 56.dp)
+                        .clickable(
+                            enabled = enabled,
+                            role = Role.Button,
+                            onClickLabel = stringResource(R.string.edit_profile_link_edit_action, label),
+                            onClick = onEdit,
+                        ).semantics { customActions = a11yActions }
+                        .padding(horizontal = 4.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                    NubecitaLinkFavicon(icon = link.pendingIcon?.bytes ?: link.iconPreviewUrl)
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = link.url,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             IconButton(onClick = onRemove, enabled = enabled) {
                 NubecitaIcon(

@@ -45,4 +45,13 @@ internal class LinkWritePlanTest {
         assertEquals(listOf(LinkWrite.Reuse(b), LinkWrite.Create(c), LinkWrite.Reuse(a)), plan.writes)
         assertEquals(listOf("at://me/app.bsky.actor.link/d"), plan.deletes)
     }
+
+    @Test
+    fun `a reorder alone writes no link record`() {
+        val a = saved("a")
+        val b = saved("b")
+        val plan = planLinkWrites(listOf(b, a), listOf(a, b))
+        assertEquals(listOf(LinkWrite.Reuse(b), LinkWrite.Reuse(a)), plan.writes)
+        assertEquals(emptyList<String>(), plan.deletes)
+    }
 }
