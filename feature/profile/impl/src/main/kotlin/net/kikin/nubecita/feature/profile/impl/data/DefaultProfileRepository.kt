@@ -23,6 +23,9 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -287,28 +290,35 @@ internal class DefaultProfileRepository
                             .orEmpty()
                             .mapNotNull { (it as? JsonObject)?.get("uri")?.jsonPrimitive?.contentOrNull }
                     if (refs.isEmpty()) return@runCatchingCancellable emptyList()
-                    // Best-effort: the AppView's view carries the icon CDN URLs the
-                    // records (blob refs) can't render. Missing → globe.
-                    val iconByUri =
-                        runCatchingCancellable {
-                            ActorService(client)
-                                .getProfile(buildGetProfileRequest(selfDid))
-                                .links
-                                .orEmpty()
-                                .associate { it.uri.raw to it.icon?.raw }
-                        }.getOrDefault(emptyMap())
-                    refs.mapNotNull { uri ->
-                        val record = fetchLinkRecord(repo, selfDid, uri) ?: return@mapNotNull null
-                        val url = record.first[KEY_URL]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-                        EditableProfileLink(
-                            localId = uri,
-                            url = url,
-                            title = record.first[KEY_TITLE]?.jsonPrimitive?.contentOrNull,
-                            uri = uri,
-                            cid = record.second,
-                            record = record.first,
-                            iconPreviewUrl = iconByUri[uri],
-                        )
+                    coroutineScope {
+                        // Best-effort: the AppView's view carries the icon CDN URLs the
+                        // records (blob refs) can't render. Missing → globe. Fetched in
+                        // parallel with the (up to 10) link records.
+                        val icons =
+                            async {
+                                runCatchingCancellable {
+                                    ActorService(client)
+                                        .getProfile(buildGetProfileRequest(selfDid))
+                                        .links
+                                        .orEmpty()
+                                        .associate { it.uri.raw to it.icon?.raw }
+                                }.getOrDefault(emptyMap())
+                            }
+                        val records = refs.map { uri -> async { fetchLinkRecord(repo, selfDid, uri) } }.awaitAll()
+                        val iconByUri = icons.await()
+                        refs.zip(records).mapNotNull { (uri, record) ->
+                            val (value, cid) = record ?: return@mapNotNull null
+                            val url = value[KEY_URL]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                            EditableProfileLink(
+                                localId = uri,
+                                url = url,
+                                title = value[KEY_TITLE]?.jsonPrimitive?.contentOrNull,
+                                uri = uri,
+                                cid = cid,
+                                record = value,
+                                iconPreviewUrl = iconByUri[uri],
+                            )
+                        }
                     }
                 }.onFailure { throwable ->
                     Timber.tag(TAG).w(throwable, "fetchOwnLinks failed: %s", throwable.javaClass.name)

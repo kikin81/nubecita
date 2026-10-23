@@ -2,9 +2,9 @@ package net.kikin.nubecita.feature.profile.impl.data
 
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.timeout
-import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
+import io.ktor.client.request.prepareGet
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentLength
@@ -30,26 +30,30 @@ internal class CardyBLinkFaviconFetcher
     ) : LinkFaviconFetcher {
         override suspend fun fetch(url: String): ByteArray? =
             try {
-                val response =
-                    httpClient.get(CARDYB_FAVICON) {
+                // prepareGet + execute streams the body: a plain get() in Ktor 3
+                // saves the whole response before returning, which would buffer
+                // an arbitrarily large body before any size check ran.
+                httpClient
+                    .prepareGet(CARDYB_FAVICON) {
                         parameter("url", url)
                         parameter("fresh", "true")
                         header(HttpHeaders.CacheControl, "no-store")
                         timeout { requestTimeoutMillis = TIMEOUT_MS }
+                    }.execute { response ->
+                        val type = response.contentType()
+                        val declaredLength = response.contentLength()
+                        when {
+                            !response.status.isSuccess() -> null
+                            type == null || type.contentType != "image" || type.contentSubtype != "png" -> null
+                            declaredLength != null && declaredLength > MAX_ICON_BYTES -> null
+                            else -> {
+                                // Bounded read (+1 to detect overflow) so a missing or
+                                // lying Content-Length can't make us buffer a huge body.
+                                val bytes = response.bodyAsChannel().readRemaining(MAX_ICON_BYTES + 1L).readByteArray()
+                                bytes.takeIf { it.isNotEmpty() && it.size <= MAX_ICON_BYTES }
+                            }
+                        }
                     }
-                val type = response.contentType()
-                val declaredLength = response.contentLength()
-                when {
-                    !response.status.isSuccess() -> null
-                    type == null || type.contentType != "image" || type.contentSubtype != "png" -> null
-                    declaredLength != null && declaredLength > MAX_ICON_BYTES -> null
-                    else -> {
-                        // Bounded read (+1 to detect overflow) so a missing or
-                        // lying Content-Length can't make us buffer a huge body.
-                        val bytes = response.bodyAsChannel().readRemaining(MAX_ICON_BYTES + 1L).readByteArray()
-                        bytes.takeIf { it.isNotEmpty() && it.size <= MAX_ICON_BYTES }
-                    }
-                }
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (e: Exception) {
