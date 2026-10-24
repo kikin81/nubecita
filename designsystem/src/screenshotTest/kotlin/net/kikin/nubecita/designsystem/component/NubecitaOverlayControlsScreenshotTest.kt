@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
@@ -101,6 +102,23 @@ private fun StatButtonRow() {
     }
 }
 
+@Composable
+private fun PillRow() {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        // Non-interactive label (the media viewer's page indicator).
+        NubecitaOverlayPill(text = "2 / 4")
+        // Interactive pill (the ALT badge).
+        NubecitaOverlayPill(text = "ALT", onClick = {}, accessibilityLabel = "View alt text")
+        // Busy icon button (save in flight) keeps its backing and size.
+        NubecitaOverlayIconButton(
+            icon = NubecitaIconName.Download,
+            accessibilityLabel = "Save image",
+            onClick = {},
+            busy = true,
+        )
+    }
+}
+
 @PreviewTest
 @Preview(name = "overlay controls — over white")
 @Composable
@@ -108,6 +126,7 @@ private fun OverlayControlsOverWhitePreview() {
     OverBackdrop(Color.White) {
         IconButtonRow()
         StatButtonRow()
+        PillRow()
     }
 }
 
@@ -118,6 +137,7 @@ private fun OverlayControlsOverBlackPreview() {
     OverBackdrop(Color.Black) {
         IconButtonRow()
         StatButtonRow()
+        PillRow()
     }
 }
 
@@ -128,5 +148,6 @@ private fun OverlayControlsOverMidTonePreview() {
     OverBackdrop(Color(0xFF7F7F7F)) {
         IconButtonRow()
         StatButtonRow()
+        PillRow()
     }
 }

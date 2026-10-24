@@ -14,20 +14,21 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
@@ -50,10 +51,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -61,9 +59,11 @@ import kotlinx.coroutines.launch
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import me.saket.telephoto.zoomable.rememberZoomableState
+import net.kikin.nubecita.designsystem.component.NubecitaOverlayIconButton
+import net.kikin.nubecita.designsystem.component.NubecitaOverlayPill
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
-import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.designsystem.spacing
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -256,20 +256,16 @@ private fun ErrorState(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Box(modifier = modifier.fillMaxSize().statusBarsPadding()) {
+    Box(modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
         // Close affordance stays visible on error so the user can always
-        // exit even if retry keeps failing.
-        IconButton(
+        // exit even if retry keeps failing. Same overlay control as the
+        // loaded chrome so the two states look like one screen.
+        NubecitaOverlayIconButton(
+            icon = NubecitaIconName.Close,
+            accessibilityLabel = stringResource(R.string.mediaviewer_close_content_description),
             onClick = onDismiss,
-            modifier = Modifier.padding(8.dp).align(Alignment.TopStart),
-        ) {
-            NubecitaIcon(
-                name = NubecitaIconName.Close,
-                contentDescription = stringResource(R.string.mediaviewer_close_content_description),
-                filled = false,
-                tint = Color.White,
-            )
-        }
+            modifier = Modifier.padding(MaterialTheme.spacing.s2).align(Alignment.TopStart),
+        )
         Column(
             modifier =
                 Modifier
@@ -428,7 +424,7 @@ private fun LoadedState(
             exit = fadeOut(),
             modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
         ) {
-            ChromeBar(
+            OverlayChrome(
                 currentIndex = status.currentIndex,
                 totalImages = status.images.size,
                 hasAltText = !status.images[status.currentIndex].altText.isNullOrBlank(),
@@ -460,8 +456,19 @@ private fun LoadedState(
     }
 }
 
+/**
+ * Floating chrome: close at top-start, the page indicator at top-center, and
+ * save + ALT at top-end — each its own designsystem overlay control, with no
+ * full-width band behind them. A bar spanning the screen read as a phone-only
+ * app bar stretched across a tablet or unfolded foldable; floating controls
+ * keep their size and corners on every width, and the overlay scrim keeps each
+ * one legible over any image.
+ *
+ * Inset by `safeDrawing` (system bars AND display cutout) so the corner
+ * controls never sit under a status bar, a gesture bar or a camera cutout.
+ */
 @Composable
-private fun ChromeBar(
+private fun OverlayChrome(
     currentIndex: Int,
     totalImages: Int,
     hasAltText: Boolean,
@@ -470,95 +477,52 @@ private fun ChromeBar(
     onClose: () -> Unit,
     onAltBadgeClick: () -> Unit,
     onSaveClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Surface(
+    Box(
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
-                .statusBarsPadding(),
-        color = Color.Black.copy(alpha = 0.45f),
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(MaterialTheme.spacing.s2),
     ) {
-        Box(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
-            IconButton(
-                onClick = onClose,
-                modifier = Modifier.align(Alignment.CenterStart),
-            ) {
-                NubecitaIcon(
-                    name = NubecitaIconName.Close,
-                    contentDescription = stringResource(R.string.mediaviewer_close_content_description),
-                    filled = false,
-                    tint = Color.White,
+        NubecitaOverlayIconButton(
+            icon = NubecitaIconName.Close,
+            accessibilityLabel = stringResource(R.string.mediaviewer_close_content_description),
+            onClick = onClose,
+            modifier = Modifier.align(Alignment.TopStart),
+        )
+        if (totalImages > 1) {
+            NubecitaOverlayPill(
+                text = stringResource(R.string.mediaviewer_page_indicator, currentIndex + 1, totalImages),
+                // Centered on the 48dp control row so the pill lines up with
+                // the corner buttons rather than hugging the top inset.
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = MaterialTheme.spacing.s2),
+            )
+        }
+        Row(
+            modifier = Modifier.align(Alignment.TopEnd),
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s2),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (hasAltText) {
+                NubecitaOverlayPill(
+                    text = stringResource(R.string.mediaviewer_alt_badge_label),
+                    onClick = onAltBadgeClick,
+                    accessibilityLabel = stringResource(R.string.mediaviewer_alt_badge_content_description),
                 )
             }
-            if (totalImages > 1) {
-                Text(
-                    text =
-                        stringResource(
-                            R.string.mediaviewer_page_indicator,
-                            currentIndex + 1,
-                            totalImages,
-                        ),
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.align(Alignment.Center),
+            // Omitted entirely — not disabled — where the platform cannot
+            // write to the shared gallery without a permission the app
+            // deliberately does not declare. A control that can never work
+            // is worse than no control.
+            if (canSave) {
+                NubecitaOverlayIconButton(
+                    icon = NubecitaIconName.Download,
+                    accessibilityLabel = stringResource(R.string.mediaviewer_save_content_description),
+                    onClick = onSaveClick,
+                    busy = isSaving,
                 )
-            }
-            Row(
-                modifier = Modifier.align(Alignment.CenterEnd),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // Omitted entirely — not disabled — where the platform cannot
-                // write to the shared gallery without a permission the app
-                // deliberately does not declare. A control that can never work
-                // is worse than no control.
-                if (canSave) {
-                    if (isSaving) {
-                        Box(
-                            modifier = Modifier.size(48.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            NubecitaWavyProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = Color.White,
-                            )
-                        }
-                    } else {
-                        IconButton(onClick = onSaveClick) {
-                            NubecitaIcon(
-                                name = NubecitaIconName.Download,
-                                contentDescription =
-                                    stringResource(R.string.mediaviewer_save_content_description),
-                                filled = false,
-                                tint = Color.White,
-                            )
-                        }
-                    }
-                }
-                if (hasAltText) {
-                    val altBadgeContentDescription =
-                        stringResource(R.string.mediaviewer_alt_badge_content_description)
-                    Surface(
-                        onClick = onAltBadgeClick,
-                        modifier =
-                            Modifier.semantics {
-                                contentDescription = altBadgeContentDescription
-                                role = Role.Button
-                            },
-                        color = Color.White.copy(alpha = 0.18f),
-                        contentColor = Color.White,
-                        shape = MaterialTheme.shapes.small,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.mediaviewer_alt_badge_label),
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                    }
-                } else {
-                    // Reserve the space so the page indicator stays centered
-                    // regardless of whether the badge renders.
-                    Spacer(modifier = Modifier.size(48.dp))
-                }
             }
         }
     }
