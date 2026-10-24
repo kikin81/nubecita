@@ -38,6 +38,7 @@ dependencies {
     implementation(libs.timber)
 
     testImplementation(project(":core:testing"))
+    testImplementation(libs.junit.jupiter.params)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.mockk)

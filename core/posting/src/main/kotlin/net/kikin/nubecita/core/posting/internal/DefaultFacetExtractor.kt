@@ -5,6 +5,7 @@ import io.github.kikin81.atproto.app.bsky.richtext.FacetByteSlice
 import io.github.kikin81.atproto.app.bsky.richtext.FacetFeaturesUnion
 import io.github.kikin81.atproto.app.bsky.richtext.FacetLink
 import io.github.kikin81.atproto.app.bsky.richtext.FacetMention
+import io.github.kikin81.atproto.app.bsky.richtext.FacetTag
 import io.github.kikin81.atproto.runtime.Uri
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -76,6 +77,23 @@ internal class DefaultFacetExtractor
                             ),
                         features = listOf<FacetFeaturesUnion>(FacetLink(uri = Uri(urlGroup.value))),
                     ),
+                )
+            }
+
+            // Hashtags + cashtags (official-client rules, see TagDetector). A
+            // tag needs preceding whitespace so it can't start inside a URL
+            // token today; the overlap guard keeps a future URL-regex change
+            // from ever producing overlapping facets.
+            val linkRanges = collected.filter { it.features.single() is FacetLink }.map { it.index }
+            for (detected in TagDetector.detect(text)) {
+                val range =
+                    FacetByteSlice(
+                        byteStart = byteOffsets[detected.start].toLong(),
+                        byteEnd = byteOffsets[detected.endExclusive].toLong(),
+                    )
+                if (linkRanges.any { it.byteStart < range.byteEnd && range.byteStart < it.byteEnd }) continue
+                collected.add(
+                    Facet(index = range, features = listOf<FacetFeaturesUnion>(FacetTag(tag = detected.tag))),
                 )
             }
 
