@@ -22,6 +22,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.core.common.text.rememberCompactCount
@@ -78,6 +80,10 @@ import net.kikin.nubecita.designsystem.spacing
  * 52dp/28dp against 44dp/24dp for back, mute and pop-out. They are *layout*,
  * not treatment: sizing a control is the caller's business, how it is backed is
  * not, so this does not weaken the D2 rule that the backing stays private.
+ *
+ * [busy] swaps the glyph for a progress indicator and ignores taps — the
+ * media viewer's save action while a download is in flight. The control keeps
+ * its place and backing so nothing around it shifts.
  */
 @Composable
 fun NubecitaOverlayIconButton(
@@ -91,6 +97,7 @@ fun NubecitaOverlayIconButton(
     glyphSize: Dp = ICON_BUTTON_GLYPH_SIZE,
     testTag: String? = null,
     onClickLabel: String? = null,
+    busy: Boolean = false,
 ) {
     Box(
         modifier =
@@ -105,15 +112,72 @@ fun NubecitaOverlayIconButton(
                     active = active,
                     toggleable = toggleable,
                     onClickLabel = onClickLabel,
+                    enabled = !busy,
                 ).then(if (testTag != null) Modifier.testTag(testTag) else Modifier),
         contentAlignment = Alignment.Center,
     ) {
-        NubecitaIcon(
-            name = icon,
-            contentDescription = accessibilityLabel,
-            filled = active,
-            tint = MaterialTheme.semanticColors.onVideoOverlay,
-            opticalSize = glyphSize,
+        if (busy) {
+            NubecitaWavyProgressIndicator(
+                modifier = Modifier.size(glyphSize).semantics { contentDescription = accessibilityLabel },
+                color = MaterialTheme.semanticColors.onVideoOverlay,
+            )
+        } else {
+            NubecitaIcon(
+                name = icon,
+                contentDescription = accessibilityLabel,
+                filled = active,
+                tint = MaterialTheme.semanticColors.onVideoOverlay,
+                opticalSize = glyphSize,
+            )
+        }
+    }
+}
+
+/**
+ * A short text label over media — the media viewer's "2 / 4" page indicator
+ * (non-interactive, [onClick] null) and its "ALT" badge (interactive). Same
+ * scrim + hairline backing as the icon controls, so a gallery's chrome reads
+ * as one family over any frame.
+ *
+ * When interactive, [accessibilityLabel] is the click label, matching the
+ * stat button's non-toggle contract: TalkBack reads the visible text plus the
+ * action ("ALT, button, double-tap to view alt text") with the label spoken
+ * once. A non-interactive pill is announced by its text.
+ */
+@Composable
+fun NubecitaOverlayPill(
+    text: String,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    accessibilityLabel: String? = null,
+    testTag: String? = null,
+) {
+    Box(
+        modifier =
+            modifier
+                .then(if (onClick != null) Modifier.minimumInteractiveComponentSize() else Modifier)
+                .clip(StatShape)
+                .background(MaterialTheme.semanticColors.videoOverlayScrim, StatShape)
+                .border(HAIRLINE_WIDTH, hairlineColor(), StatShape)
+                .then(
+                    if (onClick != null) {
+                        Modifier.overlayInteraction(
+                            onClick = onClick,
+                            active = false,
+                            toggleable = false,
+                            onClickLabel = accessibilityLabel,
+                        )
+                    } else {
+                        Modifier
+                    },
+                ).then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
+                .padding(horizontal = MaterialTheme.spacing.s3, vertical = MaterialTheme.spacing.s2),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.semanticColors.onVideoOverlay,
         )
     }
 }
@@ -208,16 +272,19 @@ private fun Modifier.overlayInteraction(
     active: Boolean,
     toggleable: Boolean,
     onClickLabel: String? = null,
+    enabled: Boolean = true,
 ): Modifier =
     if (toggleable) {
         this.toggleable(
             value = active,
             role = Role.Switch,
+            enabled = enabled,
             onValueChange = { onClick() },
         )
     } else {
         this.clickable(
             role = Role.Button,
+            enabled = enabled,
             onClickLabel = onClickLabel,
             onClick = onClick,
         )
