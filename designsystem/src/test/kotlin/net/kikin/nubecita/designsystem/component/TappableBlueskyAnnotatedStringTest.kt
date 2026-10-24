@@ -127,10 +127,10 @@ class TappableBlueskyAnnotatedStringTest {
         )
     }
 
-    // A tag is styled but NOT tappable yet — it must not emit a link annotation,
-    // so it can't route anywhere (tag search is deferred until a query route exists).
+    // A tag routes to FacetTarget.Tag with the bare value and the text's author,
+    // so the Hashtag screen can offer its "From @author" filter.
     @Test
-    fun tagIsStyledButNotTappable() {
+    fun tagTapRoutesToTagTargetWithAuthor() {
         val text = "love #nubecita"
         val facets =
             persistentListOf(
@@ -139,14 +139,38 @@ class TappableBlueskyAnnotatedStringTest {
                     index = FacetByteSlice(byteStart = 5, byteEnd = 14),
                 ),
             )
-        val annotated = buildTappableBlueskyAnnotatedString(text, facets, linkStyle) { }
+        var tapped: FacetTarget? = null
+        val annotated =
+            buildTappableBlueskyAnnotatedString(text, facets, linkStyle, authorHandle = "alice.bsky.social") { tapped = it }
 
-        assertTrue(
-            annotated.getLinkAnnotations(0, annotated.length).isEmpty(),
-            "a #tag must not be a link annotation until tag search exists",
-        )
+        val range = annotated.getLinkAnnotations(0, annotated.length).single()
+        assertEquals(5 to 14, range.start to range.end)
+        val link = range.item as LinkAnnotation.Clickable
+        requireNotNull(link.linkInteractionListener).onClick(link)
+
+        assertEquals(FacetTarget.Tag("nubecita", "alice.bsky.social"), tapped)
         // Text is preserved verbatim.
         assertEquals(text, annotated.text)
+    }
+
+    // Some clients publish the facet value with its '#'; the target carries the bare tag.
+    @Test
+    fun tagValueWithLeadingHashIsNormalized() {
+        val text = "love #nubecita"
+        val facets =
+            persistentListOf(
+                Facet(
+                    features = listOf(FacetTag(tag = "#nubecita")),
+                    index = FacetByteSlice(byteStart = 5, byteEnd = 14),
+                ),
+            )
+        var tapped: FacetTarget? = null
+        val annotated = buildTappableBlueskyAnnotatedString(text, facets, linkStyle) { tapped = it }
+
+        val link = annotated.getLinkAnnotations(0, annotated.length).single().item as LinkAnnotation.Clickable
+        requireNotNull(link.linkInteractionListener).onClick(link)
+
+        assertEquals(FacetTarget.Tag("nubecita", null), tapped)
     }
 
     // No facets → plain text, no links.

@@ -172,6 +172,7 @@ fun PostCard(
                     BodyText(
                         text = post.text,
                         facets = post.facets,
+                        authorHandle = post.author.handle,
                         onFacetTap = callbacks.onFacetTap,
                         bodyMatch = bodyMatch,
                     )
@@ -295,10 +296,17 @@ private fun AuthorLine(
 private fun BodyText(
     text: String,
     facets: kotlinx.collections.immutable.ImmutableList<Facet>,
+    authorHandle: String,
     onFacetTap: (FacetTarget) -> Unit,
     bodyMatch: String? = null,
 ) {
-    val annotated = rememberTappableBlueskyAnnotatedString(text = text, facets = facets, onFacetTap = onFacetTap)
+    val annotated =
+        rememberTappableBlueskyAnnotatedString(
+            text = text,
+            facets = facets,
+            onFacetTap = onFacetTap,
+            authorHandle = authorHandle,
+        )
     val withHighlight =
         annotated.withMatchHighlight(
             match = bodyMatch,
@@ -314,12 +322,13 @@ private fun BodyText(
 /**
  * Bluesky post body as a tappable [AnnotatedString]. Reuses the atproto SDK's
  * [appendBlueskyText] primitive (which owns the UTF-8-byte → char index math) and
- * layers a Compose [LinkAnnotation.Clickable] over each mention/link facet so
+ * layers a Compose [LinkAnnotation.Clickable] over each mention/link/tag facet so
  * `Text(...)` makes them tappable natively — each facet is its own span, so
  * multiple mentions in one post each route to their own target with no manual
- * hit-testing. `#tag` facets stay styled but inert until tag search exists.
+ * hit-testing. [authorHandle] (the account whose text this is) rides along on
+ * [FacetTarget.Tag] so the Hashtag screen can offer a "From @author" filter.
  *
- * Memoized on `(text, facets, linkStyle, linkStyles)`; the tap listener reads
+ * Memoized on `(text, facets, linkStyle, linkStyles, authorHandle)`; the tap listener reads
  * the latest [onFacetTap] via [rememberUpdatedState] so the string isn't rebuilt
  * when the host's lambda identity changes.
  *
@@ -343,12 +352,13 @@ fun rememberTappableBlueskyAnnotatedString(
     onFacetTap: (FacetTarget) -> Unit,
     linkStyle: SpanStyle = SpanStyle(color = MaterialTheme.colorScheme.primary),
     linkStyles: TextLinkStyles? = null,
+    authorHandle: String? = null,
 ): AnnotatedString {
     // The listener reads the latest lambda so the string (memoized on the keys
     // below) isn't rebuilt when the host's onFacetTap identity changes.
     val latestOnFacetTap = rememberUpdatedState(onFacetTap)
-    return remember(text, facets, linkStyle, linkStyles) {
-        buildTappableBlueskyAnnotatedString(text, facets, linkStyle, linkStyles) { latestOnFacetTap.value(it) }
+    return remember(text, facets, linkStyle, linkStyles, authorHandle) {
+        buildTappableBlueskyAnnotatedString(text, facets, linkStyle, linkStyles, authorHandle) { latestOnFacetTap.value(it) }
     }
 }
 
@@ -363,10 +373,11 @@ internal fun buildTappableBlueskyAnnotatedString(
     facets: kotlinx.collections.immutable.ImmutableList<Facet>,
     linkStyle: SpanStyle,
     linkStyles: TextLinkStyles? = null,
+    authorHandle: String? = null,
     onFacetTap: (FacetTarget) -> Unit,
 ): AnnotatedString {
     // Preserve the established rendering exactly — only tappability is new:
-    //  - a @mention is color-only (no underline), matching the post header handle;
+    //  - a @mention or #tag is color-only (no underline), matching the post header handle;
     //  - an inline link keeps the default link underline.
     // A bare LinkAnnotation underlines its span, so mentions need an explicit
     // textDecoration = None; links pass no styles and inherit the default underline
@@ -413,8 +424,21 @@ internal fun buildTappableBlueskyAnnotatedString(
                         )
                     }
                 }
-                // Tags are styled but not yet tappable (tag search needs a query route).
-                is FacetTag -> addStyle(linkStyle, startChar, endChar)
+                is FacetTag -> {
+                    addStyle(linkStyle, startChar, endChar)
+                    // Some clients publish the value with its '#'; normalize so the
+                    // Hashtag screen always gets the bare tag (cashtags keep '$').
+                    val tag = feature.tag.removePrefix("#")
+                    if (tag.isNotEmpty()) {
+                        addLink(
+                            LinkAnnotation.Clickable(tag = "tag", styles = mentionStyles) {
+                                onFacetTap(FacetTarget.Tag(tag, authorHandle))
+                            },
+                            startChar,
+                            endChar,
+                        )
+                    }
+                }
                 // Forward-compatible: an unknown facet feature stays plain text.
                 is FacetFeaturesUnion.Unknown -> Unit
             }

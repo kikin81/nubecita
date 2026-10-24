@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.feed.impl
 
 import androidx.compose.runtime.Immutable
+import androidx.navigation3.runtime.NavKey
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.analytics.PostSurface
@@ -206,6 +207,15 @@ sealed interface FeedEvent : UiEvent {
     ) : FeedEvent
 
     /**
+     * User tapped a `#tag` / `$cashtag` in a post. [author] is the handle of
+     * the account whose text holds the tag (Hashtag's author filter).
+     */
+    data class OnTagTapped(
+        val tag: String,
+        val author: String?,
+    ) : FeedEvent
+
+    /**
      * User tapped a specific image inside a PostCard's image embed.
      * Routes directly to the fullscreen MediaViewer with [imageIndex]
      * as the carousel's starting page — skipping the PostDetail
@@ -299,6 +309,16 @@ sealed interface FeedEffect : UiEffect {
     @Immutable
     data class NavigateToAuthor(
         val authorDid: String,
+    ) : FeedEffect
+
+    /**
+     * Push an arbitrary sub-route onto the MainShell stack — today the
+     * Hashtag screen for a tapped `#tag`. The screen forwards [key] to its
+     * host's `onNavigateTo`.
+     */
+    @Immutable
+    data class NavigateTo(
+        val key: NavKey,
     ) : FeedEffect
 
     /**

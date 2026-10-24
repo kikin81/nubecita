@@ -14,6 +14,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
+import androidx.navigation3.runtime.NavKey
 import kotlinx.coroutines.flow.collectLatest
 import net.kikin.nubecita.core.common.haptic.PostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
@@ -88,6 +89,7 @@ internal fun rememberFeedInteractions(
     onNavigateToAuthor: (String) -> Unit,
     onNavigateToMediaViewer: (String, Int) -> Unit,
     onNavigateToVideoPlayer: (String) -> Unit,
+    onNavigateTo: (NavKey) -> Unit,
 ): FeedInteractions {
     val context = LocalContext.current
 
@@ -231,6 +233,9 @@ internal fun rememberFeedInteractions(
                         // An inline link → in-app browser (http(s)-only is already
                         // enforced upstream in the tappable-facet builder).
                         is FacetTarget.Link -> openInCustomTab(target.uri)
+                        // A #tag → the Hashtag screen (VM emits NavigateTo).
+                        is FacetTarget.Tag ->
+                            viewModel.handleEvent(FeedEvent.OnTagTapped(target.tag, target.authorHandle))
                     }
                 },
                 onQuotedPostTap = { quoted ->
@@ -249,6 +254,7 @@ internal fun rememberFeedInteractions(
     val currentOnNavigateToAuthor by rememberUpdatedState(onNavigateToAuthor)
     val currentOnNavigateToMediaViewer by rememberUpdatedState(onNavigateToMediaViewer)
     val currentOnNavigateToVideoPlayer by rememberUpdatedState(onNavigateToVideoPlayer)
+    val currentOnNavigateTo by rememberUpdatedState(onNavigateTo)
 
     // Per-PostCard image tap dispatcher. The PostCard.onImageClick slot
     // is `(Int) -> Unit` (index only); we close over each PostCard's
@@ -375,6 +381,7 @@ internal fun rememberFeedInteractions(
                 is FeedEffect.NavigateToMediaViewer ->
                     currentOnNavigateToMediaViewer(effect.postUri, effect.imageIndex)
                 is FeedEffect.NavigateToVideoPlayer -> currentOnNavigateToVideoPlayer(effect.postUri)
+                is FeedEffect.NavigateTo -> currentOnNavigateTo(effect.key)
             }
         }
     }

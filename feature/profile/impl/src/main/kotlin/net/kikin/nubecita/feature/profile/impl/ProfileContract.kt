@@ -520,6 +520,15 @@ sealed interface ProfileEvent : UiEvent {
         val handle: String,
     ) : ProfileEvent
 
+    /**
+     * User tapped a `#tag` / `$cashtag` in a rendered post. [author] is the
+     * handle of the account whose text holds the tag (Hashtag's author filter).
+     */
+    data class TagTapped(
+        val tag: String,
+        val author: String?,
+    ) : ProfileEvent
+
     /** User pulled to refresh. Refreshes the active tab and the header. */
     data object Refresh : ProfileEvent
 

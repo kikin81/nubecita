@@ -82,6 +82,7 @@ dependencies {
     // Profile NavKey — pushed onto the back stack when an author handle
     // is tapped inside a PostCard. Imports `:api` only; never `:impl`.
     implementation(project(":feature:profile:api"))
+    implementation(project(":feature:search:api"))
     // VideoPlayerRoute NavKey — pushed onto the back stack when a video
     // embed in a feed PostCard is tapped (skip the PostDetail detour).
     // Imports `:api` only; never `:impl`.

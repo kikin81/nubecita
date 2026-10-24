@@ -50,6 +50,7 @@ dependencies {
     implementation(project(":feature:postdetail:api"))
     // Profile NavKey for the "Go to profile" contextual action — :api only.
     implementation(project(":feature:profile:api"))
+    implementation(project(":feature:search:api"))
     // BackHandler — exits multi-select mode on a back press before the press
     // falls through to inner-NavDisplay back navigation.
     implementation(libs.androidx.activity.compose)

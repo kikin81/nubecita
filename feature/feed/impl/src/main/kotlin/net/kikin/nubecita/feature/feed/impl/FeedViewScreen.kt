@@ -126,6 +126,7 @@ internal fun FeedViewScreen(
             onNavigateToAuthor = onNavigateToAuthor,
             onNavigateToMediaViewer = onNavigateToMediaViewer,
             onNavigateToVideoPlayer = onNavigateToVideoPlayer,
+            onNavigateTo = onNavigateTo,
         )
 
     val pinErrorMessage = stringResource(R.string.feed_view_snackbar_pin_error)

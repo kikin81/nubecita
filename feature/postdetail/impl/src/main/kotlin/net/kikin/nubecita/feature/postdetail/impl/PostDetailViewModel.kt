@@ -23,6 +23,7 @@ import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ThreadItem
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
+import net.kikin.nubecita.feature.search.api.Hashtag
 import java.io.IOException
 
 /**
@@ -105,6 +106,7 @@ internal class PostDetailViewModel
                 is PostDetailEvent.OnQuotedPostTapped ->
                     sendEffect(PostDetailEffect.NavigateToPost(event.quotedPostUri))
                 is PostDetailEvent.OnAuthorTapped -> sendEffect(PostDetailEffect.NavigateToAuthor(event.authorDid))
+                is PostDetailEvent.TagTapped -> sendEffect(PostDetailEffect.NavigateTo(Hashtag(event.tag, event.author)))
                 PostDetailEvent.OnReplyClicked -> {
                     // The composer's parent context is the focus post. Gate on the
                     // same `showReplyFab` predicate the FAB uses: drop silently

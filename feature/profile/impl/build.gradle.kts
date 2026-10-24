@@ -62,6 +62,7 @@ dependencies {
     // dialog, VM, and repository and stays opt-in via Hilt multibinding.
     implementation(project(":feature:moderation:api"))
     implementation(project(":feature:postdetail:api"))
+    implementation(project(":feature:search:api"))
     // Settings NavKey — pushed onto MainShell's inner back stack from
     // the Profile entry's `onNavigateToSettings` callback when the user
     // taps Settings in the actions row. The Settings screen itself lives

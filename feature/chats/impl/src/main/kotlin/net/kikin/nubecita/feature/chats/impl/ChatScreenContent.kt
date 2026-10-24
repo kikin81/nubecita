@@ -285,6 +285,7 @@ internal fun ChatScreenContent(
                                 when (target) {
                                     is FacetTarget.Link -> openMessageLinkInCustomTab(context, target.uri)
                                     is FacetTarget.Mention -> onEvent(ChatEvent.MentionTapped(target.did))
+                                    is FacetTarget.Tag -> onEvent(ChatEvent.TagTapped(target.tag))
                                 }
                             },
                             onRetrySend = { tempId -> onEvent(ChatEvent.RetrySend(tempId)) },

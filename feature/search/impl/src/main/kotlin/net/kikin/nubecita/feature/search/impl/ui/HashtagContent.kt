@@ -227,7 +227,7 @@ private fun HashtagResultsList(
         modifier = Modifier.fillMaxSize().testTag("hashtag_posts_list"),
         state = listState,
     ) {
-        items(items = status.items, key = { it.post.id }) { item ->
+        items(items = status.items, key = { it.post.id }, contentType = { "post" }) { item ->
             PostCard(
                 post = item.post,
                 callbacks = callbacks,
@@ -238,9 +238,9 @@ private fun HashtagResultsList(
             )
         }
         if (status.isAppending) {
-            item("appending-indicator") {
+            item(key = "appending-indicator", contentType = "appending-indicator") {
                 Box(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = MaterialTheme.spacing.s4),
                     contentAlignment = Alignment.Center,
                 ) {
                     NubecitaWavyProgressIndicator()

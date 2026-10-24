@@ -1,6 +1,11 @@
 package net.kikin.nubecita.feature.feed.impl.data
 
-import kotlinx.collections.immutable.persistentListOf
+import io.github.kikin81.atproto.app.bsky.richtext.Facet
+import io.github.kikin81.atproto.app.bsky.richtext.FacetByteSlice
+import io.github.kikin81.atproto.app.bsky.richtext.FacetFeaturesUnion
+import io.github.kikin81.atproto.app.bsky.richtext.FacetTag
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toPersistentList
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.ContentWarningCategory
@@ -130,7 +135,7 @@ internal object BenchTimelineMapper {
             author = author.toAuthorUi(),
             createdAt = parseInstantOrNow(createdAt),
             text = text,
-            facets = persistentListOf(),
+            facets = benchTagFacets(text),
             embed = embed.toEmbedUi(),
             stats = stats.toPostStatsUi(),
             viewer = viewer.toViewerStateUi(),
@@ -270,3 +275,24 @@ internal object BenchTimelineMapper {
                 Clock.System.now()
             }
 }
+
+/**
+ * Fixture posts carry no facets, so derive plain `#word` tag facets from the
+ * text — enough for the bench build to exercise tappable hashtags offline.
+ * Deliberately simpler than the composer's official-parity TagDetector.
+ */
+private fun benchTagFacets(text: String): ImmutableList<Facet> =
+    BENCH_TAG_REGEX
+        .findAll(text)
+        .mapNotNull { match ->
+            val tag = match.groups[1] ?: return@mapNotNull null
+            val start = text.substring(0, tag.range.first - 1).toByteArray(Charsets.UTF_8).size
+            val end = text.substring(0, tag.range.last + 1).toByteArray(Charsets.UTF_8).size
+            Facet(
+                index = FacetByteSlice(byteStart = start.toLong(), byteEnd = end.toLong()),
+                features = listOf<FacetFeaturesUnion>(FacetTag(tag = tag.value)),
+            )
+        }.toList()
+        .toImmutableList()
+
+private val BENCH_TAG_REGEX = Regex("""(?:^|\s)#(\w+)""")

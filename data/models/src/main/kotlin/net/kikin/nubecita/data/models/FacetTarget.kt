@@ -12,9 +12,7 @@ import androidx.compose.runtime.Immutable
  * the interaction generic: a new facet kind is a new variant here plus one
  * `when` branch per host, with no change to the tap plumbing.
  *
- * Only the two kinds wired today are represented. `#tag` facets are still styled
- * but not yet tappable (tag search needs a query-carrying Search route); add a
- * `Tag(val tag: String)` variant when that lands.
+ * Every facet kind Bluesky defines is represented: mentions, links and tags.
  */
 @Immutable
 public sealed interface FacetTarget {
@@ -32,5 +30,17 @@ public sealed interface FacetTarget {
     @Immutable
     public data class Link(
         val uri: String,
+    ) : FacetTarget
+
+    /**
+     * A `#hashtag` or `$cashtag` — [tag] is the facet value with no leading `#`
+     * (a cashtag keeps its `$`). [authorHandle] is the handle of the account
+     * whose text contains the tag, or null when unknown; hosts pass it to the
+     * Hashtag screen so it can offer a "From @author" filter.
+     */
+    @Immutable
+    public data class Tag(
+        val tag: String,
+        val authorHandle: String?,
     ) : FacetTarget
 }

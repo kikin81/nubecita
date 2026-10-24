@@ -20,6 +20,7 @@ import net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions
 import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.search.api.Hashtag
 import net.kikin.nubecita.feature.search.impl.ui.HashtagContent
 import android.net.Uri as AndroidUri
 import net.kikin.nubecita.designsystem.R as DesignSystemR
@@ -87,6 +88,8 @@ internal fun HashtagScreen(
                 onFacetTap = { target ->
                     when (target) {
                         is FacetTarget.Mention -> viewModel.handleEvent(HashtagEvent.OnAuthorTapped(target.did))
+                        is FacetTarget.Tag ->
+                            viewModel.handleEvent(HashtagEvent.TagTapped(target.tag, target.authorHandle))
                         is FacetTarget.Link ->
                             try {
                                 CustomTabsIntent
@@ -109,6 +112,8 @@ internal fun HashtagScreen(
                 // detail-pane sub-route, so a post stacks above it.
                 is HashtagEffect.NavigateToPost -> currentNavState.add(PostDetailRoute(postUri = effect.uri))
                 is HashtagEffect.NavigateToProfile -> currentNavState.add(Profile(handle = effect.actor))
+                is HashtagEffect.NavigateToHashtag ->
+                    currentNavState.add(Hashtag(tag = effect.tag, author = effect.author))
                 is HashtagEffect.Share -> {
                     val send =
                         Intent(Intent.ACTION_SEND).apply {

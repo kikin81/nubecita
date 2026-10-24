@@ -256,6 +256,9 @@ internal fun PostDetailScreen(
                         // An inline link → in-app browser (http(s)-only is already
                         // enforced upstream in the tappable-facet builder).
                         is FacetTarget.Link -> openInCustomTab(target.uri)
+                        // A #tag → the Hashtag screen, via the VM's NavigateTo effect.
+                        is FacetTarget.Tag ->
+                            viewModel.handleEvent(PostDetailEvent.TagTapped(target.tag, target.authorHandle))
                     }
                 },
                 onQuotedPostTap = { quoted ->

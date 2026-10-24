@@ -138,6 +138,8 @@ internal class SearchPostsViewModel
                     sendEffect(SearchPostsEffect.NavigateToPost(event.uri))
                 is SearchPostsEvent.OnAuthorTapped ->
                     sendEffect(SearchPostsEffect.NavigateToProfile(event.handle))
+                is SearchPostsEvent.TagTapped ->
+                    sendEffect(SearchPostsEffect.NavigateToHashtag(event.tag, event.author))
             }
         }
 

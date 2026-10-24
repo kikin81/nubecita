@@ -148,6 +148,7 @@ fun CommentCard(
                     text = comment.text,
                     facets = comment.post.facets,
                     onFacetTap = onFacetTap ?: {},
+                    authorHandle = comment.post.author.handle,
                 )
             Text(
                 text = annotatedBody,

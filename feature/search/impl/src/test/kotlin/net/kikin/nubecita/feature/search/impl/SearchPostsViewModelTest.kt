@@ -348,6 +348,19 @@ class SearchPostsViewModelTest {
         }
 
     @Test
+    fun tagTapped_emitsNavigateToHashtag() =
+        runTest {
+            val vm = buildVm()
+            vm.effects.test {
+                vm.handleEvent(SearchPostsEvent.TagTapped("Kotlin", "alice.bsky.social"))
+                runCurrent()
+
+                assertEquals(SearchPostsEffect.NavigateToHashtag("Kotlin", "alice.bsky.social"), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun setQuery_emptyResponse_emitsEmpty() =
         runTest {
             val vm = buildVm()

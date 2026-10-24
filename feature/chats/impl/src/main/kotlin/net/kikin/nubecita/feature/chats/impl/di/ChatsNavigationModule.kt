@@ -47,6 +47,7 @@ import net.kikin.nubecita.feature.chats.impl.selectedConvoId
 import net.kikin.nubecita.feature.chats.impl.selectedOtherUserDid
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.search.api.Hashtag
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -145,6 +146,7 @@ internal object ChatsNavigationModule {
                     // handle lookup needed just to open the screen.
                     onNavigateToProfile = { did -> navState.add(Profile(handle = did)) },
                     onNavigateToGroupDetails = { convoId -> navState.add(GroupDetails(convoId = convoId)) },
+                    onNavigateToHashtag = { tag -> navState.add(Hashtag(tag = tag)) },
                 )
             }
             // adaptiveDialog(): full-screen on Compact, centered Dialog on

@@ -24,6 +24,7 @@ import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ThreadItem
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
+import net.kikin.nubecita.feature.search.api.Hashtag
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -324,6 +325,18 @@ internal class PostDetailViewModelTest {
                 val effect = awaitItem()
                 assertTrue(effect is PostDetailEffect.NavigateToAuthor)
                 assertEquals("did:plc:alice", (effect as PostDetailEffect.NavigateToAuthor).authorDid)
+            }
+        }
+
+    @Test
+    fun `TagTapped emits NavigateTo the Hashtag route with the author`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(FakeRepo())
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.TagTapped("Kotlin", "alice.bsky.social"))
+
+                assertEquals(PostDetailEffect.NavigateTo(Hashtag("Kotlin", "alice.bsky.social")), awaitItem())
             }
         }
 
