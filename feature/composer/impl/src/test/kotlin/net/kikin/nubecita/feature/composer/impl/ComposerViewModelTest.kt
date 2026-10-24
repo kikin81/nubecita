@@ -1578,6 +1578,42 @@ class ComposerViewModelTest {
         }
 
     @Test
+    fun pasteImages_copyThatCannotResolve_isDeleted() =
+        runTest {
+            val source = mockk<android.net.Uri>(relaxed = true)
+            val copy = mockk<android.net.Uri>(relaxed = true)
+            every { copy.toString() } returns "file:///copies/odd"
+            coEvery { sharedMediaStore.copyIn(source) } returns copy
+            coEvery { sharedMediaStore.attachmentFor("file:///copies/odd") } returns null
+            val vm = newVm()
+
+            vm.handleEvent(ComposerEvent.PasteImages(listOf(source)))
+            advanceUntilIdle()
+
+            coVerify { sharedMediaStore.delete(copy) }
+        }
+
+    @Test
+    fun onCleared_midPaste_deletesTheCopiesMadeSoFar() =
+        runTest {
+            val (firstSource, firstCopy) = stubPastedImage("1.jpg")
+            val secondSource = mockk<android.net.Uri>(relaxed = true)
+            val neverFinishes = CompletableDeferred<android.net.Uri?>()
+            coEvery { sharedMediaStore.copyIn(secondSource) } coAnswers { neverFinishes.await() }
+            val vm = newVm()
+            vm.handleEvent(ComposerEvent.PasteImages(listOf(firstSource, secondSource)))
+            advanceUntilIdle()
+
+            ComposerViewModel::class.java
+                .getDeclaredMethod("onCleared")
+                .apply { isAccessible = true }
+                .invoke(vm)
+            advanceUntilIdle()
+
+            coVerify { sharedMediaStore.delete(firstCopy) }
+        }
+
+    @Test
     fun removingPastedImage_deletesItsCopy() =
         runTest {
             val (source, copy) = stubPastedImage("a.jpg")

@@ -540,6 +540,12 @@ internal class ComposerViewModel
             applicationScope.launch { sharedMediaStore.delete(uri) }
         }
 
+        /** Forget and delete one owned copy that won't be attached. */
+        private fun discardOwnedCopy(uri: Uri) {
+            ownedCopyUris.remove(uri)
+            deleteOwnedCopy(uri)
+        }
+
         /**
          * Copy each pasted `content://` into app-owned storage, then attach what
          * fits. Anything not attached is deleted again and reported through
@@ -553,25 +559,31 @@ internal class ComposerViewModel
             // The coroutine captures `event`, which keeps grantHolder (and so the
             // IME read grant) reachable until the copies below have finished.
             viewModelScope.launch {
+                // Register each copy the moment it exists, so a dismiss (onCleared)
+                // mid-paste deletes it too. The only remaining gap, a cancel between
+                // copyIn finishing and this coroutine resuming, is left to the
+                // boot-time sweepOrphans() backstop.
                 val copies =
                     event.uris.map { source ->
-                        sharedMediaStore.copyIn(source)?.let { sharedMediaStore.attachmentFor(it.toString()) }
+                        val copy = sharedMediaStore.copyIn(source) ?: return@map null
+                        ownedCopyUris += copy
+                        sharedMediaStore.attachmentFor(copy.toString()) ?: run {
+                            discardOwnedCopy(copy)
+                            null
+                        }
                     }
 
                 val readable = copies.filterNotNull()
                 val (gifs, images) = readable.partition { it.mimeType == GIF_MIME }
-                gifs.forEach { deleteOwnedCopy(it.uri) }
+                gifs.forEach { discardOwnedCopy(it.uri) }
 
                 val state = uiState.value
                 val blockedByMedia = state.pickedGif != null || state.video != null
                 val submitting = state.submitStatus is ComposerSubmitStatus.Submitting
                 val room = (MAX_ATTACHMENTS - state.attachments.size).coerceAtLeast(0)
                 val accepted = if (blockedByMedia || submitting) emptyList() else images.take(room)
-                images.drop(accepted.size).forEach { deleteOwnedCopy(it.uri) }
-                if (accepted.isNotEmpty()) {
-                    ownedCopyUris += accepted.map { it.uri }
-                    handleAddAttachments(accepted)
-                }
+                images.drop(accepted.size).forEach { discardOwnedCopy(it.uri) }
+                if (accepted.isNotEmpty()) handleAddAttachments(accepted)
 
                 val rejection =
                     when {

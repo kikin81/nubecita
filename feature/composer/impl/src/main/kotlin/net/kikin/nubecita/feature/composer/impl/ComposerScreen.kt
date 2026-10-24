@@ -384,15 +384,15 @@ internal fun ComposerScreen(
                     // flapping connection would otherwise queue snackbars
                     // indefinitely. Same pattern as PostDetailScreen.
                     snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = message)
+                    launch { snackbarHostState.showSnackbar(message = message) }
                 }
                 ComposerEffect.ShowAudienceSaveError -> {
                     snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = audienceSaveErrorMessage)
+                    launch { snackbarHostState.showSnackbar(message = audienceSaveErrorMessage) }
                 }
                 ComposerEffect.VideoReplacedOtherMedia -> {
                     snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = videoReplacedMediaMessage)
+                    launch { snackbarHostState.showSnackbar(message = videoReplacedMediaMessage) }
                 }
                 is ComposerEffect.PasteNotAdded -> {
                     val message =
@@ -403,7 +403,7 @@ internal fun ComposerScreen(
                             PasteRejection.OtherMediaAttached -> pasteOtherMediaMessage
                         }
                     snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = message)
+                    launch { snackbarHostState.showSnackbar(message = message) }
                 }
             }
         }
