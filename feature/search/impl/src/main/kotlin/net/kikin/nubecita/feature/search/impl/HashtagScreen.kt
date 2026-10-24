@@ -8,7 +8,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -44,7 +43,6 @@ internal fun HashtagScreen(
     val currentNavState by rememberUpdatedState(navState)
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
-    val effectScope = rememberCoroutineScope()
 
     val errorNetwork = stringResource(R.string.search_snackbar_error_network)
     val errorUnknown = stringResource(R.string.search_snackbar_error_unknown)
@@ -123,7 +121,7 @@ internal fun HashtagScreen(
                     val message = if (effect.error == SearchPostsError.Network) errorNetwork else errorUnknown
                     // Launched, not awaited: a visible snackbar must not hold up
                     // the next effect (e.g. a navigation) in this collector.
-                    effectScope.launch {
+                    launch {
                         snackbarHostState.currentSnackbarData?.dismiss()
                         snackbarHostState.showSnackbar(message)
                     }
