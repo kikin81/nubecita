@@ -22,6 +22,21 @@ internal interface SearchPostsRepository {
         limit: Int = SEARCH_POSTS_PAGE_LIMIT,
         sort: SearchPostsSort = SearchPostsSort.TOP,
     ): Result<SearchPostsPage>
+
+    /**
+     * Posts tagged [tag] (`app.bsky.feed.searchPostsV2` with the structured
+     * `hashtags` filter, which matches both facet tags and the record's
+     * outline `tags`). [tag] carries no leading `#`. [author] (handle or DID)
+     * narrows to one account's posts. [SearchPostsSort.LATEST] maps to v2's
+     * `recent` sort.
+     */
+    suspend fun searchHashtag(
+        tag: String,
+        author: String?,
+        cursor: String?,
+        limit: Int = SEARCH_POSTS_PAGE_LIMIT,
+        sort: SearchPostsSort = SearchPostsSort.TOP,
+    ): Result<SearchPostsPage>
 }
 
 internal data class SearchPostsPage(

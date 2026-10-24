@@ -3,17 +3,22 @@ package net.kikin.nubecita.feature.search.impl.di
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.ui.res.stringResource
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
+import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.designsystem.R
 import net.kikin.nubecita.designsystem.component.DetailPaneEmptyState
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.feature.search.api.Hashtag
 import net.kikin.nubecita.feature.search.api.Search
+import net.kikin.nubecita.feature.search.impl.HashtagScreen
+import net.kikin.nubecita.feature.search.impl.HashtagViewModel
 import net.kikin.nubecita.feature.search.impl.SearchScreen
 
 /**
@@ -50,6 +55,18 @@ internal object SearchNavigationModule {
                     ),
             ) {
                 SearchScreen()
+            }
+            // Hashtag is a sub-route pushed from any post-text host, so — like
+            // Profile(handle = …) — it stacks in the DETAIL pane rather than
+            // re-anchoring the list pane (which would evict e.g. the Feed on
+            // Medium/Expanded). Its post taps stack above it in the same pane.
+            entry<Hashtag>(metadata = ListDetailSceneStrategy.detailPane()) { route ->
+                val navState = LocalMainShellNavState.current
+                val viewModel =
+                    hiltViewModel<HashtagViewModel, HashtagViewModel.Factory>(
+                        creationCallback = { factory -> factory.create(route) },
+                    )
+                HashtagScreen(viewModel = viewModel, onBack = { navState.removeLast() })
             }
         }
 }

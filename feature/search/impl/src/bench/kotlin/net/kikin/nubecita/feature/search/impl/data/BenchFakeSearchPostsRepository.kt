@@ -57,6 +57,14 @@ internal class BenchFakeSearchPostsRepository
                 ),
             )
 
+        override suspend fun searchHashtag(
+            tag: String,
+            author: String?,
+            cursor: String?,
+            limit: Int,
+            sort: SearchPostsSort,
+        ): Result<SearchPostsPage> = searchPosts(query = "#$tag", cursor = cursor, limit = limit, sort = sort)
+
         private val posts: List<FeedItemUi.Single> =
             listOf(
                 searchHit(

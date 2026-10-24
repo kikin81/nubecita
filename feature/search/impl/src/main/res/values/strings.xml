@@ -174,4 +174,11 @@
 
     <!-- trpn: Discover tab — empty state -->
     <string name="discover_empty_hint">Pull to refresh to discover content</string>
+
+    <!-- cxcz.2: Hashtag screen -->
+    <string name="hashtag_back_content_description">Back</string>
+    <string name="hashtag_share_content_description">Share hashtag</string>
+    <string name="hashtag_filter_from_author">From @%1$s</string>
+    <string name="hashtag_empty_title">No posts with %1$s yet</string>
+    <string name="hashtag_empty_body">Try the other tab, or pull down to check again.</string>
 </resources>

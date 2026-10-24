@@ -43,6 +43,14 @@ internal class FakeSearchPostsRepository
                 ),
             )
 
+        override suspend fun searchHashtag(
+            tag: String,
+            author: String?,
+            cursor: String?,
+            limit: Int,
+            sort: SearchPostsSort,
+        ): Result<SearchPostsPage> = searchPosts(query = "#$tag", cursor = cursor, limit = limit, sort = sort)
+
         companion object {
             const val POST_ALICE_URI: String = "at://did:plc:alice/app.bsky.feed.post/post1"
             const val POST_BOB_URI: String = "at://did:plc:bob/app.bsky.feed.post/post2"

@@ -1,7 +1,11 @@
 package net.kikin.nubecita.feature.search.impl.data
 
 import io.github.kikin81.atproto.app.bsky.feed.FeedService
+import io.github.kikin81.atproto.app.bsky.feed.PostView
 import io.github.kikin81.atproto.app.bsky.feed.SearchPostsRequest
+import io.github.kikin81.atproto.app.bsky.feed.SearchPostsV2Request
+import io.github.kikin81.atproto.runtime.AtIdentifier
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -67,23 +71,7 @@ internal class DefaultSearchPostsRepository
                                 sort = sort.name.lowercase(),
                             ),
                         )
-                    // Drop hard-filtered (NSFW) results and cover warned media,
-                    // off the render path, against the cached prefs + viewer DID.
-                    val prefs = moderationPreferences.prefs.value
-                    val viewerDid = sessionStateProvider.viewerDidOrNull
-                    Result.success(
-                        SearchPostsPage(
-                            items =
-                                response.posts
-                                    .mapNotNull { post ->
-                                        post
-                                            .toPostUiCore(viewerDid)
-                                            ?.applyModeration(post.labels, viewerDid, prefs, dropFiltered = true)
-                                            ?.let(FeedItemUi::Single)
-                                    }.toImmutableList(),
-                            nextCursor = response.cursor,
-                        ),
-                    )
+                    Result.success(SearchPostsPage(items = response.posts.toModeratedItems(), nextCursor = response.cursor))
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (t: Throwable) {
@@ -101,7 +89,72 @@ internal class DefaultSearchPostsRepository
             }
         }
 
+        override suspend fun searchHashtag(
+            tag: String,
+            author: String?,
+            cursor: String?,
+            limit: Int,
+            sort: SearchPostsSort,
+        ): Result<SearchPostsPage> {
+            require(limit in 1..100) {
+                "limit must be in 1..100 (atproto lexicon range), got $limit"
+            }
+            return withContext(dispatcher) {
+                try {
+                    val client = xrpcClientProvider.authenticated()
+                    val response =
+                        FeedService(client).searchPostsV2(
+                            SearchPostsV2Request(
+                                hashtags = listOf(tag),
+                                authors = author?.let { listOf(AtIdentifier(it)) },
+                                cursor = cursor,
+                                limit = limit.toLong(),
+                                sort = sort.v2WireValue,
+                            ),
+                        )
+                    Result.success(SearchPostsPage(items = response.posts.toModeratedItems(), nextCursor = response.cursor))
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (t: Throwable) {
+                    // The tag is public, but keep the log shape of searchPosts:
+                    // no user-entered text, just paging + error identity.
+                    Timber.tag(TAG).w(
+                        t,
+                        "searchHashtag failed (cursor=%s, sort=%s, author=%s): %s",
+                        cursor,
+                        sort,
+                        author != null,
+                        t.javaClass.name,
+                    )
+                    Result.failure(t)
+                }
+            }
+        }
+
+        /**
+         * Drop hard-filtered (NSFW) results and cover warned media, off the
+         * render path, against the cached prefs + viewer DID.
+         */
+        private fun List<PostView>.toModeratedItems(): ImmutableList<FeedItemUi.Single> {
+            val prefs = moderationPreferences.prefs.value
+            val viewerDid = sessionStateProvider.viewerDidOrNull
+            return mapNotNull { post ->
+                post
+                    .toPostUiCore(viewerDid)
+                    ?.applyModeration(post.labels, viewerDid, prefs, dropFiltered = true)
+                    ?.let(FeedItemUi::Single)
+            }.toImmutableList()
+        }
+
         private companion object {
             const val TAG = "SearchPostsRepo"
         }
     }
+
+/** `searchPostsV2` names the recency sort `recent` (v1 used `latest`). */
+private val SearchPostsSort.v2WireValue: String
+    get() =
+        when (this) {
+            SearchPostsSort.TOP -> "top"
+            SearchPostsSort.LATEST -> "recent"
+        }
