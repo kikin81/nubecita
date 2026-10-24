@@ -179,7 +179,7 @@
           "avatarUrl": "file:///android_asset/img/avatars/carmen.jpg"
         },
         "createdAt": "2026-05-26T20:18:00Z",
-        "text": "rewriting our Compose nav graph in N3 today. the type-safe routes are real nice but the migration mostly means staring at sealed interfaces until the pattern clicks. anyone else gone through this?",
+        "text": "rewriting our Compose nav graph in N3 today. the type-safe routes are real nice but the migration mostly means staring at sealed interfaces until the pattern clicks. anyone else gone through this? #JetpackCompose",
         "facets": [],
         "embed": {
           "type": "Empty"
