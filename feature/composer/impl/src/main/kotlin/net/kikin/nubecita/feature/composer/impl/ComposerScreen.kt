@@ -1,8 +1,11 @@
 package net.kikin.nubecita.feature.composer.impl
 
+import android.net.Uri
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.content.contentReceiver
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -79,6 +82,7 @@ import net.kikin.nubecita.feature.composer.impl.internal.ComposerQuoteSection
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerReplyParentSection
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerSuggestionList
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerVideoCard
+import net.kikin.nubecita.feature.composer.impl.internal.ImagePasteReceiver
 import net.kikin.nubecita.feature.composer.impl.internal.KlipyPicker
 import net.kikin.nubecita.feature.composer.impl.internal.LanguagePicker
 import net.kikin.nubecita.feature.composer.impl.internal.composerCloseAttempt
@@ -87,6 +91,7 @@ import net.kikin.nubecita.feature.composer.impl.state.ComposerEvent
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
+import net.kikin.nubecita.feature.composer.impl.state.PasteRejection
 import net.kikin.nubecita.feature.composer.impl.state.QuoteLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.isGalleryMissingAlt
 import sh.calvin.reorderable.ReorderableItem
@@ -157,6 +162,10 @@ internal fun ComposerScreen(
     val uploadFailedTemplate = stringResource(R.string.composer_error_upload_failed)
     val audienceSaveErrorMessage = stringResource(R.string.composer_audience_save_error)
     val videoReplacedMediaMessage = stringResource(R.string.composer_video_replaces_other_media)
+    val pasteUnreadableMessage = stringResource(R.string.composer_paste_unreadable)
+    val pasteGifMessage = stringResource(R.string.composer_paste_gif)
+    val pasteLimitMessage = stringResource(R.string.composer_paste_limit_reached)
+    val pasteOtherMediaMessage = stringResource(R.string.composer_paste_other_media)
 
     // Stabilize the unstable lambda params via rememberUpdatedState so
     // the LaunchedEffect's restart key (Unit) doesn't capture a stale
@@ -192,6 +201,12 @@ internal fun ComposerScreen(
                         picked.map { ComposerAttachment(uri = it.uri, mimeType = it.mimeType) },
                     ),
                 )
+            }
+        }
+    val onPasteImages =
+        remember(viewModel) {
+            { uris: List<Uri>, grantHolder: Any? ->
+                viewModel.handleEvent(ComposerEvent.PasteImages(uris, grantHolder))
             }
         }
     val onRemoveAttachment =
@@ -369,15 +384,26 @@ internal fun ComposerScreen(
                     // flapping connection would otherwise queue snackbars
                     // indefinitely. Same pattern as PostDetailScreen.
                     snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = message)
+                    launch { snackbarHostState.showSnackbar(message = message) }
                 }
                 ComposerEffect.ShowAudienceSaveError -> {
                     snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = audienceSaveErrorMessage)
+                    launch { snackbarHostState.showSnackbar(message = audienceSaveErrorMessage) }
                 }
                 ComposerEffect.VideoReplacedOtherMedia -> {
                     snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = videoReplacedMediaMessage)
+                    launch { snackbarHostState.showSnackbar(message = videoReplacedMediaMessage) }
+                }
+                is ComposerEffect.PasteNotAdded -> {
+                    val message =
+                        when (effect.reason) {
+                            PasteRejection.Unreadable -> pasteUnreadableMessage
+                            PasteRejection.Gif -> pasteGifMessage
+                            PasteRejection.LimitReached -> pasteLimitMessage
+                            PasteRejection.OtherMediaAttached -> pasteOtherMediaMessage
+                        }
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    launch { snackbarHostState.showSnackbar(message = message) }
                 }
             }
         }
@@ -392,6 +418,7 @@ internal fun ComposerScreen(
         onCloseClick = attemptClose,
         onAddImageClick = onAddImageClick,
         onRemoveAttachment = onRemoveAttachment,
+        onPasteImages = onPasteImages,
         onMoveAttachment = onMoveAttachment,
         onOpenAltEditor = onOpenAltEditor,
         onCloseAltEditor = onCloseAltEditor,
@@ -498,7 +525,7 @@ internal fun ComposerScreen(
  * inputs, dispatches via lambdas — no ViewModel, no Hilt, no
  * effects collection. Drives previews + screenshot fixtures.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 internal fun ComposerScreenContent(
     state: ComposerState,
@@ -534,7 +561,9 @@ internal fun ComposerScreenContent(
     onRetryVideoUpload: () -> Unit = {},
     onEditVideoAlt: () -> Unit = {},
     onSetVideoAlt: (String) -> Unit = {},
+    onPasteImages: (List<Uri>, Any?) -> Unit = { _, _ -> },
 ) {
+    val imagePasteReceiver = remember(onPasteImages) { ImagePasteReceiver(onPasteImages) }
     // Alt editor is a layer within the composer's own surface: when a photo is
     // being described, it replaces the composer body (full-screen on phone, or
     // within the composer's dialog card on tablet — inherited, no second route).
@@ -662,6 +691,9 @@ internal fun ComposerScreenContent(
                     Modifier
                         .fillMaxWidth()
                         .focusRequester(focusRequester)
+                        // Accepts pasted / keyboard-inserted images as
+                        // attachments; text still pastes as text.
+                        .contentReceiver(imagePasteReceiver)
                         // Stable tag (surfaced as a bare resource-id via
                         // testTagsAsResourceId) so the baseline-profile journey
                         // can focus + type into the composer (nubecita-ioe5).

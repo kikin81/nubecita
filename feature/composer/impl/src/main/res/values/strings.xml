@@ -160,6 +160,10 @@
     <string name="klipy_report_violence">Violence</string>
     <string name="klipy_report_other">Other</string>
     <string name="composer_video_replaces_other_media">A post can have one video or up to four photos, not both. Your other media was removed.</string>
+    <string name="composer_paste_unreadable">Couldn\'t paste that image.</string>
+    <string name="composer_paste_gif">GIFs can\'t be pasted. Use the GIF button to add one.</string>
+    <string name="composer_paste_limit_reached">This post already has the most photos it can hold.</string>
+    <string name="composer_paste_other_media">Photos can\'t be added to a post with a GIF or video.</string>
     <string name="composer_video_remove">Remove</string>
     <string name="composer_video_retry">Try again</string>
     <string name="composer_video_checking">Checking video limits…</string>

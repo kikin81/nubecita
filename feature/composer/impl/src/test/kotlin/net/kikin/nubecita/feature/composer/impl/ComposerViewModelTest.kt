@@ -42,6 +42,7 @@ import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
 import net.kikin.nubecita.feature.composer.impl.state.ExternalLinkStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentPostUi
+import net.kikin.nubecita.feature.composer.impl.state.PasteRejection
 import net.kikin.nubecita.feature.composer.impl.state.QuoteLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.QuotePostUi
 import net.kikin.nubecita.feature.composer.impl.state.isGalleryMissingAlt
@@ -1458,6 +1459,192 @@ class ComposerViewModelTest {
             advanceUntilIdle()
 
             coVerify { sharedMediaStore.delete(sharedImageMockUri) }
+        }
+
+    // --- pasted images ------------------------------------------------------
+
+    /**
+     * Stubs one pasted `content://` source: the store copies it to an app-owned
+     * file whose attachment carries [mimeType]. Returns (source, copy).
+     */
+    private fun stubPastedImage(
+        name: String,
+        mimeType: String = "image/jpeg",
+    ): Pair<android.net.Uri, android.net.Uri> {
+        val source = mockk<android.net.Uri>(relaxed = true)
+        val copy = mockk<android.net.Uri>(relaxed = true)
+        every { copy.toString() } returns "file:///copies/$name"
+        coEvery { sharedMediaStore.copyIn(source) } returns copy
+        coEvery { sharedMediaStore.attachmentFor("file:///copies/$name") } returns
+            ComposerAttachment(uri = copy, mimeType = mimeType)
+        return source to copy
+    }
+
+    @Test
+    fun pasteImages_attachesTheAppOwnedCopy() =
+        runTest {
+            val (source, copy) = stubPastedImage("a.jpg")
+            val vm = newVm()
+
+            vm.effects.test {
+                vm.handleEvent(ComposerEvent.PasteImages(listOf(source)))
+                advanceUntilIdle()
+
+                assertEquals(
+                    listOf(copy),
+                    vm.uiState.value.attachments
+                        .map { it.uri },
+                )
+                expectNoEvents()
+            }
+        }
+
+    @Test
+    fun pasteImages_unreadable_reportsAndAttachesNothing() =
+        runTest {
+            val source = mockk<android.net.Uri>(relaxed = true)
+            coEvery { sharedMediaStore.copyIn(source) } returns null
+            val vm = newVm()
+
+            vm.effects.test {
+                vm.handleEvent(ComposerEvent.PasteImages(listOf(source)))
+                advanceUntilIdle()
+
+                assertEquals(ComposerEffect.PasteNotAdded(PasteRejection.Unreadable), awaitItem())
+                assertEquals(0, vm.uiState.value.attachments.size)
+            }
+        }
+
+    @Test
+    fun pasteImages_gif_isRejectedAndItsCopyDeleted() =
+        runTest {
+            val (source, copy) = stubPastedImage("a.gif", mimeType = "image/gif")
+            val vm = newVm()
+
+            vm.effects.test {
+                vm.handleEvent(ComposerEvent.PasteImages(listOf(source)))
+                advanceUntilIdle()
+
+                assertEquals(ComposerEffect.PasteNotAdded(PasteRejection.Gif), awaitItem())
+                assertEquals(0, vm.uiState.value.attachments.size)
+            }
+            coVerify { sharedMediaStore.delete(copy) }
+        }
+
+    @Test
+    fun pasteImages_overTheCap_attachesWhatFitsAndDeletesTheRest() =
+        runTest {
+            val vm = newVm()
+            val existing =
+                List(ComposerViewModel.MAX_ATTACHMENTS - 1) {
+                    ComposerAttachment(uri = mockk(relaxed = true), mimeType = "image/jpeg")
+                }
+            vm.handleEvent(ComposerEvent.AddAttachments(existing))
+            val (firstSource, firstCopy) = stubPastedImage("1.jpg")
+            val (secondSource, secondCopy) = stubPastedImage("2.jpg")
+
+            vm.effects.test {
+                vm.handleEvent(ComposerEvent.PasteImages(listOf(firstSource, secondSource)))
+                advanceUntilIdle()
+
+                assertEquals(ComposerEffect.PasteNotAdded(PasteRejection.LimitReached), awaitItem())
+                assertEquals(ComposerViewModel.MAX_ATTACHMENTS, vm.uiState.value.attachments.size)
+                assertEquals(
+                    firstCopy,
+                    vm.uiState.value.attachments
+                        .last()
+                        .uri,
+                )
+            }
+            coVerify { sharedMediaStore.delete(secondCopy) }
+            coVerify(exactly = 0) { sharedMediaStore.delete(firstCopy) }
+        }
+
+    @Test
+    fun pasteImages_withGifAttached_isRejected() =
+        runTest {
+            val vm = newVm()
+            vm.handleEvent(ComposerEvent.GifPicked(KlipyMediaUiFixtures.media(slug = "cat")))
+            val (source, copy) = stubPastedImage("a.jpg")
+
+            vm.effects.test {
+                vm.handleEvent(ComposerEvent.PasteImages(listOf(source)))
+                advanceUntilIdle()
+
+                assertEquals(ComposerEffect.PasteNotAdded(PasteRejection.OtherMediaAttached), awaitItem())
+                assertEquals(0, vm.uiState.value.attachments.size)
+            }
+            coVerify { sharedMediaStore.delete(copy) }
+        }
+
+    @Test
+    fun pasteImages_copyThatCannotResolve_isDeleted() =
+        runTest {
+            val source = mockk<android.net.Uri>(relaxed = true)
+            val copy = mockk<android.net.Uri>(relaxed = true)
+            every { copy.toString() } returns "file:///copies/odd"
+            coEvery { sharedMediaStore.copyIn(source) } returns copy
+            coEvery { sharedMediaStore.attachmentFor("file:///copies/odd") } returns null
+            val vm = newVm()
+
+            vm.handleEvent(ComposerEvent.PasteImages(listOf(source)))
+            advanceUntilIdle()
+
+            coVerify { sharedMediaStore.delete(copy) }
+        }
+
+    @Test
+    fun onCleared_midPaste_deletesTheCopiesMadeSoFar() =
+        runTest {
+            val (firstSource, firstCopy) = stubPastedImage("1.jpg")
+            val secondSource = mockk<android.net.Uri>(relaxed = true)
+            val neverFinishes = CompletableDeferred<android.net.Uri?>()
+            coEvery { sharedMediaStore.copyIn(secondSource) } coAnswers { neverFinishes.await() }
+            val vm = newVm()
+            vm.handleEvent(ComposerEvent.PasteImages(listOf(firstSource, secondSource)))
+            advanceUntilIdle()
+
+            ComposerViewModel::class.java
+                .getDeclaredMethod("onCleared")
+                .apply { isAccessible = true }
+                .invoke(vm)
+            advanceUntilIdle()
+
+            coVerify { sharedMediaStore.delete(firstCopy) }
+        }
+
+    @Test
+    fun removingPastedImage_deletesItsCopy() =
+        runTest {
+            val (source, copy) = stubPastedImage("a.jpg")
+            val vm = newVm()
+            vm.handleEvent(ComposerEvent.PasteImages(listOf(source)))
+            advanceUntilIdle()
+
+            vm.handleEvent(ComposerEvent.RemoveAttachment(0))
+            advanceUntilIdle()
+
+            coVerify { sharedMediaStore.delete(copy) }
+        }
+
+    @Test
+    fun onCleared_deletesEveryPastedAndSharedCopy() =
+        runTest {
+            coEvery { sharedMediaStore.attachmentFor("file:///data/a.jpg") } returns sharedImageAttachment()
+            val (source, pastedCopy) = stubPastedImage("b.jpg")
+            val vm = newVm(sharedImageUri = "file:///data/a.jpg")
+            advanceUntilIdle()
+            vm.handleEvent(ComposerEvent.PasteImages(listOf(source)))
+            advanceUntilIdle()
+
+            ComposerViewModel::class.java
+                .getDeclaredMethod("onCleared")
+                .apply { isAccessible = true }
+                .invoke(vm)
+            advanceUntilIdle()
+
+            coVerify { sharedMediaStore.delete(sharedImageMockUri) }
+            coVerify { sharedMediaStore.delete(pastedCopy) }
         }
 
     private fun newVm(
