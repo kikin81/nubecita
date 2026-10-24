@@ -19,6 +19,7 @@ import net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions
 import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.search.api.Hashtag
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
 import net.kikin.nubecita.feature.search.impl.ui.PostsTabContent
 import android.net.Uri as AndroidUri
@@ -128,6 +129,8 @@ internal fun SearchPostsScreen(
                         // which resolves a handle OR a DID — here it's a mention's DID.
                         is FacetTarget.Mention ->
                             viewModel.handleEvent(SearchPostsEvent.OnAuthorTapped(target.did))
+                        is FacetTarget.Tag ->
+                            viewModel.handleEvent(SearchPostsEvent.TagTapped(target.tag, target.authorHandle))
                         is FacetTarget.Link ->
                             try {
                                 CustomTabsIntent
@@ -175,6 +178,8 @@ internal fun SearchPostsScreen(
                     currentOnClearQuery()
                 is SearchPostsEffect.NavigateToProfile ->
                     currentNavState.add(Profile(handle = effect.handle))
+                is SearchPostsEffect.NavigateToHashtag ->
+                    currentNavState.add(Hashtag(tag = effect.tag, author = effect.author))
             }
         }
     }

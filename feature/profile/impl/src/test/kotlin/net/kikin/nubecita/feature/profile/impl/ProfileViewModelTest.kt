@@ -40,6 +40,7 @@ import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.profile.impl.data.ProfileHeaderWithViewer
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
+import net.kikin.nubecita.feature.search.api.Hashtag
 import net.kikin.nubecita.feature.videos.api.VideoFeed
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -231,6 +232,26 @@ internal class ProfileViewModelTest {
     // Regression: a @mention routes through HandleTapped carrying a DID (not a
     // handle). Tapping a self-mention on the profile you're viewing must still be
     // a no-op — the guard has to match the header DID, not only the handle.
+
+    @Test
+    fun `TagTapped emits NavigateTo the Hashtag route with the author`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"))
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.TagTapped("Kotlin", "bob.bsky.social"))
+
+                assertEquals(ProfileEffect.NavigateTo(Hashtag("Kotlin", "bob.bsky.social")), awaitItem())
+            }
+        }
+
     @Test
     fun `self-mention DID tap is a silent no-op`() =
         runTest(mainDispatcher.dispatcher) {

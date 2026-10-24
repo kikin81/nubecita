@@ -77,6 +77,7 @@ internal class HashtagViewModel
                 HashtagEvent.ShareClicked -> sendEffect(HashtagEffect.Share(shareUrl()))
                 is HashtagEvent.PostTapped -> sendEffect(HashtagEffect.NavigateToPost(event.uri))
                 is HashtagEvent.OnAuthorTapped -> sendEffect(HashtagEffect.NavigateToProfile(event.actor))
+                is HashtagEvent.TagTapped -> sendEffect(HashtagEffect.NavigateToHashtag(event.tag, event.author))
             }
         }
 

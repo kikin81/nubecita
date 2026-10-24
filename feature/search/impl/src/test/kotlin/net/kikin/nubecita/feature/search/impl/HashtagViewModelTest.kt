@@ -235,4 +235,16 @@ class HashtagViewModelTest {
                 assertEquals(HashtagEffect.Share("https://bsky.app/hashtag/%24BTC"), awaitItem())
             }
         }
+
+    @Test
+    fun tagTapped_inAResult_opensThatTag() =
+        runTest {
+            val vm = buildVm()
+            runCurrent()
+
+            vm.effects.test {
+                vm.handleEvent(HashtagEvent.TagTapped("Android", "bob.bsky.social"))
+                assertEquals(HashtagEffect.NavigateToHashtag("Android", "bob.bsky.social"), awaitItem())
+            }
+        }
 }

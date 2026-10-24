@@ -200,6 +200,7 @@ internal fun FeedScreen(
             onNavigateToAuthor = onNavigateToAuthor,
             onNavigateToMediaViewer = onNavigateToMediaViewer,
             onNavigateToVideoPlayer = onNavigateToVideoPlayer,
+            onNavigateTo = onNavigateTo,
         )
 
     LaunchedEffect(Unit) { viewModel.handleEvent(FeedEvent.Load) }

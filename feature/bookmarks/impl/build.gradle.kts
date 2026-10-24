@@ -31,6 +31,7 @@ dependencies {
     // Tap-to-open a post author pushes a Profile(handle) onto the MainShell
     // back stack. The api module ships just the NavKey.
     implementation(project(":feature:profile:api"))
+    implementation(project(":feature:search:api"))
     // Custom Tabs: tap an inline link in a bookmarked post's body → in-app
     // browser (same Custom Tab path as Feed / Search / PostDetail).
     implementation(libs.androidx.browser)

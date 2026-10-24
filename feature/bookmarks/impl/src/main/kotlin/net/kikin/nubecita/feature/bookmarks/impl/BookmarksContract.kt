@@ -67,6 +67,12 @@ internal sealed interface BookmarksEvent : UiEvent {
     data class OnAuthorTapped(
         val handle: String,
     ) : BookmarksEvent
+
+    /** Tap on a `#tag` / `$cashtag` in a bookmarked post → open the Hashtag screen. */
+    data class TagTapped(
+        val tag: String,
+        val author: String?,
+    ) : BookmarksEvent
 }
 
 internal sealed interface BookmarksEffect : UiEffect {
@@ -78,6 +84,12 @@ internal sealed interface BookmarksEffect : UiEffect {
     /** Push the Profile route for [handle] onto the MainShell nav stack. */
     data class NavigateToProfile(
         val handle: String,
+    ) : BookmarksEffect
+
+    /** Push the Hashtag route for [tag] onto the MainShell nav stack. */
+    data class NavigateToHashtag(
+        val tag: String,
+        val author: String?,
     ) : BookmarksEffect
 
     /** Snackbar-surface for append-time failures; existing results stay visible. */

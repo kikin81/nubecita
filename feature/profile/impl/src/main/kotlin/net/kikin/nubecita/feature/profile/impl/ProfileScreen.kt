@@ -217,6 +217,8 @@ internal fun ProfileScreen(
                         // An inline link → in-app browser, reusing the same Custom
                         // Tab helper the profile bio links use (narrowed catch).
                         is FacetTarget.Link -> openBioLinkInCustomTab(context, target.uri)
+                        is FacetTarget.Tag ->
+                            viewModel.handleEvent(ProfileEvent.TagTapped(target.tag, target.authorHandle))
                     }
                 },
                 onQuotedPostTap = { quoted ->

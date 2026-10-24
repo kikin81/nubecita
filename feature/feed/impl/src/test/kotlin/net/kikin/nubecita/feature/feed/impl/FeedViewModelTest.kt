@@ -35,6 +35,7 @@ import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
 import net.kikin.nubecita.feature.feed.impl.data.TimelinePage
 import net.kikin.nubecita.feature.feed.impl.data.toFeedItemsUi
+import net.kikin.nubecita.feature.search.api.Hashtag
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -1677,6 +1678,19 @@ internal class FeedViewModelTest {
         }
 
     // ---------- m28.4: page-boundary chain merge ----------
+
+    @Test
+    fun `OnTagTapped emits NavigateTo the Hashtag route with the author`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = FeedViewModel(FakeFeedRepository(), FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(FeedEvent.OnTagTapped("Kotlin", "alice.bsky.social"))
+
+                assertEquals(FeedEffect.NavigateTo(Hashtag("Kotlin", "alice.bsky.social")), awaitItem())
+            }
+        }
 
     @Test
     fun `LoadMore extends a Single tail into a chain when new page head links to it`() =

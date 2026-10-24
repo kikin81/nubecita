@@ -73,6 +73,8 @@ internal class BookmarksViewModel
                     sendEffect(BookmarksEffect.NavigateToPost(event.uri))
                 is BookmarksEvent.OnAuthorTapped ->
                     sendEffect(BookmarksEffect.NavigateToProfile(event.handle))
+                is BookmarksEvent.TagTapped ->
+                    sendEffect(BookmarksEffect.NavigateToHashtag(event.tag, event.author))
             }
         }
 

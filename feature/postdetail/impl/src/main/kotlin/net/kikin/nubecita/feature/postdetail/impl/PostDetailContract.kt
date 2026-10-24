@@ -145,6 +145,15 @@ internal sealed interface PostDetailEvent : UiEvent {
     ) : PostDetailEvent
 
     /**
+     * User tapped a `#tag` / `$cashtag` in a rendered post. [author] is the
+     * handle of the account whose text holds the tag (Hashtag's author filter).
+     */
+    data class TagTapped(
+        val tag: String,
+        val author: String?,
+    ) : PostDetailEvent
+
+    /**
      * Tap on the floating reply composer FAB. Resolves the focus URI
      * out of state at the VM and emits [PostDetailEffect.NavigateToComposer]
      * which the screen routes to a `ComposerRoute` push. Per-post

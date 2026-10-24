@@ -80,6 +80,12 @@ internal sealed interface HashtagEvent : UiEvent {
     data class OnAuthorTapped(
         val actor: String,
     ) : HashtagEvent
+
+    /** A `#tag` inside a result — opens that tag's own screen. */
+    data class TagTapped(
+        val tag: String,
+        val author: String?,
+    ) : HashtagEvent
 }
 
 internal sealed interface HashtagEffect : UiEffect {
@@ -89,6 +95,11 @@ internal sealed interface HashtagEffect : UiEffect {
 
     data class NavigateToProfile(
         val actor: String,
+    ) : HashtagEffect
+
+    data class NavigateToHashtag(
+        val tag: String,
+        val author: String?,
     ) : HashtagEffect
 
     /** Open the system share sheet with [url]. */

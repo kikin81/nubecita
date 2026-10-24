@@ -31,6 +31,7 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.bookmarks.impl.ui.BookmarksContent
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.search.api.Hashtag
 import android.net.Uri as AndroidUri
 import net.kikin.nubecita.designsystem.R as DesignSystemR
 
@@ -118,6 +119,8 @@ internal fun BookmarksScreen(
                     when (target) {
                         is FacetTarget.Mention ->
                             viewModel.handleEvent(BookmarksEvent.OnAuthorTapped(target.did))
+                        is FacetTarget.Tag ->
+                            viewModel.handleEvent(BookmarksEvent.TagTapped(target.tag, target.authorHandle))
                         is FacetTarget.Link ->
                             try {
                                 CustomTabsIntent
@@ -148,6 +151,8 @@ internal fun BookmarksScreen(
                     currentNavState.add(PostDetailRoute(postUri = effect.uri))
                 is BookmarksEffect.NavigateToProfile ->
                     currentNavState.add(Profile(handle = effect.handle))
+                is BookmarksEffect.NavigateToHashtag ->
+                    currentNavState.add(Hashtag(tag = effect.tag, author = effect.author))
                 is BookmarksEffect.ShowAppendError -> {
                     val message =
                         when (effect.error) {

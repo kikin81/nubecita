@@ -68,6 +68,19 @@ class BookmarksViewModelTest {
         }
 
     @Test
+    fun `TagTapped emits NavigateToHashtag with the author`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = buildVm(FakeBookmarkRepository { Result.success(BookmarksPage(persistentListOf(), null)) })
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(BookmarksEvent.TagTapped("Kotlin", "alice.bsky.social"))
+
+                assertEquals(BookmarksEffect.NavigateToHashtag("Kotlin", "alice.bsky.social"), awaitItem())
+            }
+        }
+
+    @Test
     fun `network failure maps to InitialError(Network)`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeBookmarkRepository { Result.failure(IOException("offline")) }

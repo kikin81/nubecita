@@ -307,6 +307,19 @@ internal class ChatViewModelTest {
     // --- Composer: enable gate + optimistic send (child B) ---
 
     @Test
+    fun `TagTapped emits NavigateToHashtag`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = chatViewModel(FakeChatRepository())
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(ChatEvent.TagTapped("Kotlin"))
+
+                assertEquals(ChatEffect.NavigateToHashtag("Kotlin"), awaitItem())
+            }
+        }
+
+    @Test
     fun `isSendEnabled tracks whether the composer text is non-blank`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeChatRepository()

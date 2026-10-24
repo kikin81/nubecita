@@ -135,6 +135,8 @@ class ChatViewModel
                     sendEffect(ChatEffect.NavigateToPost(event.quotedPostUri))
                 is ChatEvent.MentionTapped ->
                     sendEffect(ChatEffect.NavigateToProfile(event.did))
+                is ChatEvent.TagTapped ->
+                    sendEffect(ChatEffect.NavigateToHashtag(event.tag))
 
                 ChatEvent.GroupDetailsTapped -> onGroupDetailsTapped()
                 ChatEvent.AcceptRequest -> onAcceptRequest()

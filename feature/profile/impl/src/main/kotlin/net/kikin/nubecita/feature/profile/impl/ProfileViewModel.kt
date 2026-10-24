@@ -37,6 +37,7 @@ import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
 import net.kikin.nubecita.feature.profile.impl.data.dedupeByKey
+import net.kikin.nubecita.feature.search.api.Hashtag
 import net.kikin.nubecita.feature.videos.api.VideoFeed
 import java.io.IOException
 
@@ -199,6 +200,7 @@ internal class ProfileViewModel
                 is ProfileEvent.OnVideoTapped ->
                     sendEffect(ProfileEffect.NavigateToVideoPlayer(event.postUri))
                 is ProfileEvent.HandleTapped -> onHandleTapped(event.handle)
+                is ProfileEvent.TagTapped -> sendEffect(ProfileEffect.NavigateTo(Hashtag(event.tag, event.author)))
                 ProfileEvent.Refresh -> onRefresh()
                 is ProfileEvent.LoadMore -> onLoadMore(event.tab)
                 is ProfileEvent.RetryTab -> onRetryTab(event.tab)

@@ -94,6 +94,12 @@ internal sealed interface SearchPostsEvent : UiEvent {
     data class OnAuthorTapped(
         val handle: String,
     ) : SearchPostsEvent
+
+    /** Tap on a `#tag` / `$cashtag` in a result. Emits [SearchPostsEffect.NavigateToHashtag]. */
+    data class TagTapped(
+        val tag: String,
+        val author: String?,
+    ) : SearchPostsEvent
 }
 
 internal sealed interface SearchPostsEffect : UiEffect {
@@ -121,5 +127,11 @@ internal sealed interface SearchPostsEffect : UiEffect {
      */
     data class NavigateToProfile(
         val handle: String,
+    ) : SearchPostsEffect
+
+    /** Push the Hashtag route for [tag] onto the MainShell nav stack. */
+    data class NavigateToHashtag(
+        val tag: String,
+        val author: String?,
     ) : SearchPostsEffect
 }

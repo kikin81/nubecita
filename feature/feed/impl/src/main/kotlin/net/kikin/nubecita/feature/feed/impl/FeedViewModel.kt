@@ -39,6 +39,7 @@ import net.kikin.nubecita.feature.feed.impl.data.dedupeByKey
 import net.kikin.nubecita.feature.feed.impl.data.dedupeByThreadRoot
 import net.kikin.nubecita.feature.feed.impl.data.dedupeClusterContext
 import net.kikin.nubecita.feature.feed.impl.data.linksToWire
+import net.kikin.nubecita.feature.search.api.Hashtag
 import java.io.IOException
 import javax.inject.Inject
 
@@ -123,6 +124,7 @@ class FeedViewModel
                 FeedEvent.ClearError -> Unit
                 is FeedEvent.OnPostTapped -> sendEffect(FeedEffect.NavigateToPost(event.post.id))
                 is FeedEvent.OnAuthorTapped -> sendEffect(FeedEffect.NavigateToAuthor(event.authorDid))
+                is FeedEvent.OnTagTapped -> sendEffect(FeedEffect.NavigateTo(Hashtag(event.tag, event.author)))
                 is FeedEvent.OnImageTapped ->
                     sendEffect(FeedEffect.NavigateToMediaViewer(event.post.id, event.imageIndex))
                 is FeedEvent.OnQuotedImageTapped ->
