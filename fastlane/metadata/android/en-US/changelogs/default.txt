@@ -1,5 +1,6 @@
 Thanks for using nubecita! What's new:
-• Profile links — show the sites you love right on your profile. Add up to 10 links in Edit profile and drag to reorder them. Tap a link on anyone's profile to open it.
-• A simpler feed — posts now flow in one clean, continuous list that's easier to read.
-• Bug fixes and performance improvements.
+• Hashtags — tap any #tag to see Top and Latest posts with it, or just that author's. Tags you write now show up in Bluesky search.
+• Paste images — paste a copied image or insert one from your keyboard straight into a new post.
+• A cleaner photo viewer — floating controls that look right on phones, tablets and foldables.
+• Faster startup, bug fixes and performance improvements.
 Thanks for being here. 💙

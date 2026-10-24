@@ -1,5 +1,6 @@
 Obrigado por usar o nubecita! Novidades:
-• Links no perfil: mostre seus sites favoritos direto no seu perfil. Adicione até 10 links em Editar perfil e arraste para reordená-los. Toque em um link em qualquer perfil para abri-lo.
-• Um feed mais simples: as publicações agora fluem em uma lista contínua e limpa, mais fácil de ler.
-• Correções de bugs e melhorias de desempenho.
+• Hashtags: toque em qualquer #tag para ver publicações em destaque e recentes, ou só as daquele autor. Suas tags agora aparecem na busca do Bluesky.
+• Cole imagens: cole uma imagem copiada ou insira uma pelo teclado direto em uma nova publicação.
+• Um visualizador de fotos mais limpo: controles flutuantes que ficam bem em celulares, tablets e dobráveis.
+• Inicialização mais rápida e correções de bugs.
 Obrigado por estar aqui! 💙
