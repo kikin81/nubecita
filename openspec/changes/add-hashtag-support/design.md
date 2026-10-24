@@ -109,7 +109,12 @@ Opened from a post, the screen shows a `FilterChip` "From @handle", initially of
 
 ## Migration Plan
 
-This is additive. There are no schema or preference changes. It lands as one `gh stack` (children `.1 → .2 → .3`) in a single atomic merge, so tags become tappable only once the screen exists. Rollback is reverting the squash commit.
+This is additive. There are no schema or preference changes. It lands as one `gh stack` (children `.1 → .2 → .3`, managed with the `gh-stack` skill). The stack is merged with a single atomic `gh stack merge --squash --yes` **only once the whole feature is ready**: every child done, green and reviewed, with the user's go-ahead. That way:
+
+- `main` never carries tag publishing without the screen, or tappable tags without a destination;
+- semantic-release cuts exactly one version.
+
+Child PRs are never merged individually. Rollback is reverting the epic's squash commits.
 
 ## Open Questions
 

@@ -1,4 +1,19 @@
-Epic: `nubecita-cxcz`, landed as one `gh stack`. Section 1 is child `.1`, section 2 is child `.2`, section 3 is child `.3`.
+Epic: `nubecita-cxcz`. Section 1 is child `.1`, section 2 is child `.2`, section 3 is child `.3`.
+
+**Landing model.** The epic ships as one `gh stack`, driven by the `gh-stack` and `bd-workflow` skills. Each child is one branch and one PR, stacked `.1 → .2 → .3` on `main`. Nothing reaches `main` until every child is done, reviewed and green. The whole feature then lands in a single atomic `gh stack merge`, which cuts one release. **Never merge a child PR on its own**, whether from the GitHub UI or with `gh pr merge`: a lone child would ship publishing or the screen without tappable tags, and cut its own release.
+
+## 0. Stack setup (per child, via the `gh-stack` / `bd-workflow` skills)
+
+- [ ] 0.1 Child `.1`: start from an up-to-date `main` with `gh stack init feat/nubecita-cxcz.1-publish-hashtag-and-cashtag-facets-from-the-compos`, then `bd update nubecita-cxcz.1 --claim`.
+- [ ] 0.2 Child `.2`: from the stack top, `gh stack add feat/nubecita-cxcz.2-hashtag-posts-screen-top-latest-optional-author-fi`, then claim it.
+- [ ] 0.3 Child `.3`: from the stack top, `gh stack add feat/nubecita-cxcz.3-make-tags-in-posts-tappable`, then claim it.
+- [ ] 0.4 After each child's commits:
+  - lint the touched modules, using flavored task names where required;
+  - run `gh stack submit --auto --open`;
+  - set that PR's body to `Closes: nubecita-cxcz.N`;
+  - check that its title is a Conventional Commit.
+  - At least one child title MUST be `feat:` so the epic cuts a Play release.
+- [ ] 0.5 Review fixes on a lower branch: `gh stack sync`, then `gh stack submit`. Batch fixes, because every restack re-runs CI on the branches above. Re-check review currency per PR, since a restack invalidates the bot reviews above it.
 
 ## 1. Publish hashtag and cashtag facets (`nubecita-cxcz.1`, `:core:posting`)
 
@@ -46,3 +61,17 @@ Epic: `nubecita-cxcz`, landed as one `gh stack`. Section 1 is child `.1`, sectio
   - touched-module lint, with flavored names where required;
   - compose-expert review over `git diff origin/main...HEAD`;
   - device pass: tap a tag in the feed, a quoted post and post detail; toggle the author filter; switch tabs; share.
+
+## 4. Land the epic (only when the whole feature is ready)
+
+- [ ] 4.1 Preconditions, all required on **every** PR in `gh stack view`:
+  - open, non-draft, and CI-green;
+  - zero unresolved review threads;
+  - newest bot review newer than the last commit;
+  - full gate (3.3) done on the stack top;
+  - the user's explicit go-ahead to land.
+- [ ] 4.2 Land atomically with `gh stack merge --squash --yes`, then confirm exactly one `Release` run with `gh run list --workflow=release.yaml --limit 3`.
+- [ ] 4.3 Clean up:
+  - `gh stack sync --prune`;
+  - `bd close nubecita-cxcz.1 nubecita-cxcz.2 nubecita-cxcz.3 nubecita-cxcz`;
+  - archive this change with `openspec archive add-hashtag-support`. Reconcile the merged spec's Purpose and fix the end-of-file newline before committing.
