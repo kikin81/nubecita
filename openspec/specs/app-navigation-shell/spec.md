@@ -192,15 +192,20 @@ Any `EntryProviderInstaller @MainShell` that registers an entry intended to act 
 - **WHEN** the `@MainShell`-qualified `EntryProviderInstaller` for the `Feed` `NavKey` is invoked at composition
 - **THEN** the resulting entry SHALL carry `ListDetailSceneStrategy.listPane(...)` metadata, and the `detailPlaceholder` lambda SHALL render a non-empty Composable
 
+#### Scenario: NotificationsTab entry registers listPane metadata
+
+- **WHEN** the `@MainShell`-qualified `EntryProviderInstaller` for the `NotificationsTab` `NavKey` is invoked at composition
+- **THEN** the resulting entry SHALL carry `ListDetailSceneStrategy.listPane(...)` metadata, and the `detailPlaceholder` lambda SHALL render a non-empty Composable
+
 #### Scenario: Compact width does not compose the detail placeholder
 
-- **WHEN** the device window's `windowWidthSizeClass` is `Compact` and the back stack is `[Feed]`
-- **THEN** the rendered tree SHALL NOT contain the `FeedDetailPlaceholder` Composable's content (the strategy collapses to single-pane on compact)
+- **WHEN** the device window's `windowWidthSizeClass` is `Compact` and the back stack is `[NotificationsTab]`
+- **THEN** the rendered tree SHALL NOT contain the detail placeholder Composable's content (the strategy collapses to single-pane on compact)
 
 #### Scenario: Medium and expanded widths compose the detail placeholder
 
-- **WHEN** the device window's `windowWidthSizeClass` is `Medium` or `Expanded` and the back stack is `[Feed]`
-- **THEN** the rendered tree SHALL contain a `FeedDetailPlaceholder` Composable adjacent to the Feed list pane
+- **WHEN** the device window's `windowWidthSizeClass` is `Medium` or `Expanded` and the back stack is `[NotificationsTab]`
+- **THEN** the rendered tree SHALL contain a `NotificationsDetailPlaceholder` Composable adjacent to the Notifications list pane
 
 ### Requirement: Full-screen sub-routes do not declare `detailPane` metadata
 
