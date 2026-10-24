@@ -1,6 +1,5 @@
 Thanks for using nubecita! What's new:
-• Swipe between feeds — swipe horizontally to switch smoothly between your pinned feeds.
-• Video Picture-in-Picture — keep watching videos in a floating window while browsing or using other apps, now free for everyone.
-• Save images — download photos straight to your gallery from the viewer.
-• Smoother video playback and performance improvements.
+• Profile links — show the sites you love right on your profile. Add up to 10 links in Edit profile and drag to reorder them. Tap a link on anyone's profile to open it.
+• A simpler feed — posts now flow in one clean, continuous list that's easier to read.
+• Bug fixes and performance improvements.
 Thanks for being here. 💙

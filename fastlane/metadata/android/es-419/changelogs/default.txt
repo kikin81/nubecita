@@ -1,6 +1,5 @@
 ¡Gracias por usar nubecita! Novedades:
-• Desliza entre feeds: desliza horizontalmente para cambiar con fluidez entre tus feeds fijados.
-• Imagen en imagen para videos: sigue viendo videos en una ventana flotante mientras navegas o usas otras apps, ahora gratis para todos.
-• Guarda imágenes: descarga fotos directamente a tu galería desde el visor.
-• Reproducción de video más fluida y mejoras de rendimiento.
+• Enlaces en el perfil: muestra tus sitios favoritos directamente en tu perfil. Agrega hasta 10 enlaces en Editar perfil y arrástralos para reordenarlos. Toca un enlace en cualquier perfil para abrirlo.
+• Un feed más simple: las publicaciones ahora fluyen en una lista continua y limpia, más fácil de leer.
+• Corrección de errores y mejoras de rendimiento.
 ¡Gracias por acompañarnos! 💙

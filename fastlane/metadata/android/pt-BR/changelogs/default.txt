@@ -1,6 +1,5 @@
 Obrigado por usar o nubecita! Novidades:
-• Deslize entre feeds: deslize para os lados para alternar com fluidez entre seus feeds fixados.
-• Picture-in-Picture em vídeos: continue assistindo em uma janela flutuante enquanto navega ou usa outros apps, agora grátis para todos.
-• Salve imagens: baixe fotos direto para a galeria a partir do visualizador.
-• Reprodução de vídeo mais suave e melhorias de desempenho.
+• Links no perfil: mostre seus sites favoritos direto no seu perfil. Adicione até 10 links em Editar perfil e arraste para reordená-los. Toque em um link em qualquer perfil para abri-lo.
+• Um feed mais simples: as publicações agora fluem em uma lista contínua e limpa, mais fácil de ler.
+• Correções de bugs e melhorias de desempenho.
 Obrigado por estar aqui! 💙
