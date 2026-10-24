@@ -139,9 +139,10 @@ fun NubecitaOverlayIconButton(
  * scrim + hairline backing as the icon controls, so a gallery's chrome reads
  * as one family over any frame.
  *
- * When interactive, [accessibilityLabel] replaces [text] for TalkBack (the
- * badge reads "View alt text", not "ALT"); a non-interactive pill is announced
- * by its text.
+ * When interactive, [accessibilityLabel] is the click label, matching the
+ * stat button's non-toggle contract: TalkBack reads the visible text plus the
+ * action ("ALT, button, double-tap to view alt text") with the label spoken
+ * once. A non-interactive pill is announced by its text.
  */
 @Composable
 fun NubecitaOverlayPill(
@@ -177,12 +178,6 @@ fun NubecitaOverlayPill(
             text = text,
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.semanticColors.onVideoOverlay,
-            modifier =
-                if (onClick != null && accessibilityLabel != null) {
-                    Modifier.semantics { contentDescription = accessibilityLabel }
-                } else {
-                    Modifier
-                },
         )
     }
 }
