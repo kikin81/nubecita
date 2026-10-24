@@ -35,6 +35,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.dropWhile
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.data.models.AuthorUi
@@ -90,6 +91,8 @@ private const val PREFETCH_DISTANCE = 5
 internal fun NotificationsScreen(
     modifier: Modifier = Modifier,
     viewModel: NotificationsViewModel = hiltViewModel(),
+    selectedPostUri: String? = null,
+    selectedProfileHandle: String? = null,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val mainShellNavState = LocalMainShellNavState.current
@@ -106,7 +109,7 @@ internal fun NotificationsScreen(
         remember(mainShellNavState, onEvent) {
             { actor: AuthorUi ->
                 onEvent(NotificationsEvent.SheetDismissed)
-                mainShellNavState.add(Profile(handle = actor.did))
+                mainShellNavState.replaceTop(Profile(handle = actor.did))
             }
         }
     val onSheetDismiss =
@@ -129,19 +132,25 @@ internal fun NotificationsScreen(
 
     // Single outer effects collector. Per MVI convention all effects funnel
     // here; the surface today carries exactly two branches: navigate
-    // (push a NavKey onto the inner back stack) and show an error
+    // (replaceTop on the inner back stack for adaptive detail-swapping) and show an error
     // (resolve the typed error to a localized Snackbar message). The
     // actor-list sheet is NOT driven through an effect — it lives on
     // `state.actorListSheet` (a reducer-managed field) and is rendered
     // outside this collector at the bottom of the Root composable.
     LaunchedEffect(viewModel) {
+        // Each snackbar runs in its own child job: awaiting showSnackbar inline
+        // would hold the collector for the snackbar's whole duration, so a
+        // NavigateTo emitted meanwhile (a row tap) would wait until it's dismissed.
+        val effectScope = this
         viewModel.effects.collect { effect ->
             when (effect) {
-                is NotificationsEffect.NavigateTo -> mainShellNavState.add(effect.target)
+                is NotificationsEffect.NavigateTo -> mainShellNavState.replaceTop(effect.target)
                 is NotificationsEffect.ShowError -> {
                     val message = currentContext.getString(effect.error.snackbarMessageRes())
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(message = message)
+                    effectScope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(message = message)
+                    }
                 }
             }
         }
@@ -194,6 +203,8 @@ internal fun NotificationsScreen(
         snackbarHostState = snackbarHostState,
         onEvent = onEvent,
         modifier = modifier,
+        selectedPostUri = selectedPostUri,
+        selectedProfileHandle = selectedProfileHandle,
     )
 
     val sheetActors = state.actorListSheet
@@ -233,6 +244,8 @@ internal fun NotificationsContent(
     snackbarHostState: SnackbarHostState,
     onEvent: (NotificationsEvent) -> Unit,
     modifier: Modifier = Modifier,
+    selectedPostUri: String? = null,
+    selectedProfileHandle: String? = null,
 ) {
     // `activeFilter` is passed in as a sibling param of `viewState` rather
     // than projected through `NotificationsScreenViewState`. The earlier
@@ -299,6 +312,8 @@ internal fun NotificationsContent(
                             isAppending = viewState.isAppending,
                             listState = listState,
                             onEvent = onEvent,
+                            selectedPostUri = selectedPostUri,
+                            selectedProfileHandle = selectedProfileHandle,
                         )
                 }
             }
@@ -312,6 +327,8 @@ private fun LoadedNotifications(
     isAppending: Boolean,
     listState: LazyListState,
     onEvent: (NotificationsEvent) -> Unit,
+    selectedPostUri: String? = null,
+    selectedProfileHandle: String? = null,
 ) {
     // No local PullToRefreshBox — the outer NotificationsContent wraps every
     // per-state body so pull-to-refresh works from Loaded AND from the
@@ -333,6 +350,12 @@ private fun LoadedNotifications(
                 }
             },
         ) { item ->
+            val isSelected =
+                (selectedPostUri != null && item.subjectPost?.id == selectedPostUri) ||
+                    (
+                        selectedProfileHandle != null &&
+                            item.actors.any { it.did == selectedProfileHandle || it.handle == selectedProfileHandle }
+                    )
             NotificationRow(
                 item = item,
                 onClick = { onEvent(NotificationsEvent.RowTapped(item)) },
@@ -341,6 +364,7 @@ private fun LoadedNotifications(
                         onEvent(NotificationsEvent.AvatarStackTapped(item))
                     }
                 },
+                selected = isSelected,
             )
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant,
