@@ -2,6 +2,7 @@ package net.kikin.nubecita.core.posting.internal
 
 import io.github.kikin81.atproto.app.bsky.richtext.FacetLink
 import io.github.kikin81.atproto.app.bsky.richtext.FacetMention
+import io.github.kikin81.atproto.app.bsky.richtext.FacetTag
 import io.github.kikin81.atproto.runtime.Did
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -181,5 +182,44 @@ class DefaultFacetExtractorTest {
                 assertTrue(text.startsWith("@"), "byte slice must start with @, got '$text'")
                 assertNotNull(facet.features[0] as? FacetMention)
             }
+        }
+
+    @Test
+    fun mentionTagAndLink_emitsAllThreeInDocumentOrder() =
+        runTest {
+            val text = "@alice.bsky.social check #news https://example.com"
+            val result = extractor.extract(text)
+
+            assertEquals(3, result.size, "expected mention + tag + link; got $result")
+            assertTrue(result[0].features.single() is FacetMention)
+            val tag = result[1].features.single() as FacetTag
+            assertEquals("news", tag.tag)
+            assertEquals(25L, result[1].index.byteStart)
+            assertEquals(30L, result[1].index.byteEnd)
+            assertTrue(result[2].features.single() is FacetLink)
+        }
+
+    @Test
+    fun hashtagAfterMultibyteText_byteRangeSlicesToTheTag() =
+        runTest {
+            val text = "café #día y \$btc"
+            val result = extractor.extract(text)
+
+            assertEquals(listOf("día", "\$BTC"), result.map { (it.features.single() as FacetTag).tag })
+            val bytes = text.toByteArray(Charsets.UTF_8)
+            val slices =
+                result.map {
+                    String(bytes.copyOfRange(it.index.byteStart.toInt(), it.index.byteEnd.toInt()), Charsets.UTF_8)
+                }
+            assertEquals(listOf("#día", "\$btc"), slices)
+        }
+
+    @Test
+    fun urlFragment_isNotATag() =
+        runTest {
+            val result = extractor.extract("read https://example.com/page#intro now")
+
+            assertEquals(1, result.size, "expected only the link facet; got $result")
+            assertTrue(result.single().features.single() is FacetLink)
         }
 }
