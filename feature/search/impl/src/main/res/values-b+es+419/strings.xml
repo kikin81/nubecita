@@ -105,4 +105,11 @@
 
     <!-- trpn: Discover tab — empty state -->
     <string name="discover_empty_hint">Desliza hacia abajo para descubrir contenido</string>
+
+    <!-- cxcz.2: Hashtag screen -->
+    <string name="hashtag_back_content_description">Atrás</string>
+    <string name="hashtag_share_content_description">Compartir hashtag</string>
+    <string name="hashtag_filter_from_author">De @%1$s</string>
+    <string name="hashtag_empty_title">Aún no hay publicaciones con %1$s</string>
+    <string name="hashtag_empty_body">Prueba la otra pestaña o desliza hacia abajo para volver a buscar.</string>
 </resources>

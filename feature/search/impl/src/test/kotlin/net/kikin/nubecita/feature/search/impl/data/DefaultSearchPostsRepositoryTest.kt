@@ -226,6 +226,40 @@ class DefaultSearchPostsRepositoryTest {
             assertTrue(url.contains("sort=top"))
         }
 
+    @Test
+    fun searchHashtag_callsSearchPostsV2_withHashtagFilterAndRecentSort() =
+        runTest {
+            val (engine, repo) = newRepo { _ -> okJson(SEARCH_POSTS_RESPONSE_TWO_HITS) }
+
+            val page =
+                repo
+                    .searchHashtag(tag = "Kotlin", author = null, cursor = "c1", limit = 25, sort = SearchPostsSort.LATEST)
+                    .getOrThrow()
+
+            val url = engine.requestHistory.single().url
+            assertTrue(url.encodedPath.endsWith("app.bsky.feed.searchPostsV2"), url.encodedPath)
+            assertEquals(listOf("Kotlin"), url.parameters.getAll("hashtags"))
+            assertEquals("recent", url.parameters["sort"])
+            assertEquals("c1", url.parameters["cursor"])
+            assertNull(url.parameters["authors"], "no author filter unless one is passed")
+            assertNull(url.parameters["query"], "the tag goes in the structured filter, not a free-text query")
+            // Same moderation/projection path as searchPosts.
+            assertEquals(listOf("at://did:plc:fake/app.bsky.feed.post/p1"), page.items.map { it.post.id })
+            assertEquals("c2", page.nextCursor)
+        }
+
+    @Test
+    fun searchHashtag_withAuthor_passesAuthorsAndTopSort() =
+        runTest {
+            val (engine, repo) = newRepo { _ -> okJson("""{"posts": []}""") }
+
+            repo.searchHashtag(tag = "Kotlin", author = "alice.bsky.social", cursor = null, limit = 25, sort = SearchPostsSort.TOP)
+
+            val url = engine.requestHistory.single().url
+            assertEquals(listOf("alice.bsky.social"), url.parameters.getAll("authors"))
+            assertEquals("top", url.parameters["sort"])
+        }
+
     // --- helpers ---
 
     private fun newRepo(

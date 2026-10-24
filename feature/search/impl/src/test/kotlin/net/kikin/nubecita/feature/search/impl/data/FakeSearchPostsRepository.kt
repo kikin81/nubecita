@@ -130,7 +130,25 @@ internal class FakeSearchPostsRepository : SearchPostsRepository {
         val deferred = gates[key]
         return deferred?.await() ?: fallback
     }
+
+    /**
+     * Routed through the same gates/log as [searchPosts], keyed on
+     * [hashtagKey] — so hashtag tests use `respond(hashtagKey(tag, author), …)`.
+     */
+    override suspend fun searchHashtag(
+        tag: String,
+        author: String?,
+        cursor: String?,
+        limit: Int,
+        sort: SearchPostsSort,
+    ): Result<SearchPostsPage> = searchPosts(query = hashtagKey(tag, author), cursor = cursor, limit = limit, sort = sort)
 }
+
+/** The fake's gate/log key for a hashtag request. */
+internal fun hashtagKey(
+    tag: String,
+    author: String?,
+): String = if (author == null) "#$tag" else "#$tag from:$author"
 
 internal fun searchPostFixture(
     uri: String,

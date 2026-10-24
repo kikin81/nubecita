@@ -252,7 +252,7 @@ internal class SearchPostsViewModel
  * map, preserving reference equality so LazyColumn can skip recomposition
  * for unchanged items.
  */
-private fun ImmutableList<FeedItemUi.Single>.applyInteractions(
+internal fun ImmutableList<FeedItemUi.Single>.applyInteractions(
     interactionMap: PersistentMap<String, PostInteractionState>,
 ): ImmutableList<FeedItemUi.Single> =
     // One pass: deleted posts drop out (the flag is set only after the PDS
