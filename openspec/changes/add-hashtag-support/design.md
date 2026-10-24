@@ -65,7 +65,7 @@ The request is `hashtags = [tag]`, `sort = top|recent`, `authors = [author]` whe
 - **Why:** the structured filter matches facet tags **and** the outline `tags` field, and avoids query-parser pitfalls. The official client hit a Lucene `from:did:` bug before moving to structured params.
 - **Alternative considered:** v1 `searchPosts(q = "#tag")`, reusing the existing repository unchanged. Rejected as the primary path for the reasons above.
 - **Fallback:** keep it in mind if the v2 endpoint misbehaves for authenticated AppView calls. Verify `FeedService.searchPostsV2` exists in the runtime artifact during task 2.1.
-- **`allTime`:** leave it unset at first (recent window), matching the official screen's default behaviour for Latest. Revisit if rare tags come back empty (see Open Questions).
+- **`allTime`:** leave it unset at first (recent window), matching the official screen's default behavior for Latest. Revisit if rare tags come back empty (see Open Questions).
 
 ### D3. Screen lives in `:feature:search`, as a new route next to `SearchPosts`
 
@@ -92,7 +92,7 @@ This follows the CLAUDE.md flat-state plus sealed-status rule. Tabs load indepen
 
 ### D6. "Posts by this user" is an in-screen filter chip, off by default
 
-Opened from a post, the screen shows a `FilterChip` "From @handle", initially off. This gives the official menu's second action without the long-press, and keeps the default (everyone's posts) identical to the official tap behaviour.
+Opened from a post, the screen shows a `FilterChip` "From @handle", initially off. This gives the official menu's second action without the long-press, and keeps the default (everyone's posts) identical to the official tap behavior.
 
 ### D7. Title and share
 
@@ -102,7 +102,7 @@ Opened from a post, the screen shows a `FilterChip` "From @handle", initially of
 ## Risks / Trade-offs
 
 - **[JDK regex ≠ JS regex semantics]** Unicode classes differ subtly. → Port the official test cases, including `#️⃣`, `#123`, `##foo`, full-width `＃`, `#2024年` and emoji tags, into a parameterized `TagDetectorTest`.
-- **[searchPostsV2 availability or behaviour]** The endpoint is newer, and the recent window may hide old tags. → Verify in task 2.1. The repository interface hides the endpoint, so falling back to v1 `searchPosts(tag = [..])` is a one-file change.
+- **[searchPostsV2 availability or behavior]** The endpoint is newer, and the recent window may hide old tags. → Verify in task 2.1. The repository interface hides the endpoint, so falling back to v1 `searchPosts(tag = [..])` is a one-file change.
 - **[Seven hosts must all add a `Tag` branch]** A missed host fails to compile, which is desirable. A host with an `else` branch would silently ignore taps → `git grep "FacetTarget"` across the repo during task 3.2, and add a host-coverage scenario to tests where feasible.
 - **[Bench flavor]** `:feature:search:impl` is flavored. → Extend `BenchFakeSearchPostsRepository`, or add a bench hashtag fake, so `assembleBenchDebug` and the macrobench still compile.
 - **[Screenshot churn]** Making tags clickable shouldn't change pixels. → If baselines change, triage with `scripts/triage-screenshot-failures.py` and commit only genuine diffs.

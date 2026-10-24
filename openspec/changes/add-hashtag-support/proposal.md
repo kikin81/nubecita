@@ -3,9 +3,9 @@
 Users have asked for hashtag support, and today hashtags only half-work in Nubecita:
 
 - **Posts we publish don't carry tags.** The composer's `DefaultFacetExtractor` emits only mention and link facets, so a `#tag` typed in Nubecita goes out as plain text. Tag search, and every other client's tag view, can't find it.
-- **Tags in other people's posts are dead ends.** `PostCard` colours a `FacetTag` like a link but makes it untappable (the comment at `PostCard.kt` reads: "tag search needs a query route").
+- **Tags in other people's posts are dead ends.** `PostCard` colors a `FacetTag` like a link but makes it untappable (the comment at `PostCard.kt` reads: "tag search needs a query route").
 
-Every mainstream Bluesky client makes tags tappable, including the official app and Skywalker, Graysky, Tokimeki and deck.blue. Research done on 2026-10-24 is summarised in `design.md`.
+Every mainstream Bluesky client makes tags tappable, including the official app and Skywalker, Graysky, Tokimeki and deck.blue. Research done on 2026-10-24 is summarized in `design.md`.
 
 ## What Changes
 
