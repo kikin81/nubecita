@@ -9,11 +9,11 @@
     "render:all": "npm run render:hero && npm run render:features"
   },
   "dependencies": {
-    "@remotion/cli": "4.0.529",
-    "@remotion/google-fonts": "4.0.529",
+    "@remotion/cli": "4.0.537",
+    "@remotion/google-fonts": "4.0.537",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "remotion": "4.0.529"
+    "remotion": "4.0.537"
   },
   "devDependencies": {
     "@types/react": "19.3.0",
