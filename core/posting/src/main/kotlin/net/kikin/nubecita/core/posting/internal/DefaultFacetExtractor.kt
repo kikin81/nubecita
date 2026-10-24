@@ -84,7 +84,7 @@ internal class DefaultFacetExtractor
             // tag needs preceding whitespace so it can't start inside a URL
             // token today; the overlap guard keeps a future URL-regex change
             // from ever producing overlapping facets.
-            val linkRanges = collected.filter { it.features.single() is FacetLink }.map { it.index }
+            val linkRanges = collected.mapNotNull { facet -> facet.index.takeIf { facet.features.any { it is FacetLink } } }
             for (detected in TagDetector.detect(text)) {
                 val range =
                     FacetByteSlice(

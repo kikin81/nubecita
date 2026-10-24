@@ -26,14 +26,16 @@ internal data class DetectedTag(
  * ASCII-only in both, and `\p{P}` is the Unicode punctuation category in both.
  */
 internal object TagDetector {
-    fun detect(text: String): List<DetectedTag> = hashtags(text) + cashtags(text)
+    fun detect(text: String): List<DetectedTag> = (hashtags(text) + cashtags(text)).toList()
 
-    private fun hashtags(text: String): List<DetectedTag> =
+    private fun hashtags(text: String): Sequence<DetectedTag> =
         TAG_REGEX
             .findAll(text)
             .mapNotNull { match ->
                 val raw = match.groups[TAG_GROUP]?.value ?: return@mapNotNull null
-                val tag = raw.trim().replace(TRAILING_PUNCTUATION_REGEX, "")
+                // No trim(): the group can't hold whitespace, and Kotlin's trim()
+                // would also strip \u001C-\u001F, which JS's trim() keeps.
+                val tag = raw.replace(TRAILING_PUNCTUATION_REGEX, "")
                 // UTF-16 length is always >= the grapheme count, so only pay for
                 // the grapheme walk when the cheap length already exceeds the cap.
                 if (tag.isEmpty() || (tag.length > MAX_TAG_GRAPHEMES && GraphemeCounter.count(tag) > MAX_TAG_GRAPHEMES)) {
@@ -41,9 +43,9 @@ internal object TagDetector {
                 }
                 val hashIndex = match.range.first + match.groupValues[LEADING_GROUP].length
                 DetectedTag(tag = tag, start = hashIndex, endExclusive = hashIndex + 1 + tag.length)
-            }.toList()
+            }
 
-    private fun cashtags(text: String): List<DetectedTag> =
+    private fun cashtags(text: String): Sequence<DetectedTag> =
         CASHTAG_REGEX
             .findAll(text)
             .mapNotNull { match ->
@@ -54,7 +56,7 @@ internal object TagDetector {
                     start = dollarIndex,
                     endExclusive = dollarIndex + 1 + ticker.length,
                 )
-            }.toList()
+            }
 
     private const val MAX_TAG_GRAPHEMES = 64
     private const val LEADING_GROUP = 1
