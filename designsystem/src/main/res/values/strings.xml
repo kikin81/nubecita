@@ -122,6 +122,7 @@
          _select_conversation. -->
     <string name="nubecita_detail_pane_select_post">Select a post to read</string>
     <string name="nubecita_detail_pane_select_conversation">Select a conversation</string>
+    <string name="nubecita_detail_pane_select_notification">Select a notification to view details</string>
 
     <!-- MediaContentWarningCover — the scrim shown over sensitive (NSFW-labelled)
          media until the viewer taps "Show anyway". media_warning_sensitive is the
