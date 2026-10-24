@@ -61,6 +61,7 @@ import net.kikin.nubecita.feature.composer.impl.state.ComposerVideo
 import net.kikin.nubecita.feature.composer.impl.state.ComposerVideoStage
 import net.kikin.nubecita.feature.composer.impl.state.ExternalLinkStatus
 import net.kikin.nubecita.feature.composer.impl.state.ParentLoadStatus
+import net.kikin.nubecita.feature.composer.impl.state.PasteRejection
 import net.kikin.nubecita.feature.composer.impl.state.QuoteLoadStatus
 import net.kikin.nubecita.feature.composer.impl.state.TypeaheadStatus
 import net.kikin.nubecita.feature.composer.impl.state.isGalleryMissingAlt
@@ -310,10 +311,10 @@ internal class ComposerViewModel
         // images restores the card; a manual dismiss leaves it memoized.
         private var cardedLinkText: String? = null
 
-        // The app-owned copy of an image shared into Nubecita, tracked so its
-        // lifecycle can be closed out (delete on remove / publish / dismiss). Null
-        // once deleted or when no image was shared.
-        private var sharedImageAttachmentUri: Uri? = null
+        // App-owned copies of images shared into Nubecita or pasted into the text
+        // field, tracked so their lifecycle can be closed out (delete on remove /
+        // publish / dismiss). Empty once deleted or when nothing was shared/pasted.
+        private val ownedCopyUris = mutableSetOf<Uri>()
 
         init {
             uiState.value.replyToUri?.let { uri ->
@@ -329,7 +330,7 @@ internal class ComposerViewModel
             route.sharedImageUri?.let { uriString ->
                 viewModelScope.launch {
                     sharedMediaStore.attachmentFor(uriString)?.let { attachment ->
-                        sharedImageAttachmentUri = attachment.uri
+                        ownedCopyUris += attachment.uri
                         handleAddAttachments(listOf(attachment))
                     }
                 }
@@ -426,6 +427,7 @@ internal class ComposerViewModel
             val submitInFlight = uiState.value.submitStatus is ComposerSubmitStatus.Submitting
             when (event) {
                 is ComposerEvent.AddAttachments -> if (!submitInFlight) handleAddAttachments(event.attachments)
+                is ComposerEvent.PasteImages -> if (!submitInFlight) handlePasteImages(event)
                 is ComposerEvent.RemoveAttachment -> if (!submitInFlight) handleRemoveAttachment(event.index)
                 is ComposerEvent.MoveAttachment -> if (!submitInFlight) handleMoveAttachment(event.from, event.to)
                 is ComposerEvent.OpenAltEditor -> if (!submitInFlight) handleOpenAltEditor(event.index)
@@ -497,10 +499,10 @@ internal class ComposerViewModel
                     copy(attachments = attachments.toMutableList().apply { removeAt(index) }.toImmutableList())
                 }
             }
-            // If the removed attachment was the shared-image copy, it's now
+            // If the removed attachment was a shared/pasted copy, it's now
             // unreferenced — delete it immediately.
-            if (removed != null && removed.uri == sharedImageAttachmentUri) {
-                deleteSharedImageCopy()
+            if (removed != null && ownedCopyUris.remove(removed.uri)) {
+                deleteOwnedCopy(removed.uri)
             }
             // Crossed back below the card-XOR-images boundary: a URL still in the
             // text can re-detect and restore its card (image-add forgot it). Image
@@ -513,23 +515,75 @@ internal class ComposerViewModel
 
         override fun onCleared() {
             super.onCleared()
-            // Composer dismissed (nav entry popped). If a shared image was never
-            // published, delete its copy. The publish path already deleted it (uri
-            // nulled) when the post succeeded; the boot-time sweepOrphans() is the
+            // Composer dismissed (nav entry popped). Delete any shared/pasted copy
+            // that was never published. The publish path already deleted them (set
+            // cleared) when the post succeeded; the boot-time sweepOrphans() is the
             // backstop for the process-death case where this never runs.
-            deleteSharedImageCopy()
+            deleteOwnedCopies()
         }
 
         /**
-         * Delete the app-owned shared-image copy, if any, and forget it. Runs on
-         * [applicationScope] so it survives `viewModelScope` cancellation (the
-         * dismiss path calls this from [onCleared]); idempotent and a no-op when no
-         * image was shared or it was already deleted.
+         * Delete every app-owned shared/pasted copy and forget them. Idempotent and
+         * a no-op when nothing was shared or pasted.
          */
-        private fun deleteSharedImageCopy() {
-            val uri = sharedImageAttachmentUri ?: return
-            sharedImageAttachmentUri = null
+        private fun deleteOwnedCopies() {
+            val uris = ownedCopyUris.toList()
+            ownedCopyUris.clear()
+            uris.forEach(::deleteOwnedCopy)
+        }
+
+        /**
+         * Runs on [applicationScope] so the delete survives `viewModelScope`
+         * cancellation (the dismiss path reaches this from [onCleared]).
+         */
+        private fun deleteOwnedCopy(uri: Uri) {
             applicationScope.launch { sharedMediaStore.delete(uri) }
+        }
+
+        /**
+         * Copy each pasted `content://` into app-owned storage, then attach what
+         * fits. Anything not attached is deleted again and reported through
+         * [ComposerEffect.PasteNotAdded], so a paste never silently does nothing.
+         * Copying first (rather than checking the cap first) keeps the grant
+         * window short: [ComposerEvent.PasteImages.grantHolder] is only held
+         * until the copies finish.
+         */
+        private fun handlePasteImages(event: ComposerEvent.PasteImages) {
+            if (event.uris.isEmpty()) return
+            // The coroutine captures `event`, which keeps grantHolder (and so the
+            // IME read grant) reachable until the copies below have finished.
+            viewModelScope.launch {
+                val copies =
+                    event.uris.map { source ->
+                        sharedMediaStore.copyIn(source)?.let { sharedMediaStore.attachmentFor(it.toString()) }
+                    }
+
+                val readable = copies.filterNotNull()
+                val (gifs, images) = readable.partition { it.mimeType == GIF_MIME }
+                gifs.forEach { deleteOwnedCopy(it.uri) }
+
+                val state = uiState.value
+                val blockedByMedia = state.pickedGif != null || state.video != null
+                val submitting = state.submitStatus is ComposerSubmitStatus.Submitting
+                val room = (MAX_ATTACHMENTS - state.attachments.size).coerceAtLeast(0)
+                val accepted = if (blockedByMedia || submitting) emptyList() else images.take(room)
+                images.drop(accepted.size).forEach { deleteOwnedCopy(it.uri) }
+                if (accepted.isNotEmpty()) {
+                    ownedCopyUris += accepted.map { it.uri }
+                    handleAddAttachments(accepted)
+                }
+
+                val rejection =
+                    when {
+                        submitting -> null
+                        images.size > accepted.size && blockedByMedia -> PasteRejection.OtherMediaAttached
+                        images.size > accepted.size -> PasteRejection.LimitReached
+                        gifs.isNotEmpty() -> PasteRejection.Gif
+                        readable.size < copies.size -> PasteRejection.Unreadable
+                        else -> null
+                    }
+                rejection?.let { sendEffect(ComposerEffect.PasteNotAdded(it)) }
+            }
         }
 
         private fun handleMoveAttachment(
@@ -728,8 +782,8 @@ internal class ComposerViewModel
                             uri.raw.substringAfterLast('/'),
                         )
                         setState { copy(submitStatus = ComposerSubmitStatus.Success) }
-                        // Post is up; the shared-image copy is now dead weight.
-                        deleteSharedImageCopy()
+                        // Post is up; the shared/pasted copies are now dead weight.
+                        deleteOwnedCopies()
                         sendEffect(
                             ComposerEffect.OnSubmitSuccess(
                                 newPostUri = uri,
@@ -1108,6 +1162,8 @@ internal class ComposerViewModel
              * `maxItems` and the add-attachment reducer both enforce this cap.
              */
             const val MAX_ATTACHMENTS = 10
+
+            private const val GIF_MIME = "image/gif"
 
             /**
              * Per-post `langs` cap. Bluesky's official client lets

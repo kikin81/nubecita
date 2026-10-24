@@ -80,6 +80,10 @@
     <string name="klipy_report_violence">Violencia</string>
     <string name="klipy_report_other">Otro</string>
     <string name="composer_video_replaces_other_media">Una publicación puede tener un video o hasta cuatro fotos, no ambos. Se quitó el otro contenido.</string>
+    <string name="composer_paste_unreadable">No se pudo pegar esa imagen.</string>
+    <string name="composer_paste_gif">No se pueden pegar GIF. Usa el botón GIF para agregar uno.</string>
+    <string name="composer_paste_limit_reached">Esta publicación ya tiene el máximo de fotos.</string>
+    <string name="composer_paste_other_media">No se pueden agregar fotos a una publicación con un GIF o video.</string>
     <string name="composer_video_remove">Quitar</string>
     <string name="composer_video_retry">Reintentar</string>
     <string name="composer_video_checking">Verificando límites de video…</string>

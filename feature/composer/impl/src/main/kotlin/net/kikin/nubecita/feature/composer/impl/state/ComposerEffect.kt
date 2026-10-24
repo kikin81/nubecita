@@ -74,6 +74,15 @@ internal sealed interface ComposerEffect : UiEffect {
     data object VideoReplacedOtherMedia : ComposerEffect
 
     /**
+     * Some or all of a paste ([ComposerEvent.PasteImages]) wasn't attached.
+     * The host maps [reason] to a Snackbar string; without it a paste that
+     * adds nothing is indistinguishable from a paste that never happened.
+     */
+    data class PasteNotAdded(
+        val reason: PasteRejection,
+    ) : ComposerEffect
+
+    /**
      * Saving the post-audience as the account default failed. The local audience
      * selection still stands (the picker's choice is applied to this post); only
      * the synced "save for next time" didn't persist. The screen surfaces a

@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.composer.impl.state
 
+import android.net.Uri
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.PostAudience
@@ -27,6 +28,20 @@ internal sealed interface ComposerEvent : UiEvent {
      */
     data class AddAttachments(
         val attachments: List<ComposerAttachment>,
+    ) : ComposerEvent
+
+    /**
+     * Images were pasted from the clipboard or inserted by the keyboard into
+     * the text field. Each `content://` in [uris] is under a transient read
+     * grant, so the VM copies it into app-owned storage before attaching it.
+     *
+     * [grantHolder] keeps the keyboard's `InputContentInfo` reachable until
+     * the copy finishes: the platform revokes an IME read grant when that
+     * object is garbage collected. Null for a clipboard paste.
+     */
+    data class PasteImages(
+        val uris: List<Uri>,
+        val grantHolder: Any? = null,
     ) : ComposerEvent
 
     /**
