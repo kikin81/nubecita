@@ -63,6 +63,7 @@ internal class SessionTelemetry
         private val analytics: AnalyticsClient,
         private val loginTimestamps: LoginTimestampStore,
         private val clock: Clock,
+        private val refreshForensics: RefreshForensics,
     ) {
         // Each method is exception-isolated: a broken telemetry backend (or an
         // unreadable timestamp store) must never disrupt the auth path it
@@ -72,9 +73,23 @@ internal class SessionTelemetry
         suspend fun onSessionCleared(marker: SessionClearedException) {
             try {
                 val reason = bucketClearReason(marker)
+                val daysSinceLogin = daysSinceLogin()
                 crashReporter.setCustomKey("session_clear_reason", reason.wire)
+                // GA4 only gets this bucketed; the non-fatal gets the exact
+                // age, so a premature loss is visible next to its stack.
+                crashReporter.setCustomKey("days_since_login", daysSinceLogin?.toString() ?: "unknown")
+                // The refreshes before this clear — the one that consumed the
+                // token usually ran earlier, often in a since-dead process.
+                // Isolated so a forensics failure never costs the non-fatal.
+                try {
+                    refreshForensics.clearKeys().forEach { (key, value) -> crashReporter.setCustomKey(key, value) }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Timber.tag(TAG).w(e, "refresh forensics unavailable")
+                }
                 crashReporter.recordException(marker)
-                analytics.log(SessionCleared(reason = reason, daysSinceLogin = daysSinceLogin()))
+                analytics.log(SessionCleared(reason = reason, daysSinceLogin = daysSinceLogin))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

@@ -11,6 +11,8 @@ import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
 import net.kikin.nubecita.core.auth.BuildConfig
+import net.kikin.nubecita.core.auth.TokenRefreshTelemetry
+import net.kikin.nubecita.core.auth.tokenRefreshMonitor
 import timber.log.Timber
 import javax.inject.Singleton
 
@@ -31,8 +33,14 @@ internal object HttpClientModule {
 
     @Provides
     @Singleton
-    fun provideHttpClient(engine: HttpClientEngine): HttpClient =
+    fun provideHttpClient(
+        engine: HttpClientEngine,
+        refreshTelemetry: TokenRefreshTelemetry,
+    ): HttpClient =
         HttpClient(engine) {
+            // Observes every refresh-token POST (the SDK refreshes through this
+            // same client) — caller, outcome, lost responses (nubecita-z2gt).
+            install(tokenRefreshMonitor(refreshTelemetry))
             install(HttpTimeout) {
                 requestTimeoutMillis = 30_000
                 connectTimeoutMillis = 10_000

@@ -6,6 +6,8 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.withContext
+import net.kikin.nubecita.core.auth.RefreshCaller
 
 /**
  * Background worker that refreshes the widget's feed cache off-app (D-B2). A
@@ -24,8 +26,9 @@ internal class WidgetRefreshWorker
         @Assisted params: WorkerParameters,
         private val runner: WidgetRefreshRunner,
     ) : CoroutineWorker(appContext, params) {
+        // Tagged so a token refresh this run triggers is attributed to it.
         override suspend fun doWork(): Result =
-            when (runner.run()) {
+            when (withContext(RefreshCaller.Widget) { runner.run() }) {
                 WidgetRefreshRunner.Outcome.SUCCESS -> Result.success()
                 WidgetRefreshRunner.Outcome.RETRY -> Result.retry()
             }

@@ -6,6 +6,8 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.withContext
+import net.kikin.nubecita.core.auth.RefreshCaller
 
 /**
  * Periodic background worker that polls for new inbound DMs and posts local
@@ -25,8 +27,9 @@ internal class DmPollWorker
         @Assisted params: WorkerParameters,
         private val runner: DmPollRunner,
     ) : CoroutineWorker(appContext, params) {
+        // Tagged so a token refresh this poll triggers is attributed to it.
         override suspend fun doWork(): Result =
-            when (runner.run()) {
+            when (withContext(RefreshCaller.DmPoll) { runner.run() }) {
                 DmPollRunner.Outcome.SUCCESS -> Result.success()
                 DmPollRunner.Outcome.RETRY -> Result.retry()
             }
