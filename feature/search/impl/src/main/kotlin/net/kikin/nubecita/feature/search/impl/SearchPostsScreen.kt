@@ -124,6 +124,7 @@ internal fun SearchPostsScreen(
                     viewModel.handleEvent(SearchPostsEvent.OnAuthorTapped(author.handle))
                 },
                 onFacetTap = { target ->
+                    viewModel.recordFacetTap(target)
                     when (target) {
                         // OnAuthorTapped carries the actor id for Profile(handle=…),
                         // which resolves a handle OR a DID — here it's a mention's DID.

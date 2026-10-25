@@ -248,6 +248,7 @@ internal fun PostDetailScreen(
                 onShareLongPress = { viewModel.onShareLongPress(it) },
                 onExternalEmbedTap = { uri -> openInCustomTab(uri) },
                 onFacetTap = { target ->
+                    viewModel.recordFacetTap(target)
                     when (target) {
                         // A @mention → the mentioned account's profile (Profile
                         // resolves a DID directly), same nav as tapping the author.
@@ -265,6 +266,7 @@ internal fun PostDetailScreen(
                     viewModel.handleEvent(PostDetailEvent.OnQuotedPostTapped(quoted.uri))
                 },
                 onOverflowAction = { post, action ->
+                    viewModel.recordOverflowAction(action)
                     viewModel.handleEvent(PostDetailEvent.OnOverflowAction(post, action))
                 },
             )

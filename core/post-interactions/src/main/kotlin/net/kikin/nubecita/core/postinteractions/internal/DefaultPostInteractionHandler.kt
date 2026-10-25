@@ -14,7 +14,11 @@ import net.kikin.nubecita.core.actors.MuteRepository
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.InteractPost
 import net.kikin.nubecita.core.analytics.PostAction
+import net.kikin.nubecita.core.analytics.PostMenuAction
+import net.kikin.nubecita.core.analytics.PostMenuSelect
 import net.kikin.nubecita.core.analytics.PostSurface
+import net.kikin.nubecita.core.analytics.PostTextTap
+import net.kikin.nubecita.core.analytics.PostTextTarget
 import net.kikin.nubecita.core.analytics.Share
 import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.auth.NoSessionException
@@ -26,6 +30,7 @@ import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.PostTapMarkers
 import net.kikin.nubecita.core.postinteractions.googleTranslateUrl
 import net.kikin.nubecita.core.postinteractions.sharing.toShareIntent
+import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import java.io.IOException
@@ -194,6 +199,7 @@ internal class DefaultPostInteractionHandler
             // completes) are not covered by an in-flight guard — those go away
             // with 8vsx.3, which is the actual fix.
             if (activeDeleteJobs[post.id]?.isActive == true) return
+            analytics.log(PostMenuSelect(action = PostMenuAction.DeleteConfirmed, surface = surface))
 
             val job =
                 requireScope().launch {
@@ -215,6 +221,20 @@ internal class DefaultPostInteractionHandler
             // Two-arg remove: a completing older job must not evict a newer one
             // stored under the same URI.
             job.invokeOnCompletion { activeDeleteJobs.remove(post.id, job) }
+        }
+
+        override fun recordOverflowAction(action: PostOverflowAction) {
+            analytics.log(PostMenuSelect(action = action.toMenuAction(), surface = surface))
+        }
+
+        override fun recordFacetTap(target: FacetTarget) {
+            val kind =
+                when (target) {
+                    is FacetTarget.Mention -> PostTextTarget.Mention
+                    is FacetTarget.Link -> PostTextTarget.Link
+                    is FacetTarget.Tag -> if (target.tag.startsWith("$")) PostTextTarget.Cashtag else PostTextTarget.Hashtag
+                }
+            analytics.log(PostTextTap(target = kind, surface = surface))
         }
 
         override fun onOverflowAction(
@@ -313,4 +333,19 @@ internal class DefaultPostInteractionHandler
                 }
             emit(InteractionEffect.ShowError(error))
         }
+    }
+
+internal fun PostOverflowAction.toMenuAction(): PostMenuAction =
+    when (this) {
+        PostOverflowAction.ReportPost -> PostMenuAction.ReportPost
+        PostOverflowAction.ReportAuthor -> PostMenuAction.ReportAuthor
+        PostOverflowAction.MuteAuthor -> PostMenuAction.MuteAuthor
+        PostOverflowAction.UnmuteAuthor -> PostMenuAction.UnmuteAuthor
+        PostOverflowAction.BlockAuthor -> PostMenuAction.BlockAuthor
+        PostOverflowAction.UnblockAuthor -> PostMenuAction.UnblockAuthor
+        PostOverflowAction.MuteThread -> PostMenuAction.MuteThread
+        PostOverflowAction.UnmuteThread -> PostMenuAction.UnmuteThread
+        PostOverflowAction.CopyPostText -> PostMenuAction.CopyText
+        PostOverflowAction.TranslatePost -> PostMenuAction.Translate
+        PostOverflowAction.DeletePost -> PostMenuAction.Delete
     }

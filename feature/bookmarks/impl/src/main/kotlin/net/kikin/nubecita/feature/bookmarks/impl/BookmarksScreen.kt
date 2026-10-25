@@ -116,6 +116,7 @@ internal fun BookmarksScreen(
                     viewModel.handleEvent(BookmarksEvent.OnAuthorTapped(author.handle))
                 },
                 onFacetTap = { target ->
+                    viewModel.recordFacetTap(target)
                     when (target) {
                         is FacetTarget.Mention ->
                             viewModel.handleEvent(BookmarksEvent.OnAuthorTapped(target.did))

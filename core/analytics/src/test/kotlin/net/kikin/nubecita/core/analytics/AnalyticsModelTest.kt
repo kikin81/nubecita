@@ -280,6 +280,18 @@ class AnalyticsModelTest {
     }
 
     @Test
+    fun `post menu and post text events carry only kinds and pass GA4 validation`() {
+        val menu = PostMenuSelect(action = PostMenuAction.ReportPost, surface = PostSurface.PostDetail)
+        assertEquals("post_menu_select", menu.name)
+        assertEquals(mapOf("action_type" to Str("report_post"), "source_surface" to Str("post_detail")), menu.params)
+        val tap = PostTextTap(target = PostTextTarget.Hashtag, surface = PostSurface.Feed)
+        assertEquals("post_text_tap", tap.name)
+        assertEquals(mapOf("text_target" to Str("hashtag"), "source_surface" to Str("feed")), tap.params)
+        AnalyticsValidator.requireValid(menu)
+        AnalyticsValidator.requireValid(tap)
+    }
+
+    @Test
     fun `interact_actor carries action and source surface`() {
         val event = InteractActor(action = ActorAction.Follow, surface = PostSurface.Profile)
         assertEquals("interact_actor", event.name)

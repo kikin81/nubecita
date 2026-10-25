@@ -86,6 +86,7 @@ internal fun HashtagScreen(
                 onTap = { post -> viewModel.handleEvent(HashtagEvent.PostTapped(post.id)) },
                 onAuthorTap = { author -> viewModel.handleEvent(HashtagEvent.OnAuthorTapped(author.handle)) },
                 onFacetTap = { target ->
+                    viewModel.recordFacetTap(target)
                     when (target) {
                         is FacetTarget.Mention -> viewModel.handleEvent(HashtagEvent.OnAuthorTapped(target.did))
                         is FacetTarget.Tag ->

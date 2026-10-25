@@ -10,7 +10,11 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.analytics.InteractPost
 import net.kikin.nubecita.core.analytics.PostAction
+import net.kikin.nubecita.core.analytics.PostMenuAction
+import net.kikin.nubecita.core.analytics.PostMenuSelect
 import net.kikin.nubecita.core.analytics.PostSurface
+import net.kikin.nubecita.core.analytics.PostTextTap
+import net.kikin.nubecita.core.analytics.PostTextTarget
 import net.kikin.nubecita.core.analytics.Share
 import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.postinteractions.InteractionEffect
@@ -19,6 +23,7 @@ import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
@@ -314,6 +319,61 @@ internal class DefaultPostInteractionHandlerTest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
+    fun `recordOverflowAction logs the menu choice on the bound surface without acting`() =
+        runTest(mainDispatcher.dispatcher) {
+            val handler = makeHandler()
+            handler.bind(PostSurface.PostDetail, this)
+
+            handler.recordOverflowAction(PostOverflowAction.BlockAuthor)
+            handler.recordOverflowAction(PostOverflowAction.CopyPostText)
+
+            assertEquals(
+                listOf(
+                    PostMenuSelect(PostMenuAction.BlockAuthor, PostSurface.PostDetail),
+                    PostMenuSelect(PostMenuAction.CopyText, PostSurface.PostDetail),
+                ),
+                analytics.events,
+            )
+        }
+
+    @Test
+    fun `every overflow action maps to a distinct menu action`() {
+        val all =
+            listOf(
+                PostOverflowAction.ReportPost,
+                PostOverflowAction.ReportAuthor,
+                PostOverflowAction.MuteAuthor,
+                PostOverflowAction.UnmuteAuthor,
+                PostOverflowAction.BlockAuthor,
+                PostOverflowAction.UnblockAuthor,
+                PostOverflowAction.MuteThread,
+                PostOverflowAction.UnmuteThread,
+                PostOverflowAction.CopyPostText,
+                PostOverflowAction.TranslatePost,
+                PostOverflowAction.DeletePost,
+            )
+        assertEquals(all.size, all.map { it.toMenuAction() }.toSet().size)
+    }
+
+    @Test
+    fun `recordFacetTap logs only the kind of text target`() =
+        runTest(mainDispatcher.dispatcher) {
+            val handler = makeHandler()
+            handler.bind(PostSurface.Feed, this)
+
+            handler.recordFacetTap(FacetTarget.Tag(tag = "kotlin", authorHandle = null))
+            handler.recordFacetTap(FacetTarget.Tag(tag = "\$BTC", authorHandle = null))
+            handler.recordFacetTap(FacetTarget.Mention(did = "did:plc:x"))
+            handler.recordFacetTap(FacetTarget.Link(uri = "https://example.com"))
+
+            assertEquals(
+                listOf(PostTextTarget.Hashtag, PostTextTarget.Cashtag, PostTextTarget.Mention, PostTextTarget.Link)
+                    .map { PostTextTap(it, PostSurface.Feed) },
+                analytics.events,
+            )
+        }
+
+    @Test
     fun `onShare emits SharePost effect and fires Share analytics`() =
         runTest(mainDispatcher.dispatcher) {
             val handler = makeHandler()
@@ -588,6 +648,11 @@ internal class DefaultPostInteractionHandlerTest {
             runCurrent()
 
             assertEquals(listOf(post.id), fakeDeletionRepo.deleted, "the repeat must not reach the network")
+            assertEquals(
+                listOf(PostMenuSelect(PostMenuAction.DeleteConfirmed, PostSurface.Feed)),
+                analytics.events,
+                "the ignored repeat must not count as a second delete",
+            )
         }
 
     @Test
