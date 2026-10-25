@@ -182,8 +182,10 @@ class NavKeyAnalyticsTest {
                         .toList()
                 }
             else -> emptyList()
-        }.filterNot { '$' in it } // top-level routes only; skips companions and nested types
-            .map { it.removeSuffix(".class").replace('/', '.') }
+        }.map { it.removeSuffix(".class").replace('/', '.') }
+            // Keep nested routes (Outer$Route) so they can't escape the check; drop only
+            // anonymous / lambda / synthetic classes, whose last segment starts with a digit.
+            .filterNot { name -> name.substringAfterLast('$').let { it.isEmpty() || it.first().isDigit() } }
 
     private companion object {
         const val PACKAGE_PATH = "net/kikin/nubecita/"
