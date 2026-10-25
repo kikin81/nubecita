@@ -63,6 +63,31 @@ class TokenRefreshTelemetryTest {
         }
 
     @Test
+    fun `an invalid_grant trigger is reported once and never leaks into a later clear`() =
+        runTest {
+            val telemetry = telemetry(this)
+            telemetry.onAttempt(
+                TokenRefreshCaller.Widget,
+                TokenRefreshOutcome.InvalidGrant,
+                durationMillis = 200,
+                errorDescription = "Refresh token replayed",
+            )
+
+            assertEquals("widget", telemetry.clearKeys()["clearing_refresh_caller"])
+            assertEquals("none", telemetry.clearKeys()["clearing_refresh_caller"])
+        }
+
+    @Test
+    fun `a stale invalid_grant is not named as the trigger`() =
+        runTest {
+            val telemetry = telemetry(this)
+            telemetry.onAttempt(TokenRefreshCaller.Widget, TokenRefreshOutcome.InvalidGrant, durationMillis = 200)
+            nowMillis += 10 * MINUTE
+
+            assertEquals("none", telemetry.clearKeys()["clearing_refresh_caller"])
+        }
+
+    @Test
     fun `with no history every key reads none`() =
         runTest {
             val keys = telemetry(this).clearKeys()

@@ -140,7 +140,16 @@ internal class TokenRefreshTelemetry
             val now = clock.now().toEpochMilliseconds()
             val past = history.history()
             return buildMap {
-                val trigger = lastAttempt?.takeIf { it.outcome == TokenRefreshOutcome.InvalidGrant }
+                // Only the invalid_grant that is clearing the session right now:
+                // consumed here, and stale ones ignored, so a later clear in the
+                // same process (e.g. a user sign-out after re-login) can't
+                // inherit a previous session's trigger.
+                val trigger =
+                    lastAttempt?.takeIf {
+                        it.outcome == TokenRefreshOutcome.InvalidGrant &&
+                            now - it.epochMillis <= TRIGGER_WINDOW_MILLIS
+                    }
+                lastAttempt = null
                 put("clearing_refresh_caller", trigger?.caller?.wire ?: NONE)
                 put("clearing_refresh_fg", trigger?.foreground?.toString() ?: NONE)
                 put("clearing_refresh_error", trigger?.errorDescription ?: NONE)
@@ -169,5 +178,6 @@ internal class TokenRefreshTelemetry
             const val NONE = "none"
             const val MAX_DESCRIPTION_LENGTH = 80
             const val MILLIS_PER_MINUTE = 60_000L
+            const val TRIGGER_WINDOW_MILLIS = 60_000L
         }
     }
