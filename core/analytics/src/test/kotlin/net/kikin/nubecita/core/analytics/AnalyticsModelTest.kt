@@ -212,6 +212,26 @@ class AnalyticsModelTest {
     }
 
     @Test
+    fun `token_refresh carries caller outcome and foreground and passes GA4 validation`() {
+        val event =
+            TokenRefresh(
+                caller = TokenRefreshCaller.DmPoll,
+                outcome = TokenRefreshOutcome.LostResponse,
+                foreground = false,
+            )
+        assertEquals("token_refresh", event.name)
+        assertEquals(
+            mapOf(
+                "refresh_caller" to Str("dm_poll"),
+                "outcome" to Str("lost_response"),
+                "foreground" to BoolVal(false),
+            ),
+            event.params,
+        )
+        AnalyticsValidator.requireValid(event)
+    }
+
+    @Test
     fun `interact_actor carries action and source surface`() {
         val event = InteractActor(action = ActorAction.Follow, surface = PostSurface.Profile)
         assertEquals("interact_actor", event.name)

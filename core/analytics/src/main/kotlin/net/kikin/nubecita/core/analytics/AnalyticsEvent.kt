@@ -682,3 +682,75 @@ data class PipAttempt(
     override val name: String = "pip_attempt"
     override val params: Map<String, AnalyticsValue> = mapOf("pip_outcome" to Str(outcome.wire))
 }
+
+/**
+ * The entry point whose request triggered an OAuth token refresh. Background
+ * entry points tag themselves; anything untagged ran from the app's own
+ * foreground surfaces or from a caller not yet tagged.
+ */
+enum class TokenRefreshCaller(
+    val wire: String,
+) {
+    /** `DmPollWorker`'s 15-minute background poll. */
+    DmPoll("dm_poll"),
+
+    /** `WidgetRefreshWorker`'s 15-minute background feed refresh. */
+    Widget("widget"),
+
+    /** Push (un)registration after an FCM token rotation. */
+    PushRegistration("push_registration"),
+
+    /** No tag on the calling coroutine. */
+    Untagged("untagged"),
+}
+
+/** How a single POST of a refresh token to the token endpoint ended. */
+enum class TokenRefreshOutcome(
+    val wire: String,
+) {
+    /** HTTP 200: the token rotated. */
+    Ok("ok"),
+
+    /** `use_dpop_nonce`: the routine nonce challenge; the SDK retries once. */
+    NonceChallenge("nonce_challenge"),
+
+    /** `invalid_grant`: the server rejected the refresh token and the session is gone. */
+    InvalidGrant("invalid_grant"),
+
+    /** Any other 4xx. */
+    Rejected("rejected"),
+
+    /** 5xx, or a non-4xx status other than 200. */
+    ServerError("server_error"),
+
+    /** Failed before reaching the server (DNS, connect): the token was provably NOT consumed. */
+    NotSent("not_sent"),
+
+    /**
+     * Failed after the request was sent (timeout, reset): the server may have
+     * consumed the token and rotated it. The client keeps the old token, and
+     * the next refresh replays it — which the AT Proto auth server answers by
+     * deleting the whole session. The precursor of a spurious logout.
+     */
+    LostResponse("lost_response"),
+}
+
+/**
+ * Fired once per refresh-token POST (`TokenRefreshMonitor` in `:core:auth`).
+ * Each POST is one chance to lose the response and, with it, the session, so
+ * the rate per [caller] — split by [foreground] — is what decides whether
+ * background refreshes need gating (nubecita-bhqv, nubecita-z2gt).
+ */
+data class TokenRefresh(
+    val caller: TokenRefreshCaller,
+    val outcome: TokenRefreshOutcome,
+    val foreground: Boolean,
+) : AnalyticsEvent {
+    override val name: String = "token_refresh"
+    override val params: Map<String, AnalyticsValue> =
+        mapOf(
+            "refresh_caller" to Str(caller.wire),
+            "outcome" to Str(outcome.wire),
+            "foreground" to BoolVal(foreground),
+        )
+}

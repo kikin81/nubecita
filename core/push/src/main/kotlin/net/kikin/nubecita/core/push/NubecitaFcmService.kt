@@ -15,6 +15,7 @@ import com.google.firebase.messaging.RemoteMessage
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.auth.RefreshCaller
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
@@ -64,7 +65,7 @@ class NubecitaFcmService : FirebaseMessagingService() {
     // nubecita-8pd0.
     @Suppress("OVERRIDE_DEPRECATION")
     override fun onNewToken(token: String) {
-        appScope.launch { coordinator.onTokenRotated(token) }
+        appScope.launch(RefreshCaller.PushRegistration) { coordinator.onTokenRotated(token) }
     }
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {

@@ -3,6 +3,7 @@ package net.kikin.nubecita.core.auth
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import io.mockk.verifyOrder
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.SerializationException
@@ -31,13 +32,16 @@ class SessionTelemetryTest {
             override fun now(): Instant = Instant.fromEpochMilliseconds(nowMillis)
         }
 
-    private fun telemetry(lastLoginEpochMillis: Long? = null) =
-        SessionTelemetry(
-            crashReporter = crashReporter,
-            analytics = analytics,
-            loginTimestamps = FakeLoginTimestampStore(lastLoginEpochMillis),
-            clock = fixedClock,
-        )
+    private fun telemetry(
+        lastLoginEpochMillis: Long? = null,
+        forensics: RefreshForensics = FakeRefreshForensics(emptyMap()),
+    ) = SessionTelemetry(
+        crashReporter = crashReporter,
+        analytics = analytics,
+        loginTimestamps = FakeLoginTimestampStore(lastLoginEpochMillis),
+        clock = fixedClock,
+        refreshForensics = forensics,
+    )
 
     @Test
     fun `clear from the SDK refresh path buckets as invalid_grant with days_since_login`() =
@@ -50,6 +54,37 @@ class SessionTelemetryTest {
             verify { crashReporter.setCustomKey("session_clear_reason", "invalid_grant") }
             verify { crashReporter.recordException(marker) }
             verify { analytics.log(SessionCleared(reason = SessionClearReason.InvalidGrant, daysSinceLogin = 2)) }
+        }
+
+    @Test
+    fun `clear attaches exact days_since_login and the refresh forensics before recording`() =
+        runTest {
+            val twoDaysMillis = 2L * 24 * 60 * 60 * 1000
+            val marker = markerWithStack("io.github.kikin81.atproto.oauth.DpopAuthProvider", "failRefresh")
+            val forensics = FakeRefreshForensics(mapOf("last_lost_refresh_caller" to "dm_poll"))
+
+            telemetry(lastLoginEpochMillis = nowMillis - twoDaysMillis, forensics = forensics).onSessionCleared(marker)
+
+            verifyOrder {
+                crashReporter.setCustomKey("days_since_login", "2")
+                crashReporter.setCustomKey("last_lost_refresh_caller", "dm_poll")
+                crashReporter.recordException(marker)
+            }
+        }
+
+    @Test
+    fun `a throwing refresh forensics read still records the clear`() =
+        runTest {
+            val marker = markerWithStack("io.github.kikin81.atproto.oauth.DpopAuthProvider", "failRefresh")
+            val forensics =
+                object : RefreshForensics {
+                    override suspend fun clearKeys(): Map<String, String> = throw IllegalStateException("prefs unreadable")
+                }
+
+            telemetry(forensics = forensics).onSessionCleared(marker)
+
+            verify { crashReporter.setCustomKey("days_since_login", "unknown") }
+            verify { crashReporter.recordException(marker) }
         }
 
     @Test
@@ -135,6 +170,7 @@ class SessionTelemetryTest {
                     analytics = analytics,
                     loginTimestamps = ThrowingLoginTimestampStore,
                     clock = fixedClock,
+                    refreshForensics = FakeRefreshForensics(emptyMap()),
                 )
 
             telemetry.onSessionCleared(markerWithStack("com.example.X", "run"))
@@ -149,6 +185,7 @@ class SessionTelemetryTest {
                     analytics = analytics,
                     loginTimestamps = CancellingLoginTimestampStore,
                     clock = fixedClock,
+                    refreshForensics = FakeRefreshForensics(emptyMap()),
                 )
 
             val thrown =
@@ -217,4 +254,10 @@ private object CancellingLoginTimestampStore : LoginTimestampStore {
     override suspend fun record(epochMillis: Long) = Unit
 
     override suspend fun lastLoginEpochMillis(): Long? = throw CancellationException("scope cancelled")
+}
+
+private class FakeRefreshForensics(
+    private val keys: Map<String, String>,
+) : RefreshForensics {
+    override suspend fun clearKeys(): Map<String, String> = keys
 }
