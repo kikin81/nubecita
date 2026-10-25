@@ -590,14 +590,21 @@ class MainActivity : ComponentActivity() {
      * re-delivered intent can't count the same tap twice.
      */
     private fun logNotificationTap(intent: Intent) {
-        val tap =
-            NotificationTapExtras.parse(
-                source = intent.getStringExtra(NotificationTapExtras.SOURCE),
-                type = intent.getStringExtra(NotificationTapExtras.TYPE),
-            ) ?: return
-        analytics.log(tap)
-        intent.removeExtra(NotificationTapExtras.SOURCE)
-        intent.removeExtra(NotificationTapExtras.TYPE)
+        // This is the first read of the extras on every delivery, and the activity is
+        // exported: a malformed bundle from another app throws while unparcelling
+        // (BadParcelableException). Telemetry must never crash the launch.
+        try {
+            val tap =
+                NotificationTapExtras.parse(
+                    source = intent.getStringExtra(NotificationTapExtras.SOURCE),
+                    type = intent.getStringExtra(NotificationTapExtras.TYPE),
+                ) ?: return
+            analytics.log(tap)
+            intent.removeExtra(NotificationTapExtras.SOURCE)
+            intent.removeExtra(NotificationTapExtras.TYPE)
+        } catch (e: RuntimeException) {
+            Timber.w(e, "Unreadable notification-tap extras")
+        }
     }
 
     /**
