@@ -64,13 +64,13 @@ object WearFeedKey {
 
     fun forFeedUri(feedUri: String): String {
         require(feedUri.isNotEmpty()) { "feed URI is empty" }
-        return URI_PREFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(feedUri.toByteArray())
+        return URI_PREFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(feedUri.encodeToByteArray())
     }
 
     /** The AT-URI behind a key from [forFeedUri], or null for [FOLLOWING] / a malformed key. */
     fun feedUriOrNull(feedKey: String): String? {
         if (!feedKey.startsWith(URI_PREFIX)) return null
-        return runCatching { String(Base64.getUrlDecoder().decode(feedKey.removePrefix(URI_PREFIX))) }.getOrNull()
+        return runCatching { Base64.getUrlDecoder().decode(feedKey.removePrefix(URI_PREFIX)).decodeToString() }.getOrNull()
     }
 }
 

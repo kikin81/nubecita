@@ -1,9 +1,11 @@
 package net.kikin.nubecita.core.wearcontract
 
 import kotlinx.serialization.KSerializer
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.intOrNull
 
 /**
  * Schema versioning for every Wear Data Layer payload.
@@ -56,34 +58,30 @@ object WearCodec {
     ): String = WearJson.encodeToString(serializer, value)
 
     /**
-     * Reads `schemaVersion` first, so a payload from a newer major version is
-     * reported as [WearDecodeResult.UnsupportedVersion] even when its shape no
-     * longer parses as [serializer]'s type.
+     * Parses once into a JSON tree and reads `schemaVersion` from it before
+     * decoding, so a payload from a newer major version is reported as
+     * [WearDecodeResult.UnsupportedVersion] even when its shape no longer
+     * parses as [serializer]'s type.
      */
     fun <T : WearPayload> decode(
         serializer: KSerializer<T>,
         json: String,
-    ): WearDecodeResult<T> {
-        val version =
-            try {
-                WearJson.decodeFromString(VersionProbe.serializer(), json).schemaVersion
-            } catch (e: SerializationException) {
-                return WearDecodeResult.Malformed(e)
-            } catch (e: IllegalArgumentException) {
-                return WearDecodeResult.Malformed(e)
+    ): WearDecodeResult<T> =
+        try {
+            val tree = WearJson.parseToJsonElement(json)
+            val version =
+                (tree as? JsonObject)?.get(SCHEMA_VERSION_KEY)?.let { (it as? JsonPrimitive)?.intOrNull }
+                    ?: return WearDecodeResult.Malformed(SerializationException("missing or non-integer $SCHEMA_VERSION_KEY"))
+            if (version > WearSchema.CURRENT) {
+                WearDecodeResult.UnsupportedVersion(version)
+            } else {
+                WearDecodeResult.Decoded(WearJson.decodeFromJsonElement(serializer, tree))
             }
-        if (version > WearSchema.CURRENT) return WearDecodeResult.UnsupportedVersion(version)
-        return try {
-            WearDecodeResult.Decoded(WearJson.decodeFromString(serializer, json))
         } catch (e: SerializationException) {
             WearDecodeResult.Malformed(e)
         } catch (e: IllegalArgumentException) {
             WearDecodeResult.Malformed(e)
         }
-    }
 
-    @Serializable
-    private data class VersionProbe(
-        val schemaVersion: Int,
-    )
+    private const val SCHEMA_VERSION_KEY = "schemaVersion"
 }
