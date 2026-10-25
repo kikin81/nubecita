@@ -18,6 +18,12 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.ConvoKind
+import net.kikin.nubecita.core.analytics.DmReaction
+import net.kikin.nubecita.core.analytics.DmSend
+import net.kikin.nubecita.core.analytics.DmSendOutcome
+import net.kikin.nubecita.core.analytics.ReactionAction
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.api.Chat
@@ -46,6 +52,7 @@ class ChatViewModel
     constructor(
         @Assisted private val chat: Chat,
         private val repository: ChatRepository,
+        private val analytics: AnalyticsClient,
     ) : MviViewModel<ChatScreenViewState, ChatEvent, ChatEffect>(ChatScreenViewState()) {
         @AssistedFactory
         interface Factory {
@@ -261,13 +268,30 @@ class ChatViewModel
                         repository.addReaction(convo, messageId, emoji)
                     }
                 result
-                    .onSuccess { server -> updateMessageReactions(messageId, server.reactions) }
-                    .onFailure {
+                    .onSuccess { server ->
+                        updateMessageReactions(messageId, server.reactions)
+                        analytics.log(DmReaction(if (wasReacted) ReactionAction.Remove else ReactionAction.Add))
+                    }.onFailure {
                         updateMessageReactions(messageId, original) // rollback to the exact pre-toggle reactions
                         sendEffect(ChatEffect.ShowReactionError)
                     }
                 inFlightReactions -= key
             }
+        }
+
+        /** Settled-send analytics: kind, outcome and reply/retry flags only — never the text. */
+        private fun logSend(
+            outcome: DmSendOutcome,
+            message: MessageUi,
+            isRetry: Boolean,
+        ) {
+            val kind =
+                when (uiState.value.header) {
+                    is ChatHeader.Direct -> ConvoKind.Direct
+                    is ChatHeader.Group -> ConvoKind.Group
+                    null -> null
+                }
+            analytics.log(DmSend(kind = kind, outcome = outcome, isReply = message.replyTo != null, isRetry = isRetry))
         }
 
         /** Replace [messageId]'s reactions and re-project the thread. */
@@ -323,7 +347,7 @@ class ChatViewModel
                 )
             messages = listOf(optimistic) + messages
             commitMessages()
-            dispatchSend(convo, tempId, optimistic)
+            dispatchSend(convo, tempId, optimistic, isRetry = false)
         }
 
         /**
@@ -340,7 +364,7 @@ class ChatViewModel
             val retrying = existing.copy(sendStatus = MessageSendStatus.Sending)
             messages = messages.map { if (it.id == tempId) retrying else it }
             commitMessages()
-            dispatchSend(convo, tempId, retrying)
+            dispatchSend(convo, tempId, retrying, isRetry = true)
         }
 
         /**
@@ -356,11 +380,13 @@ class ChatViewModel
             convoId: String,
             tempId: String,
             optimistic: MessageUi,
+            isRetry: Boolean,
         ) {
             viewModelScope.launch {
                 repository
                     .sendMessage(convoId, optimistic.text, replyToMessageId = optimistic.replyTo?.id)
                     .onSuccess { rawServer ->
+                        logSend(DmSendOutcome.Sent, optimistic, isRetry)
                         // Preserve the reply target if the sendMessage response omits it,
                         // so the preview doesn't blink away after the optimistic reconcile.
                         val server =
@@ -377,6 +403,7 @@ class ChatViewModel
                             }
                         commitMessages()
                     }.onFailure { throwable ->
+                        logSend(DmSendOutcome.Failed, optimistic, isRetry)
                         val failed = optimistic.copy(sendStatus = MessageSendStatus.Failed)
                         messages =
                             if (messages.any { it.id == tempId }) {

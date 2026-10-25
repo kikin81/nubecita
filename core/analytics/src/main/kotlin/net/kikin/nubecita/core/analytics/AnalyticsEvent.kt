@@ -802,3 +802,81 @@ data class NotificationTap(
             "notification_type" to Str(type.wire),
         )
 }
+
+/** Whether a conversation is one-to-one or a group. */
+enum class ConvoKind(
+    val wire: String,
+) {
+    Direct("direct"),
+    Group("group"),
+}
+
+/** How a DM send ended. */
+enum class DmSendOutcome(
+    val wire: String,
+) {
+    Sent("sent"),
+    Failed("failed"),
+}
+
+/**
+ * Fired when a direct message send settles (nubecita-ccvy.3). [kind] is
+ * omitted when the conversation header hasn't loaded yet. No text, ids or
+ * recipients are ever attached.
+ */
+data class DmSend(
+    val kind: ConvoKind?,
+    val outcome: DmSendOutcome,
+    val isReply: Boolean,
+    val isRetry: Boolean,
+) : AnalyticsEvent {
+    override val name: String = "dm_send"
+    override val params: Map<String, AnalyticsValue> =
+        buildMap {
+            if (kind != null) put("convo_kind", Str(kind.wire))
+            put("outcome", Str(outcome.wire))
+            put("is_reply", BoolVal(isReply))
+            put("is_retry", BoolVal(isRetry))
+        }
+}
+
+/** Adding or removing an emoji reaction on a message. */
+enum class ReactionAction(
+    val wire: String,
+) {
+    Add("add"),
+    Remove("remove"),
+}
+
+/** Fired when a DM reaction toggle succeeds (nubecita-ccvy.3). The emoji is not sent. */
+data class DmReaction(
+    val action: ReactionAction,
+) : AnalyticsEvent {
+    override val name: String = "dm_reaction"
+    override val params: Map<String, AnalyticsValue> = mapOf("action_type" to Str(action.wire))
+}
+
+/** Fired when a group chat is created (nubecita-ccvy.3). */
+data object DmGroupCreate : AnalyticsEvent {
+    override val name: String = "dm_group_create"
+    override val params: Map<String, AnalyticsValue> = emptyMap()
+}
+
+/** How a request to join a group via its invite link ended. */
+enum class GroupJoinOutcome(
+    val wire: String,
+) {
+    /** Joined immediately (open group). */
+    Joined("joined"),
+
+    /** The group needs approval; a join request was sent. */
+    Requested("requested"),
+}
+
+/** Fired when a group join from an invite link succeeds (nubecita-ccvy.3). */
+data class DmGroupJoin(
+    val outcome: GroupJoinOutcome,
+) : AnalyticsEvent {
+    override val name: String = "dm_group_join"
+    override val params: Map<String, AnalyticsValue> = mapOf("outcome" to Str(outcome.wire))
+}

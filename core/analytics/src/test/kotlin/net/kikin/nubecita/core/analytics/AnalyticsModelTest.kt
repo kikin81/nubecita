@@ -257,6 +257,29 @@ class AnalyticsModelTest {
     }
 
     @Test
+    fun `dm events carry only bucketed params and pass GA4 validation`() {
+        val send = DmSend(kind = ConvoKind.Group, outcome = DmSendOutcome.Failed, isReply = true, isRetry = false)
+        assertEquals("dm_send", send.name)
+        assertEquals(
+            mapOf(
+                "convo_kind" to Str("group"),
+                "outcome" to Str("failed"),
+                "is_reply" to BoolVal(true),
+                "is_retry" to BoolVal(false),
+            ),
+            send.params,
+        )
+        assertEquals(
+            false,
+            "convo_kind" in DmSend(kind = null, outcome = DmSendOutcome.Sent, isReply = false, isRetry = true).params,
+        )
+        assertEquals(mapOf("action_type" to Str("remove")), DmReaction(ReactionAction.Remove).params)
+        assertEquals(mapOf("outcome" to Str("requested")), DmGroupJoin(GroupJoinOutcome.Requested).params)
+        listOf(send, DmReaction(ReactionAction.Add), DmGroupCreate, DmGroupJoin(GroupJoinOutcome.Joined))
+            .forEach { AnalyticsValidator.requireValid(it) }
+    }
+
+    @Test
     fun `interact_actor carries action and source surface`() {
         val event = InteractActor(action = ActorAction.Follow, surface = PostSurface.Profile)
         assertEquals("interact_actor", event.name)

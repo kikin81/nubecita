@@ -14,9 +14,11 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.actors.ActorRepository
+import net.kikin.nubecita.core.analytics.DmGroupCreate
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.data.models.ActorUi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -36,7 +38,9 @@ internal class NewGroupViewModelTest {
             every { state } returns MutableStateFlow(SessionState.SignedIn(handle = "me", did = "did:self"))
         }
 
-    private fun vm() = NewGroupViewModel(actorRepo, fakeChat, session)
+    private val analytics = RecordingAnalyticsClient()
+
+    private fun vm() = NewGroupViewModel(actorRepo, fakeChat, session, analytics)
 
     private fun actorUi(did: String) = ActorUi(did, "$did.bsky", null, null, canMessage = true)
 
@@ -166,6 +170,7 @@ internal class NewGroupViewModelTest {
                 assertEquals(NewGroupEffect.GroupCreated("convo:new"), awaitItem())
             }
             assertEquals("Trips" to listOf("did:a"), fakeChat.createGroupCalls.last())
+            assertEquals(listOf(DmGroupCreate), analytics.events)
         }
 
     @Test
@@ -188,6 +193,7 @@ internal class NewGroupViewModelTest {
                 assertEquals(NewGroupEffect.ShowError(ChatError.GroupFull), awaitItem())
             }
             assertFalse(vm.uiState.value.isSubmitting, "isSubmitting must reset after failure")
+            assertEquals(emptyList<Any>(), analytics.events, "a failed create logs nothing")
         }
 
     @Test

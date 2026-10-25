@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.collections.immutable.persistentListOf
+import net.kikin.nubecita.core.analytics.NoOpAnalyticsClient
 import net.kikin.nubecita.core.testing.android.HiltTestActivity
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.chats.api.Chat
@@ -68,7 +69,7 @@ class ChatScreenInstrumentationTest {
         // the assisted factory with the NavKey instance. If we ever revert to a
         // SavedStateHandle-based construction, this line fails at compile or runtime.
         val chat = Chat(otherUserDid = "did:plc:alice")
-        val viewModel = ChatViewModel(chat = chat, repository = fakeRepo)
+        val viewModel = ChatViewModel(chat = chat, repository = fakeRepo, analytics = NoOpAnalyticsClient())
 
         composeTestRule.setContent {
             NubecitaTheme(dynamicColor = false) {

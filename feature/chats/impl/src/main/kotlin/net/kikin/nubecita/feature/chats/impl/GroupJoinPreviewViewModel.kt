@@ -6,6 +6,9 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.DmGroupJoin
+import net.kikin.nubecita.core.analytics.GroupJoinOutcome
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.feature.chats.api.GroupJoinPreview
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
@@ -24,6 +27,7 @@ class GroupJoinPreviewViewModel
     constructor(
         @Assisted private val route: GroupJoinPreview,
         private val repository: ChatRepository,
+        private val analytics: AnalyticsClient,
     ) : MviViewModel<GroupJoinPreviewViewState, GroupJoinPreviewEvent, GroupJoinPreviewEffect>(
             GroupJoinPreviewViewState(),
         ) {
@@ -64,6 +68,14 @@ class GroupJoinPreviewViewModel
                     repository
                         .requestJoin(code)
                         .onSuccess { result ->
+                            analytics.log(
+                                DmGroupJoin(
+                                    when (result) {
+                                        is JoinResult.Joined -> GroupJoinOutcome.Joined
+                                        JoinResult.Pending -> GroupJoinOutcome.Requested
+                                    },
+                                ),
+                            )
                             when (result) {
                                 is JoinResult.Joined -> sendEffect(GroupJoinPreviewEffect.NavigateToConvo(result.convoId))
                                 JoinResult.Pending -> setState { copy(status = GroupJoinPreviewStatus.RequestSent) }

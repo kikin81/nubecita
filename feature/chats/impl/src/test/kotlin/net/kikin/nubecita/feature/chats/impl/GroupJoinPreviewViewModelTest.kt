@@ -5,7 +5,10 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.analytics.DmGroupJoin
+import net.kikin.nubecita.core.analytics.GroupJoinOutcome
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.feature.chats.api.GroupJoinPreview
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -31,7 +34,9 @@ internal class GroupJoinPreviewViewModelTest {
             requireApproval = true,
         )
 
-    private fun vm(fake: FakeChatRepository) = GroupJoinPreviewViewModel(route, fake)
+    private val analytics = RecordingAnalyticsClient()
+
+    private fun vm(fake: FakeChatRepository) = GroupJoinPreviewViewModel(route, fake, analytics)
 
     @Test
     fun `load surfaces the preview`() =
@@ -72,6 +77,7 @@ internal class GroupJoinPreviewViewModelTest {
                 assertEquals(GroupJoinPreviewEffect.NavigateToConvo("convo-9"), awaitItem())
             }
             assertFalse(model.uiState.value.joinInFlight)
+            assertEquals(listOf(DmGroupJoin(GroupJoinOutcome.Joined)), analytics.events)
         }
 
     @Test
@@ -88,6 +94,7 @@ internal class GroupJoinPreviewViewModelTest {
             advanceUntilIdle()
             assertEquals(GroupJoinPreviewStatus.RequestSent, model.uiState.value.status)
             assertFalse(model.uiState.value.joinInFlight)
+            assertEquals(listOf(DmGroupJoin(GroupJoinOutcome.Requested)), analytics.events)
         }
 
     @Test
