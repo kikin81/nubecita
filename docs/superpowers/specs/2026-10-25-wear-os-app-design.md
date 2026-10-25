@@ -359,6 +359,44 @@ Each epic ships as one stack with at least one `feat:` child so it reaches Play.
 - Phone notifications already show on the watch, and no inline-reply work
   is planned for them. Watch quick replies live in the app only.
 
+## Spike results (2026-10-25)
+
+This was a throwaway spike (`spike/wear-data-layer`, local only, never merged). It used two minimal apps sharing the app ID `net.kikin.nubecita.wearspike` and the debug signing key, on a **Pixel 11 Pro** and a **Pixel Watch 4**, both API 37 and paired over Bluetooth. The phone published synthetic posts at realistic sizes, plus noisy 320×240 WebP thumbnails, so the images wouldn't compress unrealistically well.
+
+### Build
+
+- Wear Compose M3 / foundation `1.8.0-alpha02` built on the first try with AGP 9.4.1, Kotlin 2.4.21 (AGP built-in Kotlin), compileSdk 37 and minSdk 33.
+- It pulled its own Compose versions (`ui` 1.11.0, `runtime` 1.12.0), so `:wear:app` should pin the Wear artifacts explicitly instead of inheriting the phone's Compose BOM. Check that the two resolutions coexist when the contract module is shared.
+- `TransformingLazyColumn` + `Card` with `SurfaceTransformation` / `transformedHeight` rendered correctly on the watch.
+
+### Delivery latency (phone clock to watch clock, skew about 0.2 s)
+
+| Case | Payload | Phone → watch |
+|---|---|---|
+| First delivery after install (cold) | 50 posts + 17 thumbs | 20.4 s |
+| Urgent, JSON only | 50 posts, 18.8 KB | 0.2–0.8 s |
+| Urgent, with thumbs | 50 posts + 17 thumbs (233 KB) | 2.5–3.0 s |
+| Non-urgent, link warm | 60 posts + thumbs | 3.9 s |
+| Non-urgent after 10 min with no traffic | 61 posts + 21 thumbs (293 KB) | 3.3 s |
+| Pull-on-open, full loop | request → urgent republish | ~1.1 s (request reached the phone in 0.3 s) |
+| Like action, full round trip | watch → phone → result → watch | 0.19–0.67 s |
+
+Caveat: during these tests the watch's Wi-Fi was on for adb, which may have kept its radios warmer than in real use. The documented "up to 30 min" non-urgent delay was **not** observed, but a Bluetooth-only, deep-idle run is still untested. Battery cost was not measured.
+
+### Payload size
+
+- Post JSON is about 370 B per post, so 50 posts take about 19 KB. A single `DataItem` per feed fits well under the 100 KB limit (about 250 posts' worth).
+- Thumbnails dominate: about 14 KB each, 12× the JSON for 17 images. Deduplicating avatars and capping thumbnails per snapshot matter more than trimming JSON.
+- 21 `Asset`s in one `DataItem` worked. The watch decoded 20 thumbnails in 0.46–1.4 s.
+
+### Design implications
+
+- **Keep the plan as written.** Periodic snapshots stay non-urgent; actions and pull-on-open stay urgent. Urgent delivery was sub-second without images and about 3 s with them.
+- **Always render cached data first.** The first delivery after install took 20 s, which confirms the offline-first open.
+- **One snapshot `DataItem` per feed**, with images as `Asset`s, is sound at the planned sizes.
+- **Device passes:** over Wi-Fi the watch drops off adb whenever it switches to Bluetooth. W-epic device passes should use **Debug over Bluetooth** through the phone (`adb forward tcp:4444 localabstract:/adb-hub`). Screenshots also need the watch unlocked and awake.
+- **Play track names:** these couldn't be checked locally (no Play credentials on the Mac, and the Wear tracks don't exist until the form factor is enabled). fastlane has no Wear constants, but `track` is a free string. W1's first step lists every track id from a read-only CI job using the existing workload-identity identity.
+
 ## Review log
 
 - 2026-10-25: a builder-check subagent raised DM fetching, pull-on-open for
