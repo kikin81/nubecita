@@ -1,0 +1,29 @@
+plugins {
+    alias(libs.plugins.nubecita.android.wear.application)
+    alias(libs.plugins.kotlin.serialization)
+}
+
+android {
+    namespace = "net.kikin.nubecita.wear"
+
+    defaultConfig {
+        // Must match the phone app's applicationId (and signing key): the Wear
+        // Data Layer only pairs apps with the same package and signature, and
+        // Play requires it for a Wear app with a phone companion (WO-G7).
+        applicationId = "net.kikin.nubecita"
+        // Placeholder until the release pipeline (nubecita-sn52.4) owns the
+        // Wear version-code scheme.
+        versionCode = 1
+        versionName = "0.1.0"
+    }
+}
+
+dependencies {
+    implementation(project(":core:wear-contract"))
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
+    implementation(libs.androidx.wear.compose.navigation3)
+    implementation(libs.kotlinx.serialization.json)
+}

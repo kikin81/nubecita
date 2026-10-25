@@ -72,7 +72,7 @@ class AndroidLibraryComposeConventionPlugin : Plugin<Project> {
  * includes the throwaway `bench` flavor or the `release` build type — so the
  * aggregate aliases below never validate the fake-network or release variants.
  */
-private val CANONICAL_SCREENSHOT_TASKS =
+internal val CANONICAL_SCREENSHOT_TASKS =
     setOf(
         "validateDebugScreenshotTest",
         "updateDebugScreenshotTest",
@@ -92,11 +92,12 @@ private val CANONICAL_SCREENSHOT_TASKS =
  * the AGP screenshot plugin has registered its per-variant tasks; depending on
  * whichever of the disjoint debug names exists selects exactly the right one.
  *
- * Deliberately NOT applied to `:app` (its plugin doesn't call this): `:app`'s
+ * Also applied by `nubecita.android.wear.application` (its baselines are
+ * CI-generated). Deliberately NOT applied to `:app` (its plugin doesn't call this): `:app`'s
  * screenshot baselines are Mac-generated and its CI validation is a separately-
  * tracked deferred gap — pulling it into the aggregate would surface that drift.
  */
-private fun Project.registerScreenshotAliasTasks() {
+internal fun Project.registerScreenshotAliasTasks() {
     tasks.register("validateScreenshots") {
         group = "verification"
         description = "Validate Compose screenshot baselines for this module's canonical debug variant."

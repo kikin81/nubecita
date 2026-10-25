@@ -44,6 +44,8 @@ tinkAndroid = "1.24.0"
 nav3Core = "1.2.0"
 nav3AdaptiveMaterial3 = "1.3.0"
 lifecycleViewmodelNav3 = "2.11.0"
+# Wear OS app (nubecita-sn52): pre-release Wear Compose M3 + Navigation 3 on purpose (design D8).
+wearCompose = "1.8.0-alpha02"
 androidxPalette = "1.1.0"
 revenueCat = "10.29.0"
 reorderable = "3.1.0"
@@ -161,6 +163,10 @@ timber = { module = "com.jakewharton.timber:timber", version.ref = "timber" }
 tink-android = { module = "com.google.crypto.tink:tink-android", version.ref = "tinkAndroid" }
 androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "nav3Core" }
 androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", version.ref = "nav3Core" }
+androidx-wear-compose-foundation = { module = "androidx.wear.compose:compose-foundation", version.ref = "wearCompose" }
+androidx-wear-compose-material3 = { module = "androidx.wear.compose:compose-material3", version.ref = "wearCompose" }
+androidx-wear-compose-navigation3 = { module = "androidx.wear.compose:compose-navigation3", version.ref = "wearCompose" }
+androidx-wear-compose-ui-tooling = { module = "androidx.wear.compose:compose-ui-tooling", version.ref = "wearCompose" }
 androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "lifecycleViewmodelNav3" }
 androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "androidxHilt" }
 androidx-hilt-work = { module = "androidx.hilt:hilt-work", version.ref = "androidxHilt" }
@@ -213,3 +219,4 @@ nubecita-android-application = { id = "nubecita.android.application", version = 
 nubecita-android-benchmark = { id = "nubecita.android.benchmark", version = "unspecified" }
 nubecita-android-room = { id = "nubecita.android.room", version = "unspecified" }
 nubecita-android-flavors = { id = "nubecita.android.flavors", version = "unspecified" }
+nubecita-android-wear-application = { id = "nubecita.android.wear.application", version = "unspecified" }

@@ -74,5 +74,9 @@ gradlePlugin {
             id = "nubecita.android.room"
             implementationClass = "net.kikin.nubecita.buildlogic.AndroidRoomConventionPlugin"
         }
+        register("androidWearApplication") {
+            id = "nubecita.android.wear.application"
+            implementationClass = "net.kikin.nubecita.buildlogic.AndroidWearApplicationConventionPlugin"
+        }
     }
 }

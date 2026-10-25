@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launcher icon background, same as the phone app's. -->
+    <color name="brand_sky_blue">#FF0A7AFF</color>
+</resources>

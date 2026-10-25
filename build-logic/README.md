@@ -14,6 +14,7 @@ Composite build pulled into the root via `pluginManagement { includeBuild("build
 | `nubecita.android.application` | `com.android.application`, `sort-dependencies`, Compose + Hilt + KSP plugins, `compileSdk/minSdk/targetSdk`, JVM 17 toolchain, `buildFeatures.buildConfig = true; compose = true`, default release build type, base Compose + Hilt + `hilt-navigation-compose` deps | `:app` |
 | `nubecita.android.benchmark` | `com.android.test` (AGP 9 brings built-in Kotlin support, so `org.jetbrains.kotlin.android` is intentionally NOT applied), `androidx.baselineprofile` (producer side, auto-generates `benchmarkRelease` + `nonMinifiedRelease` variants on `:app` — no hand-rolled build type), `sort-dependencies`, `compileSdk = 37`, `minSdk = 28`, JVM 17 toolchain, `targetProjectPath = ":app"`, `android.experimental.self-instrumenting` flag, `benchmark-macro-junit4` + `uiautomator` deps | `:benchmark` |
 | `nubecita.android.room` | `androidx.room` Gradle plugin + `com.google.devtools.ksp`, `RoomExtension.schemaDirectory("$projectDir/schemas")`, `ksp { arg("room.generateKotlin", "true") }`, Room runtime + ktx + Room KSP compiler | `:core:database` |
+| `nubecita.android.wear.application` | `com.android.application`, Compose compiler, AGP screenshot plugin (+ `validateScreenshots` / `updateScreenshots` aliases), Hilt + KSP, JaCoCo, `sort-dependencies`, `compileSdk = 37`, **`minSdk = 33`** (Wear OS 4), `targetSdk = 37`, release minify; Compose BOM + Wear Compose M3 / foundation / ui-tooling (no phone Material 3, no flavors) | `:wear:app` |
 
 ## Adding a new module
 

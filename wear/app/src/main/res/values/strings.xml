@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Nubecita</string>
+    <string name="wear_home_title">Nubecita</string>
+    <string name="wear_home_body">Your feed and messages from your phone will show up here.</string>
+</resources>
