@@ -36,6 +36,10 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.NotificationSource
+import net.kikin.nubecita.core.analytics.NotificationTap
+import net.kikin.nubecita.core.analytics.NotificationTapExtras
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
@@ -49,6 +53,7 @@ import net.kikin.nubecita.core.posting.SharedMediaStore
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import net.kikin.nubecita.core.push.PushNotificationBuilder
 import net.kikin.nubecita.core.push.PushPayload
+import net.kikin.nubecita.core.push.toNotificationType
 import net.kikin.nubecita.core.update.InAppUpdateController
 import net.kikin.nubecita.core.video.PipController
 import net.kikin.nubecita.core.video.SharedVideoPlayer
@@ -97,6 +102,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var sharedMediaStore: SharedMediaStore
+
+    @Inject
+    lateinit var analytics: AnalyticsClient
 
     @Inject
     lateinit var appThemeState: AppThemeState
@@ -468,6 +476,7 @@ class MainActivity : ComponentActivity() {
         }
 
     private fun handleIntent(intent: Intent) {
+        logNotificationTap(intent)
         // Inbound share (ACTION_SEND) has no `intent.data`, so it must be handled
         // BEFORE the `uri == null` FCM branch below (which would otherwise swallow
         // it). Runs on both cold start and onNewIntent, so re-validation is
@@ -576,6 +585,22 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
+     * Logs a `notification_tap` when [intent] came from one of our own
+     * notifications (push or DM poll), then strips the extras so a
+     * re-delivered intent can't count the same tap twice.
+     */
+    private fun logNotificationTap(intent: Intent) {
+        val tap =
+            NotificationTapExtras.parse(
+                source = intent.getStringExtra(NotificationTapExtras.SOURCE),
+                type = intent.getStringExtra(NotificationTapExtras.TYPE),
+            ) ?: return
+        analytics.log(tap)
+        intent.removeExtra(NotificationTapExtras.SOURCE)
+        intent.removeExtra(NotificationTapExtras.TYPE)
+    }
+
+    /**
      * Reconstructs the deep-link target from FCM `data` extras carried on
      * an auto-displayed notification's tap intent (action `MAIN`,
      * `data = null`). Parses the extras back into a [PushPayload], derives
@@ -592,6 +617,9 @@ class MainActivity : ComponentActivity() {
         val extras = intent.extras ?: return
         val data = extras.toFcmDataMap() ?: return
         val payload = PushPayload.parse(data) ?: return
+        // Firebase displayed this one, so our builder's tap extras aren't here;
+        // log the tap from the payload instead (nubecita-ccvy.2).
+        analytics.log(NotificationTap(source = NotificationSource.Push, type = payload.reason.toNotificationType()))
         val activeDid = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
         if (activeDid != null && payload.recipientDid != activeDid) {
             // Multi-account leak guard: the gateway delivered this push to

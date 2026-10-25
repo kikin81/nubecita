@@ -5,6 +5,10 @@ import androidx.navigation3.runtime.NavKey
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.NotificationSource
+import net.kikin.nubecita.core.analytics.NotificationTap
+import net.kikin.nubecita.core.analytics.NotificationType
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.data.models.NotificationFilter
@@ -46,6 +50,7 @@ internal class NotificationsViewModel
     @Inject
     constructor(
         private val repository: NotificationsRepository,
+        private val analytics: AnalyticsClient,
     ) : MviViewModel<NotificationsState, NotificationsEvent, NotificationsEffect>(NotificationsState()) {
         /**
          * Monotonically increasing tag attached to every in-flight fetch.
@@ -301,6 +306,7 @@ internal class NotificationsViewModel
         }
 
         private fun onRowTapped(item: NotificationItemUi) {
+            analytics.log(NotificationTap(source = NotificationSource.InApp, type = item.reason.toNotificationType()))
             val target = item.deepLinkTarget()
             if (target != null) {
                 sendEffect(NotificationsEffect.NavigateTo(target))
@@ -403,3 +409,20 @@ internal class NotificationsViewModel
  * only touches one site.
  */
 private fun emptyItems(): kotlinx.collections.immutable.ImmutableList<NotificationItemUi> = kotlinx.collections.immutable.persistentListOf()
+
+/** Buckets an in-app notification reason into the analytics [NotificationType] (nubecita-ccvy.2). */
+internal fun NotificationReason.toNotificationType(): NotificationType =
+    when (this) {
+        NotificationReason.Like, NotificationReason.LikeViaRepost -> NotificationType.Like
+        NotificationReason.Repost, NotificationReason.RepostViaRepost -> NotificationType.Repost
+        NotificationReason.Reply -> NotificationType.Reply
+        NotificationReason.Mention -> NotificationType.Mention
+        NotificationReason.Quote -> NotificationType.Quote
+        NotificationReason.Follow -> NotificationType.Follow
+        NotificationReason.Verified, NotificationReason.Unverified -> NotificationType.Verification
+        NotificationReason.StarterpackJoined,
+        NotificationReason.SubscribedPost,
+        NotificationReason.ContactMatch,
+        NotificationReason.Unknown,
+        -> NotificationType.Other
+    }

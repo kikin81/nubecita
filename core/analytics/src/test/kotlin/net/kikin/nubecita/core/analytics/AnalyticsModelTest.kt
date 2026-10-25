@@ -232,6 +232,31 @@ class AnalyticsModelTest {
     }
 
     @Test
+    fun `notification_tap carries source and type and passes GA4 validation`() {
+        val event = NotificationTap(source = NotificationSource.DmPoll, type = NotificationType.Message)
+        assertEquals("notification_tap", event.name)
+        assertEquals(
+            mapOf("notification_source" to Str("dm_poll"), "notification_type" to Str("message")),
+            event.params,
+        )
+        AnalyticsValidator.requireValid(event)
+    }
+
+    @Test
+    fun `notification tap extras round-trip and reject unknown sources`() {
+        assertEquals(
+            NotificationTap(NotificationSource.Push, NotificationType.Reply),
+            NotificationTapExtras.parse("push", "reply"),
+        )
+        assertEquals(
+            NotificationTap(NotificationSource.Push, NotificationType.Other),
+            NotificationTapExtras.parse("push", "something-new"),
+        )
+        assertEquals(null, NotificationTapExtras.parse(null, "reply"))
+        assertEquals(null, NotificationTapExtras.parse("forged", "reply"))
+    }
+
+    @Test
     fun `interact_actor carries action and source surface`() {
         val event = InteractActor(action = ActorAction.Follow, surface = PostSurface.Profile)
         assertEquals("interact_actor", event.name)

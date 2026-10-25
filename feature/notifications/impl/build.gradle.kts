@@ -30,6 +30,7 @@ android {
 dependencies {
     api(project(":feature:notifications:api"))
 
+    implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
     implementation(project(":core:feed-mapping"))
     implementation(project(":data:models"))
