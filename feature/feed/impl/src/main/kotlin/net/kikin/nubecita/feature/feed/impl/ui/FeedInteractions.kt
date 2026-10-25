@@ -225,6 +225,7 @@ internal fun rememberFeedInteractions(
                 onAuthorTap = { viewModel.handleEvent(FeedEvent.OnAuthorTapped(it.did)) },
                 onExternalEmbedTap = { uri -> openInCustomTab(uri) },
                 onFacetTap = { target ->
+                    viewModel.recordFacetTap(target)
                     when (target) {
                         // A @mention → the mentioned account's profile. Reuses the
                         // same author-nav event (Profile resolves a DID directly).
@@ -242,6 +243,7 @@ internal fun rememberFeedInteractions(
                     viewModel.handleEvent(FeedEvent.OnQuotedPostTapped(quoted.uri))
                 },
                 onOverflowAction = { post, action ->
+                    viewModel.recordOverflowAction(action)
                     viewModel.onOverflowAction(post, action)
                 },
             )

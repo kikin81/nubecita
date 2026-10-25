@@ -209,6 +209,7 @@ internal fun ProfileScreen(
                     }
                 },
                 onFacetTap = { target ->
+                    viewModel.recordFacetTap(target)
                     when (target) {
                         // A @mention → the mentioned account's profile (Profile
                         // resolves a DID directly), same nav as tapping the author.
@@ -225,6 +226,7 @@ internal fun ProfileScreen(
                     viewModel.handleEvent(ProfileEvent.OnQuotedPostTapped(quoted.uri))
                 },
                 onOverflowAction = { post, action ->
+                    viewModel.recordOverflowAction(action)
                     viewModel.handleEvent(ProfileEvent.OnPostOverflowAction(post, action))
                 },
             )

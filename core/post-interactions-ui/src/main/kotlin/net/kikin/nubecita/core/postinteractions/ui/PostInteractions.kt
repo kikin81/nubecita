@@ -165,7 +165,10 @@ fun rememberPostInteractions(
                 onReply = { post -> handler.onReply(post) },
                 onShare = { post -> handler.onShare(post) },
                 onShareLongPress = { post -> handler.onShareLongPress(post) },
-                onOverflowAction = { post, action -> handler.onOverflowAction(post, action) },
+                onOverflowAction = { post, action ->
+                    handler.recordOverflowAction(action)
+                    handler.onOverflowAction(post, action)
+                },
             )
         }
 

@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.postinteractions.sharing.PostShareIntent
+import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 
@@ -249,4 +250,19 @@ interface PostInteractionHandler {
         post: PostUi,
         action: PostOverflowAction,
     )
+
+    /**
+     * Record an overflow-menu selection for analytics (nubecita-ccvy.4). Kept
+     * apart from [onOverflowAction] because screens override that for actions
+     * they handle locally (e.g. mute), so the UI calls this first at every
+     * wiring site. No-op by default so test fakes need not implement it.
+     */
+    fun recordOverflowAction(action: PostOverflowAction) = Unit
+
+    /**
+     * Record a tap on a hashtag, mention or link inside post text for
+     * analytics (nubecita-ccvy.4). Navigation stays with the screen; this only
+     * measures. No-op by default so test fakes need not implement it.
+     */
+    fun recordFacetTap(target: FacetTarget) = Unit
 }

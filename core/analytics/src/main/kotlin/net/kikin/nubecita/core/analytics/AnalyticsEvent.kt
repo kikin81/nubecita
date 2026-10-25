@@ -880,3 +880,66 @@ data class DmGroupJoin(
     override val name: String = "dm_group_join"
     override val params: Map<String, AnalyticsValue> = mapOf("outcome" to Str(outcome.wire))
 }
+
+/** A post overflow-menu choice, or the confirmed delete that follows one. */
+enum class PostMenuAction(
+    val wire: String,
+) {
+    ReportPost("report_post"),
+    ReportAuthor("report_author"),
+    MuteAuthor("mute_author"),
+    UnmuteAuthor("unmute_author"),
+    BlockAuthor("block_author"),
+    UnblockAuthor("unblock_author"),
+    MuteThread("mute_thread"),
+    UnmuteThread("unmute_thread"),
+    CopyText("copy_text"),
+    Translate("translate"),
+    Delete("delete"),
+
+    /** The user confirmed the delete dialog — the post is actually being deleted. */
+    DeleteConfirmed("delete_confirmed"),
+}
+
+/**
+ * Fired when the user picks an item from a post's overflow menu, plus once
+ * more when a delete is confirmed (nubecita-ccvy.4). Report and block open a
+ * dialog, so for those this measures intent, not a completed report or block.
+ */
+data class PostMenuSelect(
+    val action: PostMenuAction,
+    val surface: PostSurface,
+) : AnalyticsEvent {
+    override val name: String = "post_menu_select"
+    override val params: Map<String, AnalyticsValue> =
+        mapOf(
+            "action_type" to Str(action.wire),
+            "source_surface" to Str(surface.wire),
+        )
+}
+
+/** What kind of link inside post text was tapped. */
+enum class PostTextTarget(
+    val wire: String,
+) {
+    Hashtag("hashtag"),
+    Cashtag("cashtag"),
+    Mention("mention"),
+    Link("link"),
+}
+
+/**
+ * Fired when the user taps a hashtag, cashtag, mention or link inside post
+ * text (nubecita-ccvy.4). Only the kind is sent, never the tag, handle or URL.
+ */
+data class PostTextTap(
+    val target: PostTextTarget,
+    val surface: PostSurface,
+) : AnalyticsEvent {
+    override val name: String = "post_text_tap"
+    override val params: Map<String, AnalyticsValue> =
+        mapOf(
+            "text_target" to Str(target.wire),
+            "source_surface" to Str(surface.wire),
+        )
+}
