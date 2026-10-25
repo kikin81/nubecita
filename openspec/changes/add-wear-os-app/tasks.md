@@ -10,7 +10,7 @@
 - [ ] 1.3 Publish `/v1/session` from the phone and wipe the watch's data on sign-out. Add the no-phone (install prompt), iPhone and signed-out states, and the `/v1/` listener filters (nubecita-sn52.3). Tests: unit tests for the session reducer and wipe; screenshot tests for each state.
 - [ ] 1.4 Release pipeline:
   - an independent Wear version-code scheme;
-  - the Wear track names, verified against the Play API;
+  - the Wear track names, verified first by a read-only `workflow_dispatch` CI job using the existing workload-identity Play identity (`google_play_track_version_codes`; no JSON key, no local credentials), run after the Wear form factor is enabled;
   - the fastlane and `release.yaml` Wear bundle upload;
   - a closed-testing release;
   - a `promote.yaml` Wear target, kept out of production.
