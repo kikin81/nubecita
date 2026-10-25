@@ -371,4 +371,10 @@ class AnalyticsModelTest {
             }
         }
     }
+
+    @Test
+    fun `screen names are unique so no two screens merge in GA4`() {
+        val names = AnalyticsScreen.entries.map { it.screenName }
+        assertEquals(names.size, names.toSet().size, "duplicate screenName in $names")
+    }
 }

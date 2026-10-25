@@ -320,7 +320,10 @@ dependencies {
     implementation(project(":feature:feeds:impl"))
     implementation(project(":feature:login:api"))
     implementation(project(":feature:login:impl"))
+    implementation(project(":feature:mediaviewer:api"))
     implementation(project(":feature:mediaviewer:impl"))
+    // NavKeys referenced by NavKeyAnalytics (screen_view mapping).
+    implementation(project(":feature:moderation:api"))
     // Hosts the @MainShell EntryProviderInstaller that registers the Report /
     // Block / BlockedAccounts routes. No other module depends on :impl (they use
     // :moderation:api NavKeys only), so :app must aggregate it or those routes
@@ -330,6 +333,7 @@ dependencies {
     implementation(project(":feature:notifications:impl"))
     implementation(project(":feature:onboarding:api"))
     implementation(project(":feature:onboarding:impl"))
+    implementation(project(":feature:paywall:api"))
     implementation(project(":feature:paywall:impl"))
     implementation(project(":feature:postdetail:api"))
     implementation(project(":feature:postdetail:impl"))
@@ -341,6 +345,7 @@ dependencies {
     implementation(project(":feature:settings:impl"))
     implementation(project(":feature:videoplayer:api"))
     implementation(project(":feature:videoplayer:impl"))
+    implementation(project(":feature:videos:api"))
     implementation(project(":feature:videos:impl"))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)

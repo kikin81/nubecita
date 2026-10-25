@@ -26,9 +26,10 @@ package net.kikin.nubecita.core.analytics
  * The cost is a one-line edit when a genuinely new *screen kind* ships — which
  * is a deliberate "what do we want to measure" decision, not churn. The risk
  * that a new screen is silently left untracked is handled at the mapping layer
- * (nubecita-049f.2): the `NavKey → AnalyticsScreen` map MUST be an exhaustive
- * `when` over the sealed `NavKey` set with **no `else` branch**, so an unmapped
- * new route fails to compile rather than failing silently in production.
+ * (nubecita-049f.2). `NavKey` is not sealed across modules, so the map can't be
+ * a compile-checked exhaustive `when`; instead `:app`'s `NavKeyAnalyticsTest`
+ * scans the runtime classpath for every `NavKey` and fails until a new route is
+ * either mapped or explicitly listed as untracked (nubecita-ccvy.1).
  */
 enum class AnalyticsScreen(
     val screenName: String,
@@ -47,4 +48,25 @@ enum class AnalyticsScreen(
     MediaViewer("media_viewer"),
     Login("login"),
     Onboarding("onboarding"),
+    VideoFeed("video_feed"),
+    FeedView("feed_view"),
+    Feeds("feeds"),
+    Hashtag("hashtag"),
+    Paywall("paywall"),
+    BlockedAccounts("blocked_accounts"),
+    SafetyAndReporting("safety_and_reporting"),
+    SettingsAppearance("settings_appearance"),
+    SettingsContentFilters("settings_content_filters"),
+    SettingsFeedPreferences("settings_feed_preferences"),
+    SettingsMediaAndAnimations("settings_media_and_animations"),
+    SettingsModeration("settings_moderation"),
+    About("about"),
+    AboutLicenses("about_licenses"),
+    NewGroup("new_group"),
+    GroupDetails("group_details"),
+    GroupAddMembers("group_add_members"),
+    GroupJoinRequests("group_join_requests"),
+    GroupJoinLink("group_join_link"),
+    GroupJoinPreview("group_join_preview"),
+    ChatSettings("chat_settings"),
 }
