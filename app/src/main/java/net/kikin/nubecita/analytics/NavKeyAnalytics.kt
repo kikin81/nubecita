@@ -8,23 +8,46 @@ import net.kikin.nubecita.Splash
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.AnalyticsScreen
 import net.kikin.nubecita.feature.bookmarks.api.Bookmarks
+import net.kikin.nubecita.feature.chats.api.AddGroupMembers
 import net.kikin.nubecita.feature.chats.api.Chat
+import net.kikin.nubecita.feature.chats.api.ChatSettings
 import net.kikin.nubecita.feature.chats.api.Chats
+import net.kikin.nubecita.feature.chats.api.GroupDetails
+import net.kikin.nubecita.feature.chats.api.GroupJoinPreview
+import net.kikin.nubecita.feature.chats.api.GroupJoinRequests
+import net.kikin.nubecita.feature.chats.api.ManageJoinLink
 import net.kikin.nubecita.feature.chats.api.NewChat
+import net.kikin.nubecita.feature.chats.api.NewGroup
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.feed.api.Feed
+import net.kikin.nubecita.feature.feed.api.FeedView
+import net.kikin.nubecita.feature.feeds.api.Feeds
 import net.kikin.nubecita.feature.login.api.Login
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
+import net.kikin.nubecita.feature.moderation.api.Block
+import net.kikin.nubecita.feature.moderation.api.BlockedAccounts
+import net.kikin.nubecita.feature.moderation.api.Report
+import net.kikin.nubecita.feature.moderation.api.SafetyAndReporting
 import net.kikin.nubecita.feature.notifications.api.NotificationsTab
 import net.kikin.nubecita.feature.onboarding.api.Onboarding
+import net.kikin.nubecita.feature.paywall.api.PaywallRoute
 import net.kikin.nubecita.feature.paywall.api.PaywallSuccessRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDeepLinkKey
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.EditProfile
 import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.search.api.Hashtag
 import net.kikin.nubecita.feature.search.api.Search
+import net.kikin.nubecita.feature.settings.api.About
+import net.kikin.nubecita.feature.settings.api.AboutLicenses
+import net.kikin.nubecita.feature.settings.api.Appearance
+import net.kikin.nubecita.feature.settings.api.ContentFilters
+import net.kikin.nubecita.feature.settings.api.FeedPreferences
+import net.kikin.nubecita.feature.settings.api.MediaAndAnimations
+import net.kikin.nubecita.feature.settings.api.Moderation
 import net.kikin.nubecita.feature.settings.api.Settings
 import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
+import net.kikin.nubecita.feature.videos.api.VideoFeed
 
 /**
  * Map a Navigation 3 [NavKey] to the stable, PII-free [AnalyticsScreen] it
@@ -52,13 +75,9 @@ import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
  * sealed) interface — Kotlin can't form a cross-module sealed set to check
  * exhaustiveness against. So a brand-**new** route falls through `else ->
  * null` (untracked, never crashes — analytics is fire-and-forget). The
- * coverage net for that case is `NavKeyAnalyticsTest`, which pins every
- * current route → screen pair and must be updated when a route is added.
- *
- * `net.kikin.nubecita.feature.moderation.api.Report` is intentionally absent:
- * it is a don't-track route AND `:feature:moderation:api` is not on `:app`'s
- * compile classpath (only `implementation`-scoped inside other `:impl`
- * modules), so it is covered by the `else` branch rather than referenced.
+ * coverage net for that case is `NavKeyAnalyticsTest`, which scans the
+ * runtime classpath for every `NavKey` and fails until a new route is either
+ * mapped here or listed as deliberately untracked (nubecita-ccvy.1).
  */
 internal fun NavKey.toAnalyticsScreenOrNull(): AnalyticsScreen? =
     when (this) {
@@ -84,12 +103,39 @@ internal fun NavKey.toAnalyticsScreenOrNull(): AnalyticsScreen? =
         Bookmarks -> AnalyticsScreen.Bookmarks
         is Chat -> AnalyticsScreen.ChatThread
         is MediaViewerRoute -> AnalyticsScreen.MediaViewer
+        is VideoFeed -> AnalyticsScreen.VideoFeed
+        is FeedView -> AnalyticsScreen.FeedView
+        Feeds -> AnalyticsScreen.Feeds
+        is Hashtag -> AnalyticsScreen.Hashtag
+        is PaywallRoute -> AnalyticsScreen.Paywall
+        BlockedAccounts -> AnalyticsScreen.BlockedAccounts
+        SafetyAndReporting -> AnalyticsScreen.SafetyAndReporting
+
+        // --- Inner shell: settings sub-pages ---
+        Appearance -> AnalyticsScreen.SettingsAppearance
+        ContentFilters -> AnalyticsScreen.SettingsContentFilters
+        FeedPreferences -> AnalyticsScreen.SettingsFeedPreferences
+        MediaAndAnimations -> AnalyticsScreen.SettingsMediaAndAnimations
+        Moderation -> AnalyticsScreen.SettingsModeration
+        About -> AnalyticsScreen.About
+        AboutLicenses -> AnalyticsScreen.AboutLicenses
+
+        // --- Inner shell: group chats ---
+        NewGroup -> AnalyticsScreen.NewGroup
+        is GroupDetails -> AnalyticsScreen.GroupDetails
+        is AddGroupMembers -> AnalyticsScreen.GroupAddMembers
+        is GroupJoinRequests -> AnalyticsScreen.GroupJoinRequests
+        is ManageJoinLink -> AnalyticsScreen.GroupJoinLink
+        is GroupJoinPreview -> AnalyticsScreen.GroupJoinPreview
+        ChatSettings -> AnalyticsScreen.ChatSettings
 
         // --- Deliberately NOT tracked (no AnalyticsScreen value by design) ---
         NewChat -> null // recipient picker, not a destination screen
         is VideoPlayerRoute -> null // no AnalyticsScreen value; left untracked
         is PostDeepLinkKey -> null // transport only; converted before reaching a back stack
-        PaywallSuccessRoute -> null // celebration, not a tracked destination (PaywallRoute is also untracked); nubecita-ykpc
+        PaywallSuccessRoute -> null // celebration, not a tracked destination; nubecita-ykpc
+        is Report -> null // dialog over the current screen, not a destination
+        is Block -> null // confirmation dialog over the current screen
 
         // New / unknown route → untracked. See KDoc + NavKeyAnalyticsTest.
         else -> null
