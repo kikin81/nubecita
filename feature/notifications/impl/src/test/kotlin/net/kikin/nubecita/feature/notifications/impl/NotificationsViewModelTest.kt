@@ -8,8 +8,12 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.analytics.NotificationSource
+import net.kikin.nubecita.core.analytics.NotificationTap
+import net.kikin.nubecita.core.analytics.NotificationType
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.NotificationFilter
 import net.kikin.nubecita.data.models.NotificationItemUi
@@ -35,6 +39,8 @@ internal class NotificationsViewModelTest {
     @RegisterExtension
     val mainDispatcher = MainDispatcherExtension()
 
+    private val analytics = RecordingAnalyticsClient()
+
     // ---------- init / initial fetch ----------
 
     @Test
@@ -45,7 +51,7 @@ internal class NotificationsViewModelTest {
                     pages = listOf(Result.success(page(items = items("a1"), nextCursor = "c1"))),
                 )
             // Construction kicks off the initial fetch via `init`.
-            val vm = NotificationsViewModel(repo)
+            val vm = NotificationsViewModel(repo, analytics)
             advanceUntilIdle()
 
             assertEquals(1, repo.fetchPageCalls.size, "init MUST issue exactly one listNotifications call")
@@ -65,7 +71,7 @@ internal class NotificationsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeNotificationsRepository(pages = listOf(Result.failure(IOException("network down"))))
 
-            val vm = NotificationsViewModel(repo)
+            val vm = NotificationsViewModel(repo, analytics)
             advanceUntilIdle()
 
             val status = vm.uiState.value.loadStatus
@@ -85,7 +91,7 @@ internal class NotificationsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeNotificationsRepository(pages = listOf(Result.failure(NoSessionException())))
 
-            val vm = NotificationsViewModel(repo)
+            val vm = NotificationsViewModel(repo, analytics)
             advanceUntilIdle()
 
             val status = vm.uiState.value.loadStatus
@@ -109,7 +115,7 @@ internal class NotificationsViewModelTest {
                             Result.success(page(items = items("b1"), nextCursor = "c2")),
                         ),
                 )
-            val vm = NotificationsViewModel(repo)
+            val vm = NotificationsViewModel(repo, analytics)
             advanceUntilIdle()
 
             vm.handleEvent(NotificationsEvent.Refresh)
@@ -132,7 +138,7 @@ internal class NotificationsViewModelTest {
                             Result.failure(IOException("refresh failed")),
                         ),
                 )
-            val vm = NotificationsViewModel(repo)
+            val vm = NotificationsViewModel(repo, analytics)
             advanceUntilIdle()
 
             vm.effects.test {
@@ -167,7 +173,7 @@ internal class NotificationsViewModelTest {
                         }
                     },
                 )
-            val vm = NotificationsViewModel(repo)
+            val vm = NotificationsViewModel(repo, analytics)
             // Don't advanceUntilIdle — init fetch is parked.
             assertEquals(NotificationsLoadStatus.InitialLoading, vm.uiState.value.loadStatus)
 
@@ -195,7 +201,7 @@ internal class NotificationsViewModelTest {
                         }
                     },
                 )
-            val vm = NotificationsViewModel(repo)
+            val vm = NotificationsViewModel(repo, analytics)
             advanceUntilIdle()
 
             vm.handleEvent(NotificationsEvent.LoadMore) // enters Appending
@@ -222,7 +228,7 @@ internal class NotificationsViewModelTest {
                             Result.success(page(items = items("a3"), nextCursor = null)),
                         ),
                 )
-            val vm = NotificationsViewModel(repo)
+            val vm = NotificationsViewModel(repo, analytics)
             advanceUntilIdle()
 
             vm.handleEvent(NotificationsEvent.LoadMore)
@@ -242,7 +248,7 @@ internal class NotificationsViewModelTest {
                 FakeNotificationsRepository(
                     pages = listOf(Result.success(page(items = items("a1"), nextCursor = null))),
                 )
-            val vm = NotificationsViewModel(repo)
+            val vm = NotificationsViewModel(repo, analytics)
             advanceUntilIdle()
             assertEquals(false, vm.uiState.value.hasMore)
             assertEquals(1, repo.fetchPageCalls.size)
@@ -266,7 +272,7 @@ internal class NotificationsViewModelTest {
                             Result.failure(IOException("page failed")),
                         ),
                 )
-            val vm = NotificationsViewModel(repo)
+            val vm = NotificationsViewModel(repo, analytics)
             advanceUntilIdle()
 
             vm.effects.test {
@@ -293,7 +299,7 @@ internal class NotificationsViewModelTest {
                 FakeNotificationsRepository(
                     pages = listOf(Result.success(page(items = items("a1"), nextCursor = null))),
                 )
-            val vm = NotificationsViewModel(repo)
+            val vm = NotificationsViewModel(repo, analytics)
             advanceUntilIdle()
             val before = vm.uiState.value
             assertEquals(1, repo.fetchPageCalls.size)
@@ -318,7 +324,7 @@ internal class NotificationsViewModelTest {
                             Result.success(page(items = items("m1"), nextCursor = "c2")),
                         ),
                 )
-            val vm = NotificationsViewModel(repo)
+            val vm = NotificationsViewModel(repo, analytics)
             advanceUntilIdle()
 
             vm.handleEvent(NotificationsEvent.FilterSelected(NotificationFilter.Mentions))
@@ -355,7 +361,7 @@ internal class NotificationsViewModelTest {
                         }
                     },
                 )
-            val vm = NotificationsViewModel(repo)
+            val vm = NotificationsViewModel(repo, analytics)
             // init fetch parked on allDeferred; activeFilter = All.
 
             vm.handleEvent(NotificationsEvent.FilterSelected(NotificationFilter.Mentions))
@@ -412,7 +418,7 @@ internal class NotificationsViewModelTest {
                         }
                     },
                 )
-            val vm = NotificationsViewModel(repo)
+            val vm = NotificationsViewModel(repo, analytics)
             // gen 1 = first All (parked)
 
             vm.handleEvent(NotificationsEvent.FilterSelected(NotificationFilter.Mentions))
@@ -468,7 +474,7 @@ internal class NotificationsViewModelTest {
                             Result.failure(IOException("network down")),
                         ),
                 )
-            val vm = NotificationsViewModel(repo)
+            val vm = NotificationsViewModel(repo, analytics)
             advanceUntilIdle()
 
             vm.effects.test {
@@ -494,7 +500,7 @@ internal class NotificationsViewModelTest {
                             Result.failure(NoSessionException()),
                         ),
                 )
-            val vm = NotificationsViewModel(repo)
+            val vm = NotificationsViewModel(repo, analytics)
             advanceUntilIdle()
 
             vm.effects.test {
@@ -551,6 +557,42 @@ internal class NotificationsViewModelTest {
                 assertEquals(subject.subjectPost?.id, (target as PostDetailRoute).postUri)
             }
         }
+
+    @Test
+    fun `RowTapped logs an in-app notification_tap with the bucketed reason`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = vmWithInitialPage(analytics)
+
+            vm.handleEvent(NotificationsEvent.RowTapped(NotificationItemUiFixtures.singleRepost()))
+
+            assertEquals(
+                listOf(NotificationTap(source = NotificationSource.InApp, type = NotificationType.Repost)),
+                analytics.events.filterIsInstance<NotificationTap>(),
+            )
+        }
+
+    @Test
+    fun `every in-app reason buckets into a notification type`() {
+        val expected =
+            mapOf(
+                NotificationReason.Like to NotificationType.Like,
+                NotificationReason.LikeViaRepost to NotificationType.Like,
+                NotificationReason.Repost to NotificationType.Repost,
+                NotificationReason.RepostViaRepost to NotificationType.Repost,
+                NotificationReason.Reply to NotificationType.Reply,
+                NotificationReason.Mention to NotificationType.Mention,
+                NotificationReason.Quote to NotificationType.Quote,
+                NotificationReason.Follow to NotificationType.Follow,
+                NotificationReason.Verified to NotificationType.Verification,
+                NotificationReason.Unverified to NotificationType.Verification,
+                NotificationReason.StarterpackJoined to NotificationType.Other,
+                NotificationReason.SubscribedPost to NotificationType.Other,
+                NotificationReason.ContactMatch to NotificationType.Other,
+                NotificationReason.Unknown to NotificationType.Other,
+            )
+        assertEquals(NotificationReason.entries.toSet(), expected.keys)
+        expected.forEach { (reason, type) -> assertEquals(type, reason.toNotificationType(), "$reason") }
+    }
 
     @Test
     fun `RowTapped on a Repost row emits NavigateTo with PostDetailRoute`() =
@@ -799,7 +841,7 @@ internal class NotificationsViewModelTest {
                 FakeNotificationsRepository(
                     pages = listOf(Result.success(page(items = items("a1"), nextCursor = null))),
                 )
-            val vm = NotificationsViewModel(repo)
+            val vm = NotificationsViewModel(repo, analytics)
             advanceUntilIdle()
             assertEquals(0, repo.markSeenCalls.size)
 
@@ -821,7 +863,7 @@ internal class NotificationsViewModelTest {
                     pages = listOf(Result.success(page(items = items("a1"), nextCursor = null))),
                     markSeenResult = Result.failure(IOException("seen failed")),
                 )
-            val vm = NotificationsViewModel(repo)
+            val vm = NotificationsViewModel(repo, analytics)
             advanceUntilIdle()
 
             vm.effects.test {
@@ -843,12 +885,14 @@ internal class NotificationsViewModelTest {
  * assertion. Each caller does `advanceUntilIdle()` already via the
  * enclosing `runTest`; this helper just bootstraps the fake.
  */
-private fun kotlinx.coroutines.test.TestScope.vmWithInitialPage(): NotificationsViewModel {
+private fun kotlinx.coroutines.test.TestScope.vmWithInitialPage(
+    analytics: RecordingAnalyticsClient = RecordingAnalyticsClient(),
+): NotificationsViewModel {
     val repo =
         FakeNotificationsRepository(
             pages = listOf(Result.success(page(items = persistentListOf(), nextCursor = null))),
         )
-    val vm = NotificationsViewModel(repo)
+    val vm = NotificationsViewModel(repo, analytics)
     testScheduler.advanceUntilIdle()
     return vm
 }

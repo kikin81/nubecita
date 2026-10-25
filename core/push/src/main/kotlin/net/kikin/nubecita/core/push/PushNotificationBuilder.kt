@@ -8,6 +8,8 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
+import net.kikin.nubecita.core.analytics.NotificationSource
+import net.kikin.nubecita.core.analytics.NotificationTapExtras
 
 /**
  * Constructs [android.app.Notification] instances from [PushPayload]s. The
@@ -103,6 +105,9 @@ class PushNotificationBuilder(
                 // nubecita://profile filter without surfacing a chooser.
                 setPackage(spec.packageName)
                 addFlags(spec.flags)
+                // Lets MainActivity log the tap as a notification_tap (nubecita-ccvy.2).
+                putExtra(NotificationTapExtras.SOURCE, NotificationSource.Push.wire)
+                putExtra(NotificationTapExtras.TYPE, payload.reason.toNotificationType().wire)
             }
         return PendingIntent.getActivity(
             context,

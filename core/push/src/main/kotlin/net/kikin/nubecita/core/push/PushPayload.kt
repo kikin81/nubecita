@@ -1,5 +1,7 @@
 package net.kikin.nubecita.core.push
 
+import net.kikin.nubecita.core.analytics.NotificationType
+
 /**
  * Typed projection of an FCM `data` map sent by the
  * [DracoBlue/atproto-push-gateway](https://github.com/DracoBlue/atproto-push-gateway)
@@ -81,3 +83,15 @@ data class PushPayload(
         }
     }
 }
+
+/** Buckets a push reason into the analytics [NotificationType] (nubecita-ccvy.2). */
+fun PushPayload.Reason.toNotificationType(): NotificationType =
+    when (this) {
+        PushPayload.Reason.Like, PushPayload.Reason.LikeViaRepost -> NotificationType.Like
+        PushPayload.Reason.Repost, PushPayload.Reason.RepostViaRepost -> NotificationType.Repost
+        PushPayload.Reason.Reply -> NotificationType.Reply
+        PushPayload.Reason.Mention -> NotificationType.Mention
+        PushPayload.Reason.Quote -> NotificationType.Quote
+        PushPayload.Reason.Follow -> NotificationType.Follow
+        PushPayload.Reason.Verified, PushPayload.Reason.Unverified -> NotificationType.Verification
+    }

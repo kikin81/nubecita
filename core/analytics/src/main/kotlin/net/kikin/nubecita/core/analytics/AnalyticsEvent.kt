@@ -754,3 +754,51 @@ data class TokenRefresh(
             "foreground" to BoolVal(foreground),
         )
 }
+
+/** Where a tapped notification came from. */
+enum class NotificationSource(
+    val wire: String,
+) {
+    /** A push from the gateway (our own notification or Firebase's auto-display). */
+    Push("push"),
+
+    /** A local notification posted by the background DM poll. */
+    DmPoll("dm_poll"),
+
+    /** A row in the in-app Notifications tab. */
+    InApp("in_app"),
+}
+
+/** What a tapped notification was about, bucketed so the param stays a small closed set. */
+enum class NotificationType(
+    val wire: String,
+) {
+    Like("like"),
+    Repost("repost"),
+    Reply("reply"),
+    Mention("mention"),
+    Quote("quote"),
+    Follow("follow"),
+    Verification("verification"),
+    Message("message"),
+    Other("other"),
+}
+
+/**
+ * Fired when the user taps a notification — a push, a DM-poll notification,
+ * or a row in the Notifications tab. The app posts its own notifications, so
+ * Firebase's automatic `notification_open` (a reserved name) only sees the
+ * rare auto-displayed ones; this is the real re-engagement signal
+ * (nubecita-ccvy.2).
+ */
+data class NotificationTap(
+    val source: NotificationSource,
+    val type: NotificationType,
+) : AnalyticsEvent {
+    override val name: String = "notification_tap"
+    override val params: Map<String, AnalyticsValue> =
+        mapOf(
+            "notification_source" to Str(source.wire),
+            "notification_type" to Str(type.wire),
+        )
+}

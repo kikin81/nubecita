@@ -11,6 +11,9 @@ import androidx.core.app.Person
 import androidx.core.app.RemoteInput
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
+import net.kikin.nubecita.core.analytics.NotificationSource
+import net.kikin.nubecita.core.analytics.NotificationTapExtras
+import net.kikin.nubecita.core.analytics.NotificationType
 import net.kikin.nubecita.feature.chats.impl.R
 import net.kikin.nubecita.feature.chats.impl.data.DELETED_MESSAGE_SNIPPET
 import timber.log.Timber
@@ -222,6 +225,9 @@ internal class MessagingStyleDmNotifier
                     // the deep-link data even when a task already exists (mirrors
                     // PushNotificationBuilder.TAP_INTENT_FLAGS).
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    // Lets MainActivity log the tap as a notification_tap (nubecita-ccvy.2).
+                    putExtra(NotificationTapExtras.SOURCE, NotificationSource.DmPoll.wire)
+                    putExtra(NotificationTapExtras.TYPE, NotificationType.Message.wire)
                 }
             return PendingIntent.getActivity(
                 context,

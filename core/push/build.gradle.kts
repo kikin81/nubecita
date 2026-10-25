@@ -17,6 +17,7 @@ android {
 
 dependencies {
     implementation(platform(libs.firebase.bom))
+    implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     implementation(libs.androidx.core.ktx)
