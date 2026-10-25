@@ -12,7 +12,13 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.analytics.ConvoKind
+import net.kikin.nubecita.core.analytics.DmReaction
+import net.kikin.nubecita.core.analytics.DmSend
+import net.kikin.nubecita.core.analytics.DmSendOutcome
+import net.kikin.nubecita.core.analytics.ReactionAction
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.feature.chats.api.Chat
 import net.kikin.nubecita.feature.chats.impl.data.ChatConvo
@@ -30,6 +36,8 @@ import kotlin.time.Instant
 internal class ChatViewModelTest {
     @RegisterExtension
     val mainDispatcher = MainDispatcherExtension()
+
+    private val analytics = RecordingAnalyticsClient()
 
     private val otherUserDid = "did:plc:alice"
 
@@ -634,6 +642,7 @@ internal class ChatViewModelTest {
                 ChatViewModel(
                     chat = Chat(convoId = "c1"),
                     repository = repo,
+                    analytics = analytics,
                 )
             advanceUntilIdle()
 
@@ -691,6 +700,7 @@ internal class ChatViewModelTest {
                 ChatViewModel(
                     chat = Chat(convoId = "c1"),
                     repository = repo,
+                    analytics = analytics,
                 )
             advanceUntilIdle()
             assertEquals(false, vm.uiState.value.canPost)
@@ -719,6 +729,7 @@ internal class ChatViewModelTest {
                 ChatViewModel(
                     chat = Chat(convoId = "c1"),
                     repository = repo,
+                    analytics = analytics,
                 )
             advanceUntilIdle()
 
@@ -758,7 +769,7 @@ internal class ChatViewModelTest {
                 )
             repo.getProfilesResult = Result.success(listOf(author("did:plc:left", "left.bsky.social", "Departed")))
 
-            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo)
+            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo, analytics = analytics)
             advanceUntilIdle()
 
             // Only the out-of-roster sender is fetched; the rostered one is already known.
@@ -800,7 +811,7 @@ internal class ChatViewModelTest {
                     ),
                 )
 
-            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo)
+            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo, analytics = analytics)
             advanceUntilIdle()
 
             assertTrue(repo.getProfilesCalls.isEmpty(), "fully-rostered group issues no profile fetch")
@@ -831,6 +842,48 @@ internal class ChatViewModelTest {
             assertEquals(null, vm.uiState.value.senderFor("m1"))
         }
 
+    // --- Analytics: dm_send (nubecita-ccvy.3) ---
+
+    @Test
+    fun `a failed send then a successful retry logs dm_send for each attempt`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeChatRepository()
+            repo.getConvoResult = groupConvo("c1")
+            repo.nextSendResult = Result.failure(IOException("net down"))
+            val vm = ChatViewModel(Chat(convoId = "c1"), repo, analytics)
+            advanceUntilIdle()
+
+            setComposerText(vm, "hello")
+            vm.handleEvent(ChatEvent.Send)
+            advanceUntilIdle()
+            val failed =
+                vm.uiState.value
+                    .outgoingMessages()
+                    .single()
+            repo.nextSendResult =
+                Result.success(
+                    MessageUi(
+                        id = "server-7",
+                        senderDid = "did:plc:viewer",
+                        isOutgoing = true,
+                        text = "hello",
+                        isDeleted = false,
+                        sentAt = Instant.parse("2026-05-20T10:00:00Z"),
+                        sendStatus = MessageSendStatus.Sent,
+                    ),
+                )
+            vm.handleEvent(ChatEvent.RetrySend(failed.id))
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(
+                    DmSend(kind = ConvoKind.Group, outcome = DmSendOutcome.Failed, isReply = false, isRetry = false),
+                    DmSend(kind = ConvoKind.Group, outcome = DmSendOutcome.Sent, isReply = false, isRetry = true),
+                ),
+                analytics.events.filterIsInstance<DmSend>(),
+            )
+        }
+
     // --- Reactions: ToggleReaction (nubecita-hwix.3) ---
 
     @Test
@@ -843,12 +896,13 @@ internal class ChatViewModelTest {
                 )
             repo.getConvoResult = groupConvo("c1")
             repo.addReactionResult = Result.success(serverMessage("m1", persistentListOf(ReactionUi("👍", 1, true))))
-            val vm = ChatViewModel(Chat(convoId = "c1"), repo)
+            val vm = ChatViewModel(Chat(convoId = "c1"), repo, analytics)
             advanceUntilIdle()
             vm.handleEvent(ChatEvent.ToggleReaction("m1", "👍"))
             advanceUntilIdle()
             assertEquals(Triple("c1", "m1", "👍"), repo.addReactionCalls.single())
             assertEquals(listOf(ReactionUi("👍", 1, true)), vm.uiState.value.reactionsFor("m1"))
+            assertEquals(listOf(DmReaction(ReactionAction.Add)), analytics.events.filterIsInstance<DmReaction>())
         }
 
     @Test
@@ -869,7 +923,7 @@ internal class ChatViewModelTest {
                 )
             repo.getConvoResult = groupConvo("c1")
             repo.removeReactionResult = Result.success(serverMessage("m1", persistentListOf()))
-            val vm = ChatViewModel(Chat(convoId = "c1"), repo)
+            val vm = ChatViewModel(Chat(convoId = "c1"), repo, analytics)
             advanceUntilIdle()
             vm.handleEvent(ChatEvent.ToggleReaction("m1", "👍"))
             advanceUntilIdle()
@@ -891,7 +945,7 @@ internal class ChatViewModelTest {
                 )
             repo.getConvoResult = groupConvo("c1")
             repo.addReactionResult = Result.failure(IOException("down"))
-            val vm = ChatViewModel(Chat(convoId = "c1"), repo)
+            val vm = ChatViewModel(Chat(convoId = "c1"), repo, analytics)
             advanceUntilIdle()
             vm.effects.test {
                 vm.handleEvent(ChatEvent.ToggleReaction("m1", "👍"))
@@ -916,7 +970,7 @@ internal class ChatViewModelTest {
                 )
             repo.getConvoResult = groupConvo("c1")
             repo.reactionGate = CompletableDeferred()
-            val vm = ChatViewModel(Chat(convoId = "c1"), repo)
+            val vm = ChatViewModel(Chat(convoId = "c1"), repo, analytics)
             advanceUntilIdle()
             vm.handleEvent(ChatEvent.ToggleReaction("m1", "👍"))
             advanceUntilIdle()
@@ -1035,6 +1089,7 @@ internal class ChatViewModelTest {
         ChatViewModel(
             chat = Chat(otherUserDid = otherUserDid),
             repository = repo,
+            analytics = analytics,
         )
 
     /** An incoming (not-outgoing) [MessageUi] from [senderDid]. */
@@ -1139,7 +1194,7 @@ internal class ChatViewModelTest {
                         isRequest = true,
                     ),
                 )
-            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo)
+            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo, analytics = analytics)
             advanceUntilIdle()
 
             assertTrue(vm.uiState.value.isRequest, "the accept surface, not the composer, is shown")
@@ -1158,7 +1213,7 @@ internal class ChatViewModelTest {
                         isRequest = true,
                     ),
                 )
-            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo)
+            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo, analytics = analytics)
             advanceUntilIdle()
             val fetchesBeforeAccept = repo.getConvoCalls.get()
 
@@ -1187,7 +1242,7 @@ internal class ChatViewModelTest {
                     ),
                 )
             repo.nextAcceptResult = Result.failure(RuntimeException("boom"))
-            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo)
+            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo, analytics = analytics)
             advanceUntilIdle()
 
             vm.effects.test {
@@ -1214,7 +1269,7 @@ internal class ChatViewModelTest {
                         isRequest = true,
                     ),
                 )
-            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo)
+            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo, analytics = analytics)
             advanceUntilIdle()
 
             vm.handleEvent(ChatEvent.AcceptRequest)
@@ -1242,7 +1297,7 @@ internal class ChatViewModelTest {
                         isRequest = true,
                     ),
                 )
-            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo)
+            val vm = ChatViewModel(chat = Chat(convoId = "c1"), repository = repo, analytics = analytics)
             advanceUntilIdle()
 
             vm.handleEvent(ChatEvent.AcceptRequest)

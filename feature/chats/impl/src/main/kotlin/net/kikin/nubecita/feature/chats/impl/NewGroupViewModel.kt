@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.actors.ActorRepository
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.DmGroupCreate
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.mvi.MviViewModel
@@ -52,6 +54,7 @@ class NewGroupViewModel
         private val actorRepository: ActorRepository,
         private val chatRepository: ChatRepository,
         sessionStateProvider: SessionStateProvider,
+        private val analytics: AnalyticsClient,
     ) : MviViewModel<NewGroupViewState, NewGroupEvent, NewGroupEffect>(NewGroupViewState()) {
         /** Editor-exception: the VM owns the group-name field's text + selection. */
         val nameFieldState: TextFieldState = TextFieldState()
@@ -168,8 +171,10 @@ class NewGroupViewModel
             viewModelScope.launch {
                 chatRepository
                     .createGroup(name, dids)
-                    .onSuccess { convoId -> sendEffect(NewGroupEffect.GroupCreated(convoId)) }
-                    .onFailure {
+                    .onSuccess { convoId ->
+                        analytics.log(DmGroupCreate)
+                        sendEffect(NewGroupEffect.GroupCreated(convoId))
+                    }.onFailure {
                         setState { copy(isSubmitting = false) }
                         sendEffect(NewGroupEffect.ShowError(it.toMemberMgmtError()))
                     }
