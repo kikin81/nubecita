@@ -74,7 +74,7 @@ Constraints:
 Additive: there is nothing to migrate on the phone.
 - **Phone changes:** the snapshot publishing and the extra DM fetches stay inert until a node advertises `nubecita_wear`.
 - **Sequencing:** W1 (internal plus closed testing) → W2 (production launch) → W3 → W4 → W5.
-- **Rollback:** halt the Wear form-factor rollout in Play. Phone behaviour without a watch is unchanged.
+- **Rollback:** halt the Wear form-factor rollout in Play. Phone behavior without a watch is unchanged.
 
 ## Open Questions
 

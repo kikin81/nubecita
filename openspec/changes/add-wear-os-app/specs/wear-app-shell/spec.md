@@ -19,7 +19,7 @@ The Wear app SHALL show a splash screen via `androidx.core:core-splashscreen` wi
 - **THEN** a black splash screen with the launcher icon appears before the first screen, and exactly one Nubecita entry appears in Recents afterwards
 
 ### Requirement: Wear UI uses the Wear Compose M3 structure
-The app SHALL use exactly one `AppScaffold`, a `ScreenScaffold` per screen and a `TimeText`. Every scrolling list SHALL be a `TransformingLazyColumn` that receives the scaffold's content padding and applies `SurfaceTransformation` and `transformedHeight` to its items. Snapping lists SHALL set both the snap fling and the rotary snap behaviour. An `EdgeButton` SHALL live in the `ScreenScaffold` slot, and the `ScrollIndicator` SHALL be hidden during scroll capture.
+The app SHALL use exactly one `AppScaffold`, a `ScreenScaffold` per screen and a `TimeText`. Every scrolling list SHALL be a `TransformingLazyColumn` that receives the scaffold's content padding and applies `SurfaceTransformation` and `transformedHeight` to its items. Snapping lists SHALL set both the snap fling and the rotary snap behavior. An `EdgeButton` SHALL live in the `ScreenScaffold` slot, and the `ScrollIndicator` SHALL be hidden during scroll capture.
 
 #### Scenario: Touch and rotary scrolling snap alike
 - **WHEN** the user scrolls the feed list with the rotating crown and then flings it by touch
