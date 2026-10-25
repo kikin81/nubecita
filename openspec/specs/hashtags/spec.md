@@ -80,7 +80,7 @@ Wherever post text is rendered with facets (post cards, quoted posts, post detai
 - **THEN** the navigation target is `Hashtag(tag = "Kotlin", …)`
 
 #### Scenario: Every post-text host handles tag taps
-- **WHEN** the user taps a tag in post detail, profile posts, bookmarks, notifications, search results or a chat message
+- **WHEN** the user taps a tag in post detail, profile posts, bookmarks, search results or a chat message
 - **THEN** the Hashtag screen opens. No host ignores the tap.
 
 ### Requirement: Hashtag screen shows tagged posts with Top and Latest tabs
