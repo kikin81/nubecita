@@ -2,6 +2,7 @@ package net.kikin.nubecita.core.wearsync.internal
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.os.Build
 import coil3.ImageLoader
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
@@ -58,7 +59,7 @@ internal class CoilWearImageEncoder
                 val result = imageLoader.execute(request) as? SuccessResult ?: return null
                 val bitmap = result.image.toBitmap()
                 ByteArrayOutputStream().use { out ->
-                    bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, WEBP_QUALITY, out)
+                    bitmap.compress(webpLossy(), WEBP_QUALITY, out)
                     out.toByteArray()
                 }
             } catch (cancellation: CancellationException) {
@@ -72,5 +73,15 @@ internal class CoilWearImageEncoder
 
         private companion object {
             const val WEBP_QUALITY = 70
+
+            // WEBP_LOSSY only exists from API 30; the phone app's minSdk is 28.
+            // Below 30 the deprecated WEBP is lossy at quality < 100.
+            fun webpLossy(): Bitmap.CompressFormat =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    Bitmap.CompressFormat.WEBP_LOSSY
+                } else {
+                    @Suppress("DEPRECATION")
+                    Bitmap.CompressFormat.WEBP
+                }
         }
     }

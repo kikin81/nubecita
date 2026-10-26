@@ -146,6 +146,36 @@ class DefaultWearFeedSyncTest {
         }
 
     @Test
+    fun an_empty_cache_keeps_the_watchs_previous_snapshot() =
+        runTest {
+            val previous = WearPaths.feed(did, WearFeedKey.FOLLOWING)
+            dataLayer.existing += previous
+
+            sync().publish(did)
+
+            assertTrue(dataLayer.deleted.isEmpty())
+        }
+
+    @Test
+    fun every_image_in_a_feed_is_encoded() =
+        runTest {
+            val posts =
+                (1..12).map {
+                    testPost("p$it", authorDid = "did:plc:a$it", avatarUrl = "https://cdn/avatar/$it.jpg")
+                }
+            heads[FeedKey.following(did)] = posts
+
+            sync().publish(did)
+
+            assertEquals(
+                12,
+                dataLayer.puts
+                    .single()
+                    .assets.size,
+            )
+        }
+
+    @Test
     fun snapshots_of_deselected_feeds_are_deleted() =
         runTest {
             val stale = WearPaths.feed(did, WearFeedKey.forFeedUri(catsUri))

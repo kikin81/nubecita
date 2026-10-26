@@ -1,7 +1,12 @@
 package net.kikin.nubecita.core.wearsync
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import net.kikin.nubecita.core.feedcache.FeedKey
 import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.feedcache.FeedType
@@ -68,13 +73,14 @@ internal class DefaultWearFeedSync(
             // the others. Rethrow cancellation.
             try {
                 val posts = feedRepository.head(feedKeyFor(accountDid, uri), MAX_POSTS).first()
-                if (posts.isEmpty()) continue
+                if (posts.isEmpty()) {
+                    // Nothing cached right now: keep the watch's previous snapshot
+                    // (offline-first) rather than letting the cleanup below delete it.
+                    published += path
+                    continue
+                }
                 val draft = posts.toWearFeedDraft()
-                val assets =
-                    buildMap {
-                        draft.avatarUrls.forEach { (key, url) -> imageEncoder.encode(url, WearImageEncoder.AVATAR_PX)?.let { put(key, it) } }
-                        draft.thumbnailUrls.forEach { (key, url) -> imageEncoder.encode(url, WearImageEncoder.THUMBNAIL_PX)?.let { put(key, it) } }
-                    }
+                val assets = encodeAll(draft.avatarUrls, WearImageEncoder.AVATAR_PX) + encodeAll(draft.thumbnailUrls, WearImageEncoder.THUMBNAIL_PX)
                 // An image that failed to load is simply not referenced, so the
                 // watch never asks for a missing Asset.
                 val postsWithAssets =
@@ -106,6 +112,25 @@ internal class DefaultWearFeedSync(
     }
 
     /**
+     * Loads and encodes images a few at a time (Coil queues the network work),
+     * instead of one by one: a feed can reference ~100 images. Capped so a
+     * background run doesn't open dozens of connections at once.
+     */
+    private suspend fun encodeAll(
+        urls: Map<String, String>,
+        maxPx: Int,
+    ): Map<String, ByteArray> {
+        val permits = Semaphore(MAX_CONCURRENT_IMAGES)
+        return coroutineScope {
+            urls
+                .map { (key, url) -> async { permits.withPermit { imageEncoder.encode(url, maxPx)?.let { key to it } } } }
+                .awaitAll()
+                .filterNotNull()
+                .toMap()
+        }
+    }
+
+    /**
      * The same effective selection Settings → Watch shows: stored URIs that are
      * still pinned (Following always counts), falling back to Following when
      * none are. A feed the user unpinned stops syncing.
@@ -127,6 +152,9 @@ internal class DefaultWearFeedSync(
     internal companion object {
         /** Posts per feed: ~19 KB of JSON, well under the 100 KB payload limit. */
         const val MAX_POSTS = 50
+
+        /** Images loaded at once while building a snapshot. */
+        const val MAX_CONCURRENT_IMAGES = 4
 
         /** Which cache partition a selected feed URI lives in (shared with the app and widget). */
         fun feedKeyFor(
