@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="wear_home_title">Nubecita</string>
-    <string name="wear_home_body">Seu feed e suas mensagens do celular vão aparecer aqui.</string>
-    <string name="wear_home_signed_in_as">Conectado como @%1$s</string>
     <string name="wear_gate_phone_app_missing_title">Instale o Nubecita no celular</string>
     <string name="wear_gate_phone_app_missing_body">O Nubecita no relógio mostra o que o app Nubecita do seu celular envia para ele.</string>
     <string name="wear_gate_install_on_phone">Instalar no celular</string>
@@ -13,4 +10,34 @@
     <string name="wear_gate_open_on_phone">Abrir no celular</string>
     <string name="wear_gate_update_title">Atualize o Nubecita</string>
     <string name="wear_gate_update_body">Atualize o Nubecita no relógio para continuar sincronizando com o celular.</string>
+    <string name="wear_feed_following">Seguindo</string>
+    <string name="wear_feed_empty_title">Nenhum feed ainda</string>
+    <string name="wear_feed_empty_body">Seu feed aparece aqui depois que o celular sincroniza. Deixe o celular por perto um instante.</string>
+    <string name="wear_feed_updated">Atualizado %1$s</string>
+    <string name="wear_feed_switch">Trocar feed</string>
+    <string name="wear_feed_picker_title">Feeds</string>
+    <string name="wear_post_video">Vídeo</string>
+    <string name="wear_post_image">Imagem</string>
+    <string name="wear_post_sensitive_media">Conteúdo sensível oculto</string>
+    <string name="wear_post_reposted_by">Repostado por @%1$s</string>
+    <plurals name="wear_post_images">
+        <item quantity="one">%1$d imagem</item>
+        <item quantity="many">%1$d imagens</item>
+        <item quantity="other">%1$d imagens</item>
+    </plurals>
+    <plurals name="wear_post_replies">
+        <item quantity="one">%1$d resposta</item>
+        <item quantity="many">%1$d respostas</item>
+        <item quantity="other">%1$d respostas</item>
+    </plurals>
+    <plurals name="wear_post_reposts">
+        <item quantity="one">%1$d repost</item>
+        <item quantity="many">%1$d reposts</item>
+        <item quantity="other">%1$d reposts</item>
+    </plurals>
+    <plurals name="wear_post_likes">
+        <item quantity="one">%1$d curtida</item>
+        <item quantity="many">%1$d curtidas</item>
+        <item quantity="other">%1$d curtidas</item>
+    </plurals>
 </resources>

@@ -16,7 +16,8 @@ interface WatchFeedRepository {
     ): Flow<List<WatchPostEntity>>
 }
 
-internal class RoomWatchFeedRepository
+/** Production read side over Room. Bound by the Wear app's production flavor (bench binds a fake). */
+class RoomWatchFeedRepository
     @Inject
     constructor(
         private val dao: WatchFeedDao,

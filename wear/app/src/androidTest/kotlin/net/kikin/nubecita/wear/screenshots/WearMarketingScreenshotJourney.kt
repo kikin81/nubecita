@@ -25,7 +25,7 @@ import tools.fastlane.screengrab.locale.LocaleTestRule
  * Runs against the bench flavor only (a signed-in fake session and a fixed
  * clock, no paired phone needed); the production variant skips it. Captures
  * are raw full-screen 1:1 images with no frame, as Play requires for Wear
- * (WO-G5). W2 (feed) and W4 (messages) add their screens here.
+ * (WO-G5). W4 (messages) adds its screens here.
  */
 @RunWith(AndroidJUnit4::class)
 class WearMarketingScreenshotJourney {
@@ -39,18 +39,28 @@ class WearMarketingScreenshotJourney {
     }
 
     @Test
-    fun home() {
+    fun feedPostAndFeeds() {
         ActivityScenario.launch(MainActivity::class.java).use {
-            assertTrue(
-                "signed-in home never appeared",
-                device.wait(Until.hasObject(By.textContains("@nubecita.bsky.social")), TIMEOUT_MS),
-            )
-            Screengrab.screenshot("01_home")
+            // The bench feed: fictional accounts, generated images, fixed clock.
+            assertTrue("bench feed never appeared", device.wait(Until.hasObject(By.text("Ana Ruiz")), TIMEOUT_MS))
+            device.waitForIdle()
+            Screengrab.screenshot("01_feed")
+
+            // Scroll so the first post's photo is on screen.
+            device.swipe(device.displayWidth / 2, device.displayHeight * 9 / 10, device.displayWidth / 2, device.displayHeight / 6, SWIPE_STEPS)
+            device.waitForIdle()
+            Screengrab.screenshot("02_feed_photo")
+
+            device.findObject(By.text("Ana Ruiz"))?.click()
+            assertTrue("post screen never opened", device.wait(Until.hasObject(By.textContains("Worth the cold hands")), TIMEOUT_MS))
+            device.waitForIdle()
+            Screengrab.screenshot("03_post")
         }
     }
 
     companion object {
         private const val TIMEOUT_MS = 10_000L
+        private const val SWIPE_STEPS = 40
 
         @get:ClassRule
         @JvmStatic

@@ -89,7 +89,7 @@ class WearGateViewModel
         private fun updateStatus() {
             val status =
                 when (val current = session) {
-                    is PhoneSession.SignedIn -> WearGateStatus.SignedIn(current.account.handle)
+                    is PhoneSession.SignedIn -> WearGateStatus.SignedIn(did = current.account.did, handle = current.account.handle)
                     PhoneSession.UpdateRequired -> WearGateStatus.UpdateRequired
                     else ->
                         when (phoneApp) {

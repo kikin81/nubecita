@@ -1,16 +1,18 @@
-package net.kikin.nubecita.wear.home
+package net.kikin.nubecita.wear.feed
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumnState
+import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
+import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.ListHeaderDefaults
-import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.RadioButton
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.SurfaceTransformation
 import androidx.wear.compose.material3.Text
@@ -19,25 +21,22 @@ import androidx.wear.compose.material3.lazy.transformedHeight
 import net.kikin.nubecita.wear.R
 import net.kikin.nubecita.wear.ui.WearScrollIndicator
 
-/**
- * Placeholder start screen for the W1 shell. It already uses the list
- * structure every Wear screen follows (a `ScreenScaffold` whose content padding
- * feeds a `TransformingLazyColumn` with transformed items), so the feed (W2)
- * replaces its items rather than its scaffolding.
- */
+/** Picks which synced feed the feed screen shows. */
 @Composable
-fun HomeScreen(
-    handle: String,
+fun FeedPickerScreen(
+    feeds: List<WatchFeedTab>,
+    selectedKey: String?,
+    onSelect: (WatchFeedTab) -> Unit,
     modifier: Modifier = Modifier,
-    state: TransformingLazyColumnState = rememberTransformingLazyColumnState(),
+    listState: TransformingLazyColumnState = rememberTransformingLazyColumnState(),
 ) {
     val transformationSpec = rememberTransformationSpec()
     ScreenScaffold(
-        scrollState = state,
+        scrollState = listState,
         modifier = modifier,
-        scrollIndicator = { WearScrollIndicator(state) },
+        scrollIndicator = { WearScrollIndicator(listState) },
     ) { contentPadding ->
-        TransformingLazyColumn(state = state, contentPadding = contentPadding) {
+        TransformingLazyColumn(state = listState, contentPadding = contentPadding) {
             item {
                 ListHeader(
                     modifier =
@@ -47,23 +46,20 @@ fun HomeScreen(
                             .minimumVerticalContentPadding(ListHeaderDefaults.minimumTopListContentPadding),
                     transformation = SurfaceTransformation(transformationSpec),
                 ) {
-                    Text(stringResource(R.string.wear_home_title))
+                    Text(stringResource(R.string.wear_feed_picker_title))
                 }
             }
-            item {
-                Text(
-                    text = stringResource(R.string.wear_home_signed_in_as, handle),
-                    modifier = Modifier.fillMaxWidth(),
-                    style = MaterialTheme.typography.labelMedium,
-                    textAlign = TextAlign.Center,
-                )
-            }
-            item {
-                Text(
-                    text = stringResource(R.string.wear_home_body),
-                    modifier = Modifier.fillMaxWidth(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
+            items(feeds, key = { it.key }) { feed ->
+                RadioButton(
+                    selected = feed.key == selectedKey,
+                    onSelect = { onSelect(feed) },
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .transformedHeight(this, transformationSpec)
+                            .minimumVerticalContentPadding(ButtonDefaults.minimumVerticalListContentPadding),
+                    transformation = SurfaceTransformation(transformationSpec),
+                    label = { Text(feed.label(), maxLines = 2, overflow = TextOverflow.Ellipsis) },
                 )
             }
         }

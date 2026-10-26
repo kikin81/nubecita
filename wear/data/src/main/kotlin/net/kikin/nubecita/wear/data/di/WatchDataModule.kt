@@ -8,8 +8,6 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import net.kikin.nubecita.wear.data.RoomWatchFeedRepository
-import net.kikin.nubecita.wear.data.WatchFeedRepository
 import net.kikin.nubecita.wear.data.db.WatchDatabase
 import net.kikin.nubecita.wear.data.db.WatchFeedDao
 import net.kikin.nubecita.wear.data.sync.DataLayerWatchSync
@@ -46,6 +44,6 @@ internal interface WatchDataBindsModule {
     @Binds
     fun bindWatchSync(impl: DataLayerWatchSync): WatchSync
 
-    @Binds
-    fun bindWatchFeedRepository(impl: RoomWatchFeedRepository): WatchFeedRepository
+    // WatchFeedRepository is bound by the Wear app per flavor: Room in
+    // production, fixtures in bench (Play Store screenshots).
 }

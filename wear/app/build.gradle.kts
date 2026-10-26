@@ -18,6 +18,7 @@ android {
 }
 
 dependencies {
+    implementation(platform(libs.coil.bom))
     implementation(project(":core:common"))
     implementation(project(":core:wear-contract"))
     implementation(project(":wear:data"))
@@ -30,7 +31,9 @@ dependencies {
     implementation(libs.androidx.wear.compose.navigation3)
     implementation(libs.androidx.wear.phone.interactions)
     implementation(libs.androidx.wear.remote.interactions)
+    implementation(libs.coil.compose)
     implementation(libs.google.play.services.wearable)
+    implementation(libs.kotlinx.collections.immutable)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.timber)
