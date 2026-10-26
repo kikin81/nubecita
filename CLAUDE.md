@@ -171,6 +171,7 @@ Every Android module's `build.gradle.kts` applies one of the convention plugins 
 | `nubecita.android.application` | `:app` only |
 | `nubecita.android.benchmark` | `:benchmark` only (AGP test variant + baseline profile producer) |
 | `nubecita.android.room` | Add-on for modules that own Room entities/DAOs (`:core:database`) |
+| `nubecita.android.wear.application` | `:wear:app` only (Wear OS app: minSdk 33, Wear Compose M3, no flavors) |
 | `nubecita.android.jacoco` | Applied transitively by `library` and `application` (not `benchmark`) — all library and application modules get it automatically |
 
 #### Feature-module sequencing: `:api`-only stubs
@@ -206,6 +207,7 @@ core/
   testing/               JVM test helpers (MainDispatcherExtension)
   testing-android/       androidTest helpers (HiltTestRunner, HiltTestActivity, MockEngineModule)
   video/                 Media3 / ExoPlayer coordinator (single-player, HLS)
+  wear-contract/         phone↔watch Data Layer contract (paths, capabilities, versioned DTOs)
 data/
   models/                @Stable UI data classes (PostUi, AuthorUi, EmbedUi, etc.)
 designsystem/            M3 Expressive tokens, components, preview wrappers
@@ -225,6 +227,8 @@ feature/
   videoplayer/{api,impl} inline video player
   videos/{api,impl}      vertical trending video feed
 benchmark/               Macrobenchmark + BaselineProfile generator
+wear/
+  app/                   Wear OS companion app (Wear Compose M3 + Nav3; phone-relayed, offline)
 openspec/                specs/ and changes/ for design decisions
 docs/                    design system docs, OAuth docs
 ```
