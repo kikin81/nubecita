@@ -8,12 +8,21 @@ import androidx.room.RoomDatabase
  * synced, so a destructive migration is acceptable: the next sync refills it.
  */
 @Database(
-    entities = [WatchFeedEntity::class, WatchPostEntity::class, WatchPendingActionEntity::class],
-    version = 2,
+    entities = [
+        WatchFeedEntity::class,
+        WatchPostEntity::class,
+        WatchPendingActionEntity::class,
+        WatchDmStateEntity::class,
+        WatchConvoEntity::class,
+        WatchMessageEntity::class,
+    ],
+    version = 3,
     exportSchema = true,
 )
 abstract class WatchDatabase : RoomDatabase() {
     abstract fun feedDao(): WatchFeedDao
 
     abstract fun actionDao(): WatchActionDao
+
+    abstract fun dmDao(): WatchDmDao
 }

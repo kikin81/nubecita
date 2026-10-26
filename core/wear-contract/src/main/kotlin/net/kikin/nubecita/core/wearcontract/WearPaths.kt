@@ -47,6 +47,13 @@ object WearPaths {
         actionId: String,
     ): String = "${account(accountDid)}action-result/${actionId.requireSegment()}"
 
+    /** The account DID of a [dms] path, or null for any other path. */
+    fun parseDms(path: String): String? {
+        val parts = path.removePrefix(PREFIX).split('/')
+        if (!path.startsWith(PREFIX) || parts.size != 2 || parts[1] != "dms") return null
+        return parts[0].ifEmpty { null }
+    }
+
     /** The (account DID, action id) of an [action] path, or null for any other path. */
     fun parseAction(path: String): Pair<String, String>? = parseAccountScoped(path, "action")
 

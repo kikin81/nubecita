@@ -87,6 +87,14 @@ class WearPathsTest {
     }
 
     @Test
+    fun parseDms_roundTripsTheDmsPath_andRejectsOthers() {
+        assertEquals(did, WearPaths.parseDms(WearPaths.dms(did)))
+        assertNull(WearPaths.parseDms(WearPaths.feed(did, WearFeedKey.FOLLOWING)))
+        assertNull(WearPaths.parseDms(WearPaths.SESSION))
+        assertNull(WearPaths.parseDms("/v1//dms"))
+    }
+
+    @Test
     fun parseActionResult_roundTripsAResultPath_andRejectsActions() {
         assertEquals(did to "a1", WearPaths.parseActionResult(WearPaths.actionResult(did, "a1")))
         assertNull(WearPaths.parseActionResult(WearPaths.action(did, "a1")))

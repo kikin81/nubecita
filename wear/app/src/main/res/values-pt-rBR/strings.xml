@@ -51,4 +51,17 @@
     <string name="wear_post_state_not_bookmarked">Não salvo</string>
     <string name="wear_post_repost_confirm_title">Repostar isto?</string>
     <string name="wear_post_repost_confirm_body">Seus seguidores vão ver.</string>
+    <string name="wear_dms_title">Mensagens</string>
+    <string name="wear_dms_open">Mensagens</string>
+    <string name="wear_dms_open_unread">Mensagens · %1$d</string>
+    <string name="wear_dms_empty">Ainda não há conversas.</string>
+    <string name="wear_dms_not_synced">Suas mensagens aparecem aqui depois que o Nubecita no celular verificar se há novas.</string>
+    <string name="wear_dms_you">Você: %1$s</string>
+    <string name="wear_dms_deleted">Mensagem apagada</string>
+    <string name="wear_dms_attachment">Anexo</string>
+    <plurals name="wear_dms_unread">
+        <item quantity="one">%1$d mensagem não lida</item>
+        <item quantity="many">%1$d mensagens não lidas</item>
+        <item quantity="other">%1$d mensagens não lidas</item>
+    </plurals>
 </resources>

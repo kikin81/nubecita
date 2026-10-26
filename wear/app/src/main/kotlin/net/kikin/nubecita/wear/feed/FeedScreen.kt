@@ -42,6 +42,8 @@ fun FeedScreen(
     onPostClick: (WatchPostUi) -> Unit,
     onSwitchFeed: () -> Unit,
     modifier: Modifier = Modifier,
+    unreadMessages: Int = 0,
+    onOpenMessages: (() -> Unit)? = null,
     listState: TransformingLazyColumnState = rememberTransformingLazyColumnState(),
 ) {
     when (state.status) {
@@ -98,6 +100,25 @@ fun FeedScreen(
                         modifier = Modifier.transformedHeight(this, transformationSpec),
                         transformation = SurfaceTransformation(transformationSpec),
                         label = { Text(stringResource(R.string.wear_feed_switch)) },
+                    )
+                }
+            }
+            // Shown once the phone has synced DMs (W4).
+            if (onOpenMessages != null) {
+                item {
+                    CompactButton(
+                        onClick = onOpenMessages,
+                        modifier = Modifier.transformedHeight(this, transformationSpec),
+                        transformation = SurfaceTransformation(transformationSpec),
+                        label = {
+                            Text(
+                                if (unreadMessages > 0) {
+                                    stringResource(R.string.wear_dms_open_unread, unreadMessages)
+                                } else {
+                                    stringResource(R.string.wear_dms_open)
+                                },
+                            )
+                        },
                     )
                 }
             }

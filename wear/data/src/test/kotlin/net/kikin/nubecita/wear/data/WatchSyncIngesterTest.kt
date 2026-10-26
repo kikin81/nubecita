@@ -9,16 +9,23 @@ import net.kikin.nubecita.core.wearcontract.WearActionFailure
 import net.kikin.nubecita.core.wearcontract.WearActionResult
 import net.kikin.nubecita.core.wearcontract.WearAuthor
 import net.kikin.nubecita.core.wearcontract.WearCodec
+import net.kikin.nubecita.core.wearcontract.WearConvo
+import net.kikin.nubecita.core.wearcontract.WearDmSnapshot
 import net.kikin.nubecita.core.wearcontract.WearFeedKey
 import net.kikin.nubecita.core.wearcontract.WearFeedSnapshot
 import net.kikin.nubecita.core.wearcontract.WearMedia
+import net.kikin.nubecita.core.wearcontract.WearMessage
 import net.kikin.nubecita.core.wearcontract.WearPaths
 import net.kikin.nubecita.core.wearcontract.WearPost
 import net.kikin.nubecita.core.wearcontract.WearSessionSnapshot
 import net.kikin.nubecita.core.wearcontract.WearViewer
 import net.kikin.nubecita.wear.data.db.WatchActionDao
+import net.kikin.nubecita.wear.data.db.WatchConvoEntity
+import net.kikin.nubecita.wear.data.db.WatchDmDao
+import net.kikin.nubecita.wear.data.db.WatchDmStateEntity
 import net.kikin.nubecita.wear.data.db.WatchFeedDao
 import net.kikin.nubecita.wear.data.db.WatchFeedEntity
+import net.kikin.nubecita.wear.data.db.WatchMessageEntity
 import net.kikin.nubecita.wear.data.db.WatchPendingActionEntity
 import net.kikin.nubecita.wear.data.db.WatchPostEntity
 import net.kikin.nubecita.wear.data.sync.WatchImageStore
@@ -38,12 +45,14 @@ class WatchSyncIngesterTest {
     private val dao = FakeDao()
     private val images = FakeImages()
     private val actions = FakeActionDao()
+    private val dms = FakeDmDao()
     private var nowMs = 1_000L
     private val ingester =
         WatchSyncIngester(
             dao,
             images,
             actions,
+            dms,
             object : Clock {
                 override fun now() = Instant.fromEpochMilliseconds(nowMs)
             },
@@ -265,6 +274,115 @@ class WatchSyncIngesterTest {
 
         override suspend fun deleteExcept(accountDid: String) {
             rows.removeAll { it.accountDid != accountDid }
+        }
+    }
+
+    private fun dmSnapshot(
+        publishedAtMs: Long,
+        vararg convos: WearConvo,
+    ) = WearCodec.encode(WearDmSnapshot.serializer(), WearDmSnapshot(publishedAtMs = publishedAtMs, accountDid = alice, unreadCount = 3, convos = convos.toList()))
+
+    private val dmPath = WearPaths.dms(alice)
+
+    private fun convo(
+        id: String,
+        vararg texts: String,
+    ) = WearConvo(convoId = id, title = "Bob", unreadCount = 1, messages = texts.mapIndexed { i, t -> WearMessage(id = "$id-$i", fromViewer = i % 2 == 1, text = t, sentAtMs = i.toLong()) })
+
+    @Test
+    fun a_dm_snapshot_is_stored_in_order_with_its_messages() =
+        runTest {
+            ingester.ingestDms(dmPath, dmSnapshot(10, convo("c1", "hi", "hey"), convo("c2", "yo")))
+
+            assertEquals(3, dms.state?.unreadCount)
+            assertEquals(listOf("c1" to 0, "c2" to 1), dms.convos.map { it.convoId to it.position })
+            assertEquals(
+                listOf("hi", "hey"),
+                dms.messages
+                    .filter { it.convoId == "c1" }
+                    .sortedBy { it.position }
+                    .map { it.text },
+            )
+            assertTrue(dms.messages.single { it.messageId == "c1-1" }.fromViewer)
+        }
+
+    @Test
+    fun an_older_dm_snapshot_is_ignored_and_a_newer_one_replaces_all() =
+        runTest {
+            ingester.ingestDms(dmPath, dmSnapshot(10, convo("c1", "new")))
+            ingester.ingestDms(dmPath, dmSnapshot(5, convo("old", "stale")))
+            assertEquals(listOf("c1"), dms.convos.map { it.convoId })
+
+            ingester.ingestDms(dmPath, dmSnapshot(20, convo("c2", "newer")))
+            assertEquals(listOf("c2"), dms.convos.map { it.convoId })
+            assertEquals(listOf("newer"), dms.messages.map { it.text })
+        }
+
+    @Test
+    fun deleting_the_dm_snapshot_or_signing_out_clears_dms() =
+        runTest {
+            ingester.ingestDms(dmPath, dmSnapshot(10, convo("c1", "hi")))
+            ingester.onDmsDeleted(dmPath)
+            assertNull(dms.state)
+            assertTrue(dms.convos.isEmpty())
+
+            ingester.ingestDms(dmPath, dmSnapshot(11, convo("c1", "hi")))
+            ingester.onSession(WearCodec.encode(WearSessionSnapshot.serializer(), WearSessionSnapshot(publishedAtMs = 1)))
+            assertNull(dms.state)
+        }
+
+    private class FakeDmDao : WatchDmDao {
+        var state: WatchDmStateEntity? = null
+        val convos = mutableListOf<WatchConvoEntity>()
+        val messages = mutableListOf<WatchMessageEntity>()
+
+        override fun observeState(accountDid: String): Flow<WatchDmStateEntity?> = MutableStateFlow(state)
+
+        override fun observeConvos(accountDid: String): Flow<List<WatchConvoEntity>> = MutableStateFlow(convos.toList())
+
+        override fun observeMessages(
+            accountDid: String,
+            convoId: String,
+        ): Flow<List<WatchMessageEntity>> = MutableStateFlow(messages.filter { it.convoId == convoId })
+
+        override fun observeLastMessages(accountDid: String): Flow<List<WatchMessageEntity>> = MutableStateFlow(emptyList())
+
+        override suspend fun publishedAtMs(accountDid: String) = state?.takeIf { it.accountDid == accountDid }?.publishedAtMs
+
+        override suspend fun upsertState(state: WatchDmStateEntity) {
+            this.state = state
+        }
+
+        override suspend fun insertConvos(convos: List<WatchConvoEntity>) {
+            this.convos += convos
+        }
+
+        override suspend fun insertMessages(messages: List<WatchMessageEntity>) {
+            this.messages += messages
+        }
+
+        override suspend fun deleteMessages(accountDid: String) {
+            messages.removeAll { it.accountDid == accountDid }
+        }
+
+        override suspend fun deleteConvos(accountDid: String) {
+            convos.removeAll { it.accountDid == accountDid }
+        }
+
+        override suspend fun deleteState(accountDid: String) {
+            if (state?.accountDid == accountDid) state = null
+        }
+
+        override suspend fun deleteMessagesExcept(accountDid: String) {
+            messages.removeAll { it.accountDid != accountDid }
+        }
+
+        override suspend fun deleteConvosExcept(accountDid: String) {
+            convos.removeAll { it.accountDid != accountDid }
+        }
+
+        override suspend fun deleteStateExcept(accountDid: String) {
+            if (state?.accountDid != accountDid) state = null
         }
     }
 
