@@ -92,7 +92,7 @@ def nubecita_resolve_promote_targets(app, version_code_option)
   phone_band = explicit && (explicit >= WEAR_VERSION_CODE_OFFSET ? explicit - WEAR_VERSION_CODE_OFFSET : explicit)
   targets = {}
   if app != "wear"
-    targets["phone"] = phone_band || google_play_track_version_codes(track: "internal").map(&:to_i).max ||
+    targets["phone"] = phone_band || (google_play_track_version_codes(track: "internal") || []).map(&:to_i).max ||
       UI.user_error!("No internal version code found to promote")
   end
   if app != "phone"
