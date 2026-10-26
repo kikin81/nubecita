@@ -1,6 +1,6 @@
 ¡Gracias por usar nubecita! Novedades:
-• Hashtags: toca cualquier #etiqueta para ver publicaciones destacadas y recientes, o solo las de ese autor. Tus etiquetas ahora aparecen en la búsqueda de Bluesky.
-• Pega imágenes: pega una imagen copiada o insértala desde tu teclado en una nueva publicación.
-• Un visor de fotos más limpio: controles flotantes que se ven bien en teléfonos, tablets y plegables.
-• Inicio más rápido y corrección de errores.
+• nubecita en tu muñeca: una nueva app para Wear OS muestra tu feed en el reloj, incluso cuando tu teléfono no está cerca.
+• Elige qué llevar: en Ajustes → Reloj, elige hasta tres de tus feeds fijados. Siguiendo viene activado.
+• Siempre al día: al abrir la app en el reloj, el feed se actualiza desde tu teléfono, con fotos.
+• Corrección de errores y mejoras.
 ¡Gracias por acompañarnos! 💙
