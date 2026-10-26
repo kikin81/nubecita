@@ -83,7 +83,10 @@ internal class FileWatchImageStore(
 
     private companion object {
         const val ROOT_DIR = "wear_images"
-        val UNSAFE = Regex("[^A-Za-z0-9._-]")
+
+        // No dots: a segment like ".." must never climb out of the root. Keys
+        // and DIDs don't need them, and ".webp" is appended separately.
+        val UNSAFE = Regex("[^A-Za-z0-9_-]")
 
         fun safe(segment: String): String = segment.replace(UNSAFE, "_")
     }
