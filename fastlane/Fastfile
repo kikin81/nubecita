@@ -112,6 +112,22 @@ def nubecita_stage_marketing_screenshots(dest_metadata, locale: "en-US")
   staged
 end
 
+# Stage the raw Wear captures (images/wearScreenshots/*.png) for [locale] into
+# a supply metadata tree. Unlike the phone/tablet buckets there are no
+# *_framed.jpg files: Play rejects framed or masked Wear screenshots (WO-G5),
+# so the committed 1:1 captures from `wear_screenshots` ARE the listing images.
+# A locale without Wear captures stages nothing, and Play then shows the
+# default-language (en-US) Wear set for it.
+def nubecita_stage_wear_screenshots(dest_metadata, locale: "en-US")
+  src_dir = File.join(nubecita_metadata_android_dir, locale, "images", "wearScreenshots")
+  shots = Dir.glob(File.join(src_dir, "*.png")).sort
+  return 0 if shots.empty?
+  dest_dir = File.join(dest_metadata, locale, "images", "wearScreenshots")
+  FileUtils.mkdir_p(dest_dir)
+  shots.each { |src| FileUtils.cp(src, File.join(dest_dir, File.basename(src))) }
+  shots.size
+end
+
 platform :android do
   desc "Build the signed Wear release AAB and upload it to the Play Console wear:internal track."
   lane :internal_wear do
@@ -340,8 +356,10 @@ platform :android do
       # Stage every locale bucket (en-US + localized). A locale with no committed
       # *_framed.jpg yet contributes nothing; only complete buckets are staged.
       staged = MARKETING_LOCALES.sum { |loc| nubecita_stage_marketing_screenshots(metadata_path, locale: loc) }
+      # Plus the raw Wear set, per locale that has one.
+      staged += MARKETING_LOCALES.sum { |loc| nubecita_stage_wear_screenshots(metadata_path, locale: loc) }
       if staged.zero?
-        UI.important("No committed *_framed.jpg screenshots found — nothing to upload.")
+        UI.important("No committed marketing or Wear screenshots found — nothing to upload.")
         next
       end
       # supply uploads listing metadata (incl. screenshots) INSIDE a
