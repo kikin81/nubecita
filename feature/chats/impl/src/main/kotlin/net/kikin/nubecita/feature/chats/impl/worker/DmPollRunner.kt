@@ -6,12 +6,15 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.preferences.DmPollCursorStore
 import net.kikin.nubecita.core.preferences.MessageCheckingPreference
+import net.kikin.nubecita.core.wearsync.WearDmPublisher
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
+import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
 import net.kikin.nubecita.feature.chats.impl.data.ChatRepository
 import net.kikin.nubecita.feature.chats.impl.data.toDmNotificationContent
 import net.kikin.nubecita.feature.chats.impl.data.toDmNotifyPlan
 import timber.log.Timber
 import javax.inject.Inject
+import kotlin.time.Clock
 
 /**
  * The background DM-poll orchestration (design D3/D5), extracted from
@@ -32,6 +35,10 @@ import javax.inject.Inject
  *    establish the baseline cursor WITHOUT notifying the pre-existing backlog.
  * 5. **Notify + advance** — post per-convo notifications, then persist the
  *    advanced cursor.
+ * 6. **Watch** (W4) — only while a watch has the app: fetch messages for the
+ *    conversations [getLog] saw change (seeding the shown ones once) and publish
+ *    the watch's DM snapshot. Isolated: a watch failure never touches the
+ *    notifications, the cursor or the outcome.
  *
  * Auth (§4.2): all network goes through [ChatRepository], whose
  * `XrpcClientProvider.authenticated()` refreshes via `:core:auth`'s single
@@ -47,6 +54,8 @@ internal class DmPollRunner
         private val sessionStateProvider: SessionStateProvider,
         private val foreground: AppForegroundSignal,
         private val notifier: DmNotifier,
+        private val wearDms: WearDmPublisher,
+        private val clock: Clock,
     ) {
         enum class Outcome { SUCCESS, RETRY }
 
@@ -122,6 +131,7 @@ internal class DmPollRunner
                 if (next != null) {
                     cursorStore.setCursor(viewerDid, next)
                 }
+                syncWatch(viewerDid, convos, page)
                 return Outcome.SUCCESS
             }
 
@@ -164,7 +174,31 @@ internal class DmPollRunner
                 )
             }
             plan.advancedCursor?.let { cursorStore.setCursor(viewerDid, it) }
+            syncWatch(viewerDid, convos, page)
             return Outcome.SUCCESS
+        }
+
+        private suspend fun syncWatch(
+            viewerDid: String,
+            convos: List<ConvoRowUi>,
+            page: ChatLogPage,
+        ) {
+            try {
+                if (!wearDms.hasWatch()) return
+                val previous = wearDms.lastSnapshot(viewerDid)
+                val shown = convos.forWatch()
+                val changed = page.events.mapTo(HashSet()) { it.convoId }
+                val toFetch = convosToFetch(shown, changed, previous)
+                // A conversation whose fetch fails keeps its previous messages.
+                val fetched = toFetch.mapNotNull { id -> repository.getMessages(id, limit = WEAR_DM_MESSAGES).getOrNull()?.let { id to it.messages } }.toMap()
+                val snapshot = buildWearDmSnapshot(viewerDid, clock.now().toEpochMilliseconds(), shown, fetched, previous)
+                if (snapshot != previous?.copy(publishedAtMs = snapshot.publishedAtMs)) wearDms.publish(snapshot)
+                Timber.tag(LOG_TAG).d("watch: fetched %d of %d convo(s)", fetched.size, shown.size)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.tag(LOG_TAG).w(e, "watch DM snapshot failed")
+            }
         }
 
         private companion object {

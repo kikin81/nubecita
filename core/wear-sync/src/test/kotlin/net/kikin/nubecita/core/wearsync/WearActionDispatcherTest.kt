@@ -221,5 +221,7 @@ class WearActionDispatcherTest {
         }
 
         override suspend fun pathsUnder(pathPrefix: String): List<String> = existingResults.filter { it.startsWith(pathPrefix) }
+
+        override suspend fun read(path: String): String? = null
     }
 }

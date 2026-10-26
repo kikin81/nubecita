@@ -256,5 +256,7 @@ class DefaultWearFeedSyncTest {
         ) = Unit
 
         override suspend fun pathsUnder(pathPrefix: String): List<String> = existing.filter { it.startsWith(pathPrefix) }
+
+        override suspend fun read(path: String): String? = null
     }
 }

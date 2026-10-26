@@ -156,5 +156,7 @@ class WearSyncRequestHandlerTest {
         ) = Unit
 
         override suspend fun pathsUnder(pathPrefix: String): List<String> = emptyList()
+
+        override suspend fun read(path: String): String? = null
     }
 }

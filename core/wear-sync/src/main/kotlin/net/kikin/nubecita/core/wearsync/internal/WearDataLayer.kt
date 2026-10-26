@@ -5,6 +5,7 @@ import android.net.Uri
 import com.google.android.gms.wearable.Asset
 import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.DataClient
+import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.PutDataRequest
 import com.google.android.gms.wearable.Wearable
@@ -48,6 +49,9 @@ internal interface WearDataLayer {
 
     /** Paths of the items this node has written under [pathPrefix]. */
     suspend fun pathsUnder(pathPrefix: String): List<String>
+
+    /** The JSON payload this node last wrote at exactly [path], or null when there is none. */
+    suspend fun read(path: String): String?
 }
 
 internal class PlayServicesWearDataLayer
@@ -84,6 +88,15 @@ internal class PlayServicesWearDataLayer
             val items = Wearable.getDataClient(context).getDataItems(wildcardUri(pathPrefix), DataClient.FILTER_PREFIX).await()
             return try {
                 items.mapNotNull { it.uri.path }
+            } finally {
+                items.release()
+            }
+        }
+
+        override suspend fun read(path: String): String? {
+            val items = Wearable.getDataClient(context).getDataItems(wildcardUri(path), DataClient.FILTER_LITERAL).await()
+            return try {
+                items.firstOrNull()?.let { DataMapItem.fromDataItem(it).dataMap.getString(WearDataKeys.PAYLOAD) }
             } finally {
                 items.release()
             }
