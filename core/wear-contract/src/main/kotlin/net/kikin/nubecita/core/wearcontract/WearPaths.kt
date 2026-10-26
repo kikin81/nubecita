@@ -23,11 +23,14 @@ object WearPaths {
     /** Root of everything stored for [accountDid] — the prefix to delete on sign-out. */
     fun account(accountDid: String): String = "${PREFIX}${accountDid.requireSegment()}/"
 
+    /** Prefix of every feed snapshot for [accountDid]. */
+    fun feeds(accountDid: String): String = "${account(accountDid)}feed/"
+
     /** One synced feed's snapshot. [feedKey] comes from [WearFeedKey]. */
     fun feed(
         accountDid: String,
         feedKey: String,
-    ): String = "${account(accountDid)}feed/${feedKey.requireSegment()}"
+    ): String = "${feeds(accountDid)}${feedKey.requireSegment()}"
 
     /** The account's DM snapshot. */
     fun dms(accountDid: String): String = "${account(accountDid)}dms"
@@ -66,6 +69,9 @@ object WearFeedKey {
         require(feedUri.isNotEmpty()) { "feed URI is empty" }
         return URI_PREFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(feedUri.encodeToByteArray())
     }
+
+    /** Key for a feed URI as the phone stores it: `"following"` maps to [FOLLOWING]. */
+    fun forUri(uri: String): String = if (uri == FOLLOWING) FOLLOWING else forFeedUri(uri)
 
     /** The AT-URI behind a key from [forFeedUri], or null for [FOLLOWING] / a malformed key. */
     fun feedUriOrNull(feedKey: String): String? {

@@ -14,6 +14,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.feedcache.FeedKey
 import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.feedcache.FeedType
+import net.kikin.nubecita.core.wearsync.WearFeedSync
 import net.kikin.nubecita.core.widgetsync.WidgetImagePrefetcher
 import net.kikin.nubecita.core.widgetsync.WidgetUpdater
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -163,6 +164,7 @@ internal class WidgetRefreshRunnerTest {
                     foreground = FakeForeground(foregrounded = false),
                     widgetUpdater = updater,
                     imagePrefetcher = RecordingPrefetcher(),
+                    wearFeedSync = RecordingWearFeedSync(),
                 )
 
             // A storage error during session hydration must not crash the worker
@@ -201,6 +203,50 @@ internal class WidgetRefreshRunnerTest {
             assertEquals(1, updater.calls)
         }
 
+    @Test
+    fun `with a watch, its extra feeds are refreshed once and then published`() =
+        runTest {
+            val repo = mockk<FeedRepository>()
+            coEvery { repo.refresh(any()) } returns Result.success(false)
+            coEvery { repo.trimToCap(any(), any()) } just Runs
+            val cats = FeedKey(VIEWER, FeedType.CUSTOM, "at://did:plc:x/app.bsky.feed.generator/cats")
+            // Following is already refreshed for the widget, so it must not be fetched twice.
+            val watch = RecordingWearFeedSync(extraFeeds = listOf(FeedKey.following(VIEWER), cats))
+
+            assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner(repo, wearFeedSync = watch).run())
+
+            coVerify(exactly = 1) { repo.refresh(FeedKey.following(VIEWER)) }
+            coVerify(exactly = 1) { repo.refresh(cats) }
+            coVerify(exactly = 1) { repo.trimToCap(cats, any()) }
+            assertEquals(listOf(VIEWER), watch.published)
+        }
+
+    @Test
+    fun `a watch publish failure does not change the outcome`() =
+        runTest {
+            val repo = mockk<FeedRepository>()
+            coEvery { repo.refresh(any()) } returns Result.success(false)
+            coEvery { repo.trimToCap(any(), any()) } just Runs
+            val updater = RecordingUpdater()
+
+            val outcome = runner(repo, updater = updater, wearFeedSync = RecordingWearFeedSync(failPublish = true)).run()
+
+            assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, outcome)
+            assertEquals(1, updater.calls)
+        }
+
+    @Test
+    fun `when every widget feed failed, the watch is not synced`() =
+        runTest {
+            val repo = mockk<FeedRepository>()
+            coEvery { repo.refresh(any()) } returns Result.failure(java.io.IOException("offline"))
+            val watch = RecordingWearFeedSync()
+
+            assertEquals(WidgetRefreshRunner.Outcome.RETRY, runner(repo, wearFeedSync = watch).run())
+
+            assertEquals(emptyList<String>(), watch.published)
+        }
+
     private companion object {
         const val VIEWER = "did:plc:viewer"
     }
@@ -211,6 +257,7 @@ internal class WidgetRefreshRunnerTest {
         foregrounded: Boolean = false,
         updater: WidgetUpdater = RecordingUpdater(),
         prefetcher: WidgetImagePrefetcher = RecordingPrefetcher(),
+        wearFeedSync: WearFeedSync = RecordingWearFeedSync(),
     ): WidgetRefreshRunner =
         WidgetRefreshRunner(
             repository = repo,
@@ -218,7 +265,23 @@ internal class WidgetRefreshRunnerTest {
             foreground = FakeForeground(foregrounded),
             widgetUpdater = updater,
             imagePrefetcher = prefetcher,
+            wearFeedSync = wearFeedSync,
         )
+
+    /** No watch by default (empty extra feeds); records what the runner asked of it. */
+    private class RecordingWearFeedSync(
+        private val extraFeeds: List<FeedKey> = emptyList(),
+        private val failPublish: Boolean = false,
+    ) : WearFeedSync {
+        val published = mutableListOf<String>()
+
+        override suspend fun feedKeysToRefresh(accountDid: String): List<FeedKey> = extraFeeds
+
+        override suspend fun publish(accountDid: String) {
+            if (failPublish) error("Data Layer unavailable")
+            published += accountDid
+        }
+    }
 
     private class RecordingUpdater : WidgetUpdater {
         var calls = 0

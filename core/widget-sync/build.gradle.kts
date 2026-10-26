@@ -18,6 +18,7 @@ dependencies {
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     implementation(project(":core:feed-cache"))
+    implementation(project(":core:wear-sync"))
     // WorkManager + Hilt-work for the background widget-refresh worker (PR2).
     // androidx.hilt.compiler (KSP) generates the @HiltWorker factory binding.
     // No androidx.glance — B stays Glance-free by construction (D-B1/D-B5).

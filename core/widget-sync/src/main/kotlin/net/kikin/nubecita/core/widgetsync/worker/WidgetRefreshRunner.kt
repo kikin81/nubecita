@@ -6,6 +6,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.feedcache.FeedKey
 import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.feedcache.FeedType
+import net.kikin.nubecita.core.wearsync.WearFeedSync
 import net.kikin.nubecita.core.widgetsync.WidgetFeeds
 import net.kikin.nubecita.core.widgetsync.WidgetImagePrefetcher
 import net.kikin.nubecita.core.widgetsync.WidgetUpdater
@@ -36,7 +37,10 @@ import javax.inject.Inject
  *    → [Outcome.SUCCESS], so a feed that already refreshed is never re-fetched by
  *    a WorkManager retry (which only fires when all failed). The failed feed in a
  *    partial-success run is picked up by the next periodic run.
- * 4. **Widget re-render** — call [WidgetUpdater.updateFeedWidgets] if at least
+ * 4. **Watch sync** — when a paired watch has the Wear app, refresh its extra
+ *    selected feeds and publish them to the watch ([WearFeedSync]). Isolated:
+ *    a watch failure never changes the outcome.
+ * 5. **Widget re-render** — call [WidgetUpdater.updateFeedWidgets] if at least
  *    one feed succeeded (no-op until sub-project C swaps in the Glance impl).
  *
  * Auth: all network goes through [FeedRepository], whose `:core:feed-cache`
@@ -51,6 +55,7 @@ internal class WidgetRefreshRunner
         private val foreground: AppForegroundSignal,
         private val widgetUpdater: WidgetUpdater,
         private val imagePrefetcher: WidgetImagePrefetcher,
+        private val wearFeedSync: WearFeedSync,
     ) {
         enum class Outcome { SUCCESS, RETRY }
 
@@ -127,6 +132,8 @@ internal class WidgetRefreshRunner
             // (a succeeded feed must not be re-fetched by a retry).
             if (allFailed) return Outcome.RETRY
 
+            syncWatch(viewerDid, alreadyRefreshed = feedKeys)
+
             if (anySucceeded) {
                 // A widget-render failure (Glance / AppWidgetManager IPC) must NOT
                 // trigger a WorkManager retry — the cache is already refreshed, so
@@ -140,6 +147,35 @@ internal class WidgetRefreshRunner
                 }
             }
             return Outcome.SUCCESS
+        }
+
+        /**
+         * Wear OS companion (nubecita-jh9c.2): refresh the watch's extra feeds
+         * through the same cache + auth path (this run is already tagged
+         * `RefreshCaller.Widget`, so no new token-refresh caller), then publish
+         * the watch snapshots. A no-op without a paired watch. Watch failures
+         * never change this run's outcome: the widget refresh already succeeded.
+         */
+        private suspend fun syncWatch(
+            viewerDid: String,
+            alreadyRefreshed: List<FeedKey>,
+        ) {
+            try {
+                for (feedKey in wearFeedSync.feedKeysToRefresh(viewerDid) - alreadyRefreshed.toSet()) {
+                    try {
+                        if (repository.refresh(feedKey).isSuccess) repository.trimToCap(feedKey)
+                    } catch (cancellation: CancellationException) {
+                        throw cancellation
+                    } catch (throwable: Throwable) {
+                        Timber.tag(TAG).w(throwable, "watch feed refresh failed: %s", feedKey.feedType)
+                    }
+                }
+                wearFeedSync.publish(viewerDid)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
+                Timber.tag(TAG).w(throwable, "watch sync failed")
+            }
         }
 
         private companion object {

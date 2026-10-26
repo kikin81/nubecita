@@ -2,6 +2,7 @@ package net.kikin.nubecita.core.wearsync.internal
 
 import android.content.Context
 import android.net.Uri
+import com.google.android.gms.wearable.Asset
 import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.DataClient
 import com.google.android.gms.wearable.PutDataMapRequest
@@ -22,15 +23,25 @@ internal interface WearDataLayer {
     /** True when any known node (connected or not) has the Wear app installed. */
     suspend fun hasWearAppNode(): Boolean
 
-    /** Writes [json] as the item at [path]. [urgent] skips the system's delivery batching. */
+    /**
+     * Writes [json] as the item at [path], with [assets] (image bytes by key)
+     * attached beside it. [urgent] skips the system's delivery batching.
+     */
     suspend fun put(
         path: String,
         json: String,
         urgent: Boolean,
+        assets: Map<String, ByteArray> = emptyMap(),
     )
 
     /** Deletes every item whose path starts with [pathPrefix]. */
     suspend fun deleteUnder(pathPrefix: String)
+
+    /** Deletes the item at exactly [path] (never its prefix siblings). */
+    suspend fun delete(path: String)
+
+    /** Paths of the items this node has written under [pathPrefix]. */
+    suspend fun pathsUnder(pathPrefix: String): List<String>
 }
 
 internal class PlayServicesWearDataLayer
@@ -50,21 +61,42 @@ internal class PlayServicesWearDataLayer
             path: String,
             json: String,
             urgent: Boolean,
+            assets: Map<String, ByteArray>,
         ) {
-            val request = PutDataMapRequest.create(path).apply { dataMap.putString(WearDataKeys.PAYLOAD, json) }.asPutDataRequest()
+            val request =
+                PutDataMapRequest
+                    .create(path)
+                    .apply {
+                        dataMap.putString(WearDataKeys.PAYLOAD, json)
+                        assets.forEach { (key, bytes) -> dataMap.putAsset(key, Asset.createFromBytes(bytes)) }
+                    }.asPutDataRequest()
             if (urgent) request.setUrgent()
             Wearable.getDataClient(context).putDataItem(request).await()
         }
 
-        override suspend fun deleteUnder(pathPrefix: String) {
-            // Host "*" matches the items this node wrote for every peer.
-            val uri =
-                Uri
-                    .Builder()
-                    .scheme(PutDataRequest.WEAR_URI_SCHEME)
-                    .authority("*")
-                    .path(pathPrefix)
-                    .build()
-            Wearable.getDataClient(context).deleteDataItems(uri, DataClient.FILTER_PREFIX).await()
+        override suspend fun pathsUnder(pathPrefix: String): List<String> {
+            val items = Wearable.getDataClient(context).getDataItems(wildcardUri(pathPrefix), DataClient.FILTER_PREFIX).await()
+            return try {
+                items.mapNotNull { it.uri.path }
+            } finally {
+                items.release()
+            }
         }
+
+        override suspend fun deleteUnder(pathPrefix: String) {
+            Wearable.getDataClient(context).deleteDataItems(wildcardUri(pathPrefix), DataClient.FILTER_PREFIX).await()
+        }
+
+        override suspend fun delete(path: String) {
+            Wearable.getDataClient(context).deleteDataItems(wildcardUri(path), DataClient.FILTER_LITERAL).await()
+        }
+
+        // Host "*" matches the items this node wrote, whichever peer they sync to.
+        private fun wildcardUri(path: String): Uri =
+            Uri
+                .Builder()
+                .scheme(PutDataRequest.WEAR_URI_SCHEME)
+                .authority("*")
+                .path(path)
+                .build()
     }
