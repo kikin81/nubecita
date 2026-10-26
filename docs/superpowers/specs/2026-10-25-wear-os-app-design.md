@@ -5,7 +5,7 @@ Date: 2026-10-25 · Status: draft for approval
 ## Intent
 
 Put the parts of Nubecita that make sense on a wrist onto a Wear OS watch:
-glance at the timeline, like or bookmark a post, read recent DMs and fire off
+glance at the timeline, like, repost or bookmark a post, read recent DMs and fire off
 a quick reply — including when the phone is out of reach (a run, the gym).
 The watch is a **companion**, not a second client: the phone stays the only
 thing that talks to Bluesky.
@@ -18,7 +18,7 @@ thing that talks to Bluesky.
   and `compose-navigation3`). No XML layouts, no View-based UI, no
   Horologist, no Material 2.5.
 - Offline feed browsing from a snapshot the phone sends.
-- Like / unlike and bookmark / unbookmark on the watch, working offline and
+- Like, repost and bookmark (and their undos) on the watch, working offline and
   delivered when the phone is next in reach.
 - Read recent DMs, plus quick replies (canned phrases and emoji reactions)
   delivered the same way.
@@ -31,7 +31,7 @@ thing that talks to Bluesky.
   (no standalone/LTE mode, no second OAuth session, no second token-refresh
   path).
 - Video playback on the watch (a video shows its poster frame only).
-- Free-text or voice replies, composing posts, reposts, quotes, follows.
+- Free-text or voice replies, composing posts, quotes, follows.
 - Tiles / Wear widgets for the feed (possible follow-up).
 - Offline browsing in the **phone's** Feed screen. That is a real gap — the
   Room cache `:core:feed-cache` exists and the widgets use it, but the Feed
@@ -76,7 +76,7 @@ thing that talks to Bluesky.
   thumbnails (`WidgetImagePrefetcher`).
 - `:feature:chats:impl` — `DmPollWorker`, 15-min periodic, plus
   `ChatRepository` for convos/messages/send/reactions.
-- `LikeRepostRepository.like(StrongRef) / unlike(likeUri)`,
+- `LikeRepostRepository.like(StrongRef) / unlike(likeUri)`, `repost(StrongRef) / unrepost(repostUri)`,
   `BookmarkRepository.bookmark(StrongRef)` / remove.
 - `RefreshCaller` telemetry tags (`Widget`, `DmPoll`) — the watch sync must
   not add a new value.
@@ -148,7 +148,7 @@ ships through the same Play listing on the Wear form-factor track.
   - Every payload carries `schemaVersion`. A watch that sees a newer major
     version shows "Update Nubecita on your watch" and keeps its last data.
 - **Actions** are `DataItem`s the watch writes at
-  `/v1/<accountDid>/action/<uuid>` (like, unlike, bookmark, unbookmark,
+  `/v1/<accountDid>/action/<uuid>` (like, unlike, repost, unrepost, bookmark, unbookmark,
   dm-reply, dm-react). DataItems persist across disconnection, which is what
   makes offline actions work without a custom queue on the transport. The
   phone executes each one through the existing repositories, writes a result
@@ -285,7 +285,7 @@ ships through the same Play listing on the Wear form-factor track.
 |---|---|---|
 | W1 | **Wear foundation** — `:wear:app` + convention plugin, theme, Nav3 shell, `:core:wear-contract`, session snapshot + signed-out state, capability, Play release pipeline for the Wear AAB | — |
 | W2 | **Feed browsing** — Watch settings page + feed picker, extended refresh, feed snapshot + thumbnails, watch feed list + post screen | W1 |
-| W3 | **Likes & bookmarks** — action/result contract, phone `WearActionListenerService`, watch `pending_action` overlay | W2 |
+| W3 | **Likes, reposts & bookmarks** — action/result contract, phone `WearActionListenerService`, watch `pending_action` overlay, a confirmation before reposting, "Open on phone" (scope widened 2026-10-26) | W2 |
 | W4 | **Messages + quick replies** — DM snapshot from `DmPollWorker`, convo list + thread, quick replies over W3's action path | W1, W3 |
 | W5 | **Unread-DMs complication** | W4 |
 | — | Phone offline Feed screen (separate feature, not part of this spec) | — |
