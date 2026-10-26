@@ -89,6 +89,9 @@ fastlane/test_output/
 # `bundle exec fastlane screenshots` / `screenshots_tablet`, so ignore every
 # PNG in the screenshot dirs plus the HTML overview.
 fastlane/metadata/android/*/images/*Screenshots/*.png
+# Except Wear: Play rejects framed Wear screenshots (WO-G5), so the raw 1:1
+# captures from `fastlane wear_screenshots` ARE the listing images.
+!fastlane/metadata/android/*/images/wearScreenshots/*.png
 fastlane/metadata/android/screenshots.html
 
 # app-health skill: local health reports contain real user metrics — never commit (public repo)

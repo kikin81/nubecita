@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+        fastlane screengrab permissions, androidTest manifest only (they never
+        reach the shipped APK). CHANGE_CONFIGURATION lets LocaleTestRule switch
+        the in-app locale per pass; DISABLE_KEYGUARD keeps the lock screen out of
+        captures. The UiAutomator screenshot strategy needs no storage permission.
+    -->
+    <uses-permission android:name="android.permission.CHANGE_CONFIGURATION" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+</manifest>

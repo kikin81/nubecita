@@ -171,7 +171,7 @@ Every Android module's `build.gradle.kts` applies one of the convention plugins 
 | `nubecita.android.application` | `:app` only |
 | `nubecita.android.benchmark` | `:benchmark` only (AGP test variant + baseline profile producer) |
 | `nubecita.android.room` | Add-on for modules that own Room entities/DAOs (`:core:database`) |
-| `nubecita.android.wear.application` | `:wear:app` only (Wear OS app: minSdk 33, Wear Compose M3, no flavors) |
+| `nubecita.android.wear.application` | `:wear:app` only (Wear OS app: minSdk 33, Wear Compose M3, own `production`/`bench` flavors like `:app`) |
 | `nubecita.android.jacoco` | Applied transitively by `library` and `application` (not `benchmark`) — all library and application modules get it automatically |
 
 #### Feature-module sequencing: `:api`-only stubs
