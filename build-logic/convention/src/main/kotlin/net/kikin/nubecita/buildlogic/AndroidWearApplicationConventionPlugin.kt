@@ -28,9 +28,11 @@ import org.gradle.kotlin.dsl.withType
  * - Registers the `validateScreenshots` / `updateScreenshots` aliases, so CI's
  *   screenshot job validates the Wear baselines.
  *
- * `applicationId` and versioning stay in the module's build file: the Wear app
- * must share the phone's applicationId and signing key (Data Layer pairing,
- * Play `WO-G7`), and its version-code scheme is owned by the release pipeline.
+ * Versioning and release signing live here too: the same semantic version as
+ * the phone with a Wear-band `versionCode` ([wearVersionCode]), and the
+ * phone's upload key ([configureWearReleaseSigning]). `applicationId` stays in
+ * the module's build file: it must equal the phone's (Data Layer pairing,
+ * Play `WO-G7`).
  */
 class AndroidWearApplicationConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
@@ -49,6 +51,11 @@ class AndroidWearApplicationConventionPlugin : Plugin<Project> {
                 defaultConfig {
                     minSdk = WEAR_MIN_SDK
                     targetSdk = 37
+                    // Same semantic version as the phone (gradle.properties
+                    // `version`, bumped by semantic-release), in the Wear band.
+                    val resolvedVersion = project.property("version").toString()
+                    versionName = resolvedVersion
+                    versionCode = wearVersionCode(resolvedVersion)
                     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
                 }
 
@@ -66,6 +73,8 @@ class AndroidWearApplicationConventionPlugin : Plugin<Project> {
                 buildTypes.getByName("debug").apply {
                     enableUnitTestCoverage = true
                 }
+
+                configureWearReleaseSigning(this)
 
                 buildTypes.getByName("release").apply {
                     isMinifyEnabled = true

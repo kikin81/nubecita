@@ -8,14 +8,14 @@
 
   (nubecita-sn52.2) Tests: Wear screenshot tests for the empty shell under devices × font scales.
 - [ ] 1.3 Publish `/v1/session` from the phone and wipe the watch's data on sign-out. Add the no-phone (install prompt), iPhone and signed-out states, and the `/v1/` listener filters (nubecita-sn52.3). Tests: unit tests for the session reducer and wipe; screenshot tests for each state.
-- [ ] 1.4 Release pipeline:
-  - an independent Wear version-code scheme;
-  - the Wear track names, verified first by a read-only `workflow_dispatch` CI job using the existing workload-identity Play identity (`google_play_track_version_codes`; no JSON key, no local credentials), run after the Wear form factor is enabled;
-  - the fastlane and `release.yaml` Wear bundle upload;
-  - a closed-testing release;
-  - a `promote.yaml` Wear target, kept out of production.
+- [ ] 1.4 Release pipeline (nubecita-sn52.4):
+  - an independent Wear version-code scheme: `1_000_000_000 + the phone code`, computed in the convention plugin (1.351.1 → 1001351001);
+  - release signing with the phone's upload key;
+  - an `internal_wear` fastlane lane plus a `release.yaml` step that upload the Wear bundle to `wear:internal` after the phone upload;
+  - the lane first verifies the track exists. Track ids were read via the Play API on 2026-10-25: `wear:internal`, `wear:beta`, `wear:production`; no Wear closed track exists.
 
-  (nubecita-sn52.4) Tests: unit test of the version-code function; a dry-run of the lane.
+  Closed testing and the `promote.yaml` Wear target move to 2.6, since both only matter for the Wear review opt-in at launch. Tests: the merged release manifest's versionCode; actionlint; Fastfile syntax.
+- [ ] 1.5 Wear Play Store screenshots from a bench flavor (nubecita-sn52.5): bench fakes, a fixed clock, and the `wear_screenshots` lane writing raw 1:1 PNGs to `wearScreenshots/`. Tests: a device capture; lint of both flavors.
 
 ## 2. W2 Feed browsing (epic nubecita-jh9c)
 
@@ -24,7 +24,7 @@
 - [ ] 2.3 Add the `:wear:data` Room DB and listener ingest, with an atomic per-feed replace (nubecita-jh9c.3). Tests: Room DAO tests and ingest tests.
 - [ ] 2.4 Add the watch feed list, feed switcher and post screen, with rotary snap and the quality floors (nubecita-jh9c.4). Tests: ViewModel unit tests; screenshot tests for the top, middle and bottom anchors × font scales.
 - [ ] 2.5 Pull-on-open: send a `/v1/sync/request` message; the phone republishes urgently and calls `refreshNow()` with `KEEP` (nubecita-jh9c.5). Tests: phone handler unit test for urgency and the single enqueue.
-- [ ] 2.6 Production launch: raw 1:1 Wear screenshots, the localized listing, the Wear OS opt-in and review, and a promote to production (nubecita-jh9c.6). Tests: verify the screenshot staging in fastlane.
+- [ ] 2.6 Production launch: feed screenshots via `wear_screenshots`, the localized listing, a Wear closed-testing track plus a closed release (required before the Wear OS opt-in), a `promote.yaml` Wear target, the opt-in and review, and a promote to production (nubecita-jh9c.6). Tests: verify the screenshot staging in fastlane.
 
 ## 3. W3 Likes and bookmarks (epic nubecita-hohv)
 
