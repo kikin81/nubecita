@@ -168,6 +168,7 @@ class WearSessionPublisherTest {
             path: String,
             json: String,
             urgent: Boolean,
+            assets: Map<String, ByteArray>,
         ) {
             if (failNextPut) {
                 failNextPut = false
@@ -179,5 +180,9 @@ class WearSessionPublisherTest {
         override suspend fun deleteUnder(pathPrefix: String) {
             deletedPrefixes += pathPrefix
         }
+
+        override suspend fun pathsUnder(pathPrefix: String): List<String> = emptyList()
+
+        override suspend fun delete(path: String) = Unit
     }
 }
