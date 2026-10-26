@@ -26,11 +26,12 @@
 - [ ] 2.5 Pull-on-open: send a `/v1/sync/request` message; the phone republishes urgently and calls `refreshNow()` with `KEEP` (nubecita-jh9c.5). Tests: phone handler unit test for urgency and the single enqueue.
 - [ ] 2.6 Production launch: feed screenshots via `wear_screenshots`, the localized listing, a Wear closed-testing track plus a closed release (required before the Wear OS opt-in), a `promote.yaml` Wear target, the opt-in and review, and a promote to production (nubecita-jh9c.6). Tests: verify the screenshot staging in fastlane.
 
-## 3. W3 Likes and bookmarks (epic nubecita-hohv)
+## 3. W3 Likes, reposts and bookmarks (epic nubecita-hohv)
 
 - [ ] 3.1 Action and result `DataItem` contract (urgent, `createdAt`, `accountDid`); the phone action listener with the `WearActionHandler` multibinding, which drops actions for other accounts (nubecita-hohv.1). Tests: dispatcher unit tests (account mismatch, result written, action deleted).
-- [ ] 3.2 Like, unlike, bookmark and unbookmark handlers on the phone; the snapshot carries the like URI and bookmark state (nubecita-hohv.2). Tests: handler unit tests with mocked repositories.
-- [ ] 3.3 Watch `pending_action` overlay and the like/bookmark controls, with a silent revert on failure (nubecita-hohv.3). Tests: overlay merge unit tests; screenshot tests for the control states.
+- [ ] 3.2 Like, unlike, repost, unrepost, bookmark and unbookmark handlers on the phone; the snapshot carries the like and repost URIs and the bookmark state (nubecita-hohv.2). Tests: handler unit tests with mocked repositories.
+- [ ] 3.3 Watch `pending_action` overlay and the like / repost / bookmark icon-button row on the post screen, with a confirmation before a repost and a silent revert on failure; the row is hidden until the paired phone supports actions (nubecita-hohv.3). Tests: overlay merge unit tests; screenshot tests for the control states and the repost confirmation.
+- [ ] 3.4 "Open on phone" edge button on the post screen: opens the post's `bsky.app` link on the phone through `RemoteActivityHelper`, with the Wear open-on-phone confirmation (nubecita-hohv.4). Tests: unit test for the post URL; screenshot test for the button.
 
 ## 4. W4 Messages and quick replies (epic nubecita-by5w)
 

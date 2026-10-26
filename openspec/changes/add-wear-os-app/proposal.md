@@ -8,7 +8,7 @@ Nubecita users with a Wear OS watch can't glance at their timeline, react to a p
 - New shared contract module, `:core:wear-contract` (DTOs, `/v1/` Data Layer paths, capabilities, schema version), plus a phone-side `:core:wear-sync` (publisher, action listener, sync-request handler).
 - **The phone stays the only Bluesky client.** It publishes snapshots (session, up to 3 feeds, recent DMs) as Wear Data Layer `DataItem`s. It does this only from its existing 15-minute widget refresh and DM poll, plus a user-initiated pull when the watch app opens.
 - The watch keeps the snapshots in its own Room database and works fully offline.
-- Like/unlike, bookmark/unbookmark, DM quick replies and emoji reactions are written on the watch as urgent action `DataItem`s and run on the phone through the existing repositories.
+- Like/unlike, repost/unrepost, bookmark/unbookmark, DM quick replies and emoji reactions are written on the watch as urgent action `DataItem`s and run on the phone through the existing repositories.
 - New phone **Settings → Watch** page: a feed picker (Following by default, max 3).
 - The widget refresh also refreshes the selected watch feeds while a watch is paired. The DM poll also fetches messages for changed threads while a watch is paired.
 - New unread-DMs complication.
@@ -17,7 +17,7 @@ Nubecita users with a Wear OS watch can't glance at their timeline, react to a p
 ## Non-goals
 
 - The watch never signs in to Bluesky or calls it directly (no standalone / LTE mode).
-- Video playback on the watch, free-text or voice replies, composing posts, reposts, quotes, follows.
+- Video playback on the watch, free-text or voice replies, composing posts, quotes, follows.
 - Feed tiles or Wear widgets.
 - Inline-reply parity for phone notifications bridged to the watch.
 - Offline browsing in the **phone's** Feed screen. That is a separate feature (`nubecita-j16x`).

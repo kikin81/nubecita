@@ -16,7 +16,7 @@ Constraints:
 
 **Goals:**
 - Offline feed browsing (up to 3 feeds).
-- Offline likes and bookmarks.
+- Offline likes, reposts and bookmarks, plus "Open on phone" from a post.
 - Reading DMs, with quick replies and reactions.
 - An unread-DMs complication.
 - No second Bluesky session, and no new background schedule.
