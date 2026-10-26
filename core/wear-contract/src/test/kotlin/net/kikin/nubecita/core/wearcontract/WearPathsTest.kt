@@ -65,4 +65,15 @@ class WearPathsTest {
     fun followingKey_hasNoUri() {
         assertNull(WearFeedKey.feedUriOrNull(WearFeedKey.FOLLOWING))
     }
+
+    @Test
+    fun parseFeed_roundTripsAFeedPath_andRejectsOthers() {
+        val key = WearFeedKey.forFeedUri("at://did:plc:x/app.bsky.feed.generator/cats")
+
+        assertEquals(did to key, WearPaths.parseFeed(WearPaths.feed(did, key)))
+        assertNull(WearPaths.parseFeed(WearPaths.SESSION))
+        assertNull(WearPaths.parseFeed(WearPaths.dms(did)))
+        assertNull(WearPaths.parseFeed(WearPaths.action(did, "a1")))
+        assertNull(WearPaths.parseFeed("/elsewhere/feed/x"))
+    }
 }

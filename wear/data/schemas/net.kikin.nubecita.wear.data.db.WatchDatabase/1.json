@@ -1,0 +1,184 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "d2585648e37c1db1b3374c7eb1a5cbdf",
+    "entities": [
+      {
+        "tableName": "watch_feed",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_did` TEXT NOT NULL, `feed_key` TEXT NOT NULL, `feed_name` TEXT, `published_at_ms` INTEGER NOT NULL, PRIMARY KEY(`account_did`, `feed_key`))",
+        "fields": [
+          {
+            "fieldPath": "accountDid",
+            "columnName": "account_did",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "feedKey",
+            "columnName": "feed_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "feedName",
+            "columnName": "feed_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "publishedAtMs",
+            "columnName": "published_at_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "account_did",
+            "feed_key"
+          ]
+        }
+      },
+      {
+        "tableName": "watch_post",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_did` TEXT NOT NULL, `feed_key` TEXT NOT NULL, `position` INTEGER NOT NULL, `uri` TEXT NOT NULL, `cid` TEXT NOT NULL, `author_did` TEXT NOT NULL, `author_handle` TEXT NOT NULL, `author_display_name` TEXT, `author_avatar_path` TEXT, `text` TEXT NOT NULL, `created_at_ms` INTEGER NOT NULL, `reply_count` INTEGER NOT NULL, `repost_count` INTEGER NOT NULL, `like_count` INTEGER NOT NULL, `reposted_by` TEXT, `like_uri` TEXT, `bookmarked` INTEGER NOT NULL, `image_count` INTEGER NOT NULL, `is_video` INTEGER NOT NULL, `has_content_warning` INTEGER NOT NULL, `thumbnail_path` TEXT, PRIMARY KEY(`account_did`, `feed_key`, `position`))",
+        "fields": [
+          {
+            "fieldPath": "accountDid",
+            "columnName": "account_did",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "feedKey",
+            "columnName": "feed_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "position",
+            "columnName": "position",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uri",
+            "columnName": "uri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cid",
+            "columnName": "cid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authorDid",
+            "columnName": "author_did",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authorHandle",
+            "columnName": "author_handle",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authorDisplayName",
+            "columnName": "author_display_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "authorAvatarPath",
+            "columnName": "author_avatar_path",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "text",
+            "columnName": "text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtMs",
+            "columnName": "created_at_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "replyCount",
+            "columnName": "reply_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "repostCount",
+            "columnName": "repost_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "likeCount",
+            "columnName": "like_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "repostedBy",
+            "columnName": "reposted_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "likeUri",
+            "columnName": "like_uri",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "bookmarked",
+            "columnName": "bookmarked",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "imageCount",
+            "columnName": "image_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isVideo",
+            "columnName": "is_video",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hasContentWarning",
+            "columnName": "has_content_warning",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "thumbnailPath",
+            "columnName": "thumbnail_path",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "account_did",
+            "feed_key",
+            "position"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd2585648e37c1db1b3374c7eb1a5cbdf')"
+    ]
+  }
+}
