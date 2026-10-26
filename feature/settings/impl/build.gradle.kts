@@ -31,6 +31,7 @@ dependencies {
     implementation(project(":core:preferences"))
     implementation(project(":core:profile"))
     implementation(project(":core:review"))
+    implementation(project(":core:wear-sync"))
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
     // BlockedAccounts NavKey — pushed from the Moderation hub. :api only

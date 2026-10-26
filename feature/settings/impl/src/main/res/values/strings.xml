@@ -168,4 +168,20 @@
     <string name="media_pip_header">Picture-in-picture</string>
     <string name="media_pip_toggle">Picture-in-picture</string>
     <string name="media_pip_toggle_supporting">Allow videos to keep playing in a floating window when leaving the app.</string>
+    <!-- Settings → Watch (Wear OS companion, nubecita-jh9c.1) -->
+    <string name="watch_row_label">Watch</string>
+    <plurals name="watch_row_value">
+        <item quantity="one">%1$d feed on your watch</item>
+        <item quantity="other">%1$d feeds on your watch</item>
+    </plurals>
+    <string name="watch_title">Watch</string>
+    <string name="watch_back_content_desc">Back</string>
+    <string name="watch_description">Your phone sends these feeds to Nubecita on your watch, so you can read them even when your phone isn\'t nearby.</string>
+    <string name="watch_feeds_header">Feeds on your watch</string>
+    <plurals name="watch_feeds_limit">
+        <item quantity="one">Up to %1$d feed</item>
+        <item quantity="other">Up to %1$d feeds</item>
+    </plurals>
+    <string name="watch_feed_following">Following</string>
+    <string name="watch_save_error">Couldn\'t save your change. Try again.</string>
 </resources>

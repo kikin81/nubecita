@@ -175,3 +175,25 @@ private const val FIXTURE_DISPLAY_NAME = "Alice Anderson"
 // Stable string so screenshot baselines aren't tied to whatever
 // semantic-release happens to have bumped to at fixture-capture time.
 private const val FIXTURE_VERSION_LABEL = "1.104.0 (1104000)"
+
+/** A paired watch has the Wear app: the Watch row appears below Display. */
+@PreviewTest
+@Preview(name = "settings-with-watch-light", showBackground = true, heightDp = 900)
+@Composable
+private fun SettingsWithWatchScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        SettingsContent(
+            state =
+                SettingsViewState(
+                    handle = FIXTURE_HANDLE,
+                    did = FIXTURE_DID,
+                    displayName = FIXTURE_DISPLAY_NAME,
+                    avatarUrl = null,
+                    hasWatchApp = true,
+                    watchFeedCount = 2,
+                ),
+            onEvent = {},
+            versionLabel = FIXTURE_VERSION_LABEL,
+        )
+    }
+}

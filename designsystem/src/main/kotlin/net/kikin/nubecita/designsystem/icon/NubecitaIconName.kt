@@ -90,6 +90,9 @@ enum class NubecitaIconName(
     Verified("\uEF76"),
     VolumeOff("\uE04F"),
     VolumeUp("\uE050"),
+
+    // Settings → Watch row (Wear OS companion, nubecita-jh9c.1).
+    Watch("\uE334"),
     WifiOff("\uE648"),
 
     // Medal/ribbon glyph for the Nubecita Pro "Supporter" badge. Chosen

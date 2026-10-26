@@ -18,9 +18,11 @@ import net.kikin.nubecita.core.billing.RestoreResult
 import net.kikin.nubecita.core.preferences.MessageCheckingPreference
 import net.kikin.nubecita.core.preferences.ThemePreference
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
+import net.kikin.nubecita.core.preferences.WatchFeedsPreference
 import net.kikin.nubecita.core.profile.ActorProfile
 import net.kikin.nubecita.core.profile.ActorProfileRepository
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.core.wearsync.WearAppPresence
 import net.kikin.nubecita.data.models.ActiveSubscription
 import net.kikin.nubecita.data.models.BillingPeriod
 import net.kikin.nubecita.data.models.SubscriptionOfferingFixtures
@@ -72,6 +74,14 @@ internal class SettingsViewModelTest {
             mockk(relaxed = true) {
                 every { themePreference } returns MutableStateFlow(ThemePreference.DYNAMIC)
             },
+        wearAppPresence: WearAppPresence =
+            object : WearAppPresence {
+                override val isWearAppInstalled = MutableStateFlow(false)
+            },
+        watchFeeds: WatchFeedsPreference =
+            mockk(relaxed = true) {
+                every { selectedFeedUris } returns MutableStateFlow(setOf(WatchFeedsPreference.FOLLOWING_FEED_URI))
+            },
     ) = SettingsViewModel(
         authRepository = auth,
         sessionStateProvider = session,
@@ -80,7 +90,48 @@ internal class SettingsViewModelTest {
         billingRepository = billing,
         messageCheckingPreference = messageChecking,
         userPreferencesRepository = userPreferences,
+        wearAppPresence = wearAppPresence,
+        watchFeedsPreference = watchFeeds,
     )
+
+    @Test
+    fun `the Watch row follows wear app presence and the synced feed count`() =
+        runTest(mainDispatcher.dispatcher) {
+            val installed = MutableStateFlow(false)
+            val feeds = MutableStateFlow(setOf(WatchFeedsPreference.FOLLOWING_FEED_URI))
+            val vm =
+                createVm(
+                    auth = mockk(relaxed = true),
+                    wearAppPresence =
+                        object : WearAppPresence {
+                            override val isWearAppInstalled = installed
+                        },
+                    watchFeeds =
+                        mockk(relaxed = true) {
+                            every { selectedFeedUris } returns feeds
+                        },
+                )
+            advanceUntilIdle()
+            assertEquals(false, vm.uiState.value.hasWatchApp)
+
+            installed.value = true
+            feeds.value = setOf("following", "at://a", "at://b")
+            advanceUntilIdle()
+
+            assertEquals(true, vm.uiState.value.hasWatchApp)
+            assertEquals(3, vm.uiState.value.watchFeedCount)
+        }
+
+    @Test
+    fun `tapping Watch opens the Watch settings`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = createVm(auth = mockk(relaxed = true))
+
+            vm.effects.test {
+                vm.handleEvent(SettingsEvent.WatchTapped)
+                assertEquals(SettingsEffect.OpenWatchSettings, awaitItem())
+            }
+        }
 
     @Test
     fun `the active theme is mirrored from the preference for the Appearance row caption`() =

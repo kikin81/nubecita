@@ -8,6 +8,8 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
+import net.kikin.nubecita.core.wearsync.PlayServicesWearAppPresence
+import net.kikin.nubecita.core.wearsync.WearAppPresence
 import net.kikin.nubecita.core.wearsync.WearSessionPublisher
 import net.kikin.nubecita.core.wearsync.internal.PlayServicesWearDataLayer
 import net.kikin.nubecita.core.wearsync.internal.WearDataLayer
@@ -19,6 +21,9 @@ import kotlin.time.Clock
 internal interface WearSyncBindsModule {
     @Binds
     fun bindWearDataLayer(impl: PlayServicesWearDataLayer): WearDataLayer
+
+    @Binds
+    fun bindWearAppPresence(impl: PlayServicesWearAppPresence): WearAppPresence
 }
 
 /**

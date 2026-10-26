@@ -17,6 +17,7 @@ import net.kikin.nubecita.feature.settings.api.FeedPreferences
 import net.kikin.nubecita.feature.settings.api.MediaAndAnimations
 import net.kikin.nubecita.feature.settings.api.Moderation
 import net.kikin.nubecita.feature.settings.api.Settings
+import net.kikin.nubecita.feature.settings.api.WatchSettings
 import net.kikin.nubecita.feature.settings.impl.AboutLicensesScreen
 import net.kikin.nubecita.feature.settings.impl.AboutScreen
 import net.kikin.nubecita.feature.settings.impl.AppearanceScreen
@@ -25,6 +26,7 @@ import net.kikin.nubecita.feature.settings.impl.FeedPreferencesScreen
 import net.kikin.nubecita.feature.settings.impl.MediaAndAnimationsScreen
 import net.kikin.nubecita.feature.settings.impl.ModerationScreen
 import net.kikin.nubecita.feature.settings.impl.SettingsScreen
+import net.kikin.nubecita.feature.settings.impl.WatchSettingsScreen
 
 /**
  * `@MainShell` provider for the [Settings] sub-route. Pushed onto the
@@ -100,6 +102,10 @@ internal object SettingsNavigationModule {
             entry<MediaAndAnimations>(metadata = adaptiveDialog()) {
                 val navState = LocalMainShellNavState.current
                 MediaAndAnimationsScreen(onBack = { navState.removeLast() })
+            }
+            entry<WatchSettings>(metadata = adaptiveDialog()) {
+                val navState = LocalMainShellNavState.current
+                WatchSettingsScreen(onBack = { navState.removeLast() })
             }
             // Feed preferences — a top-level Settings row, not a Moderation
             // child: these govern what appears in the timeline, whereas
