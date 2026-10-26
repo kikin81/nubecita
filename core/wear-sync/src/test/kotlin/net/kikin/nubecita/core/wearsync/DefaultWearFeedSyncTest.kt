@@ -250,6 +250,11 @@ class DefaultWearFeedSyncTest {
             deleted += path
         }
 
+        override suspend fun deleteFromNode(
+            nodeId: String,
+            path: String,
+        ) = Unit
+
         override suspend fun pathsUnder(pathPrefix: String): List<String> = existing.filter { it.startsWith(pathPrefix) }
     }
 }
