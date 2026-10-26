@@ -47,12 +47,21 @@ object WearPaths {
         actionId: String,
     ): String = "${account(accountDid)}action-result/${actionId.requireSegment()}"
 
+    /** The (account DID, action id) of an [action] path, or null for any other path. */
+    fun parseAction(path: String): Pair<String, String>? = parseAccountScoped(path, "action")
+
     /** The (account DID, feed key) of a [feed] path, or null for any other path. */
-    fun parseFeed(path: String): Pair<String, String>? {
+    fun parseFeed(path: String): Pair<String, String>? = parseAccountScoped(path, "feed")
+
+    // `/v1/<did>/<kind>/<id>` → (did, id).
+    private fun parseAccountScoped(
+        path: String,
+        kind: String,
+    ): Pair<String, String>? {
         val parts = path.removePrefix(PREFIX).split('/')
-        if (!path.startsWith(PREFIX) || parts.size != 3 || parts[1] != "feed") return null
-        val (did, _, key) = parts
-        return if (did.isEmpty() || key.isEmpty()) null else did to key
+        if (!path.startsWith(PREFIX) || parts.size != 3 || parts[1] != kind) return null
+        val (did, _, id) = parts
+        return if (did.isEmpty() || id.isEmpty()) null else did to id
     }
 
     private fun String.requireSegment(): String {
@@ -98,6 +107,14 @@ object WearCapabilities {
 
     /** Advertised by the phone app. The watch uses it to detect a missing phone app. */
     const val PHONE_APP = "nubecita_phone"
+
+    /**
+     * Advertised by phone builds that run watch actions ([WearActionRequest]).
+     * The watch shows its action controls only while the phone has it, so a
+     * watch paired with an older phone never offers an action that would sit
+     * unanswered.
+     */
+    const val PHONE_ACTIONS = "nubecita_phone_actions"
 }
 
 /**

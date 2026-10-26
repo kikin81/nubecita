@@ -40,6 +40,12 @@ internal interface WearDataLayer {
     /** Deletes the item at exactly [path] (never its prefix siblings). */
     suspend fun delete(path: String)
 
+    /** Deletes the item at exactly [path] that the peer node [nodeId] wrote (e.g. a watch action). */
+    suspend fun deleteFromNode(
+        nodeId: String,
+        path: String,
+    )
+
     /** Paths of the items this node has written under [pathPrefix]. */
     suspend fun pathsUnder(pathPrefix: String): List<String>
 }
@@ -91,12 +97,24 @@ internal class PlayServicesWearDataLayer
             Wearable.getDataClient(context).deleteDataItems(wildcardUri(path), DataClient.FILTER_LITERAL).await()
         }
 
+        override suspend fun deleteFromNode(
+            nodeId: String,
+            path: String,
+        ) {
+            Wearable.getDataClient(context).deleteDataItems(itemUri(nodeId, path), DataClient.FILTER_LITERAL).await()
+        }
+
         // Host "*" matches the items this node wrote, whichever peer they sync to.
-        private fun wildcardUri(path: String): Uri =
+        private fun wildcardUri(path: String): Uri = itemUri("*", path)
+
+        private fun itemUri(
+            host: String,
+            path: String,
+        ): Uri =
             Uri
                 .Builder()
                 .scheme(PutDataRequest.WEAR_URI_SCHEME)
-                .authority("*")
+                .authority(host)
                 .path(path)
                 .build()
     }

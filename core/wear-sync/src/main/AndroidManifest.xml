@@ -15,6 +15,14 @@
                     android:pathPrefix="/v1/sync/"
                     android:scheme="wear" />
             </intent-filter>
+            <!-- Watch actions: /v1/<accountDid>/action/<actionId> only (not action-result). -->
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data
+                    android:host="*"
+                    android:pathPattern="/v1/.*/action/.*"
+                    android:scheme="wear" />
+            </intent-filter>
         </service>
     </application>
 </manifest>

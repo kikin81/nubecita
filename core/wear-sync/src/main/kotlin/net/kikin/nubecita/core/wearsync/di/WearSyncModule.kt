@@ -5,6 +5,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.Multibinds
 import kotlinx.coroutines.CoroutineScope
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
@@ -13,6 +14,8 @@ import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
 import net.kikin.nubecita.core.preferences.WatchFeedsPreference
 import net.kikin.nubecita.core.wearsync.DefaultWearFeedSync
 import net.kikin.nubecita.core.wearsync.PlayServicesWearAppPresence
+import net.kikin.nubecita.core.wearsync.WearActionDispatcher
+import net.kikin.nubecita.core.wearsync.WearActionHandler
 import net.kikin.nubecita.core.wearsync.WearAppPresence
 import net.kikin.nubecita.core.wearsync.WearFeedRefreshTrigger
 import net.kikin.nubecita.core.wearsync.WearFeedSync
@@ -36,6 +39,10 @@ internal interface WearSyncBindsModule {
 
     @Binds
     fun bindWearImageEncoder(impl: CoilWearImageEncoder): WearImageEncoder
+
+    /** Watch action handlers, contributed `@IntoSet` by the modules that own each action. */
+    @Multibinds
+    fun wearActionHandlers(): Set<WearActionHandler>
 }
 
 /**
@@ -75,4 +82,13 @@ internal object WearSyncProvidesModule {
         refreshTrigger: WearFeedRefreshTrigger,
         clock: Clock,
     ): WearSyncRequestHandler = WearSyncRequestHandler(sessionPublisher, sessionStateProvider, feedSync, refreshTrigger, clock)
+
+    @Provides
+    @Singleton
+    fun provideWearActionDispatcher(
+        dataLayer: WearDataLayer,
+        sessionStateProvider: SessionStateProvider,
+        handlers: Set<@JvmSuppressWildcards WearActionHandler>,
+        clock: Clock,
+    ): WearActionDispatcher = WearActionDispatcher(dataLayer, sessionStateProvider, handlers, clock)
 }

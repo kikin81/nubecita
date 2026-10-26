@@ -184,5 +184,10 @@ class WearSessionPublisherTest {
         override suspend fun pathsUnder(pathPrefix: String): List<String> = emptyList()
 
         override suspend fun delete(path: String) = Unit
+
+        override suspend fun deleteFromNode(
+            nodeId: String,
+            path: String,
+        ) = Unit
     }
 }
