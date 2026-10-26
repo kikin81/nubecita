@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Watch writes likes, reposts and bookmarks as queued actions
-Like, unlike, repost, unrepost, bookmark and unbookmark on the watch SHALL each be written as an urgent action `DataItem` at `/v1/<accountDid>/action/<uuid>`, carrying `createdAt` and `accountDid`. Like, repost and bookmark actions SHALL NOT expire.
+Like, unlike, repost, unrepost, bookmark and unbookmark on the watch SHALL each be written as an urgent action `DataItem` at `/v1/<accountDid>/action/<uuid>`, carrying `createdAt` and `accountDid`. None of these actions SHALL expire, including the undos (unlike, unrepost, unbookmark).
 
 #### Scenario: Like while the phone is away
 - **WHEN** the user likes a post with no phone connection and the phone comes back in reach hours later
@@ -19,7 +19,7 @@ The phone SHALL execute each action (like, repost and bookmark, and their undos)
 - **THEN** it does not run the action, and it answers `failed` with the reason `account`
 
 ### Requirement: Optimistic overlay with silent revert
-The watch SHALL show a pending like, repost or bookmark immediately by overlaying its pending actions on the synced viewer state. On an `ok` result it SHALL keep the state until the next snapshot confirms it. On a `failed` result it SHALL drop the overlay and show the post's previous state, without an error message.
+The watch SHALL show a pending like, repost or bookmark, or a pending undo of one, immediately by overlaying its pending actions on the synced viewer state. On an `ok` result it SHALL keep the state until the next snapshot confirms it. On a `failed` result it SHALL drop the overlay and show the post's previous state, without an error message.
 
 #### Scenario: Phone rejects a like
 - **WHEN** a like action comes back `failed` (for example, the post was deleted)
