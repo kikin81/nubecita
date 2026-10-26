@@ -23,6 +23,7 @@ sealed interface WearGateStatus {
     data object UpdateRequired : WearGateStatus
 
     data class SignedIn(
+        val did: String,
         val handle: String,
     ) : WearGateStatus
 }

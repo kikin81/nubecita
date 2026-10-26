@@ -15,12 +15,12 @@ import net.kikin.nubecita.wear.R
 fun WearGate(
     state: WearGateState,
     onEvent: (WearGateEvent) -> Unit,
-    content: @Composable (handle: String) -> Unit,
+    content: @Composable (account: WearGateStatus.SignedIn) -> Unit,
 ) {
     when (val status = state.status) {
         // Brief: the stored session is read locally. Plain black, no spinner.
         WearGateStatus.Loading -> Unit
-        is WearGateStatus.SignedIn -> content(status.handle)
+        is WearGateStatus.SignedIn -> content(status)
         WearGateStatus.PhoneAppMissing ->
             GateMessageScreen(
                 title = stringResource(R.string.wear_gate_phone_app_missing_title),

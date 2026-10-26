@@ -50,7 +50,7 @@ class WearGateViewModelTest {
             val vm = viewModel()
             advanceUntilIdle()
 
-            assertEquals(WearGateStatus.SignedIn("alice.bsky.social"), vm.uiState.value.status)
+            assertEquals(WearGateStatus.SignedIn(did = "did:plc:alice", handle = "alice.bsky.social"), vm.uiState.value.status)
         }
 
     @Test
@@ -63,7 +63,7 @@ class WearGateViewModelTest {
             vm.handleEvent(WearGateEvent.Resumed)
             advanceUntilIdle()
 
-            assertEquals(WearGateStatus.SignedIn("alice.bsky.social"), vm.uiState.value.status)
+            assertEquals(WearGateStatus.SignedIn(did = "did:plc:alice", handle = "alice.bsky.social"), vm.uiState.value.status)
         }
 
     @Test
@@ -166,7 +166,7 @@ class WearGateViewModelTest {
             vm.handleEvent(WearGateEvent.Resumed)
             advanceUntilIdle()
 
-            assertEquals(WearGateStatus.SignedIn("alice.bsky.social"), vm.uiState.value.status)
+            assertEquals(WearGateStatus.SignedIn(did = "did:plc:alice", handle = "alice.bsky.social"), vm.uiState.value.status)
         }
 
     @Test
