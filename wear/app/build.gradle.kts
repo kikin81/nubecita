@@ -20,6 +20,7 @@ android {
 dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:wear-contract"))
+    implementation(project(":wear:data"))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.hilt.navigation.compose)

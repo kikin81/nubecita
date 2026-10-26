@@ -9,6 +9,7 @@ import net.kikin.nubecita.wear.data.PhoneAppStatus
 import net.kikin.nubecita.wear.data.PhoneConnection
 import net.kikin.nubecita.wear.data.PhoneSession
 import net.kikin.nubecita.wear.data.PhoneSessionSource
+import net.kikin.nubecita.wear.data.sync.WatchSync
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -26,6 +27,7 @@ class WearGateViewModel
     constructor(
         sessionSource: PhoneSessionSource,
         private val phoneConnection: PhoneConnection,
+        private val watchSync: WatchSync,
     ) : MviViewModel<WearGateState, WearGateEvent, WearGateEffect>(WearGateState()) {
         private var session: PhoneSession? = null
         private var phoneApp: PhoneAppStatus? = null
@@ -41,12 +43,30 @@ class WearGateViewModel
 
         override fun handleEvent(event: WearGateEvent) {
             when (event) {
-                WearGateEvent.Resumed -> checkPhone()
+                WearGateEvent.Resumed -> {
+                    catchUp()
+                    checkPhone()
+                }
                 WearGateEvent.OpenOnPhoneClicked -> {
                     phoneConnection.openNubecitaOnPhone()
                     setState { copy(showOpenOnPhone = true) }
                 }
                 WearGateEvent.OpenOnPhoneDismissed -> setState { copy(showOpenOnPhone = false) }
+            }
+        }
+
+        // Apply anything synced while the listener couldn't run (first install,
+        // a force-stop). Cheap when there's nothing new: the ingester skips
+        // snapshots it already has.
+        private fun catchUp() {
+            viewModelScope.launch {
+                try {
+                    watchSync.catchUp()
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (throwable: Throwable) {
+                    Timber.w(throwable, "watch sync catch-up failed")
+                }
             }
         }
 

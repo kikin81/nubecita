@@ -10,6 +10,7 @@ import net.kikin.nubecita.wear.data.PhoneAppStatus
 import net.kikin.nubecita.wear.data.PhoneConnection
 import net.kikin.nubecita.wear.data.PhoneSession
 import net.kikin.nubecita.wear.data.PhoneSessionSource
+import net.kikin.nubecita.wear.data.sync.WatchSync
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 class WearGateViewModelTest {
     private val sessions = MutableSharedFlow<PhoneSession>(replay = 1)
     private val phone = FakePhoneConnection()
+    private val sync = FakeWatchSync()
     private val alice = PhoneSession.SignedIn(WearAccount(did = "did:plc:alice", handle = "alice.bsky.social"))
 
     private fun viewModel() =
@@ -29,6 +31,7 @@ class WearGateViewModelTest {
                     override val session = sessions
                 },
             phoneConnection = phone,
+            watchSync = sync,
         )
 
     @Test
@@ -165,6 +168,25 @@ class WearGateViewModelTest {
 
             assertEquals(WearGateStatus.SignedIn("alice.bsky.social"), vm.uiState.value.status)
         }
+
+    @Test
+    fun resuming_catches_up_on_synced_items() =
+        runTest {
+            val vm = viewModel()
+
+            vm.handleEvent(WearGateEvent.Resumed)
+            advanceUntilIdle()
+
+            assertEquals(1, sync.catchUps)
+        }
+
+    private class FakeWatchSync : WatchSync {
+        var catchUps = 0
+
+        override suspend fun catchUp() {
+            catchUps++
+        }
+    }
 
     private class FakePhoneConnection : PhoneConnection {
         var status = PhoneAppStatus.Installed

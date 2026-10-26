@@ -47,6 +47,14 @@ object WearPaths {
         actionId: String,
     ): String = "${account(accountDid)}action-result/${actionId.requireSegment()}"
 
+    /** The (account DID, feed key) of a [feed] path, or null for any other path. */
+    fun parseFeed(path: String): Pair<String, String>? {
+        val parts = path.removePrefix(PREFIX).split('/')
+        if (!path.startsWith(PREFIX) || parts.size != 3 || parts[1] != "feed") return null
+        val (did, _, key) = parts
+        return if (did.isEmpty() || key.isEmpty()) null else did to key
+    }
+
     private fun String.requireSegment(): String {
         require(isNotEmpty() && '/' !in this) { "not a single path segment: '$this'" }
         return this
