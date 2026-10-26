@@ -100,6 +100,13 @@ data class SettingsViewState(
      * anyone who has never changed it.
      */
     val autoplay: AutoplayPreference = AutoplayPreference.ALWAYS,
+    /**
+     * A paired watch has the Nubecita Wear app. The Watch row only appears
+     * while this is true: the page has nothing to do without a watch.
+     */
+    val hasWatchApp: Boolean = false,
+    /** How many feeds sync to the watch, for the Watch row's caption. */
+    val watchFeedCount: Int = 1,
 ) : UiState
 
 /**
@@ -242,6 +249,9 @@ sealed interface SettingsEvent : UiEvent {
      * `MediaAndAnimations` NavKey.
      */
     data object MediaAndAnimationsTapped : SettingsEvent
+
+    /** User tapped the Watch row. The VM answers with [SettingsEffect.OpenWatchSettings]. */
+    data object WatchTapped : SettingsEvent
 }
 
 /**
@@ -344,4 +354,7 @@ sealed interface SettingsEffect : UiEffect {
 
     /** Push the Media and animations sub-route. */
     data object OpenMediaAndAnimations : SettingsEffect
+
+    /** Push the Settings → Watch sub-route. */
+    data object OpenWatchSettings : SettingsEffect
 }

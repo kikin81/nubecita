@@ -17,7 +17,9 @@ import net.kikin.nubecita.core.billing.RestoreResult
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.preferences.MessageCheckingPreference
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
+import net.kikin.nubecita.core.preferences.WatchFeedsPreference
 import net.kikin.nubecita.core.profile.ActorProfileRepository
+import net.kikin.nubecita.core.wearsync.WearAppPresence
 import net.kikin.nubecita.data.models.ActiveSubscription
 import net.kikin.nubecita.data.models.SubscriptionPlanId
 import timber.log.Timber
@@ -54,6 +56,8 @@ internal class SettingsViewModel
         private val billingRepository: BillingRepository,
         private val messageCheckingPreference: MessageCheckingPreference,
         userPreferencesRepository: UserPreferencesRepository,
+        wearAppPresence: WearAppPresence,
+        watchFeedsPreference: WatchFeedsPreference,
     ) : MviViewModel<SettingsViewState, SettingsEvent, SettingsEffect>(
             SettingsViewState(),
         ) {
@@ -103,6 +107,14 @@ internal class SettingsViewModel
 
             messageCheckingPreference.enabled
                 .onEach { enabled -> setState { copy(messageCheckingEnabled = enabled) } }
+                .launchIn(viewModelScope)
+
+            wearAppPresence.isWearAppInstalled
+                .onEach { installed -> setState { copy(hasWatchApp = installed) } }
+                .launchIn(viewModelScope)
+
+            watchFeedsPreference.selectedFeedUris
+                .onEach { uris -> setState { copy(watchFeedCount = uris.size) } }
                 .launchIn(viewModelScope)
 
             // The active subscription drives the manage-subscription sku and the
@@ -172,6 +184,7 @@ internal class SettingsViewModel
                 SettingsEvent.AppearanceTapped -> sendEffect(SettingsEffect.OpenAppearance)
                 SettingsEvent.MediaAndAnimationsTapped ->
                     sendEffect(SettingsEffect.OpenMediaAndAnimations)
+                SettingsEvent.WatchTapped -> sendEffect(SettingsEffect.OpenWatchSettings)
             }
         }
 

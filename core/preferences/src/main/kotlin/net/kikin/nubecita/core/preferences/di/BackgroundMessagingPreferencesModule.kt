@@ -6,8 +6,10 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.core.preferences.DefaultDmPollCursorStore
 import net.kikin.nubecita.core.preferences.DefaultMessageCheckingPreference
+import net.kikin.nubecita.core.preferences.DefaultWatchFeedsPreference
 import net.kikin.nubecita.core.preferences.DmPollCursorStore
 import net.kikin.nubecita.core.preferences.MessageCheckingPreference
+import net.kikin.nubecita.core.preferences.WatchFeedsPreference
 import javax.inject.Singleton
 
 /**
@@ -31,4 +33,10 @@ abstract class BackgroundMessagingPreferencesModule {
     @Binds
     @Singleton
     internal abstract fun bindMessageCheckingPreference(impl: DefaultMessageCheckingPreference): MessageCheckingPreference
+
+    // Not background-messaging, but the same shape: a small DataStore-backed
+    // preference bound for every variant (nubecita-jh9c.1).
+    @Binds
+    @Singleton
+    internal abstract fun bindWatchFeedsPreference(impl: DefaultWatchFeedsPreference): WatchFeedsPreference
 }

@@ -45,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -69,6 +70,7 @@ import net.kikin.nubecita.feature.settings.api.Appearance
 import net.kikin.nubecita.feature.settings.api.FeedPreferences
 import net.kikin.nubecita.feature.settings.api.MediaAndAnimations
 import net.kikin.nubecita.feature.settings.api.Moderation
+import net.kikin.nubecita.feature.settings.api.WatchSettings
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsHeader
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsRow
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsSection
@@ -206,6 +208,8 @@ internal fun SettingsScreen(
                 SettingsEffect.OpenMediaAndAnimations ->
                     // Push the Media and animations sub-route.
                     currentOnNavigateTo(MediaAndAnimations)
+
+                SettingsEffect.OpenWatchSettings -> currentOnNavigateTo(WatchSettings)
                 is SettingsEffect.OpenManageSubscription -> {
                     // Deep-link to the Play manage-subscription page. The screen
                     // owns the package name; the VM supplied the sku (if known).
@@ -614,6 +618,26 @@ internal fun SettingsContent(
             )
         }
 
+    // Only with a paired watch that has the Wear app (state.hasWatchApp): the
+    // page has nothing to configure otherwise.
+    val watchLabel = stringResource(R.string.watch_row_label)
+    val watchValue = pluralStringResource(R.plurals.watch_row_value, state.watchFeedCount, state.watchFeedCount)
+    val watchRows =
+        remember(state.hasWatchApp, watchLabel, watchValue) {
+            if (state.hasWatchApp) {
+                persistentListOf(
+                    SettingsRow.Action(
+                        icon = NubecitaIconName.Watch,
+                        label = watchLabel,
+                        supportingText = watchValue,
+                        onClick = { currentOnEvent(SettingsEvent.WatchTapped) },
+                    ),
+                )
+            } else {
+                persistentListOf()
+            }
+        }
+
     val contentModerationRows =
         remember(safetyReportingLabel, moderationLabel, feedPreferencesLabel) {
             persistentListOf(
@@ -680,6 +704,8 @@ internal fun SettingsContent(
         //   7. Data usage           — filled by nubecita-37to.8
         // (Version renders as a footer caption below the cards, not a row.)
         SettingsSection(rows = displayRows, label = displaySectionLabel)
+        // Watch (Wear OS companion): its own card, present only with a watch.
+        if (watchRows.isNotEmpty()) SettingsSection(rows = watchRows)
         SettingsSection(rows = notificationsRows)
         SettingsSection(rows = contentModerationRows, label = contentModerationSectionLabel)
         // About & legal above the destructive Account card, which sits last.

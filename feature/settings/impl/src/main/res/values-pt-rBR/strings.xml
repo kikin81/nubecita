@@ -123,4 +123,21 @@
     <string name="media_pip_header">Picture-in-picture</string>
     <string name="media_pip_toggle">Picture-in-picture</string>
     <string name="media_pip_toggle_supporting">Permite que os vídeos continuem sendo reproduzidos em uma janela flutuante ao sair do aplicativo.</string>
+    <string name="watch_row_label">Relógio</string>
+    <plurals name="watch_row_value">
+        <item quantity="one">%1$d feed no seu relógio</item>
+        <item quantity="many">%1$d feeds no seu relógio</item>
+        <item quantity="other">%1$d feeds no seu relógio</item>
+    </plurals>
+    <string name="watch_title">Relógio</string>
+    <string name="watch_back_content_desc">Voltar</string>
+    <string name="watch_description">Seu celular envia estes feeds para o Nubecita no relógio, para você ler mesmo sem o celular por perto.</string>
+    <string name="watch_feeds_header">Feeds no seu relógio</string>
+    <plurals name="watch_feeds_limit">
+        <item quantity="one">Até %1$d feed</item>
+        <item quantity="many">Até %1$d feeds</item>
+        <item quantity="other">Até %1$d feeds</item>
+    </plurals>
+    <string name="watch_feed_following">Seguindo</string>
+    <string name="watch_save_error">Não foi possível salvar a alteração. Tente novamente.</string>
 </resources>

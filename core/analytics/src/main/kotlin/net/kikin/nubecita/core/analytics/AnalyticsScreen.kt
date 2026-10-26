@@ -60,6 +60,7 @@ enum class AnalyticsScreen(
     SettingsFeedPreferences("settings_feed_preferences"),
     SettingsMediaAndAnimations("settings_media_and_animations"),
     SettingsModeration("settings_moderation"),
+    SettingsWatch("settings_watch"),
     About("about"),
     AboutLicenses("about_licenses"),
     NewGroup("new_group"),
