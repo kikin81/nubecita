@@ -38,9 +38,12 @@ internal class WatchSettingsViewModel
             combine(pinnedFeedsRepository.observePinnedFeeds(), watchFeedsPreference.selectedFeedUris) { pinned, selected ->
                 val options = pinned.feeds.toOptions()
                 val available = options.mapTo(mutableSetOf()) { it.uri }
+                // Never empty: if every selected feed was unpinned, the watch falls
+                // back to Following (the same rule the sync applies).
+                val effective = selected.filter { it in available }.ifEmpty { listOf(PinnedFeedsRepository.FOLLOWING_FEED_URI) }
                 WatchSettingsState(
                     feeds = options.toImmutableList(),
-                    selectedUris = selected.filter { it in available }.toImmutableSet(),
+                    selectedUris = effective.toImmutableSet(),
                 )
             }.onEach { state -> setState { state } }
                 .launchIn(viewModelScope)

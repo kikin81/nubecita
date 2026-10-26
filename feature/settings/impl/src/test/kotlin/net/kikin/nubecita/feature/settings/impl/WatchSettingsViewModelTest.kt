@@ -152,6 +152,17 @@ internal class WatchSettingsViewModelTest {
         }
 
     @Test
+    fun `if every selected feed was unpinned, Following is shown selected`() =
+        runTest(mainDispatcher.dispatcher) {
+            preference.selected.value = setOf(cats.uri, art.uri)
+            pinnedFlow.value = listOf(following, discover)
+            val vm = vm()
+            advanceUntilIdle()
+
+            assertEquals(setOf(following.uri), vm.uiState.value.selectedUris)
+        }
+
+    @Test
     fun `a failed write shows the save error`() =
         runTest(mainDispatcher.dispatcher) {
             preference.failWrites = true
