@@ -98,7 +98,7 @@ class WearActionDispatcherTest {
     @Test
     fun actionWithNoHandler_answersUnsupported() =
         runTest {
-            dispatcher().onActionItem(watch, WearPaths.action(alice, "a1"), request(action = WearAction.Unbookmark(post)))
+            dispatcher().onActionItem(watch, WearPaths.action(alice, "a1"), request(action = WearAction.Unbookmark(post, "cid")))
 
             assertEquals(WearActionFailure.UNSUPPORTED, onlyResult().failure)
         }

@@ -29,15 +29,12 @@ data class WearActionRequest(
  */
 @Serializable
 sealed interface WearAction {
-    /** The post the action is about. */
-    val postUri: String
-
     @Serializable
     @SerialName("like")
     data class Like(
         override val postUri: String,
         val postCid: String,
-    ) : WearAction
+    ) : WearPostAction
 
     @Serializable
     @SerialName("unlike")
@@ -45,14 +42,14 @@ sealed interface WearAction {
         override val postUri: String,
         /** The viewer's like record, from the synced post. */
         val likeUri: String,
-    ) : WearAction
+    ) : WearPostAction
 
     @Serializable
     @SerialName("repost")
     data class Repost(
         override val postUri: String,
         val postCid: String,
-    ) : WearAction
+    ) : WearPostAction
 
     @Serializable
     @SerialName("unrepost")
@@ -60,20 +57,32 @@ sealed interface WearAction {
         override val postUri: String,
         /** The viewer's repost record, from the synced post. */
         val repostUri: String,
-    ) : WearAction
+    ) : WearPostAction
 
     @Serializable
     @SerialName("bookmark")
     data class Bookmark(
         override val postUri: String,
         val postCid: String,
-    ) : WearAction
+    ) : WearPostAction
 
     @Serializable
     @SerialName("unbookmark")
     data class Unbookmark(
         override val postUri: String,
-    ) : WearAction
+        val postCid: String,
+    ) : WearPostAction
+}
+
+/**
+ * An action on one post: like, repost or bookmark, or an undo. Its own sealed
+ * family so the phone's post handler claims exactly these, and not the DM
+ * actions that join [WearAction] later.
+ */
+@Serializable
+sealed interface WearPostAction : WearAction {
+    /** The post the action is about. */
+    val postUri: String
 }
 
 /** The phone's answer to a [WearActionRequest], written at [WearPaths.actionResult]. */

@@ -18,7 +18,7 @@ class WearPostMappingTest {
 
     @Test
     fun maps_text_counts_and_viewer_state() {
-        val post = testPost("p1", viewer = ViewerStateUi(isLikedByViewer = true, likeUri = "at://like/1", isBookmarked = true))
+        val post = testPost("p1", viewer = ViewerStateUi(isLikedByViewer = true, likeUri = "at://like/1", isRepostedByViewer = true, repostUri = "at://repost/1", isBookmarked = true))
 
         val wear = listOf(post).toWearFeedDraft().posts.single()
 
@@ -27,6 +27,7 @@ class WearPostMappingTest {
         assertEquals("text p1", wear.text)
         assertEquals(3, wear.likeCount)
         assertEquals("at://like/1", wear.viewer.likeUri)
+        assertEquals("at://repost/1", wear.viewer.repostUri)
         assertTrue(wear.viewer.bookmarked)
     }
 
