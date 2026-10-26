@@ -13,7 +13,6 @@
     <string name="wear_feed_following">Seguindo</string>
     <string name="wear_feed_empty_title">Nenhum feed ainda</string>
     <string name="wear_feed_empty_body">Seu feed aparece aqui depois que o celular sincroniza. Deixe o celular por perto um instante.</string>
-    <string name="wear_feed_updated">Atualizado %1$s</string>
     <string name="wear_feed_switch">Trocar feed</string>
     <string name="wear_feed_picker_title">Feeds</string>
     <string name="wear_post_video">Vídeo</string>
@@ -64,4 +63,8 @@
         <item quantity="many">%1$d mensagens não lidas</item>
         <item quantity="other">%1$d mensagens não lidas</item>
     </plurals>
+    <string name="wear_time_now">agora</string>
+    <string name="wear_time_minutes">%1$d min</string>
+    <string name="wear_time_hours">%1$d h</string>
+    <string name="wear_time_days">%1$d d</string>
 </resources>

@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -14,7 +13,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
@@ -84,7 +82,6 @@ fun FeedScreen(
             item {
                 FeedHeader(
                     feedName = feed.label(),
-                    updated = stringResource(R.string.wear_feed_updated, relativeTime(feed.updatedAtMs, nowMs)),
                     onSwitchFeed = if (state.feeds.size > 1) onSwitchFeed else null,
                     unreadMessages = unreadMessages,
                     onOpenMessages = onOpenMessages,
@@ -125,31 +122,19 @@ fun FeedScreen(
 }
 
 /**
- * The feed's header in one row: when it was updated, then the feed's name as
- * its own switcher (a plain title when there's nothing to switch to) and,
+ * The feed's header in one row: the feed's name as its own switcher (a plain title when there's nothing to switch to) and,
  * once the phone has synced DMs, Messages beside it. Messages turns primary
  * only while something is unread, so it doesn't compete with the timeline.
  */
 @Composable
 private fun FeedHeader(
     feedName: String,
-    updated: String,
     onSwitchFeed: (() -> Unit)?,
     unreadMessages: Int,
     onOpenMessages: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            updated,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            // Narrower than the row: it sits near the top of the circle, where large
-            // fonts would otherwise clip at both ends. Wraps instead.
-            maxLines = 2,
-            modifier = Modifier.fillMaxWidth(0.8f).padding(bottom = 4.dp),
-        )
         if (onSwitchFeed == null && onOpenMessages == null) {
             Text(feedName, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             return@Column
