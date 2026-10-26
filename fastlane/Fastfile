@@ -29,6 +29,18 @@ PROMOTE_TRACKS = %w[alpha beta production].freeze
 # The Wear OS form factor's internal track (Play gives Wear its own tracks).
 WEAR_INTERNAL_TRACK = "wear:internal"
 
+# Release bundles by explicit path: the phone and Wear apps share an
+# applicationId, so each upload names its own AAB rather than reading
+# GRADLE_AAB_OUTPUT_PATH, which holds whichever bundle Gradle built last.
+PHONE_RELEASE_AAB = File.expand_path("../app/build/outputs/bundle/productionRelease/app-production-release.aab", __dir__)
+WEAR_RELEASE_AAB = File.expand_path("../wear/app/build/outputs/bundle/productionRelease/app-production-release.aab", __dir__)
+
+# Returns path, failing loudly if the bundle wasn't built (e.g. a task rename).
+def nubecita_existing_aab(path)
+  UI.user_error!("Expected release bundle not found: #{path}") unless File.exist?(path)
+  path
+end
+
 # Locale buckets that ship framed marketing screenshots. en-US is the source of
 # truth (the journey captures it); the others reuse those captures with a
 # localized title band (see the `localize_marketing_screenshots` lane). The app
@@ -146,7 +158,7 @@ platform :android do
 
       upload_to_play_store(
         track: WEAR_INTERNAL_TRACK,
-        aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
+        aab: nubecita_existing_aab(WEAR_RELEASE_AAB),
         metadata_path: metadata_path,
         skip_upload_apk: true,
         skip_upload_metadata: true,
@@ -173,7 +185,14 @@ platform :android do
     # populated non-deterministically and could send the bench AAB — the
     # one with fake-network DI swapped in — to Play Console. Bench AABs
     # are reserved for Macrobench (nubecita-crmi.6 Section B onwards).
-    gradle(task: "bundleProductionRelease")
+    #
+    # Project-qualified too (nubecita-50gj): since :wear:app gained its own
+    # productionRelease variant, the bare `bundleProductionRelease` built BOTH
+    # bundles and GRADLE_AAB_OUTPUT_PATH pointed at the Wear AAB, which this
+    # lane then tried to upload to the phone track (Play rejected it). The
+    # upload below also names the phone AAB explicitly instead of trusting
+    # "the last bundle Gradle built".
+    gradle(task: ":app:bundleProductionRelease")
 
     release_notes = ENV["PLAY_RELEASE_NOTES"]
     release_notes = "Internal build — wire PLAY_RELEASE_NOTES for human-readable notes." if release_notes.nil? || release_notes.empty?
@@ -210,7 +229,7 @@ platform :android do
         # Optional: a manual release.yaml dispatch can force a priority for the
         # internal upload; the automatic push path leaves it unset → Play default 0.
         in_app_update_priority: nubecita_blank(ENV["IN_APP_UPDATE_PRIORITY"])&.to_i,
-        aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
+        aab: nubecita_existing_aab(PHONE_RELEASE_AAB),
         metadata_path: metadata_path,
         skip_upload_apk: true,
         skip_upload_metadata: true,
