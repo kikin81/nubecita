@@ -18,7 +18,7 @@ plugins {
 }
 
 jacoco {
-    toolVersion = "0.8.15"
+    toolVersion = "0.8.16"
 }
 
 // Single aggregated coverage report consumed by CI's madrapps/jacoco-report
