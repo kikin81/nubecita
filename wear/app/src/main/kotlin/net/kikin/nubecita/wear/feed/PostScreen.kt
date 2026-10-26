@@ -28,6 +28,10 @@ fun PostScreen(
     post: WatchPostUi,
     nowMs: Long,
     modifier: Modifier = Modifier,
+    actionsAvailable: Boolean = false,
+    onToggleLike: () -> Unit = {},
+    onToggleRepost: () -> Unit = {},
+    onToggleBookmark: () -> Unit = {},
     listState: TransformingLazyColumnState = rememberTransformingLazyColumnState(),
 ) {
     ScreenScaffold(
@@ -55,6 +59,10 @@ fun PostScreen(
             }
             item { PostMedia(post, imageHeight = 140) }
             item { PostCounts(post) }
+            // Hidden for a phone that doesn't run watch actions yet.
+            if (actionsAvailable) {
+                item { PostActionRow(post, onToggleLike = onToggleLike, onToggleRepost = onToggleRepost, onToggleBookmark = onToggleBookmark) }
+            }
         }
     }
 }

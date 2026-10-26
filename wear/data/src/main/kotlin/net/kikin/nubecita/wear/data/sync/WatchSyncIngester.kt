@@ -1,16 +1,20 @@
 package net.kikin.nubecita.wear.data.sync
 
+import net.kikin.nubecita.core.wearcontract.WearActionResult
 import net.kikin.nubecita.core.wearcontract.WearCodec
 import net.kikin.nubecita.core.wearcontract.WearDecodeResult
 import net.kikin.nubecita.core.wearcontract.WearFeedSnapshot
 import net.kikin.nubecita.core.wearcontract.WearPaths
 import net.kikin.nubecita.core.wearcontract.WearPost
 import net.kikin.nubecita.core.wearcontract.WearSessionSnapshot
+import net.kikin.nubecita.wear.data.db.WatchActionDao
 import net.kikin.nubecita.wear.data.db.WatchFeedDao
 import net.kikin.nubecita.wear.data.db.WatchFeedEntity
 import net.kikin.nubecita.wear.data.db.WatchPostEntity
+import net.kikin.nubecita.wear.data.settledActions
 import timber.log.Timber
 import javax.inject.Inject
+import kotlin.time.Clock
 
 /**
  * Applies what the phone syncs to the watch's offline store. Independent of
@@ -22,6 +26,8 @@ class WatchSyncIngester
     constructor(
         private val dao: WatchFeedDao,
         private val images: WatchImageStore,
+        private val actionDao: WatchActionDao,
+        private val clock: Clock,
     ) {
         /**
          * Stores a feed snapshot. Ignored when it isn't a feed path, can't be
@@ -61,8 +67,35 @@ class WatchSyncIngester
                     post.toEntity(accountDid, feedKey, position, avatarPath = pathFor(post.author.avatarAssetKey), thumbnailPath = pathFor(post.media?.thumbnailAssetKey))
                 }
             dao.replaceFeed(WatchFeedEntity(accountDid, feedKey, snapshot.feedName, snapshot.publishedAtMs), posts)
+            // The user's confirmed actions this snapshot now shows no longer need the overlay.
+            val settled = settledActions(posts, actionDao.all(accountDid), nowMs = clock.now().toEpochMilliseconds())
+            if (settled.isNotEmpty()) actionDao.delete(settled)
             // Only after the database points at the new files.
             images.pruneFeed(accountDid, feedKey, keepGeneration = generation)
+        }
+
+        /**
+         * The phone's answer to one of the watch's actions. Ok keeps the action
+         * (with the record it created) until a snapshot shows it; failed drops
+         * it, which silently reverts the post. Returns false when [path] isn't
+         * a result, so the caller only deletes items it understood.
+         */
+        suspend fun onActionResult(
+            path: String,
+            json: String,
+        ): Boolean {
+            val (_, actionId) = WearPaths.parseActionResult(path) ?: return false
+            when (val result = WearCodec.decode(WearActionResult.serializer(), json)) {
+                is WearDecodeResult.Decoded ->
+                    if (result.value.isOk) {
+                        actionDao.markConfirmed(actionId, result.value.recordUri, result.value.completedAtMs)
+                    } else {
+                        actionDao.delete(listOf(actionId))
+                    }
+                // Unreadable: treat as failed, so the button doesn't stay locked.
+                is WearDecodeResult.UnsupportedVersion, is WearDecodeResult.Malformed -> actionDao.delete(listOf(actionId))
+            }
+            return true
         }
 
         /** The phone deleted a feed's item (the user deselected it). */
@@ -87,6 +120,7 @@ class WatchSyncIngester
                     }
                 }
             dao.keepOnlyAccount(account?.did)
+            actionDao.deleteExcept(account?.did.orEmpty())
             images.keepOnlyAccount(account?.did)
         }
     }
@@ -114,6 +148,7 @@ private fun WearPost.toEntity(
     likeCount = likeCount,
     repostedBy = repostedBy,
     likeUri = viewer.likeUri,
+    repostUri = viewer.repostUri,
     bookmarked = viewer.bookmarked,
     imageCount = media?.imageCount ?: 0,
     isVideo = media?.isVideo ?: false,

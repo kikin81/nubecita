@@ -7,9 +7,14 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.core.wearcontract.WearAction
 import net.kikin.nubecita.core.wearcontract.WearFeedKey
+import net.kikin.nubecita.core.wearcontract.WearPostAction
+import net.kikin.nubecita.wear.data.PhoneActionSupport
+import net.kikin.nubecita.wear.data.WatchActionRepository
 import net.kikin.nubecita.wear.data.WatchFeedRepository
 import net.kikin.nubecita.wear.data.db.WatchFeedEntity
+import net.kikin.nubecita.wear.data.db.WatchPendingActionEntity
 import net.kikin.nubecita.wear.data.db.WatchPostEntity
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -23,8 +28,10 @@ class WatchFeedViewModelTest {
     private val did = "did:plc:alice"
     private val cats = "uri-cats"
     private val repo = FakeRepository()
+    private val actions = FakeActions()
+    private val support = FakeSupport()
 
-    private fun vm() = WatchFeedViewModel(repo)
+    private fun vm() = WatchFeedViewModel(repo, actions, support)
 
     @Test
     fun without_an_account_it_is_loading() =
@@ -120,6 +127,7 @@ class WatchFeedViewModelTest {
     private fun post(
         uri: String,
         liked: Boolean = false,
+        reposted: Boolean = false,
     ) = WatchPostEntity(
         accountDid = did,
         feedKey = "",
@@ -137,6 +145,7 @@ class WatchFeedViewModelTest {
         likeCount = 1,
         repostedBy = null,
         likeUri = if (liked) "at://like" else null,
+        repostUri = if (reposted) "at://repost" else null,
         bookmarked = false,
         imageCount = 0,
         isVideo = false,
@@ -159,6 +168,114 @@ class WatchFeedViewModelTest {
             assertFalse(repo.postQueries.contains("did:plc:bob" to cats)) { "${repo.postQueries}" }
             assertEquals(WearFeedKey.FOLLOWING, vm.uiState.value.selectedKey)
         }
+
+    @Test
+    fun a_pending_like_shows_at_once_with_the_count_up() =
+        runTest {
+            repo.feeds.value = listOf(feed(WearFeedKey.FOLLOWING, null))
+            repo.posts[WearFeedKey.FOLLOWING] = listOf(post("f1"))
+            actions.pending.value = listOf(WatchPendingActionEntity("a1", did, "f1", "like", createdAtMs = 1))
+            val vm = vm()
+            vm.handleEvent(WatchFeedEvent.AccountChanged(did))
+            advanceUntilIdle()
+
+            val p =
+                vm.uiState.value.posts
+                    .single()
+            assertTrue(p.liked)
+            assertTrue(p.likePending)
+            assertEquals(2, p.likeCount)
+        }
+
+    @Test
+    fun toggles_submit_the_matching_action_for_the_signed_in_account() =
+        runTest {
+            repo.feeds.value = listOf(feed(WearFeedKey.FOLLOWING, null))
+            repo.posts[WearFeedKey.FOLLOWING] = listOf(post("f1", liked = true, reposted = true), post("f2"))
+            val vm = vm()
+            vm.handleEvent(WatchFeedEvent.AccountChanged(did))
+            advanceUntilIdle()
+
+            vm.handleEvent(WatchFeedEvent.ToggleLike("f1"))
+            vm.handleEvent(WatchFeedEvent.ToggleRepost("f1"))
+            vm.handleEvent(WatchFeedEvent.ToggleLike("f2"))
+            vm.handleEvent(WatchFeedEvent.ToggleRepost("f2"))
+            vm.handleEvent(WatchFeedEvent.ToggleBookmark("f2"))
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(
+                    did to WearAction.Unlike("f1", "at://like"),
+                    did to WearAction.Unrepost("f1", "at://repost"),
+                    did to WearAction.Like("f2", "c"),
+                    did to WearAction.Repost("f2", "c"),
+                    did to WearAction.Bookmark("f2", "c"),
+                ),
+                actions.submitted,
+            )
+        }
+
+    @Test
+    fun a_toggle_with_an_unanswered_action_ignores_taps() =
+        runTest {
+            repo.feeds.value = listOf(feed(WearFeedKey.FOLLOWING, null))
+            repo.posts[WearFeedKey.FOLLOWING] = listOf(post("f1"))
+            actions.pending.value = listOf(WatchPendingActionEntity("a1", did, "f1", "like", createdAtMs = 1))
+            val vm = vm()
+            vm.handleEvent(WatchFeedEvent.AccountChanged(did))
+            advanceUntilIdle()
+
+            vm.handleEvent(WatchFeedEvent.ToggleLike("f1"))
+            advanceUntilIdle()
+
+            assertTrue(actions.submitted.isEmpty())
+        }
+
+    @Test
+    fun actions_are_offered_only_when_the_phone_supports_them() =
+        runTest {
+            repo.feeds.value = listOf(feed(WearFeedKey.FOLLOWING, null))
+            val vm = vm()
+            vm.handleEvent(WatchFeedEvent.AccountChanged(did))
+            advanceUntilIdle()
+            assertTrue(vm.uiState.value.actionsAvailable)
+
+            support.available = false
+            val older = vm()
+            older.handleEvent(WatchFeedEvent.AccountChanged(did))
+            advanceUntilIdle()
+            assertFalse(older.uiState.value.actionsAvailable)
+
+            support.fail = true
+            val unknown = vm()
+            unknown.handleEvent(WatchFeedEvent.AccountChanged(did))
+            advanceUntilIdle()
+            assertFalse(unknown.uiState.value.actionsAvailable)
+        }
+
+    private class FakeActions : WatchActionRepository {
+        val pending = MutableStateFlow(emptyList<WatchPendingActionEntity>())
+        val submitted = mutableListOf<Pair<String, WearPostAction>>()
+
+        override fun pending(accountDid: String): Flow<List<WatchPendingActionEntity>> = pending
+
+        override suspend fun submit(
+            accountDid: String,
+            action: WearPostAction,
+        ) {
+            submitted += accountDid to action
+        }
+    }
+
+    private class FakeSupport : PhoneActionSupport {
+        var available = true
+        var fail = false
+
+        override suspend fun available(): Boolean {
+            if (fail) error("Play services unavailable")
+            return available
+        }
+    }
 
     private class FakeRepository : WatchFeedRepository {
         val feeds = MutableStateFlow(emptyList<WatchFeedEntity>())

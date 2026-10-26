@@ -50,6 +50,9 @@ object WearPaths {
     /** The (account DID, action id) of an [action] path, or null for any other path. */
     fun parseAction(path: String): Pair<String, String>? = parseAccountScoped(path, "action")
 
+    /** The (account DID, action id) of an [actionResult] path, or null for any other path. */
+    fun parseActionResult(path: String): Pair<String, String>? = parseAccountScoped(path, "action-result")
+
     /** The (account DID, feed key) of a [feed] path, or null for any other path. */
     fun parseFeed(path: String): Pair<String, String>? = parseAccountScoped(path, "feed")
 

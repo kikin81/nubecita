@@ -1,6 +1,7 @@
 package net.kikin.nubecita.wear.feed
 
 import androidx.compose.runtime.Composable
+import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
 import androidx.wear.compose.ui.tooling.preview.WearPreviewFontScales
 import com.android.tools.screenshot.PreviewTest
@@ -99,4 +100,57 @@ private fun PostPreview() {
 @Composable
 private fun PostFontScalesPreview() {
     NubecitaWearTheme { PostScreen(post = POSTS[1], nowMs = NOW) }
+}
+
+// The action row is the last item (author, repost line, text, media, counts,
+// actions → index 5). Anchoring on it centres the row, where a user scrolls it
+// to; near the bottom edge the round screen is too narrow for three buttons.
+private const val ACTIONS_ITEM = 5
+
+@Composable
+private fun PostWithActions(post: WatchPostUi) {
+    NubecitaWearTheme {
+        PostScreen(
+            post = post,
+            nowMs = NOW,
+            actionsAvailable = true,
+            listState = rememberTransformingLazyColumnState(initialAnchorItemIndex = ACTIONS_ITEM),
+        )
+    }
+}
+
+@PreviewTest
+@WearPreviewDevices
+@Composable
+private fun PostActionsOffPreview() {
+    PostWithActions(POSTS[1])
+}
+
+@PreviewTest
+@WearPreviewDevices
+@Composable
+private fun PostActionsOnPreview() {
+    PostWithActions(POSTS[1].copy(liked = true, reposted = true, bookmarked = true, likeCount = 43, repostCount = 2))
+}
+
+@PreviewTest
+@WearPreviewDevices
+@Composable
+private fun PostActionPendingPreview() {
+    // Liked a moment ago, no answer from the phone yet: the like toggle is disabled.
+    PostWithActions(POSTS[1].copy(liked = true, likePending = true, likeCount = 43))
+}
+
+@PreviewTest
+@WearPreviewFontScales
+@Composable
+private fun PostActionsFontScalesPreview() {
+    PostWithActions(POSTS[1].copy(bookmarked = true))
+}
+
+@PreviewTest
+@WearPreviewDevices
+@Composable
+private fun RepostConfirmPreview() {
+    NubecitaWearTheme { RepostConfirmContent() }
 }

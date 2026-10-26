@@ -40,4 +40,15 @@
         <item quantity="many">%1$d me gusta</item>
         <item quantity="other">%1$d me gusta</item>
     </plurals>
+    <string name="wear_post_action_like">Me gusta</string>
+    <string name="wear_post_state_liked">Te gusta</string>
+    <string name="wear_post_state_not_liked">No te gusta</string>
+    <string name="wear_post_action_repost">Republicar</string>
+    <string name="wear_post_state_reposted">Republicado</string>
+    <string name="wear_post_state_not_reposted">Sin republicar</string>
+    <string name="wear_post_action_bookmark">Guardar</string>
+    <string name="wear_post_state_bookmarked">Guardado</string>
+    <string name="wear_post_state_not_bookmarked">Sin guardar</string>
+    <string name="wear_post_repost_confirm_title">¿Republicar esto?</string>
+    <string name="wear_post_repost_confirm_body">Tus seguidores lo verán.</string>
 </resources>
