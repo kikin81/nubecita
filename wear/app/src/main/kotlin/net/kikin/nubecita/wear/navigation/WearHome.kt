@@ -26,3 +26,16 @@ data object WearConvos : NavKey
 data class WearThread(
     val convoId: String,
 ) : NavKey
+
+/** Pick a quick reply for a conversation. */
+@Serializable
+data class WearReply(
+    val convoId: String,
+) : NavKey
+
+/** Pick a reaction for someone's message. */
+@Serializable
+data class WearReact(
+    val convoId: String,
+    val messageId: String,
+) : NavKey

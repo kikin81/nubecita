@@ -67,4 +67,18 @@
     <string name="wear_time_minutes">%1$d min</string>
     <string name="wear_time_hours">%1$d h</string>
     <string name="wear_time_days">%1$d d</string>
+    <string name="wear_dms_reply">Responder</string>
+    <string name="wear_dms_react">Reagir</string>
+    <string name="wear_dms_sending">Enviando…</string>
+    <string name="wear_dms_sent">Enviada</string>
+    <string name="wear_dms_not_sent">Não enviada — toque para tentar de novo</string>
+    <string name="wear_dms_retry">Tentar de novo</string>
+    <string-array name="wear_dms_quick_replies">
+        <item>Estou a caminho</item>
+        <item>Parece bom</item>
+        <item>Não posso falar agora</item>
+        <item>Vou me atrasar</item>
+        <item>Obrigado!</item>
+        <item>👍</item>
+    </string-array>
 </resources>

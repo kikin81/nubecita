@@ -4,6 +4,8 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
+import net.kikin.nubecita.core.wearsync.WearActionHandler
 
 /**
  * Binds the [DmPollRunner] collaborators. Single-component, all variants —
@@ -20,4 +22,9 @@ internal abstract class DmWorkerBindingsModule {
 
     @Binds
     abstract fun bindDmWorkScheduler(impl: WorkManagerDmWorkScheduler): DmWorkScheduler
+
+    /** Watch quick replies and reactions (W4), into `:core:wear-sync`'s handler set. */
+    @Binds
+    @IntoSet
+    abstract fun bindDmWearActionHandler(impl: DmWearActionHandler): WearActionHandler
 }

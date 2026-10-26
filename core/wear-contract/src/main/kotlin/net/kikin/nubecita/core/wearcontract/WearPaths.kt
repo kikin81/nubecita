@@ -127,6 +127,12 @@ object WearCapabilities {
      * unanswered.
      */
     const val PHONE_ACTIONS = "nubecita_phone_actions"
+
+    /**
+     * Advertised by phone builds that run DM actions ([WearDmAction]). The
+     * watch offers quick replies and reactions only while the phone has it.
+     */
+    const val PHONE_DM_ACTIONS = "nubecita_phone_dm_actions"
 }
 
 /**

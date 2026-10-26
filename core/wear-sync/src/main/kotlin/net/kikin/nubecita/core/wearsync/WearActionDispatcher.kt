@@ -22,6 +22,12 @@ interface WearActionHandler {
     fun canHandle(action: WearAction): Boolean
 
     /**
+     * How old [action] may be when it reaches the phone; older ones are answered
+     * [WearActionFailure.EXPIRED] without running. Null (the default) never expires.
+     */
+    fun maxAgeMs(action: WearAction): Long? = null
+
+    /**
      * Performs [action]. Success carries the record URI a like or repost
      * created (null otherwise); failure is reported to the watch as
      * [WearActionFailure.ERROR].
@@ -38,6 +44,8 @@ interface WearActionHandler {
  *   ([WearActionFailure.ACCOUNT]).
  * - An action this build can't read or has no handler for is never run
  *   ([WearActionFailure.UNSUPPORTED]).
+ * - An action older than its handler's [WearActionHandler.maxAgeMs] is never run
+ *   ([WearActionFailure.EXPIRED]).
  * - The result is written before the action item is deleted, and an action
  *   that already has a result is only deleted, so a redelivered item (a crash
  *   between the two writes, or a repeated change event) never likes twice.
@@ -68,11 +76,14 @@ class WearActionDispatcher internal constructor(
         val request = json?.let(::decode)?.takeIf { it.accountDid == accountDid && it.actionId == actionId }
         val signedInDid = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
         val handler = request?.let { r -> handlers.firstOrNull { it.canHandle(r.action) } }
+        val now = clock.now().toEpochMilliseconds()
+        val expired = request != null && handler?.maxAgeMs(request.action)?.let { now - request.createdAtMs > it } == true
         val outcome: Result<String?> =
             when {
                 request == null -> Result.failure(Refused(WearActionFailure.UNSUPPORTED))
                 accountDid != signedInDid -> Result.failure(Refused(WearActionFailure.ACCOUNT))
                 handler == null -> Result.failure(Refused(WearActionFailure.UNSUPPORTED))
+                expired -> Result.failure(Refused(WearActionFailure.EXPIRED))
                 else -> run(handler, request.action)
             }
 
@@ -80,7 +91,7 @@ class WearActionDispatcher internal constructor(
             WearActionResult(
                 actionId = actionId,
                 accountDid = accountDid,
-                completedAtMs = clock.now().toEpochMilliseconds(),
+                completedAtMs = now,
                 failure = outcome.exceptionOrNull()?.let { (it as? Refused)?.failure ?: WearActionFailure.ERROR },
                 recordUri = outcome.getOrNull(),
             )

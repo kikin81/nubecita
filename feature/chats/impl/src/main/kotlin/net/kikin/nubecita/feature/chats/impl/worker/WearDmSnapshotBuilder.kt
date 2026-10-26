@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.chats.impl.worker
 import net.kikin.nubecita.core.wearcontract.WearConvo
 import net.kikin.nubecita.core.wearcontract.WearDmSnapshot
 import net.kikin.nubecita.core.wearcontract.WearMessage
+import net.kikin.nubecita.core.wearcontract.WearReaction
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.MessageUi
 
@@ -85,6 +86,7 @@ private fun List<MessageUi>.toWear(convo: ConvoRowUi): List<WearMessage> {
             sentAtMs = message.sentAt.toEpochMilliseconds(),
             isDeleted = message.isDeleted,
             hasAttachment = message.embed != null,
+            reactions = message.reactions.map { WearReaction(emoji = it.emoji, count = it.count, mine = it.reactedByViewer) },
         )
     }
 }

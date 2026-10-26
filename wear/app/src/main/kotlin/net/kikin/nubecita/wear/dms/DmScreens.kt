@@ -1,6 +1,7 @@
 package net.kikin.nubecita.wear.dms
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -26,6 +28,8 @@ import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.Card
 import androidx.wear.compose.material3.CardDefaults
+import androidx.wear.compose.material3.EdgeButton
+import androidx.wear.compose.material3.EdgeButtonSize
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.ListHeaderDefaults
 import androidx.wear.compose.material3.MaterialTheme
@@ -159,14 +163,22 @@ fun ThreadScreen(
     thread: WatchThreadUi,
     nowMs: Long,
     modifier: Modifier = Modifier,
-    // Header + messages: anchoring on the last one opens at the newest.
-    listState: TransformingLazyColumnState = rememberTransformingLazyColumnState(initialAnchorItemIndex = thread.messages.size),
+    onReply: (() -> Unit)? = null,
+    onReact: ((WatchMessageUi) -> Unit)? = null,
+    onRetry: (WatchPendingDmUi) -> Unit = {},
+    // Header + messages + pending replies: anchoring on the last one opens at the newest.
+    listState: TransformingLazyColumnState = rememberTransformingLazyColumnState(initialAnchorItemIndex = thread.messages.size + thread.pendingReplies.size),
 ) {
     val transformationSpec = rememberTransformationSpec()
     ScreenScaffold(
         scrollState = listState,
         modifier = modifier,
         scrollIndicator = { WearScrollIndicator(listState) },
+        edgeButton = {
+            if (onReply != null) {
+                EdgeButton(onClick = onReply, buttonSize = EdgeButtonSize.Small) { Text(stringResource(R.string.wear_dms_reply)) }
+            }
+        },
     ) { contentPadding ->
         TransformingLazyColumn(state = listState, contentPadding = contentPadding) {
             item {
@@ -181,7 +193,11 @@ fun ThreadScreen(
                     Text(thread.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            items(thread.messages, key = { it.id }) { message -> MessageBubble(message, nowMs) }
+            items(thread.messages, key = { it.id }) { message ->
+                // Only someone else's message takes a reaction from the watch.
+                MessageBubble(message, nowMs, onClick = onReact?.takeIf { !message.fromViewer }?.let { react -> { react(message) } }, onRetry = onRetry)
+            }
+            items(thread.pendingReplies, key = { it.actionId }) { reply -> PendingReplyBubble(reply, onRetry) }
         }
     }
 }
@@ -190,6 +206,8 @@ fun ThreadScreen(
 private fun MessageBubble(
     message: WatchMessageUi,
     nowMs: Long,
+    onClick: (() -> Unit)?,
+    onRetry: (WatchPendingDmUi) -> Unit,
 ) {
     val mine = message.fromViewer
     // Inset from the sides: the newest message sits at the bottom of the list,
@@ -202,6 +220,8 @@ private fun MessageBubble(
             modifier =
                 Modifier
                     .widthIn(max = 160.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .then(if (onClick != null) Modifier.clickable(onClickLabel = stringResource(R.string.wear_dms_react), onClick = onClick) else Modifier)
                     .background(
                         color = if (mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
                         shape = RoundedCornerShape(16.dp),
@@ -219,8 +239,60 @@ private fun MessageBubble(
                 fontStyle = if (message.isDeleted || message.text.isBlank()) FontStyle.Italic else null,
             )
             Text(relativeTime(message.sentAtMs, nowMs), style = MaterialTheme.typography.labelSmall, color = onBubble.copy(alpha = 0.7f))
+            message.reactions.takeIf { it.isNotEmpty() }?.let { reactions ->
+                Text(
+                    reactions.joinToString("  ") { if (it.count > 1) "${it.emoji} ${it.count}" else it.emoji },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = onBubble,
+                )
+            }
+            message.pendingReactions.forEach { pending -> PendingLine("${pending.text} · ", pending, onRetry, onBubble) }
         }
     }
+}
+
+// A reply sent from the watch, until the next DM snapshot carries it.
+@Composable
+private fun PendingReplyBubble(
+    reply: WatchPendingDmUi,
+    onRetry: (WatchPendingDmUi) -> Unit,
+) {
+    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp), contentAlignment = Alignment.CenterEnd) {
+        Column(
+            modifier =
+                Modifier
+                    .widthIn(max = 160.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(16.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.End,
+        ) {
+            Text(reply.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            PendingLine("", reply, onRetry, MaterialTheme.colorScheme.onPrimaryContainer)
+        }
+    }
+}
+
+// "Sending…", "Sent", or a tappable "Not sent — tap to retry".
+@Composable
+private fun PendingLine(
+    prefix: String,
+    pending: WatchPendingDmUi,
+    onRetry: (WatchPendingDmUi) -> Unit,
+    color: androidx.compose.ui.graphics.Color,
+) {
+    val label =
+        when (pending.status) {
+            WatchSendStatus.SENDING -> stringResource(R.string.wear_dms_sending)
+            WatchSendStatus.SENT -> stringResource(R.string.wear_dms_sent)
+            WatchSendStatus.FAILED -> stringResource(R.string.wear_dms_not_sent)
+        }
+    val failed = pending.status == WatchSendStatus.FAILED
+    Text(
+        prefix + label,
+        style = MaterialTheme.typography.labelSmall,
+        color = if (failed) MaterialTheme.colorScheme.error else color.copy(alpha = 0.7f),
+        modifier = if (failed) Modifier.clickable(onClickLabel = stringResource(R.string.wear_dms_retry)) { onRetry(pending) } else Modifier,
+    )
 }
 
 // The message's text, or what stands in for it.

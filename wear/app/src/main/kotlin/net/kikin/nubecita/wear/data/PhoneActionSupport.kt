@@ -15,6 +15,9 @@ import javax.inject.Inject
  */
 interface PhoneActionSupport {
     suspend fun available(): Boolean
+
+    /** The phone runs DM quick replies and reactions ([WearCapabilities.PHONE_DM_ACTIONS], W4). */
+    suspend fun dmAvailable(): Boolean
 }
 
 internal class CapabilityPhoneActionSupport
@@ -23,10 +26,14 @@ internal class CapabilityPhoneActionSupport
         @param:ApplicationContext private val context: Context,
     ) : PhoneActionSupport {
         // FILTER_ALL, not REACHABLE: actions queue while the phone is away.
-        override suspend fun available(): Boolean =
+        override suspend fun available(): Boolean = has(WearCapabilities.PHONE_ACTIONS)
+
+        override suspend fun dmAvailable(): Boolean = has(WearCapabilities.PHONE_DM_ACTIONS)
+
+        private suspend fun has(capability: String): Boolean =
             Wearable
                 .getCapabilityClient(context)
-                .getCapability(WearCapabilities.PHONE_ACTIONS, CapabilityClient.FILTER_ALL)
+                .getCapability(capability, CapabilityClient.FILTER_ALL)
                 .await()
                 .nodes
                 .isNotEmpty()

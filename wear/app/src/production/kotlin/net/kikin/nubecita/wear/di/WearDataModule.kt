@@ -11,9 +11,11 @@ import net.kikin.nubecita.wear.data.PhoneConnection
 import net.kikin.nubecita.wear.data.PhoneSessionSource
 import net.kikin.nubecita.wear.data.PlayServicesPhoneConnection
 import net.kikin.nubecita.wear.data.RoomWatchActionRepository
+import net.kikin.nubecita.wear.data.RoomWatchDmActionRepository
 import net.kikin.nubecita.wear.data.RoomWatchDmRepository
 import net.kikin.nubecita.wear.data.RoomWatchFeedRepository
 import net.kikin.nubecita.wear.data.WatchActionRepository
+import net.kikin.nubecita.wear.data.WatchDmActionRepository
 import net.kikin.nubecita.wear.data.WatchDmRepository
 import net.kikin.nubecita.wear.data.WatchFeedRepository
 
@@ -34,6 +36,9 @@ internal interface WearDataModule {
 
     @Binds
     fun bindWatchDmRepository(impl: RoomWatchDmRepository): WatchDmRepository
+
+    @Binds
+    fun bindWatchDmActionRepository(impl: RoomWatchDmActionRepository): WatchDmActionRepository
 
     @Binds
     fun bindPhoneActionSupport(impl: CapabilityPhoneActionSupport): PhoneActionSupport

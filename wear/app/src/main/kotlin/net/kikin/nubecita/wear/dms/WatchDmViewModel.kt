@@ -3,6 +3,7 @@ package net.kikin.nubecita.wear.dms
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -11,10 +12,16 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.wear.data.PhoneActionSupport
+import net.kikin.nubecita.wear.data.WatchDmActionRepository
 import net.kikin.nubecita.wear.data.WatchDmRepository
 import net.kikin.nubecita.wear.data.db.WatchConvoEntity
 import net.kikin.nubecita.wear.data.db.WatchMessageEntity
+import net.kikin.nubecita.wear.data.db.WatchPendingDmEntity
+import net.kikin.nubecita.wear.data.reactionList
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -29,9 +36,12 @@ class WatchDmViewModel
     @Inject
     constructor(
         private val repository: WatchDmRepository,
+        private val actions: WatchDmActionRepository,
+        private val actionSupport: PhoneActionSupport,
     ) : MviViewModel<WatchDmState, WatchDmEvent, WatchDmEffect>(WatchDmState()) {
         private val account = MutableStateFlow<String?>(null)
         private val openConvo = MutableStateFlow<String?>(null)
+        private val actionsAvailable = MutableStateFlow(false)
 
         init {
             account
@@ -49,7 +59,7 @@ class WatchDmViewModel
                             openConvo.flatMapLatest { id ->
                                 if (id == null) flowOf(null) else repository.messages(did, id).map { id to it }
                             }
-                        combine(list, thread) { (header, convos, lastByConvo), open ->
+                        combine(list, thread, actions.pending(did)) { (header, convos, lastByConvo), open, pending ->
                             WatchDmState(
                                 status = if (header == null) WatchDmStatus.NotSynced else WatchDmStatus.Ready,
                                 unreadCount = header?.unreadCount ?: 0,
@@ -57,13 +67,22 @@ class WatchDmViewModel
                                 thread =
                                     open?.let { (id, messages) ->
                                         convos.firstOrNull { it.convoId == id }?.let { c ->
-                                            WatchThreadUi(c.convoId, c.title, c.isGroup, messages.map { it.toUi() }.toImmutableList())
+                                            val mine = pending.filter { it.convoId == id }
+                                            val reactionsByMessage = mine.filter { it.kind == WatchPendingDmEntity.KIND_REACT }.groupBy { it.targetMessageId }
+                                            WatchThreadUi(
+                                                convoId = c.convoId,
+                                                title = c.title,
+                                                isGroup = c.isGroup,
+                                                messages = messages.map { it.toUi(reactionsByMessage[it.messageId].orEmpty()) }.toImmutableList(),
+                                                pendingReplies = mine.filter { it.kind == WatchPendingDmEntity.KIND_REPLY }.map { it.toUi() }.toImmutableList(),
+                                            )
                                         }
                                     },
                             )
                         }
                     }
-                }.onEach { state -> setState { state } }
+                }.combine(actionsAvailable) { state, available -> state.copy(actionsAvailable = available) }
+                .onEach { state -> setState { state } }
                 .launchIn(viewModelScope)
         }
 
@@ -72,8 +91,31 @@ class WatchDmViewModel
                 is WatchDmEvent.AccountChanged -> {
                     if (event.accountDid != account.value) openConvo.value = null
                     account.value = event.accountDid
+                    if (event.accountDid != null) checkActionSupport()
                 }
                 is WatchDmEvent.ThreadOpened -> openConvo.value = event.convoId
+                is WatchDmEvent.ReplySent -> withAccount { did -> actions.sendReply(did, event.convoId, event.text) }
+                is WatchDmEvent.ReactionSent -> withAccount { did -> actions.sendReaction(did, event.convoId, event.messageId, event.emoji) }
+                is WatchDmEvent.RetryTapped -> withAccount { actions.retry(event.actionId) }
+            }
+        }
+
+        private fun withAccount(block: suspend (String) -> Unit) {
+            val did = account.value ?: return
+            viewModelScope.launch { block(did) }
+        }
+
+        private fun checkActionSupport() {
+            viewModelScope.launch {
+                actionsAvailable.value =
+                    try {
+                        actionSupport.dmAvailable()
+                    } catch (cancellation: CancellationException) {
+                        throw cancellation
+                    } catch (error: Exception) {
+                        Timber.w(error, "couldn't check the phone's DM action support")
+                        false
+                    }
             }
         }
     }
@@ -89,7 +131,7 @@ internal fun WatchConvoEntity.toUi(last: WatchMessageEntity?) =
         lastMessage = last?.toUi(),
     )
 
-internal fun WatchMessageEntity.toUi() =
+internal fun WatchMessageEntity.toUi(pendingReactions: List<WatchPendingDmEntity> = emptyList()) =
     WatchMessageUi(
         id = messageId,
         fromViewer = fromViewer,
@@ -98,4 +140,18 @@ internal fun WatchMessageEntity.toUi() =
         sentAtMs = sentAtMs,
         isDeleted = isDeleted,
         hasAttachment = hasAttachment,
+        reactions = reactionList().map { WatchReactionUi(it.emoji, it.count, it.mine) }.toImmutableList(),
+        pendingReactions = pendingReactions.map { it.toUi() }.toImmutableList(),
+    )
+
+internal fun WatchPendingDmEntity.toUi() =
+    WatchPendingDmUi(
+        actionId = actionId,
+        text = text,
+        status =
+            when (status) {
+                WatchPendingDmEntity.STATUS_SENT -> WatchSendStatus.SENT
+                WatchPendingDmEntity.STATUS_FAILED -> WatchSendStatus.FAILED
+                else -> WatchSendStatus.SENDING
+            },
     )

@@ -106,4 +106,34 @@ data class WatchMessageEntity(
     @ColumnInfo(name = "sent_at_ms") val sentAtMs: Long,
     @ColumnInfo(name = "is_deleted") val isDeleted: Boolean,
     @ColumnInfo(name = "has_attachment") val hasAttachment: Boolean,
+    /** The message's reactions as contract JSON ([reactionList] reads them). */
+    val reactions: String = "[]",
 )
+
+/**
+ * A quick reply or reaction sent from the watch (W4), kept until a DM
+ * snapshot shows it. [kind] is `reply` or `react`; [text] is the reply's text
+ * or the reaction's emoji; [targetMessageId] is the reacted-to message.
+ * [status] is `sending`, then `sent` (with the reply's [sentMessageId]) or
+ * `failed` (the thread offers a retry).
+ */
+@Entity(tableName = "watch_pending_dm")
+data class WatchPendingDmEntity(
+    @PrimaryKey @ColumnInfo(name = "action_id") val actionId: String,
+    @ColumnInfo(name = "account_did") val accountDid: String,
+    @ColumnInfo(name = "convo_id") val convoId: String,
+    val kind: String,
+    val text: String,
+    @ColumnInfo(name = "target_message_id") val targetMessageId: String? = null,
+    @ColumnInfo(name = "sent_message_id") val sentMessageId: String? = null,
+    @ColumnInfo(name = "created_at_ms") val createdAtMs: Long,
+    val status: String = STATUS_SENDING,
+) {
+    companion object {
+        const val KIND_REPLY = "reply"
+        const val KIND_REACT = "react"
+        const val STATUS_SENDING = "sending"
+        const val STATUS_SENT = "sent"
+        const val STATUS_FAILED = "failed"
+    }
+}

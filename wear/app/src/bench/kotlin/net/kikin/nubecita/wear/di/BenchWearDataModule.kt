@@ -67,6 +67,8 @@ internal class BenchPhoneActionSupport
     @Inject
     constructor() : PhoneActionSupport {
         override suspend fun available() = true
+
+        override suspend fun dmAvailable() = true
     }
 
 /**

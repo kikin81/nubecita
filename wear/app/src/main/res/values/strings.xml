@@ -63,4 +63,18 @@
     <string name="wear_time_minutes">%1$dm</string>
     <string name="wear_time_hours">%1$dh</string>
     <string name="wear_time_days">%1$dd</string>
+    <string name="wear_dms_reply">Reply</string>
+    <string name="wear_dms_react">React</string>
+    <string name="wear_dms_sending">Sending…</string>
+    <string name="wear_dms_sent">Sent</string>
+    <string name="wear_dms_not_sent">Not sent — tap to retry</string>
+    <string name="wear_dms_retry">Retry</string>
+    <string-array name="wear_dms_quick_replies">
+        <item>On my way</item>
+        <item>Sounds good</item>
+        <item>Can\'t talk now</item>
+        <item>Running late</item>
+        <item>Thanks!</item>
+        <item>👍</item>
+    </string-array>
 </resources>

@@ -89,3 +89,49 @@ private fun ThreadGroupPreview() {
 private fun ThreadFontScalesPreview() {
     NubecitaWearTheme { ThreadScreen(thread = WatchThreadUi("dm-ana", "Ana Ruiz", false, DIRECT), nowMs = NOW) }
 }
+
+private val WITH_ACTIVITY =
+    WatchThreadUi(
+        convoId = "dm-ana",
+        title = "Ana Ruiz",
+        isGroup = false,
+        messages =
+            persistentListOf(
+                DIRECT[0],
+                DIRECT[1],
+                DIRECT[2].copy(
+                    reactions = persistentListOf(WatchReactionUi("❤️", 2, mine = false)),
+                    pendingReactions = persistentListOf(WatchPendingDmUi("x1", "👍", WatchSendStatus.FAILED)),
+                ),
+            ),
+        pendingReplies = persistentListOf(WatchPendingDmUi("r1", "On my way", WatchSendStatus.SENDING)),
+    )
+
+@PreviewTest
+@WearPreviewDevices
+@Composable
+private fun ThreadWithRepliesPreview() {
+    // A reaction chip, a reaction that didn't send, a reply still sending, and Reply.
+    NubecitaWearTheme { ThreadScreen(thread = WITH_ACTIVITY, nowMs = NOW, onReply = {}, onReact = {}) }
+}
+
+@PreviewTest
+@WearPreviewDevices
+@Composable
+private fun QuickReplyPreview() {
+    NubecitaWearTheme { QuickReplyScreen(onPick = {}) }
+}
+
+@PreviewTest
+@WearPreviewFontScales
+@Composable
+private fun QuickReplyFontScalesPreview() {
+    NubecitaWearTheme { QuickReplyScreen(onPick = {}) }
+}
+
+@PreviewTest
+@WearPreviewDevices
+@Composable
+private fun ReactionPreview() {
+    NubecitaWearTheme { ReactionScreen(onPick = {}) }
+}
