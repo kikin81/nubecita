@@ -15,6 +15,7 @@ import net.kikin.nubecita.wear.gate.WearGateEvent
 import net.kikin.nubecita.wear.gate.WearGateViewModel
 import net.kikin.nubecita.wear.home.HomeScreen
 import net.kikin.nubecita.wear.navigation.WearHome
+import net.kikin.nubecita.wear.ui.WearTimeText
 import net.kikin.nubecita.wear.ui.theme.NubecitaWearTheme
 
 /**
@@ -31,7 +32,7 @@ fun NubecitaWearApp(viewModel: WearGateViewModel = hiltViewModel()) {
         onPauseOrDispose {}
     }
     NubecitaWearTheme {
-        AppScaffold {
+        AppScaffold(timeText = { WearTimeText() }) {
             WearGate(state = state, onEvent = viewModel::handleEvent) { handle ->
                 val backStack = rememberNavBackStack(WearHome)
                 NavDisplay(

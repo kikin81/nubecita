@@ -38,4 +38,12 @@ dependencies {
 
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
+
+    // fastlane screengrab: Play Store screenshots from the bench flavor
+    // (nubecita-sn52.5). Test-only; run by the `wear_screenshots` lane.
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.uiautomator)
+    androidTestImplementation(libs.screengrab)
 }

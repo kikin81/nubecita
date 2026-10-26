@@ -21,9 +21,10 @@ import org.gradle.kotlin.dsl.withType
  *   aligns the shared `androidx.compose.*` artifacts (ui, runtime, foundation)
  *   that Wear Compose builds on; the Wear artifacts themselves are pinned in
  *   the catalog (`wearCompose`), since the BOM doesn't cover them.
- * - No product flavors: the watch never talks to the network, so there is no
- *   bench/production split to make. Flavored dependencies resolve to
- *   `production`.
+ * - The same `environment` dimension as `:app` (`production` + `bench`).
+ *   `bench` swaps the watch's phone-facing data sources for fakes (a signed-in
+ *   session, no Data Layer) and pins the clock, so the Play Store screenshot
+ *   lane captures deterministic, signed-in screens without a paired phone.
  * - Registers the `validateScreenshots` / `updateScreenshots` aliases, so CI's
  *   screenshot job validates the Wear baselines.
  *
@@ -49,10 +50,12 @@ class AndroidWearApplicationConventionPlugin : Plugin<Project> {
                     minSdk = WEAR_MIN_SDK
                     targetSdk = 37
                     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-                    // The watch has no flavors of its own; take the `production`
-                    // variant of any flavored dependency (e.g. :core:testing's
-                    // :core:analytics), as unflavored libraries do.
-                    missingDimensionStrategy("environment", "production")
+                }
+
+                flavorDimensions += "environment"
+                productFlavors {
+                    create("production") { dimension = "environment" }
+                    create("bench") { dimension = "environment" }
                 }
 
                 buildFeatures.compose = true
