@@ -12,10 +12,8 @@ android {
         // Data Layer only pairs apps with the same package and signature, and
         // Play requires it for a Wear app with a phone companion (WO-G7).
         applicationId = "net.kikin.nubecita"
-        // Placeholder until the release pipeline (nubecita-sn52.4) owns the
-        // Wear version-code scheme.
-        versionCode = 1
-        versionName = "0.1.0"
+        // versionName / versionCode come from nubecita.android.wear.application
+        // (the phone's semantic version, in the Wear versionCode band).
     }
 }
 

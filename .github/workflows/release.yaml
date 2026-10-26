@@ -466,3 +466,19 @@ jobs:
           # Empty on the automatic push path (inputs only exist for workflow_dispatch),
           # so the internal lane omits it → Play default priority 0.
           IN_APP_UPDATE_PRIORITY: ${{ inputs.in_app_update_priority }}
+
+      - name: Upload Wear AAB to Play Console wear:internal track
+        # The Wear OS app (nubecita-sn52) ships on Play's dedicated Wear
+        # form-factor tracks. Its own step, AFTER the phone upload: a Wear
+        # failure turns the job red without blocking or undoing the phone
+        # release, which has already landed by this point. The lane checks
+        # the track exists first and fails with a readable message if not.
+        # The Wear app has no RevenueCat / KLIPY keys (the watch never talks
+        # to the network), so only the signing secrets are needed.
+        run: bundle exec fastlane internal_wear
+        env:
+          PLAY_RELEASE_NOTES: ${{ steps.release_notes.outputs.notes }}
+          KEYSTORE_FILE: /tmp/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}

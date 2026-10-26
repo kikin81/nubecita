@@ -26,6 +26,9 @@ PLAY_CHANGELOG_MAX_CHARS = 500
 # (internal is the CI landing track — the source, never a promote target.)
 PROMOTE_TRACKS = %w[alpha beta production].freeze
 
+# The Wear OS form factor's internal track (Play gives Wear its own tracks).
+WEAR_INTERNAL_TRACK = "wear:internal"
+
 # Locale buckets that ship framed marketing screenshots. en-US is the source of
 # truth (the journey captures it); the others reuse those captures with a
 # localized title band (see the `localize_marketing_screenshots` lane). The app
@@ -98,6 +101,61 @@ def nubecita_stage_marketing_screenshots(dest_metadata, locale: "en-US")
 end
 
 platform :android do
+  desc "Build the signed Wear release AAB and upload it to the Play Console wear:internal track."
+  lane :internal_wear do
+    missing = REQUIRED_KEYSTORE_ENV.reject { |k| ENV[k] && !ENV[k].empty? }
+    unless missing.empty?
+      UI.user_error!(
+        "Missing required keystore env vars: #{missing.join(', ')}. " \
+          "See fastlane/README.md for the local-dev setup."
+      )
+    end
+
+    # Wear OS uploads go to dedicated form-factor tracks (nubecita-sn52.4):
+    # wear:internal, wear:beta and wear:production, listed via the Play API on
+    # 2026-10-25. Fail loudly with a clear message if the track is missing
+    # (e.g. the Wear OS form factor was removed in Play Console) instead of a
+    # raw supply error mid-upload. The lookup is read-only.
+    begin
+      google_play_track_version_codes(track: WEAR_INTERNAL_TRACK)
+    rescue StandardError => e
+      UI.user_error!(
+        "Play track '#{WEAR_INTERNAL_TRACK}' is not available (#{e.message}). " \
+          "Enable the Wear OS form factor in Play Console (Test and release > Advanced settings > Form factors)."
+      )
+    end
+
+    # Flavor-qualified for the same reason as :app: the unqualified task would
+    # also build the bench bundle (fake phone sources) with the same applicationId.
+    # The Wear versionCode sits in its own band (1_000_000_000 + the phone code),
+    # computed by the nubecita.android.wear.application convention plugin.
+    gradle(task: ":wear:app:bundleProductionRelease")
+
+    release_notes = ENV["PLAY_RELEASE_NOTES"]
+    release_notes = "Internal build — wire PLAY_RELEASE_NOTES for human-readable notes." if release_notes.nil? || release_notes.empty?
+
+    # Same changelog-only metadata trick as the phone `internal` lane below
+    # (see the comment there for why metadata_path is the locale root).
+    Dir.mktmpdir("nubecita-fastlane-wear-metadata") do |metadata_path|
+      changelog_dir = File.join(metadata_path, "en-US", "changelogs")
+      FileUtils.mkdir_p(changelog_dir)
+      File.write(
+        File.join(changelog_dir, "default.txt"),
+        release_notes.to_s[0, PLAY_CHANGELOG_MAX_CHARS]
+      )
+
+      upload_to_play_store(
+        track: WEAR_INTERNAL_TRACK,
+        aab: lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH],
+        metadata_path: metadata_path,
+        skip_upload_apk: true,
+        skip_upload_metadata: true,
+        skip_upload_images: true,
+        skip_upload_screenshots: true,
+      )
+    end
+  end
+
   desc "Build a signed release AAB and upload it to the Play Console internal track."
   lane :internal do
     missing = REQUIRED_KEYSTORE_ENV.reject { |k| ENV[k] && !ENV[k].empty? }
