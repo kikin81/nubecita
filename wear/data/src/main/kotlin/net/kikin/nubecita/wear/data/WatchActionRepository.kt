@@ -5,8 +5,10 @@ import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.wearcontract.WearActionRequest
 import net.kikin.nubecita.core.wearcontract.WearCodec
 import net.kikin.nubecita.core.wearcontract.WearDataKeys
@@ -54,6 +56,16 @@ class RoomWatchActionRepository
         override fun pending(accountDid: String): Flow<List<WatchPendingActionEntity>> = dao.observe(accountDid)
 
         override suspend fun submit(
+            accountDid: String,
+            action: WearPostAction,
+        ) {
+            // Not cancellable: a tap followed by closing the app must not leave a
+            // stored action that was never sent. Unanswered actions never expire,
+            // so it would lock that toggle for good.
+            withContext(NonCancellable) { store(accountDid, action) }
+        }
+
+        private suspend fun store(
             accountDid: String,
             action: WearPostAction,
         ) {
