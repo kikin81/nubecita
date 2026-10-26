@@ -95,9 +95,12 @@ class AndroidWearApplicationConventionPlugin : Plugin<Project> {
                 "implementation"(platform(bom))
                 "implementation"(libs.findLibrary("androidx-wear-compose-foundation").get())
                 "implementation"(libs.findLibrary("androidx-wear-compose-material3").get())
-                "implementation"(libs.findLibrary("androidx-wear-compose-ui-tooling").get())
                 "implementation"(libs.findLibrary("hilt-android").get())
                 "debugImplementation"(libs.findLibrary("androidx-compose-ui-tooling").get())
+                // Wear preview annotations (@WearPreviewDevices / @WearPreviewFontScales):
+                // previews and screenshot tests only, never the release app.
+                "debugImplementation"(libs.findLibrary("androidx-wear-compose-ui-tooling").get())
+                "screenshotTestImplementation"(libs.findLibrary("androidx-wear-compose-ui-tooling").get())
                 "screenshotTestImplementation"(libs.findLibrary("androidx-compose-ui-tooling").get())
                 "screenshotTestImplementation"(libs.findLibrary("screenshot-validation-api").get())
                 "ksp"(libs.findLibrary("hilt-android-compiler").get())
