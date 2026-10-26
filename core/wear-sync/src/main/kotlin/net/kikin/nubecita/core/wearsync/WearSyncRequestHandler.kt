@@ -45,7 +45,9 @@ class WearSyncRequestHandler internal constructor(
 
         val now = clock.now().toEpochMilliseconds()
         val last = lastRefreshMs.get()
-        if (last != Long.MIN_VALUE && now - last < REFRESH_COOLDOWN_MS) return
+        // A clock that moved backwards (manual change, network time) makes the
+        // gap negative; that must not lock refreshes out until it catches up.
+        if (last != Long.MIN_VALUE && (now - last) in 0 until REFRESH_COOLDOWN_MS) return
         if (lastRefreshMs.compareAndSet(last, now)) guarded("feed refresh") { refreshTrigger.refreshFeedsNow() }
     }
 

@@ -77,6 +77,18 @@ class WearSyncRequestHandlerTest {
         }
 
     @Test
+    fun a_clock_that_moved_backwards_does_not_block_refreshes() =
+        runTest {
+            val handler = handler()
+            handler.onSyncRequest()
+            nowMs -= 60 * 60_000L // the clock jumped back an hour
+
+            handler.onSyncRequest()
+
+            assertEquals(2, refresh.calls)
+        }
+
+    @Test
     fun signed_out_only_republishes_the_session() =
         runTest {
             session.value = SessionState.SignedOut
