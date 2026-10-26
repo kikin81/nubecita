@@ -82,7 +82,14 @@ fun NubecitaWearApp(
                                     // go back to the feed rather than show a blank page.
                                     val post = feedState.posts.firstOrNull { it.uri == route.uri }
                                     if (post != null) {
-                                        PostScreen(post = post, nowMs = now)
+                                        PostScreen(
+                                            post = post,
+                                            nowMs = now,
+                                            actionsAvailable = feedState.actionsAvailable,
+                                            onToggleLike = { feedViewModel.handleEvent(WatchFeedEvent.ToggleLike(post.uri)) },
+                                            onToggleRepost = { feedViewModel.handleEvent(WatchFeedEvent.ToggleRepost(post.uri)) },
+                                            onToggleBookmark = { feedViewModel.handleEvent(WatchFeedEvent.ToggleBookmark(post.uri)) },
+                                        )
                                     } else {
                                         LaunchedEffect(route) { backStack.remove(route) }
                                     }

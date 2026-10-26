@@ -67,6 +67,9 @@ internal suspend fun applyItem(
         val json = map.getString(WearDataKeys.PAYLOAD) ?: return
         when {
             path == WearPaths.SESSION -> ingester.onSession(json)
+            WearPaths.parseActionResult(path) != null ->
+                // Applied once: the watch deletes the phone's answer afterwards.
+                if (ingester.onActionResult(path, json)) Wearable.getDataClient(context).deleteDataItems(item.uri).await()
             WearPaths.parseFeed(path) != null ->
                 ingester.ingestFeed(path, json) { key ->
                     val asset = map.getAsset(key) ?: return@ingestFeed null

@@ -37,4 +37,15 @@
         <item quantity="one">%1$d like</item>
         <item quantity="other">%1$d likes</item>
     </plurals>
+    <string name="wear_post_action_like">Like</string>
+    <string name="wear_post_state_liked">Liked</string>
+    <string name="wear_post_state_not_liked">Not liked</string>
+    <string name="wear_post_action_repost">Repost</string>
+    <string name="wear_post_state_reposted">Reposted</string>
+    <string name="wear_post_state_not_reposted">Not reposted</string>
+    <string name="wear_post_action_bookmark">Bookmark</string>
+    <string name="wear_post_state_bookmarked">Bookmarked</string>
+    <string name="wear_post_state_not_bookmarked">Not bookmarked</string>
+    <string name="wear_post_repost_confirm_title">Repost this?</string>
+    <string name="wear_post_repost_confirm_body">Your followers will see it.</string>
 </resources>

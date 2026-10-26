@@ -40,4 +40,15 @@
         <item quantity="many">%1$d curtidas</item>
         <item quantity="other">%1$d curtidas</item>
     </plurals>
+    <string name="wear_post_action_like">Curtir</string>
+    <string name="wear_post_state_liked">Curtido</string>
+    <string name="wear_post_state_not_liked">Não curtido</string>
+    <string name="wear_post_action_repost">Repostar</string>
+    <string name="wear_post_state_reposted">Repostado</string>
+    <string name="wear_post_state_not_reposted">Não repostado</string>
+    <string name="wear_post_action_bookmark">Salvar</string>
+    <string name="wear_post_state_bookmarked">Salvo</string>
+    <string name="wear_post_state_not_bookmarked">Não salvo</string>
+    <string name="wear_post_repost_confirm_title">Repostar isto?</string>
+    <string name="wear_post_repost_confirm_body">Seus seguidores vão ver.</string>
 </resources>

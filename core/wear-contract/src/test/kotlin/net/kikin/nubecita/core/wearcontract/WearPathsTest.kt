@@ -83,6 +83,13 @@ class WearPathsTest {
         assertNull(WearPaths.parseAction(WearPaths.actionResult(did, "a1")))
         assertNull(WearPaths.parseAction(WearPaths.feed(did, WearFeedKey.FOLLOWING)))
         assertNull(WearPaths.parseAction(WearPaths.SESSION))
-        assertNull(WearPaths.parseAction("/v1/#{did}/action/"))
+        assertNull(WearPaths.parseAction("/v1/$did/action/"))
+    }
+
+    @Test
+    fun parseActionResult_roundTripsAResultPath_andRejectsActions() {
+        assertEquals(did to "a1", WearPaths.parseActionResult(WearPaths.actionResult(did, "a1")))
+        assertNull(WearPaths.parseActionResult(WearPaths.action(did, "a1")))
+        assertNull(WearPaths.parseActionResult(WearPaths.SESSION))
     }
 }

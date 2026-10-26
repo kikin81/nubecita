@@ -2,6 +2,7 @@ package net.kikin.nubecita.wear.data.db
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.PrimaryKey
 
 /**
  * A synced feed: one row per (account, feed). [publishedAtMs] is the phone's
@@ -38,9 +39,32 @@ data class WatchPostEntity(
     @ColumnInfo(name = "like_count") val likeCount: Int,
     @ColumnInfo(name = "reposted_by") val repostedBy: String?,
     @ColumnInfo(name = "like_uri") val likeUri: String?,
+    @ColumnInfo(name = "repost_uri") val repostUri: String? = null,
     val bookmarked: Boolean,
     @ColumnInfo(name = "image_count") val imageCount: Int,
     @ColumnInfo(name = "is_video") val isVideo: Boolean,
     @ColumnInfo(name = "has_content_warning") val hasContentWarning: Boolean,
     @ColumnInfo(name = "thumbnail_path") val thumbnailPath: String?,
+)
+
+/**
+ * A like, repost or bookmark (or an undo) the user made on the watch, kept
+ * until the phone's answer and then a snapshot showing it have both arrived.
+ * Overlaid on the synced post so the change shows immediately
+ * ([effectiveViewer]).
+ *
+ * [kind] is the action's wire name ([PostActionKind.wire]). [confirmed] is set
+ * by an ok result, with the record a like or repost created in [recordUri];
+ * a failed result deletes the row, which silently reverts the post.
+ */
+@Entity(tableName = "watch_pending_action")
+data class WatchPendingActionEntity(
+    @PrimaryKey @ColumnInfo(name = "action_id") val actionId: String,
+    @ColumnInfo(name = "account_did") val accountDid: String,
+    @ColumnInfo(name = "post_uri") val postUri: String,
+    val kind: String,
+    @ColumnInfo(name = "created_at_ms") val createdAtMs: Long,
+    val confirmed: Boolean = false,
+    @ColumnInfo(name = "record_uri") val recordUri: String? = null,
+    @ColumnInfo(name = "completed_at_ms") val completedAtMs: Long? = null,
 )

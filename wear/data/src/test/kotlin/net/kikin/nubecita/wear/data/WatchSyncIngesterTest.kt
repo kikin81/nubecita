@@ -5,6 +5,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.wearcontract.WearAccount
+import net.kikin.nubecita.core.wearcontract.WearActionFailure
+import net.kikin.nubecita.core.wearcontract.WearActionResult
 import net.kikin.nubecita.core.wearcontract.WearAuthor
 import net.kikin.nubecita.core.wearcontract.WearCodec
 import net.kikin.nubecita.core.wearcontract.WearFeedKey
@@ -14,8 +16,10 @@ import net.kikin.nubecita.core.wearcontract.WearPaths
 import net.kikin.nubecita.core.wearcontract.WearPost
 import net.kikin.nubecita.core.wearcontract.WearSessionSnapshot
 import net.kikin.nubecita.core.wearcontract.WearViewer
+import net.kikin.nubecita.wear.data.db.WatchActionDao
 import net.kikin.nubecita.wear.data.db.WatchFeedDao
 import net.kikin.nubecita.wear.data.db.WatchFeedEntity
+import net.kikin.nubecita.wear.data.db.WatchPendingActionEntity
 import net.kikin.nubecita.wear.data.db.WatchPostEntity
 import net.kikin.nubecita.wear.data.sync.WatchImageStore
 import net.kikin.nubecita.wear.data.sync.WatchSyncIngester
@@ -23,6 +27,8 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 class WatchSyncIngesterTest {
     private val alice = "did:plc:alice"
@@ -31,7 +37,17 @@ class WatchSyncIngesterTest {
 
     private val dao = FakeDao()
     private val images = FakeImages()
-    private val ingester = WatchSyncIngester(dao, images)
+    private val actions = FakeActionDao()
+    private var nowMs = 1_000L
+    private val ingester =
+        WatchSyncIngester(
+            dao,
+            images,
+            actions,
+            object : Clock {
+                override fun now() = Instant.fromEpochMilliseconds(nowMs)
+            },
+        )
 
     private fun snapshot(
         publishedAtMs: Long,
@@ -153,6 +169,104 @@ class WatchSyncIngesterTest {
             assertTrue(dao.posts.value.none { it.accountDid == alice })
             assertEquals(listOf<String?>(bob), images.keptAccounts)
         }
+
+    private fun result(
+        id: String,
+        failure: WearActionFailure? = null,
+        record: String? = null,
+    ) = WearCodec.encode(WearActionResult.serializer(), WearActionResult(actionId = id, accountDid = alice, completedAtMs = 500, failure = failure, recordUri = record))
+
+    private fun pending(
+        id: String,
+        kind: String = "like",
+        postUri: String = "p1",
+        confirmed: Boolean = false,
+        completedAtMs: Long? = null,
+    ) = WatchPendingActionEntity(actionId = id, accountDid = alice, postUri = postUri, kind = kind, createdAtMs = 100, confirmed = confirmed, completedAtMs = completedAtMs)
+
+    @Test
+    fun an_ok_result_confirms_the_action_with_its_record() =
+        runTest {
+            actions.rows += pending("a1")
+
+            val handled = ingester.onActionResult(WearPaths.actionResult(alice, "a1"), result("a1", record = "at://like/new"))
+
+            assertTrue(handled)
+            val row = actions.rows.single()
+            assertTrue(row.confirmed)
+            assertEquals("at://like/new", row.recordUri)
+            assertEquals(500L, row.completedAtMs)
+        }
+
+    @Test
+    fun a_failed_or_unreadable_result_drops_the_action() =
+        runTest {
+            actions.rows += pending("a1")
+            actions.rows += pending("a2")
+
+            ingester.onActionResult(WearPaths.actionResult(alice, "a1"), result("a1", failure = WearActionFailure.ERROR))
+            ingester.onActionResult(WearPaths.actionResult(alice, "a2"), "not json")
+
+            assertTrue(actions.rows.isEmpty())
+        }
+
+    @Test
+    fun a_non_result_path_is_not_handled() =
+        runTest {
+            assertEquals(false, ingester.onActionResult(WearPaths.action(alice, "a1"), result("a1")))
+        }
+
+    @Test
+    fun a_snapshot_showing_a_confirmed_action_settles_it_but_keeps_unanswered_ones() =
+        runTest {
+            // post() is liked in the snapshot (likeUri set).
+            actions.rows += pending("shown", kind = "like", confirmed = true, completedAtMs = 900)
+            actions.rows += pending("notYet", kind = "unlike", postUri = "p2", confirmed = true, completedAtMs = 900)
+            actions.rows += pending("waiting", kind = "bookmark", postUri = "p3")
+
+            ingester.ingestFeed(path, snapshot(10, post("p1"), post("p2"), post("p3")), assets)
+
+            assertEquals(listOf("notYet", "waiting"), actions.rows.map { it.actionId })
+        }
+
+    @Test
+    fun signing_out_drops_the_watch_actions_too() =
+        runTest {
+            actions.rows += pending("a1")
+
+            ingester.onSession(WearCodec.encode(WearSessionSnapshot.serializer(), WearSessionSnapshot(publishedAtMs = 1)))
+
+            assertTrue(actions.rows.isEmpty())
+        }
+
+    private class FakeActionDao : WatchActionDao {
+        val rows = mutableListOf<WatchPendingActionEntity>()
+
+        override fun observe(accountDid: String): Flow<List<WatchPendingActionEntity>> = MutableStateFlow(rows.toList())
+
+        override suspend fun all(accountDid: String) = rows.filter { it.accountDid == accountDid }
+
+        override suspend fun insert(action: WatchPendingActionEntity) {
+            rows += action
+        }
+
+        override suspend fun markConfirmed(
+            actionId: String,
+            recordUri: String?,
+            completedAtMs: Long,
+        ) {
+            val i = rows.indexOfFirst { it.actionId == actionId }
+            if (i >= 0) rows[i] = rows[i].copy(confirmed = true, recordUri = recordUri, completedAtMs = completedAtMs)
+        }
+
+        override suspend fun delete(actionIds: List<String>) {
+            rows.removeAll { it.actionId in actionIds }
+        }
+
+        override suspend fun deleteExcept(accountDid: String) {
+            rows.removeAll { it.accountDid != accountDid }
+        }
+    }
 
     private class FakeDao : WatchFeedDao {
         val feeds = MutableStateFlow(emptyList<WatchFeedEntity>())
