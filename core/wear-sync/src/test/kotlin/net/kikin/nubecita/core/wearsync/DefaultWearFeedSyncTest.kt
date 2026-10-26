@@ -33,6 +33,7 @@ class DefaultWearFeedSyncTest {
     private val did = "did:plc:viewer"
     private val catsUri = "at://did:plc:x/app.bsky.feed.generator/cats"
     private val listUri = "at://did:plc:x/app.bsky.graph.list/friends"
+    private val discoverUri = PinnedFeedsRepository.DISCOVER_FEED_URI
 
     private val dataLayer = FakeDataLayer()
     private val selection = MutableStateFlow(setOf(WatchFeedsPreference.FOLLOWING_FEED_URI))
@@ -50,7 +51,11 @@ class DefaultWearFeedSyncTest {
                 every { observePinnedFeeds() } returns
                     flowOf(
                         PinnedFeedsResult(
-                            persistentListOf(PinnedFeedUi(catsUri, catsUri, FeedKind.Generator, "Cats", null)),
+                            persistentListOf(
+                                PinnedFeedUi(catsUri, catsUri, FeedKind.Generator, "Cats", null),
+                                PinnedFeedUi(discoverUri, discoverUri, FeedKind.Generator, "Discover", null),
+                                PinnedFeedUi(listUri, listUri, FeedKind.List, "Friends", null),
+                            ),
                             usedFallback = false,
                         ),
                     )
@@ -164,6 +169,14 @@ class DefaultWearFeedSyncTest {
             sync().publish(did)
 
             assertEquals(listOf(stale), dataLayer.deleted)
+        }
+
+    @Test
+    fun an_unpinned_selection_stops_syncing_and_falls_back_to_following() =
+        runTest {
+            selection.value = setOf("at://did:plc:x/app.bsky.feed.generator/no-longer-pinned")
+
+            assertEquals(listOf(FeedKey.following(did)), sync().feedKeysToRefresh(did))
         }
 
     @Test

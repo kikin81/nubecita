@@ -105,11 +105,24 @@ internal class DefaultWearFeedSync(
         dataLayer.pathsUnder(WearPaths.feeds(accountDid)).filterNot { it in published }.forEach { dataLayer.delete(it) }
     }
 
-    private suspend fun selectedUris(): List<String> =
-        watchFeedsPreference.selectedFeedUris
+    /**
+     * The same effective selection Settings → Watch shows: stored URIs that are
+     * still pinned (Following always counts), falling back to Following when
+     * none are. A feed the user unpinned stops syncing.
+     */
+    private suspend fun selectedUris(): List<String> {
+        val pinned =
+            pinnedFeedsRepository
+                .observePinnedFeeds()
+                .first()
+                .feeds
+                .mapTo(mutableSetOf()) { it.uri }
+        pinned += WatchFeedsPreference.FOLLOWING_FEED_URI
+        return watchFeedsPreference.selectedFeedUris
             .first()
-            .ifEmpty { setOf(WatchFeedsPreference.FOLLOWING_FEED_URI) }
-            .toList()
+            .filter { it in pinned }
+            .ifEmpty { listOf(WatchFeedsPreference.FOLLOWING_FEED_URI) }
+    }
 
     internal companion object {
         /** Posts per feed: ~19 KB of JSON, well under the 100 KB payload limit. */
