@@ -277,7 +277,10 @@ internal class WidgetRefreshRunnerTest {
 
         override suspend fun feedKeysToRefresh(accountDid: String): List<FeedKey> = extraFeeds
 
-        override suspend fun publish(accountDid: String) {
+        override suspend fun publish(
+            accountDid: String,
+            urgent: Boolean,
+        ) {
             if (failPublish) error("Data Layer unavailable")
             published += accountDid
         }
