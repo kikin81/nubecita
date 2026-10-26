@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Wear Data Layer capability advertised by the watch app. The phone
+    publishes snapshots only while a node has it. Must match
+    WearCapabilities.WEAR_APP in :core:wear-contract.
+
+    Release builds keep it via res/raw/keep_wear_capabilities.xml.
+-->
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!--
-        Wear Data Layer capability advertised by the watch app. The phone
-        publishes snapshots only while a node has it. Must match
-        WearCapabilities.WEAR_APP in :core:wear-contract.
-    -->
     <string-array name="android_wear_capabilities" translatable="false" tools:ignore="UnusedResources">
         <item>nubecita_wear</item>
     </string-array>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Wear Data Layer capability advertised by the phone app. The watch app shows
+    "Get Nubecita on your phone" until a node has it. Must match
+    WearCapabilities.PHONE_APP in :core:wear-contract.
+
+    Release builds keep it via res/raw/keep_wear_capabilities.xml.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string-array name="android_wear_capabilities" translatable="false" tools:ignore="UnusedResources">
+        <item>nubecita_phone</item>
+    </string-array>
+</resources>

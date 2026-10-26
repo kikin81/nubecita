@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Release resource shrinking strips android_wear_capabilities: Play Services
+    reads it by name, so no code references it. Keep it, or the phone and watch
+    can't find each other on the Data Layer (nubecita-a3pa).
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@array/android_wear_capabilities" />
