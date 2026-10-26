@@ -124,7 +124,7 @@ def nubecita_stage_wear_screenshots(dest_metadata, locale: "en-US")
   return 0 if shots.empty?
   dest_dir = File.join(dest_metadata, locale, "images", "wearScreenshots")
   FileUtils.mkdir_p(dest_dir)
-  shots.each { |src| FileUtils.cp(src, File.join(dest_dir, File.basename(src))) }
+  FileUtils.cp(shots, dest_dir)
   shots.size
 end
 
