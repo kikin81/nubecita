@@ -149,6 +149,17 @@ class WearActionDispatcherTest {
         }
 
     @Test
+    fun resultForALongerIdSharingThePrefix_doesNotCountAsHandled() =
+        runTest {
+            dataLayer.existingResults += WearPaths.actionResult(alice, "a10")
+
+            dispatcher().onActionItem(watch, WearPaths.action(alice, "a1"), request())
+
+            assertEquals(listOf(WearAction.Like(post, "cid")), likes.executed)
+            assertNull(onlyResult().failure)
+        }
+
+    @Test
     fun nonActionPaths_areIgnored() =
         runTest {
             dispatcher().onActionItem(watch, WearPaths.actionResult(alice, "a1"), request())

@@ -58,7 +58,9 @@ class WearActionDispatcher internal constructor(
         json: String?,
     ) {
         val (accountDid, actionId) = WearPaths.parseAction(path) ?: return
-        if (dataLayer.pathsUnder(WearPaths.actionResult(accountDid, actionId)).isNotEmpty()) {
+        // pathsUnder matches by prefix ("a1" would also find "a10"); require the exact path.
+        val resultPath = WearPaths.actionResult(accountDid, actionId)
+        if (resultPath in dataLayer.pathsUnder(resultPath)) {
             dataLayer.deleteFromNode(sourceNodeId, path)
             return
         }
