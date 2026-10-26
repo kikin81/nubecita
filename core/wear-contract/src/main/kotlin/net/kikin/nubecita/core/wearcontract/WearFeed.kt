@@ -53,6 +53,8 @@ data class WearAuthor(
 @Serializable
 data class WearViewer(
     val likeUri: String? = null,
+    /** The viewer's repost record, needed to undo a repost from the watch. */
+    val repostUri: String? = null,
     val bookmarked: Boolean = false,
 )
 

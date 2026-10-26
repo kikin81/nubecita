@@ -61,7 +61,7 @@ internal fun List<PostUi>.toWearFeedDraft(): WearFeedDraft {
                     repostCount = post.stats.repostCount,
                     likeCount = post.stats.likeCount,
                     repostedBy = post.repostedBy,
-                    viewer = WearViewer(likeUri = post.viewer.likeUri, bookmarked = post.viewer.isBookmarked),
+                    viewer = WearViewer(likeUri = post.viewer.likeUri, repostUri = post.viewer.repostUri, bookmarked = post.viewer.isBookmarked),
                     media = media,
                 )
             }

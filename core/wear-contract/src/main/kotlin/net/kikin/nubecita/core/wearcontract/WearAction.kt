@@ -73,6 +73,7 @@ sealed interface WearAction {
     @SerialName("unbookmark")
     data class Unbookmark(
         override val postUri: String,
+        val postCid: String,
     ) : WearAction
 }
 

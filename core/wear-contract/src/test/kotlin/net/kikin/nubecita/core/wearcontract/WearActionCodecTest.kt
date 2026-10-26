@@ -18,7 +18,7 @@ class WearActionCodecTest {
             WearAction.Repost(post, "cid"),
             WearAction.Unrepost(post, "at://did:plc:alice/app.bsky.feed.repost/1"),
             WearAction.Bookmark(post, "cid"),
-            WearAction.Unbookmark(post),
+            WearAction.Unbookmark(post, "cid"),
         ).forEach { action ->
             val json = WearCodec.encode(WearActionRequest.serializer(), request(action))
 
@@ -28,7 +28,7 @@ class WearActionCodecTest {
 
     @Test
     fun actionKind_isEncodedAsAStableTypeName() {
-        val json = WearCodec.encode(WearActionRequest.serializer(), request(WearAction.Unbookmark(post)))
+        val json = WearCodec.encode(WearActionRequest.serializer(), request(WearAction.Unbookmark(post, "cid")))
 
         assertTrue("\"type\":\"unbookmark\"" in json) { json }
     }

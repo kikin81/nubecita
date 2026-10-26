@@ -5,6 +5,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
 import dagger.multibindings.Multibinds
 import kotlinx.coroutines.CoroutineScope
 import net.kikin.nubecita.core.auth.SessionStateProvider
@@ -23,6 +24,7 @@ import net.kikin.nubecita.core.wearsync.WearSessionPublisher
 import net.kikin.nubecita.core.wearsync.WearSyncRequestHandler
 import net.kikin.nubecita.core.wearsync.internal.CoilWearImageEncoder
 import net.kikin.nubecita.core.wearsync.internal.PlayServicesWearDataLayer
+import net.kikin.nubecita.core.wearsync.internal.PostActionHandler
 import net.kikin.nubecita.core.wearsync.internal.WearDataLayer
 import net.kikin.nubecita.core.wearsync.internal.WearImageEncoder
 import javax.inject.Singleton
@@ -43,6 +45,10 @@ internal interface WearSyncBindsModule {
     /** Watch action handlers, contributed `@IntoSet` by the modules that own each action. */
     @Multibinds
     fun wearActionHandlers(): Set<WearActionHandler>
+
+    @Binds
+    @IntoSet
+    fun bindPostActionHandler(impl: PostActionHandler): WearActionHandler
 }
 
 /**
