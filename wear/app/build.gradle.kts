@@ -5,6 +5,7 @@ plugins {
 
 android {
     namespace = "net.kikin.nubecita.wear"
+    buildFeatures.buildConfig = true
 
     defaultConfig {
         // Must match the phone app's applicationId (and signing key): the Wear
@@ -19,11 +20,22 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:common"))
     implementation(project(":core:wear-contract"))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)
     implementation(libs.androidx.wear.compose.navigation3)
+    implementation(libs.androidx.wear.phone.interactions)
+    implementation(libs.androidx.wear.remote.interactions)
+    implementation(libs.google.play.services.wearable)
+    implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.timber)
+
+    testImplementation(project(":core:testing"))
+    testImplementation(libs.kotlinx.coroutines.test)
 }

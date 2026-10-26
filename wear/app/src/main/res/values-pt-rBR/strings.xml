@@ -2,4 +2,15 @@
 <resources>
     <string name="wear_home_title">Nubecita</string>
     <string name="wear_home_body">Seu feed e suas mensagens do celular vão aparecer aqui.</string>
+    <string name="wear_home_signed_in_as">Conectado como @%1$s</string>
+    <string name="wear_gate_phone_app_missing_title">Instale o Nubecita no celular</string>
+    <string name="wear_gate_phone_app_missing_body">O Nubecita no relógio mostra o que o app Nubecita do seu celular envia para ele.</string>
+    <string name="wear_gate_install_on_phone">Instalar no celular</string>
+    <string name="wear_gate_needs_android_title">Precisa de um celular Android</string>
+    <string name="wear_gate_needs_android_body">O Nubecita no relógio funciona com o app Nubecita para Android, que não está disponível para iPhone.</string>
+    <string name="wear_gate_signed_out_title">Entre na sua conta no celular</string>
+    <string name="wear_gate_signed_out_body">Abra o Nubecita no celular e entre na sua conta. Seu feed e suas mensagens vão aparecer aqui.</string>
+    <string name="wear_gate_open_on_phone">Abrir no celular</string>
+    <string name="wear_gate_update_title">Atualize o Nubecita</string>
+    <string name="wear_gate_update_body">Atualize o Nubecita no relógio para continuar sincronizando com o celular.</string>
 </resources>
