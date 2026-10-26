@@ -1,6 +1,6 @@
 Obrigado por usar o nubecita! Novidades:
-• Hashtags: toque em qualquer #tag para ver publicações em destaque e recentes, ou só as daquele autor. Suas tags agora aparecem na busca do Bluesky.
-• Cole imagens: cole uma imagem copiada ou insira uma pelo teclado direto em uma nova publicação.
-• Um visualizador de fotos mais limpo: controles flutuantes que ficam bem em celulares, tablets e dobráveis.
-• Inicialização mais rápida e correções de bugs.
+• nubecita no seu pulso: um novo app para Wear OS mostra seu feed no relógio, mesmo quando o celular não está por perto.
+• Escolha o que levar: em Configurações → Relógio, escolha até três dos seus feeds fixados. Seguindo já vem ativado.
+• Sempre atualizado: ao abrir o app no relógio, o feed é atualizado pelo celular, com fotos.
+• Correções de bugs e melhorias.
 Obrigado por estar aqui! 💙
