@@ -151,8 +151,9 @@ private const val MINUTE_MS = 60_000L
  * that isn't a post URI.
  */
 fun bskyPostUrl(postUri: String): String? {
+    if (!postUri.startsWith("at://")) return null
     val parts = postUri.removePrefix("at://").split('/')
-    if (!postUri.startsWith("at://") || parts.size != 3 || parts[1] != "app.bsky.feed.post") return null
+    if (parts.size != 3 || parts[1] != "app.bsky.feed.post") return null
     val (did, _, rkey) = parts
     return if (did.isEmpty() || rkey.isEmpty()) null else "https://bsky.app/profile/$did/post/$rkey"
 }
