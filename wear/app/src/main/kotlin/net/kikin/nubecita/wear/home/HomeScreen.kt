@@ -17,6 +17,7 @@ import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.lazy.rememberTransformationSpec
 import androidx.wear.compose.material3.lazy.transformedHeight
 import net.kikin.nubecita.wear.R
+import net.kikin.nubecita.wear.ui.WearScrollIndicator
 
 /**
  * Placeholder start screen for the W1 shell. It already uses the list
@@ -26,11 +27,16 @@ import net.kikin.nubecita.wear.R
  */
 @Composable
 fun HomeScreen(
+    handle: String,
     modifier: Modifier = Modifier,
     state: TransformingLazyColumnState = rememberTransformingLazyColumnState(),
 ) {
     val transformationSpec = rememberTransformationSpec()
-    ScreenScaffold(scrollState = state, modifier = modifier) { contentPadding ->
+    ScreenScaffold(
+        scrollState = state,
+        modifier = modifier,
+        scrollIndicator = { WearScrollIndicator(state) },
+    ) { contentPadding ->
         TransformingLazyColumn(state = state, contentPadding = contentPadding) {
             item {
                 ListHeader(
@@ -46,8 +52,16 @@ fun HomeScreen(
             }
             item {
                 Text(
+                    text = stringResource(R.string.wear_home_signed_in_as, handle),
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.labelMedium,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            item {
+                Text(
                     text = stringResource(R.string.wear_home_body),
-                    modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec),
+                    modifier = Modifier.fillMaxWidth(),
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
                 )

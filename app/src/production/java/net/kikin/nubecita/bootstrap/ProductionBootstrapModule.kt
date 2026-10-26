@@ -18,6 +18,7 @@ import net.kikin.nubecita.core.moderation.PostAudienceDefaultCoordinator
 import net.kikin.nubecita.core.posting.SharedMediaStore
 import net.kikin.nubecita.core.push.AppLifecycleObserver
 import net.kikin.nubecita.core.push.PushRegistrationCoordinator
+import net.kikin.nubecita.core.wearsync.WearSessionPublisher
 import net.kikin.nubecita.core.widgetsync.worker.WidgetRefreshScheduler
 import net.kikin.nubecita.feature.chats.impl.store.ChatsUnreadPollingObserver
 import net.kikin.nubecita.feature.chats.impl.worker.DmPollScheduler
@@ -90,6 +91,15 @@ internal object ProductionBootstrapModule {
     // sign-in / sign-out (sub-project B, nubecita-lgoo.2 §7). Production-only:
     // bench's empty set means no periodic widget-refresh work is ever enqueued
     // there (keeps Macrobench windows free of background work).
+    // Mirror sign-in / sign-out to the Wear app's session copy (nubecita-sn52.3).
+    // Production-only: bench has no watch, so the bench flavor never touches the
+    // Wear Data Layer.
+    @Provides
+    @IntoSet
+    fun provideWearSessionPublisherInitializer(
+        publisher: WearSessionPublisher,
+    ): AppInitializer = AppInitializer { publisher.start() }
+
     @Provides
     @IntoSet
     fun provideWidgetRefreshSchedulerInitializer(

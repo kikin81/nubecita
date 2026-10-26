@@ -46,6 +46,9 @@ nav3AdaptiveMaterial3 = "1.3.0"
 lifecycleViewmodelNav3 = "2.11.0"
 # Wear OS app (nubecita-sn52): pre-release Wear Compose M3 + Navigation 3 on purpose (design D8).
 wearCompose = "1.8.0-alpha02"
+wearPhoneInteractions = "1.1.1"
+wearRemoteInteractions = "1.3.0-beta01"
+playServicesWearable = "20.0.1"
 androidxPalette = "1.1.0"
 revenueCat = "10.29.0"
 reorderable = "3.1.0"
@@ -145,6 +148,7 @@ mockk-android = { module = "io.mockk:mockk-android", version.ref = "mockk" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinxCollectionsImmutable" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+google-play-services-wearable = { module = "com.google.android.gms:play-services-wearable", version.ref = "playServicesWearable" }
 kotlinx-coroutines-play-services = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "coroutines" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
@@ -166,6 +170,8 @@ androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", vers
 androidx-wear-compose-foundation = { module = "androidx.wear.compose:compose-foundation", version.ref = "wearCompose" }
 androidx-wear-compose-material3 = { module = "androidx.wear.compose:compose-material3", version.ref = "wearCompose" }
 androidx-wear-compose-navigation3 = { module = "androidx.wear.compose:compose-navigation3", version.ref = "wearCompose" }
+androidx-wear-phone-interactions = { module = "androidx.wear:wear-phone-interactions", version.ref = "wearPhoneInteractions" }
+androidx-wear-remote-interactions = { module = "androidx.wear:wear-remote-interactions", version.ref = "wearRemoteInteractions" }
 androidx-wear-compose-ui-tooling = { module = "androidx.wear.compose:compose-ui-tooling", version.ref = "wearCompose" }
 androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "lifecycleViewmodelNav3" }
 androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "androidxHilt" }

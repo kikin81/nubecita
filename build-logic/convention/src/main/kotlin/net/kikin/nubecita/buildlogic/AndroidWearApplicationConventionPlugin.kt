@@ -22,7 +22,8 @@ import org.gradle.kotlin.dsl.withType
  *   that Wear Compose builds on; the Wear artifacts themselves are pinned in
  *   the catalog (`wearCompose`), since the BOM doesn't cover them.
  * - No product flavors: the watch never talks to the network, so there is no
- *   bench/production split to make.
+ *   bench/production split to make. Flavored dependencies resolve to
+ *   `production`.
  * - Registers the `validateScreenshots` / `updateScreenshots` aliases, so CI's
  *   screenshot job validates the Wear baselines.
  *
@@ -48,6 +49,10 @@ class AndroidWearApplicationConventionPlugin : Plugin<Project> {
                     minSdk = WEAR_MIN_SDK
                     targetSdk = 37
                     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+                    // The watch has no flavors of its own; take the `production`
+                    // variant of any flavored dependency (e.g. :core:testing's
+                    // :core:analytics), as unflavored libraries do.
+                    missingDimensionStrategy("environment", "production")
                 }
 
                 buildFeatures.compose = true

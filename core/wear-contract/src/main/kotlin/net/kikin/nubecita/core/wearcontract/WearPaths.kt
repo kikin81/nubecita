@@ -85,3 +85,11 @@ object WearCapabilities {
     /** Advertised by the phone app. The watch uses it to detect a missing phone app. */
     const val PHONE_APP = "nubecita_phone"
 }
+
+/**
+ * Keys inside a Data Layer item's `DataMap`. Every item carries its JSON
+ * payload under [PAYLOAD]; image `Asset`s (W2) sit beside it under their own keys.
+ */
+object WearDataKeys {
+    const val PAYLOAD = "payload"
+}

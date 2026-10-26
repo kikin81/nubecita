@@ -13,12 +13,12 @@ import net.kikin.nubecita.wear.ui.theme.NubecitaWearTheme
 @WearPreviewDevices
 @Composable
 private fun HomeScreenDevicesPreview() {
-    NubecitaWearTheme { HomeScreen() }
+    NubecitaWearTheme { HomeScreen(handle = "alice.bsky.social") }
 }
 
 @PreviewTest
 @WearPreviewFontScales
 @Composable
 private fun HomeScreenFontScalesPreview() {
-    NubecitaWearTheme { HomeScreen() }
+    NubecitaWearTheme { HomeScreen(handle = "alice.bsky.social") }
 }
