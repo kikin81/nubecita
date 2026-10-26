@@ -91,7 +91,10 @@ fun ReactionScreen(
             }
             WearDmReactions.EMOJI.chunked(3).forEach { row ->
                 item {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().minimumVerticalContentPadding(ButtonDefaults.minimumVerticalListContentPadding),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+                    ) {
                         row.forEach { emoji ->
                             Button(onClick = { onPick(emoji) }, modifier = Modifier.weight(1f, fill = false)) { Text(emoji) }
                         }

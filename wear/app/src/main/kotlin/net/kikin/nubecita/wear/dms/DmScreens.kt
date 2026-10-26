@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
@@ -221,7 +222,7 @@ private fun MessageBubble(
                 Modifier
                     .widthIn(max = 160.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .then(if (onClick != null) Modifier.clickable(onClickLabel = stringResource(R.string.wear_dms_react), onClick = onClick) else Modifier)
+                    .then(if (onClick != null) Modifier.clickable(onClickLabel = stringResource(R.string.wear_dms_react), role = Role.Button, onClick = onClick) else Modifier)
                     .background(
                         color = if (mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
                         shape = RoundedCornerShape(16.dp),
@@ -291,7 +292,7 @@ private fun PendingLine(
         prefix + label,
         style = MaterialTheme.typography.labelSmall,
         color = if (failed) MaterialTheme.colorScheme.error else color.copy(alpha = 0.7f),
-        modifier = if (failed) Modifier.clickable(onClickLabel = stringResource(R.string.wear_dms_retry)) { onRetry(pending) } else Modifier,
+        modifier = if (failed) Modifier.clickable(onClickLabel = stringResource(R.string.wear_dms_retry), role = Role.Button) { onRetry(pending) } else Modifier,
     )
 }
 
