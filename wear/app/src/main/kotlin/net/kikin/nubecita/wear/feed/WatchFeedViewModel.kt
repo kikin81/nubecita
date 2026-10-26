@@ -5,7 +5,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
@@ -38,28 +37,31 @@ class WatchFeedViewModel
         private val selected = MutableStateFlow<String?>(null)
 
         init {
-            val feeds =
-                account.flatMapLatest { did ->
-                    if (did == null) flowOf(null) else repository.feeds(did).map { list -> list.toTabs() }
-                }
-            val selection =
-                combine(feeds, selected) { tabs, chosen ->
-                    tabs to (tabs?.firstOrNull { it.key == chosen } ?: tabs?.firstOrNull())?.key
-                }
-            combine(account, selection) { did, (tabs, key) -> Triple(did, tabs, key) }
-                .flatMapLatest { (did, tabs, key) ->
-                    when {
-                        did == null || tabs == null -> flowOf(WatchFeedState())
-                        key == null -> flowOf(WatchFeedState(status = WatchFeedStatus.NoFeeds))
-                        else ->
-                            repository.posts(did, key).map { posts ->
-                                WatchFeedState(
-                                    status = WatchFeedStatus.Ready,
-                                    feeds = tabs.toImmutableList(),
-                                    selectedKey = key,
-                                    posts = posts.map { it.toUi() }.toImmutableList(),
-                                )
+            // Nested, not combined: posts are only ever queried with a feed key
+            // that came from the same account's feeds, so an account switch can
+            // never pair the new account with the previous account's feed key.
+            account
+                .flatMapLatest { did ->
+                    if (did == null) {
+                        flowOf(WatchFeedState())
+                    } else {
+                        repository.feeds(did).map { it.toTabs() }.flatMapLatest { tabs ->
+                            selected.flatMapLatest { chosen ->
+                                val key = (tabs.firstOrNull { it.key == chosen } ?: tabs.firstOrNull())?.key
+                                if (key == null) {
+                                    flowOf(WatchFeedState(status = WatchFeedStatus.NoFeeds))
+                                } else {
+                                    repository.posts(did, key).map { posts ->
+                                        WatchFeedState(
+                                            status = WatchFeedStatus.Ready,
+                                            feeds = tabs.toImmutableList(),
+                                            selectedKey = key,
+                                            posts = posts.map { it.toUi() }.toImmutableList(),
+                                        )
+                                    }
+                                }
                             }
+                        }
                     }
                 }.onEach { state -> setState { state } }
                 .launchIn(viewModelScope)

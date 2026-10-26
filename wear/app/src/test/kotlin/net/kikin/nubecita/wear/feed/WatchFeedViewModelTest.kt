@@ -144,15 +144,35 @@ class WatchFeedViewModelTest {
         thumbnailPath = null,
     )
 
+    @Test
+    fun switching_accounts_never_queries_the_new_account_with_the_old_feed() =
+        runTest {
+            repo.feeds.value = listOf(feed(WearFeedKey.FOLLOWING, null), feed(cats, "Cats"))
+            val vm = vm()
+            vm.handleEvent(WatchFeedEvent.AccountChanged(did))
+            vm.handleEvent(WatchFeedEvent.FeedSelected(cats))
+            advanceUntilIdle()
+
+            vm.handleEvent(WatchFeedEvent.AccountChanged("did:plc:bob"))
+            advanceUntilIdle()
+
+            assertFalse(repo.postQueries.contains("did:plc:bob" to cats)) { "${repo.postQueries}" }
+            assertEquals(WearFeedKey.FOLLOWING, vm.uiState.value.selectedKey)
+        }
+
     private class FakeRepository : WatchFeedRepository {
         val feeds = MutableStateFlow(emptyList<WatchFeedEntity>())
         val posts = mutableMapOf<String, List<WatchPostEntity>>()
+        val postQueries = mutableListOf<Pair<String, String>>()
 
         override fun feeds(accountDid: String): Flow<List<WatchFeedEntity>> = feeds
 
         override fun posts(
             accountDid: String,
             feedKey: String,
-        ): Flow<List<WatchPostEntity>> = feeds.map { posts[feedKey].orEmpty() }
+        ): Flow<List<WatchPostEntity>> {
+            postQueries += accountDid to feedKey
+            return feeds.map { posts[feedKey].orEmpty() }
+        }
     }
 }
