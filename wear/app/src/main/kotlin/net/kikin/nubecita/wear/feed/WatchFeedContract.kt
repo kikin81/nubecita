@@ -92,6 +92,11 @@ sealed interface WatchFeedEvent : UiEvent {
     data class ToggleBookmark(
         val postUri: String,
     ) : WatchFeedEvent
+
+    /** Open the post in Nubecita on the phone (long threads, replying). */
+    data class OpenOnPhone(
+        val postUri: String,
+    ) : WatchFeedEvent
 }
 
 /** No one-shot effects: navigation is driven by the screens. */

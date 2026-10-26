@@ -92,14 +92,14 @@ private fun FeedPickerPreview() {
 @WearPreviewDevices
 @Composable
 private fun PostPreview() {
-    NubecitaWearTheme { PostScreen(post = POSTS.first(), nowMs = NOW) }
+    NubecitaWearTheme { PostScreen(post = POSTS.first(), nowMs = NOW, onOpenOnPhone = {}) }
 }
 
 @PreviewTest
 @WearPreviewFontScales
 @Composable
 private fun PostFontScalesPreview() {
-    NubecitaWearTheme { PostScreen(post = POSTS[1], nowMs = NOW) }
+    NubecitaWearTheme { PostScreen(post = POSTS[1], nowMs = NOW, onOpenOnPhone = {}) }
 }
 
 // The action row is the last item (author, repost line, text, media, counts,
@@ -114,6 +114,7 @@ private fun PostWithActions(post: WatchPostUi) {
             post = post,
             nowMs = NOW,
             actionsAvailable = true,
+            onOpenOnPhone = {},
             listState = rememberTransformingLazyColumnState(initialAnchorItemIndex = ACTIONS_ITEM),
         )
     }

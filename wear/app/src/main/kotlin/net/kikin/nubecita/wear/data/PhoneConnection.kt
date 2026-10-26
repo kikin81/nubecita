@@ -33,6 +33,9 @@ interface PhoneConnection {
 
     /** Opens Nubecita's Play Store listing on the phone (install, or "Open" once installed). */
     fun openNubecitaOnPhone()
+
+    /** Opens [url] on the phone; a `bsky.app` link opens in Nubecita through its App Links. */
+    fun openUrlOnPhone(url: String)
 }
 
 internal class PlayServicesPhoneConnection
@@ -67,11 +70,13 @@ internal class PlayServicesPhoneConnection
             phones.forEach { node -> messages.sendMessage(node.id, WearPaths.SYNC_REQUEST, null).await() }
         }
 
-        override fun openNubecitaOnPhone() {
+        override fun openNubecitaOnPhone() = openUrlOnPhone("market://details?id=$PHONE_PACKAGE")
+
+        override fun openUrlOnPhone(url: String) {
             val intent =
                 Intent(Intent.ACTION_VIEW)
                     .addCategory(Intent.CATEGORY_BROWSABLE)
-                    .setData("market://details?id=$PHONE_PACKAGE".toUri())
+                    .setData(url.toUri())
             // Fire-and-forget: the OpenOnPhoneDialog is the user-facing confirmation.
             RemoteActivityHelper(context).startRemoteActivity(intent)
         }

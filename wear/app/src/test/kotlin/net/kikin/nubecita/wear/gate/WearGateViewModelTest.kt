@@ -206,5 +206,7 @@ class WearGateViewModelTest {
         override fun openNubecitaOnPhone() {
             opened++
         }
+
+        override fun openUrlOnPhone(url: String) = Unit
     }
 }

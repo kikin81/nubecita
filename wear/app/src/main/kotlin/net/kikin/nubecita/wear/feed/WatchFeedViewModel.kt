@@ -18,6 +18,7 @@ import net.kikin.nubecita.core.wearcontract.WearAction
 import net.kikin.nubecita.core.wearcontract.WearFeedKey
 import net.kikin.nubecita.core.wearcontract.WearPostAction
 import net.kikin.nubecita.wear.data.PhoneActionSupport
+import net.kikin.nubecita.wear.data.PhoneConnection
 import net.kikin.nubecita.wear.data.WatchActionRepository
 import net.kikin.nubecita.wear.data.WatchFeedRepository
 import net.kikin.nubecita.wear.data.db.WatchFeedEntity
@@ -45,6 +46,7 @@ class WatchFeedViewModel
         private val repository: WatchFeedRepository,
         private val actions: WatchActionRepository,
         private val actionSupport: PhoneActionSupport,
+        private val phone: PhoneConnection,
     ) : MviViewModel<WatchFeedState, WatchFeedEvent, WatchFeedEffect>(WatchFeedState()) {
         private val account = MutableStateFlow<String?>(null)
         private val selected = MutableStateFlow<String?>(null)
@@ -108,6 +110,7 @@ class WatchFeedViewModel
                             else -> post.repostUri?.let { WearAction.Unrepost(post.uri, it) }
                         }
                     }
+                is WatchFeedEvent.OpenOnPhone -> bskyPostUrl(event.postUri)?.let(phone::openUrlOnPhone)
                 is WatchFeedEvent.ToggleBookmark ->
                     submit(event.postUri) { post ->
                         when {
