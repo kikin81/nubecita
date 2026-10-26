@@ -4,6 +4,7 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import net.kikin.nubecita.core.wearsync.WearFeedRefreshTrigger
 import net.kikin.nubecita.core.widgetsync.WidgetRefreshLauncher
 
 /**
@@ -23,4 +24,7 @@ internal abstract class WidgetWorkerBindingsModule {
 
     @Binds
     abstract fun bindWidgetRefreshLauncher(impl: DefaultWidgetRefreshLauncher): WidgetRefreshLauncher
+
+    @Binds
+    abstract fun bindWearFeedRefreshTrigger(impl: WidgetWearFeedRefreshTrigger): WearFeedRefreshTrigger
 }

@@ -5,7 +5,7 @@ import com.google.android.gms.wearable.WearableListenerService
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.runBlocking
 import net.kikin.nubecita.core.wearcontract.WearPaths
-import net.kikin.nubecita.core.wearsync.WearSessionPublisher
+import net.kikin.nubecita.core.wearsync.WearSyncRequestHandler
 import javax.inject.Inject
 
 /**
@@ -15,15 +15,15 @@ import javax.inject.Inject
 @AndroidEntryPoint
 internal class NubecitaWearListenerService : WearableListenerService() {
     @Inject
-    lateinit var sessionPublisher: WearSessionPublisher
+    lateinit var syncRequestHandler: WearSyncRequestHandler
 
     override fun onMessageReceived(event: MessageEvent) {
         when (event.path) {
-            // The watch app opened: send the session now (urgent). Feed
-            // republishing joins this in W2 (nubecita-jh9c.5). The callback runs
-            // on a Play services background thread, and blocking it keeps the
-            // service (and the process) alive until the write is handed off.
-            WearPaths.SYNC_REQUEST -> runBlocking { sessionPublisher.republish() }
+            // The watch app opened: republish the session and feeds now (urgent)
+            // and ask for a fresh feed. The callback runs on a Play services
+            // background thread; blocking keeps the service (and the process)
+            // alive until the writes are handed off.
+            WearPaths.SYNC_REQUEST -> runBlocking { syncRequestHandler.onSyncRequest() }
         }
     }
 }

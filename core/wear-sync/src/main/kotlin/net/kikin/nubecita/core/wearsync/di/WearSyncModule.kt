@@ -14,8 +14,10 @@ import net.kikin.nubecita.core.preferences.WatchFeedsPreference
 import net.kikin.nubecita.core.wearsync.DefaultWearFeedSync
 import net.kikin.nubecita.core.wearsync.PlayServicesWearAppPresence
 import net.kikin.nubecita.core.wearsync.WearAppPresence
+import net.kikin.nubecita.core.wearsync.WearFeedRefreshTrigger
 import net.kikin.nubecita.core.wearsync.WearFeedSync
 import net.kikin.nubecita.core.wearsync.WearSessionPublisher
+import net.kikin.nubecita.core.wearsync.WearSyncRequestHandler
 import net.kikin.nubecita.core.wearsync.internal.CoilWearImageEncoder
 import net.kikin.nubecita.core.wearsync.internal.PlayServicesWearDataLayer
 import net.kikin.nubecita.core.wearsync.internal.WearDataLayer
@@ -63,4 +65,14 @@ internal object WearSyncProvidesModule {
         imageEncoder: WearImageEncoder,
         clock: Clock,
     ): WearFeedSync = DefaultWearFeedSync(dataLayer, watchFeedsPreference, pinnedFeedsRepository, feedRepository, imageEncoder, clock)
+
+    @Provides
+    @Singleton
+    fun provideWearSyncRequestHandler(
+        sessionPublisher: WearSessionPublisher,
+        sessionStateProvider: SessionStateProvider,
+        feedSync: WearFeedSync,
+        refreshTrigger: WearFeedRefreshTrigger,
+        clock: Clock,
+    ): WearSyncRequestHandler = WearSyncRequestHandler(sessionPublisher, sessionStateProvider, feedSync, refreshTrigger, clock)
 }

@@ -36,11 +36,15 @@ interface WearFeedSync {
     suspend fun feedKeysToRefresh(accountDid: String): List<FeedKey>
 
     /**
-     * Publishes one non-urgent snapshot per selected feed from the cache, and
-     * deletes the snapshots of feeds that are no longer selected. A feed whose
-     * cache is empty is skipped rather than published empty.
+     * Publishes one snapshot per selected feed from the cache, and deletes the
+     * snapshots of feeds that are no longer selected. A feed whose cache is
+     * empty keeps its previous snapshot. Periodic publishes are non-urgent;
+     * [urgent] is for the watch app that just opened and is waiting.
      */
-    suspend fun publish(accountDid: String)
+    suspend fun publish(
+        accountDid: String,
+        urgent: Boolean = false,
+    )
 }
 
 internal class DefaultWearFeedSync(
@@ -56,7 +60,10 @@ internal class DefaultWearFeedSync(
         return selectedUris().map { feedKeyFor(accountDid, it) }
     }
 
-    override suspend fun publish(accountDid: String) {
+    override suspend fun publish(
+        accountDid: String,
+        urgent: Boolean,
+    ) {
         if (!dataLayer.hasWearAppNode()) return
         val uris = selectedUris()
         val names =
@@ -98,7 +105,7 @@ internal class DefaultWearFeedSync(
                         feedName = if (uri == WatchFeedsPreference.FOLLOWING_FEED_URI) null else names[uri],
                         posts = postsWithAssets,
                     )
-                dataLayer.put(path, WearCodec.encode(WearFeedSnapshot.serializer(), snapshot), urgent = false, assets = assets)
+                dataLayer.put(path, WearCodec.encode(WearFeedSnapshot.serializer(), snapshot), urgent = urgent, assets = assets)
                 published += path
             } catch (cancellation: CancellationException) {
                 throw cancellation
