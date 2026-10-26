@@ -89,6 +89,7 @@ fun NubecitaWearApp(
                                             onToggleLike = { feedViewModel.handleEvent(WatchFeedEvent.ToggleLike(post.uri)) },
                                             onToggleRepost = { feedViewModel.handleEvent(WatchFeedEvent.ToggleRepost(post.uri)) },
                                             onToggleBookmark = { feedViewModel.handleEvent(WatchFeedEvent.ToggleBookmark(post.uri)) },
+                                            onOpenOnPhone = { feedViewModel.handleEvent(WatchFeedEvent.OpenOnPhone(post.uri)) },
                                         )
                                     } else {
                                         LaunchedEffect(route) { backStack.remove(route) }

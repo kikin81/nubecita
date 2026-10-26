@@ -11,6 +11,8 @@ import net.kikin.nubecita.core.wearcontract.WearAction
 import net.kikin.nubecita.core.wearcontract.WearFeedKey
 import net.kikin.nubecita.core.wearcontract.WearPostAction
 import net.kikin.nubecita.wear.data.PhoneActionSupport
+import net.kikin.nubecita.wear.data.PhoneAppStatus
+import net.kikin.nubecita.wear.data.PhoneConnection
 import net.kikin.nubecita.wear.data.WatchActionRepository
 import net.kikin.nubecita.wear.data.WatchFeedRepository
 import net.kikin.nubecita.wear.data.db.WatchFeedEntity
@@ -30,8 +32,9 @@ class WatchFeedViewModelTest {
     private val repo = FakeRepository()
     private val actions = FakeActions()
     private val support = FakeSupport()
+    private val phone = FakePhone()
 
-    private fun vm() = WatchFeedViewModel(repo, actions, support)
+    private fun vm() = WatchFeedViewModel(repo, actions, support, phone)
 
     @Test
     fun without_an_account_it_is_loading() =
@@ -264,6 +267,31 @@ class WatchFeedViewModelTest {
             action: WearPostAction,
         ) {
             submitted += accountDid to action
+        }
+    }
+
+    @Test
+    fun open_on_phone_opens_the_posts_bsky_link() =
+        runTest {
+            val vm = vm()
+
+            vm.handleEvent(WatchFeedEvent.OpenOnPhone("at://did:plc:bob/app.bsky.feed.post/3k"))
+            vm.handleEvent(WatchFeedEvent.OpenOnPhone("not a post"))
+
+            assertEquals(listOf("https://bsky.app/profile/did:plc:bob/post/3k"), phone.opened)
+        }
+
+    private class FakePhone : PhoneConnection {
+        val opened = mutableListOf<String>()
+
+        override suspend fun phoneAppStatus() = PhoneAppStatus.Installed
+
+        override suspend fun requestSync() = Unit
+
+        override fun openNubecitaOnPhone() = Unit
+
+        override fun openUrlOnPhone(url: String) {
+            opened += url
         }
     }
 

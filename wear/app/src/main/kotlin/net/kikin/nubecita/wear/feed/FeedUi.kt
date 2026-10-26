@@ -144,3 +144,15 @@ fun PostCounts(
 }
 
 private const val MINUTE_MS = 60_000L
+
+/**
+ * The `bsky.app` link for a post's AT-URI (`at://<did>/app.bsky.feed.post/<rkey>`),
+ * which Nubecita on the phone opens through its App Links. Null for anything
+ * that isn't a post URI.
+ */
+fun bskyPostUrl(postUri: String): String? {
+    val parts = postUri.removePrefix("at://").split('/')
+    if (!postUri.startsWith("at://") || parts.size != 3 || parts[1] != "app.bsky.feed.post") return null
+    val (did, _, rkey) = parts
+    return if (did.isEmpty() || rkey.isEmpty()) null else "https://bsky.app/profile/$did/post/$rkey"
+}

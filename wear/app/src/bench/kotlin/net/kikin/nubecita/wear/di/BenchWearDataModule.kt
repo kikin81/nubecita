@@ -58,6 +58,8 @@ internal class BenchPhoneConnection
         override suspend fun requestSync() = Unit
 
         override fun openNubecitaOnPhone() = Unit
+
+        override fun openUrlOnPhone(url: String) = Unit
     }
 
 /** Bench flavor: the phone always runs actions, so the controls show in screenshots. */
