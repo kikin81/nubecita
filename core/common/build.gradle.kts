@@ -14,6 +14,8 @@ dependencies {
     api(libs.androidx.lifecycle.viewmodel.ktx)
     api(libs.androidx.navigation3.runtime)
     api(libs.androidx.savedstate.compose)
+    api(libs.androidx.xr.compose)
+    api(libs.androidx.xr.scenecore)
     api(libs.kotlinx.coroutines.core)
     api(libs.kotlinx.datetime)
 

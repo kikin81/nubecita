@@ -12,6 +12,16 @@
     -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!--
+        Android XR spatial capability declaration. Marking android:required="false"
+        ensures the app remains distributable across all standard handheld,
+        foldable, and tablet form factors, while signaling spatial UI support on
+        Android XR headsets.
+    -->
+    <uses-feature
+        android:name="android.software.xr.api.spatial"
+        android:required="false" />
+
     <application
         android:name=".NubecitaApplication"
         android:allowBackup="true"
@@ -110,8 +120,18 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:supportsPictureInPicture="true"
+            android:resizeableActivity="true"
             android:windowSoftInputMode="adjustResize"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden">
+            <!--
+                Start mode for Android XR: launches into Home Space (floating 2D
+                spatial panel placed within the user's physical environment)
+                by default.
+            -->
+            <property
+                android:name="android.window.PROPERTY_XR_ACTIVITY_START_MODE"
+                android:value="XR_ACTIVITY_START_MODE_HOME_SPACE" />
+
             <!--
                 supportsPictureInPicture enables the Pro PiP perk; configChanges is
                 LOAD-BEARING (design D7): entering/leaving PiP is a configuration

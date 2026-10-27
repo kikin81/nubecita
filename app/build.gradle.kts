@@ -353,6 +353,7 @@ dependencies {
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.xr.compose.material3)
     // Configuration.Provider + HiltWorkerFactory for on-demand WorkManager init
     // (the background DM-poll worker, nubecita-1fy.15). NubecitaApplication owns
     // the Configuration; the default WorkManagerInitializer is disabled in the
