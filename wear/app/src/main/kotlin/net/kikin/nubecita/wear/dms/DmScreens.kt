@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -264,17 +266,21 @@ private fun PendingReplyBubble(
     reply: WatchPendingDmUi,
     onRetry: (WatchPendingDmUi) -> Unit,
 ) {
+    val failed = reply.status == WatchSendStatus.FAILED
     Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp), contentAlignment = Alignment.CenterEnd) {
         Column(
             modifier =
                 Modifier
                     .widthIn(max = 160.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    // A failed reply retries from the whole bubble: a full-size target, not a small text line.
+                    .then(if (failed) Modifier.clickable(onClickLabel = stringResource(R.string.wear_dms_retry), role = Role.Button) { onRetry(reply) } else Modifier)
                     .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(16.dp))
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.End,
         ) {
             Text(reply.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-            PendingLine("", reply, onRetry, MaterialTheme.colorScheme.onPrimaryContainer)
+            PendingLine("", reply, onRetry = null, color = MaterialTheme.colorScheme.onPrimaryContainer)
         }
     }
 }
@@ -284,7 +290,7 @@ private fun PendingReplyBubble(
 private fun PendingLine(
     prefix: String,
     pending: WatchPendingDmUi,
-    onRetry: (WatchPendingDmUi) -> Unit,
+    onRetry: ((WatchPendingDmUi) -> Unit)?,
     color: androidx.compose.ui.graphics.Color,
 ) {
     val label =
@@ -298,7 +304,16 @@ private fun PendingLine(
         prefix + label,
         style = MaterialTheme.typography.labelSmall,
         color = if (failed) MaterialTheme.colorScheme.error else color.copy(alpha = 0.7f),
-        modifier = if (failed) Modifier.clickable(onClickLabel = stringResource(R.string.wear_dms_retry), role = Role.Button) { onRetry(pending) } else Modifier,
+        modifier =
+            if (failed && onRetry != null) {
+                // At least the 48dp minimum touch target, not just the line of text.
+                Modifier
+                    .heightIn(min = 48.dp)
+                    .clickable(onClickLabel = stringResource(R.string.wear_dms_retry), role = Role.Button) { onRetry(pending) }
+                    .wrapContentHeight()
+            } else {
+                Modifier
+            },
     )
 }
 
