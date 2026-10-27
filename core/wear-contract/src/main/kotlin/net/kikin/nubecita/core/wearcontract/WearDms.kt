@@ -44,4 +44,14 @@ data class WearMessage(
     val isDeleted: Boolean = false,
     /** The message carries an embed the watch doesn't show (a post, an image). */
     val hasAttachment: Boolean = false,
+    val reactions: List<WearReaction> = emptyList(),
+)
+
+/** One emoji's reactions on a message. */
+@Serializable
+data class WearReaction(
+    val emoji: String,
+    val count: Int,
+    /** The viewer is one of the reactors. */
+    val mine: Boolean = false,
 )

@@ -5,12 +5,18 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
+import net.kikin.nubecita.wear.data.WatchDmActionRepository
 import net.kikin.nubecita.wear.data.WatchDmRepository
 import net.kikin.nubecita.wear.data.db.WatchConvoEntity
 import net.kikin.nubecita.wear.data.db.WatchDmStateEntity
 import net.kikin.nubecita.wear.data.db.WatchMessageEntity
+import net.kikin.nubecita.wear.data.db.WatchPendingDmEntity
 import javax.inject.Inject
+import javax.inject.Singleton
 
 /** Bench flavor: fixed, fictional conversations for screenshots, with no phone. */
 @Module
@@ -18,6 +24,9 @@ import javax.inject.Inject
 internal interface BenchWatchDmModule {
     @Binds
     fun bindWatchDmRepository(impl: BenchWatchDmRepository): WatchDmRepository
+
+    @Binds
+    fun bindWatchDmActionRepository(impl: BenchWatchDmActionRepository): WatchDmActionRepository
 }
 
 internal class BenchWatchDmRepository
@@ -84,4 +93,41 @@ internal class BenchWatchDmRepository
             convoId: String,
             position: Int,
         ) = WatchMessageEntity(accountDid, convoId, position, "$convoId-$position", mine, sender, text, minutesAgo(minutesAgo), isDeleted = false, hasAttachment = false)
+    }
+
+/** Bench flavor: replies and reactions show as sent at once, in memory. Nothing reaches Bluesky. */
+@Singleton
+internal class BenchWatchDmActionRepository
+    @Inject
+    constructor() : WatchDmActionRepository {
+        private val rows = MutableStateFlow(emptyList<WatchPendingDmEntity>())
+        private var next = 0L
+
+        override fun pending(accountDid: String): Flow<List<WatchPendingDmEntity>> = rows.map { all -> all.filter { it.accountDid == accountDid } }
+
+        override suspend fun sendReply(
+            accountDid: String,
+            convoId: String,
+            text: String,
+        ) = add(accountDid, convoId, WatchPendingDmEntity.KIND_REPLY, text, null)
+
+        override suspend fun sendReaction(
+            accountDid: String,
+            convoId: String,
+            messageId: String,
+            emoji: String,
+        ) = add(accountDid, convoId, WatchPendingDmEntity.KIND_REACT, emoji, messageId)
+
+        override suspend fun retry(actionId: String) = Unit
+
+        private fun add(
+            accountDid: String,
+            convoId: String,
+            kind: String,
+            text: String,
+            target: String?,
+        ) {
+            val id = next++
+            rows.update { it + WatchPendingDmEntity("bench-dm-$id", accountDid, convoId, kind, text, target, sentMessageId = null, createdAtMs = id, status = WatchPendingDmEntity.STATUS_SENT) }
+        }
     }

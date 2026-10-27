@@ -303,6 +303,8 @@ class WatchFeedViewModelTest {
             if (fail) error("Play services unavailable")
             return available
         }
+
+        override suspend fun dmAvailable() = available
     }
 
     private class FakeRepository : WatchFeedRepository {

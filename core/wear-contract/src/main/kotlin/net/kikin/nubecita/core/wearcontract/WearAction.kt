@@ -72,6 +72,23 @@ sealed interface WearAction {
         override val postUri: String,
         val postCid: String,
     ) : WearPostAction
+
+    /** A quick reply: [text] is one of the watch's canned phrases, already localized. */
+    @Serializable
+    @SerialName("dm-reply")
+    data class DmReply(
+        override val convoId: String,
+        val text: String,
+    ) : WearDmAction
+
+    /** An emoji reaction (one of [WearDmReactions.EMOJI]) on someone's message. */
+    @Serializable
+    @SerialName("dm-react")
+    data class DmReact(
+        override val convoId: String,
+        val messageId: String,
+        val emoji: String,
+    ) : WearDmAction
 }
 
 /**
@@ -85,6 +102,27 @@ sealed interface WearPostAction : WearAction {
     val postUri: String
 }
 
+/**
+ * An action in a conversation (W4): a quick reply or a reaction. Its own family
+ * so the phone's chats handler claims exactly these. Unlike post actions they
+ * go stale: the phone answers [WearActionFailure.EXPIRED] rather than send one
+ * older than [WearDmActions.MAX_AGE_MS].
+ */
+@Serializable
+sealed interface WearDmAction : WearAction {
+    val convoId: String
+}
+
+object WearDmActions {
+    /** A reply or reaction older than this is not sent: "On my way" an hour late is wrong. */
+    const val MAX_AGE_MS = 60 * 60_000L
+}
+
+/** The reactions the watch offers: the phone's quick-reaction set, in its order. */
+object WearDmReactions {
+    val EMOJI = listOf("❤️", "😂", "👍", "😮", "😢", "🙏")
+}
+
 /** The phone's answer to a [WearActionRequest], written at [WearPaths.actionResult]. */
 @Serializable
 data class WearActionResult(
@@ -96,7 +134,8 @@ data class WearActionResult(
     val failure: WearActionFailure? = null,
     /**
      * The record a like or repost created, so the watch can undo it before the
-     * next snapshot carries it. Null for every other action.
+     * next snapshot carries it; for a quick reply, the sent message's id, so the
+     * watch can match it in the next DM snapshot. Null for every other action.
      */
     val recordUri: String? = null,
 ) : WearPayload {
@@ -117,4 +156,8 @@ enum class WearActionFailure {
     /** The phone tried and Bluesky (or the network) refused. */
     @SerialName("error")
     ERROR,
+
+    /** A reply or reaction reached the phone too late to send ([WearDmActions.MAX_AGE_MS]). */
+    @SerialName("expired")
+    EXPIRED,
 }

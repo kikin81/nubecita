@@ -10,6 +10,7 @@ import net.kikin.nubecita.core.wearcontract.WearPost
 import net.kikin.nubecita.core.wearcontract.WearSessionSnapshot
 import net.kikin.nubecita.wear.data.db.WatchActionDao
 import net.kikin.nubecita.wear.data.db.WatchConvoEntity
+import net.kikin.nubecita.wear.data.db.WatchDmActionDao
 import net.kikin.nubecita.wear.data.db.WatchDmDao
 import net.kikin.nubecita.wear.data.db.WatchDmStateEntity
 import net.kikin.nubecita.wear.data.db.WatchFeedDao
@@ -17,6 +18,8 @@ import net.kikin.nubecita.wear.data.db.WatchFeedEntity
 import net.kikin.nubecita.wear.data.db.WatchMessageEntity
 import net.kikin.nubecita.wear.data.db.WatchPostEntity
 import net.kikin.nubecita.wear.data.settledActions
+import net.kikin.nubecita.wear.data.settledDmActions
+import net.kikin.nubecita.wear.data.toReactionsColumn
 import timber.log.Timber
 import javax.inject.Inject
 import kotlin.time.Clock
@@ -33,6 +36,7 @@ class WatchSyncIngester
         private val images: WatchImageStore,
         private val actionDao: WatchActionDao,
         private val dmDao: WatchDmDao,
+        private val dmActionDao: WatchDmActionDao,
         private val clock: Clock,
     ) {
         /**
@@ -95,11 +99,16 @@ class WatchSyncIngester
                 is WearDecodeResult.Decoded ->
                     if (result.value.isOk) {
                         actionDao.markConfirmed(actionId, result.value.recordUri, result.value.completedAtMs)
+                        dmActionDao.markSent(actionId, result.value.recordUri)
                     } else {
                         actionDao.delete(listOf(actionId))
+                        dmActionDao.markFailed(actionId)
                     }
                 // Unreadable: treat as failed, so the button doesn't stay locked.
-                is WearDecodeResult.UnsupportedVersion, is WearDecodeResult.Malformed -> actionDao.delete(listOf(actionId))
+                is WearDecodeResult.UnsupportedVersion, is WearDecodeResult.Malformed -> {
+                    actionDao.delete(listOf(actionId))
+                    dmActionDao.markFailed(actionId)
+                }
             }
             return true
         }
@@ -132,10 +141,13 @@ class WatchSyncIngester
             val messages =
                 snapshot.convos.flatMap { c ->
                     c.messages.mapIndexed { position, m ->
-                        WatchMessageEntity(accountDid, c.convoId, position, m.id, m.fromViewer, m.senderName, m.text, m.sentAtMs, m.isDeleted, m.hasAttachment)
+                        WatchMessageEntity(accountDid, c.convoId, position, m.id, m.fromViewer, m.senderName, m.text, m.sentAtMs, m.isDeleted, m.hasAttachment, m.reactions.toReactionsColumn())
                     }
                 }
             dmDao.replaceDms(WatchDmStateEntity(accountDid, snapshot.publishedAtMs, snapshot.unreadCount), convos, messages)
+            // Replies and reactions this snapshot now shows no longer need their placeholder.
+            val settled = settledDmActions(messages, dmActionDao.all(accountDid), nowMs = clock.now().toEpochMilliseconds())
+            if (settled.isNotEmpty()) dmActionDao.delete(settled)
         }
 
         /** The phone deleted the DM snapshot (sign-out or account switch). */
@@ -168,6 +180,7 @@ class WatchSyncIngester
             dao.keepOnlyAccount(account?.did)
             actionDao.deleteExcept(account?.did.orEmpty())
             dmDao.keepOnlyAccount(account?.did.orEmpty())
+            dmActionDao.deleteExcept(account?.did.orEmpty())
             images.keepOnlyAccount(account?.did)
         }
     }

@@ -17,16 +17,19 @@ import net.kikin.nubecita.core.wearcontract.WearMedia
 import net.kikin.nubecita.core.wearcontract.WearMessage
 import net.kikin.nubecita.core.wearcontract.WearPaths
 import net.kikin.nubecita.core.wearcontract.WearPost
+import net.kikin.nubecita.core.wearcontract.WearReaction
 import net.kikin.nubecita.core.wearcontract.WearSessionSnapshot
 import net.kikin.nubecita.core.wearcontract.WearViewer
 import net.kikin.nubecita.wear.data.db.WatchActionDao
 import net.kikin.nubecita.wear.data.db.WatchConvoEntity
+import net.kikin.nubecita.wear.data.db.WatchDmActionDao
 import net.kikin.nubecita.wear.data.db.WatchDmDao
 import net.kikin.nubecita.wear.data.db.WatchDmStateEntity
 import net.kikin.nubecita.wear.data.db.WatchFeedDao
 import net.kikin.nubecita.wear.data.db.WatchFeedEntity
 import net.kikin.nubecita.wear.data.db.WatchMessageEntity
 import net.kikin.nubecita.wear.data.db.WatchPendingActionEntity
+import net.kikin.nubecita.wear.data.db.WatchPendingDmEntity
 import net.kikin.nubecita.wear.data.db.WatchPostEntity
 import net.kikin.nubecita.wear.data.sync.WatchImageStore
 import net.kikin.nubecita.wear.data.sync.WatchSyncIngester
@@ -46,6 +49,7 @@ class WatchSyncIngesterTest {
     private val images = FakeImages()
     private val actions = FakeActionDao()
     private val dms = FakeDmDao()
+    private val dmActions = FakeDmActionDao()
     private var nowMs = 1_000L
     private val ingester =
         WatchSyncIngester(
@@ -53,6 +57,7 @@ class WatchSyncIngesterTest {
             images,
             actions,
             dms,
+            dmActions,
             object : Clock {
                 override fun now() = Instant.fromEpochMilliseconds(nowMs)
             },
@@ -383,6 +388,94 @@ class WatchSyncIngesterTest {
 
         override suspend fun deleteStateExcept(accountDid: String) {
             if (state?.accountDid != accountDid) state = null
+        }
+    }
+
+    private fun pendingDm(
+        id: String,
+        kind: String = WatchPendingDmEntity.KIND_REPLY,
+        status: String = WatchPendingDmEntity.STATUS_SENDING,
+        sent: String? = null,
+        target: String? = null,
+        text: String = "On my way",
+    ) = WatchPendingDmEntity(actionId = id, accountDid = alice, convoId = "c1", kind = kind, text = text, targetMessageId = target, sentMessageId = sent, createdAtMs = 100, status = status)
+
+    @Test
+    fun a_result_marks_a_quick_reply_sent_with_its_message_or_failed() =
+        runTest {
+            dmActions.rows += pendingDm("r1")
+            dmActions.rows += pendingDm("r2")
+
+            ingester.onActionResult(WearPaths.actionResult(alice, "r1"), result("r1", record = "msg-42"))
+            ingester.onActionResult(WearPaths.actionResult(alice, "r2"), result("r2", failure = WearActionFailure.EXPIRED))
+
+            val byId = dmActions.rows.associateBy { it.actionId }
+            assertEquals(WatchPendingDmEntity.STATUS_SENT, byId.getValue("r1").status)
+            assertEquals("msg-42", byId.getValue("r1").sentMessageId)
+            assertEquals(WatchPendingDmEntity.STATUS_FAILED, byId.getValue("r2").status)
+        }
+
+    @Test
+    fun a_dm_snapshot_stores_reactions_and_settles_the_replies_and_reactions_it_shows() =
+        runTest {
+            dmActions.rows += pendingDm("reply-shown", status = WatchPendingDmEntity.STATUS_SENT, sent = "c1-1")
+            dmActions.rows += pendingDm("reply-not-yet", status = WatchPendingDmEntity.STATUS_SENT, sent = "elsewhere")
+            dmActions.rows += pendingDm("react-shown", kind = WatchPendingDmEntity.KIND_REACT, status = WatchPendingDmEntity.STATUS_SENT, target = "c1-0", text = "❤️")
+            dmActions.rows += pendingDm("still-sending")
+            val withReaction =
+                WearConvo(
+                    convoId = "c1",
+                    title = "Bob",
+                    messages =
+                        listOf(
+                            WearMessage(id = "c1-0", fromViewer = false, text = "hi", sentAtMs = 0, reactions = listOf(WearReaction("❤️", 1, mine = true))),
+                            WearMessage(id = "c1-1", fromViewer = true, text = "On my way", sentAtMs = 1),
+                        ),
+                )
+
+            ingester.ingestDms(dmPath, dmSnapshot(10, withReaction))
+
+            assertEquals(listOf("reply-not-yet", "still-sending"), dmActions.rows.map { it.actionId })
+            assertTrue(
+                dms.messages
+                    .single { it.messageId == "c1-0" }
+                    .reactions
+                    .contains("❤️"),
+            )
+        }
+
+    private class FakeDmActionDao : WatchDmActionDao {
+        val rows = mutableListOf<WatchPendingDmEntity>()
+
+        override fun observe(accountDid: String): Flow<List<WatchPendingDmEntity>> = MutableStateFlow(rows.toList())
+
+        override suspend fun all(accountDid: String) = rows.filter { it.accountDid == accountDid }
+
+        override suspend fun get(actionId: String) = rows.firstOrNull { it.actionId == actionId }
+
+        override suspend fun insert(action: WatchPendingDmEntity) {
+            rows += action
+        }
+
+        override suspend fun markSent(
+            actionId: String,
+            sentMessageId: String?,
+        ) {
+            val i = rows.indexOfFirst { it.actionId == actionId }
+            if (i >= 0) rows[i] = rows[i].copy(status = WatchPendingDmEntity.STATUS_SENT, sentMessageId = sentMessageId)
+        }
+
+        override suspend fun markFailed(actionId: String) {
+            val i = rows.indexOfFirst { it.actionId == actionId }
+            if (i >= 0) rows[i] = rows[i].copy(status = WatchPendingDmEntity.STATUS_FAILED)
+        }
+
+        override suspend fun delete(actionIds: List<String>) {
+            rows.removeAll { it.actionId in actionIds }
+        }
+
+        override suspend fun deleteExcept(accountDid: String) {
+            rows.removeAll { it.accountDid != accountDid }
         }
     }
 

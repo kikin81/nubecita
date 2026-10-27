@@ -160,6 +160,30 @@ class WearActionDispatcherTest {
         }
 
     @Test
+    fun anActionOlderThanItsHandlersMaxAge_isNotRun_andAnswersExpired() =
+        runTest {
+            val shortLived =
+                object : WearActionHandler {
+                    var ran = false
+
+                    override fun canHandle(action: WearAction) = true
+
+                    override fun maxAgeMs(action: WearAction) = 1_000L
+
+                    override suspend fun execute(action: WearAction): Result<String?> {
+                        ran = true
+                        return Result.success(null)
+                    }
+                }
+            // createdAtMs = 1, the clock reads 5_000: 4.999 s old, past a 1 s limit.
+            dispatcher(shortLived).onActionItem(watch, WearPaths.action(alice, "a1"), request())
+
+            assertEquals(WearActionFailure.EXPIRED, onlyResult().failure)
+            assertTrue(!shortLived.ran)
+            assertEquals(1, dataLayer.deletes.size)
+        }
+
+    @Test
     fun nonActionPaths_areIgnored() =
         runTest {
             dispatcher().onActionItem(watch, WearPaths.actionResult(alice, "a1"), request())

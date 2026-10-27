@@ -3,7 +3,8 @@
     Wear Data Layer capability advertised by the phone app. The watch app shows
     "Get Nubecita on your phone" until a node has it. Must match
     WearCapabilities.PHONE_APP in :core:wear-contract. nubecita_phone_actions
-    (WearCapabilities.PHONE_ACTIONS) says this build runs watch actions.
+    (WearCapabilities.PHONE_ACTIONS) says this build runs watch actions;
+    nubecita_phone_dm_actions (PHONE_DM_ACTIONS) that it runs DM replies and reactions.
 
     Release builds keep it via res/raw/keep_wear_capabilities.xml.
 -->
@@ -11,5 +12,6 @@
     <string-array name="android_wear_capabilities" translatable="false" tools:ignore="UnusedResources">
         <item>nubecita_phone</item>
         <item>nubecita_phone_actions</item>
+        <item>nubecita_phone_dm_actions</item>
     </string-array>
 </resources>

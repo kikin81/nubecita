@@ -12,6 +12,7 @@ import net.kikin.nubecita.wear.data.DataLayerWatchActionSender
 import net.kikin.nubecita.wear.data.WatchActionSender
 import net.kikin.nubecita.wear.data.db.WatchActionDao
 import net.kikin.nubecita.wear.data.db.WatchDatabase
+import net.kikin.nubecita.wear.data.db.WatchDmActionDao
 import net.kikin.nubecita.wear.data.db.WatchDmDao
 import net.kikin.nubecita.wear.data.db.WatchFeedDao
 import net.kikin.nubecita.wear.data.sync.DataLayerWatchSync
@@ -43,6 +44,9 @@ internal object WatchDatabaseModule {
 
     @Provides
     fun provideWatchDmDao(database: WatchDatabase): WatchDmDao = database.dmDao()
+
+    @Provides
+    fun provideWatchDmActionDao(database: WatchDatabase): WatchDmActionDao = database.dmActionDao()
 }
 
 @Module

@@ -13,6 +13,8 @@ import androidx.navigation3.ui.NavDisplay
 import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.navigation3.rememberSwipeDismissableSceneStrategy
 import net.kikin.nubecita.wear.dms.ConvoListScreen
+import net.kikin.nubecita.wear.dms.QuickReplyScreen
+import net.kikin.nubecita.wear.dms.ReactionScreen
 import net.kikin.nubecita.wear.dms.ThreadScreen
 import net.kikin.nubecita.wear.dms.WatchDmEvent
 import net.kikin.nubecita.wear.dms.WatchDmStatus
@@ -30,6 +32,8 @@ import net.kikin.nubecita.wear.navigation.WearConvos
 import net.kikin.nubecita.wear.navigation.WearFeedPicker
 import net.kikin.nubecita.wear.navigation.WearHome
 import net.kikin.nubecita.wear.navigation.WearPost
+import net.kikin.nubecita.wear.navigation.WearReact
+import net.kikin.nubecita.wear.navigation.WearReply
 import net.kikin.nubecita.wear.navigation.WearThread
 import net.kikin.nubecita.wear.ui.WearTimeText
 import net.kikin.nubecita.wear.ui.theme.NubecitaWearTheme
@@ -95,13 +99,35 @@ fun NubecitaWearApp(
                                     // A conversation can leave the synced ten; go back rather than show a blank page.
                                     val thread = dmState.thread?.takeIf { it.convoId == route.convoId }
                                     if (thread != null) {
-                                        ThreadScreen(thread = thread, nowMs = now)
+                                        ThreadScreen(
+                                            thread = thread,
+                                            nowMs = now,
+                                            onReply = if (dmState.actionsAvailable) ({ backStack.add(WearReply(thread.convoId)) }) else null,
+                                            onReact = if (dmState.actionsAvailable) ({ message -> backStack.add(WearReact(thread.convoId, message.id)) }) else null,
+                                            onRetry = { pending -> dmViewModel.handleEvent(WatchDmEvent.RetryTapped(pending.actionId)) },
+                                        )
                                     } else if (dmState.status == WatchDmStatus.Ready && dmState.convos.none { it.convoId == route.convoId }) {
                                         LaunchedEffect(route) { backStack.remove(route) }
                                     } else {
                                         // The thread is still loading (or restoring): re-select it.
                                         LaunchedEffect(route) { dmViewModel.handleEvent(WatchDmEvent.ThreadOpened(route.convoId)) }
                                     }
+                                }
+                                entry<WearReply> { route ->
+                                    QuickReplyScreen(
+                                        onPick = { text ->
+                                            dmViewModel.handleEvent(WatchDmEvent.ReplySent(route.convoId, text))
+                                            backStack.removeLastOrNull()
+                                        },
+                                    )
+                                }
+                                entry<WearReact> { route ->
+                                    ReactionScreen(
+                                        onPick = { emoji ->
+                                            dmViewModel.handleEvent(WatchDmEvent.ReactionSent(route.convoId, route.messageId, emoji))
+                                            backStack.removeLastOrNull()
+                                        },
+                                    )
                                 }
                                 entry<WearFeedPicker> {
                                     FeedPickerScreen(
