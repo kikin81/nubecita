@@ -152,16 +152,18 @@ class MainActivity : ComponentActivity() {
 
         val isXr = packageManager.hasSystemFeature("android.software.xr.api.spatial")
         if (isXr) {
-            window.setFormat(android.graphics.PixelFormat.TRANSLUCENT)
+            window.setFormat(android.graphics.PixelFormat.TRANSPARENT)
             window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
             window.decorView.setBackgroundColor(Color.TRANSPARENT)
+            window.statusBarColor = Color.TRANSPARENT
+            window.navigationBarColor = Color.TRANSPARENT
+        } else {
+            // Edge-to-edge with the OS-derived default polarity, so the window is set
+            // up before the first frame. The composition re-applies it via
+            // applySystemBarStyle once the app's own theme resolves — see setContent.
+            enableEdgeToEdge()
+            disableNavigationBarContrast()
         }
-
-        // Edge-to-edge with the OS-derived default polarity, so the window is set
-        // up before the first frame. The composition re-applies it via
-        // applySystemBarStyle once the app's own theme resolves — see setContent.
-        enableEdgeToEdge()
-        disableNavigationBarContrast()
 
         // Activity PiP bridge: mirrors system PiP mode into PipController and
         // services the in-window play/pause action. PiP is entered strictly upon
@@ -339,6 +341,16 @@ class MainActivity : ComponentActivity() {
      * Safe to call repeatedly — `enableEdgeToEdge` is idempotent by design.
      */
     private fun applySystemBarStyle(isDark: Boolean) {
+        val isXr = packageManager.hasSystemFeature("android.software.xr.api.spatial")
+        if (isXr) {
+            window.setFormat(android.graphics.PixelFormat.TRANSPARENT)
+            window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+            window.decorView.setBackgroundColor(Color.TRANSPARENT)
+            window.statusBarColor = Color.TRANSPARENT
+            window.navigationBarColor = Color.TRANSPARENT
+            return
+        }
+
         enableEdgeToEdge(
             statusBarStyle =
                 if (isDark) {
