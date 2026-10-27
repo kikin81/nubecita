@@ -13,7 +13,6 @@ import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
 import androidx.compose.material3.adaptive.navigation.BackNavigationBehavior
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
@@ -50,6 +49,7 @@ import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.core.common.navigation.rememberIsInPipMode
 import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
 import net.kikin.nubecita.designsystem.LocalGifAutoplayEnabled
+import net.kikin.nubecita.designsystem.adaptive.SpatialScaffold
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.chats.api.Chats
@@ -456,7 +456,7 @@ internal fun MainShellChrome(
     // overload's inline switch misses those variants and leaves child
     // Scaffolds anchoring FABs above the system inset rather than above
     // the visually-rendered bar (creating a ~32dp gap).
-    NavigationSuiteScaffold(
+    SpatialScaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.surface,
         navigationSuiteType = layoutType,
