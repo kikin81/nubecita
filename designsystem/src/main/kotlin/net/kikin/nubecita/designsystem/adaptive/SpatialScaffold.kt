@@ -20,8 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.xr.compose.material3.EnableXrComponentOverrides
-import androidx.xr.compose.material3.ExperimentalMaterial3XrApi
 import androidx.xr.compose.spatial.ContentEdge
 import androidx.xr.compose.spatial.Orbiter
 import androidx.xr.compose.spatial.OrbiterOffsetType
@@ -43,7 +41,6 @@ import net.kikin.nubecita.core.common.spatial.rememberSpatialSessionEnvironment
  * On standard devices (phones, foldables, tablets), renders standard [NavigationSuiteScaffold]
  * (NavigationBar on compact widths, NavigationRail on medium/expanded widths).
  */
-@OptIn(ExperimentalMaterial3XrApi::class)
 @Composable
 fun SpatialScaffold(
     navigationSuiteType: NavigationSuiteType,
@@ -90,7 +87,6 @@ fun SpatialScaffold(
 }
 
 @Suppress("ktlint:compose:content-slot-reused")
-@OptIn(ExperimentalMaterial3XrApi::class)
 @Composable
 private fun SpatialXrScaffold(
     navigationItems: @Composable () -> Unit,
@@ -127,25 +123,23 @@ private fun SpatialXrScaffold(
     }
 
     if (spatialEnvironment.isSpatialUiEnabled) {
-        EnableXrComponentOverrides {
-            Orbiter(
-                position = ContentEdge.Vertical.Start,
-                offset = 24.dp,
-                offsetType = OrbiterOffsetType.OuterEdge,
-                alignment = Alignment.CenterVertically,
-                shape = SpatialRoundedCornerShape(CornerSize(32.dp)),
-            ) {
-                navCapsule()
-            }
-            Surface(
-                modifier = modifier.fillMaxSize().padding(16.dp),
-                shape = RoundedCornerShape(24.dp),
-                color = containerColor,
-                contentColor = contentColor,
-                shadowElevation = 4.dp,
-            ) {
-                content()
-            }
+        Orbiter(
+            position = ContentEdge.Vertical.Start,
+            offset = 24.dp,
+            offsetType = OrbiterOffsetType.OuterEdge,
+            alignment = Alignment.CenterVertically,
+            shape = SpatialRoundedCornerShape(CornerSize(32.dp)),
+        ) {
+            navCapsule()
+        }
+        Surface(
+            modifier = modifier.fillMaxSize().padding(16.dp),
+            shape = RoundedCornerShape(24.dp),
+            color = containerColor,
+            contentColor = contentColor,
+            shadowElevation = 4.dp,
+        ) {
+            content()
         }
     } else {
         // Home Space Mode: Detached floating capsule beside rounded main content panel
