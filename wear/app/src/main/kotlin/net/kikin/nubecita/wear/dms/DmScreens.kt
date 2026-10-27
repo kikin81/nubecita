@@ -4,7 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -171,16 +173,7 @@ fun ThreadScreen(
     listState: TransformingLazyColumnState = rememberTransformingLazyColumnState(initialAnchorItemIndex = thread.messages.size + thread.pendingReplies.size),
 ) {
     val transformationSpec = rememberTransformationSpec()
-    ScreenScaffold(
-        scrollState = listState,
-        modifier = modifier,
-        scrollIndicator = { WearScrollIndicator(listState) },
-        edgeButton = {
-            if (onReply != null) {
-                EdgeButton(onClick = onReply, buttonSize = EdgeButtonSize.Small) { Text(stringResource(R.string.wear_dms_reply)) }
-            }
-        },
-    ) { contentPadding ->
+    val content: @Composable BoxScope.(PaddingValues) -> Unit = { contentPadding ->
         TransformingLazyColumn(state = listState, contentPadding = contentPadding) {
             item {
                 ListHeader(
@@ -200,6 +193,19 @@ fun ThreadScreen(
             }
             items(thread.pendingReplies, key = { it.actionId }) { reply -> PendingReplyBubble(reply, onRetry) }
         }
+    }
+    // The edge-button slot reserves bottom space even when empty, which would
+    // push the newest message into the bezel: pass it only with a Reply button.
+    if (onReply != null) {
+        ScreenScaffold(
+            scrollState = listState,
+            modifier = modifier,
+            scrollIndicator = { WearScrollIndicator(listState) },
+            edgeButton = { EdgeButton(onClick = onReply, buttonSize = EdgeButtonSize.Small) { Text(stringResource(R.string.wear_dms_reply)) } },
+            content = content,
+        )
+    } else {
+        ScreenScaffold(scrollState = listState, modifier = modifier, scrollIndicator = { WearScrollIndicator(listState) }, content = content)
     }
 }
 
