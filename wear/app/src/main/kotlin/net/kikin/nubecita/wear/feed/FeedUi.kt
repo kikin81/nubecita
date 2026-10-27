@@ -2,7 +2,6 @@ package net.kikin.nubecita.wear.feed
 
 import android.text.format.DateUtils
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -50,6 +50,25 @@ fun relativeTime(
         .getRelativeTimeSpanString(timeMs, maxOf(timeMs, nowMs), DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE)
         .toString()
 
+/**
+ * A compact relative time for one-line headers: "now", "6m", "2h", "3d",
+ * then a short date (localized per locale's strings).
+ */
+@Composable
+fun compactTime(
+    timeMs: Long,
+    nowMs: Long,
+): String {
+    val minutes = (nowMs - timeMs).coerceAtLeast(0) / MINUTE_MS
+    return when {
+        minutes < 1 -> stringResource(R.string.wear_time_now)
+        minutes < 60 -> stringResource(R.string.wear_time_minutes, minutes)
+        minutes < 24 * 60 -> stringResource(R.string.wear_time_hours, minutes / 60)
+        minutes < 7 * 24 * 60 -> stringResource(R.string.wear_time_days, minutes / (24 * 60))
+        else -> DateUtils.formatDateTime(LocalContext.current, timeMs, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH or DateUtils.FORMAT_NO_YEAR)
+    }
+}
+
 /** A feed's display name: Following is localized, custom feeds and lists use their own name. */
 @Composable
 fun WatchFeedTab.label(): String = name ?: stringResource(R.string.wear_feed_following)
@@ -69,7 +88,7 @@ fun AuthorAvatar(
     )
 }
 
-/** Author line: avatar, name and time. */
+/** A feed card's author line: avatar, name and compact time on one row. */
 @Composable
 fun AuthorRow(
     post: WatchPostUi,
@@ -82,15 +101,21 @@ fun AuthorRow(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         AuthorAvatar(post.avatarPath)
-        Column(modifier = Modifier.weight(1f)) {
-            Text(post.authorName, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(
-                relativeTime(post.createdAtMs, nowMs),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-            )
-        }
+        // Name and time on one line: frees a line of post text in every card.
+        // The name gives way to the time when it's long.
+        Text(
+            post.authorName,
+            modifier = Modifier.weight(1f, fill = false),
+            style = MaterialTheme.typography.titleSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            "· " + compactTime(post.createdAtMs, nowMs),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+        )
     }
 }
 

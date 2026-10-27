@@ -12,6 +12,11 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.navigation3.rememberSwipeDismissableSceneStrategy
+import net.kikin.nubecita.wear.dms.ConvoListScreen
+import net.kikin.nubecita.wear.dms.ThreadScreen
+import net.kikin.nubecita.wear.dms.WatchDmEvent
+import net.kikin.nubecita.wear.dms.WatchDmStatus
+import net.kikin.nubecita.wear.dms.WatchDmViewModel
 import net.kikin.nubecita.wear.feed.FeedPickerScreen
 import net.kikin.nubecita.wear.feed.FeedScreen
 import net.kikin.nubecita.wear.feed.PostScreen
@@ -21,9 +26,11 @@ import net.kikin.nubecita.wear.feed.rememberNow
 import net.kikin.nubecita.wear.gate.WearGate
 import net.kikin.nubecita.wear.gate.WearGateEvent
 import net.kikin.nubecita.wear.gate.WearGateViewModel
+import net.kikin.nubecita.wear.navigation.WearConvos
 import net.kikin.nubecita.wear.navigation.WearFeedPicker
 import net.kikin.nubecita.wear.navigation.WearHome
 import net.kikin.nubecita.wear.navigation.WearPost
+import net.kikin.nubecita.wear.navigation.WearThread
 import net.kikin.nubecita.wear.ui.WearTimeText
 import net.kikin.nubecita.wear.ui.theme.NubecitaWearTheme
 
@@ -40,9 +47,11 @@ import net.kikin.nubecita.wear.ui.theme.NubecitaWearTheme
 fun NubecitaWearApp(
     viewModel: WearGateViewModel = hiltViewModel(),
     feedViewModel: WatchFeedViewModel = hiltViewModel(),
+    dmViewModel: WatchDmViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val feedState by feedViewModel.uiState.collectAsStateWithLifecycle()
+    val dmState by dmViewModel.uiState.collectAsStateWithLifecycle()
     LifecycleResumeEffect(Unit) {
         viewModel.handleEvent(WearGateEvent.Resumed)
         onPauseOrDispose {}
@@ -50,7 +59,10 @@ fun NubecitaWearApp(
     NubecitaWearTheme {
         AppScaffold(timeText = { WearTimeText() }) {
             WearGate(state = state, onEvent = viewModel::handleEvent) { account ->
-                LaunchedEffect(account.did) { feedViewModel.handleEvent(WatchFeedEvent.AccountChanged(account.did)) }
+                LaunchedEffect(account.did) {
+                    feedViewModel.handleEvent(WatchFeedEvent.AccountChanged(account.did))
+                    dmViewModel.handleEvent(WatchDmEvent.AccountChanged(account.did))
+                }
                 val now = rememberNow()
                 key(account.did) {
                     val backStack = rememberNavBackStack(WearHome)
@@ -65,7 +77,31 @@ fun NubecitaWearApp(
                                         nowMs = now,
                                         onPostClick = { post -> backStack.add(WearPost(post.uri)) },
                                         onSwitchFeed = { backStack.add(WearFeedPicker) },
+                                        unreadMessages = dmState.unreadCount,
+                                        onOpenMessages = if (dmState.status == WatchDmStatus.Ready) ({ backStack.add(WearConvos) }) else null,
                                     )
+                                }
+                                entry<WearConvos> {
+                                    ConvoListScreen(
+                                        state = dmState,
+                                        nowMs = now,
+                                        onOpen = { convo ->
+                                            dmViewModel.handleEvent(WatchDmEvent.ThreadOpened(convo.convoId))
+                                            backStack.add(WearThread(convo.convoId))
+                                        },
+                                    )
+                                }
+                                entry<WearThread> { route ->
+                                    // A conversation can leave the synced ten; go back rather than show a blank page.
+                                    val thread = dmState.thread?.takeIf { it.convoId == route.convoId }
+                                    if (thread != null) {
+                                        ThreadScreen(thread = thread, nowMs = now)
+                                    } else if (dmState.status == WatchDmStatus.Ready && dmState.convos.none { it.convoId == route.convoId }) {
+                                        LaunchedEffect(route) { backStack.remove(route) }
+                                    } else {
+                                        // The thread is still loading (or restoring): re-select it.
+                                        LaunchedEffect(route) { dmViewModel.handleEvent(WatchDmEvent.ThreadOpened(route.convoId)) }
+                                    }
                                 }
                                 entry<WearFeedPicker> {
                                     FeedPickerScreen(

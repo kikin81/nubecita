@@ -68,3 +68,42 @@ data class WatchPendingActionEntity(
     @ColumnInfo(name = "record_uri") val recordUri: String? = null,
     @ColumnInfo(name = "completed_at_ms") val completedAtMs: Long? = null,
 )
+
+/**
+ * The account's DM snapshot header: when the phone published it and the
+ * unread total. Its presence means the phone has synced DMs at least once.
+ */
+@Entity(tableName = "watch_dm_state")
+data class WatchDmStateEntity(
+    @PrimaryKey @ColumnInfo(name = "account_did") val accountDid: String,
+    @ColumnInfo(name = "published_at_ms") val publishedAtMs: Long,
+    @ColumnInfo(name = "unread_count") val unreadCount: Int,
+)
+
+/** A synced conversation, in the phone's order ([position] 0 = most recent). */
+@Entity(tableName = "watch_convo", primaryKeys = ["account_did", "convo_id"])
+data class WatchConvoEntity(
+    @ColumnInfo(name = "account_did") val accountDid: String,
+    @ColumnInfo(name = "convo_id") val convoId: String,
+    val position: Int,
+    val title: String,
+    @ColumnInfo(name = "is_group") val isGroup: Boolean,
+    @ColumnInfo(name = "unread_count") val unreadCount: Int,
+    val muted: Boolean,
+    @ColumnInfo(name = "last_message_at_ms") val lastMessageAtMs: Long?,
+)
+
+/** A synced message, oldest first within its conversation ([position] 0 = oldest). */
+@Entity(tableName = "watch_message", primaryKeys = ["account_did", "convo_id", "position"])
+data class WatchMessageEntity(
+    @ColumnInfo(name = "account_did") val accountDid: String,
+    @ColumnInfo(name = "convo_id") val convoId: String,
+    val position: Int,
+    @ColumnInfo(name = "message_id") val messageId: String,
+    @ColumnInfo(name = "from_viewer") val fromViewer: Boolean,
+    @ColumnInfo(name = "sender_name") val senderName: String?,
+    val text: String,
+    @ColumnInfo(name = "sent_at_ms") val sentAtMs: Long,
+    @ColumnInfo(name = "is_deleted") val isDeleted: Boolean,
+    @ColumnInfo(name = "has_attachment") val hasAttachment: Boolean,
+)

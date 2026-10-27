@@ -16,3 +16,13 @@ data object WearFeedPicker : NavKey
 data class WearPost(
     val uri: String,
 ) : NavKey
+
+/** The synced conversations (W4). */
+@Serializable
+data object WearConvos : NavKey
+
+/** One synced conversation's messages. */
+@Serializable
+data class WearThread(
+    val convoId: String,
+) : NavKey

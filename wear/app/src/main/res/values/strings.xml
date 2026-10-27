@@ -14,7 +14,6 @@
     <string name="wear_feed_following">Following</string>
     <string name="wear_feed_empty_title">No feed yet</string>
     <string name="wear_feed_empty_body">Your feed shows up here after your phone syncs it. Keep your phone nearby for a moment.</string>
-    <string name="wear_feed_updated">Updated %1$s</string>
     <string name="wear_feed_switch">Switch feed</string>
     <string name="wear_feed_picker_title">Feeds</string>
     <string name="wear_post_video">Video</string>
@@ -48,4 +47,20 @@
     <string name="wear_post_state_not_bookmarked">Not bookmarked</string>
     <string name="wear_post_repost_confirm_title">Repost this?</string>
     <string name="wear_post_repost_confirm_body">Your followers will see it.</string>
+    <string name="wear_dms_title">Messages</string>
+    <string name="wear_dms_open">Messages</string>
+    <string name="wear_dms_open_unread">Messages · %1$d</string>
+    <string name="wear_dms_empty">No conversations yet.</string>
+    <string name="wear_dms_not_synced">Your messages show up here after Nubecita on your phone checks for new ones.</string>
+    <string name="wear_dms_you">You: %1$s</string>
+    <string name="wear_dms_deleted">Message deleted</string>
+    <string name="wear_dms_attachment">Attachment</string>
+    <plurals name="wear_dms_unread">
+        <item quantity="one">%1$d unread message</item>
+        <item quantity="other">%1$d unread messages</item>
+    </plurals>
+    <string name="wear_time_now">now</string>
+    <string name="wear_time_minutes">%1$dm</string>
+    <string name="wear_time_hours">%1$dh</string>
+    <string name="wear_time_days">%1$dd</string>
 </resources>

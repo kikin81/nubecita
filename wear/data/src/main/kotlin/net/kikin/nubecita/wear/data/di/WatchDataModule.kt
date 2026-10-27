@@ -12,6 +12,7 @@ import net.kikin.nubecita.wear.data.DataLayerWatchActionSender
 import net.kikin.nubecita.wear.data.WatchActionSender
 import net.kikin.nubecita.wear.data.db.WatchActionDao
 import net.kikin.nubecita.wear.data.db.WatchDatabase
+import net.kikin.nubecita.wear.data.db.WatchDmDao
 import net.kikin.nubecita.wear.data.db.WatchFeedDao
 import net.kikin.nubecita.wear.data.sync.DataLayerWatchSync
 import net.kikin.nubecita.wear.data.sync.FileWatchImageStore
@@ -39,6 +40,9 @@ internal object WatchDatabaseModule {
 
     @Provides
     fun provideWatchActionDao(database: WatchDatabase): WatchActionDao = database.actionDao()
+
+    @Provides
+    fun provideWatchDmDao(database: WatchDatabase): WatchDmDao = database.dmDao()
 }
 
 @Module
@@ -53,6 +57,6 @@ internal interface WatchDataBindsModule {
     @Binds
     fun bindWatchActionSender(impl: DataLayerWatchActionSender): WatchActionSender
 
-    // WatchFeedRepository and WatchActionRepository are bound by the Wear app per flavor: Room in
+    // WatchFeedRepository, WatchActionRepository and WatchDmRepository are bound by the Wear app per flavor: Room in
     // production, fixtures in bench (Play Store screenshots).
 }

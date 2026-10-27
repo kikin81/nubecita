@@ -3,13 +3,18 @@ package net.kikin.nubecita.wear.data.sync
 import net.kikin.nubecita.core.wearcontract.WearActionResult
 import net.kikin.nubecita.core.wearcontract.WearCodec
 import net.kikin.nubecita.core.wearcontract.WearDecodeResult
+import net.kikin.nubecita.core.wearcontract.WearDmSnapshot
 import net.kikin.nubecita.core.wearcontract.WearFeedSnapshot
 import net.kikin.nubecita.core.wearcontract.WearPaths
 import net.kikin.nubecita.core.wearcontract.WearPost
 import net.kikin.nubecita.core.wearcontract.WearSessionSnapshot
 import net.kikin.nubecita.wear.data.db.WatchActionDao
+import net.kikin.nubecita.wear.data.db.WatchConvoEntity
+import net.kikin.nubecita.wear.data.db.WatchDmDao
+import net.kikin.nubecita.wear.data.db.WatchDmStateEntity
 import net.kikin.nubecita.wear.data.db.WatchFeedDao
 import net.kikin.nubecita.wear.data.db.WatchFeedEntity
+import net.kikin.nubecita.wear.data.db.WatchMessageEntity
 import net.kikin.nubecita.wear.data.db.WatchPostEntity
 import net.kikin.nubecita.wear.data.settledActions
 import timber.log.Timber
@@ -27,6 +32,7 @@ class WatchSyncIngester
         private val dao: WatchFeedDao,
         private val images: WatchImageStore,
         private val actionDao: WatchActionDao,
+        private val dmDao: WatchDmDao,
         private val clock: Clock,
     ) {
         /**
@@ -98,6 +104,46 @@ class WatchSyncIngester
             return true
         }
 
+        /**
+         * Stores the account's DM snapshot (W4), replacing what was there. Ignored
+         * when it isn't the DMs path, can't be decoded, or is older than what's
+         * stored.
+         */
+        suspend fun ingestDms(
+            path: String,
+            json: String,
+        ) {
+            val accountDid = WearPaths.parseDms(path) ?: return
+            val snapshot =
+                when (val result = WearCodec.decode(WearDmSnapshot.serializer(), json)) {
+                    is WearDecodeResult.Decoded -> result.value
+                    is WearDecodeResult.UnsupportedVersion -> return
+                    is WearDecodeResult.Malformed -> {
+                        Timber.w(result.cause, "malformed DM snapshot")
+                        return
+                    }
+                }
+            val stored = dmDao.publishedAtMs(accountDid)
+            if (stored != null && stored >= snapshot.publishedAtMs) return
+            val convos =
+                snapshot.convos.mapIndexed { position, c ->
+                    WatchConvoEntity(accountDid, c.convoId, position, c.title, c.isGroup, c.unreadCount, c.muted, c.lastMessageAtMs)
+                }
+            val messages =
+                snapshot.convos.flatMap { c ->
+                    c.messages.mapIndexed { position, m ->
+                        WatchMessageEntity(accountDid, c.convoId, position, m.id, m.fromViewer, m.senderName, m.text, m.sentAtMs, m.isDeleted, m.hasAttachment)
+                    }
+                }
+            dmDao.replaceDms(WatchDmStateEntity(accountDid, snapshot.publishedAtMs, snapshot.unreadCount), convos, messages)
+        }
+
+        /** The phone deleted the DM snapshot (sign-out or account switch). */
+        suspend fun onDmsDeleted(path: String) {
+            val accountDid = WearPaths.parseDms(path) ?: return
+            dmDao.deleteDms(accountDid)
+        }
+
         /** The phone deleted a feed's item (the user deselected it). */
         suspend fun onFeedDeleted(path: String) {
             val (accountDid, feedKey) = WearPaths.parseFeed(path) ?: return
@@ -121,6 +167,7 @@ class WatchSyncIngester
                 }
             dao.keepOnlyAccount(account?.did)
             actionDao.deleteExcept(account?.did.orEmpty())
+            dmDao.keepOnlyAccount(account?.did.orEmpty())
             images.keepOnlyAccount(account?.did)
         }
     }

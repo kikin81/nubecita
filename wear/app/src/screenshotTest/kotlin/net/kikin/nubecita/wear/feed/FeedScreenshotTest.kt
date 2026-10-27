@@ -155,3 +155,11 @@ private fun PostActionsFontScalesPreview() {
 private fun RepostConfirmPreview() {
     NubecitaWearTheme { RepostConfirmContent() }
 }
+
+@PreviewTest
+@WearPreviewDevices
+@Composable
+private fun FeedWithMessagesPreview() {
+    // Once the phone has synced DMs, the feed offers Messages with the unread count.
+    NubecitaWearTheme { FeedScreen(state = READY, nowMs = NOW, onPostClick = {}, onSwitchFeed = {}, unreadMessages = 3, onOpenMessages = {}) }
+}
