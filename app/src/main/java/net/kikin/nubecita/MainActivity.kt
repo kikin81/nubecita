@@ -150,6 +150,13 @@ class MainActivity : ComponentActivity() {
                 appThemeState.appTheme.value == null
         }
 
+        val isXr = packageManager.hasSystemFeature("android.software.xr.api.spatial")
+        if (isXr) {
+            window.setFormat(android.graphics.PixelFormat.TRANSLUCENT)
+            window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+            window.decorView.setBackgroundColor(Color.TRANSPARENT)
+        }
+
         // Edge-to-edge with the OS-derived default polarity, so the window is set
         // up before the first frame. The composition re-applies it via
         // applySystemBarStyle once the app's own theme resolves — see setContent.
@@ -214,7 +221,7 @@ class MainActivity : ComponentActivity() {
                         Modifier
                             .fillMaxSize()
                             .semantics { testTagsAsResourceId = true },
-                    color = MaterialTheme.colorScheme.background,
+                    color = if (isXr) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.background,
                 ) {
                     // Provide the PiP bridge above BOTH NavDisplays — the
                     // fullscreen video player is an @OuterShell route, so it
