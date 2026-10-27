@@ -50,7 +50,7 @@ class AndroidManifestXrFeatureTest {
         assertNotNull(mainActivity, "Missing .MainActivity declaration")
         assertEquals("true", mainActivity?.getAttributeNS(androidNs, "resizeableActivity"))
 
-        // 3. Check MainActivity contains PROPERTY_XR_ACTIVITY_START_MODE = XR_ACTIVITY_START_MODE_HOME_SPACE
+        // 3. Check MainActivity contains PROPERTY_XR_ACTIVITY_START_MODE = XR_ACTIVITY_START_MODE_FULL_SPACE_MANAGED
         val properties = mainActivity!!.getElementsByTagName("property")
         var xrStartModeProperty: Element? = null
         for (i in 0 until properties.length) {
@@ -61,6 +61,6 @@ class AndroidManifestXrFeatureTest {
             }
         }
         assertNotNull(xrStartModeProperty, "Missing android.window.PROPERTY_XR_ACTIVITY_START_MODE property on MainActivity")
-        assertEquals("XR_ACTIVITY_START_MODE_HOME_SPACE", xrStartModeProperty?.getAttributeNS(androidNs, "value"))
+        assertEquals("XR_ACTIVITY_START_MODE_FULL_SPACE_MANAGED", xrStartModeProperty?.getAttributeNS(androidNs, "value"))
     }
 }
