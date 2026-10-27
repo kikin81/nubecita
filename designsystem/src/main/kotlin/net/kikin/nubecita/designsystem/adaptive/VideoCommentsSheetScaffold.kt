@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
+import net.kikin.nubecita.core.common.spatial.rememberSpatialSessionEnvironment
 
 /**
  * Default dimensions and constants for [VideoCommentsSheetScaffold].
@@ -73,6 +74,24 @@ fun isCommentsSheetSettledHidden(
     }
 
 /**
+ * Resolves whether the video comments should render as a side pane ([SupportingPaneScaffold])
+ * rather than an anchored bottom sheet.
+ *
+ * Returns `true` when:
+ * - Spatial UI is enabled ([isSpatialUiEnabled] == true) in an Android XR session, or
+ * - Screen width is at least Medium (>= 600dp) on foldables, tablets, or desktops.
+ */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+fun isCommentsSidePaneEnabled(
+    adaptiveInfo: WindowAdaptiveInfo,
+    isSpatialUiEnabled: Boolean = false,
+): Boolean =
+    isSpatialUiEnabled ||
+        adaptiveInfo.windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+        )
+
+/**
  * Adaptive scaffold hosting video content in the primary pane and comments
  * content in either an anchored bottom sheet (Compact < 600dp) or a zero-scrim
  * side pane using [SupportingPaneScaffold] (Medium & Expanded >= 600dp).
@@ -104,10 +123,9 @@ fun VideoCommentsSheetScaffold(
     val movableVideo = remember(videoContent) { movableContentOf { videoContent() } }
     val movableComments = remember(commentsContent) { movableContentOf { commentsContent() } }
 
-    val isCompact =
-        !adaptiveInfo.windowSizeClass.isWidthAtLeastBreakpoint(
-            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
-        )
+    val spatialEnvironment = rememberSpatialSessionEnvironment()
+    val isSidePane = isCommentsSidePaneEnabled(adaptiveInfo, spatialEnvironment.isSpatialUiEnabled)
+    val isCompact = !isSidePane
 
     if (isCompact) {
         Box(modifier = modifier.fillMaxSize()) {
@@ -160,9 +178,14 @@ fun VideoCommentsSheetScaffold(
         }
     } else {
         val directive =
-            remember(adaptiveInfo) {
+            remember(adaptiveInfo, spatialEnvironment.isSpatialUiEnabled) {
                 calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(adaptiveInfo).copy(
-                    defaultPanePreferredWidth = VideoCommentsSheetScaffoldDefaults.DefaultSideSheetPreferredWidth,
+                    defaultPanePreferredWidth =
+                        if (spatialEnvironment.isSpatialUiEnabled) {
+                            440.dp
+                        } else {
+                            VideoCommentsSheetScaffoldDefaults.DefaultSideSheetPreferredWidth
+                        },
                 )
             }
         val scaffoldValue =
