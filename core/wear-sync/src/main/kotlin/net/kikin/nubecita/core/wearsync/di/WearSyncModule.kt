@@ -13,11 +13,13 @@ import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
 import net.kikin.nubecita.core.preferences.WatchFeedsPreference
+import net.kikin.nubecita.core.wearsync.DataLayerWearDmPublisher
 import net.kikin.nubecita.core.wearsync.DefaultWearFeedSync
 import net.kikin.nubecita.core.wearsync.PlayServicesWearAppPresence
 import net.kikin.nubecita.core.wearsync.WearActionDispatcher
 import net.kikin.nubecita.core.wearsync.WearActionHandler
 import net.kikin.nubecita.core.wearsync.WearAppPresence
+import net.kikin.nubecita.core.wearsync.WearDmPublisher
 import net.kikin.nubecita.core.wearsync.WearFeedRefreshTrigger
 import net.kikin.nubecita.core.wearsync.WearFeedSync
 import net.kikin.nubecita.core.wearsync.WearSessionPublisher
@@ -97,4 +99,8 @@ internal object WearSyncProvidesModule {
         handlers: Set<@JvmSuppressWildcards WearActionHandler>,
         clock: Clock,
     ): WearActionDispatcher = WearActionDispatcher(dataLayer, sessionStateProvider, handlers, clock)
+
+    @Provides
+    @Singleton
+    fun provideWearDmPublisher(dataLayer: WearDataLayer): WearDmPublisher = DataLayerWearDmPublisher(dataLayer)
 }

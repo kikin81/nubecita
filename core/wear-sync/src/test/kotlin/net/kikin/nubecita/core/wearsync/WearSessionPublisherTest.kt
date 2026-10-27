@@ -189,5 +189,7 @@ class WearSessionPublisherTest {
             nodeId: String,
             path: String,
         ) = Unit
+
+        override suspend fun read(path: String): String? = null
     }
 }

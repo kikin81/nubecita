@@ -40,6 +40,8 @@ internal class FakeChatRepository(
     var nextSendResult: Result<MessageUi> = Result.success(DEFAULT_SENT_MESSAGE),
     var nextRequestRefreshResult: Result<ImmutableList<ConvoRowUi>> = Result.success(persistentListOf()),
 ) : ChatRepository {
+    val messagesConvoIds = mutableListOf<String>()
+
     /**
      * Optional gate: when set, `sendMessage` suspends on it before returning,
      * so a test can observe the optimistic `Sending` row before reconcile.
@@ -189,6 +191,7 @@ internal class FakeChatRepository(
         limit: Int,
     ): Result<MessagePage> {
         messagesCalls.incrementAndGet()
+        messagesConvoIds += convoId
         lastMessagesConvoId = convoId
         lastMessagesCursor = cursor
         return nextMessagesResult

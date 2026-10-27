@@ -11,13 +11,20 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.preferences.DmPollCursorStore
 import net.kikin.nubecita.core.preferences.MessageCheckingPreference
+import net.kikin.nubecita.core.wearcontract.WearConvo
+import net.kikin.nubecita.core.wearcontract.WearDmSnapshot
+import net.kikin.nubecita.core.wearcontract.WearMessage
+import net.kikin.nubecita.core.wearsync.WearDmPublisher
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.FakeChatRepository
+import net.kikin.nubecita.feature.chats.impl.MessageUi
 import net.kikin.nubecita.feature.chats.impl.data.ChatLogEvent
 import net.kikin.nubecita.feature.chats.impl.data.ChatLogPage
+import net.kikin.nubecita.feature.chats.impl.data.MessagePage
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlin.time.Clock
 import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -158,16 +165,150 @@ internal class DmPollRunnerTest {
             assertEquals("old", cursor.value, "cursor untouched on failure")
         }
 
+    // ---- W4: the watch's DM snapshot ----
+
+    private fun message(
+        id: String,
+        outgoing: Boolean = false,
+    ) = MessageUi(id = id, senderDid = if (outgoing) VIEWER else ALICE, isOutgoing = outgoing, text = "text $id", isDeleted = false, sentAt = Instant.fromEpochMilliseconds(1_000L))
+
+    private fun previous(vararg convos: WearConvo) = WearDmSnapshot(publishedAtMs = 1, accountDid = VIEWER, convos = convos.toList())
+
+    @Test
+    fun `without a watch the poll fetches no messages for it`() =
+        runTest {
+            val repo =
+                FakeChatRepository().apply {
+                    nextRefreshResult = Result.success(persistentListOf(convo("c1", unread = 1)))
+                    nextGetLogResult = Result.success(ChatLogPage(events = persistentListOf(event("c1", ALICE)), nextCursor = "next"))
+                }
+            val f = fixture(repo = repo, wear = FakeWearDms(hasWatch = false))
+
+            assertEquals(DmPollRunner.Outcome.SUCCESS, f.runner.run())
+            assertEquals(0, repo.messagesCalls.get())
+            assertTrue(f.wear.published.isEmpty())
+        }
+
+    @Test
+    fun `first watch poll seeds every shown convo`() =
+        runTest {
+            val repo =
+                FakeChatRepository().apply {
+                    nextRefreshResult = Result.success(persistentListOf(convo("c1", unread = 2), convo("c2", unread = 0)))
+                    nextGetLogResult = Result.success(ChatLogPage(events = persistentListOf(), nextCursor = "next"))
+                    nextMessagesResult = Result.success(MessagePage(messages = persistentListOf(message("m2"), message("m1", outgoing = true))))
+                }
+            val f = fixture(repo = repo)
+
+            f.runner.run()
+
+            assertEquals(listOf("c1", "c2"), repo.messagesConvoIds.sorted())
+            val snapshot = f.wear.published.single()
+            assertEquals(2, snapshot.unreadCount)
+            // Oldest first on the watch.
+            assertEquals(
+                listOf("m1", "m2"),
+                snapshot.convos
+                    .first()
+                    .messages
+                    .map { it.id },
+            )
+            assertTrue(
+                snapshot.convos
+                    .first()
+                    .messages
+                    .first()
+                    .fromViewer,
+            )
+        }
+
+    @Test
+    fun `a quiet poll fetches nothing and skips an identical publish`() =
+        runTest {
+            val repo =
+                FakeChatRepository().apply {
+                    nextRefreshResult = Result.success(persistentListOf(convo("c1", unread = 0)))
+                    nextGetLogResult = Result.success(ChatLogPage(events = persistentListOf(), nextCursor = "next"))
+                }
+            val kept = WearConvo(convoId = "c1", title = "Alice", messages = listOf(WearMessage(id = "old", fromViewer = false, text = "hi", sentAtMs = 1)))
+            val f = fixture(repo = repo, wear = FakeWearDms(previous = previous(kept)))
+
+            f.runner.run()
+
+            assertEquals(0, repo.messagesCalls.get())
+            assertTrue(f.wear.published.isEmpty())
+        }
+
+    @Test
+    fun `one changed convo is fetched and the others keep their messages`() =
+        runTest {
+            val repo =
+                FakeChatRepository().apply {
+                    nextRefreshResult = Result.success(persistentListOf(convo("c1", unread = 1), convo("c2", unread = 0)))
+                    nextGetLogResult = Result.success(ChatLogPage(events = persistentListOf(event("c1", ALICE)), nextCursor = "next"))
+                    nextMessagesResult = Result.success(MessagePage(messages = persistentListOf(message("new"))))
+                }
+            val c1 = WearConvo(convoId = "c1", title = "Alice", messages = listOf(WearMessage(id = "stale", fromViewer = false, text = "x", sentAtMs = 1)))
+            val c2 = WearConvo(convoId = "c2", title = "Alice", messages = listOf(WearMessage(id = "kept", fromViewer = false, text = "y", sentAtMs = 1)))
+            val f = fixture(repo = repo, wear = FakeWearDms(previous = previous(c1, c2)))
+
+            f.runner.run()
+
+            assertEquals(listOf("c1"), repo.messagesConvoIds)
+            val byId =
+                f.wear.published
+                    .single()
+                    .convos
+                    .associateBy { it.convoId }
+            assertEquals(listOf("new"), byId.getValue("c1").messages.map { it.id })
+            assertEquals(listOf("kept"), byId.getValue("c2").messages.map { it.id })
+        }
+
+    @Test
+    fun `a failing watch publish never changes the poll's outcome or cursor`() =
+        runTest {
+            val repo =
+                FakeChatRepository().apply {
+                    nextRefreshResult = Result.success(persistentListOf(convo("c1", unread = 1)))
+                    nextGetLogResult = Result.success(ChatLogPage(events = persistentListOf(event("c1", ALICE)), nextCursor = "next"))
+                }
+            val cursor = FakeCursorStore(initial = "old")
+            val f = fixture(repo = repo, cursorStore = cursor, wear = FakeWearDms(failPublish = true))
+
+            assertEquals(DmPollRunner.Outcome.SUCCESS, f.runner.run())
+            assertEquals("next", cursor.value)
+            assertEquals(1, f.notifier.posted.size)
+        }
+
+    private class FakeWearDms(
+        private val hasWatch: Boolean = true,
+        private val previous: WearDmSnapshot? = null,
+        private val failPublish: Boolean = false,
+    ) : WearDmPublisher {
+        val published = mutableListOf<WearDmSnapshot>()
+
+        override suspend fun hasWatch() = hasWatch
+
+        override suspend fun lastSnapshot(accountDid: String) = previous
+
+        override suspend fun publish(snapshot: WearDmSnapshot) {
+            if (failPublish) error("Data Layer unavailable")
+            published += snapshot
+        }
+    }
+
     // ---- fixtures / fakes ----
 
     private companion object {
         const val VIEWER = "did:plc:viewer"
         const val ALICE = "did:plc:alice"
+        const val NOW_MS = 1_800_000_000_000L
     }
 
     private class Fixture(
         val runner: DmPollRunner,
         val notifier: RecordingNotifier,
+        val wear: FakeWearDms,
     )
 
     private fun fixture(
@@ -176,6 +317,7 @@ internal class DmPollRunnerTest {
         enabled: Boolean = true,
         foregrounded: Boolean = false,
         cursorStore: FakeCursorStore = FakeCursorStore(initial = "old"),
+        wear: FakeWearDms = FakeWearDms(),
     ): Fixture {
         val notifier = RecordingNotifier()
         val runner =
@@ -186,8 +328,13 @@ internal class DmPollRunnerTest {
                 sessionStateProvider = FakeSessionStateProvider(session),
                 foreground = FakeForeground(foregrounded),
                 notifier = notifier,
+                wearDms = wear,
+                clock =
+                    object : Clock {
+                        override fun now() = Instant.fromEpochMilliseconds(NOW_MS)
+                    },
             )
-        return Fixture(runner, notifier)
+        return Fixture(runner, notifier, wear)
     }
 
     private fun convo(

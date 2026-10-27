@@ -40,6 +40,8 @@ dependencies {
     // DM-poll cursor + the message-checking opt-in toggle (the background
     // worker's gate). nubecita-1fy.15.
     implementation(project(":core:preferences"))
+    implementation(project(":core:wear-contract"))
+    implementation(project(":core:wear-sync"))
     implementation(project(":data:models"))
     // Report / Block NavKeys for the contextual-action menu — :api only
     // (the dialogs live in :feature:moderation:impl).
