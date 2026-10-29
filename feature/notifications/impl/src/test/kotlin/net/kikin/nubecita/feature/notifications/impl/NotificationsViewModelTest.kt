@@ -275,7 +275,8 @@ internal class NotificationsViewModelTest {
 
             val items = vm.uiState.value.items
             assertEquals(listOf(key, "a1"), items.map { it.itemKey })
-            assertEquals(5, items[0].actors.size)
+            // Page 2 repeats Alice + Bob; the merge lists each account once.
+            assertEquals(3, items[0].actors.size)
         }
 
     @Test

@@ -17,7 +17,9 @@ import net.kikin.nubecita.data.models.NotificationItemUi
  * - Either side aggregated → one [NotificationItemUi.Aggregated] in the
  *   existing slot. The newer page's actors stay first, the newest
  *   `indexedAt` wins, and one unread contributor keeps the row unread
- *   (mirroring the in-page aggregation rule).
+ *   (mirroring the in-page aggregation rule). An actor present on both
+ *   sides is listed once; if that leaves a single actor, the row stays a
+ *   [NotificationItemUi.Single].
  * - Both [NotificationItemUi.Single] → the same notification served twice
  *   by an overlapping page; the already-rendered row is kept.
  */
@@ -25,7 +27,12 @@ internal fun ImmutableList<NotificationItemUi>.appendPage(page: List<Notificatio
     if (page.isEmpty()) return this
     val merged = ArrayList<NotificationItemUi>(size + page.size)
     val indexByKey = HashMap<String, Int>(size + page.size)
-    for (item in this + page) {
+    // Existing rows already have unique keys, so they go in without lookups.
+    for (item in this) {
+        indexByKey[item.itemKey] = merged.size
+        merged += item
+    }
+    for (item in page) {
         val existingIndex = indexByKey[item.itemKey]
         if (existingIndex == null) {
             indexByKey[item.itemKey] = merged.size
@@ -37,16 +44,17 @@ internal fun ImmutableList<NotificationItemUi>.appendPage(page: List<Notificatio
     return merged.toImmutableList()
 }
 
-private fun NotificationItemUi.absorb(other: NotificationItemUi): NotificationItemUi =
-    if (this is NotificationItemUi.Single && other is NotificationItemUi.Single) {
-        this
+private fun NotificationItemUi.absorb(other: NotificationItemUi): NotificationItemUi {
+    if (this is NotificationItemUi.Single && other is NotificationItemUi.Single) return this
+    val mergedActors = (actors + other.actors).distinctBy { it.did }.toImmutableList()
+    val newestAt = maxOf(indexedAt, other.indexedAt)
+    val allRead = isRead && other.isRead
+    val subject = subjectPost ?: other.subjectPost
+    // Deduping can leave one actor (the same account on both sides), which
+    // Aggregated's two-actor invariant rejects.
+    return if (mergedActors.size == 1) {
+        NotificationItemUi.Single(itemKey, reason, newestAt, allRead, mergedActors, subject)
     } else {
-        NotificationItemUi.Aggregated(
-            itemKey = itemKey,
-            reason = reason,
-            indexedAt = maxOf(indexedAt, other.indexedAt),
-            isRead = isRead && other.isRead,
-            actors = (actors + other.actors).toImmutableList(),
-            subjectPost = subjectPost ?: other.subjectPost,
-        )
+        NotificationItemUi.Aggregated(itemKey, reason, newestAt, allRead, mergedActors, subject)
     }
+}

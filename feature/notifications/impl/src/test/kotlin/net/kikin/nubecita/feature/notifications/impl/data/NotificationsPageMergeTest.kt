@@ -74,7 +74,46 @@ internal class NotificationsPageMergeTest {
 
         val row = merged.single()
         assertTrue(row is NotificationItemUi.Aggregated)
-        assertEquals(3, row.actors.size)
+        // Both fixtures lead with Alice, so she is listed once: Alice, Bob.
+        assertEquals(incoming.actors, row.actors)
+    }
+
+    @Test
+    fun `actor present on both sides of a merge is listed once`() {
+        val newer = NotificationItemUiFixtures.aggregatedFollows(actorCount = 2, itemKey = FOLLOW_KEY)
+        val older =
+            NotificationItemUi.Aggregated(
+                itemKey = FOLLOW_KEY,
+                reason = newer.reason,
+                indexedAt = newer.indexedAt,
+                isRead = false,
+                actors = persistentListOf(newer.actors[1], ERIN),
+                subjectPost = null,
+            )
+
+        val row = persistentListOf(newer).appendPage(listOf(older)).single()
+
+        assertEquals(newer.actors + ERIN, row.actors)
+    }
+
+    @Test
+    fun `merge that dedupes down to one actor stays a single`() {
+        val existing = NotificationItemUiFixtures.singleLike(itemKey = FOLLOW_KEY)
+        val alice = existing.actors.single()
+        val incoming =
+            NotificationItemUi.Aggregated(
+                itemKey = FOLLOW_KEY,
+                reason = existing.reason,
+                indexedAt = existing.indexedAt,
+                isRead = false,
+                actors = persistentListOf(alice, alice),
+                subjectPost = null,
+            )
+
+        val row = persistentListOf(existing).appendPage(listOf(incoming)).single()
+
+        assertTrue(row is NotificationItemUi.Single)
+        assertEquals(listOf(alice), row.actors)
     }
 
     @Test
