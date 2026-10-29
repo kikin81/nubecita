@@ -19,11 +19,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.xr.compose.spatial.ContentEdge
 import androidx.xr.compose.spatial.Orbiter
-import androidx.xr.compose.spatial.OrbiterOffsetType
+import androidx.xr.compose.spatial.OrbiterAlignment
+import androidx.xr.compose.spatial.OrbiterDefaults
+import androidx.xr.compose.spatial.OrbiterEdgeOffsetType
 import androidx.xr.compose.subspace.layout.SpatialRoundedCornerShape
+import androidx.xr.compose.unit.DpVolumeOffset
 import net.kikin.nubecita.core.common.spatial.rememberSpatialSessionEnvironment
 
 /**
@@ -123,11 +127,17 @@ private fun SpatialXrScaffold(
     }
 
     if (spatialEnvironment.isSpatialUiEnabled) {
+        // OuterEdge places the capsule fully outside the panel; the user offset is
+        // absolute (not mirrored for RTL), so push it away from the start edge by hand.
+        // The deprecated ContentEdge/OrbiterOffsetType overload measured `offset` to the
+        // orbiter's FAR edge, which pulled the 80dp capsule ~56dp into the feed.
+        val gap = if (LocalLayoutDirection.current == LayoutDirection.Ltr) (-24).dp else 24.dp
         Orbiter(
-            position = ContentEdge.Vertical.Start,
-            offset = 24.dp,
-            offsetType = OrbiterOffsetType.OuterEdge,
-            alignment = Alignment.CenterVertically,
+            alignment =
+                OrbiterAlignment.CenterStart(
+                    edgeOffsetType = OrbiterEdgeOffsetType.OuterEdge,
+                    offset = DpVolumeOffset(gap, 0.dp, OrbiterDefaults.Elevation),
+                ),
             shape = SpatialRoundedCornerShape(CornerSize(32.dp)),
         ) {
             navCapsule()
