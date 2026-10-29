@@ -17,7 +17,7 @@ class MainSceneStrategyTest {
                 windowSizeClass = WindowSizeClass.BREAKPOINTS_V1.computeWindowSizeClass(widthDp = 400f, heightDp = 800f),
                 windowPosture = Posture(),
             )
-        val directive = calculateListDetailDirective(compactAdaptiveInfo, isSpatialUiEnabled = false)
+        val directive = calculateListDetailDirective(compactAdaptiveInfo)
         assertEquals(1, directive.maxHorizontalPartitions)
     }
 
@@ -28,7 +28,7 @@ class MainSceneStrategyTest {
                 windowSizeClass = WindowSizeClass.BREAKPOINTS_V1.computeWindowSizeClass(widthDp = 640f, heightDp = 800f),
                 windowPosture = Posture(),
             )
-        val directive = calculateListDetailDirective(mediumAdaptiveInfo, isSpatialUiEnabled = false)
+        val directive = calculateListDetailDirective(mediumAdaptiveInfo)
         assertEquals(2, directive.maxHorizontalPartitions)
         assertEquals(412.dp, directive.defaultPanePreferredWidth)
     }
@@ -40,20 +40,8 @@ class MainSceneStrategyTest {
                 windowSizeClass = WindowSizeClass.BREAKPOINTS_V1.computeWindowSizeClass(widthDp = 1024f, heightDp = 768f),
                 windowPosture = Posture(),
             )
-        val directive = calculateListDetailDirective(expandedAdaptiveInfo, isSpatialUiEnabled = false)
+        val directive = calculateListDetailDirective(expandedAdaptiveInfo)
         assertEquals(2, directive.maxHorizontalPartitions)
         assertEquals(440.dp, directive.defaultPanePreferredWidth)
-    }
-
-    @Test
-    fun `calculateListDetailDirective in spatial environment guarantees two panes with 480dp width`() {
-        val spatialAdaptiveInfo =
-            WindowAdaptiveInfo(
-                windowSizeClass = WindowSizeClass.BREAKPOINTS_V1.computeWindowSizeClass(widthDp = 500f, heightDp = 800f),
-                windowPosture = Posture(),
-            )
-        val directive = calculateListDetailDirective(spatialAdaptiveInfo, isSpatialUiEnabled = true)
-        assertEquals(2, directive.maxHorizontalPartitions)
-        assertEquals(480.dp, directive.defaultPanePreferredWidth)
     }
 }

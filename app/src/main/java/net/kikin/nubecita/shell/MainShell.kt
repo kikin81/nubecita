@@ -50,7 +50,6 @@ import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.core.common.navigation.rememberIsInPipMode
 import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
-import net.kikin.nubecita.core.common.spatial.rememberSpatialSessionEnvironment
 import net.kikin.nubecita.designsystem.LocalGifAutoplayEnabled
 import net.kikin.nubecita.designsystem.adaptive.SpatialScaffold
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -223,12 +222,11 @@ fun MainShell(modifier: Modifier = Modifier) {
     // "Replies" to two lines. 412dp at Medium and 440dp at Expanded gives
     // the list-pane chrome room to breathe while leaving sensible room
     // for the detail pane.
-    val spatialEnvironment = rememberSpatialSessionEnvironment()
-    val listDetailDirective =
-        calculateListDetailDirective(
-            adaptiveInfo = adaptiveInfo,
-            isSpatialUiEnabled = spatialEnvironment.isSpatialUiEnabled,
-        )
+    //
+    // An Android XR panel is just another window here: its size class tracks the
+    // panel's live dp size, so a wide spatial panel gets two panes and a narrow one
+    // gets one, with no XR-specific override.
+    val listDetailDirective = calculateListDetailDirective(adaptiveInfo)
     // Adaptive dialog overlay: any entry tagged with `adaptiveDialog()` metadata
     // (e.g. EditProfile) renders as a centered Dialog at Medium / Expanded and
     // full-screen at Compact. Listed BEFORE the list-detail strategy below —
@@ -614,32 +612,20 @@ internal val TopLevelDestinations: List<TopLevelDestination> =
 /**
  * Calculates the [PaneScaffoldDirective] for the list-detail scene strategy.
  *
- * In standard mode:
  * - Compact (< 600dp): single pane.
  * - Medium (600dp-840dp): dual pane with 412dp list pane (foldables unfolded / portrait tablet).
  * - Expanded (>= 840dp): dual pane with 440dp list pane (landscape tablet).
  *
- * In Android XR spatial environment ([isSpatialUiEnabled] == true):
- * - Guarantees 2 horizontal partitions for side-by-side rendering on 3D spatial panels
- *   with 480dp default preferred width.
+ * Applies unchanged to Android XR panels, whose window size class follows the
+ * user's freeform resizing.
  */
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
-internal fun calculateListDetailDirective(
-    adaptiveInfo: WindowAdaptiveInfo,
-    isSpatialUiEnabled: Boolean = false,
-): PaneScaffoldDirective {
+internal fun calculateListDetailDirective(adaptiveInfo: WindowAdaptiveInfo): PaneScaffoldDirective {
     val baseDirective = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(adaptiveInfo)
     val widthClass = adaptiveInfo.windowSizeClass
     return baseDirective.copy(
-        maxHorizontalPartitions =
-            if (isSpatialUiEnabled) {
-                2
-            } else {
-                baseDirective.maxHorizontalPartitions
-            },
         defaultPanePreferredWidth =
             when {
-                isSpatialUiEnabled -> 480.dp
                 widthClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) -> 440.dp
                 widthClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) -> 412.dp
                 else -> baseDirective.defaultPanePreferredWidth

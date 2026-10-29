@@ -4,8 +4,6 @@ package net.kikin.nubecita.designsystem.adaptive
 
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
-import androidx.compose.material3.adaptive.WindowAdaptiveInfo
-import androidx.window.core.layout.WindowSizeClass
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -103,42 +101,5 @@ internal class VideoCommentsSheetScaffoldTest {
                 sheetState = sheetState,
             ),
         )
-    }
-
-    @Test
-    fun `isCommentsSidePaneEnabled returns false on compact width when spatial UI is disabled`() {
-        val adaptiveInfo =
-            WindowAdaptiveInfo(
-                windowSizeClass = WindowSizeClass(widthDp = 400f, heightDp = 800f),
-                windowPosture = mockk(relaxed = true),
-            )
-        assertFalse(isCommentsSidePaneEnabled(adaptiveInfo, isSpatialUiEnabled = false))
-    }
-
-    @Test
-    fun `isCommentsSidePaneEnabled returns true on medium or expanded width when spatial UI is disabled`() {
-        val mediumAdaptiveInfo =
-            WindowAdaptiveInfo(
-                windowSizeClass = WindowSizeClass(widthDp = 640f, heightDp = 800f),
-                windowPosture = mockk(relaxed = true),
-            )
-        assertTrue(isCommentsSidePaneEnabled(mediumAdaptiveInfo, isSpatialUiEnabled = false))
-
-        val expandedAdaptiveInfo =
-            WindowAdaptiveInfo(
-                windowSizeClass = WindowSizeClass(widthDp = 1024f, heightDp = 768f),
-                windowPosture = mockk(relaxed = true),
-            )
-        assertTrue(isCommentsSidePaneEnabled(expandedAdaptiveInfo, isSpatialUiEnabled = false))
-    }
-
-    @Test
-    fun `isCommentsSidePaneEnabled returns true on compact width when spatial UI is enabled`() {
-        val compactAdaptiveInfo =
-            WindowAdaptiveInfo(
-                windowSizeClass = WindowSizeClass(widthDp = 400f, heightDp = 800f),
-                windowPosture = mockk(relaxed = true),
-            )
-        assertTrue(isCommentsSidePaneEnabled(compactAdaptiveInfo, isSpatialUiEnabled = true))
     }
 }
