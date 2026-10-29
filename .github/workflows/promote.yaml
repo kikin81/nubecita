@@ -3,12 +3,18 @@ name: Promote to Production
 on:
   workflow_dispatch:
     inputs:
+      app:
+        description: "App: phone, wear (watch), or both (one version, phone first). Phone until the Wear app is live on production."
+        required: true
+        default: "phone"
+        type: choice
+        options: ["phone", "wear", "both"]
       to_closed:
-        description: "→ Closed testing (alpha)"
+        description: "→ Closed testing (phone alpha · wear Closed)"
         type: boolean
         default: false
       to_open:
-        description: "→ Open testing (beta)"
+        description: "→ Open testing (phone beta · wear beta)"
         type: boolean
         default: false
       to_production:
@@ -22,7 +28,7 @@ on:
         type: choice
         options: ["0.01", "0.05", "0.1", "0.2", "0.5", "1.0"]
       version_code:
-        description: "Play versionCode to promote (blank = latest on internal)"
+        description: "Play versionCode to promote, phone or wear band (blank = latest on internal)"
         required: false
         type: string
       in_app_update_priority:
@@ -49,6 +55,7 @@ jobs:
     environment: release
     outputs:
       version_code: ${{ steps.resolve.outputs.version_code }}
+      wear_version_code: ${{ steps.resolve.outputs.wear_version_code }}
       tracks: ${{ steps.assemble_tracks.outputs.list }}
     steps:
       - uses: actions/checkout@v7
@@ -81,18 +88,27 @@ jobs:
         id: resolve
         env:
           INPUT_VERSION_CODE: ${{ inputs.version_code }}
+          INPUT_APP: ${{ inputs.app }}
+          TRACKS: ${{ steps.assemble_tracks.outputs.list }}
         run: |
           set -euo pipefail
-          bundle exec fastlane resolve_promote_target version_code:"${INPUT_VERSION_CODE}" | tee /tmp/resolve.log
-          vc=$(grep -oE 'RESOLVED_VERSION_CODE=[0-9]+' /tmp/resolve.log | tail -1 | cut -d= -f2)
-          if [ -z "$vc" ]; then
+          bundle exec fastlane resolve_promote_target app:"${INPUT_APP}" version_code:"${INPUT_VERSION_CODE}" tracks:"${TRACKS}" | tee /tmp/resolve.log
+          vc=$(grep -oE 'RESOLVED_VERSION_CODE=[0-9]+' /tmp/resolve.log | tail -1 | cut -d= -f2 || true)
+          wear_vc=$(grep -oE 'RESOLVED_WEAR_VERSION_CODE=[0-9]+' /tmp/resolve.log | tail -1 | cut -d= -f2 || true)
+          warning=$(grep -oE 'WEAR_AHEAD_WARNING=.*' /tmp/resolve.log | tail -1 | cut -d= -f2- || true)
+          if [ -z "$vc" ] && [ -z "$wear_vc" ]; then
             echo "::error::Failed to resolve a version code from fastlane output."
             exit 1
           fi
           echo "version_code=$vc" >> "$GITHUB_OUTPUT"
+          echo "wear_version_code=$wear_vc" >> "$GITHUB_OUTPUT"
+          [ -n "$warning" ] && echo "::warning::$warning"
           {
             echo "## Promote target"
-            echo "- versionCode: **$vc**"
+            echo "- app: **${INPUT_APP}**"
+            [ -n "$vc" ] && echo "- phone versionCode: **$vc**"
+            [ -n "$wear_vc" ] && echo "- wear versionCode: **$wear_vc**"
+            [ -n "$warning" ] && echo "> ⚠️ $warning"
             echo "- tracks: **${{ steps.assemble_tracks.outputs.list }}**"
             echo "- rollout (production only): **${{ inputs.rollout }}**  ·  priority (production only): **${{ inputs.in_app_update_priority }}**"
             for loc in en-US es-419 pt-BR; do
@@ -106,7 +122,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   promote:
-    name: Promote v${{ needs.resolve.outputs.version_code }} to ${{ needs.resolve.outputs.tracks }}
+    name: Promote ${{ inputs.app }} v${{ needs.resolve.outputs.version_code || needs.resolve.outputs.wear_version_code }} to ${{ needs.resolve.outputs.tracks }}
     needs: resolve
     runs-on: ubuntu-latest
     # NEW environment with required reviewers → the "Approve and deploy" gate.
@@ -127,7 +143,8 @@ jobs:
       - name: Promote to selected tracks
         run: |
           bundle exec fastlane promote \
+            app:"${{ inputs.app }}" \
             tracks:"${{ needs.resolve.outputs.tracks }}" \
-            version_code:"${{ needs.resolve.outputs.version_code }}" \
+            version_code:"${{ needs.resolve.outputs.version_code || needs.resolve.outputs.wear_version_code }}" \
             rollout:"${{ inputs.rollout }}" \
             priority:"${{ inputs.in_app_update_priority }}"

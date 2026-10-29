@@ -29,6 +29,18 @@ PROMOTE_TRACKS = %w[alpha beta production].freeze
 # The Wear OS form factor's internal track (Play gives Wear its own tracks).
 WEAR_INTERNAL_TRACK = "wear:internal"
 
+# The `promote` lane's logical tracks → the Wear form factor's Play track ids
+# (read via the Play API on 2026-10-26; ids are case-sensitive, and the closed
+# track was created in the Console as "Closed").
+WEAR_PROMOTE_TRACKS = { "alpha" => "wear:Closed", "beta" => "wear:beta", "production" => "wear:production" }.freeze
+
+# Which app(s) the `promote` lane moves: the phone bundle, the Wear bundle, or both.
+PROMOTE_APPS = %w[phone wear both].freeze
+
+# The Wear bundle's versionCode is the phone's plus this offset, for the same
+# version (build-logic WearVersioning.kt, WEAR_VERSION_CODE_OFFSET).
+WEAR_VERSION_CODE_OFFSET = 1_000_000_000
+
 # Release bundles by explicit path: the phone and Wear apps share an
 # applicationId, so each upload names its own AAB rather than reading
 # GRADLE_AAB_OUTPUT_PATH, which holds whichever bundle Gradle built last.
@@ -69,13 +81,104 @@ def nubecita_blank(value)
   s.empty? ? nil : s
 end
 
-# The version code promote_production targets: an explicit override if given,
-# else the highest code currently on the internal track. Integer, or nil if none.
-def nubecita_resolve_promote_version_code(version_code_option)
-  # Integer-coerce before .max so codes compare numerically (not "9" > "10"),
-  # consistent with promote_production's production-track check.
-  nubecita_blank(version_code_option)&.to_i ||
-    google_play_track_version_codes(track: "internal").map(&:to_i).max
+# Resolve the promote target per app as { "phone" => code, "wear" => code }
+# (only the selected apps). One version is promoted, so with app "both" the
+# Wear code is the phone code plus the offset, and it must be on wear:internal.
+# An explicit version_code may be given in either band. Fails loudly when the
+# Wear build for that version is missing (a release from before the Wear app).
+def nubecita_resolve_promote_targets(app, version_code_option)
+  UI.user_error!("Unknown app '#{app}'. Valid: #{PROMOTE_APPS.join(', ')}") unless PROMOTE_APPS.include?(app)
+  explicit = nubecita_blank(version_code_option)&.to_i
+  phone_band = explicit && (explicit >= WEAR_VERSION_CODE_OFFSET ? explicit - WEAR_VERSION_CODE_OFFSET : explicit)
+  targets = {}
+  if app != "wear"
+    targets["phone"] = phone_band || (google_play_track_version_codes(track: "internal") || []).map(&:to_i).max ||
+      UI.user_error!("No internal version code found to promote")
+  end
+  if app != "phone"
+    wear_internal = (google_play_track_version_codes(track: WEAR_INTERNAL_TRACK) || []).map(&:to_i)
+    base = targets["phone"] || phone_band
+    wear_vc = base ? base + WEAR_VERSION_CODE_OFFSET : wear_internal.max
+    UI.user_error!("No #{WEAR_INTERNAL_TRACK} version code found to promote") unless wear_vc
+    unless wear_internal.include?(wear_vc)
+      UI.user_error!("Wear versionCode #{wear_vc} is not on #{WEAR_INTERNAL_TRACK} (has: #{wear_internal.join(', ')}). " \
+        "Promote app:phone for a release without a Wear build.")
+    end
+    targets["wear"] = wear_vc
+  end
+  targets
+end
+
+# A warning (never a block) when the Wear build would reach production ahead of
+# the phone build production users get: a watch paired with an older phone may
+# be missing what it needs. Staged rollouts mean this can't prove users have the
+# phone build anyway; it catches promoting the watch alone or out of order.
+# Returns the warning text, or nil.
+def nubecita_wear_ahead_warning(targets, tracks)
+  wear_vc = targets["wear"]
+  return nil unless wear_vc && tracks.include?("production")
+  wear_base = wear_vc - WEAR_VERSION_CODE_OFFSET
+  return nil if targets["phone"] && targets["phone"] >= wear_base # the phone goes to production in the same run
+  phone_prod = (google_play_track_version_codes(track: "production") || []).map(&:to_i).max
+  return nil if phone_prod && phone_prod >= wear_base
+  "Wear #{wear_vc} would reach production ahead of the phone (production phone: #{phone_prod || 'none'}, " \
+    "Wear needs #{wear_base}+). Watches paired with an older phone may lack what this Wear build needs."
+end
+
+# Promote one app's internal build to the given logical tracks (alpha/beta/
+# production). Wear maps them to its own form-factor tracks and promotes from
+# wear:internal; rollout and priority stay production-only for both apps.
+def nubecita_promote_app(app, vc, tracks, prod_rollout, prod_priority)
+  source = app == "wear" ? WEAR_INTERNAL_TRACK : "internal"
+  tracks.each do |logical|
+    target = app == "wear" ? WEAR_PROMOTE_TRACKS.fetch(logical) : logical
+    production = logical == "production"
+    # Guard against nil — a never-released track (e.g. an empty beta) can yield
+    # nil rather than [], and .map on nil would crash the promote mid-batch.
+    version_codes = google_play_track_version_codes(track: target) || []
+    already_on_target = version_codes.map(&:to_i).include?(vc)
+    # Testing tracks are always 100% (no staged rollout to advance), so a
+    # re-promote of a build already live on a testing track is a redundant Play
+    # API call that can fail as an already-completed release — skip it. Only
+    # production re-runs to advance its staged rollout.
+    if already_on_target && !production
+      UI.message("[#{app}] versionCode #{vc} already on #{target}; nothing to advance — skipping.")
+      next
+    end
+    rollout = production ? prod_rollout : "1.0"
+    # in_app_update_priority is IMMUTABLE per release: set it only on the
+    # INITIAL promote to a track (production only), never on a rollout-advance
+    # re-run. Testing tracks never carry a priority.
+    priority = (production && !already_on_target) ? prod_priority : nil
+    UI.message("[#{app}] #{already_on_target ? 'Advancing rollout for' : 'Promoting'} versionCode #{vc} → #{target} @ #{rollout}")
+
+    # Promote from the internal track (where CI lands every build) via
+    # track_promote_to. supply's promote_track reads the release from the SOURCE
+    # track and writes it to the target WITHOUT modifying the source, so the
+    # build stays on internal and one batch can promote it to several tracks.
+    # (supply's "direct" path — track: <target> with no track_promote_to — does
+    # NOT create a release from the bundle library; it looks for an EXISTING
+    # release on <target> to update and errors "Unable to find the requested
+    # release on track" when absent. Verified empirically on PR #754's test run
+    # and in supply/uploader.rb#promote_track.)
+    # The one already_on_target case is production advancing its staged rollout,
+    # which updates the existing production release in place (no track_promote_to).
+    # NOTE: promote_track requires the version code to be a live release on the
+    # SOURCE track — promoting an OLD, superseded internal build (an explicit
+    # older version_code) is unsupported; promote the latest internal build.
+    upload_to_play_store(
+      track: already_on_target ? target : source,
+      track_promote_to: already_on_target ? nil : target,
+      version_code: vc,
+      rollout: rollout,
+      in_app_update_priority: priority,
+      metadata_path: nubecita_metadata_android_dir,         # committed en-US/es-419/pt-BR changelogs
+      skip_upload_changelogs: false,                        # the localized-notes upload
+      skip_upload_apk: true, skip_upload_aab: true,
+      skip_upload_metadata: true,                           # listing text / images untouched
+      skip_upload_images: true, skip_upload_screenshots: true,
+    )
+  end
 end
 
 # Stage the committed framed marketing screenshots (every device bucket) into
@@ -255,17 +358,24 @@ platform :android do
     end
   end
 
-  desc "Print the version code the promote lane would target (RESOLVED_VERSION_CODE=<n>)."
+  desc "Print the version code(s) the promote lane would target."
+  desc "Pass app:phone|wear|both (default phone, as in the workflow) and an optional version_code."
   lane :resolve_promote_target do |options|
-    vc = nubecita_resolve_promote_version_code(options[:version_code]) ||
-      UI.user_error!("No internal version code found to resolve")
-    # Machine-readable marker the promote workflow greps out of fastlane's log.
-    puts "RESOLVED_VERSION_CODE=#{vc}"
+    app = nubecita_blank(options[:app]) || "phone"
+    targets = nubecita_resolve_promote_targets(app, options[:version_code])
+    # Machine-readable markers the promote workflow greps out of fastlane's log.
+    puts "RESOLVED_VERSION_CODE=#{targets['phone']}" if targets["phone"]
+    puts "RESOLVED_WEAR_VERSION_CODE=#{targets['wear']}" if targets["wear"]
+    tracks = nubecita_blank(options[:tracks]).to_s.split(",").map(&:strip)
+    warning = nubecita_wear_ahead_warning(targets, tracks)
+    puts "WEAR_AHEAD_WARNING=#{warning}" if warning
   end
 
-  desc "Promote an internal version code to one or more tracks (alpha/beta/production),"
-  desc "with localized notes. Pass tracks:\"alpha,beta,production\" (comma-separated)."
+  desc "Promote internal builds to one or more tracks (alpha/beta/production), with"
+  desc "localized notes. Pass tracks:\"alpha,beta,production\" (comma-separated) and"
+  desc "app:phone|wear|both (default phone, as in the workflow); Wear maps them to its own Play tracks."
   lane :promote do |options|
+    app = nubecita_blank(options[:app]) || "phone"
     tracks = nubecita_blank(options[:tracks]).to_s.split(",").map(&:strip).reject(&:empty?)
     UI.user_error!("No tracks selected (pass tracks:\"alpha,beta,production\")") if tracks.empty?
     bad = tracks - PROMOTE_TRACKS
@@ -287,8 +397,7 @@ platform :android do
       UI.user_error!("Priority must be 0..5 (got: #{prod_priority})") unless prod_priority.between?(0, 5)
     end
 
-    vc = nubecita_resolve_promote_version_code(options[:version_code]) ||
-      UI.user_error!("No internal version code found to promote")
+    targets = nubecita_resolve_promote_targets(app, options[:version_code])
 
     # Every locale must have a non-empty default.txt within Play's per-locale cap,
     # else supply ships a partial set or fails the upload mid-request. Validate
@@ -300,52 +409,12 @@ platform :android do
       UI.user_error!("Changelog #{loc} exceeds #{PLAY_CHANGELOG_MAX_CHARS} chars (#{text.length})") if text.length > PLAY_CHANGELOG_MAX_CHARS
     end
 
-    tracks.each do |target|
-      # Guard against nil — a never-released track (e.g. an empty beta) can yield
-      # nil rather than [], and .map on nil would crash the promote mid-batch.
-      version_codes = google_play_track_version_codes(track: target) || []
-      already_on_target = version_codes.map(&:to_i).include?(vc)
-      # Testing tracks are always 100% (no staged rollout to advance), so a
-      # re-promote of a build already live on alpha/beta is a redundant Play API
-      # call that can fail as an already-completed release — skip it. Only
-      # production re-runs to advance its staged rollout.
-      if already_on_target && target != "production"
-        UI.message("versionCode #{vc} already on #{target}; nothing to advance — skipping.")
-        next
-      end
-      rollout = target == "production" ? prod_rollout : "1.0"
-      # in_app_update_priority is IMMUTABLE per release: set it only on the
-      # INITIAL promote to a track (production only), never on a rollout-advance
-      # re-run. Testing tracks never carry a priority.
-      priority = (target == "production" && !already_on_target) ? prod_priority : nil
-      UI.message("#{already_on_target ? 'Advancing rollout for' : 'Promoting'} versionCode #{vc} → #{target} @ #{rollout}")
+    warning = nubecita_wear_ahead_warning(targets, tracks)
+    UI.important(warning) if warning
 
-      # Promote from the internal track (where CI lands every build) via
-      # track_promote_to. supply's promote_track reads the release from the SOURCE
-      # track and writes it to the target WITHOUT modifying the source, so the
-      # build stays on internal and one batch can promote it to several tracks.
-      # (supply's "direct" path — track: <target> with no track_promote_to — does
-      # NOT create a release from the bundle library; it looks for an EXISTING
-      # release on <target> to update and errors "Unable to find the requested
-      # release on track" when absent. Verified empirically on PR #754's test run
-      # and in supply/uploader.rb#promote_track.)
-      # The one already_on_target case is production advancing its staged rollout,
-      # which updates the existing production release in place (no track_promote_to).
-      # NOTE: promote_track requires the version code to be a live release on the
-      # SOURCE track — promoting an OLD, superseded internal build (an explicit
-      # older version_code) is unsupported; promote the latest internal build.
-      upload_to_play_store(
-        track: already_on_target ? target : "internal",
-        track_promote_to: already_on_target ? nil : target,
-        version_code: vc,
-        rollout: rollout,
-        in_app_update_priority: priority,
-        metadata_path: nubecita_metadata_android_dir,         # committed en-US/es-419/pt-BR changelogs
-        skip_upload_changelogs: false,                        # the localized-notes upload
-        skip_upload_apk: true, skip_upload_aab: true,
-        skip_upload_metadata: true,                           # listing text / images untouched
-        skip_upload_images: true, skip_upload_screenshots: true,
-      )
+    # Phone first, so with app "both" the phone reaches production before the watch.
+    %w[phone wear].each do |a|
+      nubecita_promote_app(a, targets[a], tracks, prod_rollout, prod_priority) if targets[a]
     end
   end
 
