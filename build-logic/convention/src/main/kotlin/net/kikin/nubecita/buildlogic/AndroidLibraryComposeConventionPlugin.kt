@@ -45,6 +45,8 @@ class AndroidLibraryComposeConventionPlugin : Plugin<Project> {
 
             configureComposeCompilerReports()
 
+            configureComposePreview()
+
             dependencies {
                 val bom = libs.findLibrary("androidx-compose-bom").get()
                 "implementation"(platform(bom))

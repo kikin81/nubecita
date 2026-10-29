@@ -82,6 +82,8 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
             }
 
             configureComposeCompilerReports()
+
+            configureComposePreview()
             configureJunitPlatform()
 
             dependencies {

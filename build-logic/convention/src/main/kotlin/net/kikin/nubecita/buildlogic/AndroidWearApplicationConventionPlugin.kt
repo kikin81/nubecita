@@ -105,6 +105,8 @@ class AndroidWearApplicationConventionPlugin : Plugin<Project> {
 
             registerScreenshotAliasTasks()
             configureComposeCompilerReports()
+
+            configureComposePreview()
             configureJunitPlatform()
 
             dependencies {
