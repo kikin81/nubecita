@@ -1,11 +1,10 @@
-package net.kikin.nubecita.shell.adaptive
+package net.kikin.nubecita.shell
 
 import androidx.compose.material3.adaptive.Posture
 import androidx.compose.material3.adaptive.WindowAdaptiveInfo
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import androidx.window.core.layout.computeWindowSizeClass
-import net.kikin.nubecita.shell.calculateListDetailDirective
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
