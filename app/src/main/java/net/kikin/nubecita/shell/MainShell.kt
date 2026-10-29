@@ -8,7 +8,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDragHandle
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.WindowAdaptiveInfo
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
+import androidx.compose.material3.adaptive.layout.PaneScaffoldDirective
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth
 import androidx.compose.material3.adaptive.navigation.BackNavigationBehavior
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
@@ -221,17 +223,11 @@ fun MainShell(modifier: Modifier = Modifier) {
     // "Replies" to two lines. 412dp at Medium and 440dp at Expanded gives
     // the list-pane chrome room to breathe while leaving sensible room
     // for the detail pane.
-    val baseDirective = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(adaptiveInfo)
-    val widthClass = adaptiveInfo.windowSizeClass
-    val listDetailDirective =
-        baseDirective.copy(
-            defaultPanePreferredWidth =
-                when {
-                    widthClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) -> 440.dp
-                    widthClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) -> 412.dp
-                    else -> baseDirective.defaultPanePreferredWidth
-                },
-        )
+    //
+    // An Android XR panel is just another window here: its size class tracks the
+    // panel's live dp size, so a wide spatial panel gets two panes and a narrow one
+    // gets one, with no XR-specific override.
+    val listDetailDirective = calculateListDetailDirective(adaptiveInfo)
     // Adaptive dialog overlay: any entry tagged with `adaptiveDialog()` metadata
     // (e.g. EditProfile) renders as a centered Dialog at Medium / Expanded and
     // full-screen at Compact. Listed BEFORE the list-detail strategy below —
@@ -613,3 +609,27 @@ internal val TopLevelDestinations: List<TopLevelDestination> =
             labelRes = R.string.main_shell_tab_you,
         ),
     )
+
+/**
+ * Calculates the [PaneScaffoldDirective] for the list-detail scene strategy.
+ *
+ * - Compact (< 600dp): single pane.
+ * - Medium (600dp-840dp): dual pane with 412dp list pane (foldables unfolded / portrait tablet).
+ * - Expanded (>= 840dp): dual pane with 440dp list pane (landscape tablet).
+ *
+ * Applies unchanged to Android XR panels, whose window size class follows the
+ * user's freeform resizing.
+ */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+internal fun calculateListDetailDirective(adaptiveInfo: WindowAdaptiveInfo): PaneScaffoldDirective {
+    val baseDirective = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(adaptiveInfo)
+    val widthClass = adaptiveInfo.windowSizeClass
+    return baseDirective.copy(
+        defaultPanePreferredWidth =
+            when {
+                widthClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) -> 440.dp
+                widthClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) -> 412.dp
+                else -> baseDirective.defaultPanePreferredWidth
+            },
+    )
+}
