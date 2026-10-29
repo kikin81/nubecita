@@ -59,6 +59,7 @@ fun SpatialScaffold(
     when {
         spatialEnvironment.isXr && navigationSuiteType != NavigationSuiteType.None -> {
             SpatialXrScaffold(
+                isSpatialUiEnabled = spatialEnvironment.isSpatialUiEnabled,
                 navigationItems = navigationItems,
                 containerColor = containerColor,
                 contentColor = contentColor,
@@ -93,14 +94,13 @@ fun SpatialScaffold(
 @Suppress("ktlint:compose:content-slot-reused")
 @Composable
 private fun SpatialXrScaffold(
+    isSpatialUiEnabled: Boolean,
     navigationItems: @Composable () -> Unit,
     containerColor: Color,
     contentColor: Color,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    val spatialEnvironment = rememberSpatialSessionEnvironment()
-
     val navCapsule: @Composable () -> Unit = {
         Surface(
             shape = RoundedCornerShape(32.dp),
@@ -126,7 +126,7 @@ private fun SpatialXrScaffold(
         }
     }
 
-    if (spatialEnvironment.isSpatialUiEnabled) {
+    if (isSpatialUiEnabled) {
         // OuterEdge places the capsule fully outside the panel; the user offset is
         // absolute (not mirrored for RTL), so push it away from the start edge by hand.
         // The deprecated ContentEdge/OrbiterOffsetType overload measured `offset` to the

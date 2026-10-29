@@ -2,6 +2,7 @@ package net.kikin.nubecita
 
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.PixelFormat
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -24,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.core.graphics.drawable.toDrawable
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -150,13 +152,15 @@ class MainActivity : ComponentActivity() {
                 appThemeState.appTheme.value == null
         }
 
-        val isXr = packageManager.hasSystemFeature("android.software.xr.api.spatial")
+        val isXr = packageManager.hasSystemFeature(XR_SPATIAL_FEATURE)
         if (isXr) {
-            window.setFormat(android.graphics.PixelFormat.TRANSPARENT)
-            window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
-            window.decorView.setBackgroundColor(Color.TRANSPARENT)
-            window.statusBarColor = Color.TRANSPARENT
-            window.navigationBarColor = Color.TRANSPARENT
+            // XR panels have no system bars. A translucent surface lets the
+            // SpatialScaffold capsule float detached from the rounded content panel.
+            // Done at runtime rather than via windowIsTranslucent in the theme, which
+            // would make every phone/tablet launch translucent too (launcher kept
+            // composited behind the app, no starting-window preview).
+            window.setFormat(PixelFormat.TRANSLUCENT)
+            window.setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
         } else {
             // Edge-to-edge with the OS-derived default polarity, so the window is set
             // up before the first frame. The composition re-applies it via
@@ -341,15 +345,8 @@ class MainActivity : ComponentActivity() {
      * Safe to call repeatedly — `enableEdgeToEdge` is idempotent by design.
      */
     private fun applySystemBarStyle(isDark: Boolean) {
-        val isXr = packageManager.hasSystemFeature("android.software.xr.api.spatial")
-        if (isXr) {
-            window.setFormat(android.graphics.PixelFormat.TRANSPARENT)
-            window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
-            window.decorView.setBackgroundColor(Color.TRANSPARENT)
-            window.statusBarColor = Color.TRANSPARENT
-            window.navigationBarColor = Color.TRANSPARENT
-            return
-        }
+        // XR panels have no system bars to style (see onCreate).
+        if (packageManager.hasSystemFeature(XR_SPATIAL_FEATURE)) return
 
         enableEdgeToEdge(
             statusBarStyle =
@@ -712,6 +709,8 @@ class MainActivity : ComponentActivity() {
         private const val SHARE_TEXT_MAX_LENGTH = 10_000
     }
 }
+
+private const val XR_SPATIAL_FEATURE = "android.software.xr.api.spatial"
 
 // Mirrors the (private) scrim defaults `enableEdgeToEdge` applies to the
 // navigation bar, so re-declaring edge-to-edge with an explicit polarity keeps
