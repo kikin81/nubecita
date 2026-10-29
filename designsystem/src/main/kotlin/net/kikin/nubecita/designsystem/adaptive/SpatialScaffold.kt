@@ -2,6 +2,7 @@ package net.kikin.nubecita.designsystem.adaptive
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -37,10 +38,12 @@ import net.kikin.nubecita.core.common.spatial.rememberSpatialSessionEnvironment
  * When executing in an Android XR session:
  * - If spatial UI is enabled (Full Space Mode), anchors top-level navigation into
  *   a 3D [Orbiter] floating outside the panel.
- * - In Home Space Mode (2D spatial multitasking panel), renders the navigation items
- *   as a detached floating pill capsule anchored to the side of the main window panel,
- *   separated by empty space from the elevated rounded content panel (matching the Google
- *   Play Store XR layout).
+ * - In Home Space Mode (2D spatial multitasking panel), orbiters are unavailable, so the
+ *   same pill capsule sits at the start edge inside the panel.
+ *
+ * The panel itself is opaque and fills the window: the XR system already rounds and
+ * elevates it, and Home Space does not honour a transparent window, so an inset
+ * "floating" content card would render as a black frame.
  *
  * On standard devices (phones, foldables, tablets), renders standard [NavigationSuiteScaffold]
  * (NavigationBar on compact widths, NavigationRail on medium/expanded widths).
@@ -69,11 +72,9 @@ fun SpatialScaffold(
         }
         spatialEnvironment.isXr && navigationSuiteType == NavigationSuiteType.None -> {
             Surface(
-                modifier = modifier.fillMaxSize().padding(16.dp),
-                shape = RoundedCornerShape(24.dp),
+                modifier = modifier.fillMaxSize(),
                 color = containerColor,
                 contentColor = contentColor,
-                shadowElevation = 4.dp,
             ) {
                 content()
             }
@@ -143,37 +144,31 @@ private fun SpatialXrScaffold(
             navCapsule()
         }
         Surface(
-            modifier = modifier.fillMaxSize().padding(16.dp),
-            shape = RoundedCornerShape(24.dp),
+            modifier = modifier.fillMaxSize(),
             color = containerColor,
             contentColor = contentColor,
-            shadowElevation = 4.dp,
         ) {
             content()
         }
     } else {
-        // Home Space Mode: Detached floating capsule beside rounded main content panel
-        Row(
-            modifier =
-                modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        // Home Space: no orbiters, so the capsule sits at the panel's start edge.
+        Surface(
+            modifier = modifier.fillMaxSize(),
+            color = containerColor,
+            contentColor = contentColor,
         ) {
-            navCapsule()
-
-            Surface(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .fillMaxHeight(),
-                shape = RoundedCornerShape(24.dp),
-                color = containerColor,
-                contentColor = contentColor,
-                shadowElevation = 4.dp,
-            ) {
-                content()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.padding(horizontal = 12.dp)) {
+                    navCapsule()
+                }
+                Box(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                ) {
+                    content()
+                }
             }
         }
     }
