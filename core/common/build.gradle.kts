@@ -21,6 +21,9 @@ dependencies {
     // addOnPictureInPictureModeChangedListener. Activity types stay an
     // implementation detail — not exposed in any public signature.
     implementation(libs.androidx.activity.compose)
+    // LocalSpatialCapabilities is read inside SpatialSessionEnvironment only;
+    // no XR type appears in this module's public API.
+    implementation(libs.androidx.xr.compose)
 
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
