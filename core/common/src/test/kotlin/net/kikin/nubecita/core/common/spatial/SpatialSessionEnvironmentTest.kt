@@ -6,31 +6,18 @@ import org.junit.jupiter.api.Test
 
 class SpatialSessionEnvironmentTest {
     @Test
-    fun `default spatial environment has all capabilities disabled`() {
+    fun `default spatial environment is a non-XR device`() {
         val environment = DefaultSpatialSessionEnvironment()
 
+        assertFalse(environment.isXr)
         assertFalse(environment.isSpatialUiEnabled)
-        assertFalse(environment.isContent3dEnabled)
-        assertFalse(environment.isAppEnvironmentEnabled)
-        assertFalse(environment.isPassthroughControlEnabled)
-        assertFalse(environment.isSpatialAudioEnabled)
     }
 
     @Test
     fun `spatial environment preserves configured capabilities`() {
-        val environment =
-            DefaultSpatialSessionEnvironment(
-                isSpatialUiEnabled = true,
-                isContent3dEnabled = false,
-                isAppEnvironmentEnabled = true,
-                isPassthroughControlEnabled = true,
-                isSpatialAudioEnabled = true,
-            )
+        val environment = DefaultSpatialSessionEnvironment(isXr = true, isSpatialUiEnabled = true)
 
+        assertTrue(environment.isXr)
         assertTrue(environment.isSpatialUiEnabled)
-        assertFalse(environment.isContent3dEnabled)
-        assertTrue(environment.isAppEnvironmentEnabled)
-        assertTrue(environment.isPassthroughControlEnabled)
-        assertTrue(environment.isSpatialAudioEnabled)
     }
 }

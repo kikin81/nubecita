@@ -13,7 +13,6 @@ import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
 import androidx.compose.material3.adaptive.navigation.BackNavigationBehavior
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
@@ -49,7 +48,9 @@ import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.core.common.navigation.rememberIsInPipMode
 import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
+import net.kikin.nubecita.core.common.spatial.rememberSpatialSessionEnvironment
 import net.kikin.nubecita.designsystem.LocalGifAutoplayEnabled
+import net.kikin.nubecita.designsystem.adaptive.SpatialScaffold
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.chats.api.Chats
@@ -294,9 +295,14 @@ fun MainShell(modifier: Modifier = Modifier) {
     // In Picture-in-Picture the window is a tiny floating video — the navigation
     // suite must collapse entirely (design D5/q5ge.6), regardless of width class.
     val isInPip by rememberIsInPipMode()
+    // On XR the items always render in SpatialScaffold's vertical capsule, so a
+    // narrow panel must still get rail-style items, never bar-style ones.
+    val isXr = rememberSpatialSessionEnvironment().isXr
     val layoutType =
         when {
             isInPip -> NavigationSuiteType.None
+            isXr && defaultLayoutType == NavigationSuiteType.NavigationBar ->
+                if (isTopLevel) NavigationSuiteType.NavigationRail else NavigationSuiteType.None
             defaultLayoutType == NavigationSuiteType.NavigationBar ->
                 if (isTopLevel) NavigationSuiteType.ShortNavigationBarCompact else NavigationSuiteType.None
             defaultLayoutType == NavigationSuiteType.NavigationDrawer -> NavigationSuiteType.NavigationRail
@@ -456,7 +462,7 @@ internal fun MainShellChrome(
     // overload's inline switch misses those variants and leaves child
     // Scaffolds anchoring FABs above the system inset rather than above
     // the visually-rendered bar (creating a ~32dp gap).
-    NavigationSuiteScaffold(
+    SpatialScaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.surface,
         navigationSuiteType = layoutType,
