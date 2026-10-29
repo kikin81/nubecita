@@ -242,6 +242,43 @@ internal class NotificationsViewModelTest {
         }
 
     @Test
+    fun `LoadMore merges a group split across the page boundary instead of repeating its key`() =
+        runTest(mainDispatcher.dispatcher) {
+            val key = "agg:Follow:2026-10-18"
+            val repo =
+                FakeNotificationsRepository(
+                    pages =
+                        listOf(
+                            Result.success(
+                                page(
+                                    items = persistentListOf(NotificationItemUiFixtures.aggregatedFollows(itemKey = key)),
+                                    nextCursor = "c1",
+                                ),
+                            ),
+                            Result.success(
+                                page(
+                                    items =
+                                        persistentListOf(
+                                            NotificationItemUiFixtures.aggregatedFollows(actorCount = 2, itemKey = key),
+                                            NotificationItemUiFixtures.singleLike(itemKey = "a1"),
+                                        ),
+                                    nextCursor = null,
+                                ),
+                            ),
+                        ),
+                )
+            val vm = NotificationsViewModel(repo, analytics)
+            advanceUntilIdle()
+
+            vm.handleEvent(NotificationsEvent.LoadMore)
+            advanceUntilIdle()
+
+            val items = vm.uiState.value.items
+            assertEquals(listOf(key, "a1"), items.map { it.itemKey })
+            assertEquals(5, items[0].actors.size)
+        }
+
+    @Test
     fun `LoadMore is gated when hasMore is false (no fetch fires)`() =
         runTest(mainDispatcher.dispatcher) {
             val repo =

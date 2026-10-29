@@ -3,7 +3,6 @@ package net.kikin.nubecita.feature.notifications.impl
 import androidx.lifecycle.viewModelScope
 import androidx.navigation3.runtime.NavKey
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.NotificationSource
@@ -16,6 +15,7 @@ import net.kikin.nubecita.data.models.NotificationItemUi
 import net.kikin.nubecita.data.models.NotificationReason
 import net.kikin.nubecita.feature.notifications.impl.data.NotificationsPage
 import net.kikin.nubecita.feature.notifications.impl.data.NotificationsRepository
+import net.kikin.nubecita.feature.notifications.impl.data.appendPage
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
 import timber.log.Timber
@@ -276,12 +276,11 @@ internal class NotificationsViewModel
             requestGeneration: Int,
         ) {
             if (!isCurrent(requestGeneration)) return
-            // Append: concatenate the new page after the existing items.
-            // Slice 1 does no cross-page aggregation merging (see design
-            // D3), so two same-reason groups straddling a page boundary
-            // render as adjacent multi-actor rows. Acceptable per the
-            // design's listed trade-offs.
-            val merged = (uiState.value.items + page.items).toImmutableList()
+            // Append: the new page goes after the existing items. A group
+            // straddling the page boundary repeats its itemKey, which the
+            // keyed LazyColumn rejects — appendPage folds it into the row
+            // already on screen.
+            val merged = uiState.value.items.appendPage(page.items)
             setState {
                 copy(
                     items = merged,
