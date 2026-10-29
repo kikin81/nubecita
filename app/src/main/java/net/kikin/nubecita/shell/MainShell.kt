@@ -48,6 +48,7 @@ import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.core.common.navigation.rememberIsInPipMode
 import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
+import net.kikin.nubecita.core.common.spatial.rememberSpatialSessionEnvironment
 import net.kikin.nubecita.designsystem.LocalGifAutoplayEnabled
 import net.kikin.nubecita.designsystem.adaptive.SpatialScaffold
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -294,9 +295,14 @@ fun MainShell(modifier: Modifier = Modifier) {
     // In Picture-in-Picture the window is a tiny floating video — the navigation
     // suite must collapse entirely (design D5/q5ge.6), regardless of width class.
     val isInPip by rememberIsInPipMode()
+    // On XR the items always render in SpatialScaffold's vertical capsule, so a
+    // narrow panel must still get rail-style items, never bar-style ones.
+    val isXr = rememberSpatialSessionEnvironment().isXr
     val layoutType =
         when {
             isInPip -> NavigationSuiteType.None
+            isXr && defaultLayoutType == NavigationSuiteType.NavigationBar ->
+                if (isTopLevel) NavigationSuiteType.NavigationRail else NavigationSuiteType.None
             defaultLayoutType == NavigationSuiteType.NavigationBar ->
                 if (isTopLevel) NavigationSuiteType.ShortNavigationBarCompact else NavigationSuiteType.None
             defaultLayoutType == NavigationSuiteType.NavigationDrawer -> NavigationSuiteType.NavigationRail

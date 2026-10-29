@@ -85,9 +85,12 @@ private fun SpatialScaffoldMediumRailPreview() {
 }
 
 @PreviewTest
-@Preview(name = "spatial-scaffold-xr-floating-orbiter", widthDp = XR_WIDTH_DP, heightDp = HEIGHT_DP)
+// Host rendering has no XR session, so Orbiter falls back to drawing inline: the
+// Full Space orbiter can't be screenshot-tested here (verify it on the XR emulator).
+// This fixture covers the Home Space layout (isXr, spatial UI off).
+@Preview(name = "spatial-scaffold-xr-home-space", widthDp = XR_WIDTH_DP, heightDp = HEIGHT_DP)
 @Composable
-private fun SpatialScaffoldXrFloatingOrbiterPreview() {
+private fun SpatialScaffoldXrHomeSpacePreview() {
     CompositionLocalProvider(
         LocalSpatialSessionEnvironment provides DefaultSpatialSessionEnvironment(isXr = true),
     ) {
