@@ -45,18 +45,28 @@ tasks.register<JacocoReport>("jacocoTestReportAggregated") {
 }
 
 allprojects {
+    // Implicit container projects (:core, :feature, :feature:chats, …) have no
+    // build script and no sources of their own. Configuring them with a
+    // recursive target made every module's tree — build/ outputs included — get
+    // snapshotted once per ancestor, which dominated spotlessApply's runtime.
+    if (this != rootProject && !buildFile.exists()) return@allprojects
     apply(plugin = "com.diffplug.spotless")
     extensions.configure<com.diffplug.gradle.spotless.SpotlessExtension> {
         kotlin {
-            target("**/*.kt")
-            // openspec/references/ is a handoff package: copies of code from external
-            // sources (UI kits, sample apps) checked in for inspiration, intended to
-            // be ported into modules with adjusted package names — not built or
-            // linted in-place.
-            targetExclude(
-                "**/build/**/*.kt",
-                "**/generated/**/*.kt",
-                "openspec/references/**/*.kt",
+            // Scope each project to its own sources by rooting the tree at the
+            // source directory, and keep the exclude inside that tree. String
+            // target("src/**/*.kt") / targetExclude(...) patterns are each
+            // resolved by walking the whole project dir (build/ included) —
+            // at the root, the entire repo. The root owns only the build-logic
+            // included build, which no subproject covers. (openspec/references/
+            // — copies of external code kept for inspiration, not built or
+            // linted — stays out because nothing targets it.)
+            val sourceRoot = if (this@allprojects == rootProject) "build-logic/convention/src" else "src"
+            target(
+                fileTree(sourceRoot) {
+                    include("**/*.kt")
+                    exclude("**/generated/**")
+                },
             )
             ktlint(libs.versions.ktlint.get())
                 .customRuleSets(

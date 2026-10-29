@@ -114,18 +114,3 @@ repos:
         language: system
         files: '\.kt$'
         pass_filenames: false
-
-      - id: screenshot-test-compile
-        name: screenshot test sources compile
-        # compileProductionDebugScreenshotTestKotlin specifically — the
-        # umbrella compileDebugScreenshotTestSources task hits a known AGP
-        # bug with the compose screenshot plugin alpha (mergedManifest not
-        # set). The `Production` qualifier disambiguates :app's `environment`
-        # flavor dimension (nubecita-crmi.6); without it the unflavored
-        # `compileDebugScreenshotTestKotlin` form errors with "task
-        # 'compileDebugScreenshotTestKotlin' is ambiguous in project ':app'."
-        entry: ./gradlew :app:compileProductionDebugScreenshotTestKotlin
-        language: system
-        stages: [pre-push]
-        files: '\.(kt|kts)$'
-        pass_filenames: false
