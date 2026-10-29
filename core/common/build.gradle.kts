@@ -14,8 +14,6 @@ dependencies {
     api(libs.androidx.lifecycle.viewmodel.ktx)
     api(libs.androidx.navigation3.runtime)
     api(libs.androidx.savedstate.compose)
-    api(libs.androidx.xr.compose)
-    api(libs.androidx.xr.scenecore)
     api(libs.kotlinx.coroutines.core)
     api(libs.kotlinx.datetime)
 
@@ -23,6 +21,9 @@ dependencies {
     // addOnPictureInPictureModeChangedListener. Activity types stay an
     // implementation detail — not exposed in any public signature.
     implementation(libs.androidx.activity.compose)
+    // LocalSpatialCapabilities is read inside SpatialSessionEnvironment only;
+    // no XR type appears in this module's public API.
+    implementation(libs.androidx.xr.compose)
 
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 

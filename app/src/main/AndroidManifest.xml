@@ -124,14 +124,14 @@
             android:windowSoftInputMode="adjustResize"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden">
             <!--
-                Start mode for Android XR: launches into Full Space Managed mode so
-                spatial UI capabilities (detached floating navigation Orbiters,
-                spatial audio, and 3D scene core) are active right out of the box,
-                matching Google Play Store on Android XR.
+                Start mode for Android XR: a content client launches into Home Space
+                as a resizable panel alongside the user's other apps. Full Space is
+                reserved for the explicit Theater Mode request (xr-spatial-media spec),
+                which returns here on exit.
             -->
             <property
                 android:name="android.window.PROPERTY_XR_ACTIVITY_START_MODE"
-                android:value="XR_ACTIVITY_START_MODE_FULL_SPACE_MANAGED" />
+                android:value="XR_ACTIVITY_START_MODE_HOME_SPACE" />
 
             <!--
                 supportsPictureInPicture enables the Pro PiP perk; configChanges is
