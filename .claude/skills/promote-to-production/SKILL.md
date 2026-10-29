@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires the authenticated `gh` CLI, `.github/workflows/promote.yaml`, and the `production` GitHub environment (required reviewers).
 metadata:
   author: nubecita
-  version: "1.2"
+  version: "1.3"
 ---
 
 Dispatch the **Promote to Production** workflow (`.github/workflows/promote.yaml`) with the right inputs, surface the resolved target, then hand the gated approval back to the human.
@@ -28,9 +28,10 @@ Per-track behavior handled by the lane (both apps): **rollout % and update prior
    ```
    The promotion targets a Play **versionCode** (independent of the git branch), but the **changelogs/fastlane come from the dispatched ref** — so dispatch from `main` (the default) unless the user explicitly wants another ref. If they're on a feature branch, note that `--ref main` is used.
 
-2. **Gather the inputs (work together).** First use the **AskUserQuestion tool** to pick the **`app`** — **Phone** / **Watch (Wear OS)** / **Both**. The workflow default is **phone** until the Wear app is live on production: for the first Wear launch, promote the phone (1.353+) to production at 100% *before* the watch. After that, **Both** is the normal choice. Then use the AskUserQuestion tool (multiSelect) to pick the **target track(s)**, then ask the production-only knobs *only if* production is among the picks.
+2. **Gather the inputs (work together).** First use the **AskUserQuestion tool** (multiSelect) to pick the **target track(s)**, then **always** ask whether to bundle the watch release (the `app` input), then ask the production-only knobs *only if* production is among the picks.
 
    - **Tracks** (multiSelect, at least one) — **Closed testing (`alpha`)** / **Open testing (`beta`)** / **Production**. Map the picks to the boolean inputs `to_closed` / `to_open` / `to_production`. Default suggestion: Production. (Testing tracks always go to 100% of testers, so they need no rollout/priority.)
+   - **Bundle the watch release?** (`app`, always ask — never assume the workflow's `phone` default) — **Phone + watch** (`both`) / **Phone only** (`phone`) / **Watch only** (`wear`). When Production is among the picks, phrase it as *"Also promote the watch (Wear OS) build to production?"* and recommend **Phone + watch**: the watch rides the same version, phone first, at the same rollout %, and the picked testing tracks map to the watch's own (`wear:Closed` / `wear:beta`). Pick **Phone only** for a release with no Wear build (the run fails fast otherwise — see the Wear mapping above). **Watch only** is for catching the watch up to a version the phone has already shipped.
    - **`rollout`** (ask **only if Production is selected**; default `0.1`) — staged fraction. Options: `0.01 / 0.05 / 0.1 / 0.2 / 0.5 / 1.0`. A **fresh** production promote starts low (e.g. `0.1`); to **advance** an in-flight rollout, re-run with a **higher** fraction and the **same versionCode**. Ignored for `alpha`/`beta`.
    - **`in_app_update_priority`** (ask **only if Production is selected**; default `0`) — options `0–5`. `0` = default (no nudge); `1–3` = flexible in-app-update nudge; **`>=4` forces IMMEDIATE** (blocking) update. Most releases use `0`; reserve `4–5` for critical fixes. Not applied to testing tracks.
    - **`version_code`** (optional) — blank resolves to the **latest build on the internal track**. Only set it to promote/advance a specific older build.
@@ -60,7 +61,7 @@ Per-track behavior handled by the lane (both apps): **rollout % and update prior
    gh run view "$id" --json url --jq '.url'
    ```
 
-5. **Wait for the gate, then surface the target.** Do **not** `gh run watch` — the `promote` job sits in `waiting` on the manual approval gate, so `watch` blocks indefinitely and you'd never hand off. Instead poll until the run is no longer `queued`/`in_progress` (it becomes `waiting` at the gate once `resolve` is done, or `completed` if `resolve` failed), then point the user at the run **Summary** (resolved versionCode, the **selected tracks**, rollout/priority, and the three localized changelogs — the review surface before approval). The run name itself reads e.g. "Promote v1301000 to alpha,beta":
+5. **Wait for the gate, then surface the target.** Do **not** `gh run watch` — the `promote` job sits in `waiting` on the manual approval gate, so `watch` blocks indefinitely and you'd never hand off. Instead poll until the run is no longer `queued`/`in_progress` (it becomes `waiting` at the gate once `resolve` is done, or `completed` if `resolve` failed), then point the user at the run **Summary** (resolved versionCode, the **selected tracks**, rollout/priority, and the three localized changelogs — the review surface before approval). The run name itself reads e.g. "Promote both v1356002 to production":
    ```bash
    for i in $(seq 1 30); do
      status=$(gh run view "$id" --json status --jq '.status' 2>/dev/null)
@@ -69,7 +70,7 @@ Per-track behavior handled by the lane (both apps): **rollout % and update prior
    done
    echo "status=$status — review the target + changelogs: $(gh run view "$id" --json url --jq '.url')"
    ```
-   If `status` is `completed` (not `waiting`), `resolve` likely failed before the gate — read its log. Otherwise tell the user to read the **Promote target** summary block + the changelogs.
+   If `status` is `completed` (not `waiting`), `resolve` likely failed before the gate — read its log. Otherwise tell the user to read the **Promote target** summary block + the changelogs. If the watch is in the batch, also check for the **watch-ahead-of-phone warning** — a `⚠️` line in the summary and a run annotation (`gh run view "$id"` lists annotations) — and, if present, call it out *before* the approval hand-off — it doesn't block, so the reviewer is the only stop.
 
 6. **Hand off the approval (manual — never auto-approve).** The `promote` job is now **waiting on the `production` environment gate**. Direct the user to: the run → **Review deployments** → check `production` → **Approve and deploy**. Do **not** approve it programmatically — the reviewer gate exists so a human consciously authorizes the production push. Give them the run URL.
 

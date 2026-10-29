@@ -359,9 +359,9 @@ platform :android do
   end
 
   desc "Print the version code(s) the promote lane would target."
-  desc "Pass app:phone|wear|both (default both) and an optional version_code."
+  desc "Pass app:phone|wear|both (default phone, as in the workflow) and an optional version_code."
   lane :resolve_promote_target do |options|
-    app = nubecita_blank(options[:app]) || "both"
+    app = nubecita_blank(options[:app]) || "phone"
     targets = nubecita_resolve_promote_targets(app, options[:version_code])
     # Machine-readable markers the promote workflow greps out of fastlane's log.
     puts "RESOLVED_VERSION_CODE=#{targets['phone']}" if targets["phone"]
@@ -373,9 +373,9 @@ platform :android do
 
   desc "Promote internal builds to one or more tracks (alpha/beta/production), with"
   desc "localized notes. Pass tracks:\"alpha,beta,production\" (comma-separated) and"
-  desc "app:phone|wear|both (default both); Wear maps them to its own Play tracks."
+  desc "app:phone|wear|both (default phone, as in the workflow); Wear maps them to its own Play tracks."
   lane :promote do |options|
-    app = nubecita_blank(options[:app]) || "both"
+    app = nubecita_blank(options[:app]) || "phone"
     tracks = nubecita_blank(options[:tracks]).to_s.split(",").map(&:strip).reject(&:empty?)
     UI.user_error!("No tracks selected (pass tracks:\"alpha,beta,production\")") if tracks.empty?
     bad = tracks - PROMOTE_TRACKS
