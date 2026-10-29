@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -17,6 +18,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.movableContentOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -59,39 +64,47 @@ fun SpatialScaffold(
 ) {
     val spatialEnvironment = rememberSpatialSessionEnvironment()
 
+    // On XR the content moves between branches at runtime: Compact sub-routes flip
+    // the nav type to None, and Home Space <-> Full Space flips isSpatialUiEnabled.
+    // Without movableContentOf each flip would dispose and recompose the whole inner
+    // NavDisplay. Phones and tablets only ever take the NavigationSuiteScaffold branch.
+    val currentContent by rememberUpdatedState(content)
+    val movableContent = remember { movableContentOf { currentContent() } }
+
     when {
-        spatialEnvironment.isXr && navigationSuiteType != NavigationSuiteType.None -> {
-            SpatialXrScaffold(
-                isSpatialUiEnabled = spatialEnvironment.isSpatialUiEnabled,
-                navigationItems = navigationItems,
-                containerColor = containerColor,
-                contentColor = contentColor,
-                modifier = modifier,
-                content = content,
-            )
-        }
-        spatialEnvironment.isXr && navigationSuiteType == NavigationSuiteType.None -> {
-            Surface(
-                modifier = modifier.fillMaxSize(),
-                color = containerColor,
-                contentColor = contentColor,
-            ) {
-                content()
-            }
-        }
-        else -> {
+        !spatialEnvironment.isXr -> {
             NavigationSuiteScaffold(
                 modifier = modifier,
                 navigationSuiteType = navigationSuiteType,
                 containerColor = containerColor,
                 contentColor = contentColor,
                 navigationItems = navigationItems,
-                content = content,
+                content = movableContent,
+            )
+        }
+        navigationSuiteType == NavigationSuiteType.None -> {
+            Surface(
+                modifier = modifier.fillMaxSize(),
+                color = containerColor,
+                contentColor = contentColor,
+                content = movableContent,
+            )
+        }
+        else -> {
+            SpatialXrScaffold(
+                isSpatialUiEnabled = spatialEnvironment.isSpatialUiEnabled,
+                navigationItems = navigationItems,
+                containerColor = containerColor,
+                contentColor = contentColor,
+                modifier = modifier,
+                content = movableContent,
             )
         }
     }
 }
 
+// `content` is the movableContentOf instance built in SpatialScaffold, so invoking it
+// from both branches moves its state across a Home Space <-> Full Space switch.
 @Suppress("ktlint:compose:content-slot-reused")
 @Composable
 private fun SpatialXrScaffold(
@@ -105,7 +118,7 @@ private fun SpatialXrScaffold(
     val navCapsule: @Composable () -> Unit = {
         Surface(
             shape = RoundedCornerShape(32.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shadowElevation = 8.dp,
             border =
                 BorderStroke(
@@ -118,7 +131,8 @@ private fun SpatialXrScaffold(
                 modifier =
                     Modifier
                         .width(80.dp)
-                        .padding(vertical = 16.dp),
+                        .padding(vertical = 16.dp)
+                        .selectableGroup(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {

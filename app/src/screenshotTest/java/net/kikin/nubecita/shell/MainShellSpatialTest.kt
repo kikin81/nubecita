@@ -44,14 +44,14 @@ private fun MainShellSpatialPanelFeedSelectedPreview() {
                     modifier =
                         Modifier
                             .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.background)
+                            .background(MaterialTheme.colorScheme.surface)
                             .padding(24.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = "Spatial Panel Full-Bleed Content",
                         style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.colorScheme.onBackground,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             }
