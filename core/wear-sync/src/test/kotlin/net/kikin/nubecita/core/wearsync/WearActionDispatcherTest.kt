@@ -217,6 +217,30 @@ class WearActionDispatcherTest {
         }
 
     @Test
+    fun aSuccessfulWatchPost_isCountedAsACreatePostWatchAction_butNotAsAPostInteraction() =
+        runTest {
+            val posts =
+                object : WearActionHandler {
+                    override fun canHandle(action: WearAction) = action is WearAction.CreatePost
+
+                    override suspend fun execute(action: WearAction): Result<String?> = Result.success("at://did:plc:alice/app.bsky.feed.post/1")
+                }
+
+            dispatcher(posts).onActionItem(watch, WearPaths.action(alice, "a1"), request(action = WearAction.CreatePost("hi")))
+
+            assertEquals("at://did:plc:alice/app.bsky.feed.post/1", onlyResult().recordUri)
+            assertEquals(listOf(WatchAction(WatchActionType.CreatePost, WatchActionOutcome.Ok)), analytics.events)
+        }
+
+    @Test
+    fun aWatchPost_toAPhoneWithoutThePostHandler_answersUnsupported() =
+        runTest {
+            dispatcher(likes).onActionItem(watch, WearPaths.action(alice, "a1"), request(action = WearAction.CreatePost("hi")))
+
+            assertEquals(WearActionFailure.UNSUPPORTED, onlyResult().failure)
+        }
+
+    @Test
     fun nonActionPaths_areIgnored() =
         runTest {
             dispatcher().onActionItem(watch, WearPaths.actionResult(alice, "a1"), request())

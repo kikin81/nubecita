@@ -4,7 +4,8 @@
     "Get Nubecita on your phone" until a node has it. Must match
     WearCapabilities.PHONE_APP in :core:wear-contract. nubecita_phone_actions
     (WearCapabilities.PHONE_ACTIONS) says this build runs watch actions;
-    nubecita_phone_dm_actions (PHONE_DM_ACTIONS) that it runs DM replies and reactions.
+    nubecita_phone_dm_actions (PHONE_DM_ACTIONS) that it runs DM replies and reactions;
+    nubecita_phone_post_actions (PHONE_POST_ACTIONS) that it posts from the watch.
 
     Release builds keep it via res/raw/keep_wear_capabilities.xml.
 -->
@@ -13,5 +14,6 @@
         <item>nubecita_phone</item>
         <item>nubecita_phone_actions</item>
         <item>nubecita_phone_dm_actions</item>
+        <item>nubecita_phone_post_actions</item>
     </string-array>
 </resources>

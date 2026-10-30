@@ -156,9 +156,10 @@ private fun WearAction?.toWatchActionType(): WatchActionType =
         is WearAction.Unbookmark -> WatchActionType.Unbookmark
         is WearAction.DmReply -> WatchActionType.DmReply
         is WearAction.DmReact -> WatchActionType.DmReact
+        is WearAction.CreatePost -> WatchActionType.CreatePost
     }
 
-// DM actions have their own phone-side events; only post actions join interact_post.
+// DM actions and posts have their own phone-side events; only post actions join interact_post.
 private fun WearAction.toPostAction(): PostAction? =
     when (this) {
         is WearAction.Like -> PostAction.Like
@@ -167,7 +168,7 @@ private fun WearAction.toPostAction(): PostAction? =
         is WearAction.Unrepost -> PostAction.Unrepost
         is WearAction.Bookmark -> PostAction.Bookmark
         is WearAction.Unbookmark -> PostAction.Unbookmark
-        is WearAction.DmReply, is WearAction.DmReact -> null
+        is WearAction.DmReply, is WearAction.DmReact, is WearAction.CreatePost -> null
     }
 
 private fun WearActionFailure?.toOutcome(): WatchActionOutcome =

@@ -35,3 +35,14 @@ From a thread, the watch SHALL offer a fixed list of localized canned replies an
 #### Scenario: Reply expired
 - **WHEN** a quick reply reaches the phone more than one hour after it was created
 - **THEN** it is not sent, and the watch shows "Not sent — tap to retry" on that message
+
+### Requirement: Voice and typed replies
+From a thread, the watch SHALL also offer a reply written with the system `RemoteInput` (voice, keyboard or emoji), shown on a review screen before it is sent. A reply over 1000 graphemes SHALL NOT be sendable. It SHALL be sent as the same `dm-reply` action as a quick reply, with the same "Sending…", expiry and retry behavior, and SHALL be offered whenever quick replies are.
+
+#### Scenario: Dictated reply
+- **WHEN** the user dictates "Running late, see you at 8" and taps Send on the review screen
+- **THEN** the watch queues a `dm-reply` with that text and shows it as "Sending…" in the thread
+
+#### Scenario: Over the limit
+- **WHEN** the reviewed text is longer than 1000 graphemes
+- **THEN** the counter shows the over-limit state and Send is disabled

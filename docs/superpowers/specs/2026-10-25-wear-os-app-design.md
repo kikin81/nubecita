@@ -31,7 +31,9 @@ thing that talks to Bluesky.
   (no standalone/LTE mode, no second OAuth session, no second token-refresh
   path).
 - Video playback on the watch (a video shows its poster frame only).
-- Free-text or voice replies, composing posts, quotes, follows.
+- Quotes, follows, replies to posts, and posts with media. (Free-text and
+  voice DM replies and short text posts were a non-goal until 2026-10-29;
+  W6 adds them, still phone-relayed.)
 - Tiles / Wear widgets for the feed (possible follow-up).
 - Offline browsing in the **phone's** Feed screen. That is a real gap — the
   Room cache `:core:feed-cache` exists and the widgets use it, but the Feed
@@ -61,6 +63,7 @@ thing that talks to Bluesky.
 | Delivery | Umbrella OpenSpec; each flow is its own bd epic and `gh stack`. |
 | DM content | Only threads the DM poll's `getLog` shows as changed get their last ~20 messages fetched, and only while a watch with the app is paired. Quiet convos cost nothing. |
 | Message checking off | Watch DMs freeze too. The watch never keeps the DM poll alive, so watch DMs stay at the last snapshot until the setting is back on. |
+| Watch text (W6, 2026-10-29) | Voice or keyboard DM replies and short text posts from the watch, sent through the phone like every other action. The watch still never calls Bluesky. |
 | Stale actions | Likes / bookmarks never expire. A quick reply or reaction older than **1 hour** is not sent; it shows "Not sent — tap to retry". Any action for an account that has since signed out is dropped. |
 | Launch | The Wear app is not public until W2 (feed browsing). W1 ships to the internal track. Play only allows the Wear OS opt-in and review after a build has a **closed-testing** release, so W1 or early W2 also puts a Wear build on closed testing. Production follows with W2. From then on every release builds and uploads both bundles. |
 
@@ -279,6 +282,29 @@ ships through the same Play listing on the Wear form-factor track.
     single-color white vector icon.
   - Tapping it opens the messages list.
 
+- **Voice and text (W6)**:
+  - Input is the system `RemoteInput` (`androidx.wear:wear-input`'s
+    `RemoteInputIntentHelper`): one launch offers voice, keyboard and emoji.
+    No custom `SpeechRecognizer`, so no `RECORD_AUDIO` permission, no
+    recognizer battery cost, and the system handles on-device dictation.
+  - A review screen follows every input: the text, a grapheme counter with an
+    over-limit state, Send as the edge button, and Edit (input again).
+  - Limits match the phone: 1000 graphemes for a DM, 300 for a post. The phone
+    re-checks the post limit before sending.
+  - A post is plain text in v1. The phone detects mentions, links and tags
+    exactly as the composer does (`DefaultPostingRepository` extracts facets).
+    No media, quotes, replies to posts or reply settings, and `langs` comes
+    from the phone's default.
+  - A post expires after 1 hour, like a DM reply: a post written on a run
+    shouldn't appear half a day later. It shows "Posting…", then clears, or
+    "Not posted — tap to retry".
+  - Free-text DM replies reuse `dm-reply` unchanged, so they need no phone
+    update. `create-post` is new: the watch offers it only while the phone
+    advertises `nubecita_phone_post_actions` (the same capability gate as W3
+    and W4, rather than a field in the session snapshot).
+  - Analytics stay on the phone: `watch_action` gains `create_post`, and the
+    posting repository logs `create_post` as it does for the composer.
+
 ## Epics (each one bd epic → one `gh stack`)
 
 | # | Epic | Depends on |
@@ -288,6 +314,7 @@ ships through the same Play listing on the Wear form-factor track.
 | W3 | **Likes, reposts & bookmarks** — action/result contract, phone `WearActionListenerService`, watch `pending_action` overlay, a confirmation before reposting, "Open on phone" (scope widened 2026-10-26) | W2 |
 | W4 | **Messages + quick replies** — DM snapshot from `DmPollWorker`, convo list + thread, quick replies over W3's action path | W1, W3 |
 | W5 | **Unread-DMs complication** | W4 |
+| W6 | **Voice and text** — typed or dictated DM replies, short text posts from the watch, `create-post` over W3's action path | W4 |
 | — | Phone offline Feed screen (separate feature, not part of this spec) | — |
 
 Each epic ships as one stack with at least one `feat:` child so it reaches Play.

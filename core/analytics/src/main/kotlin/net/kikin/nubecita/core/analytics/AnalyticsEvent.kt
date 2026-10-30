@@ -969,6 +969,7 @@ enum class WatchActionType(
     Unbookmark("unbookmark"),
     DmReply("dm_reply"),
     DmReact("dm_react"),
+    CreatePost("create_post"),
 
     /** The payload couldn't be read (a newer contract, or malformed). */
     Unknown("unknown"),
@@ -989,7 +990,8 @@ enum class WatchActionOutcome(
  * Fired once per action the watch sends, whatever the outcome, so watch
  * reliability is measurable. Successful post actions are also logged as
  * [InteractPost] with [PostSurface.Watch], so they sit beside phone
- * interactions. No post URI, conversation, text or emoji is ever attached.
+ * interactions; a successful watch post is also a [CreatePost]. No post URI,
+ * conversation, text or emoji is ever attached.
  */
 data class WatchAction(
     val type: WatchActionType,

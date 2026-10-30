@@ -26,6 +26,7 @@ import net.kikin.nubecita.core.wearsync.WearFeedSync
 import net.kikin.nubecita.core.wearsync.WearSessionPublisher
 import net.kikin.nubecita.core.wearsync.WearSyncRequestHandler
 import net.kikin.nubecita.core.wearsync.internal.CoilWearImageEncoder
+import net.kikin.nubecita.core.wearsync.internal.CreatePostActionHandler
 import net.kikin.nubecita.core.wearsync.internal.PlayServicesWearDataLayer
 import net.kikin.nubecita.core.wearsync.internal.PostActionHandler
 import net.kikin.nubecita.core.wearsync.internal.WearDataLayer
@@ -52,6 +53,10 @@ internal interface WearSyncBindsModule {
     @Binds
     @IntoSet
     fun bindPostActionHandler(impl: PostActionHandler): WearActionHandler
+
+    @Binds
+    @IntoSet
+    fun bindCreatePostActionHandler(impl: CreatePostActionHandler): WearActionHandler
 }
 
 /**

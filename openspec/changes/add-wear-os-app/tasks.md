@@ -42,3 +42,12 @@
 ## 5. W5 Unread-DMs complication (epic nubecita-9o3a)
 
 - [ ] 5.1 Push-only `SuspendingComplicationDataSourceService` with preview data, the bind permission, a tap that opens messages, and an update requested on DM ingest; mention it in the listing (nubecita-9o3a.1). Tests: unit tests for the complication data mapping.
+
+## 6. W6 Voice and text (epic nubecita-rxsh)
+
+- [ ] 6.1 Amend the design doc and this change for voice and text replies and watch posts (nubecita-rxsh.1).
+- [ ] 6.2 `create-post` in the contract and the `nubecita_phone_post_actions` capability (nubecita-rxsh.2). Tests: codec round-trip; an unknown action stays unsupported.
+- [ ] 6.3 Phone `WearActionHandler` for `create-post` through `PostingRepository`, with the 300-grapheme re-check and a 1-hour expiry (nubecita-rxsh.3). Tests: handler unit tests for the limit, the expiry and failure.
+- [ ] 6.4 Watch text-input flow: `RemoteInput`, then a review screen with a grapheme counter (nubecita-rxsh.4). Tests: unit tests for the limit; screenshot tests across font scales.
+- [ ] 6.5 Voice and typed DM replies from the thread, over the existing `dm-reply` path (nubecita-rxsh.5). Tests: ViewModel unit test; screenshot test for the reply entry.
+- [ ] 6.6 Compose and send a short post from the feed, with a `watch_pending_post` table and "Posting…" / "Not posted — tap to retry" states (nubecita-rxsh.6). Tests: DAO, repository and ingest tests; screenshot tests for each state.
