@@ -257,8 +257,11 @@ interface ChatRepository {
     /** Disable the active link. */
     suspend fun disableJoinLink(convoId: String): Result<JoinLinkUi>
 
-    /** Public preview of a group identified by an invite-link [code] (`getGroupPublicInfo`). */
-    suspend fun getGroupPublicInfo(code: String): Result<GroupPublicInfoUi>
+    /**
+     * Public preview of a group identified by an invite-link [code] (`getJoinLinkPreviews`).
+     * A disabled or unknown code fails with [InvalidJoinLinkException].
+     */
+    suspend fun getJoinLinkPreview(code: String): Result<GroupPublicInfoUi>
 
     /**
      * Join (or request to join) the group behind invite-link [code]. Returns [JoinResult.Joined]

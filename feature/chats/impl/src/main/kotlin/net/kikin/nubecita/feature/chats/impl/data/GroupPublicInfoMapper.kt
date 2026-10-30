@@ -1,15 +1,15 @@
 package net.kikin.nubecita.feature.chats.impl.data
 
-import io.github.kikin81.atproto.chat.bsky.group.GroupPublicView
+import io.github.kikin81.atproto.chat.bsky.group.JoinLinkPreviewView
 import net.kikin.nubecita.feature.chats.impl.GroupPublicInfoUi
 
 /**
- * Wire → UI for an invite-link group preview.
+ * Wire → UI for an invite-link group preview (`chat.bsky.group.defs#joinLinkPreviewView`).
  *
- * Note: the public-preview `owner` view exposes no DID, so `GroupPublicInfoUi` omits it;
- * downstream avatar fallbacks seed their hue from the handle alone.
+ * `GroupPublicInfoUi` carries no owner DID; downstream avatar fallbacks seed their hue from
+ * the handle alone.
  */
-internal fun GroupPublicView.toGroupPublicInfoUi(): GroupPublicInfoUi =
+internal fun JoinLinkPreviewView.toGroupPublicInfoUi(): GroupPublicInfoUi =
     GroupPublicInfoUi(
         name = name,
         memberCount = memberCount.toInt(),
@@ -18,3 +18,8 @@ internal fun GroupPublicView.toGroupPublicInfoUi(): GroupPublicInfoUi =
         ownerAvatarUrl = owner.avatar?.raw,
         requireApproval = requireApproval,
     )
+
+/** The invite-link [code] is disabled or doesn't map to a joinable group. */
+internal class InvalidJoinLinkException(
+    code: String,
+) : Exception("Join link $code is disabled or invalid")

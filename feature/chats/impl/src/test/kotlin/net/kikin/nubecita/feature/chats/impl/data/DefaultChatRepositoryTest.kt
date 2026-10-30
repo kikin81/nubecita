@@ -32,6 +32,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.posting.FacetExtractor
+import net.kikin.nubecita.feature.chats.impl.ChatError
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
 import net.kikin.nubecita.feature.chats.impl.JoinRule
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -636,16 +637,70 @@ internal class DefaultChatRepositoryTest {
     }
 
     @Test
-    fun getGroupPublicInfo_networkFailure_returnsFailure() =
+    fun getJoinLinkPreview_callsGetJoinLinkPreviewsWithCode_andMapsPreview() =
         runTest {
-            val (_, repo) = newRepo(signedIn = true) { errorJson() }
-            assertTrue(repo.getGroupPublicInfo("code123").isFailure)
+            val (engine, repo) =
+                newRepo(signedIn = true) {
+                    okJson(
+                        """{"joinLinkPreviews":[{"${'$'}type":"chat.bsky.group.defs#joinLinkPreviewView",""" +
+                            """"code":"code123","convoId":"c1","joinRule":"anyone","memberCount":3,"memberLimit":50,""" +
+                            """"name":"Book Club","requireApproval":true,""" +
+                            """"owner":${profileBasicJson("did:plc:alice", "alice.test", "Alice")}}]}""",
+                    )
+                }
+
+            val info = repo.getJoinLinkPreview("code123").getOrThrow()
+
+            val url = engine.requestHistory.single().url
+            assertTrue(url.encodedPath.endsWith("/xrpc/chat.bsky.group.getJoinLinkPreviews"), "path was ${url.encodedPath}")
+            assertEquals(listOf("code123"), url.parameters.getAll("codes"))
+            assertEquals("Book Club", info.name)
+            assertEquals(3, info.memberCount)
+            assertEquals("alice.test", info.ownerHandle)
+            assertEquals(true, info.requireApproval)
         }
 
     @Test
-    fun getGroupPublicInfo_cancellation_propagates() {
+    fun getJoinLinkPreview_disabledLink_failsAsInvalidInviteLink() =
+        runTest {
+            val (_, repo) =
+                newRepo(signedIn = true) {
+                    okJson("""{"joinLinkPreviews":[{"${'$'}type":"chat.bsky.group.defs#disabledJoinLinkPreviewView","code":"code123"}]}""")
+                }
+
+            assertEquals(ChatError.InvalidInviteLink, repo.getJoinLinkPreview("code123").exceptionOrNull()?.toJoinError())
+        }
+
+    @Test
+    fun getJoinLinkPreview_invalidLink_failsAsInvalidInviteLink() =
+        runTest {
+            val (_, repo) =
+                newRepo(signedIn = true) {
+                    okJson("""{"joinLinkPreviews":[{"${'$'}type":"chat.bsky.group.defs#invalidJoinLinkPreviewView","code":"code123"}]}""")
+                }
+
+            assertEquals(ChatError.InvalidInviteLink, repo.getJoinLinkPreview("code123").exceptionOrNull()?.toJoinError())
+        }
+
+    @Test
+    fun getJoinLinkPreview_emptyResponse_failsAsInvalidInviteLink() =
+        runTest {
+            val (_, repo) = newRepo(signedIn = true) { okJson("""{"joinLinkPreviews":[]}""") }
+
+            assertEquals(ChatError.InvalidInviteLink, repo.getJoinLinkPreview("code123").exceptionOrNull()?.toJoinError())
+        }
+
+    @Test
+    fun getJoinLinkPreview_networkFailure_returnsFailure() =
+        runTest {
+            val (_, repo) = newRepo(signedIn = true) { errorJson() }
+            assertTrue(repo.getJoinLinkPreview("code123").isFailure)
+        }
+
+    @Test
+    fun getJoinLinkPreview_cancellation_propagates() {
         val (_, repo) = newRepo(signedIn = true) { throw CancellationException("cancelled") }
-        assertThrows(CancellationException::class.java) { runBlocking { repo.getGroupPublicInfo("code123") } }
+        assertThrows(CancellationException::class.java) { runBlocking { repo.getJoinLinkPreview("code123") } }
     }
 
     @Test

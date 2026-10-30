@@ -41,21 +41,21 @@ internal class GroupJoinPreviewViewModelTest {
     @Test
     fun `load surfaces the preview`() =
         runTest(mainDispatcher.dispatcher) {
-            val fake = FakeChatRepository().apply { getGroupPublicInfoResult = Result.success(info) }
+            val fake = FakeChatRepository().apply { getJoinLinkPreviewResult = Result.success(info) }
             val model = vm(fake)
             advanceUntilIdle()
             assertEquals(GroupJoinPreviewStatus.Loaded(info), model.uiState.value.status)
-            assertEquals(listOf("code-1"), fake.getGroupPublicInfoCalls)
+            assertEquals(listOf("code-1"), fake.getJoinLinkPreviewCalls)
         }
 
     @Test
     fun `load failure is sticky error and retry reloads`() =
         runTest(mainDispatcher.dispatcher) {
-            val fake = FakeChatRepository().apply { getGroupPublicInfoResult = Result.failure(RuntimeException("x")) }
+            val fake = FakeChatRepository().apply { getJoinLinkPreviewResult = Result.failure(RuntimeException("x")) }
             val model = vm(fake)
             advanceUntilIdle()
             assertTrue(model.uiState.value.status is GroupJoinPreviewStatus.Error)
-            fake.getGroupPublicInfoResult = Result.success(info)
+            fake.getJoinLinkPreviewResult = Result.success(info)
             model.handleEvent(GroupJoinPreviewEvent.Retry)
             advanceUntilIdle()
             assertEquals(GroupJoinPreviewStatus.Loaded(info), model.uiState.value.status)
@@ -66,7 +66,7 @@ internal class GroupJoinPreviewViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val fake =
                 FakeChatRepository().apply {
-                    getGroupPublicInfoResult = Result.success(info)
+                    getJoinLinkPreviewResult = Result.success(info)
                     requestJoinResult = Result.success(JoinResult.Joined("convo-9"))
                 }
             val model = vm(fake)
@@ -85,7 +85,7 @@ internal class GroupJoinPreviewViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val fake =
                 FakeChatRepository().apply {
-                    getGroupPublicInfoResult = Result.success(info)
+                    getJoinLinkPreviewResult = Result.success(info)
                     requestJoinResult = Result.success(JoinResult.Pending)
                 }
             val model = vm(fake)
@@ -102,7 +102,7 @@ internal class GroupJoinPreviewViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val fake =
                 FakeChatRepository().apply {
-                    getGroupPublicInfoResult = Result.success(info)
+                    getJoinLinkPreviewResult = Result.success(info)
                     requestJoinResult = Result.failure(RuntimeException("x"))
                 }
             val model = vm(fake)
@@ -121,7 +121,7 @@ internal class GroupJoinPreviewViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val fake =
                 FakeChatRepository().apply {
-                    getGroupPublicInfoResult = Result.success(info)
+                    getJoinLinkPreviewResult = Result.success(info)
                     requestJoinResult = Result.success(JoinResult.Pending)
                     requestJoinGate = CompletableDeferred()
                 }
@@ -141,7 +141,7 @@ internal class GroupJoinPreviewViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val fake =
                 FakeChatRepository().apply {
-                    getGroupPublicInfoResult = Result.success(info)
+                    getJoinLinkPreviewResult = Result.success(info)
                     requestJoinResult = Result.success(JoinResult.Pending)
                 }
             val model = vm(fake)

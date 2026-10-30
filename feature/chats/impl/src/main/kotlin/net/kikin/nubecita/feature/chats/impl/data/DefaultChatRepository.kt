@@ -27,8 +27,9 @@ import io.github.kikin81.atproto.chat.bsky.group.CreateJoinLinkRequest
 import io.github.kikin81.atproto.chat.bsky.group.DisableJoinLinkRequest
 import io.github.kikin81.atproto.chat.bsky.group.EditJoinLinkRequest
 import io.github.kikin81.atproto.chat.bsky.group.EnableJoinLinkRequest
-import io.github.kikin81.atproto.chat.bsky.group.GetGroupPublicInfoRequest
+import io.github.kikin81.atproto.chat.bsky.group.GetJoinLinkPreviewsRequest
 import io.github.kikin81.atproto.chat.bsky.group.GroupService
+import io.github.kikin81.atproto.chat.bsky.group.JoinLinkPreviewView
 import io.github.kikin81.atproto.chat.bsky.group.JoinLinkView
 import io.github.kikin81.atproto.chat.bsky.group.ListJoinRequestsRequest
 import io.github.kikin81.atproto.chat.bsky.group.RejectJoinRequestRequest
@@ -555,15 +556,19 @@ internal class DefaultChatRepository
                 }
             }
 
-        override suspend fun getGroupPublicInfo(code: String): Result<GroupPublicInfoUi> =
+        override suspend fun getJoinLinkPreview(code: String): Result<GroupPublicInfoUi> =
             withContext(dispatcher) {
                 runCatchingCancellable {
-                    GroupService(xrpcClientProvider.authenticated())
-                        .getGroupPublicInfo(GetGroupPublicInfoRequest(code = code))
-                        .group
-                        .toGroupPublicInfoUi()
+                    // One code in → one preview out, matched by position. Disabled, invalid,
+                    // unknown or missing previews all mean "this link can't be joined".
+                    val preview =
+                        GroupService(xrpcClientProvider.authenticated())
+                            .getJoinLinkPreviews(GetJoinLinkPreviewsRequest(codes = listOf(code)))
+                            .joinLinkPreviews
+                            .firstOrNull()
+                    (preview as? JoinLinkPreviewView)?.toGroupPublicInfoUi() ?: throw InvalidJoinLinkException(code)
                 }.onFailure { throwable ->
-                    Timber.tag(TAG).w(throwable, "getGroupPublicInfo failed: %s", throwable.javaClass.name)
+                    Timber.tag(TAG).w(throwable, "getJoinLinkPreviews failed: %s", throwable.javaClass.name)
                 }
             }
 

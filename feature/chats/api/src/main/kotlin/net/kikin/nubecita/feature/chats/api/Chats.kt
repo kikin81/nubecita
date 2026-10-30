@@ -105,7 +105,7 @@ data class ManageJoinLink(
 
 /**
  * Deep-link landing for a group invite (`https://nubecita.app/group/join/{code}`). Previews the
- * group via `getGroupPublicInfo` and lets the user join / request to join. Rendered as an
+ * group via `getJoinLinkPreviews` and lets the user join / request to join. Rendered as an
  * adaptiveDialog (full-screen on Compact, centered dialog on Medium/Expanded).
  */
 @Serializable

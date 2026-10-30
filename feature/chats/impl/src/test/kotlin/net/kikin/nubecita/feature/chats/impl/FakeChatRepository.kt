@@ -380,17 +380,17 @@ internal class FakeChatRepository(
         return disableJoinLinkResult
     }
 
-    var getGroupPublicInfoResult: Result<GroupPublicInfoUi> = Result.success(DEFAULT_GROUP_PUBLIC_INFO)
+    var getJoinLinkPreviewResult: Result<GroupPublicInfoUi> = Result.success(DEFAULT_GROUP_PUBLIC_INFO)
     var requestJoinResult: Result<JoinResult> = Result.success(JoinResult.Pending)
-    val getGroupPublicInfoCalls = mutableListOf<String>()
+    val getJoinLinkPreviewCalls = mutableListOf<String>()
     val requestJoinCalls = mutableListOf<String>()
 
     /** Optional gate: when set, `requestJoin` suspends on it before returning (test in-flight states). */
     var requestJoinGate: CompletableDeferred<Unit>? = null
 
-    override suspend fun getGroupPublicInfo(code: String): Result<GroupPublicInfoUi> {
-        getGroupPublicInfoCalls += code
-        return getGroupPublicInfoResult
+    override suspend fun getJoinLinkPreview(code: String): Result<GroupPublicInfoUi> {
+        getJoinLinkPreviewCalls += code
+        return getJoinLinkPreviewResult
     }
 
     override suspend fun requestJoin(code: String): Result<JoinResult> {
