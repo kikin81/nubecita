@@ -11,8 +11,10 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalInspectionMode
 
 /**
  * Brand pull-to-refresh container. The single pull-to-refresh surface used
@@ -47,7 +49,8 @@ import androidx.compose.ui.Modifier
  * @param modifier applied to the root [PullToRefreshBox]; defaults to
  *   `fillMaxSize()` so callers can override sizing (e.g. tests/previews).
  * @param state hoist when the call site needs the pull fraction; defaults to a
- *   remembered state.
+ *   remembered state — or, in previews and screenshot tests, a settled one
+ *   (see [rememberDefaultPullToRefreshState]).
  * @param indicatorPadding inset for the indicator only — pass the `Scaffold`
  *   `innerPadding` so it clears any `topBar`.
  * @param content the scrollable content (apply the same inset to its own
@@ -59,7 +62,7 @@ fun NubecitaPullToRefreshBox(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier.fillMaxSize(),
-    state: PullToRefreshState = rememberPullToRefreshState(),
+    state: PullToRefreshState = rememberDefaultPullToRefreshState(isRefreshing),
     indicatorPadding: PaddingValues = PaddingValues(),
     content: @Composable (BoxScope.() -> Unit),
 ) {
@@ -81,4 +84,32 @@ fun NubecitaPullToRefreshBox(
         },
         content = content,
     )
+}
+
+/**
+ * The real remembered state, except under [LocalInspectionMode]: there a fresh
+ * `isRefreshing = true` state reaches the threshold through
+ * `animateToThreshold()`, a suspend animation that ends at a moment that
+ * depends on how fast the host renders, so the indicator's morph frame — and
+ * every "refreshing" screenshot — varied run to run. Previews get a settled,
+ * non-animating state instead: fully pulled while refreshing, hidden otherwise.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun rememberDefaultPullToRefreshState(isRefreshing: Boolean): PullToRefreshState {
+    if (!LocalInspectionMode.current) return rememberPullToRefreshState()
+    return remember(isRefreshing) { SettledPullToRefreshState(if (isRefreshing) 1f else 0f) }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+private class SettledPullToRefreshState(
+    override val distanceFraction: Float,
+) : PullToRefreshState {
+    override val isAnimating: Boolean = false
+
+    override suspend fun animateToThreshold() = Unit
+
+    override suspend fun animateToHidden() = Unit
+
+    override suspend fun snapTo(targetValue: Float) = Unit
 }

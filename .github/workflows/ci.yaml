@@ -274,12 +274,34 @@ jobs:
         # a separately-tracked deferred gap).
         run: ./gradlew validateScreenshots
 
+      - name: Collect failing previews
+        # The suite's HTML report carries no images, and the engine's diff
+        # image is only a mask of the changed pixels. For every failing
+        # preview (the ones with a diff), stage the committed baseline, the
+        # new render and the mask side by side under screenshot-failures/.
+        if: failure() && steps.validate.outcome == 'failure'
+        run: |
+          find . -path '*/test*ScreenshotTestDefaultTestSuite/results/diffs/*' -name '*.png' -print0 |
+            while IFS= read -r -d '' diff; do
+              module="${diff%%/build/*}"
+              rel="${diff#*/results/diffs/}"
+              out="screenshot-failures/${module#./}/${rel%.png}"
+              mkdir -p "$(dirname "$out")"
+              cp "$diff" "$out.diff.png"
+              cp "${diff%%/results/diffs/*}/results/rendered/$rel" "$out.actual.png"
+              for expected in "$module"/src/screenshotTestDefault*/reference/"$rel"; do
+                if [ -f "$expected" ]; then cp "$expected" "$out.expected.png"; fi
+              done
+            done
+
       - name: Upload diff report on failure
         if: failure() && steps.validate.outcome == 'failure'
         uses: actions/upload-artifact@v7
         with:
           name: screenshot-diff-report
-          path: "**/build/reports/tests/test*ScreenshotTestDefaultTestSuite/"
+          path: |
+            screenshot-failures/
+            **/build/reports/tests/test*ScreenshotTestDefaultTestSuite/
           if-no-files-found: ignore
           retention-days: 14
 
@@ -297,7 +319,7 @@ jobs:
               '',
               'The `Screenshot tests` job detected pixel diffs versus the committed baselines.',
               '',
-              `**Diff report**: download the \`screenshot-diff-report\` artifact from [this run](${process.env.RUN_URL}#artifacts) and open \`index.html\` to inspect side-by-side diffs.`,
+              `**Diff report**: download the \`screenshot-diff-report\` artifact from [this run](${process.env.RUN_URL}#artifacts). \`screenshot-failures/\` holds each failing preview as \`.expected.png\` / \`.actual.png\` / \`.diff.png\` (changed pixels in magenta); the per-module \`index.html\` reports list every failure.`,
               '',
               'If the changes are intentional, add the `update-baselines` label to this PR to regenerate baselines automatically.',
             ].join('\n');
