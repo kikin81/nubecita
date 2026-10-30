@@ -175,6 +175,23 @@ internal class FeedViewModelTest {
         }
 
     @Test
+    fun `a sent post loaded as a reply cluster's root drops out too`() =
+        runTest(mainDispatcher.dispatcher) {
+            // The cluster is keyed on its leaf, so a key-only dedupe would miss the root.
+            val repo = FakeFeedRepository(pages = listOf(Result.success(TimelinePage(threadReply(rootId = "mine", leafId = "theirs"), null))))
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
+            outgoingStore.set(outgoing("new", OutgoingPostStatus.Sent("mine"), postId = "mine"))
+
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            assertTrue(
+                vm.uiState.value.outgoingPosts
+                    .isEmpty(),
+            )
+        }
+
+    @Test
     fun `other feeds don't show outgoing posts`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository(pages = listOf(Result.success(TimelinePage(feedItems("p1"), null))))

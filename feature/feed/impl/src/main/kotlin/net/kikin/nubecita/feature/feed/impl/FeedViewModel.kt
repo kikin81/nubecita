@@ -9,6 +9,7 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
@@ -73,6 +74,9 @@ class FeedViewModel
         private var boundFeedUri: String = ""
         private var boundKind: FeedKind = FeedKind.Following
 
+        /** [boundKind] as a flow, so the outgoing-post projection re-runs on a re-bind. */
+        private val boundKindFlow = MutableStateFlow(FeedKind.Following)
+
         /**
          * The currently in-flight page fetch launched by [load] /
          * [refresh] / [loadMore], or `null` when no fetch is running. A
@@ -119,7 +123,8 @@ class FeedViewModel
             combine(
                 outgoingPostStore.posts,
                 uiState.map { it.feedItems }.distinctUntilChanged(),
-            ) { outgoing, items -> visibleOutgoing(outgoing, items) }
+                boundKindFlow,
+            ) { outgoing, items, kind -> visibleOutgoing(outgoing, items, kind) }
                 .distinctUntilChanged()
                 .onEach { visible -> setState { copy(outgoingPosts = visible) } }
                 .launchIn(viewModelScope)
@@ -214,9 +219,12 @@ class FeedViewModel
         private fun visibleOutgoing(
             outgoing: List<OutgoingPost>,
             items: List<FeedItemUi>,
+            kind: FeedKind,
         ): ImmutableList<OutgoingPostUi> {
-            if (boundKind != FeedKind.Following || outgoing.isEmpty()) return persistentListOf()
-            val loaded = items.mapTo(HashSet()) { it.key }
+            if (kind != FeedKind.Following || outgoing.isEmpty()) return persistentListOf()
+            // Every post the slice holds, not just each item's key: the user's
+            // post can sit inside a self-thread chain or a reply cluster.
+            val loaded = items.allPosts().mapTo(HashSet()) { it.id }
             return outgoing
                 .filter { it.replyToUri == null && it.post.id !in loaded }
                 .map { it.toUi() }
@@ -277,6 +285,7 @@ class FeedViewModel
             if (boundFeedUri == feedUri && boundKind == kind) return
             boundFeedUri = feedUri
             boundKind = kind
+            boundKindFlow.value = kind
             // Abort any fetch launched under the prior binding so its result
             // continuation can't write a stale page after the reset below.
             loadJob?.cancel()
