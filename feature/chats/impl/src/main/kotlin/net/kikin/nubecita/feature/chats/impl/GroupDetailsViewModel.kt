@@ -225,7 +225,7 @@ class GroupDetailsViewModel
             viewModelScope.launch {
                 repository
                     .leaveConvo(convoId)
-                    .onSuccess { sendEffect(GroupDetailsEffect.NavigateBack) }
+                    .onSuccess { sendEffect(GroupDetailsEffect.Left) }
                     .onFailure { sendEffect(GroupDetailsEffect.ShowError(it.toChatError())) }
             }
         }

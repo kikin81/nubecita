@@ -232,7 +232,7 @@ internal class GroupDetailsViewModelTest {
         }
 
     @Test
-    fun `LeaveTapped success emits NavigateBack`() =
+    fun `LeaveTapped success emits Left`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeChatRepository()
             repo.getConvoResult = groupConvo("G")
@@ -242,7 +242,7 @@ internal class GroupDetailsViewModelTest {
             vm.effects.test {
                 vm.handleEvent(GroupDetailsEvent.LeaveTapped)
                 advanceUntilIdle()
-                assertEquals(GroupDetailsEffect.NavigateBack, awaitItem())
+                assertEquals(GroupDetailsEffect.Left, awaitItem())
             }
             assertEquals(listOf(convoId), repo.leaveCalls)
         }

@@ -162,6 +162,13 @@ internal object ChatsNavigationModule {
                     viewModel = viewModel,
                     convoId = route.convoId,
                     onBack = { navState.removeLast() },
+                    onLeft = {
+                        // Close Group details, then the group's thread beneath it (the
+                        // list-detail pane on Medium/Expanded) — the viewer is no longer in it.
+                        navState.removeLast()
+                        val below = navState.backStack.lastOrNull()
+                        if (below is Chat && below.convoId == route.convoId) navState.removeLast()
+                    },
                     onNavigateTo = { key -> navState.add(key) },
                 )
             }

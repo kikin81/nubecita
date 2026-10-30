@@ -66,6 +66,7 @@ internal fun GroupDetailsScreen(
     viewModel: GroupDetailsViewModel,
     convoId: String,
     onBack: () -> Unit,
+    onLeft: () -> Unit,
     onNavigateTo: (NavKey) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -73,6 +74,7 @@ internal fun GroupDetailsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val navState = LocalMainShellNavState.current
     val currentOnBack by rememberUpdatedState(onBack)
+    val currentOnLeft by rememberUpdatedState(onLeft)
     val currentOnNavigateTo by rememberUpdatedState(onNavigateTo)
     // Pre-resolve at composition so locale/dark-mode changes track via Compose's
     // resource reads (reading inside the LaunchedEffect would bypass that). All
@@ -87,6 +89,7 @@ internal fun GroupDetailsScreen(
         viewModel.effects.collect { effect ->
             when (effect) {
                 GroupDetailsEffect.NavigateBack -> currentOnBack()
+                GroupDetailsEffect.Left -> currentOnLeft()
                 is GroupDetailsEffect.NavigateTo -> currentOnNavigateTo(effect.key)
                 is GroupDetailsEffect.ShowError ->
                     effectScope.launch {
@@ -240,13 +243,19 @@ private fun LoadedBody(
         }
 
     var pendingRemoval by remember { mutableStateOf<GroupMemberUi?>(null) }
+    var confirmingLeave by remember { mutableStateOf(false) }
 
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item(contentType = "header") {
             GroupHeader(state = state, status = status, facepile = facepile)
         }
         item(contentType = "actions") {
-            GroupActionRow(muted = state.muted, viewerRole = state.viewerRole, onEvent = onEvent)
+            GroupActionRow(
+                muted = state.muted,
+                viewerRole = state.viewerRole,
+                onEvent = onEvent,
+                onLeave = { confirmingLeave = true },
+            )
         }
         if (state.viewerRole == GroupRole.Owner) {
             item(contentType = "joinRequests") {
@@ -336,6 +345,29 @@ private fun LoadedBody(
             },
         )
     }
+
+    if (confirmingLeave) {
+        AlertDialog(
+            onDismissRequest = { confirmingLeave = false },
+            title = { Text(stringResource(R.string.group_details_leave_confirm_title)) },
+            text = { Text(stringResource(R.string.group_details_leave_confirm_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onEvent(GroupDetailsEvent.LeaveTapped)
+                        confirmingLeave = false
+                    },
+                ) {
+                    Text(stringResource(R.string.chats_action_leave))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingLeave = false }) {
+                    Text(stringResource(R.string.group_details_cancel))
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -368,6 +400,7 @@ private fun GroupActionRow(
     muted: Boolean,
     viewerRole: GroupRole?,
     onEvent: (GroupDetailsEvent) -> Unit,
+    onLeave: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -392,7 +425,7 @@ private fun GroupActionRow(
             )
         }
         OutlinedButton(
-            onClick = { onEvent(GroupDetailsEvent.LeaveTapped) },
+            onClick = onLeave,
             modifier = Modifier.weight(1f),
         ) {
             Text(stringResource(R.string.chats_action_leave))

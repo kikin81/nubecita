@@ -140,6 +140,8 @@
     <string name="group_details_remove_confirm_body">Remove %1$s from this group?</string>
     <string name="group_details_remove_confirm_action">Remove</string>
     <string name="group_details_cancel">Cancel</string>
+    <string name="group_details_leave_confirm_title">Leave this group?</string>
+    <string name="group_details_leave_confirm_body">You\'ll stop getting its messages. To come back, you\'ll need a new invite.</string>
     <string name="group_details_member_options">Member options</string>
     <string name="group_details_invites_sent">Invitations sent</string>
     <!-- Add group members (nubecita-hwix.5) -->
