@@ -94,6 +94,7 @@ class ComposerVideoTest {
         }
 
     private val postingRepository = mockk<PostingRepository>(relaxed = true)
+    private val outgoingPostStore = ForwardingOutgoingPostStore(postingRepository)
     private val parentFetchSource = mockk<ParentFetchSource>(relaxed = true)
     private val quotePostFetcher = mockk<QuotePostFetcher>(relaxed = true)
     private val externalLinkMetadataRepository = mockk<ExternalLinkMetadataRepository>(relaxed = true)
@@ -107,7 +108,7 @@ class ComposerVideoTest {
     private fun newVm(): ComposerViewModel =
         ComposerViewModel(
             route = ComposerRoute(),
-            postingRepository = postingRepository,
+            outgoingPostStore = outgoingPostStore,
             parentFetchSource = parentFetchSource,
             quotePostFetcher = quotePostFetcher,
             actorRepository = actorRepository,

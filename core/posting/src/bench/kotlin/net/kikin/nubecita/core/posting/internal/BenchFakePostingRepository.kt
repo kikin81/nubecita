@@ -23,7 +23,7 @@ import javax.inject.Inject
  *
  * It ignores [attachments] (no blob upload) and the [audience] / [quote] gates
  * (no threadgate/postgate/embed records) — the composer's success path only
- * needs a non-null URI to fire `OnSubmitSuccess` and close. Each call mints a
+ * needs a non-null URI to mark the outgoing post sent. Each call mints a
  * random rkey so URIs stay unique within and across app launches (stateless —
  * no collisions even if a future surface persists created posts by URI).
  */

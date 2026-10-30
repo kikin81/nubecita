@@ -6,10 +6,8 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
-import net.kikin.nubecita.core.common.navigation.ComposerSubmitEvent
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
-import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEventsEmitter
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.core.common.navigation.OuterShell
@@ -41,7 +39,7 @@ import net.kikin.nubecita.feature.composer.impl.ComposerViewModel
  *    `removeLast` mutator per the MVI-effect convention — the VM
  *    MUST NOT inject the nav state holder, so this entry is the
  *    seam where `ComposerEffect.NavigateBack` and
- *    `ComposerEffect.OnSubmitSuccess` translate into a
+ *    `ComposerEffect.Submitted` translate into a
  *    NavDisplay-side pop.
  */
 @Module
@@ -54,28 +52,15 @@ internal object ComposerNavigationModule {
         {
             entry<ComposerRoute>(metadata = adaptiveDialog()) { route ->
                 val navState = LocalMainShellNavState.current
-                val composerSubmitEventsEmitter = LocalComposerSubmitEventsEmitter.current
                 val viewModel =
                     hiltViewModel<ComposerViewModel, ComposerViewModel.Factory>(
                         creationCallback = { factory -> factory.create(route) },
                     )
                 ComposerScreen(
                     onNavigateBack = { navState.removeLast() },
-                    // Submit-success emits a `ComposerSubmitEvent` on the
-                    // shell-scoped bus (used by the feed for the success
-                    // snackbar + optimistic `replyCount + 1` on the parent
-                    // post — see `LocalComposerSubmitEvents`) and pops the
-                    // composer route. The feed picks the new post up on
-                    // its next refresh.
-                    onSubmitSuccess = { newPostUri, replyToUri ->
-                        composerSubmitEventsEmitter.emit(
-                            ComposerSubmitEvent(
-                                newPostUri = newPostUri.raw,
-                                replyToUri = replyToUri,
-                            ),
-                        )
-                        navState.removeLast()
-                    },
+                    // The post now sends from `OutgoingPostStore`; MainShell
+                    // relays its sent posts to `LocalComposerSubmitEvents`.
+                    onSubmit = { navState.removeLast() },
                     viewModel = viewModel,
                 )
             }
@@ -97,22 +82,13 @@ internal object ComposerNavigationModule {
         {
             entry<ComposerRoute>(metadata = adaptiveDialog()) { route ->
                 val navigator = LocalAppNavigator.current
-                val composerSubmitEventsEmitter = LocalComposerSubmitEventsEmitter.current
                 val viewModel =
                     hiltViewModel<ComposerViewModel, ComposerViewModel.Factory>(
                         creationCallback = { factory -> factory.create(route) },
                     )
                 ComposerScreen(
                     onNavigateBack = { navigator.goBack() },
-                    onSubmitSuccess = { newPostUri, replyToUri ->
-                        composerSubmitEventsEmitter.emit(
-                            ComposerSubmitEvent(
-                                newPostUri = newPostUri.raw,
-                                replyToUri = replyToUri,
-                            ),
-                        )
-                        navigator.goBack()
-                    },
+                    onSubmit = { navigator.goBack() },
                     viewModel = viewModel,
                 )
             }

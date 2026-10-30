@@ -49,7 +49,6 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
-import io.github.kikin81.atproto.runtime.AtUri
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -137,7 +136,7 @@ import kotlin.math.max
 @Composable
 internal fun ComposerScreen(
     onNavigateBack: () -> Unit,
-    onSubmitSuccess: (newPostUri: AtUri, replyToUri: String?) -> Unit,
+    onSubmit: () -> Unit,
     viewModel: ComposerViewModel,
     modifier: Modifier = Modifier,
 ) {
@@ -172,7 +171,7 @@ internal fun ComposerScreen(
     // reference if the composer screen is composed with new callbacks.
     // The Compose-ktlint rule `lambda-param-in-effect` enforces this.
     val currentOnNavigateBack by rememberUpdatedState(onNavigateBack)
-    val currentOnSubmitSuccess by rememberUpdatedState(onSubmitSuccess)
+    val currentOnSubmit by rememberUpdatedState(onSubmit)
 
     // The host Activity (not the composer route / LocalLifecycleOwner) owns the
     // scope for the post-publish in-app review request, so it survives this
@@ -356,14 +355,14 @@ internal fun ComposerScreen(
         viewModel.effects.collect { effect ->
             when (effect) {
                 ComposerEffect.NavigateBack -> currentOnNavigateBack()
-                is ComposerEffect.OnSubmitSuccess -> {
+                ComposerEffect.Submitted -> {
                     // Fire-and-forget the in-app review request on the Activity's
                     // scope so it outlives the composer pop below. All gating +
                     // fail-silence live in ReviewManager; the bench flavor no-ops.
                     reviewActivity?.let { act ->
                         act.lifecycleScope.launch { viewModel.reviewManager.onPostPublished(act) }
                     }
-                    currentOnSubmitSuccess(effect.newPostUri, effect.replyToUri)
+                    currentOnSubmit()
                 }
                 is ComposerEffect.ShowError -> {
                     val message =

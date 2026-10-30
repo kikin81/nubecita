@@ -89,6 +89,7 @@ class ComposerViewModelTest {
     private val sharedImageMockUri = mockk<android.net.Uri>(relaxed = true)
 
     private val postingRepository = mockk<PostingRepository>()
+    private val outgoingPostStore = ForwardingOutgoingPostStore(postingRepository)
     private val parentFetchSource = mockk<ParentFetchSource>()
     private val quotePostFetcher = mockk<QuotePostFetcher>()
 
@@ -474,40 +475,43 @@ class ComposerViewModelTest {
         }
 
     @Test
-    fun submit_idleToSubmittingToSuccess_emitsOnSubmitSuccess() =
+    fun submit_handsTheDraftToTheStore_andEmitsSubmitted() =
         runTest {
-            val newPostUri = AtUri("at://did:plc:me/app.bsky.feed.post/new")
             coEvery {
                 postingRepository.createPost(text = "hello", attachments = emptyList(), replyTo = null)
-            } returns Result.success(newPostUri)
+            } returns Result.success(AtUri("at://did:plc:me/app.bsky.feed.post/new"))
 
             val vm = newVm(replyToUri = null)
             setComposerText(vm, "hello")
 
             vm.effects.test {
                 vm.handleEvent(ComposerEvent.Submit)
-                assertEquals(
-                    ComposerEffect.OnSubmitSuccess(newPostUri = newPostUri, replyToUri = null),
-                    awaitItem(),
-                )
+                assertEquals(ComposerEffect.Submitted, awaitItem())
                 cancelAndConsumeRemainingEvents()
             }
             assertEquals(ComposerSubmitStatus.Success, vm.uiState.value.submitStatus)
+            val draft = outgoingPostStore.drafts.single()
+            assertEquals("hello", draft.text)
+            assertEquals(null, draft.replyToUri)
         }
 
     @Test
-    fun submit_idleToSubmittingToError_onRepoFailure() =
+    fun submit_closesWithoutWaitingForTheServer() =
         runTest {
-            val cause = ComposerError.Network(RuntimeException("offline"))
+            // The send runs in the store; a slow or failing createPost no longer
+            // holds the composer open. Failures surface on the outgoing post card.
+            val gate = CompletableDeferred<Result<AtUri>>()
             coEvery {
                 postingRepository.createPost(text = "hi", attachments = emptyList(), replyTo = null)
-            } returns Result.failure(cause)
+            } coAnswers { gate.await() }
 
             val vm = newVm(replyToUri = null)
             setComposerText(vm, "hi")
             vm.handleEvent(ComposerEvent.Submit)
 
-            assertEquals(ComposerSubmitStatus.Error(cause), vm.uiState.value.submitStatus)
+            assertEquals(ComposerSubmitStatus.Success, vm.uiState.value.submitStatus)
+            gate.complete(Result.failure(ComposerError.Network(RuntimeException("offline"))))
+            assertEquals(ComposerSubmitStatus.Success, vm.uiState.value.submitStatus)
         }
 
     @Test
@@ -541,24 +545,18 @@ class ComposerViewModelTest {
         }
 
     @Test
-    fun retryFromError_reEntersSubmittingThenSuccess() =
+    fun submit_twice_handsOffOnce() =
         runTest {
-            val newPostUri = AtUri("at://did:plc:me/app.bsky.feed.post/retry")
             coEvery {
                 postingRepository.createPost(text = "ok", attachments = emptyList(), replyTo = null)
-            } returnsMany
-                listOf(
-                    Result.failure(ComposerError.Network(RuntimeException("first try"))),
-                    Result.success(newPostUri),
-                )
+            } returns Result.success(AtUri("at://did:plc:me/app.bsky.feed.post/once"))
 
             val vm = newVm(replyToUri = null)
             setComposerText(vm, "ok")
             vm.handleEvent(ComposerEvent.Submit)
-            assertTrue(vm.uiState.value.submitStatus is ComposerSubmitStatus.Error)
-
             vm.handleEvent(ComposerEvent.Submit)
-            assertEquals(ComposerSubmitStatus.Success, vm.uiState.value.submitStatus)
+
+            assertEquals(1, outgoingPostStore.drafts.size)
         }
 
     @Test
@@ -584,43 +582,29 @@ class ComposerViewModelTest {
         }
 
     @Test
-    fun draftMutations_areIgnored_whileSubmitting() =
+    fun draftMutations_areIgnored_afterHandoff() =
         runTest {
-            // Submit captures the snapshot at call time. If
-            // AddAttachments / RemoveAttachment kept mutating during
-            // the in-flight submit, the UI would diverge from what's
-            // actually being posted — and on Success the user would
-            // see content they think was posted but wasn't. Reducer
-            // must reject draft mutations while submitStatus is
-            // Submitting.
-            //
-            // Note on text: with the TextFieldState migration, text
-            // mutations are gated at the UI layer via
-            // OutlinedTextField's `enabled = false` (the IME can't
-            // write to a disabled field). The VM's snapshotFlow
-            // collector still fires if anyone programmatically
-            // mutates textFieldState, so this test exercises only
-            // the event-dispatched draft mutations (attachments) —
-            // which the reducer is responsible for gating.
-            val newPostUri = AtUri("at://did:plc:me/app.bsky.feed.post/snap")
-            val gate = CompletableDeferred<Result<AtUri>>()
+            // Once the post is handed to the store the composer is closing; the
+            // draft is frozen so the UI can't diverge from what's being posted.
             coEvery {
                 postingRepository.createPost(text = "snapshot", attachments = emptyList(), replyTo = null)
-            } coAnswers { gate.await() }
+            } returns Result.success(AtUri("at://did:plc:me/app.bsky.feed.post/snap"))
 
             val vm = newVm(replyToUri = null)
             setComposerText(vm, "snapshot")
             vm.handleEvent(ComposerEvent.Submit)
-            assertEquals(ComposerSubmitStatus.Submitting, vm.uiState.value.submitStatus)
+            assertEquals(ComposerSubmitStatus.Success, vm.uiState.value.submitStatus)
 
-            // Try to mutate attachments mid-submit — should be no-ops.
             vm.handleEvent(ComposerEvent.AddAttachments(listOf(att())))
             vm.handleEvent(ComposerEvent.RemoveAttachment(0))
 
             assertEquals(0, vm.uiState.value.attachments.size)
-
-            gate.complete(Result.success(newPostUri))
-            assertEquals(ComposerSubmitStatus.Success, vm.uiState.value.submitStatus)
+            assertEquals(
+                0,
+                outgoingPostStore.drafts
+                    .single()
+                    .attachments.size,
+            )
         }
 
     @Test
@@ -652,39 +636,26 @@ class ComposerViewModelTest {
         }
 
     @Test
-    fun replyMode_submitSuccess_emitEffectCarriesReplyToUri() =
-        // Pin: the effect must carry the route's replyToUri so the
-        // host (FeedScreen via LocalComposerSubmitEvents) can choose
-        // "Reply sent" snackbar copy + dispatch the optimistic
-        // replyCount + 1 on the parent. Reply-mode test counterpart
-        // to submit_idleToSubmittingToSuccess_emitsOnSubmitSuccess
-        // (which covers the new-post replyToUri = null case).
+    fun replyMode_draftCarriesReplyToUri() =
+        // Pin: the draft must carry the route's replyToUri so the reply lands
+        // under its parent and the parent's reply count goes up.
         runTest {
             val parentPost = aParentPostUi()
             coEvery { parentFetchSource.fetchParent(AtUri(PARENT_URI)) } returns Result.success(parentPost)
-            val newPostUri = AtUri("at://did:plc:me/app.bsky.feed.post/reply")
             coEvery {
                 postingRepository.createPost(
                     text = "reply",
                     attachments = emptyList(),
                     replyTo = ReplyRefs(parent = parentPost.parentRef, root = parentPost.rootRef),
                 )
-            } returns Result.success(newPostUri)
+            } returns Result.success(AtUri("at://did:plc:me/app.bsky.feed.post/reply"))
 
             val vm = newVm(replyToUri = PARENT_URI)
             setComposerText(vm, "reply")
+            vm.handleEvent(ComposerEvent.Submit)
 
-            vm.effects.test {
-                vm.handleEvent(ComposerEvent.Submit)
-                assertEquals(
-                    ComposerEffect.OnSubmitSuccess(newPostUri = newPostUri, replyToUri = PARENT_URI),
-                    awaitItem(),
-                )
-                cancelAndConsumeRemainingEvents()
-            }
+            assertEquals(PARENT_URI, outgoingPostStore.drafts.single().replyToUri)
         }
-
-    // ---------- langs ----------
 
     @Test
     fun initialState_hasNullSelectedLangs() =
@@ -1429,8 +1400,10 @@ class ComposerViewModelTest {
         }
 
     @Test
-    fun publishSuccess_deletesTheSharedImageCopy() =
+    fun submit_handsTheSharedImageCopyToTheStore_insteadOfDeletingIt() =
         runTest {
+            // The upload still needs the copy after the composer closes; the store
+            // deletes it once the post is sent or discarded.
             coEvery { sharedMediaStore.attachmentFor(any()) } returns sharedImageAttachment()
             coEvery {
                 postingRepository.createPost(text = any(), attachments = any(), replyTo = any())
@@ -1439,9 +1412,14 @@ class ComposerViewModelTest {
             val vm = newVm(sharedImageUri = "file:///data/a.jpg")
             advanceUntilIdle()
             vm.handleEvent(ComposerEvent.Submit)
+            ComposerViewModel::class.java
+                .getDeclaredMethod("onCleared")
+                .apply { isAccessible = true }
+                .invoke(vm)
             advanceUntilIdle()
 
-            coVerify { sharedMediaStore.delete(sharedImageMockUri) }
+            assertEquals(listOf(sharedImageMockUri), outgoingPostStore.drafts.single().ownedCopyUris)
+            coVerify(exactly = 0) { sharedMediaStore.delete(sharedImageMockUri) }
         }
 
     @Test
@@ -1664,7 +1642,7 @@ class ComposerViewModelTest {
                     sharedText = sharedText,
                     sharedImageUri = sharedImageUri,
                 ),
-            postingRepository = postingRepository,
+            outgoingPostStore = outgoingPostStore,
             parentFetchSource = parentFetchSource,
             quotePostFetcher = quotePostFetcher,
             actorRepository = actorRepository,

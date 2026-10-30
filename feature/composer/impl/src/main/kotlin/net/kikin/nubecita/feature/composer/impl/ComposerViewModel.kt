@@ -36,8 +36,9 @@ import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.core.posting.ExternalLinkMetadataRepository
 import net.kikin.nubecita.core.posting.LinkPreview
 import net.kikin.nubecita.core.posting.LocaleProvider
+import net.kikin.nubecita.core.posting.OutgoingPostStore
 import net.kikin.nubecita.core.posting.PostAudience
-import net.kikin.nubecita.core.posting.PostingRepository
+import net.kikin.nubecita.core.posting.PostDraft
 import net.kikin.nubecita.core.posting.ReplyRefs
 import net.kikin.nubecita.core.posting.SharedMediaStore
 import net.kikin.nubecita.core.review.ReviewManager
@@ -145,7 +146,7 @@ internal class ComposerViewModel
     @AssistedInject
     constructor(
         @Assisted private val route: ComposerRoute,
-        private val postingRepository: PostingRepository,
+        private val outgoingPostStore: OutgoingPostStore,
         private val videoUploadRepository: VideoUploadRepository,
         private val parentFetchSource: ParentFetchSource,
         private val quotePostFetcher: QuotePostFetcher,
@@ -424,7 +425,9 @@ internal class ComposerViewModel
             // the UI layer via OutlinedTextField's `enabled = false`
             // — the IME can't write to a disabled field, so no
             // snapshot fires.
-            val submitInFlight = uiState.value.submitStatus is ComposerSubmitStatus.Submitting
+            val submitInFlight =
+                uiState.value.submitStatus is ComposerSubmitStatus.Submitting ||
+                    uiState.value.submitStatus is ComposerSubmitStatus.Success
             when (event) {
                 is ComposerEvent.AddAttachments -> if (!submitInFlight) handleAddAttachments(event.attachments)
                 is ComposerEvent.PasteImages -> if (!submitInFlight) handlePasteImages(event)
@@ -764,60 +767,30 @@ internal class ComposerViewModel
                 current.pickedGif?.toLinkPreview()
                     ?: (current.externalLink as? ExternalLinkStatus.Loaded)?.preview
 
-            setState { copy(submitStatus = ComposerSubmitStatus.Submitting) }
-
-            viewModelScope.launch {
-                val result =
-                    postingRepository.createPost(
-                        text = text,
-                        attachments = current.attachments.toList(),
-                        replyTo = replyTo,
-                        langs = current.selectedLangs,
-                        audience = current.audience,
-                        quote = quote,
-                        external = external,
-                        video = current.video?.readyEmbed(),
-                    )
-                result.fold(
-                    onSuccess = { uri ->
-                        // The full AtUri carries the signed-in user's
-                        // DID (`at://did:plc:.../app.bsky.feed.post/<rkey>`).
-                        // Log just the rkey to match the redaction
-                        // pattern used in :feature:postdetail:impl and
-                        // the repository's parallel breadcrumb at
-                        // DefaultPostingRepository's createRecord-ok
-                        // log site. See :core:auth's
-                        // DefaultXrpcClientProvider.redactDid for the
-                        // canonical reasoning.
-                        Timber.tag(TAG).d(
-                            "createPost() success rkey=%s",
-                            uri.raw.substringAfterLast('/'),
-                        )
-                        setState { copy(submitStatus = ComposerSubmitStatus.Success) }
-                        // Post is up; the shared/pasted copies are now dead weight.
-                        deleteOwnedCopies()
-                        sendEffect(
-                            ComposerEffect.OnSubmitSuccess(
-                                newPostUri = uri,
-                                replyToUri = route.replyToUri,
-                            ),
-                        )
-                    },
-                    onFailure = { throwable ->
-                        Timber.tag(TAG).w(throwable, "createPost() failed")
-                        val cause = (throwable as? ComposerError) ?: ComposerError.RecordCreationFailed(throwable)
-                        setState { copy(submitStatus = ComposerSubmitStatus.Error(cause)) }
-                        // Sticky state already records the typed cause for an
-                        // inline retry affordance; the snackbar is the
-                        // user-facing surface for "your post didn't go" and
-                        // the screen maps the variant to a localized string.
-                        // Parent-fetch failure deliberately does NOT emit
-                        // ShowError — that error is shown as inline reply-
-                        // header UI keyed off `replyParentLoad = Failed`.
-                        sendEffect(ComposerEffect.ShowError(cause))
-                    },
-                )
-            }
+            // Hand the post to the app-scoped store and close: it uploads in the
+            // application scope, so the post appears in the feed, the profile and
+            // its thread right away, and a failure surfaces there (Retry / Discard)
+            // rather than holding the composer open.
+            val ownedCopies = ownedCopyUris.toList()
+            // The store owns these now and deletes them once the post is sent or
+            // discarded; onCleared must not delete media the upload still needs.
+            ownedCopyUris.clear()
+            outgoingPostStore.submit(
+                PostDraft(
+                    text = text,
+                    attachments = current.attachments.toList(),
+                    replyTo = replyTo,
+                    replyToUri = route.replyToUri,
+                    langs = current.selectedLangs,
+                    audience = current.audience,
+                    quote = quote,
+                    external = external,
+                    video = current.video?.readyEmbed(),
+                    ownedCopyUris = ownedCopies,
+                ),
+            )
+            setState { copy(submitStatus = ComposerSubmitStatus.Success) }
+            sendEffect(ComposerEffect.Submitted)
         }
 
         private fun handleRetryParentLoad() {

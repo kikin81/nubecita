@@ -51,10 +51,10 @@ import kotlinx.coroutines.flow.receiveAsFlow
  * inner `NavDisplay`, which removes the underlying screen (e.g.
  * `FeedScreen`) from composition while the composer is on top. That
  * cancellation tears down the consumer's `LaunchedEffect` collector.
- * `ComposerEffect.OnSubmitSuccess` fires AFTER the user submits but
- * BEFORE `navState.removeLast()` resolves into a recomposition that
- * brings the consumer back — so at the moment of emit there is no
- * active collector. A `MutableSharedFlow(replay = 0, ...)` would
+ * A post can finish sending while the composer is still on top, before
+ * `navState.removeLast()` resolves into a recomposition that brings the
+ * consumer back — so at the moment of emit there may be no active
+ * collector. A `MutableSharedFlow(replay = 0, ...)` would
  * silently drop the event in that window. A [Channel]-backed flow
  * **buffers undelivered events** until the next collector subscribes
  * and drains the queue, which is the delivery semantics we actually
@@ -71,11 +71,10 @@ import kotlinx.coroutines.flow.receiveAsFlow
  *
  * # Producer / consumer pattern
  *
- * - The composer hosts (`ComposerNavigationModule` for the Compact
- *   route and `ComposerOverlay` for the Medium / Expanded Dialog)
- *   reach [LocalComposerSubmitEventsEmitter] and call
- *   [ComposerSubmitEventsEmitter.emit] from
- *   `ComposerEffect.OnSubmitSuccess`'s screen-side handler.
+ * - `MainShell` reaches [LocalComposerSubmitEventsEmitter]'s backing bus
+ *   and calls [ComposerSubmitEventsEmitter.emit] for each post
+ *   `OutgoingPostStore` finishes sending (an interim relay until the
+ *   consumers read the store, nubecita-zxwh).
  * - Consumers reach [LocalComposerSubmitEvents] and collect the
  *   [Flow] inside a `LaunchedEffect` keyed on the flow + their list
  *   state / snackbar host.

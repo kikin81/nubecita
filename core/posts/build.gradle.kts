@@ -29,9 +29,15 @@ dependencies {
     // ModerationPreferencesRepository + applyModeration — cover (never drop)
     // NSFW media in the post-detail thread.
     implementation(project(":core:moderation"))
+    // OutgoingPostStore: the contract lives with the composer-facing posting
+    // types; the impl lives here because :core:posting can't depend on this
+    // module (:core:posts -> :core:moderation -> :core:posting).
+    implementation(project(":core:posting"))
+    implementation(project(":core:profile"))
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)
+    implementation(libs.kotlinx.coroutines.core)
     implementation(libs.timber)
 
     testImplementation(project(":core:testing"))
