@@ -119,6 +119,12 @@ sealed interface GroupDetailsEffect : UiEffect {
 
     data object NavigateBack : GroupDetailsEffect
 
+    /**
+     * The viewer left the group. Unlike [NavigateBack], the host closes the group's thread
+     * too, so the viewer doesn't land back in a conversation they're no longer part of.
+     */
+    data object Left : GroupDetailsEffect
+
     /** Member → Profile navigation; the screen forwards [key] to the MainShell nav state. */
     data class NavigateTo(
         val key: NavKey,

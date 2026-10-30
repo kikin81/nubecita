@@ -111,6 +111,8 @@
     <string name="group_details_remove_confirm_body">Remover %1$s deste grupo?</string>
     <string name="group_details_remove_confirm_action">Remover</string>
     <string name="group_details_cancel">Cancelar</string>
+    <string name="group_details_leave_confirm_title">Sair deste grupo?</string>
+    <string name="group_details_leave_confirm_body">Você deixará de receber as mensagens. Para voltar, vai precisar de um novo convite.</string>
     <string name="group_details_member_options">Opções do membro</string>
     <string name="group_details_invites_sent">Convites enviados</string>
     <!-- Add group members (nubecita-hwix.5) -->
