@@ -11,13 +11,11 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -37,6 +35,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.data.models.ActorUi
+import net.kikin.nubecita.designsystem.component.NubecitaTextField
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
@@ -90,7 +89,7 @@ internal fun NewChatScreen(
  *
  * Layout:
  * - [TopAppBar] with a back nav icon and "New message" title.
- * - Search [OutlinedTextField] pinned below the top bar.
+ * - Search [NubecitaTextField] pinned below the top bar.
  * - Body driven by [NewChatState.status]:
  *   - [NewChatStatus.Recent]: sticky "Recent" header + [RecipientRow] list
  *     (empty → nothing shown).
@@ -135,14 +134,11 @@ internal fun NewChatScreenContent(
                     .consumeWindowInsets(padding)
                     .fillMaxSize(),
         ) {
-            OutlinedTextField(
+            NubecitaTextField(
                 state = queryFieldState,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                placeholder = { Text(stringResource(R.string.new_chat_search_placeholder)) },
-                lineLimits = TextFieldLineLimits.SingleLine,
+                label = stringResource(R.string.new_chat_search_label),
+                placeholder = stringResource(R.string.new_chat_search_placeholder),
+                supportingText = { Text(stringResource(R.string.new_chat_search_supporting)) },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 leadingIcon = {
                     NubecitaIcon(
@@ -150,6 +146,10 @@ internal fun NewChatScreenContent(
                         contentDescription = null,
                     )
                 },
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
             )
 
             when (val s = state.status) {
