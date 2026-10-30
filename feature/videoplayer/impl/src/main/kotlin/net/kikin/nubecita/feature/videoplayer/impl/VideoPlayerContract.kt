@@ -110,10 +110,6 @@ internal sealed interface VideoPlayerEvent : UiEvent {
 
     data object DismissComments : VideoPlayerEvent
 
-    data class OnReplySubmitted(
-        val parentUri: String,
-    ) : VideoPlayerEvent
-
     data object LikeClicked : VideoPlayerEvent
 
     data object RepostClicked : VideoPlayerEvent

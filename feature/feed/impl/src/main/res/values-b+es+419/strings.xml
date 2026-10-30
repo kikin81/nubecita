@@ -40,9 +40,6 @@
     <string name="feed_snackbar_link_copied">Enlace copiado al portapapeles</string>
     <string name="feed_clipboard_label_post_link">Enlace de publicación de Bluesky</string>
 
-    <string name="feed_snackbar_post_published">Publicación enviada</string>
-    <string name="feed_snackbar_reply_published">Respuesta enviada</string>
-
     <string name="postcard_video_mute">Silenciar video</string>
     <string name="postcard_video_unmute">Activar sonido del video</string>
     <string name="postcard_video_resume">Toca para reanudar</string>

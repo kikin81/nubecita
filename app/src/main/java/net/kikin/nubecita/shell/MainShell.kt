@@ -1,10 +1,17 @@
 package net.kikin.nubecita.shell
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.Badge
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDragHandle
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
@@ -23,6 +30,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -41,16 +50,14 @@ import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
 import net.kikin.nubecita.R
 import net.kikin.nubecita.analytics.TrackScreenViews
-import net.kikin.nubecita.core.common.navigation.ComposerSubmitEvent
-import net.kikin.nubecita.core.common.navigation.ComposerSubmitEventsBus
-import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
-import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEventsEmitter
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.core.common.navigation.rememberIsInPipMode
 import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
+import net.kikin.nubecita.core.posting.OutgoingPost
 import net.kikin.nubecita.core.posting.OutgoingPostStatus
 import net.kikin.nubecita.designsystem.LocalGifAutoplayEnabled
 import net.kikin.nubecita.designsystem.adaptive.SpatialScaffold
@@ -195,35 +202,36 @@ fun MainShell(modifier: Modifier = Modifier) {
         }
     val readOnlyTabReTapSignal = remember(tabReTapSignal) { tabReTapSignal.asSharedFlow() }
 
-    // MainShell-scoped composer submit-events bus. Fed by the relay below
-    // from `OutgoingPostStore` once a post the composer handed off is sent.
-    // Collected by feature screens (today: the feed and the video surfaces)
-    // to surface a confirmation snackbar and, when the submit was a reply,
-    // run an optimistic `replyCount + 1` on the parent post.
-    //
-    // Both the read side (`bus.events`) and the write side
-    // (`bus.emitter`) are provided shell-wide via separate
-    // CompositionLocals below — see `ComposerSubmitEventsBus` kdoc for
-    // why the producer/consumer separation is by naming/type rather
-    // than visibility scoping.
-    val composerSubmitEvents = remember { ComposerSubmitEventsBus() }
-
-    // Interim relay (nubecita-zxwh.1): the composer no longer sends posts
-    // itself, so forward each post the store finishes sending onto the bus.
-    // Posts already sent when the shell (re)enters composition are skipped so
-    // a rebuilt shell doesn't repeat their snackbar or reply-count bump.
-    // Removed once the feed and video surfaces read the store (zxwh.2 / .3).
+    // Posts the composer handed off send from `OutgoingPostStore` after the
+    // composer has closed. The feed and profile show a failed post's card with
+    // Retry / Discard, but a reply sent from elsewhere (post detail, the video
+    // comments) may not be on screen, so every failure also gets a shell
+    // snackbar with Retry. Each failure is reported once; a retried post that
+    // fails again is reported again.
     val outgoingPostStore = remember(entryPoint) { entryPoint.outgoingPostStore() }
-    LaunchedEffect(outgoingPostStore, composerSubmitEvents) {
-        val relayed =
+    val shellSnackbarHostState = remember { SnackbarHostState() }
+    // rememberUpdatedState: the effect below outlives a locale change, so it
+    // reads the current copy at show time instead of the copy at launch.
+    val sendFailedMessage by rememberUpdatedState(stringResource(R.string.main_shell_send_failed))
+    val retryLabel by rememberUpdatedState(stringResource(R.string.main_shell_send_retry))
+    LaunchedEffect(outgoingPostStore, shellSnackbarHostState) {
+        val reported =
             outgoingPostStore.posts.value
-                .filter { it.status is OutgoingPostStatus.Sent }
-                .mapTo(mutableSetOf()) { it.localId }
+                .failedIds()
+                .toMutableSet()
         outgoingPostStore.posts.collect { posts ->
-            posts.forEach { post ->
-                val sent = post.status as? OutgoingPostStatus.Sent ?: return@forEach
-                if (relayed.add(post.localId)) {
-                    composerSubmitEvents.emitter.emit(ComposerSubmitEvent(newPostUri = sent.uri, replyToUri = post.replyToUri))
+            val failed = posts.failedIds()
+            reported.retainAll(failed)
+            (failed - reported).forEach { localId ->
+                reported += localId
+                launch {
+                    val result =
+                        shellSnackbarHostState.showSnackbar(
+                            message = sendFailedMessage,
+                            actionLabel = retryLabel,
+                            duration = SnackbarDuration.Long,
+                        )
+                    if (result == SnackbarResult.ActionPerformed) outgoingPostStore.retry(localId)
                 }
             }
         }
@@ -329,8 +337,6 @@ fun MainShell(modifier: Modifier = Modifier) {
     CompositionLocalProvider(
         LocalMainShellNavState provides mainShellNavState,
         LocalTabReTapSignal provides readOnlyTabReTapSignal,
-        LocalComposerSubmitEvents provides composerSubmitEvents.events,
-        LocalComposerSubmitEventsEmitter provides composerSubmitEvents.emitter,
         LocalGifAutoplayEnabled provides gifAutoplayEnabled,
     ) {
         MainShellChrome(
@@ -382,44 +388,54 @@ fun MainShell(modifier: Modifier = Modifier) {
             // local composition — so no feed reload or scroll loss is user-visible.
             // Remove once a fixed adaptive-navigation3 release disposes the collapsed
             // pane's scene on its own.
-            val isTwoPane = listDetailDirective.maxHorizontalPartitions > 1
-            key(isTwoPane) {
-                NavDisplay(
-                    backStack = mainShellNavState.backStack,
-                    onBack = { mainShellNavState.removeLast() },
-                    // The list-detail strategy is scoped to the active tab's segment
-                    // so a tab switch doesn't render the previous tab's detail entry
-                    // next to the new tab's list (nubecita-xqp7 / nubecita-s1f3).
-                    // Overlay (dialog) strategy stays first.
-                    sceneStrategies =
-                        listOf(
-                            dialogStrategy,
-                            ActiveTabScopedSceneStrategy(sceneStrategy) {
-                                mainShellNavState.topLevelKey
+            Box(modifier = Modifier.fillMaxSize()) {
+                val isTwoPane = listDetailDirective.maxHorizontalPartitions > 1
+                key(isTwoPane) {
+                    NavDisplay(
+                        backStack = mainShellNavState.backStack,
+                        onBack = { mainShellNavState.removeLast() },
+                        // The list-detail strategy is scoped to the active tab's segment
+                        // so a tab switch doesn't render the previous tab's detail entry
+                        // next to the new tab's list (nubecita-xqp7 / nubecita-s1f3).
+                        // Overlay (dialog) strategy stays first.
+                        sceneStrategies =
+                            listOf(
+                                dialogStrategy,
+                                ActiveTabScopedSceneStrategy(sceneStrategy) {
+                                    mainShellNavState.topLevelKey
+                                },
+                            ),
+                        // SceneSetupNavEntryDecorator is internal in nav3-ui — NavDisplay applies
+                        // it itself. Supply only the public decorators required for hiltViewModel()
+                        // and saved state to work inside NavEntries.
+                        //
+                        // These MUST be created INSIDE `key(isTwoPane)`, not hoisted above it.
+                        // Hoisting a single shared SaveableStateHolder crashes on the boundary
+                        // crossing: `key()` composes the new NavDisplay subtree before disposing the
+                        // old one, so both briefly call `SaveableStateProvider("Feed")` on the same
+                        // holder → `IllegalArgumentException: Key Feed was used multiple times`.
+                        // Per-keyed-instance holders avoid that. State still survives the key anyway:
+                        // entry ViewModelStores are retained by nav3's ViewModelStoreProvider (outside
+                        // this composition) and saved scroll round-trips the parent SaveableStateRegistry
+                        // — both verified byte-identical before/after a rotation.
+                        entryDecorators =
+                            listOf(
+                                rememberSaveableStateHolderNavEntryDecorator(),
+                                rememberViewModelStoreNavEntryDecorator(),
+                            ),
+                        entryProvider =
+                            entryProvider {
+                                installers.forEach { installer -> installer() }
                             },
-                        ),
-                    // SceneSetupNavEntryDecorator is internal in nav3-ui — NavDisplay applies
-                    // it itself. Supply only the public decorators required for hiltViewModel()
-                    // and saved state to work inside NavEntries.
-                    //
-                    // These MUST be created INSIDE `key(isTwoPane)`, not hoisted above it.
-                    // Hoisting a single shared SaveableStateHolder crashes on the boundary
-                    // crossing: `key()` composes the new NavDisplay subtree before disposing the
-                    // old one, so both briefly call `SaveableStateProvider("Feed")` on the same
-                    // holder → `IllegalArgumentException: Key Feed was used multiple times`.
-                    // Per-keyed-instance holders avoid that. State still survives the key anyway:
-                    // entry ViewModelStores are retained by nav3's ViewModelStoreProvider (outside
-                    // this composition) and saved scroll round-trips the parent SaveableStateRegistry
-                    // — both verified byte-identical before/after a rotation.
-                    entryDecorators =
-                        listOf(
-                            rememberSaveableStateHolderNavEntryDecorator(),
-                            rememberViewModelStoreNavEntryDecorator(),
-                        ),
-                    entryProvider =
-                        entryProvider {
-                            installers.forEach { installer -> installer() }
-                        },
+                    )
+                }
+                SnackbarHost(
+                    hostState = shellSnackbarHostState,
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .navigationBarsPadding()
+                            .imePadding(),
                 )
             }
         }
@@ -654,3 +670,5 @@ internal fun calculateListDetailDirective(adaptiveInfo: WindowAdaptiveInfo): Pan
             },
     )
 }
+
+private fun List<OutgoingPost>.failedIds(): Set<String> = filter { it.status is OutgoingPostStatus.Failed }.mapTo(HashSet()) { it.localId }

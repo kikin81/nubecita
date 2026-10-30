@@ -12,6 +12,10 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.actors.MuteRepository
 import net.kikin.nubecita.core.auth.NoSessionException
+import net.kikin.nubecita.core.posting.OutgoingPost
+import net.kikin.nubecita.core.posting.OutgoingPostStatus
+import net.kikin.nubecita.core.posting.OutgoingPostStore
+import net.kikin.nubecita.core.posting.PostDraft
 import net.kikin.nubecita.core.postinteractions.InteractionEffect
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
@@ -964,6 +968,45 @@ internal class PostDetailViewModelTest {
             assertTrue(focusItem.post.viewer.isAuthorMutedByViewer, "flag should be rolled back to true on unmute failure")
         }
 
+    @Test
+    fun `outgoing replies to the focus or a reply show, but not replies to ancestors or loaded ones`() =
+        runTest(mainDispatcher.dispatcher) {
+            val items =
+                persistentListOf(
+                    ThreadItem.Ancestor(samplePost("at://ancestor")),
+                    ThreadItem.Focus(samplePost("at://focus")),
+                    ThreadItem.Reply(samplePost("at://reply"), depth = 1),
+                )
+            val store = FakeOutgoingPostStore()
+            store.set(
+                outgoingReply("to-focus", replyToUri = "at://focus"),
+                outgoingReply("to-reply", replyToUri = "at://reply"),
+                outgoingReply("to-ancestor", replyToUri = "at://ancestor"),
+                outgoingReply("loaded", replyToUri = "at://focus", postId = "at://reply"),
+            )
+            val vm = newVm(FakeRepo(results = listOf(Result.success(items))), outgoingPostStore = store)
+
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            val shown = vm.uiState.value.outgoingReplies
+            assertEquals(listOf("to-focus", "to-reply"), shown.map { it.localId })
+            assertEquals(listOf("at://focus", "at://reply"), shown.map { it.replyToUri })
+        }
+
+    @Test
+    fun `retry and discard in post detail go to the outgoing-post store`() =
+        runTest(mainDispatcher.dispatcher) {
+            val store = FakeOutgoingPostStore()
+            val vm = newVm(FakeRepo(), outgoingPostStore = store)
+
+            vm.handleEvent(PostDetailEvent.RetryOutgoing("a"))
+            vm.handleEvent(PostDetailEvent.DiscardOutgoing("b"))
+
+            assertEquals(listOf("a"), store.retried)
+            assertEquals(listOf("b"), store.discarded)
+        }
+
     // ---------- helpers ----------
 
     private fun newVm(
@@ -972,6 +1015,7 @@ internal class PostDetailViewModelTest {
         handler: FakePostInteractionHandler = FakePostInteractionHandler(),
         muteRepository: MuteRepository = FakeMuteRepository(),
         postInteractionsCache: PostInteractionsCache = FakePostInteractionsCache(),
+        outgoingPostStore: OutgoingPostStore = FakeOutgoingPostStore(),
     ): PostDetailViewModel =
         PostDetailViewModel(
             route = PostDetailRoute(postUri = focusUri),
@@ -979,6 +1023,19 @@ internal class PostDetailViewModelTest {
             postInteractionsCache = postInteractionsCache,
             handler = handler,
             muteRepository = muteRepository,
+            outgoingPostStore = outgoingPostStore,
+        )
+
+    private fun outgoingReply(
+        localId: String,
+        replyToUri: String,
+        postId: String = "local:$localId",
+    ): OutgoingPost =
+        OutgoingPost(
+            localId = localId,
+            draft = PostDraft(text = "hi", attachments = emptyList(), replyTo = null, replyToUri = replyToUri),
+            post = samplePost(postId),
+            status = OutgoingPostStatus.Sending,
         )
 
     private fun samplePost(

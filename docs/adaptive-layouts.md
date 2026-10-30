@@ -156,6 +156,6 @@ The scene-strategy APIs are alpha; when bumping, re-check against the in-artifac
 The composer (`:app/shell/composer/*`) predates this and still uses the
 hand-rolled launcher/overlay/`CompositionLocal`. Tracked by **`nubecita-11st`**:
 tag `ComposerRoute` with `adaptiveDialog()`, delete the composer launcher/overlay
-files, and keep its submit-events bus (it lives in `:core:common` and is reached
-from the composer content, unaffected by presentation). New adaptive surfaces
+files. Submit results don't depend on presentation either: the composer hands
+the post to `OutgoingPostStore` and closes (nubecita-zxwh). New adaptive surfaces
 should mirror the **scene-strategy** approach, not the composer.

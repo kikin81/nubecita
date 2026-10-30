@@ -11,6 +11,7 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(project(":core:common"))
     implementation(project(":core:post-interactions"))
+    implementation(project(":core:posting"))
     implementation(project(":core:posts"))
     implementation(project(":data:models"))
     implementation(project(":designsystem"))

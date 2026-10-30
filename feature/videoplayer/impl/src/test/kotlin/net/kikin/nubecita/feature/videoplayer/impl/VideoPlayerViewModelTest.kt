@@ -694,27 +694,6 @@ internal class VideoPlayerViewModelTest {
         }
 
     @Test
-    fun onReplySubmitted_incrementsReplyCount() =
-        runTest {
-            stubVideo(stats = PostStatsUi(replyCount = 5))
-            val vm = newVm()
-            runCurrent()
-
-            assertEquals(
-                5,
-                vm.uiState.value.stats
-                    ?.replyCount,
-            )
-
-            vm.handleEvent(VideoPlayerEvent.OnReplySubmitted(parentUri = AT_URI))
-            assertEquals(
-                6,
-                vm.uiState.value.stats
-                    ?.replyCount,
-            )
-        }
-
-    @Test
     fun likeClicked_callsPostInteractionsCache() =
         runTest {
             stubVideo()

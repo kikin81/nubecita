@@ -7,6 +7,7 @@ fun OutgoingPost.toUi(): OutgoingPostUi =
     OutgoingPostUi(
         localId = localId,
         post = post,
+        replyToUri = replyToUri,
         status =
             when (status) {
                 OutgoingPostStatus.Sending -> OutgoingPostStatusUi.Sending

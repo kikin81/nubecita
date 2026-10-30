@@ -46,6 +46,15 @@ data class PostInteractionState(
     val isBookmarked: Boolean = false,
     val bookmarkCount: Long = 0,
     val pendingBookmarkWrite: PendingState = PendingState.None,
+    /** The reply count from the last wire seed; the base for [replyCountFloor]. */
+    val replyCount: Long = 0,
+    /**
+     * At least this many replies, after the viewer replied in this session.
+     * The appview counts a new reply a second or more after `createRecord`, so
+     * a refresh in that window would otherwise snap the count back. Merged as
+     * `max(wire, floor)`, so it stops mattering once the wire catches up.
+     */
+    val replyCountFloor: Long? = null,
 )
 
 /**

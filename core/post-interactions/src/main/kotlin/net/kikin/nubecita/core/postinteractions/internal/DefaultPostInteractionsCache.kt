@@ -63,22 +63,22 @@ internal class DefaultPostInteractionsCache
                             // writes. The appview keeps serving a deleted post
                             // briefly, so without this the next refresh would
                             // seed it straight back into view.
-                            existing?.isDeleted == true -> existing
+                            existing?.isDeleted == true -> existing.withWireReplyCount(post)
                             // In-flight optimistic state takes precedence over wire data.
                             existing?.pendingLikeWrite == PendingState.Pending ||
                                 existing?.pendingRepostWrite == PendingState.Pending ||
-                                existing?.pendingBookmarkWrite == PendingState.Pending -> existing
+                                existing?.pendingBookmarkWrite == PendingState.Pending -> existing.withWireReplyCount(post)
                             // Cached likeUri non-null but wire says null: assume appview lag,
                             // preserve cache. Same for repost / bookmark.
                             existing != null &&
                                 existing.viewerLikeUri != null &&
-                                post.viewer.likeUri == null -> existing
+                                post.viewer.likeUri == null -> existing.withWireReplyCount(post)
                             existing != null &&
                                 existing.viewerRepostUri != null &&
-                                post.viewer.repostUri == null -> existing
+                                post.viewer.repostUri == null -> existing.withWireReplyCount(post)
                             existing != null &&
                                 existing.isBookmarked &&
-                                !post.viewer.isBookmarked -> existing
+                                !post.viewer.isBookmarked -> existing.withWireReplyCount(post)
                             else ->
                                 PostInteractionState(
                                     viewerLikeUri = post.viewer.likeUri,
@@ -87,6 +87,8 @@ internal class DefaultPostInteractionsCache
                                     repostCount = post.stats.repostCount.toLong(),
                                     isBookmarked = post.viewer.isBookmarked,
                                     bookmarkCount = post.stats.bookmarkCount.toLong(),
+                                    replyCount = post.stats.replyCount.toLong(),
+                                    replyCountFloor = existing?.replyCountFloor?.liveAbove(post),
                                 )
                         }
                     acc.putting(post.id, merged)
@@ -264,6 +266,22 @@ internal class DefaultPostInteractionsCache
             }
         }
 
+        override fun noteReplySent(parentUri: String) {
+            _state.update { current ->
+                val existing = current[parentUri] ?: return@update current
+                val shown = maxOf(existing.replyCount, existing.replyCountFloor ?: 0)
+                current.putting(parentUri, existing.copy(replyCountFloor = shown + 1))
+            }
+        }
+
+        override fun noteReplyDiscarded(parentUri: String) {
+            _state.update { current ->
+                val existing = current[parentUri] ?: return@update current
+                val floor = existing.replyCountFloor ?: return@update current
+                current.putting(parentUri, existing.copy(replyCountFloor = (floor - 1).takeIf { it > existing.replyCount }))
+            }
+        }
+
         override fun clear() {
             _state.value = persistentMapOf()
         }
@@ -287,3 +305,9 @@ internal class DefaultPostInteractionsCache
             _state.update { it.putting(postUri, state) }
         }
     }
+
+/** Keeps the latest wire reply count (the floor's base) when the rest of [this] is preserved. */
+private fun PostInteractionState.withWireReplyCount(post: PostUi): PostInteractionState = copy(replyCount = post.stats.replyCount.toLong(), replyCountFloor = replyCountFloor?.liveAbove(post))
+
+/** A floor the wire count has reached no longer does anything; drop it. */
+private fun Long.liveAbove(post: PostUi): Long? = takeIf { it > post.stats.replyCount }

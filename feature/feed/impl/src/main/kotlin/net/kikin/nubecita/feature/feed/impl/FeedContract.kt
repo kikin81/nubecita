@@ -275,20 +275,6 @@ sealed interface FeedEvent : UiEvent {
     ) : FeedEvent
 
     /**
-     * The user just submitted a reply with parent post URI [parentUri]
-     * — emitted from `LocalComposerSubmitEvents` after the composer
-     * overlay closes successfully. The handler runs an optimistic
-     * `replyCount + 1` on the parent post in [FeedState.feedItems] so
-     * the user doesn't see a stale "0 comments" on the post they just
-     * replied to. No-op when the parent isn't in the loaded slice
-     * (replied from a non-feed surface, or pagination evicted the
-     * parent before the submit landed).
-     */
-    data class OnReplySubmittedToParent(
-        val parentUri: String,
-    ) : FeedEvent
-
-    /**
      * User selected an overflow-menu entry on a PostCard. Routed through
      * the VM so it can decide the appropriate effect — oftc.2 wires
      * every action to a coming-soon snackbar via

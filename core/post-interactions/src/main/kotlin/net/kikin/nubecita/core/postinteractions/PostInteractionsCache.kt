@@ -130,6 +130,15 @@ interface PostInteractionsCache {
     fun markDeleted(postUri: String)
 
     /**
+     * The viewer just sent a reply to [parentUri]: raise its reply count by one
+     * on every surface. A no-op for a post no surface has loaded.
+     */
+    fun noteReplySent(parentUri: String) = Unit
+
+    /** Undo one [noteReplySent], for a failed reply the viewer discarded. */
+    fun noteReplyDiscarded(parentUri: String) = Unit
+
+    /**
      * Reset the cache. Called by `:core/auth/DefaultAuthRepository.signOut`
      * before session revocation so a re-login starts with a fresh
      * canonical state.

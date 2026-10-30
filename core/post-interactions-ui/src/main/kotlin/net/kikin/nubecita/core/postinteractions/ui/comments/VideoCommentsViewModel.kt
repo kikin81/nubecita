@@ -8,6 +8,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.posting.OutgoingPost
+import net.kikin.nubecita.core.posting.OutgoingPostStatus
+import net.kikin.nubecita.core.posting.OutgoingPostStore
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
 import net.kikin.nubecita.core.posts.PostThreadRepository
@@ -29,10 +32,30 @@ class VideoCommentsViewModel
     constructor(
         private val postThreadRepository: PostThreadRepository,
         private val postInteractionsCache: PostInteractionsCache,
+        private val outgoingPostStore: OutgoingPostStore,
     ) : MviViewModel<VideoCommentsState, VideoCommentsEvent, VideoCommentsEffect>(VideoCommentsState()) {
         private var loadJob: Job? = null
 
         init {
+            // Reload the open thread once a reply the user sent to it lands, so
+            // the new comment shows. Posts already sent when the sheet's VM starts
+            // don't count as new.
+            viewModelScope.launch {
+                val seen =
+                    outgoingPostStore.posts.value
+                        .sentIds()
+                        .toMutableSet()
+                outgoingPostStore.posts.collect { posts ->
+                    val newlySent = posts.filter { it.status is OutgoingPostStatus.Sent && it.localId !in seen }
+                    seen += newlySent.map { it.localId }
+                    val uri = uiState.value.postUri ?: return@collect
+                    if (newlySent.any { it.replyToUri == uri }) {
+                        setState { copy(isRefreshing = true) }
+                        loadThread(uri, isInitial = false)
+                    }
+                }
+            }
+
             // Collect interactions cache updates (e.g. from optimistic likes) and reconcile into current comments list
             viewModelScope.launch {
                 postInteractionsCache.state.collect { interactionMap ->
@@ -149,14 +172,6 @@ class VideoCommentsViewModel
                         sendEffect(VideoCommentsEffect.NavigateToComposer(uri))
                     }
                 }
-
-                is VideoCommentsEvent.OnComposerSubmitted -> {
-                    val uri = uiState.value.postUri
-                    if (uri != null && event.event.replyToUri == uri) {
-                        setState { copy(isRefreshing = true) }
-                        loadThread(uri, isInitial = false)
-                    }
-                }
             }
         }
 
@@ -234,3 +249,5 @@ class VideoCommentsViewModel
                 }
         }
     }
+
+private fun List<OutgoingPost>.sentIds(): List<String> = filter { it.status is OutgoingPostStatus.Sent }.map { it.localId }

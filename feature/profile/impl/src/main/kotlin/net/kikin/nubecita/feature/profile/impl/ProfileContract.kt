@@ -71,6 +71,8 @@ data class ProfileScreenViewState(
      * Posts tab (below [pinnedPost]) until a loaded page includes them.
      */
     val outgoingPosts: ImmutableList<OutgoingPostUi> = persistentListOf(),
+    /** Own profile only: replies the user just sent, on the Replies tab. */
+    val outgoingReplies: ImmutableList<OutgoingPostUi> = persistentListOf(),
     /** Same-shape user-delta flag as FeedState. See FeedState KDoc. */
     val lastLikeTapPostUri: String? = null,
     /** Same-shape user-delta flag as FeedState. See FeedState KDoc. */

@@ -263,10 +263,24 @@ internal fun ProfileScreenContent(
                             onRevealMedia = onRevealMedia,
                         )
                     }
-                    ProfileTab.Replies ->
+                    ProfileTab.Replies -> {
+                        items(
+                            items = state.outgoingReplies,
+                            key = { "outgoing:${it.localId}" },
+                            contentType = { "outgoing" },
+                        ) { item ->
+                            OutgoingPostCard(
+                                item = item,
+                                onRetry = { onEvent(ProfileEvent.RetryOutgoing(item.localId)) },
+                                onDiscard = { onEvent(ProfileEvent.DiscardOutgoing(item.localId)) },
+                                callbacks = postCallbacks,
+                                onImageClick = { idx -> onEvent(ProfileEvent.OnImageTapped(item.post, idx)) },
+                            )
+                        }
                         profileFeedTabBody(
                             tab = ProfileTab.Replies,
                             status = state.repliesStatus,
+                            showEmptyState = state.outgoingReplies.isEmpty(),
                             callbacks = postCallbacks,
                             onImageTap = { post, idx -> onEvent(ProfileEvent.OnImageTapped(post, idx)) },
                             onQuotedImageTap = { uri, idx -> onEvent(ProfileEvent.OnQuotedImageTapped(uri, idx)) },
@@ -277,6 +291,7 @@ internal fun ProfileScreenContent(
                             revealedMedia = revealedMedia,
                             onRevealMedia = onRevealMedia,
                         )
+                    }
                     ProfileTab.Media ->
                         profileMediaTabBody(
                             status = state.mediaStatus,
@@ -309,15 +324,15 @@ internal fun ProfileScreenContent(
         }
     }
 
-    // Bring a just-submitted post into view: the composer closes back
+    // Bring a just-submitted post or reply into view: the composer closes back
     // onto a profile that may be scrolled down, and the outgoing card sits right
     // under the header. Once per outgoing post; saveable so the profile leaving
     // composition while the composer is on top doesn't make an old one look new.
     var shownOutgoing by rememberSaveable { mutableStateOf(listOf<String>()) }
-    val newestOutgoing = state.outgoingPosts.firstOrNull()?.localId
+    val newestOutgoing = (state.outgoingPosts.firstOrNull() ?: state.outgoingReplies.firstOrNull())?.localId
     LaunchedEffect(newestOutgoing) {
         if (newestOutgoing != null && newestOutgoing !in shownOutgoing) {
-            shownOutgoing = state.outgoingPosts.map { it.localId }
+            shownOutgoing = (state.outgoingPosts + state.outgoingReplies).map { it.localId }
             listState.animateScrollToItem(0)
         }
     }

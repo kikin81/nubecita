@@ -34,6 +34,7 @@ import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
 import net.kikin.nubecita.core.posts.PostRepository
+import net.kikin.nubecita.data.models.OutgoingPostUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.moderation.api.Report
@@ -134,22 +135,21 @@ internal class ProfileViewModel
             // Bind the handler to Profile surface and this VM's scope first.
             handler.bind(PostSurface.Profile, viewModelScope)
 
-            // Own profile: top-level posts the user just submitted, on the Posts
-            // tab until a loaded page includes them.
+            // Own profile: what the user just submitted, until a loaded page
+            // includes it — top-level posts on the Posts tab, replies on Replies.
             combine(
                 outgoingPostStore.posts,
-                uiState.map { it.ownProfile to it.loadedPostIds() }.distinctUntilChanged(),
-            ) { outgoing, (own, loaded) ->
-                if (!own) {
-                    persistentListOf()
+                uiState.map { OwnTabsSnapshot(it.ownProfile, it.loadedPostIds(), it.loadedReplyIds()) }.distinctUntilChanged(),
+            ) { outgoing, tabs ->
+                if (!tabs.own) {
+                    persistentListOf<OutgoingPostUi>() to persistentListOf()
                 } else {
-                    outgoing
-                        .filter { it.replyToUri == null && it.post.id !in loaded }
-                        .map { it.toUi() }
-                        .toImmutableList()
+                    val (replies, posts) = outgoing.partition { it.replyToUri != null }
+                    posts.filter { it.post.id !in tabs.posts }.map { it.toUi() }.toImmutableList() to
+                        replies.filter { it.post.id !in tabs.replies }.map { it.toUi() }.toImmutableList()
                 }
             }.distinctUntilChanged()
-                .onEach { visible -> setState { copy(outgoingPosts = visible) } }
+                .onEach { (posts, replies) -> setState { copy(outgoingPosts = posts, outgoingReplies = replies) } }
                 .launchIn(viewModelScope)
 
             // Mirror handler tap-markers into ProfileScreenViewState so
@@ -936,6 +936,19 @@ internal fun Throwable.toProfileError(): ProfileError =
         is XrpcError -> ProfileError.Unknown(javaClass.simpleName)
         else -> ProfileError.Unknown(javaClass.simpleName)
     }
+
+private data class OwnTabsSnapshot(
+    val own: Boolean,
+    val posts: Set<String>,
+    val replies: Set<String>,
+)
+
+/** Post URIs already on the Replies tab. */
+private fun ProfileScreenViewState.loadedReplyIds(): Set<String> =
+    (repliesStatus as? TabLoadStatus.Loaded)
+        ?.items
+        ?.mapNotNullTo(HashSet()) { (it as? TabItemUi.Post)?.post?.id }
+        .orEmpty()
 
 /** Post URIs already on the Posts tab (loaded pages and the pinned post). */
 private fun ProfileScreenViewState.loadedPostIds(): Set<String> =

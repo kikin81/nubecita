@@ -48,5 +48,9 @@ fun PostUi.mergeInteractionState(state: PostInteractionState): PostUi =
                 likeCount = state.likeCount.toInt(),
                 repostCount = state.repostCount.toInt(),
                 bookmarkCount = state.bookmarkCount.toInt(),
+                replyCount =
+                    state.replyCountFloor
+                        ?.let { maxOf(stats.replyCount, it.toInt()) }
+                        ?: stats.replyCount,
             ),
     )

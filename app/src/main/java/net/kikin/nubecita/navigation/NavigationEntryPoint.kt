@@ -59,9 +59,8 @@ interface NavigationEntryPoint {
     fun deepLinkRouter(): DeepLinkRouter
 
     /**
-     * The app-scoped store the composer hands posts to. `MainShell` relays its
-     * sent posts onto the composer submit-events bus until the feed and video
-     * surfaces read the store directly (nubecita-zxwh.2 / .3).
+     * The app-scoped store the composer hands posts to. `MainShell` reports
+     * failed sends from it in a shell snackbar with Retry.
      */
     fun outgoingPostStore(): OutgoingPostStore
 

@@ -2014,7 +2014,7 @@ internal class ProfileViewModelTest {
         }
 
     @Test
-    fun `own profile shows the user's outgoing top-level posts until a page includes them`() =
+    fun `own profile shows outgoing posts on Posts and outgoing replies on Replies`() =
         runTest(mainDispatcher.dispatcher) {
             val store = FakeOutgoingPostStore()
             store.set(
@@ -2039,6 +2039,11 @@ internal class ProfileViewModelTest {
             assertEquals(
                 listOf("new"),
                 vm.uiState.value.outgoingPosts
+                    .map { it.localId },
+            )
+            assertEquals(
+                listOf("reply"),
+                vm.uiState.value.outgoingReplies
                     .map { it.localId },
             )
         }

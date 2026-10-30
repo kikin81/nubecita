@@ -6,7 +6,6 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
-import net.kikin.nubecita.core.common.navigation.ComposerSubmitEvent
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ThreadItem
@@ -118,10 +117,6 @@ sealed interface VideoCommentsEvent : UiEvent {
     data object Refresh : VideoCommentsEvent
 
     data object OpenComposer : VideoCommentsEvent
-
-    data class OnComposerSubmitted(
-        val event: ComposerSubmitEvent,
-    ) : VideoCommentsEvent
 }
 
 /**

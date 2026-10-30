@@ -29,4 +29,6 @@
         <item quantity="one">%1$d unread message</item>
         <item quantity="other">%1$d unread messages</item>
     </plurals>
+    <string name="main_shell_send_failed">Couldn\'t send your post</string>
+    <string name="main_shell_send_retry">Retry</string>
 </resources>

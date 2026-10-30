@@ -40,9 +40,6 @@
     <string name="feed_snackbar_link_copied">Link copiado para a área de transferência</string>
     <string name="feed_clipboard_label_post_link">Link de post do Bluesky</string>
 
-    <string name="feed_snackbar_post_published">Post enviado</string>
-    <string name="feed_snackbar_reply_published">Resposta enviada</string>
-
     <string name="postcard_video_mute">Silenciar vídeo</string>
     <string name="postcard_video_unmute">Ativar som do vídeo</string>
     <string name="postcard_video_resume">Toque para retomar</string>
