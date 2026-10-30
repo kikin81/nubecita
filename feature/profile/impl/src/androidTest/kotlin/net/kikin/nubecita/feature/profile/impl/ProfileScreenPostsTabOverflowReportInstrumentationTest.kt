@@ -200,6 +200,10 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
                 muteRepository = mockk(relaxed = true),
                 handler = FakePostInteractionHandler(),
                 postRepository = mockk(relaxed = true),
+                outgoingPostStore =
+                    mockk {
+                        every { posts } returns MutableStateFlow(persistentListOf())
+                    },
             )
 
         val profileRoot: NavKey = Profile(handle = header.handle)

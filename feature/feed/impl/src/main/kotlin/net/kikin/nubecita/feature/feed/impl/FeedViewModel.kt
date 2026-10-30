@@ -9,6 +9,8 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
@@ -22,6 +24,9 @@ import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
+import net.kikin.nubecita.core.posting.OutgoingPost
+import net.kikin.nubecita.core.posting.OutgoingPostStore
+import net.kikin.nubecita.core.posting.toUi
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
@@ -30,6 +35,7 @@ import net.kikin.nubecita.core.preferences.AutoplayPolicy
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.FeedKind
+import net.kikin.nubecita.data.models.OutgoingPostUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
@@ -53,6 +59,7 @@ class FeedViewModel
         private val analytics: AnalyticsClient,
         private val muteRepository: MuteRepository,
         private val handler: PostInteractionHandler,
+        private val outgoingPostStore: OutgoingPostStore,
         autoplayPolicy: AutoplayPolicy,
     ) : MviViewModel<FeedState, FeedEvent, FeedEffect>(FeedState()),
         PostInteractionHandler by handler {
@@ -66,6 +73,9 @@ class FeedViewModel
          */
         private var boundFeedUri: String = ""
         private var boundKind: FeedKind = FeedKind.Following
+
+        /** [boundKind] as a flow, so the outgoing-post projection re-runs on a re-bind. */
+        private val boundKindFlow = MutableStateFlow(FeedKind.Following)
 
         /**
          * The currently in-flight page fetch launched by [load] /
@@ -106,6 +116,19 @@ class FeedViewModel
                 }
             }
 
+            // Top-level posts the user just submitted, above the Following
+            // timeline until a loaded page includes them. Recomputed when the
+            // store or the loaded slice changes (a re-bind resets the slice, so a
+            // switch away from Following clears them).
+            combine(
+                outgoingPostStore.posts,
+                uiState.map { it.feedItems }.distinctUntilChanged(),
+                boundKindFlow,
+            ) { outgoing, items, kind -> visibleOutgoing(outgoing, items, kind) }
+                .distinctUntilChanged()
+                .onEach { visible -> setState { copy(outgoingPosts = visible) } }
+                .launchIn(viewModelScope)
+
             viewModelScope.launch {
                 postInteractionsCache.state
                     .map { snapshot -> uiState.value.feedItems.applyInteractions(snapshot) }
@@ -132,6 +155,8 @@ class FeedViewModel
                 is FeedEvent.OnQuotedPostTapped -> sendEffect(FeedEffect.NavigateToPost(event.quotedPostUri))
                 is FeedEvent.OnVideoTapped -> sendEffect(FeedEffect.NavigateToVideoPlayer(event.postUri))
                 is FeedEvent.OnReplySubmittedToParent -> incrementParentReplyCount(event.parentUri)
+                is FeedEvent.RetryOutgoing -> outgoingPostStore.retry(event.localId)
+                is FeedEvent.DiscardOutgoing -> outgoingPostStore.discard(event.localId)
                 is FeedEvent.OnOverflowAction -> onOverflowAction(event.post, event.action)
             }
         }
@@ -191,6 +216,21 @@ class FeedViewModel
             }
         }
 
+        private fun visibleOutgoing(
+            outgoing: List<OutgoingPost>,
+            items: List<FeedItemUi>,
+            kind: FeedKind,
+        ): ImmutableList<OutgoingPostUi> {
+            if (kind != FeedKind.Following || outgoing.isEmpty()) return persistentListOf()
+            // Every post the slice holds, not just each item's key: the user's
+            // post can sit inside a self-thread chain or a reply cluster.
+            val loaded = items.allPosts().mapTo(HashSet()) { it.id }
+            return outgoing
+                .filter { it.replyToUri == null && it.post.id !in loaded }
+                .map { it.toUi() }
+                .toImmutableList()
+        }
+
         /**
          * Optimistic `replyCount + 1` on the parent post after the user
          * submits a reply via `LocalComposerSubmitEvents`. No-op when the
@@ -245,6 +285,7 @@ class FeedViewModel
             if (boundFeedUri == feedUri && boundKind == kind) return
             boundFeedUri = feedUri
             boundKind = kind
+            boundKindFlow.value = kind
             // Abort any fetch launched under the prior binding so its result
             // continuation can't write a stale page after the reset below.
             loadJob?.cancel()

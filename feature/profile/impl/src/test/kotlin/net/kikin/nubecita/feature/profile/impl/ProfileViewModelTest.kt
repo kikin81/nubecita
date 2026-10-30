@@ -21,6 +21,10 @@ import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.billing.EntitlementRepository
+import net.kikin.nubecita.core.posting.OutgoingPost
+import net.kikin.nubecita.core.posting.OutgoingPostStatus
+import net.kikin.nubecita.core.posting.OutgoingPostStore
+import net.kikin.nubecita.core.posting.PostDraft
 import net.kikin.nubecita.core.postinteractions.InteractionEffect
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
@@ -2009,7 +2013,77 @@ internal class ProfileViewModelTest {
             assertEquals(PostSurface.Profile, fakeHandler.boundSurface)
         }
 
+    @Test
+    fun `own profile shows the user's outgoing top-level posts until a page includes them`() =
+        runTest(mainDispatcher.dispatcher) {
+            val store = FakeOutgoingPostStore()
+            store.set(
+                outgoingPost("new", postId = "local:new"),
+                outgoingPost("reply", postId = "local:reply", replyToUri = "at://parent"),
+                outgoingPost("loaded", postId = "at://loaded", status = OutgoingPostStatus.Sent("at://loaded")),
+            )
+            val repo =
+                FakeProfileRepository(
+                    tabResults =
+                        ProfileTab.entries.associateWith { tab ->
+                            if (tab == ProfileTab.Posts) {
+                                Result.success(ProfileTabPage(items = persistentListOf(TabItemUi.Post(samplePostUi("at://loaded"))), nextCursor = null))
+                            } else {
+                                Result.success(EMPTY_PAGE)
+                            }
+                        },
+                )
+            val vm = newVm(repo = repo, outgoingPostStore = store)
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf("new"),
+                vm.uiState.value.outgoingPosts
+                    .map { it.localId },
+            )
+        }
+
+    @Test
+    fun `another user's profile shows no outgoing posts`() =
+        runTest(mainDispatcher.dispatcher) {
+            val store = FakeOutgoingPostStore()
+            store.set(outgoingPost("new", postId = "local:new"))
+            val vm = newVm(repo = FakeProfileRepository(), route = Profile(handle = "alice.bsky.social"), outgoingPostStore = store)
+            advanceUntilIdle()
+
+            assertTrue(
+                vm.uiState.value.outgoingPosts
+                    .isEmpty(),
+            )
+        }
+
+    @Test
+    fun `retry and discard on the profile go to the outgoing-post store`() =
+        runTest(mainDispatcher.dispatcher) {
+            val store = FakeOutgoingPostStore()
+            val vm = newVm(repo = FakeProfileRepository(), outgoingPostStore = store)
+
+            vm.handleEvent(ProfileEvent.RetryOutgoing("a"))
+            vm.handleEvent(ProfileEvent.DiscardOutgoing("b"))
+
+            assertEquals(listOf("a"), store.retried)
+            assertEquals(listOf("b"), store.discarded)
+        }
+
     // -- Test helpers ----------------------------------------------------------
+
+    private fun outgoingPost(
+        localId: String,
+        postId: String,
+        replyToUri: String? = null,
+        status: OutgoingPostStatus = OutgoingPostStatus.Sending,
+    ): OutgoingPost =
+        OutgoingPost(
+            localId = localId,
+            draft = PostDraft(text = "hi", attachments = emptyList(), replyTo = null, replyToUri = replyToUri),
+            post = samplePostUi(postId),
+            status = status,
+        )
 
     private fun samplePostUi(
         id: String,
@@ -2047,6 +2121,7 @@ internal class ProfileViewModelTest {
         muteRepository: MuteRepository = FakeMuteRepository(),
         handler: PostInteractionHandler = FakePostInteractionHandler(),
         postRepository: PostRepository = mockk(relaxed = true),
+        outgoingPostStore: OutgoingPostStore = FakeOutgoingPostStore(),
     ): ProfileViewModel {
         val sessionProvider =
             mockk<SessionStateProvider>(relaxed = true).also {
@@ -2066,6 +2141,7 @@ internal class ProfileViewModelTest {
             muteRepository = muteRepository,
             handler = handler,
             postRepository = postRepository,
+            outgoingPostStore = outgoingPostStore,
         )
     }
 

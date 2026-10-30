@@ -58,6 +58,7 @@ dependencies {
     implementation(project(":core:moderation"))
     implementation(project(":core:post-interactions"))
     implementation(project(":core:post-interactions-ui"))
+    implementation(project(":core:posting"))
     implementation(project(":core:preferences"))
     implementation(project(":core:video"))
     implementation(project(":core:video-feed"))

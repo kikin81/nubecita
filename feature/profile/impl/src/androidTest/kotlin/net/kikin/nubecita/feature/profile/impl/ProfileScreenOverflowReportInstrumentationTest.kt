@@ -170,6 +170,10 @@ class ProfileScreenOverflowReportInstrumentationTest {
                 muteRepository = mockk(relaxed = true),
                 handler = FakePostInteractionHandler(),
                 postRepository = mockk(relaxed = true),
+                outgoingPostStore =
+                    mockk {
+                        every { posts } returns MutableStateFlow(persistentListOf())
+                    },
             )
 
         // MainShellNavState's primary constructor accepts a startRoute,

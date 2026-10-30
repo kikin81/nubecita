@@ -67,4 +67,8 @@
     <string name="postcard_gif_play">reproducir este GIF</string>
     <string name="postcard_gif_default_content_description">GIF animado</string>
     <string name="designsystem_action_send">Enviar</string>
+    <string name="outgoing_post_sending">Enviando…</string>
+    <string name="outgoing_post_failed">No se pudo enviar</string>
+    <string name="outgoing_post_retry">Reintentar</string>
+    <string name="outgoing_post_discard">Descartar</string>
 </resources>

@@ -56,6 +56,9 @@ internal fun LazyListScope.profileFeedTabBody(
     lastRepostTapPostUri: String? = null,
     revealedMedia: ImmutableSet<String> = persistentSetOf(),
     onRevealMedia: (postId: String) -> Unit = {},
+    // False while the tab shows outgoing posts above it, so a just-posted
+    // first post doesn't sit on top of "No posts yet".
+    showEmptyState: Boolean = true,
 ) {
     val keyPrefix =
         when (tab) {
@@ -80,8 +83,10 @@ internal fun LazyListScope.profileFeedTabBody(
         }
         is TabLoadStatus.Loaded -> {
             if (status.items.isEmpty()) {
-                item(key = "$keyPrefix-empty", contentType = "empty") {
-                    ProfileEmptyState(tab = tab)
+                if (showEmptyState) {
+                    item(key = "$keyPrefix-empty", contentType = "empty") {
+                        ProfileEmptyState(tab = tab)
+                    }
                 }
             } else {
                 items(

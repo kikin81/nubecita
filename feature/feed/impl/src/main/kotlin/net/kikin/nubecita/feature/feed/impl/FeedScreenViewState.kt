@@ -2,7 +2,9 @@ package net.kikin.nubecita.feature.feed.impl
 
 import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.data.models.FeedItemUi
+import net.kikin.nubecita.data.models.OutgoingPostUi
 
 /**
  * Screen-private projection of [FeedState] into the five mutually-exclusive
@@ -51,6 +53,8 @@ sealed interface FeedScreenViewState {
          * ordinary autoplaying feed without restating it.
          */
         val videoAutoplayEnabled: Boolean = true,
+        /** Posts the user just submitted, rendered above [feedItems]. */
+        val outgoingPosts: ImmutableList<OutgoingPostUi> = persistentListOf(),
     ) : FeedScreenViewState
 }
 
@@ -93,5 +97,6 @@ fun FeedState.toViewState(): FeedScreenViewState =
             lastLikeTapPostUri = lastLikeTapPostUri,
             lastRepostTapPostUri = lastRepostTapPostUri,
             videoAutoplayEnabled = videoAutoplayEnabled,
+            outgoingPosts = outgoingPosts,
         )
     }

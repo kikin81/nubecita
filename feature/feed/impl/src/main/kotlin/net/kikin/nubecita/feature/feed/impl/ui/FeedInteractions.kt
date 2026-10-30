@@ -52,6 +52,8 @@ internal data class FeedInteractions(
     val onRefresh: () -> Unit,
     val onRetry: () -> Unit,
     val onLoadMore: () -> Unit,
+    val onRetryOutgoing: (localId: String) -> Unit,
+    val onDiscardOutgoing: (localId: String) -> Unit,
     val coordinator: FeedVideoPlayerCoordinator?,
 )
 
@@ -288,6 +290,8 @@ internal fun rememberFeedInteractions(
     val onRefresh = remember(viewModel) { { viewModel.handleEvent(FeedEvent.Refresh) } }
     val onRetry = remember(viewModel) { { viewModel.handleEvent(FeedEvent.Retry) } }
     val onLoadMore = remember(viewModel) { { viewModel.handleEvent(FeedEvent.LoadMore) } }
+    val onRetryOutgoing = remember(viewModel) { { localId: String -> viewModel.handleEvent(FeedEvent.RetryOutgoing(localId)) } }
+    val onDiscardOutgoing = remember(viewModel) { { localId: String -> viewModel.handleEvent(FeedEvent.DiscardOutgoing(localId)) } }
 
     // Coordinator is hoisted here so it can receive the Hilt-injected
     // SharedVideoPlayer from the ViewModel. Keyed on viewModel so a VM
@@ -395,6 +399,8 @@ internal fun rememberFeedInteractions(
         onVideoTap = onVideoTap,
         onRefresh = onRefresh,
         onRetry = onRetry,
+        onRetryOutgoing = onRetryOutgoing,
+        onDiscardOutgoing = onDiscardOutgoing,
         onLoadMore = onLoadMore,
         coordinator = coordinator,
     )
