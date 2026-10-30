@@ -1,4 +1,4 @@
-package net.kikin.nubecita.core.common.spatial
+package net.kikin.nubecita.designsystem.spatial
 
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue

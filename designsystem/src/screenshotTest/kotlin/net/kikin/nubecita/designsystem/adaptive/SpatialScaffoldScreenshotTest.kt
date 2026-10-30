@@ -11,11 +11,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.core.common.spatial.DefaultSpatialSessionEnvironment
-import net.kikin.nubecita.core.common.spatial.LocalSpatialSessionEnvironment
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
+import net.kikin.nubecita.designsystem.spatial.DefaultSpatialSessionEnvironment
+import net.kikin.nubecita.designsystem.spatial.LocalSpatialSessionEnvironment
 
 private const val COMPACT_WIDTH_DP: Int = 360
 private const val MEDIUM_WIDTH_DP: Int = 600

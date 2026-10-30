@@ -554,3 +554,14 @@ tasks.register("publish") {
 tasks.named<Delete>("clean") {
     delete(layout.projectDirectory.dir("src/benchRelease/generated"))
 }
+
+// Jetpack XR pulls in the *phone* ARCore provider (arcore-play-services ->
+// com.google.ar:core), for AR perception on handsets. Nubecita only uses
+// spatial panels and orbiters, which headsets serve via OpenXR, so drop it:
+// ~170 KB of native code and ~1.7k R8-kept classes per install, plus ARCore's
+// install activity and Play metadata. Verified on the XR emulator (Full Space
+// panel, orbiter, list-detail) without it (nubecita-2mnp).
+configurations.configureEach {
+    exclude(group = "androidx.xr.arcore", module = "arcore-play-services")
+    exclude(group = "com.google.ar", module = "core")
+}
