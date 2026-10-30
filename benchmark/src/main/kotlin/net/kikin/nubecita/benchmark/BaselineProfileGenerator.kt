@@ -34,11 +34,14 @@ import org.junit.runner.RunWith
  *
  * 1. Feed scroll (the 120hz fling path)
  * 2. Open a post → `PostDetail` (+ scroll the thread)
- * 3. `Profile` (You tab) → switch Posts/Replies/Media → scroll
- * 4. `Search` → type a query → results
- * 5. `Chats` → open a conversation thread (skipped if the account has none)
- * 6. `Composer` → open → type
- * 7. **Two-pane list-detail** — captured implicitly: run this same
+ * 3. Trending videos: Discover chip → Trending carousel → vertical video feed
+ *    → swipe through three videos → open the comments sheet → back to the
+ *    Following feed
+ * 4. `Profile` (You tab) → switch Posts/Replies/Media → scroll
+ * 5. `Search` → type a query → results
+ * 6. `Chats` → open a conversation thread (skipped if the account has none)
+ * 7. `Composer` → open → type
+ * 8. **Two-pane list-detail** — captured implicitly: run this same
  *    generator on a **tablet** and journeys 2–4 render through the
  *    `ListDetailSceneStrategy` + `ActiveTabScopedSceneStrategy` two-pane
  *    path. For full coverage, generate on a phone AND a tablet and let
@@ -46,7 +49,11 @@ import org.junit.runner.RunWith
  *
  * Each post-startup step is defensive: a missing/renamed selector logs a
  * warning (tag `$TAG`) and the journey continues, so one flaky surface
- * never fails the whole multi-minute generation. After a run, check
+ * never fails the whole multi-minute generation. Every step after the feed
+ * scroll first returns to the Feed tab on the Following feed
+ * ([returnToFeed]): a step that fails part-way leaves the app wherever it
+ * got to — on a phone a sub-route hides the tab bar — and without that reset
+ * every later step fails to find its tab. After a run, check
  * logcat for the line `"baseline journey coverage: …"` to see which
  * journeys actually ran (`ok`) vs were skipped.
  *
@@ -103,16 +110,62 @@ class BaselineProfileGenerator {
             // 2. Open a post → PostDetail → scroll → back.
             coverage["post_detail"] =
                 step("post_detail") {
-                    device.tapInList(FEED_LIST_RES_ID)
-                    device.requireRes(POST_DETAIL_LIST_RES_ID)
+                    device.returnToFeed()
+                    // The tagged body text, not a coordinate: a blind tap into a
+                    // card can land on the action row and like or repost on the
+                    // signed-in account.
+                    device.requireRes(POST_CARD_BODY_RES_ID).click()
+                    device.requireRes(POST_DETAIL_LIST_RES_ID, FEED_WAIT_MS)
                     device.flingList(POST_DETAIL_LIST_RES_ID)
                     device.pressBack()
                     device.requireRes(FEED_LIST_RES_ID)
                 }
 
-            // 3. Profile (You) → switch tabs → scroll.
+            // 3. Trending videos → vertical feed → comments → back.
+            coverage["trending_videos"] =
+                step("trending_videos") {
+                    device.returnToFeed()
+                    check(device.tapText(FEED_DISCOVER_CHIP_TEXT)) { "Discover chip not found" }
+                    // The carousel heads the Discover list; scroll back to the top
+                    // if the list kept an offset.
+                    val poster =
+                        device.awaitRes(TRENDING_VIDEO_THUMB_RES_ID, FEED_WAIT_MS)
+                            ?: run {
+                                device.awaitRes(FEED_LIST_RES_ID)?.apply {
+                                    setGestureMargin(device.displayWidth / 5)
+                                    fling(Direction.UP)
+                                }
+                                device.requireRes(TRENDING_VIDEO_THUMB_RES_ID, FEED_WAIT_MS)
+                            }
+                    poster.click()
+                    device.requireRes(VIDEO_FEED_RES_ID, FEED_WAIT_MS)
+                    repeat(TRENDING_VIDEO_SWIPES) {
+                        device.requireRes(VIDEO_FEED_RES_ID).apply {
+                            setGestureMargin(device.displayWidth / 5)
+                            fling(Direction.UP)
+                        }
+                        device.waitForIdle()
+                        // Let the promoted clip actually start playing.
+                        SystemClock.sleep(VIDEO_PLAY_MS)
+                    }
+                    device.requireRes(VIDEO_FEED_RAIL_REPLY_RES_ID).click()
+                    // The docked pill is the sheet's one unconditional element:
+                    // the comments list is only composed when the video has
+                    // comments (loading/empty/error states render without it).
+                    device.requireRes(DOCKED_COMMENT_PILL_RES_ID, FEED_WAIT_MS)
+                    SystemClock.sleep(RESULTS_SETTLE_MS)
+                    if (device.hasObject(By.res(VIDEO_COMMENTS_LIST_RES_ID))) {
+                        device.flingList(VIDEO_COMMENTS_LIST_RES_ID)
+                    }
+                    // Back out of the sheet and the vertical feed, and switch the
+                    // persisted feed choice back to Following.
+                    device.returnToFeed()
+                }
+
+            // 4. Profile (You) → switch tabs → scroll.
             coverage["profile"] =
                 step("profile") {
+                    device.returnToFeed()
                     check(device.tapDesc(TAB_YOU_DESC)) { "You tab not found" }
                     device.requireRes(PROFILE_LIST_RES_ID)
                     device.tapText("Replies")
@@ -121,9 +174,10 @@ class BaselineProfileGenerator {
                     device.flingList(PROFILE_LIST_RES_ID)
                 }
 
-            // 4. Search → type → results.
+            // 5. Search → type → results.
             coverage["search"] =
                 step("search") {
+                    device.returnToFeed()
                     check(device.tapDesc(TAB_SEARCH_DESC)) { "Search tab not found" }
                     val input = device.requireRes(SEARCH_INPUT_RES_ID)
                     input.click()
@@ -134,9 +188,10 @@ class BaselineProfileGenerator {
                     device.pressBack() // collapse the search overlay
                 }
 
-            // 5. Chats → open a thread (optional: the account may have no convos).
+            // 6. Chats → open a thread (optional: the account may have no convos).
             coverage["chats"] =
                 step("chats") {
+                    device.returnToFeed()
                     check(device.tapDesc(TAB_CHATS_DESC)) { "Chats tab not found" }
                     val convo = device.awaitRes(CHAT_CONVO_ITEM_RES_ID)
                     if (convo != null) {
@@ -148,11 +203,10 @@ class BaselineProfileGenerator {
                     }
                 }
 
-            // 6. Composer → open → type.
+            // 7. Composer → open → type.
             coverage["composer"] =
                 step("composer") {
-                    check(device.tapDesc(TAB_FEED_DESC)) { "Feed tab not found" }
-                    device.requireRes(FEED_LIST_RES_ID)
+                    device.returnToFeed()
                     check(device.tapDesc(COMPOSE_FAB_DESC)) { "Compose FAB not found" }
                     val field = device.requireRes(COMPOSER_TEXT_FIELD_RES_ID)
                     field.click()
@@ -180,6 +234,9 @@ private const val TAG: String = "BaselineJourney"
 private const val SHORT_WAIT_MS: Long = 5_000
 private const val FEED_WAIT_MS: Long = 15_000
 private const val RESULTS_SETTLE_MS: Long = 2_000
+private const val TRENDING_VIDEO_SWIPES: Int = 3
+private const val VIDEO_PLAY_MS: Long = 1_500
+private const val MAX_BACK_PRESSES: Int = 4
 
 /**
  * Hard sign-in gate (shared by both tests). A `false` from `device.wait`
@@ -196,6 +253,30 @@ private fun awaitSignedInFeed(device: UiDevice) {
             "instead of MainShell → Feed. Sign in once, then re-run " +
             "`./gradlew :app:generateReleaseBaselineProfile`."
     }
+}
+
+/**
+ * Get back to the Feed tab showing the Following feed, from wherever the last
+ * step left the app. Taps the Feed tab when the tab bar is up (on another tab,
+ * or already on Feed); otherwise presses back to leave a sub-route, sheet or the
+ * vertical video feed. Never presses back once the tab bar is visible — on the
+ * Feed tab that would exit the app.
+ */
+private fun UiDevice.returnToFeed() {
+    for (attempt in 0..MAX_BACK_PRESSES) {
+        if (hasObject(By.desc(TAB_FEED_DESC))) {
+            check(tapDesc(TAB_FEED_DESC)) { "Feed tab not found" }
+            break
+        }
+        if (attempt == MAX_BACK_PRESSES) error("tab bar not reachable after $MAX_BACK_PRESSES back presses")
+        pressBack()
+        waitForIdle()
+    }
+    requireRes(FEED_LIST_RES_ID, FEED_WAIT_MS)
+    // The selected feed is persisted; restore Following (a no-op tap if it is
+    // already selected).
+    tapText(FEED_FOLLOWING_CHIP_TEXT)
+    requireRes(FEED_LIST_RES_ID, FEED_WAIT_MS)
 }
 
 /** Run [block]; on any failure log it and report `false` (journey continues). */
@@ -252,19 +333,5 @@ private fun UiDevice.flingList(resId: String) {
         setGestureMargin(displayWidth / 5)
         fling(Direction.UP)
     }
-    waitForIdle()
-}
-
-/**
- * Tap a row inside a list by coordinate (no per-row test tag needed). The
- * point sits [yFraction] down the visible list — far enough below the top
- * chrome to land on a card body that navigates, not an action button.
- */
-private fun UiDevice.tapInList(
-    resId: String,
-    yFraction: Float = 0.22f,
-) {
-    val bounds = requireRes(resId).visibleBounds
-    click(bounds.centerX(), bounds.top + (bounds.height() * yFraction).toInt())
     waitForIdle()
 }

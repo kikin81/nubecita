@@ -44,6 +44,13 @@ internal const val FEED_LIST_RES_ID: String = "feed_list"
 /** `PostDetailScreen`'s loaded-thread `LazyColumn`. */
 internal const val POST_DETAIL_LIST_RES_ID: String = "post_detail_list"
 
+/**
+ * `PostCard`'s body text (`PostCardTestTags.BODY` in `:designsystem`, pinned by
+ * `PostCardTestTagsTest`). Tapping it opens post detail; a coordinate tap into a
+ * card can instead hit the action row and like or repost on a real account.
+ */
+internal const val POST_CARD_BODY_RES_ID: String = "post_card_body"
+
 /** `ProfileScreenContent`'s `LazyColumn`. */
 internal const val PROFILE_LIST_RES_ID: String = "profile_list"
 
@@ -76,6 +83,13 @@ internal const val COMPOSE_FAB_DESC: String = "Compose new post"
 
 /** Discover feed chip text (English generation device, like the tab descs). */
 internal const val FEED_DISCOVER_CHIP_TEXT: String = "Discover"
+
+/**
+ * Following feed chip text (`feed_following`). The selected feed is persisted,
+ * so a journey that switches to Discover switches back, or the next cold start
+ * — including the startup-profile capture — would open on Discover.
+ */
+internal const val FEED_FOLLOWING_CHIP_TEXT: String = "Following"
 
 /**
  * A poster in the Discover "Trending Videos" carousel — pinned to
