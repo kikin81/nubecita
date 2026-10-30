@@ -33,6 +33,13 @@ data class WearReply(
     val convoId: String,
 ) : NavKey
 
+/** Review a dictated or typed reply before sending it (W6). */
+@Serializable
+data class WearReplyReview(
+    val convoId: String,
+    val text: String,
+) : NavKey
+
 /** Pick a reaction for someone's message. */
 @Serializable
 data class WearReact(

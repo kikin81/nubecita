@@ -88,4 +88,9 @@
         <item quantity="many">%1$d mensagens não lidas</item>
         <item quantity="other">%1$d mensagens não lidas</item>
     </plurals>
+    <string name="wear_input_speak_or_type">Fale ou digite</string>
+    <string name="wear_input_reply_label">Sua resposta</string>
+    <string name="wear_input_send">Enviar</string>
+    <string name="wear_input_change">Alterar</string>
+    <string name="wear_input_too_long">Longo demais: %1$d / %2$d</string>
 </resources>

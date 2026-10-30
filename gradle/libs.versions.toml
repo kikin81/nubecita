@@ -47,6 +47,7 @@ nav3AdaptiveMaterial3 = "1.3.0"
 lifecycleViewmodelNav3 = "2.11.0"
 # Wear OS app (nubecita-sn52): pre-release Wear Compose M3 + Navigation 3 on purpose (design D8).
 wearCompose = "1.8.0-alpha02"
+wearInput = "1.2.0"
 wearPhoneInteractions = "1.1.1"
 wearRemoteInteractions = "1.3.0-beta01"
 watchfaceComplications = "1.3.0"
@@ -172,6 +173,7 @@ androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", vers
 androidx-wear-compose-foundation = { module = "androidx.wear.compose:compose-foundation", version.ref = "wearCompose" }
 androidx-wear-compose-material3 = { module = "androidx.wear.compose:compose-material3", version.ref = "wearCompose" }
 androidx-wear-compose-navigation3 = { module = "androidx.wear.compose:compose-navigation3", version.ref = "wearCompose" }
+androidx-wear-input = { module = "androidx.wear:wear-input", version.ref = "wearInput" }
 androidx-wear-phone-interactions = { module = "androidx.wear:wear-phone-interactions", version.ref = "wearPhoneInteractions" }
 androidx-wear-remote-interactions = { module = "androidx.wear:wear-remote-interactions", version.ref = "wearRemoteInteractions" }
 androidx-wear-watchface-complications-data-source-ktx = { module = "androidx.wear.watchface:watchface-complications-data-source-ktx", version.ref = "watchfaceComplications" }
