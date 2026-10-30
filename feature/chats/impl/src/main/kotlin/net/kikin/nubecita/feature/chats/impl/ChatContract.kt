@@ -262,6 +262,14 @@ enum class MessageSendStatus {
 sealed interface ChatEvent : UiEvent {
     data object Refresh : ChatEvent
 
+    /**
+     * The thread is on screen with the app foregrounded (lifecycle STARTED). Starts the live
+     * `getLog` poll that pulls in incoming messages; [ScreenStopped] stops it.
+     */
+    data object ScreenStarted : ChatEvent
+
+    data object ScreenStopped : ChatEvent
+
     data object RetryClicked : ChatEvent
 
     data object BackPressed : ChatEvent

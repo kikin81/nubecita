@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 
@@ -42,6 +43,12 @@ internal fun ChatScreen(
     val currentOnNavigateToProfile by rememberUpdatedState(onNavigateToProfile)
     val currentOnNavigateToGroupDetails by rememberUpdatedState(onNavigateToGroupDetails)
     val currentOnNavigateToHashtag by rememberUpdatedState(onNavigateToHashtag)
+    // Live incoming messages: the VM polls only while this thread is visible with the app
+    // foregrounded, so leaving the screen or backgrounding the app stops all network work.
+    LifecycleStartEffect(viewModel) {
+        viewModel.handleEvent(ChatEvent.ScreenStarted)
+        onStopOrDispose { viewModel.handleEvent(ChatEvent.ScreenStopped) }
+    }
     // Pre-resolve snackbar copy at composition so locale + dark-mode changes
     // participate in recomposition (reading via context.getString inside the
     // LaunchedEffect would bypass Compose's resource tracking). Mirrors
