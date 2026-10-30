@@ -184,6 +184,7 @@ internal fun NewGroupScreenContent(
                     label = stringResource(R.string.new_group_name_placeholder),
                     enabled = !state.isSubmitting,
                     isError = state.nameGraphemeCount > GROUP_NAME_MAX_GRAPHEMES,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                     supportingText = {
                         // The limit is stated up front; near it, the live counter takes over.
                         if (state.nameGraphemeCount >= GROUP_NAME_COUNTER_THRESHOLD) {
