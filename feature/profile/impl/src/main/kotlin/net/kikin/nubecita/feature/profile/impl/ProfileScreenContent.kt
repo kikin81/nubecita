@@ -324,15 +324,15 @@ internal fun ProfileScreenContent(
         }
     }
 
-    // Bring a just-submitted post into view: the composer closes back
+    // Bring a just-submitted post or reply into view: the composer closes back
     // onto a profile that may be scrolled down, and the outgoing card sits right
     // under the header. Once per outgoing post; saveable so the profile leaving
     // composition while the composer is on top doesn't make an old one look new.
     var shownOutgoing by rememberSaveable { mutableStateOf(listOf<String>()) }
-    val newestOutgoing = state.outgoingPosts.firstOrNull()?.localId
+    val newestOutgoing = (state.outgoingPosts.firstOrNull() ?: state.outgoingReplies.firstOrNull())?.localId
     LaunchedEffect(newestOutgoing) {
         if (newestOutgoing != null && newestOutgoing !in shownOutgoing) {
-            shownOutgoing = state.outgoingPosts.map { it.localId }
+            shownOutgoing = (state.outgoingPosts + state.outgoingReplies).map { it.localId }
             listState.animateScrollToItem(0)
         }
     }

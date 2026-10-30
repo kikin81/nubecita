@@ -269,6 +269,12 @@ internal class DefaultPostInteractionsCacheTest {
             val fresh = samplePost(id = PARENT).withReplies(5)
             cache.seed(listOf(fresh))
             assertEquals(5, fresh.mergeInteractionState(cache.state.value.getValue(PARENT)).stats.replyCount)
+            assertEquals(
+                null,
+                cache.state.value
+                    .getValue(PARENT)
+                    .replyCountFloor,
+            )
         }
 
     @Test

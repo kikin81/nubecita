@@ -88,7 +88,7 @@ internal class DefaultPostInteractionsCache
                                     isBookmarked = post.viewer.isBookmarked,
                                     bookmarkCount = post.stats.bookmarkCount.toLong(),
                                     replyCount = post.stats.replyCount.toLong(),
-                                    replyCountFloor = existing?.replyCountFloor,
+                                    replyCountFloor = existing?.replyCountFloor?.liveAbove(post),
                                 )
                         }
                     acc.putting(post.id, merged)
@@ -307,4 +307,7 @@ internal class DefaultPostInteractionsCache
     }
 
 /** Keeps the latest wire reply count (the floor's base) when the rest of [this] is preserved. */
-private fun PostInteractionState.withWireReplyCount(post: PostUi): PostInteractionState = copy(replyCount = post.stats.replyCount.toLong())
+private fun PostInteractionState.withWireReplyCount(post: PostUi): PostInteractionState = copy(replyCount = post.stats.replyCount.toLong(), replyCountFloor = replyCountFloor?.liveAbove(post))
+
+/** A floor the wire count has reached no longer does anything; drop it. */
+private fun Long.liveAbove(post: PostUi): Long? = takeIf { it > post.stats.replyCount }
