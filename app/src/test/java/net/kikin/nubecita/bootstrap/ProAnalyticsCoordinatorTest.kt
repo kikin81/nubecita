@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.AnalyticsInstanceIdProvider
+import net.kikin.nubecita.core.analytics.HasWatch
 import net.kikin.nubecita.core.analytics.IsPro
 import net.kikin.nubecita.core.analytics.NotificationsEnabled
 import net.kikin.nubecita.core.analytics.SelfHosted
@@ -20,6 +21,7 @@ import net.kikin.nubecita.core.billing.RevenueCatInitializer
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import net.kikin.nubecita.core.push.NotificationsEnabledSource
 import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
+import net.kikin.nubecita.core.wearsync.WearAppPresence
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -44,9 +46,11 @@ class ProAnalyticsCoordinatorTest {
                 theme = MutableStateFlow(PrefsThemePreference.DYNAMIC),
                 selfHosted = MutableStateFlow(false),
                 notificationsEnabled = MutableStateFlow(false),
+                hasWatch = MutableStateFlow(false),
             ).start()
             runCurrent()
 
+            assertTrue(analytics.properties.contains(HasWatch(false)))
             assertTrue(analytics.properties.contains(IsPro(false)))
             assertTrue(analytics.properties.contains(Theme(AnalyticsThemePreference.System)))
             assertTrue(analytics.properties.contains(SelfHosted(false)))
@@ -104,6 +108,20 @@ class ProAnalyticsCoordinatorTest {
             assertTrue(analytics.properties.contains(NotificationsEnabled(true)))
         }
 
+    @Test
+    fun `installing the watch app flips has_watch`() =
+        runTest(UnconfinedTestDispatcher()) {
+            val analytics = RecordingAnalyticsClient()
+            val hasWatch = MutableStateFlow(false)
+            coordinatorWith(analytics = analytics, hasWatch = hasWatch).start()
+            runCurrent()
+
+            hasWatch.value = true
+            runCurrent()
+
+            assertEquals(listOf(HasWatch(false), HasWatch(true)), analytics.properties.filterIsInstance<HasWatch>())
+        }
+
     // Builds a coordinator wired to controllable source flows; collaborators the
     // user-property path doesn't exercise (RevenueCat link, instance-id) are
     // relaxed mocks. Collectors run on the test's backgroundScope so they're
@@ -114,6 +132,7 @@ class ProAnalyticsCoordinatorTest {
         theme: MutableStateFlow<PrefsThemePreference> = MutableStateFlow(PrefsThemePreference.DYNAMIC),
         selfHosted: MutableStateFlow<Boolean> = MutableStateFlow(false),
         notificationsEnabled: MutableStateFlow<Boolean> = MutableStateFlow(false),
+        hasWatch: MutableStateFlow<Boolean> = MutableStateFlow(false),
     ): ProAnalyticsCoordinator {
         val entitlement = mockk<EntitlementRepository>(relaxed = true)
         every { entitlement.isPro } returns isPro
@@ -133,6 +152,10 @@ class ProAnalyticsCoordinatorTest {
             userPreferencesRepository = prefs,
             sessionStateProvider = session,
             notificationsEnabledSource = notifSource,
+            wearAppPresence =
+                object : WearAppPresence {
+                    override val isWearAppInstalled = hasWatch
+                },
             scope = backgroundScope,
         )
     }

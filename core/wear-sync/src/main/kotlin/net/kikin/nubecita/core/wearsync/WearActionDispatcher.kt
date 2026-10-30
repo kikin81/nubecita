@@ -1,6 +1,13 @@
 package net.kikin.nubecita.core.wearsync
 
 import kotlinx.coroutines.CancellationException
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.InteractPost
+import net.kikin.nubecita.core.analytics.PostAction
+import net.kikin.nubecita.core.analytics.PostSurface
+import net.kikin.nubecita.core.analytics.WatchAction
+import net.kikin.nubecita.core.analytics.WatchActionOutcome
+import net.kikin.nubecita.core.analytics.WatchActionType
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.wearcontract.WearAction
@@ -49,11 +56,15 @@ interface WearActionHandler {
  * - The result is written before the action item is deleted, and an action
  *   that already has a result is only deleted, so a redelivered item (a crash
  *   between the two writes, or a repeated change event) never likes twice.
+ * - Each answered action is logged once as a [WatchAction] with its outcome;
+ *   a successful post action is also an [InteractPost] from
+ *   [PostSurface.Watch]. A redelivered item is not counted again.
  */
 class WearActionDispatcher internal constructor(
     private val dataLayer: WearDataLayer,
     private val sessionStateProvider: SessionStateProvider,
     private val handlers: Set<@JvmSuppressWildcards WearActionHandler>,
+    private val analytics: AnalyticsClient,
     private val clock: Clock,
 ) {
     /**
@@ -96,7 +107,17 @@ class WearActionDispatcher internal constructor(
                 recordUri = outcome.getOrNull(),
             )
         dataLayer.put(WearPaths.actionResult(accountDid, actionId), WearCodec.encode(WearActionResult.serializer(), result), urgent = true)
+        logAnswered(request?.action, result.failure)
         dataLayer.deleteFromNode(sourceNodeId, path)
+    }
+
+    private fun logAnswered(
+        action: WearAction?,
+        failure: WearActionFailure?,
+    ) {
+        val postAction = action?.toPostAction()
+        if (failure == null && postAction != null) analytics.log(InteractPost(postAction, PostSurface.Watch))
+        analytics.log(WatchAction(action.toWatchActionType(), failure.toOutcome()))
     }
 
     private fun decode(json: String): WearActionRequest? =
@@ -123,3 +144,37 @@ class WearActionDispatcher internal constructor(
         val failure: WearActionFailure,
     ) : Exception(failure.name)
 }
+
+private fun WearAction?.toWatchActionType(): WatchActionType =
+    when (this) {
+        null -> WatchActionType.Unknown
+        is WearAction.Like -> WatchActionType.Like
+        is WearAction.Unlike -> WatchActionType.Unlike
+        is WearAction.Repost -> WatchActionType.Repost
+        is WearAction.Unrepost -> WatchActionType.Unrepost
+        is WearAction.Bookmark -> WatchActionType.Bookmark
+        is WearAction.Unbookmark -> WatchActionType.Unbookmark
+        is WearAction.DmReply -> WatchActionType.DmReply
+        is WearAction.DmReact -> WatchActionType.DmReact
+    }
+
+// DM actions have their own phone-side events; only post actions join interact_post.
+private fun WearAction.toPostAction(): PostAction? =
+    when (this) {
+        is WearAction.Like -> PostAction.Like
+        is WearAction.Unlike -> PostAction.Unlike
+        is WearAction.Repost -> PostAction.Repost
+        is WearAction.Unrepost -> PostAction.Unrepost
+        is WearAction.Bookmark -> PostAction.Bookmark
+        is WearAction.Unbookmark -> PostAction.Unbookmark
+        is WearAction.DmReply, is WearAction.DmReact -> null
+    }
+
+private fun WearActionFailure?.toOutcome(): WatchActionOutcome =
+    when (this) {
+        null -> WatchActionOutcome.Ok
+        WearActionFailure.ACCOUNT -> WatchActionOutcome.Account
+        WearActionFailure.UNSUPPORTED -> WatchActionOutcome.Unsupported
+        WearActionFailure.EXPIRED -> WatchActionOutcome.Expired
+        WearActionFailure.ERROR -> WatchActionOutcome.Error
+    }

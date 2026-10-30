@@ -8,6 +8,7 @@ import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import dagger.multibindings.Multibinds
 import kotlinx.coroutines.CoroutineScope
+import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.core.feedcache.FeedRepository
@@ -88,8 +89,9 @@ internal object WearSyncProvidesModule {
         sessionStateProvider: SessionStateProvider,
         feedSync: WearFeedSync,
         refreshTrigger: WearFeedRefreshTrigger,
+        analytics: AnalyticsClient,
         clock: Clock,
-    ): WearSyncRequestHandler = WearSyncRequestHandler(sessionPublisher, sessionStateProvider, feedSync, refreshTrigger, clock)
+    ): WearSyncRequestHandler = WearSyncRequestHandler(sessionPublisher, sessionStateProvider, feedSync, refreshTrigger, analytics, clock)
 
     @Provides
     @Singleton
@@ -97,8 +99,9 @@ internal object WearSyncProvidesModule {
         dataLayer: WearDataLayer,
         sessionStateProvider: SessionStateProvider,
         handlers: Set<@JvmSuppressWildcards WearActionHandler>,
+        analytics: AnalyticsClient,
         clock: Clock,
-    ): WearActionDispatcher = WearActionDispatcher(dataLayer, sessionStateProvider, handlers, clock)
+    ): WearActionDispatcher = WearActionDispatcher(dataLayer, sessionStateProvider, handlers, analytics, clock)
 
     @Provides
     @Singleton

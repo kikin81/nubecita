@@ -280,6 +280,28 @@ class AnalyticsModelTest {
     }
 
     @Test
+    fun `watch events carry only bucketed params and pass GA4 validation`() {
+        assertEquals("watch_app_open", WatchAppOpen.name)
+        assertEquals(emptyMap<String, AnalyticsValue>(), WatchAppOpen.params)
+
+        val action = WatchAction(type = WatchActionType.DmReply, outcome = WatchActionOutcome.Expired)
+        assertEquals("watch_action", action.name)
+        assertEquals(mapOf("action_type" to Str("dm_reply"), "outcome" to Str("expired")), action.params)
+        assertEquals(
+            listOf("like", "unlike", "repost", "unrepost", "bookmark", "unbookmark", "dm_reply", "dm_react", "unknown"),
+            WatchActionType.entries.map { it.wire },
+        )
+        assertEquals(listOf("ok", "account", "unsupported", "expired", "error"), WatchActionOutcome.entries.map { it.wire })
+
+        assertEquals("watch", PostSurface.Watch.wire)
+        assertEquals("has_watch", HasWatch(true).name)
+        assertEquals("true", HasWatch(true).value)
+
+        listOf(WatchAppOpen, action, InteractPost(PostAction.Bookmark, PostSurface.Watch)).forEach { AnalyticsValidator.requireValid(it) }
+        AnalyticsValidator.requireValid(HasWatch(false))
+    }
+
+    @Test
     fun `post menu and post text events carry only kinds and pass GA4 validation`() {
         val menu = PostMenuSelect(action = PostMenuAction.ReportPost, surface = PostSurface.PostDetail)
         assertEquals("post_menu_select", menu.name)

@@ -299,6 +299,9 @@ enum class PostSurface(
     Explore("explore"),
     Bookmarks("bookmarks"),
     Videos("videos"),
+
+    /** The Wear OS app, relayed through the phone (`:core:wear-sync`). */
+    Watch("watch"),
 }
 
 /** Fired at like/repost/quote/reply call sites. */
@@ -941,5 +944,61 @@ data class PostTextTap(
         mapOf(
             "text_target" to Str(target.wire),
             "source_surface" to Str(surface.wire),
+        )
+}
+
+/**
+ * Fired on the phone when the watch app opens and asks for a fresh feed
+ * (`:core:wear-sync`'s sync request). Counting users with this event gives
+ * watch DAU/WAU without any analytics SDK on the watch itself.
+ */
+data object WatchAppOpen : AnalyticsEvent {
+    override val name: String = "watch_app_open"
+    override val params: Map<String, AnalyticsValue> = emptyMap()
+}
+
+/** An action the watch asked the phone to run. */
+enum class WatchActionType(
+    val wire: String,
+) {
+    Like("like"),
+    Unlike("unlike"),
+    Repost("repost"),
+    Unrepost("unrepost"),
+    Bookmark("bookmark"),
+    Unbookmark("unbookmark"),
+    DmReply("dm_reply"),
+    DmReact("dm_react"),
+
+    /** The payload couldn't be read (a newer contract, or malformed). */
+    Unknown("unknown"),
+}
+
+/** How the phone answered a watch action — the reason the watch is told. */
+enum class WatchActionOutcome(
+    val wire: String,
+) {
+    Ok("ok"),
+    Account("account"),
+    Unsupported("unsupported"),
+    Expired("expired"),
+    Error("error"),
+}
+
+/**
+ * Fired once per action the watch sends, whatever the outcome, so watch
+ * reliability is measurable. Successful post actions are also logged as
+ * [InteractPost] with [PostSurface.Watch], so they sit beside phone
+ * interactions. No post URI, conversation, text or emoji is ever attached.
+ */
+data class WatchAction(
+    val type: WatchActionType,
+    val outcome: WatchActionOutcome,
+) : AnalyticsEvent {
+    override val name: String = "watch_action"
+    override val params: Map<String, AnalyticsValue> =
+        mapOf(
+            "action_type" to Str(type.wire),
+            "outcome" to Str(outcome.wire),
         )
 }
