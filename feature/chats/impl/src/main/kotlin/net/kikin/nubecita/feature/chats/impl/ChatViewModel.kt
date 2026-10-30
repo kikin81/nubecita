@@ -12,9 +12,11 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -72,6 +74,16 @@ class ChatViewModel
          */
         private var convoId: String? = null
 
+        /** The live `getLog` poll; active only between [ChatEvent.ScreenStarted] and [ChatEvent.ScreenStopped]. */
+        private var livePollJob: Job? = null
+
+        /**
+         * Poll time elapsed since the viewer last interacted with the thread (opened it, typed
+         * or sent). Past [INACTIVE_TIMEOUT_MS] the poll drops to [IDLE_POLL_INTERVAL_MS].
+         * Counted in poll delays rather than wall-clock so it follows virtual time in tests.
+         */
+        private var idleMs = 0L
+
         /**
          * Canonical newest-first message list (the source the thread `LazyColumn`
          * derives from via [toThreadItems]). Held outside `UiState` so optimistic
@@ -128,12 +140,22 @@ class ChatViewModel
                 .distinctUntilChanged()
                 .onEach { enabled -> setState { copy(isSendEnabled = enabled) } }
                 .launchIn(viewModelScope)
+            // Typing counts as activity: keep the live poll at the active rate.
+            snapshotFlow { textFieldState.text.toString() }
+                .drop(1)
+                .onEach { idleMs = 0L }
+                .launchIn(viewModelScope)
             launchLoad()
         }
 
         override fun handleEvent(event: ChatEvent) {
             when (event) {
                 ChatEvent.Refresh -> launchLoad()
+                ChatEvent.ScreenStarted -> startLivePoll()
+                ChatEvent.ScreenStopped -> {
+                    livePollJob?.cancel()
+                    livePollJob = null
+                }
                 ChatEvent.RetryClicked -> launchLoad()
                 ChatEvent.BackPressed -> Unit // screen handles back via nav state
                 ChatEvent.Send -> onSend()
@@ -304,6 +326,66 @@ class ChatViewModel
         }
 
         /**
+         * Pull in incoming messages while the thread is visible. Mirrors the official client:
+         * poll `chat.bsky.convo.getLog` every [ACTIVE_POLL_INTERVAL_MS], drop to
+         * [IDLE_POLL_INTERVAL_MS] after [INACTIVE_TIMEOUT_MS] without interaction, and back
+         * off on failures. Foreground-only by construction — the screen stops it when the
+         * lifecycle drops below STARTED, so there is no background work.
+         *
+         * The first call (no cursor) only establishes the baseline; the thread's initial
+         * `getMessages` already covers everything before it.
+         */
+        private fun startLivePoll() {
+            if (livePollJob?.isActive == true) return
+            idleMs = 0L
+            livePollJob =
+                viewModelScope.launch {
+                    var cursor: String? = repository.getLog(null).getOrNull()?.nextCursor
+                    var failures = 0
+                    while (true) {
+                        val interval =
+                            when {
+                                failures > 0 ->
+                                    (ACTIVE_POLL_INTERVAL_MS shl failures.coerceAtMost(MAX_BACKOFF_SHIFT))
+                                        .coerceAtMost(IDLE_POLL_INTERVAL_MS)
+                                idleMs >= INACTIVE_TIMEOUT_MS -> IDLE_POLL_INTERVAL_MS
+                                else -> ACTIVE_POLL_INTERVAL_MS
+                            }
+                        val idleBefore = idleMs
+                        delay(interval)
+                        // Typing/sending during the delay reset idleMs; don't age it by the stale interval.
+                        if (idleMs >= idleBefore) idleMs += interval
+                        repository
+                            .getLog(cursor)
+                            .onSuccess { page ->
+                                failures = 0
+                                if (cursor != null) {
+                                    val convo = convoId
+                                    if (convo != null && page.events.any { it.convoId == convo }) syncMessages(convo)
+                                }
+                                cursor = page.nextCursor ?: cursor
+                            }.onFailure { failures++ }
+                    }
+                }
+        }
+
+        /**
+         * Refetch the newest page after the log reported a new message. Rows still sending or
+         * failed locally are kept on top: a wholesale replace would drop a failed send the
+         * viewer hasn't retried yet.
+         */
+        private suspend fun syncMessages(convo: String) {
+            repository.getMessages(convo).onSuccess { page ->
+                val serverIds = page.messages.mapTo(HashSet()) { it.id }
+                val unsent = messages.filter { it.sendStatus != MessageSendStatus.Sent && it.id !in serverIds }
+                messages = unsent + page.messages
+                commitMessages()
+                hydrateMissingSenders()
+                viewModelScope.launch { repository.markConvoRead(convo) }
+            }
+        }
+
+        /**
          * Optimistic send: clear the field, append a `Sending` row with a client
          * temp id, then call the repository. On success the temp row is replaced
          * by the server message (`Sent`); on failure it flips to `Failed`. The
@@ -317,6 +399,7 @@ class ChatViewModel
          * in), and a failed row is re-inserted so the send isn't silently lost.
          */
         private fun onSend() {
+            idleMs = 0L
             val convo = convoId ?: return
             // Defensive: the send button is already disabled when !canPost, but the
             // IME Send action can still fire — veto it here too.
@@ -397,8 +480,10 @@ class ChatViewModel
                             }
                         messages =
                             when {
+                                // A refresh (e.g. the live poll) already pulled the server copy in:
+                                // drop the temp row rather than turning it into a duplicate.
+                                messages.any { it.id == server.id } -> messages.filterNot { it.id == tempId }
                                 messages.any { it.id == tempId } -> messages.map { if (it.id == tempId) server else it }
-                                messages.any { it.id == server.id } -> messages // refresh already pulled it in
                                 else -> listOf(server) + messages // temp row wiped mid-send; don't lose the sent message
                             }
                         commitMessages()
@@ -571,5 +656,19 @@ class ChatViewModel
             } else {
                 setState { copy(status = ChatLoadStatus.InitialError(error)) }
             }
+        }
+
+        internal companion object {
+            /** Poll cadence while the viewer is active in the thread (official client: 4s). */
+            const val ACTIVE_POLL_INTERVAL_MS = 5_000L
+
+            /** Poll cadence once the thread has been idle for [INACTIVE_TIMEOUT_MS]. */
+            const val IDLE_POLL_INTERVAL_MS = 60_000L
+
+            /** No interaction for this long and the thread counts as inactive (official client: 5 min). */
+            const val INACTIVE_TIMEOUT_MS = 5 * 60_000L
+
+            /** Failure backoff caps at [IDLE_POLL_INTERVAL_MS]; this bounds the shift itself. */
+            private const val MAX_BACKOFF_SHIFT = 4
         }
     }
