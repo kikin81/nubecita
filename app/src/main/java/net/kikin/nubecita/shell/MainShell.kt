@@ -43,6 +43,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import net.kikin.nubecita.R
 import net.kikin.nubecita.analytics.TrackScreenViews
+import net.kikin.nubecita.core.common.navigation.ComposerSubmitEvent
 import net.kikin.nubecita.core.common.navigation.ComposerSubmitEventsBus
 import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
 import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEventsEmitter
@@ -50,6 +51,7 @@ import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.core.common.navigation.rememberIsInPipMode
 import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
+import net.kikin.nubecita.core.posting.OutgoingPostStatus
 import net.kikin.nubecita.designsystem.LocalGifAutoplayEnabled
 import net.kikin.nubecita.designsystem.adaptive.SpatialScaffold
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -193,13 +195,11 @@ fun MainShell(modifier: Modifier = Modifier) {
         }
     val readOnlyTabReTapSignal = remember(tabReTapSignal) { tabReTapSignal.asSharedFlow() }
 
-    // MainShell-scoped composer submit-events bus. Emitted by the
-    // `ComposerRoute` entry (`ComposerNavigationModule`) on
-    // `ComposerEffect.OnSubmitSuccess` — full-screen at Compact and the
-    // `AdaptiveDialogSceneStrategy` Dialog at Medium / Expanded both render
-    // that one entry. Collected by feature screens (today: the feed) to
-    // surface a confirmation snackbar and, when the submit was a reply, run an
-    // optimistic `replyCount + 1` on the parent post.
+    // MainShell-scoped composer submit-events bus. Fed by the relay below
+    // from `OutgoingPostStore` once a post the composer handed off is sent.
+    // Collected by feature screens (today: the feed and the video surfaces)
+    // to surface a confirmation snackbar and, when the submit was a reply,
+    // run an optimistic `replyCount + 1` on the parent post.
     //
     // Both the read side (`bus.events`) and the write side
     // (`bus.emitter`) are provided shell-wide via separate
@@ -207,6 +207,27 @@ fun MainShell(modifier: Modifier = Modifier) {
     // why the producer/consumer separation is by naming/type rather
     // than visibility scoping.
     val composerSubmitEvents = remember { ComposerSubmitEventsBus() }
+
+    // Interim relay (nubecita-zxwh.1): the composer no longer sends posts
+    // itself, so forward each post the store finishes sending onto the bus.
+    // Posts already sent when the shell (re)enters composition are skipped so
+    // a rebuilt shell doesn't repeat their snackbar or reply-count bump.
+    // Removed once the feed and video surfaces read the store (zxwh.2 / .3).
+    val outgoingPostStore = remember(entryPoint) { entryPoint.outgoingPostStore() }
+    LaunchedEffect(outgoingPostStore, composerSubmitEvents) {
+        val relayed =
+            outgoingPostStore.posts.value
+                .filter { it.status is OutgoingPostStatus.Sent }
+                .mapTo(mutableSetOf()) { it.localId }
+        outgoingPostStore.posts.collect { posts ->
+            posts.forEach { post ->
+                val sent = post.status as? OutgoingPostStatus.Sent ?: return@forEach
+                if (relayed.add(post.localId)) {
+                    composerSubmitEvents.emitter.emit(ComposerSubmitEvent(newPostUri = sent.uri, replyToUri = post.replyToUri))
+                }
+            }
+        }
+    }
 
     // Shared between the scene strategy below and the bar/rail selector
     // further down — both need the same window-class signal.

@@ -199,9 +199,8 @@ class FeedViewModel
          * future profile timeline) or when pagination evicted the parent
          * before the submit landed.
          *
-         * No rollback on submit failure: the composer's submit pipeline
-         * surfaces failures via `ComposerEffect.ShowError` and never
-         * fires `OnSubmitSuccess` in the failure case, so this handler
+         * No rollback on submit failure: `MainShell` relays a submit
+         * event only once `OutgoingPostStore` reports the post sent, so this handler
          * only runs when the server confirmed the reply landed. The
          * `replyCount` we're incrementing is therefore always +1
          * relative to a server-confirmed write — the same invariant

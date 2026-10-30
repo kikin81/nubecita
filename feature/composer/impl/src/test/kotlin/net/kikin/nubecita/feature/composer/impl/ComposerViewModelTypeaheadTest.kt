@@ -68,6 +68,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class ComposerViewModelTypeaheadTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private val postingRepository = mockk<PostingRepository>(relaxed = true)
+    private val outgoingPostStore = ForwardingOutgoingPostStore(postingRepository)
     private val parentFetchSource = mockk<ParentFetchSource>(relaxed = true)
     private val typeaheadRepo = ControllableTypeaheadRepository()
 
@@ -317,7 +318,7 @@ class ComposerViewModelTypeaheadTest {
     private fun newVm(): ComposerViewModel =
         ComposerViewModel(
             route = ComposerRoute(replyToUri = null),
-            postingRepository = postingRepository,
+            outgoingPostStore = outgoingPostStore,
             parentFetchSource = parentFetchSource,
             quotePostFetcher = mockk(),
             actorRepository = typeaheadRepo,

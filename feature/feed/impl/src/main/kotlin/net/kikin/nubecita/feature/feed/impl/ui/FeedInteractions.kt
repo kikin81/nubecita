@@ -320,9 +320,9 @@ internal fun rememberFeedInteractions(
         onDispose { coordinator?.release() }
     }
 
-    // Composer submit-success bus. Fires when either composer host
-    // (Compact NavDisplay route or Medium / Expanded Dialog overlay)
-    // emits `OnSubmitSuccess`. Two side effects:
+    // Composer submit-success bus. Fires when `OutgoingPostStore` finishes
+    // sending a post the composer handed off (relayed by `MainShell`).
+    // Two side effects:
     //  - dispatch the optimistic `replyCount + 1` event when the
     //    submit was a reply, so the parent post in the feed reflects
     //    the new count without waiting for the next refresh.

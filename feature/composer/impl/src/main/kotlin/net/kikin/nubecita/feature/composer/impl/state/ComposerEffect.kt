@@ -1,6 +1,5 @@
 package net.kikin.nubecita.feature.composer.impl.state
 
-import io.github.kikin81.atproto.runtime.AtUri
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.posting.ComposerError
 
@@ -42,23 +41,12 @@ internal sealed interface ComposerEffect : UiEffect {
     ) : ComposerEffect
 
     /**
-     * The submit completed successfully. Carries the new post's AT
-     * URI for the feed's optimistic update path, plus the [replyToUri]
-     * the composer was opened with (null for top-level posts, the
-     * parent's URI when replying). Hosts use [replyToUri] to choose
-     * the success snackbar copy ("Post sent" vs "Reply sent") and to
-     * fire an optimistic `replyCount + 1` on the parent in the feed
-     * so the user doesn't see a stale "0 comments" after replying.
-     *
-     * V1 still does NOT optimistically insert the new post itself
-     * into the feed timeline — the post belongs in the parent's
-     * thread, not necessarily the user's home feed; the feed picks it
-     * up on next refresh if it would have appeared anyway.
+     * The post was handed to `OutgoingPostStore`, which sends it in the
+     * application scope and shows it on the feed, the profile and its thread
+     * while it sends. The host closes the composer; a send failure surfaces on
+     * those surfaces, not here.
      */
-    data class OnSubmitSuccess(
-        val newPostUri: AtUri,
-        val replyToUri: String?,
-    ) : ComposerEffect
+    data object Submitted : ComposerEffect
 
     /**
      * Attaching a video cleared the photos, GIF or link card that were there.

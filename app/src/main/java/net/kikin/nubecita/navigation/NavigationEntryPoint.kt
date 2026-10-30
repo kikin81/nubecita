@@ -10,6 +10,7 @@ import net.kikin.nubecita.core.common.navigation.MainShell
 import net.kikin.nubecita.core.common.navigation.NavKeyDeepLinkMatcher
 import net.kikin.nubecita.core.common.navigation.Navigator
 import net.kikin.nubecita.core.common.navigation.OuterShell
+import net.kikin.nubecita.core.posting.OutgoingPostStore
 import net.kikin.nubecita.core.preferences.AutoplayPolicy
 import net.kikin.nubecita.feature.chats.impl.store.ChatsUnreadCountStore
 import net.kikin.nubecita.feature.notifications.impl.store.NotificationsUnreadCountStore
@@ -56,6 +57,13 @@ interface NavigationEntryPoint {
     fun deepLinkMatchers(): Set<@JvmSuppressWildcards NavKeyDeepLinkMatcher>
 
     fun deepLinkRouter(): DeepLinkRouter
+
+    /**
+     * The app-scoped store the composer hands posts to. `MainShell` relays its
+     * sent posts onto the composer submit-events bus until the feed and video
+     * surfaces read the store directly (nubecita-zxwh.2 / .3).
+     */
+    fun outgoingPostStore(): OutgoingPostStore
 
     /**
      * The process-singleton unread-notifications store, populated by

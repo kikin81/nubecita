@@ -40,7 +40,7 @@ internal class ComposerSubmitEventsBusTest {
     fun `emit before subscribe — Channel buffers undelivered events for the late collector`() =
         // Pin the at-most-once-per-collector buffering contract that motivated the
         // SharedFlow → Channel switch. The Compact composer route detaches FeedScreen
-        // from composition while the composer is on top, so OnSubmitSuccess fires
+        // from composition while the composer is on top, so a sent post's event fires
         // while the consumer's collector is torn down. A SharedFlow(replay = 0)
         // would silently drop the event in that window; the Channel must hold it
         // until the consumer re-subscribes.
