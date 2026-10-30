@@ -1,6 +1,8 @@
 ¡Gracias por usar nubecita! Novedades:
-• nubecita en tu muñeca: una nueva app para Wear OS muestra tu feed en el reloj, incluso cuando tu teléfono no está cerca.
-• Elige qué llevar: en Ajustes → Reloj, elige hasta tres de tus feeds fijados. Siguiendo viene activado.
-• Siempre al día: al abrir la app en el reloj, el feed se actualiza desde tu teléfono, con fotos.
+• nubecita en tu muñeca: llegó nuestra nueva app para Wear OS.
+• Lee tu feed en el reloj, incluso sin tu teléfono cerca, y dale me gusta, comparte o guarda publicaciones.
+• Responde mensajes por voz, escribiendo o con una respuesta rápida, o reacciona a ellos.
+• Publica desde tu reloj: di o escribe una publicación corta y envíala.
+• Elige qué feeds fijados van a tu reloj en Ajustes → Reloj.
 • Corrección de errores y mejoras.
 ¡Gracias por acompañarnos! 💙

@@ -1,6 +1,8 @@
 Obrigado por usar o nubecita! Novidades:
-• nubecita no seu pulso: um novo app para Wear OS mostra seu feed no relógio, mesmo quando o celular não está por perto.
-• Escolha o que levar: em Configurações → Relógio, escolha até três dos seus feeds fixados. Seguindo já vem ativado.
-• Sempre atualizado: ao abrir o app no relógio, o feed é atualizado pelo celular, com fotos.
+• nubecita no seu pulso: chegou nosso novo app para Wear OS.
+• Leia seu feed no relógio, mesmo sem o celular por perto, e curta, republique ou salve posts.
+• Responda mensagens por voz, digitando ou com uma resposta rápida, ou reaja a elas.
+• Poste do seu relógio: fale ou digite um post curto e envie.
+• Escolha quais feeds fixados vão para o relógio em Configurações → Relógio.
 • Correções de bugs e melhorias.
 Obrigado por estar aqui! 💙

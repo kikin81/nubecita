@@ -1,6 +1,8 @@
 Thanks for using nubecita! What's new:
-• nubecita on your wrist: a new Wear OS app shows your feed on your watch, even when your phone isn't nearby.
-• Pick what goes with you: in Settings → Watch, choose up to three of your pinned feeds. Following is on by default.
-• Always fresh: opening the app on your watch updates the feed from your phone, photos included.
+• nubecita on your wrist: our new Wear OS app is here.
+• Read your feed on your watch, even when your phone isn't nearby, and like, repost or bookmark posts.
+• Reply to messages by voice, typing or a quick reply, or react to them.
+• Post from your watch: say or type a short post and send it.
+• Choose which pinned feeds go to your watch in Settings → Watch.
 • Bug fixes and improvements.
 Thanks for being here. 💙
