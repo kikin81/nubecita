@@ -8,6 +8,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.Multibinds
 import net.kikin.nubecita.wear.data.DataLayerWatchActionSender
 import net.kikin.nubecita.wear.data.WatchActionSender
 import net.kikin.nubecita.wear.data.db.WatchActionDao
@@ -16,6 +17,7 @@ import net.kikin.nubecita.wear.data.db.WatchDmActionDao
 import net.kikin.nubecita.wear.data.db.WatchDmDao
 import net.kikin.nubecita.wear.data.db.WatchFeedDao
 import net.kikin.nubecita.wear.data.sync.DataLayerWatchSync
+import net.kikin.nubecita.wear.data.sync.DmSyncObserver
 import net.kikin.nubecita.wear.data.sync.FileWatchImageStore
 import net.kikin.nubecita.wear.data.sync.WatchImageStore
 import net.kikin.nubecita.wear.data.sync.WatchSync
@@ -60,6 +62,10 @@ internal interface WatchDataBindsModule {
 
     @Binds
     fun bindWatchActionSender(impl: DataLayerWatchActionSender): WatchActionSender
+
+    /** Told when synced DMs change; the Wear app contributes the complication updater. */
+    @Multibinds
+    fun dmSyncObservers(): Set<DmSyncObserver>
 
     // WatchFeedRepository, WatchActionRepository and WatchDmRepository are bound by the Wear app per flavor: Room in
     // production, fixtures in bench (Play Store screenshots).

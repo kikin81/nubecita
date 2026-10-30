@@ -38,6 +38,7 @@ class WatchSyncIngester
         private val dmDao: WatchDmDao,
         private val dmActionDao: WatchDmActionDao,
         private val clock: Clock,
+        private val dmObservers: Set<@JvmSuppressWildcards DmSyncObserver>,
     ) {
         /**
          * Stores a feed snapshot. Ignored when it isn't a feed path, can't be
@@ -148,12 +149,14 @@ class WatchSyncIngester
             // Replies and reactions this snapshot now shows no longer need their placeholder.
             val settled = settledDmActions(messages, dmActionDao.all(accountDid), nowMs = clock.now().toEpochMilliseconds())
             if (settled.isNotEmpty()) dmActionDao.delete(settled)
+            notifyDmsChanged()
         }
 
         /** The phone deleted the DM snapshot (sign-out or account switch). */
         suspend fun onDmsDeleted(path: String) {
             val accountDid = WearPaths.parseDms(path) ?: return
             dmDao.deleteDms(accountDid)
+            notifyDmsChanged()
         }
 
         /** The phone deleted a feed's item (the user deselected it). */
@@ -182,6 +185,18 @@ class WatchSyncIngester
             dmDao.keepOnlyAccount(account?.did.orEmpty())
             dmActionDao.deleteExcept(account?.did.orEmpty())
             images.keepOnlyAccount(account?.did)
+            notifyDmsChanged()
+        }
+
+        // An observer failing must not undo or block the sync that just landed.
+        private fun notifyDmsChanged() {
+            dmObservers.forEach { observer ->
+                try {
+                    observer.onDmsChanged()
+                } catch (error: Exception) {
+                    Timber.w(error, "DM sync observer failed")
+                }
+            }
         }
     }
 

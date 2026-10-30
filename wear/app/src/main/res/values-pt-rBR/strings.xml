@@ -81,4 +81,11 @@
         <item>Obrigado!</item>
         <item>👍</item>
     </string-array>
+    <string name="wear_complication_unread_dms_label">Mensagens não lidas</string>
+    <string name="wear_complication_no_unread_dms">Nenhuma mensagem não lida</string>
+    <plurals name="wear_complication_unread_dms">
+        <item quantity="one">%1$d mensagem não lida</item>
+        <item quantity="many">%1$d mensagens não lidas</item>
+        <item quantity="other">%1$d mensagens não lidas</item>
+    </plurals>
 </resources>

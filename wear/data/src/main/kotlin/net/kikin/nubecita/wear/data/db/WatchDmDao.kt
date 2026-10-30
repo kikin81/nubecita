@@ -31,6 +31,13 @@ interface WatchDmDao {
     @Query("SELECT published_at_ms FROM watch_dm_state WHERE account_did = :accountDid")
     suspend fun publishedAtMs(accountDid: String): Long?
 
+    /**
+     * The unread total of the newest DM snapshot, or null when none is stored.
+     * Only the signed-in account's DMs are kept, so this needs no account.
+     */
+    @Query("SELECT unread_count FROM watch_dm_state ORDER BY published_at_ms DESC LIMIT 1")
+    suspend fun latestUnreadCount(): Int?
+
     /** Replaces the account's DMs in one transaction, so the UI never sees half a snapshot. */
     @Transaction
     suspend fun replaceDms(

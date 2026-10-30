@@ -31,6 +31,7 @@ dependencies {
     implementation(libs.androidx.wear.compose.navigation3)
     implementation(libs.androidx.wear.phone.interactions)
     implementation(libs.androidx.wear.remote.interactions)
+    implementation(libs.androidx.wear.watchface.complications.data.source.ktx)
     implementation(libs.coil.compose)
     implementation(libs.google.play.services.wearable)
     implementation(libs.kotlinx.collections.immutable)

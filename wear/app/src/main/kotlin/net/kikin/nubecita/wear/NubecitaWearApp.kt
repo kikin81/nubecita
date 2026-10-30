@@ -7,6 +7,7 @@ import androidx.compose.runtime.key
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
@@ -45,10 +46,12 @@ import net.kikin.nubecita.wear.ui.theme.NubecitaWearTheme
  * in — a Navigation 3 back stack where swipe-to-dismiss pops.
  *
  * The back stack is keyed by account, so a different account never inherits
- * the previous account's open screens.
+ * the previous account's open screens. [openMessages] starts it on the
+ * conversation list, above the feed so back still lands there.
  */
 @Composable
 fun NubecitaWearApp(
+    openMessages: Boolean = false,
     viewModel: WearGateViewModel = hiltViewModel(),
     feedViewModel: WatchFeedViewModel = hiltViewModel(),
     dmViewModel: WatchDmViewModel = hiltViewModel(),
@@ -69,7 +72,7 @@ fun NubecitaWearApp(
                 }
                 val now = rememberNow()
                 key(account.did) {
-                    val backStack = rememberNavBackStack(WearHome)
+                    val backStack = rememberNavBackStack(*if (openMessages) arrayOf<NavKey>(WearHome, WearConvos) else arrayOf<NavKey>(WearHome))
                     NavDisplay(
                         backStack = backStack,
                         sceneStrategies = listOf(rememberSwipeDismissableSceneStrategy()),

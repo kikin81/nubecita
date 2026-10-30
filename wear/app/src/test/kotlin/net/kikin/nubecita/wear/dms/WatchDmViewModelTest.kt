@@ -226,5 +226,7 @@ class WatchDmViewModelTest {
             messageQueries += accountDid to convoId
             return messages.map { all -> all.filter { it.accountDid == accountDid && it.convoId == convoId }.sortedBy { it.position } }
         }
+
+        override suspend fun latestUnreadCount() = header.value?.unreadCount
     }
 }

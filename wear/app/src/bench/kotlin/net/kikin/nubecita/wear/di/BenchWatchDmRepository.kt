@@ -45,6 +45,8 @@ internal class BenchWatchDmRepository
 
         override fun state(accountDid: String): Flow<WatchDmStateEntity?> = flowOf(WatchDmStateEntity(accountDid, now, unreadCount = 3))
 
+        override suspend fun latestUnreadCount(): Int = 3
+
         override fun convos(accountDid: String): Flow<List<WatchConvoEntity>> =
             flowOf(
                 convos.mapIndexed { position, (meta, messages) ->

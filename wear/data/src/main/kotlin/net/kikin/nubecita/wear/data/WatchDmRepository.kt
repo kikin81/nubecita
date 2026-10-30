@@ -22,6 +22,9 @@ interface WatchDmRepository {
         accountDid: String,
         convoId: String,
     ): Flow<List<WatchMessageEntity>>
+
+    /** The signed-in account's unread DM total, or null before DMs ever sync. */
+    suspend fun latestUnreadCount(): Int?
 }
 
 /** Production read side over Room. Bound by the Wear app's production flavor (bench binds a fake). */
@@ -40,4 +43,6 @@ class RoomWatchDmRepository
             accountDid: String,
             convoId: String,
         ) = dao.observeMessages(accountDid, convoId)
+
+        override suspend fun latestUnreadCount() = dao.latestUnreadCount()
     }
