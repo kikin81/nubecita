@@ -30,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -209,8 +210,10 @@ fun MainShell(modifier: Modifier = Modifier) {
     // fails again is reported again.
     val outgoingPostStore = remember(entryPoint) { entryPoint.outgoingPostStore() }
     val shellSnackbarHostState = remember { SnackbarHostState() }
-    val sendFailedMessage = stringResource(R.string.main_shell_send_failed)
-    val retryLabel = stringResource(R.string.main_shell_send_retry)
+    // rememberUpdatedState: the effect below outlives a locale change, so it
+    // reads the current copy at show time instead of the copy at launch.
+    val sendFailedMessage by rememberUpdatedState(stringResource(R.string.main_shell_send_failed))
+    val retryLabel by rememberUpdatedState(stringResource(R.string.main_shell_send_retry))
     LaunchedEffect(outgoingPostStore, shellSnackbarHostState) {
         val reported =
             outgoingPostStore.posts.value
