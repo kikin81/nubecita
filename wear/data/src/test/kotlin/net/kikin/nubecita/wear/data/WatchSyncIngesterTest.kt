@@ -31,6 +31,7 @@ import net.kikin.nubecita.wear.data.db.WatchMessageEntity
 import net.kikin.nubecita.wear.data.db.WatchPendingActionEntity
 import net.kikin.nubecita.wear.data.db.WatchPendingDmEntity
 import net.kikin.nubecita.wear.data.db.WatchPostEntity
+import net.kikin.nubecita.wear.data.sync.DmSyncObserver
 import net.kikin.nubecita.wear.data.sync.WatchImageStore
 import net.kikin.nubecita.wear.data.sync.WatchSyncIngester
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -51,6 +52,7 @@ class WatchSyncIngesterTest {
     private val dms = FakeDmDao()
     private val dmActions = FakeDmActionDao()
     private var nowMs = 1_000L
+    private var dmChanges = 0
     private val ingester =
         WatchSyncIngester(
             dao,
@@ -61,6 +63,7 @@ class WatchSyncIngesterTest {
             object : Clock {
                 override fun now() = Instant.fromEpochMilliseconds(nowMs)
             },
+            setOf(DmSyncObserver { dmChanges++ }),
         )
 
     private fun snapshot(
@@ -324,6 +327,30 @@ class WatchSyncIngesterTest {
         }
 
     @Test
+    fun dm_observers_hear_every_change_but_not_a_skipped_snapshot() =
+        runTest {
+            ingester.ingestDms(dmPath, dmSnapshot(10, convo("c1", "hi")))
+            assertEquals(1, dmChanges)
+
+            ingester.ingestDms(dmPath, dmSnapshot(5, convo("old", "stale")))
+            assertEquals(1, dmChanges, "an older snapshot changes nothing")
+
+            ingester.onDmsDeleted(dmPath)
+            assertEquals(2, dmChanges)
+
+            ingester.onSession(null)
+            assertEquals(3, dmChanges, "signing out clears DMs")
+        }
+
+    @Test
+    fun the_latest_unread_count_is_null_until_dms_sync() =
+        runTest {
+            assertNull(dms.latestUnreadCount())
+            ingester.ingestDms(dmPath, dmSnapshot(10, convo("c1", "hi")))
+            assertEquals(3, dms.latestUnreadCount())
+        }
+
+    @Test
     fun deleting_the_dm_snapshot_or_signing_out_clears_dms() =
         runTest {
             ingester.ingestDms(dmPath, dmSnapshot(10, convo("c1", "hi")))
@@ -353,6 +380,8 @@ class WatchSyncIngesterTest {
         override fun observeLastMessages(accountDid: String): Flow<List<WatchMessageEntity>> = MutableStateFlow(emptyList())
 
         override suspend fun publishedAtMs(accountDid: String) = state?.takeIf { it.accountDid == accountDid }?.publishedAtMs
+
+        override suspend fun latestUnreadCount() = state?.unreadCount
 
         override suspend fun upsertState(state: WatchDmStateEntity) {
             this.state = state

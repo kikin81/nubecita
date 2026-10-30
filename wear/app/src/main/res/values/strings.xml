@@ -77,4 +77,10 @@
         <item>Thanks!</item>
         <item>👍</item>
     </string-array>
+    <string name="wear_complication_unread_dms_label">Unread messages</string>
+    <string name="wear_complication_no_unread_dms">No unread messages</string>
+    <plurals name="wear_complication_unread_dms">
+        <item quantity="one">%1$d unread message</item>
+        <item quantity="other">%1$d unread messages</item>
+    </plurals>
 </resources>

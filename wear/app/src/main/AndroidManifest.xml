@@ -36,5 +36,27 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+            Unread-DMs complication (W5). Push-only: UPDATE_PERIOD_SECONDS=0, so
+            the system never polls it; the app requests an update when synced
+            DMs change. Only the system may bind it.
+        -->
+        <service
+            android:name=".complication.UnreadDmsComplicationService"
+            android:exported="true"
+            android:icon="@drawable/ic_messages"
+            android:label="@string/wear_complication_unread_dms_label"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data
+                android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="SHORT_TEXT,MONOCHROMATIC_IMAGE,SMALL_IMAGE" />
+            <meta-data
+                android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+                android:value="0" />
+        </service>
     </application>
 </manifest>
