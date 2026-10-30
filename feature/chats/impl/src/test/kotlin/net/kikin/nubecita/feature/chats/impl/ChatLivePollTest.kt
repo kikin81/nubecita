@@ -1,6 +1,9 @@
 package net.kikin.nubecita.feature.chats.impl
 
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import androidx.compose.runtime.snapshots.Snapshot
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -38,18 +41,18 @@ internal class ChatLivePollTest {
             val repo = loadedRepo()
             val vm = openThread(repo)
             repo.nextGetLogResult = Result.success(ChatLogPage(nextCursor = "cursor-0"))
-            vm.handleEvent(ChatEvent.ScreenStarted)
-            runCurrent()
+            vm.whileStarted {
+                runCurrent()
 
-            repo.nextMessagesResult = Result.success(MessagePage(messages = persistentListOf(message("m2"), message("m1"))))
-            repo.nextGetLogResult = Result.success(ChatLogPage(events = persistentListOf(logEvent(convoId, "m2")), nextCursor = "cursor-1"))
-            val messagesBefore = repo.messagesCalls.get()
-            advanceTimeBy(ChatViewModel.ACTIVE_POLL_INTERVAL_MS + 1)
+                repo.nextMessagesResult = Result.success(MessagePage(messages = persistentListOf(message("m2"), message("m1"))))
+                repo.nextGetLogResult = Result.success(ChatLogPage(events = persistentListOf(logEvent(convoId, "m2")), nextCursor = "cursor-1"))
+                val messagesBefore = repo.messagesCalls.get()
+                advanceTimeBy(ChatViewModel.ACTIVE_POLL_INTERVAL_MS + 1)
 
-            assertEquals("cursor-0", repo.lastGetLogCursor)
-            assertEquals(messagesBefore + 1, repo.messagesCalls.get())
-            assertTrue(vm.messageIds().contains("m2"))
-            vm.handleEvent(ChatEvent.ScreenStopped)
+                assertEquals("cursor-0", repo.lastGetLogCursor)
+                assertEquals(messagesBefore + 1, repo.messagesCalls.get())
+                assertTrue(vm.messageIds().contains("m2"))
+            }
         }
 
     @Test
@@ -58,15 +61,15 @@ internal class ChatLivePollTest {
             val repo = loadedRepo()
             val vm = openThread(repo)
             repo.nextGetLogResult = Result.success(ChatLogPage(nextCursor = "cursor-0"))
-            vm.handleEvent(ChatEvent.ScreenStarted)
-            runCurrent()
+            vm.whileStarted {
+                runCurrent()
 
-            repo.nextGetLogResult = Result.success(ChatLogPage(events = persistentListOf(logEvent("other", "x1")), nextCursor = "cursor-1"))
-            val messagesBefore = repo.messagesCalls.get()
-            advanceTimeBy(ChatViewModel.ACTIVE_POLL_INTERVAL_MS + 1)
+                repo.nextGetLogResult = Result.success(ChatLogPage(events = persistentListOf(logEvent("other", "x1")), nextCursor = "cursor-1"))
+                val messagesBefore = repo.messagesCalls.get()
+                advanceTimeBy(ChatViewModel.ACTIVE_POLL_INTERVAL_MS + 1)
 
-            assertEquals(messagesBefore, repo.messagesCalls.get())
-            vm.handleEvent(ChatEvent.ScreenStopped)
+                assertEquals(messagesBefore, repo.messagesCalls.get())
+            }
         }
 
     @Test
@@ -89,18 +92,82 @@ internal class ChatLivePollTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = loadedRepo()
             val vm = openThread(repo)
-            vm.handleEvent(ChatEvent.ScreenStarted)
-            advanceTimeBy(ChatViewModel.INACTIVE_TIMEOUT_MS + 1)
-            val callsWhenIdle = repo.getLogCalls.get()
+            vm.whileStarted {
+                advanceTimeBy(ChatViewModel.INACTIVE_TIMEOUT_MS + 1)
+                val callsWhenIdle = repo.getLogCalls.get()
 
-            // Several active intervals pass without a poll once idle...
-            advanceTimeBy(ChatViewModel.ACTIVE_POLL_INTERVAL_MS * 3)
-            assertEquals(callsWhenIdle, repo.getLogCalls.get())
-            // ...and one lands within the idle interval.
-            advanceTimeBy(ChatViewModel.IDLE_POLL_INTERVAL_MS)
-            assertTrue(repo.getLogCalls.get() > callsWhenIdle)
-            vm.handleEvent(ChatEvent.ScreenStopped)
+                // Several active intervals pass without a poll once idle...
+                advanceTimeBy(ChatViewModel.ACTIVE_POLL_INTERVAL_MS * 3)
+                assertEquals(callsWhenIdle, repo.getLogCalls.get())
+                // ...and one lands within the idle interval.
+                advanceTimeBy(ChatViewModel.IDLE_POLL_INTERVAL_MS)
+                assertTrue(repo.getLogCalls.get() > callsWhenIdle)
+            }
         }
+
+    @Test
+    fun `a refetch that lands mid-send doesn't leave a duplicate once the send returns`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = loadedRepo()
+            val vm = openThread(repo)
+            repo.nextGetLogResult = Result.success(ChatLogPage(nextCursor = "cursor-0"))
+            vm.whileStarted {
+                runCurrent()
+
+                // The send reaches the server but its response is slow.
+                val sent = message("s1").copy(senderDid = "did:plc:me", isOutgoing = true)
+                repo.sendGate = CompletableDeferred()
+                repo.nextSendResult = Result.success(sent)
+                vm.textFieldState.setTextAndPlaceCursorAtEnd("hello")
+                Snapshot.sendApplyNotifications()
+                runCurrent()
+                vm.handleEvent(ChatEvent.Send)
+                runCurrent()
+
+                // Meanwhile the poll sees it in the log and refetches it.
+                repo.nextMessagesResult = Result.success(MessagePage(messages = persistentListOf(sent, message("m1"))))
+                repo.nextGetLogResult = Result.success(ChatLogPage(events = persistentListOf(logEvent(convoId, "s1")), nextCursor = "cursor-1"))
+                advanceTimeBy(ChatViewModel.ACTIVE_POLL_INTERVAL_MS + 1)
+
+                repo.sendGate?.complete(Unit)
+                runCurrent()
+
+                assertEquals(listOf("s1", "m1"), vm.messageIds())
+            }
+        }
+
+    @Test
+    fun `typing during a slow idle poll keeps the thread active`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = loadedRepo()
+            val vm = openThread(repo)
+            vm.whileStarted {
+                advanceTimeBy(ChatViewModel.INACTIVE_TIMEOUT_MS + 1)
+                // Now idle (60s polls). Type partway through an idle delay.
+                advanceTimeBy(ChatViewModel.IDLE_POLL_INTERVAL_MS / 2)
+                vm.textFieldState.setTextAndPlaceCursorAtEnd("h")
+                Snapshot.sendApplyNotifications()
+                runCurrent()
+                advanceTimeBy(ChatViewModel.IDLE_POLL_INTERVAL_MS / 2 + 1)
+                // Still inside the inactivity window measured from the keystroke (~280s of 300s)...
+                advanceTimeBy(250_000L)
+                val calls = repo.getLogCalls.get()
+
+                // ...so polling is still at the active rate: one lands within one active interval.
+                advanceTimeBy(ChatViewModel.ACTIVE_POLL_INTERVAL_MS + 1)
+                assertTrue(repo.getLogCalls.get() > calls)
+            }
+        }
+
+    /** Runs [block] with the thread started, always stopping it so the endless poll loop can't outlive a failed assertion. */
+    private inline fun ChatViewModel.whileStarted(block: () -> Unit) {
+        handleEvent(ChatEvent.ScreenStarted)
+        try {
+            block()
+        } finally {
+            handleEvent(ChatEvent.ScreenStopped)
+        }
+    }
 
     private fun loadedRepo(): FakeChatRepository =
         FakeChatRepository(

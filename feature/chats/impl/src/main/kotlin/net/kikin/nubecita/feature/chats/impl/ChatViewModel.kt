@@ -351,8 +351,10 @@ class ChatViewModel
                                 idleMs >= INACTIVE_TIMEOUT_MS -> IDLE_POLL_INTERVAL_MS
                                 else -> ACTIVE_POLL_INTERVAL_MS
                             }
+                        val idleBefore = idleMs
                         delay(interval)
-                        idleMs += interval
+                        // Typing/sending during the delay reset idleMs; don't age it by the stale interval.
+                        if (idleMs >= idleBefore) idleMs += interval
                         repository
                             .getLog(cursor)
                             .onSuccess { page ->
@@ -478,8 +480,10 @@ class ChatViewModel
                             }
                         messages =
                             when {
+                                // A refresh (e.g. the live poll) already pulled the server copy in:
+                                // drop the temp row rather than turning it into a duplicate.
+                                messages.any { it.id == server.id } -> messages.filterNot { it.id == tempId }
                                 messages.any { it.id == tempId } -> messages.map { if (it.id == tempId) server else it }
-                                messages.any { it.id == server.id } -> messages // refresh already pulled it in
                                 else -> listOf(server) + messages // temp row wiped mid-send; don't lose the sent message
                             }
                         commitMessages()
