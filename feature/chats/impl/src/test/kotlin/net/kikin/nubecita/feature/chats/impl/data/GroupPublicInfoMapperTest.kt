@@ -1,7 +1,7 @@
 package net.kikin.nubecita.feature.chats.impl.data
 
 import io.github.kikin81.atproto.chat.bsky.actor.ProfileViewBasic
-import io.github.kikin81.atproto.chat.bsky.group.GroupPublicView
+import io.github.kikin81.atproto.chat.bsky.group.JoinLinkPreviewView
 import io.github.kikin81.atproto.runtime.Did
 import io.github.kikin81.atproto.runtime.Handle
 import io.github.kikin81.atproto.runtime.Uri
@@ -26,8 +26,12 @@ class GroupPublicInfoMapperTest {
         memberCount: Long = 7,
         requireApproval: Boolean = true,
         owner: ProfileViewBasic = owner(),
-    ) = GroupPublicView(
+    ) = JoinLinkPreviewView(
+        code = "code-1",
+        convoId = "convo-1",
+        joinRule = "anyone",
         memberCount = memberCount,
+        memberLimit = 50,
         name = name,
         owner = owner,
         requireApproval = requireApproval,

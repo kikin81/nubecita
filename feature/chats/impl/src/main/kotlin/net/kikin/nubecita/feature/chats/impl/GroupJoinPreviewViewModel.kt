@@ -53,7 +53,7 @@ class GroupJoinPreviewViewModel
             setState { copy(status = GroupJoinPreviewStatus.Loading) }
             viewModelScope.launch {
                 repository
-                    .getGroupPublicInfo(code)
+                    .getJoinLinkPreview(code)
                     .onSuccess { setState { copy(status = GroupJoinPreviewStatus.Loaded(it)) } }
                     .onFailure { setState { copy(status = GroupJoinPreviewStatus.Error(it.toJoinError())) } }
             }

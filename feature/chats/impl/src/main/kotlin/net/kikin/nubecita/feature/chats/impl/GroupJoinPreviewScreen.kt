@@ -22,6 +22,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -135,8 +136,25 @@ internal fun GroupJoinPreviewScreenContent(
 
                     is GroupJoinPreviewStatus.Error ->
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            TextButton(onClick = { onEvent(GroupJoinPreviewEvent.Retry) }) {
-                                Text(stringResource(R.string.new_chat_retry))
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Text(
+                                    text = groupJoinErrorMessage(status.error),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                )
+                                // Retrying can't revive a disabled link or lift a join rule.
+                                if (status.error is ChatError.Network || status.error is ChatError.Unknown) {
+                                    TextButton(
+                                        onClick = { onEvent(GroupJoinPreviewEvent.Retry) },
+                                        modifier = Modifier.padding(top = 8.dp),
+                                    ) {
+                                        Text(stringResource(R.string.new_chat_retry))
+                                    }
+                                }
                             }
                         }
 
@@ -193,3 +211,14 @@ internal fun GroupJoinPreviewScreenContent(
         }
     }
 }
+
+@Composable
+@ReadOnlyComposable
+private fun groupJoinErrorMessage(error: ChatError): String =
+    when (error) {
+        ChatError.InvalidInviteLink -> stringResource(R.string.group_join_error_invalid_link)
+        ChatError.FollowRequiredToJoin -> stringResource(R.string.group_join_error_follow_required)
+        ChatError.CannotRejoin -> stringResource(R.string.group_join_error_cannot_rejoin)
+        ChatError.GroupFull -> stringResource(R.string.add_members_error_full)
+        else -> stringResource(R.string.group_join_error_generic)
+    }

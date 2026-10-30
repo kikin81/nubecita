@@ -127,12 +127,13 @@ fun Throwable.toMemberMgmtError(): ChatError {
 }
 
 /**
- * Map a `chat.bsky.group.requestJoin` / `getGroupPublicInfo` failure to a [ChatError]. Recognises the
+ * Map a `chat.bsky.group.requestJoin` / `getJoinLinkPreviews` failure to a [ChatError]. Recognises the
  * joiner-side error codes (distinct UX from the owner-side member-mgmt codes) — notably the
  * invalid/disabled-link cases, which joiners routinely hit because owners can disable a link — then
  * delegates everything else to [toChatError].
  */
 fun Throwable.toJoinError(): ChatError {
+    if (this is InvalidJoinLinkException) return ChatError.InvalidInviteLink
     if (this is XrpcError) {
         val haystack = (errorName + " " + errorMessage).lowercase(Locale.ROOT)
         when {

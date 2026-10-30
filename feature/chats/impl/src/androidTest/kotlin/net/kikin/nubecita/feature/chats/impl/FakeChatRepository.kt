@@ -242,7 +242,7 @@ internal class FakeChatRepository(
 
     override suspend fun disableJoinLink(convoId: String): Result<JoinLinkUi> = Result.success(STUB_JOIN_LINK)
 
-    override suspend fun getGroupPublicInfo(code: String): Result<GroupPublicInfoUi> = Result.success(STUB_GROUP_PUBLIC_INFO)
+    override suspend fun getJoinLinkPreview(code: String): Result<GroupPublicInfoUi> = Result.success(STUB_GROUP_PUBLIC_INFO)
 
     override suspend fun requestJoin(code: String): Result<JoinResult> = Result.success(JoinResult.Pending)
 
