@@ -45,7 +45,7 @@ internal data class NotificationsPage(
  *   actor's new post (or verification record), not the shared subject.
  *
  * Output is sorted by `indexedAt` descending (newest first). Aggregation
- * runs per page; no cross-page merging in slice 1.
+ * runs per page; [appendPage] folds a group split across pages back together.
  */
 internal fun ListNotificationsResponse.toNotificationsPage(
     hydratedPosts: Map<String, PostUi> = emptyMap(),
