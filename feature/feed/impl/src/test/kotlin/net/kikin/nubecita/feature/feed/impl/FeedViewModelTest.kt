@@ -18,6 +18,9 @@ import net.kikin.nubecita.core.analytics.FeedType
 import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
+import net.kikin.nubecita.core.posting.OutgoingPost
+import net.kikin.nubecita.core.posting.OutgoingPostStatus
+import net.kikin.nubecita.core.posting.PostDraft
 import net.kikin.nubecita.core.postinteractions.InteractionEffect
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.preferences.AutoplayPolicy
@@ -29,6 +32,7 @@ import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.FeedKind
+import net.kikin.nubecita.data.models.OutgoingPostStatusUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
@@ -61,6 +65,7 @@ internal class FeedViewModelTest {
 
     // No-op mute repo shared by tests that don't exercise mute/unmute.
     private val noOpMuteRepo = FakeMuteRepository()
+    private val outgoingStore = FakeOutgoingPostStore()
 
     @Test
     fun `state carries the resolved autoplay answer`() =
@@ -73,6 +78,7 @@ internal class FeedViewModelTest {
                     analytics,
                     noOpMuteRepo,
                     FakePostInteractionHandler(),
+                    outgoingStore,
                     autoplayPolicy(videoAutoplayEnabled = false),
                 )
             advanceUntilIdle()
@@ -96,7 +102,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.success(TimelinePage(feedItems = feedItems("p1", "p2"), nextCursor = "c1"))),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -118,7 +124,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = null))),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -127,10 +133,82 @@ internal class FeedViewModelTest {
         }
 
     @Test
+    fun `the Following feed shows the user's outgoing top-level posts above the timeline`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeFeedRepository(pages = listOf(Result.success(TimelinePage(feedItems("p1"), null))))
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
+            outgoingStore.set(
+                outgoing("new", OutgoingPostStatus.Sending),
+                outgoing("reply", OutgoingPostStatus.Sending, replyToUri = "p1"),
+            )
+
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf("new"),
+                vm.uiState.value.outgoingPosts
+                    .map { it.localId },
+            )
+            assertEquals(
+                OutgoingPostStatusUi.Sending,
+                vm.uiState.value.outgoingPosts
+                    .single()
+                    .status,
+            )
+        }
+
+    @Test
+    fun `a sent post drops out once a loaded page includes it`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeFeedRepository(pages = listOf(Result.success(TimelinePage(feedItems("p1"), null))))
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
+            outgoingStore.set(outgoing("new", OutgoingPostStatus.Sent("p1"), postId = "p1"))
+
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            assertTrue(
+                vm.uiState.value.outgoingPosts
+                    .isEmpty(),
+            )
+        }
+
+    @Test
+    fun `other feeds don't show outgoing posts`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeFeedRepository(pages = listOf(Result.success(TimelinePage(feedItems("p1"), null))))
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
+            outgoingStore.set(outgoing("new", OutgoingPostStatus.Sending))
+
+            vm.handleEvent(FeedEvent.Bind(feedUri = "at://did:plc:gen/app.bsky.feed.generator/art", kind = FeedKind.Generator))
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+
+            assertTrue(
+                vm.uiState.value.outgoingPosts
+                    .isEmpty(),
+            )
+        }
+
+    @Test
+    fun `retry and discard go to the outgoing-post store`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeFeedRepository(pages = listOf(Result.success(TimelinePage(feedItems("p1"), null))))
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
+
+            vm.handleEvent(FeedEvent.RetryOutgoing("a"))
+            vm.handleEvent(FeedEvent.DiscardOutgoing("b"))
+
+            assertEquals(listOf("a"), outgoingStore.retried)
+            assertEquals(listOf("b"), outgoingStore.discarded)
+        }
+
+    @Test
     fun `a fresh VM starts in InitialLoading so the shimmer shows from the first frame`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository(pages = listOf(Result.success(TimelinePage(feedItems("p1"), null))))
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             // Cold-start regression guard (lq9t.3.6): before any fetch resolves,
             // the status must be InitialLoading (shimmer), never Idle (which
@@ -145,7 +223,7 @@ internal class FeedViewModelTest {
             // cold-start Bind-vs-Load effect ordering can't strand the feed on an
             // empty shimmer (if Load ran first and bind() then cancelled it).
             val repo = FakeFeedRepository(pages = listOf(Result.success(TimelinePage(feedItems("p1"), null))))
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Bind(feedUri = "at://did:plc:gen/app.bsky.feed.generator/art", kind = FeedKind.Generator))
             advanceUntilIdle()
@@ -162,7 +240,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = null))),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Bind(feedUri = "", kind = FeedKind.Following))
             vm.handleEvent(FeedEvent.Load)
@@ -181,7 +259,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = null))),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Bind(feedUri = "at://did:plc:gen/app.bsky.feed.generator/art", kind = FeedKind.Generator))
             vm.handleEvent(FeedEvent.Load)
@@ -202,7 +280,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = null))),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Bind(feedUri = "at://did:plc:owner/app.bsky.graph.list/friends", kind = FeedKind.List))
             vm.handleEvent(FeedEvent.Load)
@@ -222,7 +300,7 @@ internal class FeedViewModelTest {
         // (getListFeed), never getTimeline.
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository(pages = listOf(Result.failure(IOException("list feed down"))))
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Bind(feedUri = "at://did:plc:owner/app.bsky.graph.list/friends", kind = FeedKind.List))
             vm.handleEvent(FeedEvent.Load)
@@ -251,7 +329,7 @@ internal class FeedViewModelTest {
                             Result.success(TimelinePage(feedItems = feedItems("g2"), nextCursor = "gc2")),
                         ),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Bind(feedUri = "at://did:plc:gen/app.bsky.feed.generator/art", kind = FeedKind.Generator))
             vm.handleEvent(FeedEvent.Load)
@@ -281,7 +359,7 @@ internal class FeedViewModelTest {
             val page1 = TimelinePage(feedItems = feedItems("p1", "p2"), nextCursor = "c1")
             val page2 = TimelinePage(feedItems = feedItems("p3", "p4"), nextCursor = "c2")
             val repo = FakeFeedRepository(pages = listOf(Result.success(page1), Result.success(page2)))
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Bind(feedUri = "at://did:plc:gen/app.bsky.feed.generator/art", kind = FeedKind.Generator))
             vm.handleEvent(FeedEvent.Load)
@@ -309,7 +387,7 @@ internal class FeedViewModelTest {
             val page1 = TimelinePage(feedItems = threadReply(rootId = "R", leafId = "newer"), nextCursor = "c1")
             val page2 = TimelinePage(feedItems = threadReply(rootId = "R", leafId = "older"), nextCursor = null)
             val repo = FakeFeedRepository(pages = listOf(Result.success(page1), Result.success(page2)))
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Bind(feedUri = "", kind = FeedKind.Following))
             vm.handleEvent(FeedEvent.Load)
@@ -337,7 +415,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.success(TimelinePage(feedItems = siblings, nextCursor = null))),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Bind(feedUri = "", kind = FeedKind.Following))
             vm.handleEvent(FeedEvent.Load)
@@ -364,7 +442,7 @@ internal class FeedViewModelTest {
                     nextCursor = null,
                 )
             val repo = FakeFeedRepository(pages = listOf(Result.success(firstLoad), Result.success(afterRefresh)))
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Bind(feedUri = "", kind = FeedKind.Following))
             vm.handleEvent(FeedEvent.Load)
@@ -389,7 +467,7 @@ internal class FeedViewModelTest {
             val following = TimelinePage(feedItems = feedItems("f1", "f2"), nextCursor = "fc")
             val generator = TimelinePage(feedItems = feedItems("g1"), nextCursor = null)
             val repo = FakeFeedRepository(pages = listOf(Result.success(following), Result.success(generator)))
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Bind(feedUri = "", kind = FeedKind.Following))
             vm.handleEvent(FeedEvent.Load)
@@ -422,7 +500,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.success(TimelinePage(feedItems = feedItems("g1", "g2"), nextCursor = "gc"))),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Bind(feedUri = "at://did:plc:gen/app.bsky.feed.generator/art", kind = FeedKind.Generator))
             vm.handleEvent(FeedEvent.Load)
@@ -457,7 +535,7 @@ internal class FeedViewModelTest {
                         }
                     },
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             // Bind A (Following) and start its load; it suspends on the gate.
             vm.handleEvent(FeedEvent.Bind(feedUri = "", kind = FeedKind.Following))
@@ -516,7 +594,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.success(TimelinePage(feedItems = feedItems("p1", "p2"), nextCursor = "c1"))),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -540,7 +618,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.success(TimelinePage(feedItems = persistentListOf(), nextCursor = null))),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -555,7 +633,7 @@ internal class FeedViewModelTest {
     fun `initial Load failure populates InitialError(Network)`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository(pages = listOf(Result.failure(IOException("network down"))))
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -580,7 +658,7 @@ internal class FeedViewModelTest {
                             Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = "c1")),
                         ),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -606,7 +684,7 @@ internal class FeedViewModelTest {
                             Result.success(TimelinePage(feedItems = feedItems("p3"), nextCursor = "c2")),
                         ),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -631,7 +709,7 @@ internal class FeedViewModelTest {
                             Result.failure(IOException("refresh failed")),
                         ),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -663,7 +741,7 @@ internal class FeedViewModelTest {
                             Result.success(TimelinePage(feedItems = feedItems("p2", "p3", "p4"), nextCursor = "c2")),
                         ),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -688,7 +766,7 @@ internal class FeedViewModelTest {
                             Result.failure(IOException("page fetch failed")),
                         ),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -715,7 +793,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = null))),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -738,7 +816,7 @@ internal class FeedViewModelTest {
                         first.await()
                     },
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             // Don't yet complete the deferred; while it's pending the second
@@ -757,7 +835,7 @@ internal class FeedViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val first = CompletableDeferred<Result<TimelinePage>>()
             val repo = FakeFeedRepository(pageProducer = { _, _, _ -> first.await() })
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             // VM is now in InitialLoading; Refresh must be dropped.
@@ -784,7 +862,7 @@ internal class FeedViewModelTest {
                         }
                     },
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -814,7 +892,7 @@ internal class FeedViewModelTest {
                         }
                     },
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -845,7 +923,7 @@ internal class FeedViewModelTest {
                         }
                     },
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -863,7 +941,7 @@ internal class FeedViewModelTest {
     fun `NoSessionException maps to InitialError(Unauthenticated)`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository(pages = listOf(Result.failure(NoSessionException())))
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -885,7 +963,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.failure(XrpcError.Unknown("UpstreamFailure", "feed unavailable", 502))),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -908,7 +986,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.failure(XrpcError.Unknown("UpstreamTimeout", null, 502))),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -934,7 +1012,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.failure(XrpcError.Unknown("UpstreamFailure", "   ", 502))),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -957,7 +1035,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.failure(XrpcError.Unknown("UnknownFeed", "could not find feed", 400))),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -977,7 +1055,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.failure(XrpcError.Unknown("InvalidRequest", "bad cursor", 400))),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -1000,7 +1078,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.success(TimelinePage(feedItems = feedItems("at://post-a"), nextCursor = null))),
                 )
-            val vm = FeedViewModel(repo, cache, sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(cache), autoplayPolicy())
+            val vm = FeedViewModel(repo, cache, sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(cache), outgoingStore, autoplayPolicy())
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
             val post = samplePost(id = "at://post-a", cid = "bafyA")
@@ -1019,7 +1097,7 @@ internal class FeedViewModelTest {
                 FakePostInteractionsCache().apply {
                     nextToggleLikeResult = Result.failure(IOException("net down"))
                 }
-            val vm = FeedViewModel(FakeFeedRepository(), cache, sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(cache), autoplayPolicy())
+            val vm = FeedViewModel(FakeFeedRepository(), cache, sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(cache), outgoingStore, autoplayPolicy())
             advanceUntilIdle()
 
             // interactionEffects (not vm.effects) — the VM no longer forwards
@@ -1044,7 +1122,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.success(TimelinePage(persistentListOf(FeedItemUi.Single(post)), null))),
                 )
-            val vm = FeedViewModel(repo, cache, sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(cache), autoplayPolicy())
+            val vm = FeedViewModel(repo, cache, sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(cache), outgoingStore, autoplayPolicy())
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
 
@@ -1085,7 +1163,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.success(TimelinePage(persistentListOf(cluster), null))),
                 )
-            val vm = FeedViewModel(repo, cache, sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(cache), autoplayPolicy())
+            val vm = FeedViewModel(repo, cache, sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(cache), outgoingStore, autoplayPolicy())
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
 
@@ -1125,7 +1203,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.success(TimelinePage(persistentListOf(chain), null))),
                 )
-            val vm = FeedViewModel(repo, cache, sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(cache), autoplayPolicy())
+            val vm = FeedViewModel(repo, cache, sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(cache), outgoingStore, autoplayPolicy())
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
 
@@ -1167,7 +1245,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.success(TimelinePage(feedItems = feedItems("at://post-b"), nextCursor = null))),
                 )
-            val vm = FeedViewModel(repo, cache, sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(cache), autoplayPolicy())
+            val vm = FeedViewModel(repo, cache, sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(cache), outgoingStore, autoplayPolicy())
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
             val post = samplePost(id = "at://post-b", cid = "bafyB")
@@ -1186,7 +1264,7 @@ internal class FeedViewModelTest {
                 FakePostInteractionsCache().apply {
                     nextToggleRepostResult = Result.failure(IOException("net down"))
                 }
-            val vm = FeedViewModel(FakeFeedRepository(), cache, sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(cache), autoplayPolicy())
+            val vm = FeedViewModel(FakeFeedRepository(), cache, sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(cache), outgoingStore, autoplayPolicy())
             advanceUntilIdle()
 
             // interactionEffects (not vm.effects) — the VM no longer forwards
@@ -1211,7 +1289,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.success(TimelinePage(persistentListOf(FeedItemUi.Single(post)), null))),
                 )
-            val vm = FeedViewModel(repo, cache, sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(cache), autoplayPolicy())
+            val vm = FeedViewModel(repo, cache, sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(cache), outgoingStore, autoplayPolicy())
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
 
@@ -1243,7 +1321,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.success(TimelinePage(feedItems = feedItems("p1", "p2"), nextCursor = "c1"))),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -1255,7 +1333,7 @@ internal class FeedViewModelTest {
     fun `failed initial Load does not emit view_feed`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository(pages = listOf(Result.failure(IOException("down"))))
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -1274,7 +1352,7 @@ internal class FeedViewModelTest {
                             Result.success(TimelinePage(feedItems = feedItems("p2"), nextCursor = "c2")),
                         ),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -1291,7 +1369,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = null))),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Bind(feedUri = PinnedFeedsRepository.DISCOVER_FEED_URI, kind = FeedKind.Generator))
             vm.handleEvent(FeedEvent.Load)
@@ -1307,7 +1385,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = null))),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(
                 FeedEvent.Bind(feedUri = "at://did:plc:gen/app.bsky.feed.generator/art", kind = FeedKind.Generator),
@@ -1325,7 +1403,7 @@ internal class FeedViewModelTest {
                 FakeFeedRepository(
                     pages = listOf(Result.success(TimelinePage(feedItems = feedItems("p1"), nextCursor = null))),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(
                 FeedEvent.Bind(feedUri = "at://did:plc:owner/app.bsky.graph.list/friends", kind = FeedKind.List),
@@ -1358,7 +1436,7 @@ internal class FeedViewModelTest {
                             ),
                         ),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
 
@@ -1390,7 +1468,7 @@ internal class FeedViewModelTest {
                             ),
                         ),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
             val before = vm.uiState.value
@@ -1409,7 +1487,7 @@ internal class FeedViewModelTest {
     fun `OnShareClicked emits SharePost with bsky_app permalink as the share text`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             advanceUntilIdle()
             val before = vm.uiState.value
             val post =
@@ -1439,7 +1517,7 @@ internal class FeedViewModelTest {
     fun `OnShareLongPressed emits CopyPermalink (no surrounding share text)`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             advanceUntilIdle()
             val post =
                 samplePost("p1").copy(
@@ -1464,7 +1542,7 @@ internal class FeedViewModelTest {
     fun `OnPostTapped emits NavigateToPost with the tapped post's URI`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             advanceUntilIdle()
             val post = samplePost("at://did:plc:fake/app.bsky.feed.post/p1")
 
@@ -1481,7 +1559,7 @@ internal class FeedViewModelTest {
     fun `OnImageTapped emits NavigateToMediaViewer with the post URI and image index`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             advanceUntilIdle()
             val post = samplePost("at://did:plc:fake/app.bsky.feed.post/p1")
 
@@ -1502,7 +1580,7 @@ internal class FeedViewModelTest {
             // A tap on a quoted post's own image opens the media viewer for the
             // QUOTED post — distinct from OnQuotedPostTapped (opens its detail).
             val repo = FakeFeedRepository()
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             advanceUntilIdle()
             val quotedUri = "at://did:plc:fake/app.bsky.feed.post/quoted"
 
@@ -1521,7 +1599,7 @@ internal class FeedViewModelTest {
     fun `OnQuotedPostTapped emits NavigateToPost with the quoted post's URI`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             advanceUntilIdle()
             val quotedUri = "at://did:plc:other/app.bsky.feed.post/q1"
 
@@ -1538,7 +1616,7 @@ internal class FeedViewModelTest {
     fun `OnVideoTapped emits NavigateToVideoPlayer with the tapped post's URI`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             advanceUntilIdle()
             val videoUri = "at://did:plc:abc/app.bsky.feed.post/3v1d"
 
@@ -1557,7 +1635,7 @@ internal class FeedViewModelTest {
     fun `OnOverflowAction emits ShowComingSoon for every action except ReportPost, BlockAuthor, MuteAuthor, UnmuteAuthor`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             advanceUntilIdle()
             val post = samplePost("at://did:plc:fake/app.bsky.feed.post/over1")
 
@@ -1597,7 +1675,7 @@ internal class FeedViewModelTest {
         // No state field changes, no ShowComingSoon / ShowError races.
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             advanceUntilIdle()
             val post =
                 samplePost(
@@ -1638,7 +1716,7 @@ internal class FeedViewModelTest {
         // rememberPostInteractions observes interactionEffects directly).
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             advanceUntilIdle()
             val post = samplePost("at://did:plc:fake/app.bsky.feed.post/blk1")
 
@@ -1665,7 +1743,7 @@ internal class FeedViewModelTest {
     fun `OnAuthorTapped emits NavigateToAuthor with the author DID`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeFeedRepository()
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             advanceUntilIdle()
 
             vm.effects.test {
@@ -1682,7 +1760,7 @@ internal class FeedViewModelTest {
     @Test
     fun `OnTagTapped emits NavigateTo the Hashtag route with the author`() =
         runTest(mainDispatcher.dispatcher) {
-            val vm = FeedViewModel(FakeFeedRepository(), FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(FakeFeedRepository(), FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             advanceUntilIdle()
 
             vm.effects.test {
@@ -1715,7 +1793,7 @@ internal class FeedViewModelTest {
                     ),
                 )
             val repo = FakeFeedRepository(pages = listOf(Result.success(page1), Result.success(page2)))
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -1750,7 +1828,7 @@ internal class FeedViewModelTest {
                     ),
                 )
             val repo = FakeFeedRepository(pages = listOf(Result.success(page1), Result.success(page2)))
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -1791,7 +1869,7 @@ internal class FeedViewModelTest {
                     ),
                 )
             val repo = FakeFeedRepository(pages = listOf(Result.success(page1), Result.success(page2)))
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -1834,7 +1912,7 @@ internal class FeedViewModelTest {
                     ),
                 )
             val repo = FakeFeedRepository(pages = listOf(Result.success(page1), Result.success(page2)))
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, noOpMuteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
 
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
@@ -1878,7 +1956,7 @@ internal class FeedViewModelTest {
                             ),
                         ),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, muteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, muteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
 
@@ -1923,7 +2001,7 @@ internal class FeedViewModelTest {
                             ),
                         ),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, muteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, muteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
 
@@ -1965,7 +2043,7 @@ internal class FeedViewModelTest {
                             ),
                         ),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, muteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, muteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
 
@@ -2008,7 +2086,7 @@ internal class FeedViewModelTest {
                             ),
                         ),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, muteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, muteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
 
@@ -2060,7 +2138,7 @@ internal class FeedViewModelTest {
                             ),
                         ),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, muteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, muteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
 
@@ -2105,7 +2183,7 @@ internal class FeedViewModelTest {
                             ),
                         ),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, muteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, muteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
 
@@ -2156,7 +2234,7 @@ internal class FeedViewModelTest {
                             ),
                         ),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, muteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, muteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
 
@@ -2205,7 +2283,7 @@ internal class FeedViewModelTest {
                             ),
                         ),
                 )
-            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, muteRepo, FakePostInteractionHandler(), autoplayPolicy())
+            val vm = FeedViewModel(repo, FakePostInteractionsCache(), sharedVideoPlayer, analytics, muteRepo, FakePostInteractionHandler(), outgoingStore, autoplayPolicy())
             vm.handleEvent(FeedEvent.Load)
             advanceUntilIdle()
 
@@ -2475,4 +2553,17 @@ private fun autoplayPolicy(videoAutoplayEnabled: Boolean = true): AutoplayPolicy
                 every { autoplayGifs } returns flowOf(true)
             },
         networkStatus = mockk { every { isMetered } returns flowOf(false) },
+    )
+
+private fun outgoing(
+    localId: String,
+    status: OutgoingPostStatus,
+    replyToUri: String? = null,
+    postId: String = "local:$localId",
+): OutgoingPost =
+    OutgoingPost(
+        localId = localId,
+        draft = PostDraft(text = "hi", attachments = emptyList(), replyTo = null, replyToUri = replyToUri),
+        post = samplePost(postId),
+        status = status,
     )

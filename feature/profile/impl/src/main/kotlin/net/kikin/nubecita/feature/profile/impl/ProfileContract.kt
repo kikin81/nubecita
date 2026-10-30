@@ -7,6 +7,7 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.data.models.OutgoingPostUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.VerifiedBadge
 import net.kikin.nubecita.data.models.VerifierUi
@@ -65,6 +66,11 @@ data class ProfileScreenViewState(
      * or crashing card.
      */
     val pinnedPost: PostUi? = null,
+    /**
+     * Own profile only: top-level posts the user just submitted, shown on the
+     * Posts tab (below [pinnedPost]) until a loaded page includes them.
+     */
+    val outgoingPosts: ImmutableList<OutgoingPostUi> = persistentListOf(),
     /** Same-shape user-delta flag as FeedState. See FeedState KDoc. */
     val lastLikeTapPostUri: String? = null,
     /** Same-shape user-delta flag as FeedState. See FeedState KDoc. */
@@ -444,6 +450,16 @@ sealed interface ProfileError {
  * MVI events the screen sends to the ViewModel.
  */
 sealed interface ProfileEvent : UiEvent {
+    /** Re-send an outgoing post that failed. */
+    data class RetryOutgoing(
+        val localId: String,
+    ) : ProfileEvent
+
+    /** Drop an outgoing post that failed. */
+    data class DiscardOutgoing(
+        val localId: String,
+    ) : ProfileEvent
+
     /** User tapped a different pill tab. */
     data class TabSelected(
         val tab: ProfileTab,

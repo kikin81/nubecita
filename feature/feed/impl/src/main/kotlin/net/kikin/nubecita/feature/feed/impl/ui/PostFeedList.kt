@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.testTag
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -33,6 +34,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.FeedItemUi
+import net.kikin.nubecita.data.models.OutgoingPostUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.quotedRecord
@@ -40,6 +42,7 @@ import net.kikin.nubecita.designsystem.component.BlockedPostCard
 import net.kikin.nubecita.designsystem.component.MediaCover
 import net.kikin.nubecita.designsystem.component.NotFoundPostCard
 import net.kikin.nubecita.designsystem.component.NubecitaPullToRefreshBox
+import net.kikin.nubecita.designsystem.component.OutgoingPostCard
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
 import net.kikin.nubecita.designsystem.component.ThreadCluster
@@ -101,6 +104,10 @@ internal fun PostFeedList(
     // A single header item above the posts — it never touches the tuned post-item
     // rendering below; null on non-Discover feeds.
     header: (@Composable () -> Unit)? = null,
+    // Posts the user just submitted (Following only), above the timeline.
+    outgoingPosts: ImmutableList<OutgoingPostUi> = persistentListOf(),
+    onRetryOutgoing: (localId: String) -> Unit = {},
+    onDiscardOutgoing: (localId: String) -> Unit = {},
 ) {
     // Per-list reveal state: ids of posts whose covered (NSFW-labelled) media the
     // viewer chose to "Show anyway". Terminates at the screen — the VM never sees
@@ -112,6 +119,18 @@ internal fun PostFeedList(
     var revealedMedia by rememberSaveable(
         stateSaver = listSaver(save = { it.toList() }, restore = { it.toPersistentSet() }),
     ) { mutableStateOf(persistentSetOf<String>()) }
+    // Bring a just-submitted post into view: the composer closes back onto a
+    // feed that may be scrolled down. Scroll once per outgoing post the list
+    // hasn't shown before; saveable, so the feed leaving composition while the
+    // composer is on top (Compact) doesn't make an old post look new.
+    var shownOutgoing by rememberSaveable { mutableStateOf(listOf<String>()) }
+    val newestOutgoing = outgoingPosts.firstOrNull()?.localId
+    LaunchedEffect(newestOutgoing) {
+        if (newestOutgoing != null && newestOutgoing !in shownOutgoing) {
+            shownOutgoing = outgoingPosts.map { it.localId }
+            listState.animateScrollToItem(0)
+        }
+    }
     NubecitaPullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
@@ -141,6 +160,22 @@ internal fun PostFeedList(
             if (header != null) {
                 item(key = "feed-header", contentType = "feed-header") {
                     header()
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
+            }
+            items(
+                items = outgoingPosts,
+                key = { "outgoing:${it.localId}" },
+                contentType = { "outgoing" },
+            ) { item ->
+                Column {
+                    OutgoingPostCard(
+                        item = item,
+                        onRetry = { onRetryOutgoing(item.localId) },
+                        onDiscard = { onDiscardOutgoing(item.localId) },
+                        callbacks = callbacks,
+                        onImageClick = { index -> onImageTap(item.post, index) },
+                    )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }

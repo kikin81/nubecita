@@ -9,6 +9,7 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
@@ -22,6 +23,9 @@ import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
+import net.kikin.nubecita.core.posting.OutgoingPost
+import net.kikin.nubecita.core.posting.OutgoingPostStore
+import net.kikin.nubecita.core.posting.toUi
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
@@ -30,6 +34,7 @@ import net.kikin.nubecita.core.preferences.AutoplayPolicy
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.FeedKind
+import net.kikin.nubecita.data.models.OutgoingPostUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
@@ -53,6 +58,7 @@ class FeedViewModel
         private val analytics: AnalyticsClient,
         private val muteRepository: MuteRepository,
         private val handler: PostInteractionHandler,
+        private val outgoingPostStore: OutgoingPostStore,
         autoplayPolicy: AutoplayPolicy,
     ) : MviViewModel<FeedState, FeedEvent, FeedEffect>(FeedState()),
         PostInteractionHandler by handler {
@@ -106,6 +112,18 @@ class FeedViewModel
                 }
             }
 
+            // Top-level posts the user just submitted, above the Following
+            // timeline until a loaded page includes them. Recomputed when the
+            // store or the loaded slice changes (a re-bind resets the slice, so a
+            // switch away from Following clears them).
+            combine(
+                outgoingPostStore.posts,
+                uiState.map { it.feedItems }.distinctUntilChanged(),
+            ) { outgoing, items -> visibleOutgoing(outgoing, items) }
+                .distinctUntilChanged()
+                .onEach { visible -> setState { copy(outgoingPosts = visible) } }
+                .launchIn(viewModelScope)
+
             viewModelScope.launch {
                 postInteractionsCache.state
                     .map { snapshot -> uiState.value.feedItems.applyInteractions(snapshot) }
@@ -132,6 +150,8 @@ class FeedViewModel
                 is FeedEvent.OnQuotedPostTapped -> sendEffect(FeedEffect.NavigateToPost(event.quotedPostUri))
                 is FeedEvent.OnVideoTapped -> sendEffect(FeedEffect.NavigateToVideoPlayer(event.postUri))
                 is FeedEvent.OnReplySubmittedToParent -> incrementParentReplyCount(event.parentUri)
+                is FeedEvent.RetryOutgoing -> outgoingPostStore.retry(event.localId)
+                is FeedEvent.DiscardOutgoing -> outgoingPostStore.discard(event.localId)
                 is FeedEvent.OnOverflowAction -> onOverflowAction(event.post, event.action)
             }
         }
@@ -189,6 +209,18 @@ class FeedViewModel
                 }
                 else -> handler.onOverflowAction(post, action)
             }
+        }
+
+        private fun visibleOutgoing(
+            outgoing: List<OutgoingPost>,
+            items: List<FeedItemUi>,
+        ): ImmutableList<OutgoingPostUi> {
+            if (boundKind != FeedKind.Following || outgoing.isEmpty()) return persistentListOf()
+            val loaded = items.mapTo(HashSet()) { it.key }
+            return outgoing
+                .filter { it.replyToUri == null && it.post.id !in loaded }
+                .map { it.toUi() }
+                .toImmutableList()
         }
 
         /**

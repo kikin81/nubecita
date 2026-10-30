@@ -10,6 +10,7 @@ import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.FeedKind
+import net.kikin.nubecita.data.models.OutgoingPostUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 
@@ -62,6 +63,11 @@ data class FeedState(
     val lastLikeTapPostUri: String? = null,
     /** Mirror of [lastLikeTapPostUri] for the repost toggle. */
     val lastRepostTapPostUri: String? = null,
+    /**
+     * Top-level posts the user just submitted, shown above [feedItems] on the
+     * Following timeline until a page includes them. Always empty on other feeds.
+     */
+    val outgoingPosts: ImmutableList<OutgoingPostUi> = persistentListOf(),
 ) : UiState
 
 /**
@@ -256,6 +262,16 @@ sealed interface FeedEvent : UiEvent {
      */
     data class OnVideoTapped(
         val postUri: String,
+    ) : FeedEvent
+
+    /** Re-send an outgoing post that failed. */
+    data class RetryOutgoing(
+        val localId: String,
+    ) : FeedEvent
+
+    /** Drop an outgoing post that failed. */
+    data class DiscardOutgoing(
+        val localId: String,
     ) : FeedEvent
 
     /**

@@ -11,7 +11,10 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.actors.MuteRepository
@@ -24,6 +27,8 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.billing.EntitlementRepository
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.posting.OutgoingPostStore
+import net.kikin.nubecita.core.posting.toUi
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
@@ -74,6 +79,7 @@ internal class ProfileViewModel
         private val handler: PostInteractionHandler,
         // Resolves the profile's pinned-post strongRef into a full post for display.
         private val postRepository: PostRepository,
+        private val outgoingPostStore: OutgoingPostStore,
     ) : MviViewModel<ProfileScreenViewState, ProfileEvent, ProfileEffect>(
             ProfileScreenViewState(
                 handle = route.handle,
@@ -128,6 +134,24 @@ internal class ProfileViewModel
             // Bind the handler to Profile surface and this VM's scope first.
             handler.bind(PostSurface.Profile, viewModelScope)
 
+            // Own profile: top-level posts the user just submitted, on the Posts
+            // tab until a loaded page includes them.
+            combine(
+                outgoingPostStore.posts,
+                uiState.map { it.ownProfile to it.loadedPostIds() }.distinctUntilChanged(),
+            ) { outgoing, (own, loaded) ->
+                if (!own) {
+                    persistentListOf()
+                } else {
+                    outgoing
+                        .filter { it.replyToUri == null && it.post.id !in loaded }
+                        .map { it.toUi() }
+                        .toImmutableList()
+                }
+            }.distinctUntilChanged()
+                .onEach { visible -> setState { copy(outgoingPosts = visible) } }
+                .launchIn(viewModelScope)
+
             // Mirror handler tap-markers into ProfileScreenViewState so
             // ProfileScreenContent can animate the ±1 count transition before the
             // network resolves. Keeps lastLikeTapPostUri / lastRepostTapPostUri
@@ -180,6 +204,8 @@ internal class ProfileViewModel
         override fun handleEvent(event: ProfileEvent) {
             when (event) {
                 is ProfileEvent.TabSelected -> onTabSelected(event.tab)
+                is ProfileEvent.RetryOutgoing -> outgoingPostStore.retry(event.localId)
+                is ProfileEvent.DiscardOutgoing -> outgoingPostStore.discard(event.localId)
                 is ProfileEvent.PostTapped -> sendEffect(ProfileEffect.NavigateToPost(event.postUri))
                 is ProfileEvent.OnImageTapped ->
                     sendEffect(ProfileEffect.NavigateToMediaViewer(event.post.id, event.imageIndex))
@@ -909,4 +935,13 @@ internal fun Throwable.toProfileError(): ProfileError =
         is NoSessionException -> ProfileError.Unknown("not-signed-in")
         is XrpcError -> ProfileError.Unknown(javaClass.simpleName)
         else -> ProfileError.Unknown(javaClass.simpleName)
+    }
+
+/** Post URIs already on the Posts tab (loaded pages and the pinned post). */
+private fun ProfileScreenViewState.loadedPostIds(): Set<String> =
+    buildSet {
+        pinnedPost?.let { add(it.id) }
+        (postsStatus as? TabLoadStatus.Loaded)?.items?.forEach { item ->
+            if (item is TabItemUi.Post) add(item.post.id)
+        }
     }

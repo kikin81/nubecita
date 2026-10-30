@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +39,7 @@ import kotlinx.collections.immutable.toPersistentSet
 import kotlinx.coroutines.flow.distinctUntilChanged
 import net.kikin.nubecita.data.models.VerifiedBadge
 import net.kikin.nubecita.designsystem.component.NubecitaPullToRefreshBox
+import net.kikin.nubecita.designsystem.component.OutgoingPostCard
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
@@ -233,9 +235,23 @@ internal fun ProfileScreenContent(
                                 onRevealMedia = onRevealMedia,
                             )
                         }
+                        items(
+                            items = state.outgoingPosts,
+                            key = { "outgoing:${it.localId}" },
+                            contentType = { "outgoing" },
+                        ) { item ->
+                            OutgoingPostCard(
+                                item = item,
+                                onRetry = { onEvent(ProfileEvent.RetryOutgoing(item.localId)) },
+                                onDiscard = { onEvent(ProfileEvent.DiscardOutgoing(item.localId)) },
+                                callbacks = postCallbacks,
+                                onImageClick = { idx -> onEvent(ProfileEvent.OnImageTapped(item.post, idx)) },
+                            )
+                        }
                         profileFeedTabBody(
                             tab = ProfileTab.Posts,
                             status = state.postsStatus,
+                            showEmptyState = state.outgoingPosts.isEmpty(),
                             callbacks = postCallbacks,
                             onImageTap = { post, idx -> onEvent(ProfileEvent.OnImageTapped(post, idx)) },
                             onQuotedImageTap = { uri, idx -> onEvent(ProfileEvent.OnQuotedImageTapped(uri, idx)) },

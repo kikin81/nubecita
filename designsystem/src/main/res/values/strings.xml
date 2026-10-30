@@ -151,4 +151,8 @@
     <string name="postcard_gif_play">play this GIF</string>
     <string name="postcard_gif_default_content_description">Animated GIF</string>
     <string name="designsystem_action_send">Send</string>
+    <string name="outgoing_post_sending">Sending…</string>
+    <string name="outgoing_post_failed">Couldn\'t send</string>
+    <string name="outgoing_post_retry">Retry</string>
+    <string name="outgoing_post_discard">Discard</string>
 </resources>
