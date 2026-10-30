@@ -3,6 +3,7 @@ package net.kikin.nubecita.wear.feed
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
@@ -159,22 +160,7 @@ private fun PendingPostCard(
     transformation: SurfaceTransformation,
     modifier: Modifier = Modifier,
 ) {
-    val retryLabel = stringResource(R.string.wear_dms_retry)
-    Card(
-        onClick = { if (pending.failed) onRetry() },
-        modifier =
-            if (pending.failed) {
-                modifier.semantics {
-                    onClick(label = retryLabel) {
-                        onRetry()
-                        true
-                    }
-                }
-            } else {
-                modifier
-            },
-        transformation = transformation,
-    ) {
+    val content: @Composable ColumnScope.() -> Unit = {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(pending.text, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
             Text(
@@ -183,6 +169,24 @@ private fun PendingPostCard(
                 color = if (pending.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+    if (pending.failed) {
+        val retryLabel = stringResource(R.string.wear_dms_retry)
+        Card(
+            onClick = onRetry,
+            modifier =
+                modifier.semantics {
+                    onClick(label = retryLabel) {
+                        onRetry()
+                        true
+                    }
+                },
+            transformation = transformation,
+            content = content,
+        )
+    } else {
+        // Nothing to do while it posts: not a click target.
+        Card(modifier = modifier, transformation = transformation, content = content)
     }
 }
 

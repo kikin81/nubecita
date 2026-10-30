@@ -50,8 +50,9 @@ class RoomWatchPostActionRepository
         override suspend fun retry(actionId: String) {
             withContext(NonCancellable) {
                 val failed = dao.get(actionId)?.takeIf { it.status == STATUS_FAILED } ?: return@withContext
-                dao.delete(listOf(actionId))
+                // Store the new attempt first: a failed insert must not lose the text.
                 store(failed.accountDid, failed.text)
+                dao.delete(listOf(actionId))
             }
         }
 
