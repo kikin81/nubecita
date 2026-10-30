@@ -11,7 +11,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import net.kikin.nubecita.core.common.navigation.ComposerSubmitEvent
+import net.kikin.nubecita.core.posting.OutgoingPost
+import net.kikin.nubecita.core.posting.OutgoingPostStatus
+import net.kikin.nubecita.core.posting.PostDraft
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.posts.PostThreadRepository
@@ -33,6 +35,8 @@ import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class VideoCommentsViewModelTest {
+    private val outgoingStore = FakeOutgoingPostStore()
+
     @RegisterExtension
     val mainDispatcher = MainDispatcherExtension()
 
@@ -41,7 +45,7 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache)
+            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
 
             val state = viewModel.uiState.value
             assertNull(state.postUri)
@@ -56,7 +60,7 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache)
+            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
 
             val focusPost = samplePost("at://focus", text = "Video Post")
             val reply1 = samplePost("at://reply1", text = "First reply!", likeCount = 5)
@@ -107,7 +111,7 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache)
+            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
 
             val focusPost = samplePost("at://focus", text = "Video with no replies")
             repo.nextResult = Result.success(persistentListOf(ThreadItem.Focus(focusPost)))
@@ -126,7 +130,7 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache)
+            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
 
             repo.nextResult = Result.failure(IOException("Server error"))
 
@@ -145,7 +149,7 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache)
+            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
 
             val reply1 = samplePost("at://reply1", text = "Initial comment", likeCount = 1)
             repo.nextResult =
@@ -198,7 +202,7 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache)
+            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
 
             val reply = samplePost("at://reply1", text = "Existing comment")
             repo.nextResult =
@@ -234,7 +238,7 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache)
+            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
 
             viewModel.handleEvent(
                 VideoCommentsEvent.OpenComments(
@@ -257,7 +261,7 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache)
+            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
 
             val reply = samplePost("at://reply1", cid = "cid1", text = "Like me")
             repo.nextResult =
@@ -289,7 +293,7 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache)
+            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
 
             val reply = samplePost("at://reply1", cid = "cid1", text = "Check like")
             repo.nextResult =
@@ -331,7 +335,7 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache)
+            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
 
             val reply = samplePost("at://reply1", cid = "cid1", text = "Toggle and undo like", likeCount = 3, isLiked = false)
             repo.nextResult =
@@ -400,7 +404,7 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache)
+            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
 
             repo.nextResult = Result.failure(IOException("Initial failure"))
             viewModel.handleEvent(VideoCommentsEvent.OpenComments("at://focus"))
@@ -426,7 +430,7 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache)
+            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
 
             viewModel.handleEvent(VideoCommentsEvent.OpenComments("at://focus"))
             advanceUntilIdle()
@@ -442,11 +446,11 @@ class VideoCommentsViewModelTest {
         }
 
     @Test
-    fun `OnComposerSubmitted with matching replyToUri triggers thread reload and updates comments`() =
+    fun `a sent reply to the open thread reloads it and shows the new comment`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache)
+            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
 
             val initialReply = samplePost("at://reply1", text = "First comment")
             repo.nextResult =
@@ -472,14 +476,7 @@ class VideoCommentsViewModelTest {
                     ),
                 )
 
-            viewModel.handleEvent(
-                VideoCommentsEvent.OnComposerSubmitted(
-                    ComposerSubmitEvent(
-                        newPostUri = "at://reply2",
-                        replyToUri = "at://focus",
-                    ),
-                ),
-            )
+            outgoingStore.set(sentReply(replyToUri = "at://focus", uri = "at://reply2"))
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
@@ -491,11 +488,11 @@ class VideoCommentsViewModelTest {
         }
 
     @Test
-    fun `OnComposerSubmitted with different replyToUri does not trigger reload`() =
+    fun `a sent reply to another post does not reload the thread`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache)
+            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
 
             val initialReply = samplePost("at://reply1", text = "First comment")
             repo.nextResult =
@@ -510,20 +507,24 @@ class VideoCommentsViewModelTest {
             advanceUntilIdle()
             assertEquals(1, viewModel.uiState.value.comments.size)
 
-            viewModel.handleEvent(
-                VideoCommentsEvent.OnComposerSubmitted(
-                    ComposerSubmitEvent(
-                        newPostUri = "at://other_reply",
-                        replyToUri = "at://other_parent",
-                    ),
-                ),
-            )
+            outgoingStore.set(sentReply(replyToUri = "at://other_parent", uri = "at://other_reply"))
             advanceUntilIdle()
 
             // Requested URIs remain only the initial one
             assertEquals(listOf("at://focus"), repo.requestedUris)
             assertEquals(1, viewModel.uiState.value.comments.size)
         }
+
+    private fun sentReply(
+        replyToUri: String,
+        uri: String,
+    ): OutgoingPost =
+        OutgoingPost(
+            localId = uri,
+            draft = PostDraft(text = "hi", attachments = emptyList(), replyTo = null, replyToUri = replyToUri),
+            post = samplePost(uri),
+            status = OutgoingPostStatus.Sent(uri),
+        )
 
     private fun samplePost(
         id: String,

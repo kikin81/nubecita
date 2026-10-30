@@ -22,4 +22,6 @@
         <item quantity="many">%1$d de mensajes sin leer</item>
         <item quantity="other">%1$d mensajes sin leer</item>
     </plurals>
+    <string name="main_shell_send_failed">No se pudo enviar tu publicación</string>
+    <string name="main_shell_send_retry">Reintentar</string>
 </resources>

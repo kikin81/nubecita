@@ -9,16 +9,25 @@ import io.github.kikin81.atproto.runtime.XrpcError
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.actors.MuteRepository
 import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.posting.OutgoingPost
+import net.kikin.nubecita.core.posting.OutgoingPostStore
+import net.kikin.nubecita.core.posting.toUi
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
 import net.kikin.nubecita.core.posts.PostThreadRepository
+import net.kikin.nubecita.data.models.OutgoingPostUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ThreadItem
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
@@ -53,6 +62,7 @@ internal class PostDetailViewModel
         private val postInteractionsCache: PostInteractionsCache,
         private val muteRepository: MuteRepository,
         private val handler: PostInteractionHandler,
+        private val outgoingPostStore: OutgoingPostStore,
     ) : MviViewModel<PostDetailState, PostDetailEvent, PostDetailEffect>(PostDetailState()),
         PostInteractionHandler by handler {
         @AssistedFactory
@@ -62,6 +72,16 @@ internal class PostDetailViewModel
 
         init {
             handler.bind(PostSurface.PostDetail, viewModelScope)
+
+            // Replies the user just sent into this thread, under their parent
+            // (the focus or a reply below it) until a load includes them.
+            combine(
+                outgoingPostStore.posts,
+                uiState.map { it.items }.distinctUntilChanged(),
+            ) { outgoing, items -> outgoing.visibleIn(items) }
+                .distinctUntilChanged()
+                .onEach { visible -> setState { copy(outgoingReplies = visible) } }
+                .launchIn(viewModelScope)
 
             // Mirror handler tap-markers into PostDetailState so PostDetailScreenContent
             // can animate the ±1 count transition before the network resolves.
@@ -100,6 +120,8 @@ internal class PostDetailViewModel
         override fun handleEvent(event: PostDetailEvent) {
             when (event) {
                 PostDetailEvent.Load -> load()
+                is PostDetailEvent.RetryOutgoing -> outgoingPostStore.retry(event.localId)
+                is PostDetailEvent.DiscardOutgoing -> outgoingPostStore.discard(event.localId)
                 PostDetailEvent.Refresh -> refresh()
                 PostDetailEvent.Retry -> load()
                 is PostDetailEvent.OnPostTapped -> sendEffect(PostDetailEffect.NavigateToPost(event.postUri))
@@ -421,3 +443,26 @@ private fun ThreadItem.applyInteraction(
         is ThreadItem.Fold,
         -> this
     }
+
+/**
+ * Outgoing replies whose parent is the focus or a reply below it, minus any
+ * the loaded thread already contains. Replies to ancestors belong to sibling
+ * branches this view doesn't show.
+ */
+private fun List<OutgoingPost>.visibleIn(items: List<ThreadItem>): ImmutableList<OutgoingPostUi> {
+    val parents = HashSet<String>()
+    val loaded = HashSet<String>()
+    items.forEach { item ->
+        when (item) {
+            is ThreadItem.Focus -> parents += item.post.id
+            is ThreadItem.Reply -> {
+                parents += item.post.id
+                loaded += item.post.id
+            }
+            else -> Unit
+        }
+    }
+    return filter { it.replyToUri in parents && it.post.id !in loaded }
+        .map { it.toUi() }
+        .toImmutableList()
+}

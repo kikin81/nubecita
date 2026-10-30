@@ -93,13 +93,6 @@ sealed interface VideoFeedEvent : UiEvent {
      * Suspended (no-op) when comments sheet is open or [isAutoAdvanceSuspended] is true.
      */
     data object AutoAdvance : VideoFeedEvent
-
-    /**
-     * Optimistic reply count increment on parent video after composer submit.
-     */
-    data class OnReplySubmittedToParent(
-        val parentUri: String,
-    ) : VideoFeedEvent
 }
 
 /**

@@ -154,7 +154,6 @@ class FeedViewModel
                     sendEffect(FeedEffect.NavigateToMediaViewer(event.quotedPostUri, event.imageIndex))
                 is FeedEvent.OnQuotedPostTapped -> sendEffect(FeedEffect.NavigateToPost(event.quotedPostUri))
                 is FeedEvent.OnVideoTapped -> sendEffect(FeedEffect.NavigateToVideoPlayer(event.postUri))
-                is FeedEvent.OnReplySubmittedToParent -> incrementParentReplyCount(event.parentUri)
                 is FeedEvent.RetryOutgoing -> outgoingPostStore.retry(event.localId)
                 is FeedEvent.DiscardOutgoing -> outgoingPostStore.discard(event.localId)
                 is FeedEvent.OnOverflowAction -> onOverflowAction(event.post, event.action)
@@ -229,31 +228,6 @@ class FeedViewModel
                 .filter { it.replyToUri == null && it.post.id !in loaded }
                 .map { it.toUi() }
                 .toImmutableList()
-        }
-
-        /**
-         * Optimistic `replyCount + 1` on the parent post after the user
-         * submits a reply via `LocalComposerSubmitEvents`. No-op when the
-         * parent isn't currently in [FeedState.feedItems] — common case
-         * when replying from a non-feed surface (post-detail thread,
-         * future profile timeline) or when pagination evicted the parent
-         * before the submit landed.
-         *
-         * No rollback on submit failure: `MainShell` relays a submit
-         * event only once `OutgoingPostStore` reports the post sent, so this handler
-         * only runs when the server confirmed the reply landed. The
-         * `replyCount` we're incrementing is therefore always +1
-         * relative to a server-confirmed write — the same invariant
-         * that the like / repost optimistic toggles preserve via their
-         * own onSuccess paths.
-         */
-        private fun incrementParentReplyCount(parentUri: String) {
-            val parent = uiState.value.feedItems.findPost(parentUri) ?: return
-            val updated =
-                parent.copy(
-                    stats = parent.stats.copy(replyCount = parent.stats.replyCount + 1),
-                )
-            setState { copy(feedItems = feedItems.replacePost(updated)) }
         }
 
         /**
@@ -911,70 +885,4 @@ private fun stripLeadingTailOverlap(
         p = replacementHead + p.drop(1)
     }
     return w.toImmutableList() to p.toImmutableList()
-}
-
-/**
- * Locate a [PostUi] by id across all visible feed entries — the lone
- * post inside a [FeedItemUi.Single], any of root / parent / leaf inside
- * a [FeedItemUi.ReplyCluster], or any post inside a
- * [FeedItemUi.SelfThreadChain]. Returns the first match (each post id is
- * globally unique within the feed by construction; the de-dupe pass in
- * the repository enforces this).
- */
-private fun ImmutableList<FeedItemUi>.findPost(id: String): PostUi? =
-    firstNotNullOfOrNull { item ->
-        when (item) {
-            is FeedItemUi.Single -> item.post.takeIf { it.id == id }
-            is FeedItemUi.ReplyCluster ->
-                when (id) {
-                    item.root.id -> item.root
-                    item.parent.id -> item.parent
-                    item.leaf.id -> item.leaf
-                    else -> null
-                }
-            is FeedItemUi.SelfThreadChain -> item.posts.firstOrNull { it.id == id }
-            // Tombstones carry no PostUi to match against — skip them.
-            is FeedItemUi.Blocked, is FeedItemUi.NotFound -> null
-        }
-    }
-
-/**
- * Replace the post with id == [updated.id] inside the list, preserving
- * the surrounding [FeedItemUi.Single] / [FeedItemUi.ReplyCluster] /
- * [FeedItemUi.SelfThreadChain] shape. No-ops the entries that don't
- * match. The cluster + chain branches swap only the matching slot(s)
- * and reuse untouched references via referential equality so unrelated
- * posts don't trigger Compose recomposition.
- */
-private fun ImmutableList<FeedItemUi>.replacePost(updated: PostUi): ImmutableList<FeedItemUi> {
-    val targetId = updated.id
-    return map { item ->
-        when (item) {
-            is FeedItemUi.Single ->
-                if (item.post.id == targetId) item.copy(post = updated) else item
-            is FeedItemUi.ReplyCluster -> {
-                val root = if (item.root.id == targetId) updated else item.root
-                val parent = if (item.parent.id == targetId) updated else item.parent
-                val leaf = if (item.leaf.id == targetId) updated else item.leaf
-                if (root === item.root && parent === item.parent && leaf === item.leaf) {
-                    item
-                } else {
-                    item.copy(root = root, parent = parent, leaf = leaf)
-                }
-            }
-            is FeedItemUi.SelfThreadChain -> {
-                if (item.posts.none { it.id == targetId }) {
-                    item
-                } else {
-                    val newPosts =
-                        item.posts.map { post ->
-                            if (post.id == targetId) updated else post
-                        }
-                    item.copy(posts = newPosts.toImmutableList())
-                }
-            }
-            // Tombstones carry no PostUi to swap; pass through unchanged.
-            is FeedItemUi.Blocked, is FeedItemUi.NotFound -> item
-        }
-    }.toImmutableList()
 }

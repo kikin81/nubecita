@@ -22,4 +22,6 @@
         <item quantity="many">%1$d de mensagens não lidas</item>
         <item quantity="other">%1$d mensagens não lidas</item>
     </plurals>
+    <string name="main_shell_send_failed">Não foi possível enviar seu post</string>
+    <string name="main_shell_send_retry">Tentar de novo</string>
 </resources>

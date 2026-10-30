@@ -263,10 +263,24 @@ internal fun ProfileScreenContent(
                             onRevealMedia = onRevealMedia,
                         )
                     }
-                    ProfileTab.Replies ->
+                    ProfileTab.Replies -> {
+                        items(
+                            items = state.outgoingReplies,
+                            key = { "outgoing:${it.localId}" },
+                            contentType = { "outgoing" },
+                        ) { item ->
+                            OutgoingPostCard(
+                                item = item,
+                                onRetry = { onEvent(ProfileEvent.RetryOutgoing(item.localId)) },
+                                onDiscard = { onEvent(ProfileEvent.DiscardOutgoing(item.localId)) },
+                                callbacks = postCallbacks,
+                                onImageClick = { idx -> onEvent(ProfileEvent.OnImageTapped(item.post, idx)) },
+                            )
+                        }
                         profileFeedTabBody(
                             tab = ProfileTab.Replies,
                             status = state.repliesStatus,
+                            showEmptyState = state.outgoingReplies.isEmpty(),
                             callbacks = postCallbacks,
                             onImageTap = { post, idx -> onEvent(ProfileEvent.OnImageTapped(post, idx)) },
                             onQuotedImageTap = { uri, idx -> onEvent(ProfileEvent.OnQuotedImageTapped(uri, idx)) },
@@ -277,6 +291,7 @@ internal fun ProfileScreenContent(
                             revealedMedia = revealedMedia,
                             onRevealMedia = onRevealMedia,
                         )
+                    }
                     ProfileTab.Media ->
                         profileMediaTabBody(
                             status = state.mediaStatus,

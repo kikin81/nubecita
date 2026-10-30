@@ -49,11 +49,9 @@ import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
 import androidx.media3.ui.compose.state.rememberPresentationState
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
-import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.screen.KeepScreenOnWhile
 import net.kikin.nubecita.core.postinteractions.ui.comments.VideoCommentsEffect
@@ -175,22 +173,6 @@ internal fun VideoFeedScreen(
                     }
                 }
             }
-        }
-    }
-
-    val composerSubmitEvents = LocalComposerSubmitEvents.current
-    val replySentMessage = stringResource(R.string.videos_reply_sent)
-    val postSentMessage = stringResource(R.string.videos_post_sent)
-    LaunchedEffect(composerSubmitEvents, viewModel, commentsViewModel) {
-        composerSubmitEvents.collectLatest { event ->
-            event.replyToUri?.let { parentUri ->
-                viewModel.handleEvent(VideoFeedEvent.OnReplySubmittedToParent(parentUri))
-            }
-            commentsViewModel.handleEvent(VideoCommentsEvent.OnComposerSubmitted(event))
-            val message =
-                if (event.replyToUri != null) replySentMessage else postSentMessage
-            snackbarHostState.currentSnackbarData?.dismiss()
-            snackbarHostState.showSnackbar(message = message)
         }
     }
 

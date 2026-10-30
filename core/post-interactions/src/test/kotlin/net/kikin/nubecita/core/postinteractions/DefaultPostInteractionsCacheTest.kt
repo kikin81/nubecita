@@ -25,6 +25,7 @@ import kotlin.time.Instant
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class DefaultPostInteractionsCacheTest {
     private companion object {
+        const val PARENT = "at://did:plc:author/app.bsky.feed.post/parent"
         private const val PENDING_LIKE_SENTINEL_FOR_TEST = "at://pending:optimistic"
     }
 
@@ -238,6 +239,59 @@ internal class DefaultPostInteractionsCacheTest {
                 fake.unlikeCalls.get(),
                 "single-flight: unlike() MUST NOT be called — second tap must be absorbed, not inverted",
             )
+        }
+
+    @Test
+    fun `a sent reply raises the parent's reply count by one`() =
+        runTest {
+            val cache = newCache(FakeLikeRepostRepository())
+            val parent = samplePost(id = PARENT).withReplies(3)
+            cache.seed(listOf(parent))
+
+            cache.noteReplySent(PARENT)
+
+            assertEquals(4, parent.mergeInteractionState(cache.state.value.getValue(PARENT)).stats.replyCount)
+        }
+
+    @Test
+    fun `a stale reseed keeps the bumped reply count until the wire catches up`() =
+        runTest {
+            val cache = newCache(FakeLikeRepostRepository())
+            cache.seed(listOf(samplePost(id = PARENT).withReplies(3)))
+            cache.noteReplySent(PARENT)
+
+            // The appview hasn't counted the new reply yet.
+            val stale = samplePost(id = PARENT).withReplies(3)
+            cache.seed(listOf(stale))
+            assertEquals(4, stale.mergeInteractionState(cache.state.value.getValue(PARENT)).stats.replyCount)
+
+            // Once it has (plus someone else's reply), the wire wins.
+            val fresh = samplePost(id = PARENT).withReplies(5)
+            cache.seed(listOf(fresh))
+            assertEquals(5, fresh.mergeInteractionState(cache.state.value.getValue(PARENT)).stats.replyCount)
+        }
+
+    @Test
+    fun `discarding a failed reply undoes the bump`() =
+        runTest {
+            val cache = newCache(FakeLikeRepostRepository())
+            val parent = samplePost(id = PARENT).withReplies(3)
+            cache.seed(listOf(parent))
+            cache.noteReplySent(PARENT)
+
+            cache.noteReplyDiscarded(PARENT)
+
+            assertEquals(3, parent.mergeInteractionState(cache.state.value.getValue(PARENT)).stats.replyCount)
+        }
+
+    @Test
+    fun `a reply to a post no surface has loaded creates no entry`() =
+        runTest {
+            val cache = newCache(FakeLikeRepostRepository())
+
+            cache.noteReplySent(PARENT)
+
+            assertEquals(null, cache.state.value[PARENT])
         }
 
     @Test
@@ -536,4 +590,6 @@ internal class DefaultPostInteractionsCacheTest {
                 ),
             repostedBy = null,
         )
+
+    private fun PostUi.withReplies(count: Int): PostUi = copy(stats = stats.copy(replyCount = count))
 }

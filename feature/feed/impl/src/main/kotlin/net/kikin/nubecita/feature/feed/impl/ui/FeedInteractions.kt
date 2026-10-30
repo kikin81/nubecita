@@ -15,9 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.navigation3.runtime.NavKey
-import kotlinx.coroutines.flow.collectLatest
 import net.kikin.nubecita.core.common.haptic.PostHaptics
-import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
 import net.kikin.nubecita.core.postinteractions.ui.InteractionStrings
 import net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions
 import net.kikin.nubecita.data.models.FacetTarget
@@ -113,8 +111,6 @@ internal fun rememberFeedInteractions(
     val feedNotFoundErrorMessage = stringResource(R.string.feed_snackbar_error_feed_not_found)
     val linkCopiedMessage = stringResource(R.string.feed_snackbar_link_copied)
     val clipLabel = stringResource(R.string.feed_clipboard_label_post_link)
-    val postPublishedMessage = stringResource(R.string.feed_snackbar_post_published)
-    val replyPublishedMessage = stringResource(R.string.feed_snackbar_reply_published)
     // Pre-resolve each overflow-menu "coming soon" snackbar via
     // stringResource() at composition time so locale changes
     // participate in recomposition (lint: LocalContextGetResourceValueCall).
@@ -322,36 +318,6 @@ internal fun rememberFeedInteractions(
     // so the null-safe release is a no-op in previews/screenshot tests.
     DisposableEffect(viewModel, coordinator) {
         onDispose { coordinator?.release() }
-    }
-
-    // Composer submit-success bus. Fires when `OutgoingPostStore` finishes
-    // sending a post the composer handed off (relayed by `MainShell`).
-    // Two side effects:
-    //  - dispatch the optimistic `replyCount + 1` event when the
-    //    submit was a reply, so the parent post in the feed reflects
-    //    the new count without waiting for the next refresh.
-    //  - show a confirmation snackbar with reply- vs new-post copy.
-    //
-    // `collectLatest` (not `collect`) — `showSnackbar` suspends until
-    // dismissal, so back-to-back submits with plain `collect` would
-    // queue behind the still-visible snackbar. `collectLatest` cancels
-    // the in-flight body when a new submit arrives, dismissing the prior
-    // snackbar and showing the new confirmation immediately. Keyed on
-    // the flow + viewModel + snackbarHostState so the collector restarts
-    // cleanly across recompositions that re-create any of those references.
-    val composerSubmitEvents = LocalComposerSubmitEvents.current
-    LaunchedEffect(composerSubmitEvents, viewModel, snackbarHostState) {
-        composerSubmitEvents.collectLatest { event ->
-            event.replyToUri?.let { parentUri ->
-                viewModel.handleEvent(FeedEvent.OnReplySubmittedToParent(parentUri))
-            }
-            val message =
-                if (event.replyToUri != null) replyPublishedMessage else postPublishedMessage
-            // Replace any pending snackbar — fresh confirmation outranks
-            // any stale error message lingering from a prior load.
-            snackbarHostState.currentSnackbarData?.dismiss()
-            snackbarHostState.showSnackbar(message = message)
-        }
     }
 
     // Screen-nav + mute/refresh/append failure effects. Interaction

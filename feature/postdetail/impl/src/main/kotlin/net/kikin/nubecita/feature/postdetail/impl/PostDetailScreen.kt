@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -57,6 +56,7 @@ import net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.FacetTarget
+import net.kikin.nubecita.data.models.OutgoingPostUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
@@ -69,6 +69,7 @@ import net.kikin.nubecita.designsystem.component.MediaCover
 import net.kikin.nubecita.designsystem.component.NotFoundPostCard
 import net.kikin.nubecita.designsystem.component.NubecitaPullToRefreshBox
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
+import net.kikin.nubecita.designsystem.component.OutgoingPostCard
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
 import net.kikin.nubecita.designsystem.component.VideoPosterEmbed
@@ -363,6 +364,14 @@ internal fun PostDetailScreen(
         remember(viewModel) {
             { uri: String -> viewModel.handleEvent(PostDetailEvent.OnVideoTapped(uri)) }
         }
+    val onRetryOutgoing =
+        remember(viewModel) {
+            { localId: String -> viewModel.handleEvent(PostDetailEvent.RetryOutgoing(localId)) }
+        }
+    val onDiscardOutgoing =
+        remember(viewModel) {
+            { localId: String -> viewModel.handleEvent(PostDetailEvent.DiscardOutgoing(localId)) }
+        }
 
     PostDetailScreenContent(
         state = state,
@@ -375,6 +384,8 @@ internal fun PostDetailScreen(
         onPostImageClick = onPostImageClick,
         onQuotedImageClick = onQuotedImageClick,
         onVideoTap = onVideoTap,
+        onRetryOutgoing = onRetryOutgoing,
+        onDiscardOutgoing = onDiscardOutgoing,
         modifier = modifier,
     )
 }
@@ -393,11 +404,14 @@ internal fun PostDetailScreenContent(
     onPostImageClick: (postUri: String, imageIndex: Int) -> Unit = { _, _ -> },
     onQuotedImageClick: (quotedPostUri: String, imageIndex: Int) -> Unit = { _, _ -> },
     onVideoTap: (postUri: String) -> Unit = {},
+    onRetryOutgoing: (localId: String) -> Unit = {},
+    onDiscardOutgoing: (localId: String) -> Unit = {},
 ) {
     // Hoisted so the top bar and the thread's LazyColumn share one scroll state:
     // the bar reads it to decide whether to show the focus author.
     val listState = rememberLazyListState()
-    // The LazyColumn renders `items` 1:1, so this index IS the lazy-list index.
+    // The LazyColumn renders `items` 1:1 up to the focus (outgoing replies only
+    // follow the focus or a reply), so this index IS the lazy-list index.
     val focusIndex = remember(state.items) { state.items.indexOfFirst { it is ThreadItem.Focus } }
 
     Scaffold(
@@ -457,6 +471,9 @@ internal fun PostDetailScreenContent(
             ->
                 LoadedThread(
                     items = state.items,
+                    outgoingReplies = state.outgoingReplies,
+                    onRetryOutgoing = onRetryOutgoing,
+                    onDiscardOutgoing = onDiscardOutgoing,
                     listState = listState,
                     isRefreshing = status is PostDetailLoadStatus.Refreshing,
                     onRefresh = onRefresh,
@@ -476,6 +493,9 @@ internal fun PostDetailScreenContent(
 @Composable
 private fun LoadedThread(
     items: ImmutableList<ThreadItem>,
+    outgoingReplies: ImmutableList<OutgoingPostUi>,
+    onRetryOutgoing: (localId: String) -> Unit,
+    onDiscardOutgoing: (localId: String) -> Unit,
     listState: LazyListState,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
@@ -516,6 +536,8 @@ private fun LoadedThread(
                 end = contentPadding.calculateEndPadding(layoutDirection),
             )
         }
+    // Each outgoing reply renders directly under its parent row.
+    val outgoingByParent = remember(outgoingReplies) { outgoingReplies.groupBy { it.replyToUri } }
     NubecitaPullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
@@ -530,42 +552,12 @@ private fun LoadedThread(
             state = listState,
             contentPadding = mergedContentPadding,
         ) {
-            items(items = items, key = { it.key }) { item ->
-                when (item) {
-                    is ThreadItem.Ancestor -> {
-                        val (videoSlot, quotedVideoSlot) =
-                            rememberThreadPostVideoSlots(item.post, onVideoTap)
-                        PostCard(
-                            post = item.post,
-                            callbacks = callbacks,
-                            onImageClick = { index -> onPostImageClick(item.post.id, index) },
-                            onQuotedImageClick = onQuotedImageClick,
-                            videoEmbedSlot = videoSlot,
-                            quotedVideoEmbedSlot = quotedVideoSlot,
-                            animateLikeTap = item.post.id == lastLikeTapPostUri,
-                            animateRepostTap = item.post.id == lastRepostTapPostUri,
-                            isMediaRevealed = item.post.id in revealedMedia,
-                            onRevealMedia = { revealedMedia = revealedMedia.adding(item.post.id) },
-                        )
-                    }
-                    is ThreadItem.Focus -> {
-                        val (videoSlot, quotedVideoSlot) =
-                            rememberThreadPostVideoSlots(item.post, onVideoTap)
-                        Surface(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            shape = RoundedCornerShape(FOCUS_CONTAINER_CORNER_RADIUS),
-                        ) {
-                            // Every thread PostCard (ancestor / focus / reply)
-                            // wires onImageClick + onQuotedImageClick so a tap
-                            // on any post's image opens the media viewer for
-                            // THAT post instead of bubbling to the card tap and
-                            // opening the post's detail (nubecita-5g71). The
-                            // callback carries item.post.id so the viewer
-                            // resolves the tapped post, not the focus.
+            for (threadItem in items) {
+                item(key = threadItem.key) {
+                    when (val item = threadItem) {
+                        is ThreadItem.Ancestor -> {
+                            val (videoSlot, quotedVideoSlot) =
+                                rememberThreadPostVideoSlots(item.post, onVideoTap)
                             PostCard(
                                 post = item.post,
                                 callbacks = callbacks,
@@ -579,38 +571,81 @@ private fun LoadedThread(
                                 onRevealMedia = { revealedMedia = revealedMedia.adding(item.post.id) },
                             )
                         }
+                        is ThreadItem.Focus -> {
+                            val (videoSlot, quotedVideoSlot) =
+                                rememberThreadPostVideoSlots(item.post, onVideoTap)
+                            Surface(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                shape = RoundedCornerShape(FOCUS_CONTAINER_CORNER_RADIUS),
+                            ) {
+                                // Every thread PostCard (ancestor / focus / reply)
+                                // wires onImageClick + onQuotedImageClick so a tap
+                                // on any post's image opens the media viewer for
+                                // THAT post instead of bubbling to the card tap and
+                                // opening the post's detail (nubecita-5g71). The
+                                // callback carries item.post.id so the viewer
+                                // resolves the tapped post, not the focus.
+                                PostCard(
+                                    post = item.post,
+                                    callbacks = callbacks,
+                                    onImageClick = { index -> onPostImageClick(item.post.id, index) },
+                                    onQuotedImageClick = onQuotedImageClick,
+                                    videoEmbedSlot = videoSlot,
+                                    quotedVideoEmbedSlot = quotedVideoSlot,
+                                    animateLikeTap = item.post.id == lastLikeTapPostUri,
+                                    animateRepostTap = item.post.id == lastRepostTapPostUri,
+                                    isMediaRevealed = item.post.id in revealedMedia,
+                                    onRevealMedia = { revealedMedia = revealedMedia.adding(item.post.id) },
+                                )
+                            }
+                        }
+                        is ThreadItem.Reply -> {
+                            val (videoSlot, quotedVideoSlot) =
+                                rememberThreadPostVideoSlots(item.post, onVideoTap)
+                            PostCard(
+                                post = item.post,
+                                callbacks = callbacks,
+                                onImageClick = { index -> onPostImageClick(item.post.id, index) },
+                                onQuotedImageClick = onQuotedImageClick,
+                                videoEmbedSlot = videoSlot,
+                                quotedVideoEmbedSlot = quotedVideoSlot,
+                                animateLikeTap = item.post.id == lastLikeTapPostUri,
+                                animateRepostTap = item.post.id == lastRepostTapPostUri,
+                                isMediaRevealed = item.post.id in revealedMedia,
+                                onRevealMedia = { revealedMedia = revealedMedia.adding(item.post.id) },
+                            )
+                        }
+                        is ThreadItem.Blocked ->
+                            // m31.6 (oftc.6) — proper tombstone visual replaces the
+                            // earlier inline "Post unavailable" Text. The Unblock
+                            // CTA is intentionally null here until oftc.4 lands the
+                            // real unblock RPC + optimistic state — wiring an empty
+                            // onClick lambda would mislead users about what tapping
+                            // does (silently nothing). NotFound has no recovery
+                            // path, so [NotFoundPostCard] never carries a CTA.
+                            BlockedPostCard(onUnblock = null)
+                        is ThreadItem.NotFound -> NotFoundPostCard()
+                        is ThreadItem.Fold -> {
+                            // m28.5.1 mapper does not emit Fold; leaving the case
+                            // explicit here so the exhaustive-when stays compile-
+                            // checked. m28.5.2's visual treatment will render a
+                            // "View more" affordance here.
+                        }
                     }
-                    is ThreadItem.Reply -> {
-                        val (videoSlot, quotedVideoSlot) =
-                            rememberThreadPostVideoSlots(item.post, onVideoTap)
-                        PostCard(
-                            post = item.post,
+                }
+                outgoingByParent[threadItem.parentPostId()]?.forEach { reply ->
+                    item(key = "outgoing:${reply.localId}", contentType = "outgoing") {
+                        OutgoingPostCard(
+                            item = reply,
+                            onRetry = { onRetryOutgoing(reply.localId) },
+                            onDiscard = { onDiscardOutgoing(reply.localId) },
                             callbacks = callbacks,
-                            onImageClick = { index -> onPostImageClick(item.post.id, index) },
-                            onQuotedImageClick = onQuotedImageClick,
-                            videoEmbedSlot = videoSlot,
-                            quotedVideoEmbedSlot = quotedVideoSlot,
-                            animateLikeTap = item.post.id == lastLikeTapPostUri,
-                            animateRepostTap = item.post.id == lastRepostTapPostUri,
-                            isMediaRevealed = item.post.id in revealedMedia,
-                            onRevealMedia = { revealedMedia = revealedMedia.adding(item.post.id) },
+                            onImageClick = { index -> onPostImageClick(reply.post.id, index) },
                         )
-                    }
-                    is ThreadItem.Blocked ->
-                        // m31.6 (oftc.6) — proper tombstone visual replaces the
-                        // earlier inline "Post unavailable" Text. The Unblock
-                        // CTA is intentionally null here until oftc.4 lands the
-                        // real unblock RPC + optimistic state — wiring an empty
-                        // onClick lambda would mislead users about what tapping
-                        // does (silently nothing). NotFound has no recovery
-                        // path, so [NotFoundPostCard] never carries a CTA.
-                        BlockedPostCard(onUnblock = null)
-                    is ThreadItem.NotFound -> NotFoundPostCard()
-                    is ThreadItem.Fold -> {
-                        // m28.5.1 mapper does not emit Fold; leaving the case
-                        // explicit here so the exhaustive-when stays compile-
-                        // checked. m28.5.2's visual treatment will render a
-                        // "View more" affordance here.
                     }
                 }
             }
@@ -879,3 +914,11 @@ private fun previewThread(): ImmutableList<ThreadItem> =
         ThreadItem.Reply(post = previewPost("reply-1", text = "Top-level reply — direct child of the focus."), depth = 1),
         ThreadItem.Reply(post = previewPost("reply-2", text = "Another top-level reply — sibling of reply-1."), depth = 1),
     )
+
+/** The post a reply in this thread would hang under: the focus or a reply. */
+private fun ThreadItem.parentPostId(): String? =
+    when (this) {
+        is ThreadItem.Focus -> post.id
+        is ThreadItem.Reply -> post.id
+        else -> null
+    }

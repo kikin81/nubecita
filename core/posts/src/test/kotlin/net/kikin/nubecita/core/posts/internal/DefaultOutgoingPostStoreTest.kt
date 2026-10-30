@@ -6,6 +6,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -25,6 +26,7 @@ import net.kikin.nubecita.core.posting.OutgoingPostStore
 import net.kikin.nubecita.core.posting.PostDraft
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.SharedMediaStore
+import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.core.profile.ActorProfile
 import net.kikin.nubecita.core.profile.ActorProfileRepository
@@ -46,6 +48,7 @@ internal class DefaultOutgoingPostStoreTest {
     private val postRepository = mockk<PostRepository>()
     private val actorProfileRepository = mockk<ActorProfileRepository>()
     private val sharedMediaStore = mockk<SharedMediaStore>(relaxed = true)
+    private val postInteractionsCache = mockk<PostInteractionsCache>(relaxed = true)
     private val sessionStateProvider =
         mockk<SessionStateProvider> {
             every { state } returns MutableStateFlow(SessionState.SignedIn(handle = "me.test", did = did))
@@ -83,6 +86,22 @@ internal class DefaultOutgoingPostStoreTest {
             assertEquals(OutgoingPostStatus.Sent(POST_URI), sent.status)
             assertEquals(POST_URI, sent.post.id)
             assertEquals(localId, sent.localId)
+        }
+
+    @Test
+    fun `a reply counts on its parent right away and is uncounted if discarded after failing`() =
+        runTest {
+            coEvery { postingRepository.createPost(any(), any(), any(), any(), any(), any(), any(), any()) } returns
+                Result.failure(ComposerError.Network(RuntimeException()))
+            noProfile()
+            val store = store()
+
+            val localId = store.submit(draft("reply").copy(replyToUri = PARENT_URI))
+            verify { postInteractionsCache.noteReplySent(PARENT_URI) }
+            advanceUntilIdle()
+            store.discard(localId)
+
+            verify { postInteractionsCache.noteReplyDiscarded(PARENT_URI) }
         }
 
     @Test
@@ -283,6 +302,7 @@ internal class DefaultOutgoingPostStoreTest {
             actorProfileRepository = actorProfileRepository,
             sessionStateProvider = sessionStateProvider,
             sharedMediaStore = sharedMediaStore,
+            postInteractionsCache = postInteractionsCache,
             scope = scope,
             clock = clock,
         )
@@ -320,5 +340,6 @@ internal class DefaultOutgoingPostStoreTest {
 
     private companion object {
         const val POST_URI = "at://did:plc:me/app.bsky.feed.post/3abc"
+        const val PARENT_URI = "at://did:plc:alice/app.bsky.feed.post/parent"
     }
 }

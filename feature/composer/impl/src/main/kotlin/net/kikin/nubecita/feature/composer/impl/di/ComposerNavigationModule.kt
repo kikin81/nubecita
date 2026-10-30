@@ -58,8 +58,7 @@ internal object ComposerNavigationModule {
                     )
                 ComposerScreen(
                     onNavigateBack = { navState.removeLast() },
-                    // The post now sends from `OutgoingPostStore`; MainShell
-                    // relays its sent posts to `LocalComposerSubmitEvents`.
+                    // The post sends from `OutgoingPostStore`; close right away.
                     onSubmit = { navState.removeLast() },
                     viewModel = viewModel,
                 )

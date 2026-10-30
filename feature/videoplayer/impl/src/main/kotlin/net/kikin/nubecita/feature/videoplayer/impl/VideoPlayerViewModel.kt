@@ -263,16 +263,6 @@ internal class VideoPlayerViewModel
                         scheduleChromeAutoHide()
                     }
                 }
-                is VideoPlayerEvent.OnReplySubmitted -> {
-                    val current = resolvedPost
-                    if (current != null && current.id == event.parentUri) {
-                        val updatedStats = current.stats.copy(replyCount = current.stats.replyCount + 1)
-                        resolvedPost = current.copy(stats = updatedStats)
-                        setState { copy(stats = updatedStats) }
-                    } else if (uiState.value.stats != null) {
-                        setState { copy(stats = stats?.copy(replyCount = stats.replyCount + 1)) }
-                    }
-                }
                 VideoPlayerEvent.LikeClicked -> {
                     val current = resolvedPost ?: return
                     viewModelScope.launch {

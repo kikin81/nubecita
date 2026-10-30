@@ -702,31 +702,6 @@ class VideoFeedViewModelTest {
             assertEquals(1, viewModel.uiState.value.activeIndex)
         }
 
-    @Test
-    fun onReplySubmittedToParent_incrementsReplyCountOnParentPost() =
-        runTest(mainDispatcher.dispatcher) {
-            coEvery { source.loadPage(null) } returns Result.success(VideoFeedPage(listOf(videoPost("a")), cursor = null))
-            val viewModel = vm()
-            advanceUntilIdle()
-
-            val postA = videoPost("a")
-            assertEquals(0, postA.stats.replyCount)
-
-            viewModel.handleEvent(VideoFeedEvent.OpenComments(postA))
-            viewModel.handleEvent(VideoFeedEvent.OnReplySubmittedToParent("a"))
-
-            val state = viewModel.uiState.value
-            val content = state.status as VideoFeedStatus.Content
-            assertEquals(
-                1,
-                content.items[0]
-                    .post.stats.replyCount,
-            )
-            assertEquals(1, state.activeCommentsPost?.stats?.replyCount)
-        }
-
-    // --- fixtures ---
-
     private fun videoPost(id: String): PostUi =
         post(
             id,

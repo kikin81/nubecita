@@ -7,6 +7,7 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.data.models.OutgoingPostUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ThreadItem
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
@@ -33,6 +34,11 @@ internal data class PostDetailState(
     val lastLikeTapPostUri: String? = null,
     /** Same-shape user-delta flag as FeedState. See FeedState KDoc. */
     val lastRepostTapPostUri: String? = null,
+    /**
+     * Replies the user just sent to the focus or a reply below it, rendered
+     * under their parent until a load includes them.
+     */
+    val outgoingReplies: ImmutableList<OutgoingPostUi> = persistentListOf(),
 ) : UiState
 
 /**
@@ -121,6 +127,16 @@ internal sealed interface PostDetailError {
 }
 
 internal sealed interface PostDetailEvent : UiEvent {
+    /** Re-send an outgoing reply that failed. */
+    data class RetryOutgoing(
+        val localId: String,
+    ) : PostDetailEvent
+
+    /** Drop an outgoing reply that failed. */
+    data class DiscardOutgoing(
+        val localId: String,
+    ) : PostDetailEvent
+
     /** First load on screen entry. Idempotent — repeated `Load` while loading is a no-op. */
     data object Load : PostDetailEvent
 

@@ -175,42 +175,6 @@ class VideoFeedViewModel
                         }
                     }
                 }
-
-                is VideoFeedEvent.OnReplySubmittedToParent -> incrementParentReplyCount(event.parentUri)
-            }
-        }
-
-        private fun incrementParentReplyCount(parentUri: String) {
-            setState {
-                val current = status
-                if (current is VideoFeedStatus.Content) {
-                    val updatedItems =
-                        current.items
-                            .map { item ->
-                                if (item.post.id == parentUri) {
-                                    val updatedPost =
-                                        item.post.copy(
-                                            stats = item.post.stats.copy(replyCount = item.post.stats.replyCount + 1),
-                                        )
-                                    item.copy(post = updatedPost)
-                                } else {
-                                    item
-                                }
-                            }.toImmutableList()
-                    copy(
-                        status = current.copy(items = updatedItems),
-                        activeCommentsPost =
-                            if (activeCommentsPost?.id == parentUri) {
-                                activeCommentsPost.copy(
-                                    stats = activeCommentsPost.stats.copy(replyCount = activeCommentsPost.stats.replyCount + 1),
-                                )
-                            } else {
-                                activeCommentsPost
-                            },
-                    )
-                } else {
-                    this
-                }
             }
         }
 

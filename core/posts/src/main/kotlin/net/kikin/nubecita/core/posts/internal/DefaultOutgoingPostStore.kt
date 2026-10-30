@@ -20,6 +20,7 @@ import net.kikin.nubecita.core.posting.OutgoingPostStore
 import net.kikin.nubecita.core.posting.PostDraft
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.SharedMediaStore
+import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.core.profile.ActorProfileRepository
 import net.kikin.nubecita.data.models.AuthorUi
@@ -41,6 +42,7 @@ internal class DefaultOutgoingPostStore
         private val actorProfileRepository: ActorProfileRepository,
         private val sessionStateProvider: SessionStateProvider,
         private val sharedMediaStore: SharedMediaStore,
+        private val postInteractionsCache: PostInteractionsCache,
         @param:ApplicationScope private val scope: CoroutineScope,
         private val clock: Clock,
     ) : OutgoingPostStore {
@@ -64,6 +66,9 @@ internal class DefaultOutgoingPostStore
                     status = OutgoingPostStatus.Sending,
                 )
             _posts.update { persistentListOf(entry).addAll(it) }
+            // Count the reply on its parent everywhere right away; undone if the
+            // user discards it after a failed send.
+            draft.replyToUri?.let(postInteractionsCache::noteReplySent)
             scope.launch { resolveViewerAuthor() }
             send(localId)
             return localId
@@ -80,6 +85,7 @@ internal class DefaultOutgoingPostStore
             val entry = find(localId) ?: return
             if (entry.status !is OutgoingPostStatus.Failed) return
             _posts.update { list -> list.filterNot { it.localId == localId }.toImmutableList() }
+            entry.replyToUri?.let(postInteractionsCache::noteReplyDiscarded)
             deleteOwnedCopies(entry.draft)
         }
 

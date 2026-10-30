@@ -15,6 +15,8 @@ public data class OutgoingPostUi(
     val localId: String,
     val post: PostUi,
     val status: OutgoingPostStatusUi,
+    /** The parent post's AT URI when this is a reply; null for a top-level post. */
+    val replyToUri: String? = null,
 )
 
 public enum class OutgoingPostStatusUi {

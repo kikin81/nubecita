@@ -18,14 +18,11 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
-import net.kikin.nubecita.core.common.navigation.LocalComposerSubmitEvents
 import net.kikin.nubecita.core.common.navigation.LocalPipController
 import net.kikin.nubecita.core.common.navigation.rememberIsInPipMode
 import net.kikin.nubecita.core.common.screen.KeepScreenOnWhile
@@ -148,21 +145,6 @@ internal fun VideoPlayerScreen(
                     }
                 }
             }
-        }
-    }
-
-    val composerSubmitEvents = LocalComposerSubmitEvents.current
-    val replySentMessage = stringResource(R.string.video_player_reply_sent)
-    val postSentMessage = stringResource(R.string.video_player_post_sent)
-    LaunchedEffect(composerSubmitEvents, viewModel, commentsViewModel) {
-        composerSubmitEvents.collectLatest { event ->
-            event.replyToUri?.let { parentUri ->
-                viewModel.handleEvent(VideoPlayerEvent.OnReplySubmitted(parentUri))
-            }
-            commentsViewModel.handleEvent(VideoCommentsEvent.OnComposerSubmitted(event))
-            val message = if (event.replyToUri != null) replySentMessage else postSentMessage
-            snackbarHostState.currentSnackbarData?.dismiss()
-            snackbarHostState.showSnackbar(message = message)
         }
     }
 
