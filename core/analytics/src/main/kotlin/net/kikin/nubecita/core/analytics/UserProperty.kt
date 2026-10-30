@@ -62,3 +62,15 @@ data class IsPro(
     override val name: String = "is_pro"
     override val value: String = isPro.toString()
 }
+
+/**
+ * `has_watch` — whether a paired watch has the Nubecita Wear app installed.
+ * Set from `WearAppPresence` so retention and Pro reports can segment watch
+ * owners. Just the boolean — never the watch model or node id.
+ */
+data class HasWatch(
+    val hasWatch: Boolean,
+) : UserProperty {
+    override val name: String = "has_watch"
+    override val value: String = hasWatch.toString()
+}

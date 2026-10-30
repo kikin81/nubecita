@@ -12,6 +12,7 @@ android {
 // only place the phone touches the Data Layer.
 dependencies {
     implementation(platform(libs.coil.bom))
+    implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
     implementation(project(":core:bookmarks"))
     implementation(project(":core:common"))

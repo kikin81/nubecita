@@ -1,6 +1,8 @@
 package net.kikin.nubecita.core.wearsync
 
 import kotlinx.coroutines.CancellationException
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.WatchAppOpen
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import timber.log.Timber
@@ -27,18 +29,22 @@ interface WearFeedRefreshTrigger {
  *    publishes again when it finishes), at most once per [REFRESH_COOLDOWN_MS]
  *    so opening the watch app repeatedly doesn't refetch every time.
  *
- * Each step is isolated: one failing doesn't skip the next.
+ * Each step is isolated: one failing doesn't skip the next. Every open is
+ * logged as [WatchAppOpen], signed in or not; the refresh cooldown limits
+ * network fetches, not the count.
  */
 class WearSyncRequestHandler internal constructor(
     private val sessionPublisher: WearSessionPublisher,
     private val sessionStateProvider: SessionStateProvider,
     private val feedSync: WearFeedSync,
     private val refreshTrigger: WearFeedRefreshTrigger,
+    private val analytics: AnalyticsClient,
     private val clock: Clock,
 ) {
     private val lastRefreshMs = AtomicLong(Long.MIN_VALUE)
 
     suspend fun onSyncRequest() {
+        analytics.log(WatchAppOpen)
         sessionPublisher.republish()
         val did = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did ?: return
         guarded("feed republish") { feedSync.publish(did, urgent = true) }

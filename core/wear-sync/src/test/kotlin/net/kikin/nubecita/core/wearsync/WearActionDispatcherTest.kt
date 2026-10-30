@@ -3,8 +3,15 @@ package net.kikin.nubecita.core.wearsync
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.analytics.InteractPost
+import net.kikin.nubecita.core.analytics.PostAction
+import net.kikin.nubecita.core.analytics.PostSurface
+import net.kikin.nubecita.core.analytics.WatchAction
+import net.kikin.nubecita.core.analytics.WatchActionOutcome
+import net.kikin.nubecita.core.analytics.WatchActionType
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.core.wearcontract.WearAction
 import net.kikin.nubecita.core.wearcontract.WearActionFailure
 import net.kikin.nubecita.core.wearcontract.WearActionRequest
@@ -26,6 +33,7 @@ class WearActionDispatcherTest {
     private val post = "at://did:plc:bob/app.bsky.feed.post/3k"
     private val session = MutableStateFlow<SessionState>(SessionState.SignedIn(handle = "alice.bsky.social", did = alice))
     private val dataLayer = RecordingDataLayer()
+    private val analytics = RecordingAnalyticsClient()
     private val likes = RecordingHandler { Result.success("at://$alice/app.bsky.feed.like/1") }
 
     private fun dispatcher(vararg handlers: WearActionHandler = arrayOf(likes)) =
@@ -38,6 +46,7 @@ class WearActionDispatcherTest {
                     override suspend fun refresh() = Unit
                 },
             handlers = handlers.toSet(),
+            analytics = analytics,
             clock =
                 object : Clock {
                     override fun now() = Instant.fromEpochMilliseconds(5_000L)
@@ -68,6 +77,10 @@ class WearActionDispatcherTest {
             assertEquals(5_000L, result.completedAtMs)
             assertEquals(listOf(WearAction.Like(post, "cid")), likes.executed)
             assertEquals(listOf("result", "delete:$watch:${WearPaths.action(alice, "a1")}"), dataLayer.order)
+            assertEquals(
+                listOf(InteractPost(PostAction.Like, PostSurface.Watch), WatchAction(WatchActionType.Like, WatchActionOutcome.Ok)),
+                analytics.events,
+            )
         }
 
     @Test
@@ -82,6 +95,7 @@ class WearActionDispatcherTest {
             val result = (WearCodec.decode(WearActionResult.serializer(), json) as WearDecodeResult.Decoded).value
             assertEquals(WearActionFailure.ACCOUNT, result.failure)
             assertEquals(listOf("delete:$watch:${WearPaths.action(bob, "a1")}"), dataLayer.deletes)
+            assertEquals(listOf(WatchAction(WatchActionType.Like, WatchActionOutcome.Account)), analytics.events)
         }
 
     @Test
@@ -112,6 +126,7 @@ class WearActionDispatcherTest {
 
             assertEquals(WearActionFailure.UNSUPPORTED, onlyResult().failure)
             assertEquals(1, dataLayer.deletes.size)
+            assertEquals(listOf(WatchAction(WatchActionType.Unknown, WatchActionOutcome.Unsupported)), analytics.events)
         }
 
     @Test
@@ -134,6 +149,7 @@ class WearActionDispatcherTest {
             val crashing = RecordingHandler { error("boom") }
             dispatcher(crashing).onActionItem(watch, WearPaths.action(alice, "a1"), request())
             assertEquals(WearActionFailure.ERROR, onlyResult().failure)
+            assertEquals(List(2) { WatchAction(WatchActionType.Like, WatchActionOutcome.Error) }, analytics.events)
         }
 
     @Test
@@ -146,6 +162,7 @@ class WearActionDispatcherTest {
             assertTrue(likes.executed.isEmpty())
             assertTrue(dataLayer.puts.isEmpty())
             assertEquals(listOf("delete:$watch:${WearPaths.action(alice, "a1")}"), dataLayer.deletes)
+            assertTrue(analytics.events.isEmpty(), "a redelivered action was already counted")
         }
 
     @Test
@@ -181,6 +198,22 @@ class WearActionDispatcherTest {
             assertEquals(WearActionFailure.EXPIRED, onlyResult().failure)
             assertTrue(!shortLived.ran)
             assertEquals(1, dataLayer.deletes.size)
+            assertEquals(listOf(WatchAction(WatchActionType.Like, WatchActionOutcome.Expired)), analytics.events)
+        }
+
+    @Test
+    fun aSuccessfulDmAction_isCountedAsAWatchAction_butNotAsAPostInteraction() =
+        runTest {
+            val dms =
+                object : WearActionHandler {
+                    override fun canHandle(action: WearAction) = action is WearAction.DmReply
+
+                    override suspend fun execute(action: WearAction): Result<String?> = Result.success(null)
+                }
+
+            dispatcher(dms).onActionItem(watch, WearPaths.action(alice, "a1"), request(action = WearAction.DmReply("c1", "hi")))
+
+            assertEquals(listOf(WatchAction(WatchActionType.DmReply, WatchActionOutcome.Ok)), analytics.events)
         }
 
     @Test

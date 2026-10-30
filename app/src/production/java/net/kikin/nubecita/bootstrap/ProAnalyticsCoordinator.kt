@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.AnalyticsInstanceIdProvider
+import net.kikin.nubecita.core.analytics.HasWatch
 import net.kikin.nubecita.core.analytics.IsPro
 import net.kikin.nubecita.core.analytics.NotificationsEnabled
 import net.kikin.nubecita.core.analytics.SelfHosted
@@ -16,6 +17,7 @@ import net.kikin.nubecita.core.billing.RevenueCatInitializer
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import net.kikin.nubecita.core.push.NotificationsEnabledSource
+import net.kikin.nubecita.core.wearsync.WearAppPresence
 import javax.inject.Inject
 import javax.inject.Singleton
 import net.kikin.nubecita.core.analytics.ThemePreference as AnalyticsThemePreference
@@ -43,6 +45,7 @@ internal class ProAnalyticsCoordinator
         private val userPreferencesRepository: UserPreferencesRepository,
         private val sessionStateProvider: SessionStateProvider,
         private val notificationsEnabledSource: NotificationsEnabledSource,
+        private val wearAppPresence: WearAppPresence,
         @param:ApplicationScope private val scope: CoroutineScope,
     ) {
         fun start() {
@@ -75,6 +78,12 @@ internal class ProAnalyticsCoordinator
             // an OS-Settings toggle outside the app is reflected on next resume.
             notificationsEnabledSource.notificationsEnabled
                 .onEach { analyticsClient.setUserProperty(NotificationsEnabled(it)) }
+                .launchIn(scope)
+            // Whether a paired watch has the Wear app, so reports can segment
+            // watch owners. Capability-change driven (no polling); a watch out
+            // of range still counts.
+            wearAppPresence.isWearAppInstalled
+                .onEach { analyticsClient.setUserProperty(HasWatch(it)) }
                 .launchIn(scope)
         }
     }

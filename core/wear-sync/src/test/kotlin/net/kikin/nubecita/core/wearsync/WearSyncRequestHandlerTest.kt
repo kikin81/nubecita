@@ -4,9 +4,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.analytics.WatchAppOpen
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.feedcache.FeedKey
+import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.core.wearsync.internal.WearDataLayer
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -19,6 +21,7 @@ class WearSyncRequestHandlerTest {
     private val dataLayer = RecordingDataLayer()
     private val feeds = RecordingFeedSync()
     private val refresh = RecordingTrigger()
+    private val analytics = RecordingAnalyticsClient()
     private var nowMs = 1_000_000L
 
     private fun TestScope.handler(): WearSyncRequestHandler {
@@ -37,6 +40,7 @@ class WearSyncRequestHandlerTest {
             sessionStateProvider = provider,
             feedSync = feeds,
             refreshTrigger = refresh,
+            analytics = analytics,
             clock = clock,
         )
     }
@@ -49,6 +53,7 @@ class WearSyncRequestHandlerTest {
             assertTrue(dataLayer.urgentPuts > 0)
             assertEquals(listOf("did:plc:alice" to true), feeds.published)
             assertEquals(1, refresh.calls)
+            assertEquals(listOf(WatchAppOpen), analytics.events)
         }
 
     @Test
@@ -62,6 +67,7 @@ class WearSyncRequestHandlerTest {
 
             assertEquals(2, feeds.published.size)
             assertEquals(1, refresh.calls)
+            assertEquals(listOf(WatchAppOpen, WatchAppOpen), analytics.events, "the cooldown limits refetches, not open counts")
         }
 
     @Test
@@ -97,6 +103,7 @@ class WearSyncRequestHandlerTest {
 
             assertTrue(feeds.published.isEmpty())
             assertEquals(0, refresh.calls)
+            assertEquals(listOf(WatchAppOpen), analytics.events, "a signed-out open still counts as an open")
         }
 
     @Test
