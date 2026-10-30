@@ -33,6 +33,16 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Nubecita">
         <!--
+            ARCore (com.google.ar:core) arrives transitively with Jetpack XR and
+            merges its min_apk_version meta-data. ARCore then requires the app to
+            declare whether AR is required; Nubecita uses no AR, so "optional"
+            keeps it installable everywhere and never prompts an ARCore install.
+            Without it, Firebase App Distribution rejects the APK (nubecita-2mnp).
+        -->
+        <meta-data
+            android:name="com.google.ar.core"
+            android:value="optional" />
+        <!--
             Disable Firebase Messaging auto-init at process load. We re-enable
             it explicitly from NubecitaApplication.onCreate so that:
 

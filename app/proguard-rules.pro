@@ -13,3 +13,13 @@
 # auto-uploads the mapping file during release builds.
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
+
+# --- Android XR system extensions ---------------------------------------------
+# androidx.xr.scenecore's split engine (com.google.androidxr.splitengine,
+# com.google.ar.imp) references the XR system extension library, which only
+# Android XR devices provide at runtime; the XR AARs ship no rule for it, so R8
+# fails with "Missing class com.android.extensions.xr.*" (nubecita-2mnp). The
+# classes are never on the classpath and those paths only run on a headset, so
+# silencing the warning changes nothing on phones.
+-dontwarn com.android.extensions.xr.**
+-dontwarn android.extensions.xr.**
