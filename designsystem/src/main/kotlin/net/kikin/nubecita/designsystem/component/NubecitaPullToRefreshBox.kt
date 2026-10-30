@@ -66,6 +66,11 @@ fun NubecitaPullToRefreshBox(
     indicatorPadding: PaddingValues = PaddingValues(),
     content: @Composable (BoxScope.() -> Unit),
 ) {
+    // In previews the indicator is drawn in its static, fully pulled form
+    // rather than the indeterminate morph: the morph's phase depends on when
+    // its infinite animation started, which varied between screenshot runs on
+    // CI (FeedScreenLoadedRefreshing flipped between two frames).
+    val animateIndicator = isRefreshing && !LocalInspectionMode.current
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
@@ -78,7 +83,7 @@ fun NubecitaPullToRefreshBox(
             // shift a top-center indicator off-center on landscape cutouts).
             PullToRefreshDefaults.LoadingIndicator(
                 state = state,
-                isRefreshing = isRefreshing,
+                isRefreshing = animateIndicator,
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = indicatorPadding.calculateTopPadding()),
             )
         },
@@ -87,12 +92,10 @@ fun NubecitaPullToRefreshBox(
 }
 
 /**
- * The real remembered state, except under [LocalInspectionMode]: there a fresh
- * `isRefreshing = true` state reaches the threshold through
- * `animateToThreshold()`, a suspend animation that ends at a moment that
- * depends on how fast the host renders, so the indicator's morph frame — and
- * every "refreshing" screenshot — varied run to run. Previews get a settled,
- * non-animating state instead: fully pulled while refreshing, hidden otherwise.
+ * The real remembered state, except under [LocalInspectionMode]: previews get
+ * a settled, non-animating state — fully pulled while refreshing, hidden
+ * otherwise — so a "refreshing" screenshot doesn't depend on when
+ * `animateToThreshold()` finishes, and the indicator sits fully revealed.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
