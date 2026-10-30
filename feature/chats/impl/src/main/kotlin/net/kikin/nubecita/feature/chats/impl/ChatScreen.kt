@@ -45,7 +45,7 @@ internal fun ChatScreen(
     val currentOnNavigateToHashtag by rememberUpdatedState(onNavigateToHashtag)
     // Live incoming messages: the VM polls only while this thread is visible with the app
     // foregrounded, so leaving the screen or backgrounding the app stops all network work.
-    LifecycleStartEffect(viewModel) {
+    LifecycleStartEffect(Unit) {
         viewModel.handleEvent(ChatEvent.ScreenStarted)
         onStopOrDispose { viewModel.handleEvent(ChatEvent.ScreenStopped) }
     }
