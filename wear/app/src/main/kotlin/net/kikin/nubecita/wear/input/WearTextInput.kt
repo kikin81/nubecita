@@ -1,5 +1,6 @@
 package net.kikin.nubecita.wear.input
 
+import android.app.Activity
 import android.app.RemoteInput
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -30,6 +31,7 @@ fun rememberWearTextInput(
     val currentOnText by rememberUpdatedState(onText)
     val launcher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
             val text =
                 result.data
                     ?.let { RemoteInput.getResultsFromIntent(it) }

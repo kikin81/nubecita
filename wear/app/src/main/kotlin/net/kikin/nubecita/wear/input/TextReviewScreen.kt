@@ -108,7 +108,7 @@ fun TextReviewScreen(
                     if (length.isOverLimit) {
                         stringResource(R.string.wear_input_too_long, length.graphemes, length.max)
                     } else {
-                        "${length.graphemes} / ${length.max}"
+                        stringResource(R.string.wear_input_counter, length.graphemes, length.max)
                     },
                     style = MaterialTheme.typography.labelSmall,
                     color = if (length.isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
