@@ -14,9 +14,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
-import net.kikin.nubecita.core.common.spatial.DefaultSpatialSessionEnvironment
-import net.kikin.nubecita.core.common.spatial.LocalSpatialSessionEnvironment
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
+import net.kikin.nubecita.designsystem.spatial.DefaultSpatialSessionEnvironment
+import net.kikin.nubecita.designsystem.spatial.LocalSpatialSessionEnvironment
 import net.kikin.nubecita.feature.feed.api.Feed
 
 private const val SPATIAL_PANEL_WIDTH_DP: Int = 1024

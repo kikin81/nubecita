@@ -1,4 +1,4 @@
-package net.kikin.nubecita.core.common.spatial
+package net.kikin.nubecita.designsystem.spatial
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember

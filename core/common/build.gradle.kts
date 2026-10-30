@@ -21,9 +21,9 @@ dependencies {
     // addOnPictureInPictureModeChangedListener. Activity types stay an
     // implementation detail — not exposed in any public signature.
     implementation(libs.androidx.activity.compose)
-    // LocalSpatialCapabilities is read inside SpatialSessionEnvironment only;
-    // no XR type appears in this module's public API.
-    implementation(libs.androidx.xr.compose)
+    // No Jetpack XR here: :wear:app depends on this module, and XR drags
+    // ARCore, OpenXR and the scene engine (~29 MB of native libs) onto the
+    // watch. XR helpers live in :designsystem (nubecita-2mnp).
 
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 

@@ -50,11 +50,11 @@ import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.core.common.navigation.rememberIsInPipMode
 import net.kikin.nubecita.core.common.navigation.rememberMainShellNavState
-import net.kikin.nubecita.core.common.spatial.rememberSpatialSessionEnvironment
 import net.kikin.nubecita.designsystem.LocalGifAutoplayEnabled
 import net.kikin.nubecita.designsystem.adaptive.SpatialScaffold
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.designsystem.spatial.rememberSpatialSessionEnvironment
 import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.feed.api.Feed
 import net.kikin.nubecita.feature.notifications.api.NotificationsTab

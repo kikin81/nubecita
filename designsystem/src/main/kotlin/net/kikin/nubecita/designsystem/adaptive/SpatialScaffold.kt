@@ -34,7 +34,7 @@ import androidx.xr.compose.spatial.OrbiterDefaults
 import androidx.xr.compose.spatial.OrbiterEdgeOffsetType
 import androidx.xr.compose.subspace.layout.SpatialRoundedCornerShape
 import androidx.xr.compose.unit.DpVolumeOffset
-import net.kikin.nubecita.core.common.spatial.rememberSpatialSessionEnvironment
+import net.kikin.nubecita.designsystem.spatial.rememberSpatialSessionEnvironment
 
 /**
  * Adaptive scaffold that bridges standard Material 3 [NavigationSuiteScaffold] with

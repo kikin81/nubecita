@@ -21,6 +21,8 @@ dependencies {
     implementation(libs.androidx.compose.ui.text.google.fonts)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.palette)
+    // SpatialSessionEnvironment + SpatialScaffold. Keep XR out of :core:common, which
+    // the Wear app depends on.
     implementation(libs.androidx.xr.compose)
     implementation(libs.atproto.compose)
     implementation(libs.atproto.compose.material3)
