@@ -14,6 +14,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.navigation3.rememberSwipeDismissableSceneStrategy
+import net.kikin.nubecita.core.wearcontract.WearCreatePost
 import net.kikin.nubecita.core.wearcontract.WearDmActions
 import net.kikin.nubecita.wear.dms.ConvoListScreen
 import net.kikin.nubecita.wear.dms.QuickReplyScreen
@@ -37,6 +38,7 @@ import net.kikin.nubecita.wear.navigation.WearConvos
 import net.kikin.nubecita.wear.navigation.WearFeedPicker
 import net.kikin.nubecita.wear.navigation.WearHome
 import net.kikin.nubecita.wear.navigation.WearPost
+import net.kikin.nubecita.wear.navigation.WearPostReview
 import net.kikin.nubecita.wear.navigation.WearReact
 import net.kikin.nubecita.wear.navigation.WearReply
 import net.kikin.nubecita.wear.navigation.WearReplyReview
@@ -84,6 +86,7 @@ fun NubecitaWearApp(
                         entryProvider =
                             entryProvider {
                                 entry<WearHome> {
+                                    val writePost = rememberWearTextInput(stringResource(R.string.wear_post_new)) { text -> backStack.add(WearPostReview(text)) }
                                     FeedScreen(
                                         state = feedState,
                                         nowMs = now,
@@ -91,6 +94,26 @@ fun NubecitaWearApp(
                                         onSwitchFeed = { backStack.add(WearFeedPicker) },
                                         unreadMessages = dmState.unreadCount,
                                         onOpenMessages = if (dmState.status == WatchDmStatus.Ready) ({ backStack.add(WearConvos) }) else null,
+                                        onNewPost = if (feedState.postingAvailable) writePost else null,
+                                        onRetryPost = { pending -> feedViewModel.handleEvent(WatchFeedEvent.RetryPost(pending.actionId)) },
+                                    )
+                                }
+                                entry<WearPostReview> { route ->
+                                    val rewrite =
+                                        rememberWearTextInput(stringResource(R.string.wear_post_new)) { text ->
+                                            backStack[backStack.lastIndex] = route.copy(text = text)
+                                        }
+                                    TextReviewScreen(
+                                        title = stringResource(R.string.wear_post_new),
+                                        text = route.text,
+                                        maxGraphemes = WearCreatePost.MAX_GRAPHEMES,
+                                        sendLabel = stringResource(R.string.wear_post_send),
+                                        onSend = {
+                                            feedViewModel.handleEvent(WatchFeedEvent.PostSent(route.text))
+                                            // Back to the feed, where the post shows as "Posting…".
+                                            backStack.remove(route)
+                                        },
+                                        onChange = rewrite,
                                     )
                                 }
                                 entry<WearConvos> {

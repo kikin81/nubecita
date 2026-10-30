@@ -40,6 +40,12 @@ data class WearReplyReview(
     val text: String,
 ) : NavKey
 
+/** Review a dictated or typed post before posting it (W6). */
+@Serializable
+data class WearPostReview(
+    val text: String,
+) : NavKey
+
 /** Pick a reaction for someone's message. */
 @Serializable
 data class WearReact(

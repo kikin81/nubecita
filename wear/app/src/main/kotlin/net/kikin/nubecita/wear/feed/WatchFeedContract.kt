@@ -47,6 +47,15 @@ data class WatchPostUi(
     val thumbnailPath: String?,
 )
 
+/** A post written on the watch that the phone hasn't posted yet (W6). */
+@Immutable
+data class WatchPendingPostUi(
+    val actionId: String,
+    val text: String,
+    /** "Not posted — tap to retry" rather than "Posting…". */
+    val failed: Boolean,
+)
+
 /** Exactly one applies. */
 sealed interface WatchFeedStatus {
     /** The account isn't known yet or the store hasn't answered. */
@@ -65,6 +74,10 @@ data class WatchFeedState(
     val posts: ImmutableList<WatchPostUi> = persistentListOf(),
     /** The paired phone runs watch actions, so the post screen offers them. */
     val actionsAvailable: Boolean = false,
+    /** The paired phone posts from the watch, so the feed offers "New post". */
+    val postingAvailable: Boolean = false,
+    /** Posts written on the watch, oldest first, until the phone posts them. */
+    val pendingPosts: ImmutableList<WatchPendingPostUi> = persistentListOf(),
 ) : UiState {
     val selectedFeed: WatchFeedTab? get() = feeds.firstOrNull { it.key == selectedKey }
 }
@@ -91,6 +104,16 @@ sealed interface WatchFeedEvent : UiEvent {
 
     data class ToggleBookmark(
         val postUri: String,
+    ) : WatchFeedEvent
+
+    /** Post [text], already reviewed, through the phone. */
+    data class PostSent(
+        val text: String,
+    ) : WatchFeedEvent
+
+    /** Send a failed post again. */
+    data class RetryPost(
+        val actionId: String,
     ) : WatchFeedEvent
 
     /** Open the post in Nubecita on the phone (long threads, replying). */

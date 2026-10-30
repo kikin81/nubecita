@@ -205,6 +205,8 @@ class WatchDmViewModelTest {
         override suspend fun available() = true
 
         override suspend fun dmAvailable() = dm
+
+        override suspend fun postAvailable() = true
     }
 
     private class FakeDmRepository : WatchDmRepository {

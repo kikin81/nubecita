@@ -30,6 +30,8 @@ import net.kikin.nubecita.wear.data.db.WatchFeedEntity
 import net.kikin.nubecita.wear.data.db.WatchMessageEntity
 import net.kikin.nubecita.wear.data.db.WatchPendingActionEntity
 import net.kikin.nubecita.wear.data.db.WatchPendingDmEntity
+import net.kikin.nubecita.wear.data.db.WatchPendingPostEntity
+import net.kikin.nubecita.wear.data.db.WatchPostActionDao
 import net.kikin.nubecita.wear.data.db.WatchPostEntity
 import net.kikin.nubecita.wear.data.sync.DmSyncObserver
 import net.kikin.nubecita.wear.data.sync.WatchImageStore
@@ -51,6 +53,7 @@ class WatchSyncIngesterTest {
     private val actions = FakeActionDao()
     private val dms = FakeDmDao()
     private val dmActions = FakeDmActionDao()
+    private val postActions = FakePostActionDao()
     private var nowMs = 1_000L
     private var dmChanges = 0
     private val ingester =
@@ -60,6 +63,7 @@ class WatchSyncIngesterTest {
             actions,
             dms,
             dmActions,
+            postActions,
             object : Clock {
                 override fun now() = Instant.fromEpochMilliseconds(nowMs)
             },
@@ -472,6 +476,66 @@ class WatchSyncIngesterTest {
                     .contains("❤️"),
             )
         }
+
+    private fun pendingPost(
+        id: String,
+        account: String = alice,
+    ) = WatchPendingPostEntity(actionId = id, accountDid = account, text = "Finished my first 10k", createdAtMs = 100)
+
+    @Test
+    fun a_result_deletes_a_posted_watch_post_and_marks_a_refused_or_unreadable_one_failed() =
+        runTest {
+            postActions.rows += pendingPost("p1")
+            postActions.rows += pendingPost("p2")
+            postActions.rows += pendingPost("p3")
+
+            ingester.onActionResult(WearPaths.actionResult(alice, "p1"), result("p1", record = "at://did:plc:alice/app.bsky.feed.post/1"))
+            ingester.onActionResult(WearPaths.actionResult(alice, "p2"), result("p2", failure = WearActionFailure.EXPIRED))
+            ingester.onActionResult(WearPaths.actionResult(alice, "p3"), "not json")
+
+            assertEquals(
+                listOf("p2" to WatchPendingPostEntity.STATUS_FAILED, "p3" to WatchPendingPostEntity.STATUS_FAILED),
+                postActions.rows.map { it.actionId to it.status },
+            )
+        }
+
+    @Test
+    fun a_session_for_another_account_or_signed_out_drops_watch_posts() =
+        runTest {
+            postActions.rows += pendingPost("mine")
+            postActions.rows += pendingPost("theirs", account = bob)
+
+            ingester.onSession(WearCodec.encode(WearSessionSnapshot.serializer(), WearSessionSnapshot(publishedAtMs = 1, account = WearAccount(did = alice, handle = "alice.test"))))
+            assertEquals(listOf("mine"), postActions.rows.map { it.actionId })
+
+            ingester.onSession(null)
+            assertTrue(postActions.rows.isEmpty())
+        }
+
+    private class FakePostActionDao : WatchPostActionDao {
+        val rows = mutableListOf<WatchPendingPostEntity>()
+
+        override fun observe(accountDid: String): Flow<List<WatchPendingPostEntity>> = MutableStateFlow(rows.toList())
+
+        override suspend fun get(actionId: String) = rows.firstOrNull { it.actionId == actionId }
+
+        override suspend fun insert(post: WatchPendingPostEntity) {
+            rows += post
+        }
+
+        override suspend fun markFailed(actionId: String) {
+            val i = rows.indexOfFirst { it.actionId == actionId }
+            if (i >= 0) rows[i] = rows[i].copy(status = WatchPendingPostEntity.STATUS_FAILED)
+        }
+
+        override suspend fun delete(actionIds: List<String>) {
+            rows.removeAll { it.actionId in actionIds }
+        }
+
+        override suspend fun deleteExcept(accountDid: String) {
+            rows.removeAll { it.accountDid != accountDid }
+        }
+    }
 
     private class FakeDmActionDao : WatchDmActionDao {
         val rows = mutableListOf<WatchPendingDmEntity>()

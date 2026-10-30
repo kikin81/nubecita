@@ -16,8 +16,9 @@ import androidx.room.RoomDatabase
         WatchConvoEntity::class,
         WatchMessageEntity::class,
         WatchPendingDmEntity::class,
+        WatchPendingPostEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class WatchDatabase : RoomDatabase() {
@@ -28,4 +29,6 @@ abstract class WatchDatabase : RoomDatabase() {
     abstract fun dmDao(): WatchDmDao
 
     abstract fun dmActionDao(): WatchDmActionDao
+
+    abstract fun postActionDao(): WatchPostActionDao
 }

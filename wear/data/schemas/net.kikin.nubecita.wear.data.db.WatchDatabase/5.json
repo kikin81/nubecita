@@ -1,0 +1,522 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 5,
+    "identityHash": "007e006f6a7a7889e3514a28e0f389d9",
+    "entities": [
+      {
+        "tableName": "watch_feed",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_did` TEXT NOT NULL, `feed_key` TEXT NOT NULL, `feed_name` TEXT, `published_at_ms` INTEGER NOT NULL, PRIMARY KEY(`account_did`, `feed_key`))",
+        "fields": [
+          {
+            "fieldPath": "accountDid",
+            "columnName": "account_did",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "feedKey",
+            "columnName": "feed_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "feedName",
+            "columnName": "feed_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "publishedAtMs",
+            "columnName": "published_at_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "account_did",
+            "feed_key"
+          ]
+        }
+      },
+      {
+        "tableName": "watch_post",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_did` TEXT NOT NULL, `feed_key` TEXT NOT NULL, `position` INTEGER NOT NULL, `uri` TEXT NOT NULL, `cid` TEXT NOT NULL, `author_did` TEXT NOT NULL, `author_handle` TEXT NOT NULL, `author_display_name` TEXT, `author_avatar_path` TEXT, `text` TEXT NOT NULL, `created_at_ms` INTEGER NOT NULL, `reply_count` INTEGER NOT NULL, `repost_count` INTEGER NOT NULL, `like_count` INTEGER NOT NULL, `reposted_by` TEXT, `like_uri` TEXT, `repost_uri` TEXT, `bookmarked` INTEGER NOT NULL, `image_count` INTEGER NOT NULL, `is_video` INTEGER NOT NULL, `has_content_warning` INTEGER NOT NULL, `thumbnail_path` TEXT, PRIMARY KEY(`account_did`, `feed_key`, `position`))",
+        "fields": [
+          {
+            "fieldPath": "accountDid",
+            "columnName": "account_did",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "feedKey",
+            "columnName": "feed_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "position",
+            "columnName": "position",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uri",
+            "columnName": "uri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cid",
+            "columnName": "cid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authorDid",
+            "columnName": "author_did",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authorHandle",
+            "columnName": "author_handle",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "authorDisplayName",
+            "columnName": "author_display_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "authorAvatarPath",
+            "columnName": "author_avatar_path",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "text",
+            "columnName": "text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtMs",
+            "columnName": "created_at_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "replyCount",
+            "columnName": "reply_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "repostCount",
+            "columnName": "repost_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "likeCount",
+            "columnName": "like_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "repostedBy",
+            "columnName": "reposted_by",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "likeUri",
+            "columnName": "like_uri",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "repostUri",
+            "columnName": "repost_uri",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "bookmarked",
+            "columnName": "bookmarked",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "imageCount",
+            "columnName": "image_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isVideo",
+            "columnName": "is_video",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hasContentWarning",
+            "columnName": "has_content_warning",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "thumbnailPath",
+            "columnName": "thumbnail_path",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "account_did",
+            "feed_key",
+            "position"
+          ]
+        }
+      },
+      {
+        "tableName": "watch_pending_action",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`action_id` TEXT NOT NULL, `account_did` TEXT NOT NULL, `post_uri` TEXT NOT NULL, `kind` TEXT NOT NULL, `created_at_ms` INTEGER NOT NULL, `confirmed` INTEGER NOT NULL, `record_uri` TEXT, `completed_at_ms` INTEGER, PRIMARY KEY(`action_id`))",
+        "fields": [
+          {
+            "fieldPath": "actionId",
+            "columnName": "action_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountDid",
+            "columnName": "account_did",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "postUri",
+            "columnName": "post_uri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtMs",
+            "columnName": "created_at_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "confirmed",
+            "columnName": "confirmed",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recordUri",
+            "columnName": "record_uri",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "completedAtMs",
+            "columnName": "completed_at_ms",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "action_id"
+          ]
+        }
+      },
+      {
+        "tableName": "watch_dm_state",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_did` TEXT NOT NULL, `published_at_ms` INTEGER NOT NULL, `unread_count` INTEGER NOT NULL, PRIMARY KEY(`account_did`))",
+        "fields": [
+          {
+            "fieldPath": "accountDid",
+            "columnName": "account_did",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "publishedAtMs",
+            "columnName": "published_at_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unreadCount",
+            "columnName": "unread_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "account_did"
+          ]
+        }
+      },
+      {
+        "tableName": "watch_convo",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_did` TEXT NOT NULL, `convo_id` TEXT NOT NULL, `position` INTEGER NOT NULL, `title` TEXT NOT NULL, `is_group` INTEGER NOT NULL, `unread_count` INTEGER NOT NULL, `muted` INTEGER NOT NULL, `last_message_at_ms` INTEGER, PRIMARY KEY(`account_did`, `convo_id`))",
+        "fields": [
+          {
+            "fieldPath": "accountDid",
+            "columnName": "account_did",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "convoId",
+            "columnName": "convo_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "position",
+            "columnName": "position",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isGroup",
+            "columnName": "is_group",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unreadCount",
+            "columnName": "unread_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "muted",
+            "columnName": "muted",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastMessageAtMs",
+            "columnName": "last_message_at_ms",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "account_did",
+            "convo_id"
+          ]
+        }
+      },
+      {
+        "tableName": "watch_message",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_did` TEXT NOT NULL, `convo_id` TEXT NOT NULL, `position` INTEGER NOT NULL, `message_id` TEXT NOT NULL, `from_viewer` INTEGER NOT NULL, `sender_name` TEXT, `text` TEXT NOT NULL, `sent_at_ms` INTEGER NOT NULL, `is_deleted` INTEGER NOT NULL, `has_attachment` INTEGER NOT NULL, `reactions` TEXT NOT NULL, PRIMARY KEY(`account_did`, `convo_id`, `position`))",
+        "fields": [
+          {
+            "fieldPath": "accountDid",
+            "columnName": "account_did",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "convoId",
+            "columnName": "convo_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "position",
+            "columnName": "position",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "messageId",
+            "columnName": "message_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fromViewer",
+            "columnName": "from_viewer",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "senderName",
+            "columnName": "sender_name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "text",
+            "columnName": "text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sentAtMs",
+            "columnName": "sent_at_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isDeleted",
+            "columnName": "is_deleted",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hasAttachment",
+            "columnName": "has_attachment",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reactions",
+            "columnName": "reactions",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "account_did",
+            "convo_id",
+            "position"
+          ]
+        }
+      },
+      {
+        "tableName": "watch_pending_dm",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`action_id` TEXT NOT NULL, `account_did` TEXT NOT NULL, `convo_id` TEXT NOT NULL, `kind` TEXT NOT NULL, `text` TEXT NOT NULL, `target_message_id` TEXT, `sent_message_id` TEXT, `created_at_ms` INTEGER NOT NULL, `status` TEXT NOT NULL, PRIMARY KEY(`action_id`))",
+        "fields": [
+          {
+            "fieldPath": "actionId",
+            "columnName": "action_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountDid",
+            "columnName": "account_did",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "convoId",
+            "columnName": "convo_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "text",
+            "columnName": "text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "targetMessageId",
+            "columnName": "target_message_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "sentMessageId",
+            "columnName": "sent_message_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAtMs",
+            "columnName": "created_at_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "action_id"
+          ]
+        }
+      },
+      {
+        "tableName": "watch_pending_post",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`action_id` TEXT NOT NULL, `account_did` TEXT NOT NULL, `text` TEXT NOT NULL, `created_at_ms` INTEGER NOT NULL, `status` TEXT NOT NULL, PRIMARY KEY(`action_id`))",
+        "fields": [
+          {
+            "fieldPath": "actionId",
+            "columnName": "action_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accountDid",
+            "columnName": "account_did",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "text",
+            "columnName": "text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtMs",
+            "columnName": "created_at_ms",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "action_id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '007e006f6a7a7889e3514a28e0f389d9')"
+    ]
+  }
+}
