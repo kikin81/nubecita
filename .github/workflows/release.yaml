@@ -133,7 +133,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 26
 
       - name: Install firebase-tools
         # firebase-tools CLI replaces the firebase-appdistribution-gradle
