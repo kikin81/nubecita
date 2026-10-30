@@ -27,6 +27,8 @@ import org.gradle.kotlin.dsl.withType
  *   lane captures deterministic, signed-in screens without a paired phone.
  * - Registers the `validateScreenshots` / `updateScreenshots` aliases, so CI's
  *   screenshot job validates the Wear baselines.
+ * - Fails the build if a phone-only SDK (Jetpack XR, ARCore) reaches the
+ *   watch's release classpath ([registerWearForbiddenDependencyCheck]).
  *
  * Versioning and release signing live here too: the same semantic version as
  * the phone with a Wear-band `versionCode` ([wearVersionCode]), and the
@@ -105,6 +107,7 @@ class AndroidWearApplicationConventionPlugin : Plugin<Project> {
 
             registerScreenshotAliasTasks()
             configureComposeCompilerReports()
+            registerWearForbiddenDependencyCheck()
 
             configureComposePreview()
             configureJunitPlatform()
