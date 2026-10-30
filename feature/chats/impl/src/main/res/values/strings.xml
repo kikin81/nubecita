@@ -95,6 +95,8 @@
     <!-- New-chat recipient picker (b6uv.5) -->
     <string name="new_chat_title">New message</string>
     <string name="new_chat_search_placeholder">Search for someone</string>
+    <string name="new_chat_search_label">To</string>
+    <string name="new_chat_search_supporting">Search by name or handle.</string>
     <string name="new_chat_recent_header">Recent</string>
     <string name="new_chat_no_results">No people found</string>
     <string name="new_chat_error_body">Couldn\'t search right now.</string>
@@ -148,6 +150,8 @@
     <string name="add_members_title">Add members</string>
     <string name="add_members_action">Add</string>
     <string name="add_members_search_placeholder">Search for someone</string>
+    <string name="add_members_search_label">Add people</string>
+    <string name="add_members_search_supporting">Some people only accept group invites from accounts they follow.</string>
     <string name="add_members_remove_chip">Remove</string>
     <string name="add_members_at_capacity">This group is full (50 max).</string>
     <string name="add_members_error_full">This group is full.</string>
@@ -161,6 +165,9 @@
     <string name="new_group_create">Create</string>
     <string name="new_group_name_placeholder">Group name</string>
     <string name="new_group_name_counter">%1$d/%2$d</string>
+    <string name="new_group_name_supporting">Up to %1$d characters</string>
+    <string name="new_group_members_label">Members</string>
+    <string name="new_group_members_supporting">Some people only accept group invites from accounts they follow. Up to %1$d members.</string>
     <string name="new_group_close">Close</string>
     <string name="new_group_at_capacity">A group can have up to %1$d members.</string>
     <string name="new_group_search_placeholder">Search for someone</string>

@@ -9,13 +9,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -30,6 +29,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -37,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.data.models.ActorUi
+import net.kikin.nubecita.designsystem.component.NubecitaTextField
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
@@ -123,7 +124,7 @@ internal fun AddGroupMembersScreen(
  * Layout:
  * - [TopAppBar] with a close nav icon, "Add members" title, and an "Add" action
  *   (a [CircularProgressIndicator] while [AddGroupMembersViewState.isSubmitting]).
- * - Search [OutlinedTextField] pinned below the top bar.
+ * - Search [NubecitaTextField] pinned below the top bar.
  * - A [FlowRow] of picked recipients as removable [InputChip]s (hidden when
  *   nothing is selected).
  * - An at-capacity hint when [AddGroupMembersViewState.atCapacity].
@@ -182,10 +183,19 @@ internal fun AddGroupMembersScreenContent(
                     .padding(innerPadding)
                     .consumeWindowInsets(innerPadding),
         ) {
-            OutlinedTextField(
+            NubecitaTextField(
                 state = queryFieldState,
-                lineLimits = TextFieldLineLimits.SingleLine,
-                placeholder = { Text(stringResource(R.string.add_members_search_placeholder)) },
+                label = stringResource(R.string.add_members_search_label),
+                placeholder = stringResource(R.string.add_members_search_placeholder),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                leadingIcon = { NubecitaIcon(name = NubecitaIconName.Search, contentDescription = null) },
+                supportingText = {
+                    Text(
+                        stringResource(
+                            if (state.atCapacity) R.string.add_members_at_capacity else R.string.add_members_search_supporting,
+                        ),
+                    )
+                },
                 modifier =
                     Modifier
                         .fillMaxWidth()
@@ -197,15 +207,6 @@ internal fun AddGroupMembersScreenContent(
                     selected = state.selected,
                     onRemove = { onEvent(AddMembersEvent.RecipientRemoved(it)) },
                     modifier = Modifier.padding(horizontal = 16.dp),
-                )
-            }
-
-            if (state.atCapacity) {
-                Text(
-                    text = stringResource(R.string.add_members_at_capacity),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
 

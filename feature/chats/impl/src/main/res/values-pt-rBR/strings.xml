@@ -71,6 +71,8 @@
     <string name="chat_reply_cancel_content_description">Cancelar resposta</string>
     <string name="new_chat_title">Nova mensagem</string>
     <string name="new_chat_search_placeholder">Buscar alguém</string>
+    <string name="new_chat_search_label">Para</string>
+    <string name="new_chat_search_supporting">Pesquise por nome ou usuário.</string>
     <string name="new_chat_recent_header">Recentes</string>
     <string name="new_chat_no_results">Nenhuma pessoa encontrada</string>
     <string name="new_chat_error_body">Não foi possível buscar agora.</string>
@@ -119,6 +121,8 @@
     <string name="add_members_title">Adicionar membros</string>
     <string name="add_members_action">Adicionar</string>
     <string name="add_members_search_placeholder">Buscar alguém</string>
+    <string name="add_members_search_label">Adicionar pessoas</string>
+    <string name="add_members_search_supporting">Algumas pessoas só aceitam convites para grupos de contas que seguem.</string>
     <string name="add_members_remove_chip">Remover</string>
     <string name="add_members_at_capacity">O grupo está cheio (máx. 50).</string>
     <string name="add_members_error_full">O grupo está cheio.</string>
@@ -132,6 +136,9 @@
     <string name="new_group_create">Criar</string>
     <string name="new_group_name_placeholder">Nome do grupo</string>
     <string name="new_group_name_counter">%1$d/%2$d</string>
+    <string name="new_group_name_supporting">Até %1$d caracteres</string>
+    <string name="new_group_members_label">Membros</string>
+    <string name="new_group_members_supporting">Algumas pessoas só aceitam convites para grupos de contas que seguem. Até %1$d membros.</string>
     <string name="new_group_close">Fechar</string>
     <string name="new_group_at_capacity">Um grupo pode ter até %1$d membros.</string>
     <string name="new_group_search_placeholder">Buscar alguém</string>

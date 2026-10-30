@@ -10,13 +10,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -32,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -39,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.data.models.ActorUi
+import net.kikin.nubecita.designsystem.component.NubecitaTextField
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
@@ -122,11 +123,11 @@ internal fun NewGroupScreen(
  * Layout (centered, constrained to 600.dp on wide screens):
  * - [TopAppBar] with a close nav icon, "New group" title, and a jitter-free
  *   "Create" action ([CreateAction]).
- * - Name [OutlinedTextField] with a proactive grapheme counter in its supporting
+ * - Name [NubecitaTextField] with a proactive grapheme counter in its supporting
  *   text once the count crosses [GROUP_NAME_COUNTER_THRESHOLD].
  * - A [RecipientChipsRow] of picked recipients (hidden when nothing is selected).
  * - An at-capacity hint when [NewGroupViewState.atCapacity].
- * - Search [OutlinedTextField].
+ * - Search [NubecitaTextField].
  * - Body driven by [NewGroupStatus]: Recent / Results lists reuse [RecipientRow];
  *   Searching / NoResults / Error render centered bodies.
  *
@@ -178,13 +179,13 @@ internal fun NewGroupScreenContent(
                         .widthIn(max = 600.dp)
                         .align(Alignment.CenterHorizontally),
             ) {
-                OutlinedTextField(
+                NubecitaTextField(
                     state = nameFieldState,
-                    lineLimits = TextFieldLineLimits.SingleLine,
+                    label = stringResource(R.string.new_group_name_placeholder),
                     enabled = !state.isSubmitting,
                     isError = state.nameGraphemeCount > GROUP_NAME_MAX_GRAPHEMES,
-                    placeholder = { Text(stringResource(R.string.new_group_name_placeholder)) },
                     supportingText = {
+                        // The limit is stated up front; near it, the live counter takes over.
                         if (state.nameGraphemeCount >= GROUP_NAME_COUNTER_THRESHOLD) {
                             Text(
                                 text =
@@ -200,7 +201,31 @@ internal fun NewGroupScreenContent(
                                         MaterialTheme.colorScheme.onSurfaceVariant
                                     },
                             )
+                        } else {
+                            Text(stringResource(R.string.new_group_name_supporting, GROUP_NAME_MAX_GRAPHEMES))
                         }
+                    },
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+
+                NubecitaTextField(
+                    state = queryFieldState,
+                    label = stringResource(R.string.new_group_members_label),
+                    placeholder = stringResource(R.string.new_group_search_placeholder),
+                    enabled = !state.isSubmitting,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    leadingIcon = { NubecitaIcon(name = NubecitaIconName.Search, contentDescription = null) },
+                    supportingText = {
+                        Text(
+                            if (state.atCapacity) {
+                                stringResource(R.string.new_group_at_capacity, GROUP_MAX_MEMBERS)
+                            } else {
+                                stringResource(R.string.new_group_members_supporting, GROUP_MAX_MEMBERS)
+                            },
+                        )
                     },
                     modifier =
                         Modifier
@@ -216,26 +241,6 @@ internal fun NewGroupScreenContent(
                         modifier = Modifier.padding(horizontal = 16.dp),
                     )
                 }
-
-                if (state.atCapacity) {
-                    Text(
-                        text = stringResource(R.string.new_group_at_capacity, GROUP_MAX_MEMBERS),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    )
-                }
-
-                OutlinedTextField(
-                    state = queryFieldState,
-                    lineLimits = TextFieldLineLimits.SingleLine,
-                    enabled = !state.isSubmitting,
-                    placeholder = { Text(stringResource(R.string.new_group_search_placeholder)) },
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                )
 
                 when (val s = state.status) {
                     is NewGroupStatus.Recent -> {
