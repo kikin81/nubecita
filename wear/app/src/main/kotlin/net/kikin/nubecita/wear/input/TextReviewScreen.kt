@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -68,7 +69,7 @@ fun TextReviewScreen(
     // once the list is at its end, and Send is what the user came for.
     listState: TransformingLazyColumnState = rememberTransformingLazyColumnState(initialAnchorItemIndex = 3),
 ) {
-    val length = TextLength.of(text, maxGraphemes)
+    val length = remember(text, maxGraphemes) { TextLength.of(text, maxGraphemes) }
     val transformationSpec = rememberTransformationSpec()
     ScreenScaffold(
         scrollState = listState,
