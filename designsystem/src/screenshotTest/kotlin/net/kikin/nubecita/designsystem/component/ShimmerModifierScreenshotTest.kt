@@ -20,7 +20,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  * of the animated brush — the test runner snapshots at composition time,
  * so the brush is at its initial translate position. If the animation's
  * starting frame visibly drifts across runs, regenerate the baseline
- * with `./gradlew :designsystem:updateDebugScreenshotTest`.
+ * with `./gradlew :designsystem:updateDebugScreenshotTestDefaultTestSuite`.
  */
 
 @PreviewTest

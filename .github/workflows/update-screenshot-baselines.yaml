@@ -112,13 +112,12 @@ jobs:
           # suppresses shell expansion either way). `--all` makes deletion
           # staging explicit so removed baselines (e.g. a deleted test)
           # propagate into the commit too. Both the non-flavored
-          # (`screenshotTestDebug`) and flavored (`screenshotTestProductionDebug`)
-          # reference dirs are staged — the latter holds feed/chats/profile/
-          # search baselines, which the old `screenshotTestDebug`-only find
-          # silently skipped.
+          # (`screenshotTestDefaultDebug`) and flavored
+          # (`screenshotTestDefaultProductionDebug`) reference dirs are staged —
+          # the latter holds feed/chats/profile/search baselines.
           find . -type d \
-            \( -path '*/src/screenshotTestDebug/reference' \
-               -o -path '*/src/screenshotTestProductionDebug/reference' \) \
+            \( -path '*/src/screenshotTestDefaultDebug/reference' \
+               -o -path '*/src/screenshotTestDefaultProductionDebug/reference' \) \
             -exec git add --all {} +
           if git diff --cached --quiet; then
             echo "No baseline changes to commit."

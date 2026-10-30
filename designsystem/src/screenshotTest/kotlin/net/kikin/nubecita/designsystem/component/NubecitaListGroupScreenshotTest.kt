@@ -19,7 +19,7 @@ import net.kikin.nubecita.designsystem.preview.NubecitaComponentPreview
  * corners, raised `surfaceContainerHigh` fill). Captures the multi-row
  * (first/middle/last shapes) and single-row (fully rounded) cases in light +
  * dark. Regenerate after intentional visual changes with
- * `./gradlew :designsystem:updateDebugScreenshotTest`.
+ * `./gradlew :designsystem:updateDebugScreenshotTestDefaultTestSuite`.
  */
 
 private data class DemoRow(

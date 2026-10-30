@@ -13,7 +13,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  * (medal glyph + label) in both schemes, catching glyph-metrics drift on
  * the freshly-subset `WorkspacePremium` codepoint and any accent-token
  * regression. Regenerate with
- * `./gradlew :designsystem:updateDebugScreenshotTest` after intentional
+ * `./gradlew :designsystem:updateDebugScreenshotTestDefaultTestSuite` after intentional
  * visual changes.
  */
 @PreviewTest

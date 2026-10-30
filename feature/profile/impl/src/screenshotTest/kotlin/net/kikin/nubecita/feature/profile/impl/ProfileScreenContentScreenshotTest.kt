@@ -2,7 +2,6 @@ package net.kikin.nubecita.feature.profile.impl
 
 import android.content.res.Configuration
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.SnackbarHostState
@@ -14,6 +13,7 @@ import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -29,6 +29,7 @@ import androidx.navigationevent.compose.rememberNavigationEventDispatcherOwner
 import androidx.window.core.layout.WindowSizeClass
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
@@ -137,11 +138,16 @@ private object FixtureClock : Clock {
 @Composable
 private fun ProfileScreenContentHost(
     state: ProfileScreenViewState,
-    listStateSeed: LazyListState? = null,
+    scrollToIndex: Int = 0,
 ) {
     NubecitaCanvasPreviewTheme {
         CompositionLocalProvider(LocalClock provides FixtureClock) {
-            val listState = listStateSeed ?: rememberLazyListState()
+            val listState = rememberLazyListState()
+            // Scroll the way a user would, after first composition: the
+            // screenshot engine discards a pre-seeded LazyListState's position.
+            if (scrollToIndex > 0) {
+                LaunchedEffect(listState) { listState.scrollToItem(scrollToIndex) }
+            }
             ProfileScreenContent(
                 state = state,
                 listState = listState,
@@ -417,11 +423,23 @@ private fun ProfileScreenOtherUserFollowingScreenshot() {
 )
 @Composable
 private fun ProfileScreenScrolledAwayScreenshot() {
-    // Pre-seed the LazyListState so the LazyColumn renders past the hero.
-    // Index 1 means the hero (item index 0) is fully scrolled away → bar α = 1.
+    // Scroll the LazyColumn past the hero. Index 1 means the hero (item
+    // index 0) is fully scrolled away → bar α = 1. Three posts don't fill
+    // the viewport enough to scroll that far, so this fixture carries more.
+    val posts = ('a'..'l').map { TabItemUi.Post(samplePostUi(it.toString())) }
     ProfileScreenContentHost(
-        state = sampleLoadedState(),
-        listStateSeed = LazyListState(firstVisibleItemIndex = 1, firstVisibleItemScrollOffset = 0),
+        state =
+            sampleLoadedState().copy(
+                postsStatus =
+                    TabLoadStatus.Loaded(
+                        items = posts.toPersistentList(),
+                        isAppending = false,
+                        isRefreshing = false,
+                        hasMore = false,
+                        cursor = null,
+                    ),
+            ),
+        scrollToIndex = 1,
     )
 }
 

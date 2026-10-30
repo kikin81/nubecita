@@ -10,7 +10,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  * Screenshot baselines for [ProfileStatsRow]. Covers the typical
  * three-digit case and the large-count case (1.4M followers) so the
  * locale-aware compact formatting and `·` separator are pinned. Regenerate
- * with `./gradlew :feature:profile:impl:updateDebugScreenshotTest` after
+ * with `./gradlew :feature:profile:impl:updateProductionDebugScreenshotTestDefaultTestSuite` after
  * intentional visual changes.
  */
 @PreviewTest

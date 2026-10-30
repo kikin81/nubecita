@@ -13,7 +13,7 @@ Stack: Coil 3 (images), Media3 (video), `atproto-kotlin` SDK (networking), DataS
 ./gradlew testDebugUnitTest
 ./gradlew spotlessCheck lint :app:checkSortDependencies
 ./gradlew jacocoTestReportAggregated
-./gradlew :designsystem:validateDebugScreenshotTest     # validate against committed screenshot baselines
+./gradlew :designsystem:validateScreenshots             # validate against committed screenshot baselines
 ./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest  # Macrobenchmark, needs connected device/emulator
 
 # Compose Compiler stability + recomposition reports (perf audits)
@@ -76,8 +76,8 @@ CI still runs on every PR in the stack, unchanged.
 |---|---|
 | `:<module>:lintDebug` | `:<module>:lintProductionDebug` |
 | `:<module>:testDebugUnitTest` | `:<module>:testProductionDebugUnitTest` |
-| `:<module>:updateDebugScreenshotTest` | `:<module>:updateProductionDebugScreenshotTest` |
-| `:<module>:validateDebugScreenshotTest` | `:<module>:validateProductionDebugScreenshotTest` |
+| `:<module>:updateDebugScreenshotTestDefaultTestSuite` | `:<module>:updateProductionDebugScreenshotTestDefaultTestSuite` |
+| `:<module>:testDebugScreenshotTestDefaultTestSuite` | `:<module>:testProductionDebugScreenshotTestDefaultTestSuite` |
 
 **Which modules are flavored is NOT predictable from the module path** — it does not follow the `:core:*` / `:feature:*` split in either direction. A module is flavored **iff its `build.gradle.kts` applies `nubecita.android.flavors`**, which per that plugin's contract is exactly the modules shipping a `src/bench/` source set (a network-free parallel implementation for the offline `:app:benchBenchmarkRelease` build). Everything else stays single-variant and picks up `production` transitively via `missingDimensionStrategy`. `nubecita.android.feature` does **not** imply flavors — all 18 `:feature:*:impl` modules apply it, but only 5 are flavored.
 
@@ -98,8 +98,8 @@ The two failure modes read differently: an unflavored module rejects a flavored 
 
 - **Never merge a child PR from the GitHub UI.** A single-PR merge lands on `main` alone and cuts its own release — the exact regression stacks exist to prevent. `gh stack merge` is the only merge path for a stack.
 - **Copilot reviews only the bottom PR of a stack, only at PR-open, and cannot be triggered.** The `Copilot review for default branch` ruleset fires ~2 s after a PR targeting `main` is opened; that is the *only* mechanism. Children 2..N target the branch below them and get nothing. The REST call (`POST /repos/{owner}/{repo}/pulls/{n}/requested_reviewers` with the literal `Copilot` handle) **returns 200 and registers nothing — on any PR, with either `-f` or `-F`**; verified against both #871 (base = a stack branch) and #869 (base = `main`). Don't put it in a workflow. It also means **no PR regains a Copilot review after a push**, so Copilot's verdict always describes the opening commit. **Gemini reviews every PR in the stack and is re-requestable** via `gh pr comment <n> --body "/gemini review"` — that plus the top-of-stack full gate and human review is the real coverage. Widening the ruleset beyond the default branch is a repo-settings change, not a workflow one.
-- **Screenshot-baseline updates restack everything above them.** The `update-screenshot-baselines` label pushes to a PR's head branch; if that's a lower branch, run `gh stack sync` + `gh stack submit` afterwards. Every restack re-fires CI on all branches above, so batch review fixes rather than pushing one at a time.
-- **Never commit the whole output of a baseline regeneration.** `updateProductionDebugScreenshotTest` rewrites *every* baseline in the module, and on macOS most come back with 1/255 antialiasing noise on a handful of pixels. Diff them against `HEAD` and keep only the images your change actually altered; `git checkout --` the rest. Committing the noise churns the diff and can pin a rendering that CI's Linux host disagrees with. Local `validate*ScreenshotTest` is **not** a usable gate on macOS — it already fails on a clean `main` checkout — so regenerate and triage locally, and let CI's `screenshot` job be the authority.
+- **Screenshot-baseline updates restack everything above them.** The `update-baselines` label pushes to a PR's head branch; if that's a lower branch, run `gh stack sync` + `gh stack submit` afterwards. Every restack re-fires CI on all branches above, so batch review fixes rather than pushing one at a time.
+- **Never commit the whole output of a baseline regeneration.** `updateProductionDebugScreenshotTestDefaultTestSuite` rewrites *every* baseline in the module, and on macOS most come back with 1/255 antialiasing noise on a handful of pixels. Diff them against `HEAD` and keep only the images your change actually altered; `git checkout --` the rest. Committing the noise churns the diff and can pin a rendering that CI's Linux host disagrees with. Local `test*ScreenshotTestDefaultTestSuite` is **not** a usable gate on macOS — it already fails on a clean `main` checkout — so regenerate and triage locally, and let CI's `screenshot` job be the authority.
 - **Zero unresolved threads is not evidence of review.** Neither Gemini nor Copilot re-reviews on push, so a commit no bot has looked at raises no threads and reads identically to one reviewed and found clean. Before landing, compare each PR's last commit timestamp against its newest bot review (`gh api /repos/{owner}/{repo}/pulls/{n}/commits --jq '.[-1].commit.committer.date'` vs. the newest `reviews[].submittedAt`); if the review is older, re-request with `gh pr comment <n> --body "/gemini review"`. A stack multiplies the exposure — one restack silently invalidates the review on every branch above it.
 - **The release type is the maximum across the stack.** One `feat:`-titled child PR makes the whole epic a minor release; an all-`chore:`/`refactor:` stack cuts nothing. Relabel one child PR title to `feat` when the epic needs to reach Play.
 - **Verify the one-push assumption before trusting it** (see below).
@@ -395,13 +395,13 @@ Nubecita Pro is an auto-renewing Google Play subscription mediated by RevenueCat
 
 #### Screenshot tests
 
-Run via the AGP `com.android.compose.screenshot` plugin. The `@Preview` **sources** live in `src/screenshotTest/kotlin/`; the committed baseline **images** live in a separate, variant-qualified tree — `src/screenshotTest<Flavor><BuildType>/reference/<package path>/` (e.g. `src/screenshotTestProductionDebug/reference/` for a flavored `:feature:*:impl` module, `src/screenshotTestDebug/reference/` for an unflavored one). Update baselines with:
+Run as an AGP **test suite** (`testOptions.screenshotTests`, wired once in `build-logic`'s `configureScreenshotTests()` — no per-module setup; the standalone `com.android.compose.screenshot` plugin is gone). The suite targets only the canonical debug variant (`productionDebug` for flavored modules, `debug` otherwise). Screenshot engine `0.0.1-alpha17` is the floor: alpha16 under test suites can't load any library `R` class and fails every render. The `@Preview` **sources** live in `src/screenshotTest/kotlin/`; the committed baseline **images** live in a separate, variant-qualified tree — `src/screenshotTestDefault<Flavor><BuildType>/reference/<package path>/` (e.g. `src/screenshotTestDefaultProductionDebug/reference/` for a flavored `:feature:*:impl` module, `src/screenshotTestDefaultDebug/reference/` for an unflavored one). Per-module `validateScreenshots` / `updateScreenshots` aliases (every Compose library, feature and Wear module — not `:app`, whose baselines CI doesn't validate) pick the right variant task; HTML reports land in `build/reports/tests/<taskName>/`. Update baselines with:
 ```bash
-./gradlew :designsystem:updateDebugScreenshotTest
-./gradlew :feature:profile:impl:updateProductionDebugScreenshotTest   # flavored modules
+./gradlew :designsystem:updateScreenshots
+./gradlew :feature:profile:impl:updateScreenshots   # same alias for flavored modules
 ```
 
-Regeneration rewrites **every** baseline in the module, and on macOS most come back with 1/255 antialiasing noise. Keep only the images your change actually altered and `git checkout --` the rest — see `scripts/triage-screenshot-failures.py`. Local `validate*ScreenshotTest` currently fails on macOS even on a clean `main`, so treat CI's `screenshot` job as the authority rather than the local task.
+Regeneration rewrites **every** baseline in the module, and on macOS most come back with 1/255 antialiasing noise. Keep only the images your change actually altered and `git checkout --` the rest — see `scripts/triage-screenshot-failures.py`. Local `validateScreenshots` currently fails on macOS even on a clean `main`, so treat CI's `screenshot` job as the authority rather than the local task.
 
 Feature modules that ship UI-touching tasks MUST include `@Preview` annotations and screenshot tests alongside unit tests. Add `run-instrumented` label to the PR if the task also needs instrumented tests.
 
@@ -412,7 +412,7 @@ Feature modules that ship UI-touching tasks MUST include `@Preview` annotations 
 | `lint` | PR, push to `main` | pre-commit, Spotless, Android Lint, checkSortDependencies, semantic-release dry-run |
 | `test` | PR, push to `main` | `testDebugUnitTest`, JaCoCo coverage, madrapps/jacoco-report comment |
 | `build` | PR, push to `main` | `assembleDebug` |
-| `screenshot` | PR, push to `main` | `validateDebugScreenshotTest` against committed baselines |
+| `screenshot` | PR, push to `main` | `validateScreenshots` against committed baselines |
 | `instrumented` | push to `main`, `workflow_dispatch`, PR with `run-instrumented` label | Connected device tests (runs on `ubuntu-latest` with emulator) |
 | Release | push to `main` | semantic-release → GitHub release → Google Play upload |
 

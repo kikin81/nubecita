@@ -11,9 +11,9 @@ import net.kikin.nubecita.designsystem.preview.NubecitaComponentPreview
  * Screenshot baselines for [NubecitaPrimaryButton]. Each preview function
  * captures a state in both light + dark via stacked `@Preview` annotations
  * on a single `@PreviewTest`-marked function. Baselines live under
- * `src/screenshotTestDebug/reference/`. Regenerate after intentional
+ * `src/screenshotTestDefaultDebug/reference/`. Regenerate after intentional
  * visual changes with
- * `./gradlew :designsystem:updateDebugScreenshotTest`.
+ * `./gradlew :designsystem:updateDebugScreenshotTestDefaultTestSuite`.
  */
 
 @PreviewTest
