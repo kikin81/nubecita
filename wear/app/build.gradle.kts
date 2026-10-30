@@ -50,4 +50,13 @@ dependencies {
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.uiautomator)
     androidTestImplementation(libs.screengrab)
+
+    constraints {
+        // watchface-complications 1.3.0 (latest stable) pins protolayout 1.0.0,
+        // whose bundled protobuf carries CVE-2024-7254 (Play SDK warning).
+        // protolayout is an atomic group, so raising proto aligns the rest.
+        implementation(libs.androidx.wear.protolayout.proto) {
+            because("CVE-2024-7254: protolayout < 1.2.1 bundles a vulnerable protobuf")
+        }
+    }
 }
