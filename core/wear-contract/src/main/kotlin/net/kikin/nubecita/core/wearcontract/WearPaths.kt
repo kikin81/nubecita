@@ -133,6 +133,12 @@ object WearCapabilities {
      * watch offers quick replies and reactions only while the phone has it.
      */
     const val PHONE_DM_ACTIONS = "nubecita_phone_dm_actions"
+
+    /**
+     * Advertised by phone builds that run [WearAction.CreatePost] (W6). The
+     * watch offers posting only while the phone has it.
+     */
+    const val PHONE_POST_ACTIONS = "nubecita_phone_post_actions"
 }
 
 /**

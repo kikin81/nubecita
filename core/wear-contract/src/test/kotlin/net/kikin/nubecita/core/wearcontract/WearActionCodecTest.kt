@@ -19,6 +19,9 @@ class WearActionCodecTest {
             WearAction.Unrepost(post, "at://did:plc:alice/app.bsky.feed.repost/1"),
             WearAction.Bookmark(post, "cid"),
             WearAction.Unbookmark(post, "cid"),
+            WearAction.DmReply("convo1", "Running late, see you at 8"),
+            WearAction.DmReact("convo1", "msg1", "👍"),
+            WearAction.CreatePost("Finished my first 10k 🏃"),
         ).forEach { action ->
             val json = WearCodec.encode(WearActionRequest.serializer(), request(action))
 
@@ -31,6 +34,17 @@ class WearActionCodecTest {
         val json = WearCodec.encode(WearActionRequest.serializer(), request(WearAction.Unbookmark(post, "cid")))
 
         assertTrue("\"type\":\"unbookmark\"" in json) { json }
+    }
+
+    @Test
+    fun createPost_isEncodedAsCreatePost_andIsNotAPostOrDmAction() {
+        val action: WearAction = WearAction.CreatePost("hello")
+        val json = WearCodec.encode(WearActionRequest.serializer(), request(action))
+
+        assertTrue("\"type\":\"create-post\"" in json) { json }
+        // Neither the post handler nor the chats handler may claim it.
+        assertFalse(action is WearPostAction)
+        assertFalse(action is WearDmAction)
     }
 
     @Test

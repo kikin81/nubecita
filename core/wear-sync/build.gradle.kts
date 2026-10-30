@@ -19,6 +19,7 @@ dependencies {
     implementation(project(":core:feed-cache"))
     implementation(project(":core:feeds"))
     implementation(project(":core:post-interactions"))
+    implementation(project(":core:posting"))
     implementation(project(":core:preferences"))
     implementation(project(":core:wear-contract"))
     implementation(project(":data:models"))

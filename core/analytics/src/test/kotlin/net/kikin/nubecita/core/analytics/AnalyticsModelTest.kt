@@ -288,7 +288,7 @@ class AnalyticsModelTest {
         assertEquals("watch_action", action.name)
         assertEquals(mapOf("action_type" to Str("dm_reply"), "outcome" to Str("expired")), action.params)
         assertEquals(
-            listOf("like", "unlike", "repost", "unrepost", "bookmark", "unbookmark", "dm_reply", "dm_react", "unknown"),
+            listOf("like", "unlike", "repost", "unrepost", "bookmark", "unbookmark", "dm_reply", "dm_react", "create_post", "unknown"),
             WatchActionType.entries.map { it.wire },
         )
         assertEquals(listOf("ok", "account", "unsupported", "expired", "error"), WatchActionOutcome.entries.map { it.wire })

@@ -73,7 +73,11 @@ sealed interface WearAction {
         val postCid: String,
     ) : WearPostAction
 
-    /** A quick reply: [text] is one of the watch's canned phrases, already localized. */
+    /**
+     * A reply in a conversation: one of the watch's canned phrases (already
+     * localized), or text the user dictated or typed (W6), at most
+     * [WearDmActions.MAX_GRAPHEMES].
+     */
     @Serializable
     @SerialName("dm-reply")
     data class DmReply(
@@ -89,6 +93,19 @@ sealed interface WearAction {
         val messageId: String,
         val emoji: String,
     ) : WearDmAction
+
+    /**
+     * A new top-level, text-only post written on the watch (W6), at most
+     * [WearCreatePost.MAX_GRAPHEMES]. The phone detects mentions, links and
+     * tags, and picks `langs` from its own default, as the composer does.
+     * Older phones answer [WearActionFailure.UNSUPPORTED]; the watch offers it
+     * only while the phone has [WearCapabilities.PHONE_POST_ACTIONS].
+     */
+    @Serializable
+    @SerialName("create-post")
+    data class CreatePost(
+        val text: String,
+    ) : WearAction
 }
 
 /**
@@ -116,6 +133,17 @@ sealed interface WearDmAction : WearAction {
 object WearDmActions {
     /** A reply or reaction older than this is not sent: "On my way" an hour late is wrong. */
     const val MAX_AGE_MS = 60 * 60_000L
+
+    /** Longest reply the watch sends: the phone's DM limit. */
+    const val MAX_GRAPHEMES = 1000
+}
+
+object WearCreatePost {
+    /** The AT Protocol post limit, the composer's. */
+    const val MAX_GRAPHEMES = 300
+
+    /** A post older than this is not posted: a post written on a run shouldn't appear hours later. */
+    const val MAX_AGE_MS = 60 * 60_000L
 }
 
 /** The reactions the watch offers: the phone's quick-reaction set, in its order. */
@@ -135,7 +163,8 @@ data class WearActionResult(
     /**
      * The record a like or repost created, so the watch can undo it before the
      * next snapshot carries it; for a quick reply, the sent message's id, so the
-     * watch can match it in the next DM snapshot. Null for every other action.
+     * watch can match it in the next DM snapshot; for a post, the new post's
+     * URI. Null for every other action.
      */
     val recordUri: String? = null,
 ) : WearPayload {
@@ -157,7 +186,7 @@ enum class WearActionFailure {
     @SerialName("error")
     ERROR,
 
-    /** A reply or reaction reached the phone too late to send ([WearDmActions.MAX_AGE_MS]). */
+    /** A reply, reaction or post reached the phone too late to send ([WearDmActions.MAX_AGE_MS], [WearCreatePost.MAX_AGE_MS]). */
     @SerialName("expired")
     EXPIRED,
 }

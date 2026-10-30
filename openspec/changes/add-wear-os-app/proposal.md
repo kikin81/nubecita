@@ -12,12 +12,13 @@ Nubecita users with a Wear OS watch can't glance at their timeline, react to a p
 - New phone **Settings → Watch** page: a feed picker (Following by default, max 3).
 - The widget refresh also refreshes the selected watch feeds while a watch is paired. The DM poll also fetches messages for changed threads while a watch is paired.
 - New unread-DMs complication.
+- Voice or keyboard DM replies and short text posts from the watch (W6, added 2026-10-29), entered through the system `RemoteInput` and sent through the phone as actions. A new `create-post` action, gated on a `nubecita_phone_post_actions` phone capability.
 - The release pipeline builds and uploads a Wear bundle: an independent version-code scheme, dedicated Wear form-factor tracks, and a closed-testing release before the Wear OS opt-in. The Wear app goes to production with feed browsing (W2).
 
 ## Non-goals
 
 - The watch never signs in to Bluesky or calls it directly (no standalone / LTE mode).
-- Video playback on the watch, free-text or voice replies, composing posts, quotes, follows.
+- Video playback on the watch, quotes, follows, replies to posts, and posts with media.
 - Feed tiles or Wear widgets.
 - Inline-reply parity for phone notifications bridged to the watch.
 - Offline browsing in the **phone's** Feed screen. That is a separate feature (`nubecita-j16x`).
@@ -32,6 +33,7 @@ Nubecita users with a Wear OS watch can't glance at their timeline, react to a p
 - `wear-post-actions`: offline like and bookmark actions from the watch, with optimistic overlay and silent revert.
 - `wear-messages`: the DM snapshot, the watch conversation list and thread, and quick replies and reactions with expiry.
 - `wear-complication`: the push-only unread-DMs complication.
+- `wear-compose`: voice and text input on the watch and short text posts relayed through the phone (W6).
 
 ### Modified Capabilities
 - `widget-feed-refresh`: also refreshes the user's selected watch feeds (and hands them to the publisher) while a watch with the app is paired.
