@@ -202,6 +202,22 @@ internal class DefaultOutgoingPostStoreTest {
         }
 
     @Test
+    fun `a server copy of a different post is ignored`() =
+        runTest {
+            createSucceeds()
+            noProfile()
+            coEvery { postRepository.getPost(POST_URI) } returns Result.success(serverPost().copy(id = "at://someone/else"))
+            val store = store()
+
+            store.submit(draft("hello"))
+            advanceUntilIdle()
+
+            val post = store.only().post
+            assertEquals(POST_URI, post.id)
+            assertEquals("", post.cid)
+        }
+
+    @Test
     fun `the local post picks up the viewer's avatar and display name`() =
         runTest {
             coEvery { postingRepository.createPost(any(), any(), any(), any(), any(), any(), any(), any()) } coAnswers

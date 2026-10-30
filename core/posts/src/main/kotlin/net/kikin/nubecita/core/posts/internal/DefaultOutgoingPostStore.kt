@@ -129,7 +129,9 @@ internal class DefaultOutgoingPostStore
         ) {
             for (backoff in SERVER_COPY_BACKOFF_MS) {
                 delay(backoff)
-                val server = postRepository.getPost(uri).getOrNull() ?: continue
+                // Only the post we asked for replaces the local copy; anything else
+                // would show the wrong post in its place.
+                val server = postRepository.getPost(uri).getOrNull()?.takeIf { it.id == uri } ?: continue
                 replace(localId) { it.copy(post = server) }
                 return
             }
