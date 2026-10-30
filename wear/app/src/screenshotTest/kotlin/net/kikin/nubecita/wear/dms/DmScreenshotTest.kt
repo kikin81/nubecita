@@ -119,14 +119,14 @@ private fun ThreadWithRepliesPreview() {
 @WearPreviewDevices
 @Composable
 private fun QuickReplyPreview() {
-    NubecitaWearTheme { QuickReplyScreen(onPick = {}) }
+    NubecitaWearTheme { QuickReplyScreen(onPick = {}, onWrite = {}) }
 }
 
 @PreviewTest
 @WearPreviewFontScales
 @Composable
 private fun QuickReplyFontScalesPreview() {
-    NubecitaWearTheme { QuickReplyScreen(onPick = {}) }
+    NubecitaWearTheme { QuickReplyScreen(onPick = {}, onWrite = {}) }
 }
 
 @PreviewTest

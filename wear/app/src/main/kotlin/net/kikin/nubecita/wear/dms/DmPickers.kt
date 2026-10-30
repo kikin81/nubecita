@@ -3,9 +3,11 @@ package net.kikin.nubecita.wear.dms
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -17,6 +19,7 @@ import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.FilledTonalButton
+import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.ListHeaderDefaults
 import androidx.wear.compose.material3.ScreenScaffold
@@ -28,11 +31,15 @@ import net.kikin.nubecita.core.wearcontract.WearDmReactions
 import net.kikin.nubecita.wear.R
 import net.kikin.nubecita.wear.ui.WearScrollIndicator
 
-/** The canned quick replies, localized; tapping one sends it and goes back. */
+/**
+ * The canned quick replies, localized; tapping one sends it and goes back.
+ * [onWrite] (W6), when set, leads the list: dictate or type a reply instead.
+ */
 @Composable
 fun QuickReplyScreen(
     onPick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    onWrite: (() -> Unit)? = null,
     listState: TransformingLazyColumnState = rememberTransformingLazyColumnState(),
 ) {
     val replies = stringArrayResource(R.array.wear_dms_quick_replies).toList()
@@ -49,6 +56,21 @@ fun QuickReplyScreen(
                     transformation = SurfaceTransformation(transformationSpec),
                 ) {
                     Text(stringResource(R.string.wear_dms_reply))
+                }
+            }
+            if (onWrite != null) {
+                item {
+                    Button(
+                        onClick = onWrite,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .transformedHeight(this, transformationSpec)
+                                .minimumVerticalContentPadding(ButtonDefaults.minimumVerticalListContentPadding),
+                        transformation = SurfaceTransformation(transformationSpec),
+                        icon = { Icon(painter = painterResource(R.drawable.ic_mic), contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize)) },
+                        label = { Text(stringResource(R.string.wear_input_speak_or_type), maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                    )
                 }
             }
             items(replies, key = { it }) { reply ->

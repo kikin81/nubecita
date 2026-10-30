@@ -29,6 +29,7 @@ dependencies {
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)
     implementation(libs.androidx.wear.compose.navigation3)
+    implementation(libs.androidx.wear.input)
     implementation(libs.androidx.wear.phone.interactions)
     implementation(libs.androidx.wear.remote.interactions)
     implementation(libs.androidx.wear.watchface.complications.data.source.ktx)

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -13,6 +14,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.navigation3.rememberSwipeDismissableSceneStrategy
+import net.kikin.nubecita.core.wearcontract.WearDmActions
 import net.kikin.nubecita.wear.dms.ConvoListScreen
 import net.kikin.nubecita.wear.dms.QuickReplyScreen
 import net.kikin.nubecita.wear.dms.ReactionScreen
@@ -29,12 +31,15 @@ import net.kikin.nubecita.wear.feed.rememberNow
 import net.kikin.nubecita.wear.gate.WearGate
 import net.kikin.nubecita.wear.gate.WearGateEvent
 import net.kikin.nubecita.wear.gate.WearGateViewModel
+import net.kikin.nubecita.wear.input.TextReviewScreen
+import net.kikin.nubecita.wear.input.rememberWearTextInput
 import net.kikin.nubecita.wear.navigation.WearConvos
 import net.kikin.nubecita.wear.navigation.WearFeedPicker
 import net.kikin.nubecita.wear.navigation.WearHome
 import net.kikin.nubecita.wear.navigation.WearPost
 import net.kikin.nubecita.wear.navigation.WearReact
 import net.kikin.nubecita.wear.navigation.WearReply
+import net.kikin.nubecita.wear.navigation.WearReplyReview
 import net.kikin.nubecita.wear.navigation.WearThread
 import net.kikin.nubecita.wear.ui.WearTimeText
 import net.kikin.nubecita.wear.ui.theme.NubecitaWearTheme
@@ -117,11 +122,30 @@ fun NubecitaWearApp(
                                     }
                                 }
                                 entry<WearReply> { route ->
+                                    val writeReply = rememberWearTextInput(stringResource(R.string.wear_input_reply_label)) { text -> backStack.add(WearReplyReview(route.convoId, text)) }
                                     QuickReplyScreen(
                                         onPick = { text ->
                                             dmViewModel.handleEvent(WatchDmEvent.ReplySent(route.convoId, text))
                                             backStack.removeLastOrNull()
                                         },
+                                        onWrite = writeReply,
+                                    )
+                                }
+                                entry<WearReplyReview> { route ->
+                                    val rewrite =
+                                        rememberWearTextInput(stringResource(R.string.wear_input_reply_label)) { text ->
+                                            backStack[backStack.lastIndex] = route.copy(text = text)
+                                        }
+                                    TextReviewScreen(
+                                        title = stringResource(R.string.wear_input_reply_label),
+                                        text = route.text,
+                                        maxGraphemes = WearDmActions.MAX_GRAPHEMES,
+                                        onSend = {
+                                            dmViewModel.handleEvent(WatchDmEvent.ReplySent(route.convoId, route.text))
+                                            // Back to the thread, where the reply shows as "Sending…".
+                                            backStack.removeAll { it is WearReplyReview || it is WearReply }
+                                        },
+                                        onChange = rewrite,
                                     )
                                 }
                                 entry<WearReact> { route ->

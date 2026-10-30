@@ -88,4 +88,9 @@
         <item quantity="many">%1$d mensajes sin leer</item>
         <item quantity="other">%1$d mensajes sin leer</item>
     </plurals>
+    <string name="wear_input_speak_or_type">Habla o escribe</string>
+    <string name="wear_input_reply_label">Tu respuesta</string>
+    <string name="wear_input_send">Enviar</string>
+    <string name="wear_input_change">Cambiar</string>
+    <string name="wear_input_too_long">Demasiado largo: %1$d / %2$d</string>
 </resources>
