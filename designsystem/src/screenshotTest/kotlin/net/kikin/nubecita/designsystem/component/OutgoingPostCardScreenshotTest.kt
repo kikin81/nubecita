@@ -57,8 +57,9 @@ private fun outgoing(status: OutgoingPostStatusUi) =
                 id = "local:local-1",
                 cid = "",
                 author = AuthorUi(did = "did:plc:me", handle = "nubecita.app", displayName = "Nubecita.app", avatarUrl = null),
-                // Pinned instant keeps the relative timestamp deterministic.
-                createdAt = Instant.parse("2026-10-30T12:00:00Z"),
+                // Far enough in the past that PostCard renders an absolute date,
+                // not a relative "4h" that drifts with the screenshot host's clock.
+                createdAt = Instant.parse("2025-10-15T12:00:00Z"),
                 text = "Good morning from Nubecita ☁️",
                 facets = persistentListOf(),
                 embed = EmbedUi.Empty,
