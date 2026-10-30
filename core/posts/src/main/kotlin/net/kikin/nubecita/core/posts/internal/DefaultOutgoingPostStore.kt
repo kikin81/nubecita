@@ -47,7 +47,11 @@ internal class DefaultOutgoingPostStore
         private val _posts = MutableStateFlow<ImmutableList<OutgoingPost>>(persistentListOf())
         override val posts: StateFlow<ImmutableList<OutgoingPost>> = _posts.asStateFlow()
 
-        /** The signed-in user's profile, fetched once per DID for avatar and display name. */
+        /**
+         * The signed-in user's profile, fetched once per DID for avatar and display name.
+         * Written from the application scope and read on the submitting thread.
+         */
+        @Volatile
         private var viewerAuthor: AuthorUi? = null
 
         override fun submit(draft: PostDraft): String {
@@ -59,7 +63,7 @@ internal class DefaultOutgoingPostStore
                     post = draft.toLocalPost(localId, author = currentAuthor()),
                     status = OutgoingPostStatus.Sending,
                 )
-            _posts.update { (listOf(entry) + it).toImmutableList() }
+            _posts.update { persistentListOf(entry).addAll(it) }
             scope.launch { resolveViewerAuthor() }
             send(localId)
             return localId
