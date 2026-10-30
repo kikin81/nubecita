@@ -4,7 +4,7 @@
 Why this exists
 ---------------
 Screenshot baselines are generated and validated on CI's Linux runners. Layoutlib
-renders slightly differently on a developer's machine, so `validate*ScreenshotTest`
+renders slightly differently on a developer's machine, so `test*ScreenshotTestDefaultTestSuite`
 reports failures locally that pass in CI. Those failures are single-LSB rounding
 artifacts on anti-aliased edges, gradients, and alpha composites — never a moved,
 resized, or recoloured element.
@@ -26,7 +26,7 @@ not silencing the noise — this script reports the right metric.
 
 Usage
 -----
-    ./gradlew :feature:feed:impl:validateProductionDebugScreenshotTest || true
+    ./gradlew :feature:feed:impl:validateScreenshots || true
     python3 scripts/triage-screenshot-failures.py [module ...]
 
 Exit code is 0 when every difference is host noise, 1 when anything looks real.
@@ -38,6 +38,8 @@ import os
 import sys
 
 NOISE_MAX_DELTA = 3
+# Where the AGP screenshot test suite writes renders, relative to `build/`.
+RENDERED = "intermediates/*/test*ScreenshotTestDefaultTestSuite/results/rendered"
 
 try:
     from PIL import Image, ImageChops
@@ -76,7 +78,7 @@ def modules(argv):
         return argv
     return sorted(
         os.path.dirname(p).split("/build/")[0]
-        for p in glob.glob("**/build/outputs/screenshotTest-results/**/rendered", recursive=True)
+        for p in glob.glob(f"**/build/{RENDERED}", recursive=True)
     )
 
 
@@ -84,7 +86,7 @@ def main():
     suspicious = []
     noise = []
     for module in dict.fromkeys(modules(sys.argv[1:])):
-        rendered_dirs = glob.glob(f"{module}/build/outputs/screenshotTest-results/preview/debug/**/rendered", recursive=True)
+        rendered_dirs = glob.glob(f"{module}/build/{RENDERED}")
         reference_dirs = glob.glob(f"{module}/src/screenshotTest*/reference")
         if not rendered_dirs or not reference_dirs:
             continue

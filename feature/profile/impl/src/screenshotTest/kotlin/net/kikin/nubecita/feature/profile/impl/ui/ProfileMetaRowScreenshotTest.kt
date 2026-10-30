@@ -12,7 +12,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
  * variant pins the per-row conditional rendering (link + location are
  * hidden when null per the spec scenario "Meta row hides absent
  * optional fields"). Regenerate with
- * `./gradlew :feature:profile:impl:updateDebugScreenshotTest` after
+ * `./gradlew :feature:profile:impl:updateProductionDebugScreenshotTestDefaultTestSuite` after
  * intentional visual changes.
  */
 @PreviewTest

@@ -11,7 +11,7 @@ import net.kikin.nubecita.designsystem.preview.NubecitaComponentPreview
  * Screenshot baselines for [NubecitaWavyProgressIndicator] — the brand
  * indeterminate spinner. Captures the default wavy ring in light + dark.
  * Regenerate after intentional visual changes with
- * `./gradlew :designsystem:updateDebugScreenshotTest`.
+ * `./gradlew :designsystem:updateDebugScreenshotTestDefaultTestSuite`.
  */
 
 @PreviewTest

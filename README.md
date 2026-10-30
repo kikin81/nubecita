@@ -101,7 +101,7 @@ Feature modules use the **api / impl** split required by Navigation 3:
 ```bash
 ./gradlew :app:assembleDebug                              # build
 ./gradlew testDebugUnitTest                               # tests
-./gradlew :designsystem:validateDebugScreenshotTest       # screenshot baselines
+./gradlew :designsystem:validateScreenshots             # screenshot baselines
 ./gradlew spotlessCheck lint                              # lint + format
 pre-commit run --all-files                                # all hooks
 ```

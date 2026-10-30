@@ -17,9 +17,9 @@ import net.kikin.nubecita.designsystem.preview.NubecitaComponentPreview
  * captures light and dark on a brand-sky background so the white logo body
  * is visible in the diff. The tinted-variant case locks the
  * `ColorFilter.tint(...)` fallback used on near-white surfaces. Baselines
- * live under `src/screenshotTestDebug/reference/`. Regenerate after
+ * live under `src/screenshotTestDefaultDebug/reference/`. Regenerate after
  * intentional visual changes with
- * `./gradlew :designsystem:updateDebugScreenshotTest`.
+ * `./gradlew :designsystem:updateDebugScreenshotTestDefaultTestSuite`.
  */
 
 @PreviewTest

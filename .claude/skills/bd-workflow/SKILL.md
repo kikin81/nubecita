@@ -111,7 +111,7 @@ Run these before pushing. If any fails, stop and fix the underlying issue; never
    |---|---|
    | `:<module>:lintProductionDebug` | `:<module>:lintDebug` |
    | `:<module>:testProductionDebugUnitTest` | `:<module>:testDebugUnitTest` |
-   | `:<module>:updateProductionDebugScreenshotTest` | `:<module>:updateDebugScreenshotTest` |
+   | `:<module>:updateProductionDebugScreenshotTestDefaultTestSuite` | `:<module>:updateDebugScreenshotTestDefaultTestSuite` |
 
    When unsure: `./gradlew :<module>:tasks --all | grep -i lint`. Modules outside the main Android build (e.g. `build-logic`, plain JVM libs) have no lint task at all — skip them here, the convention plugins already gate them at compile time.
 3. Pre-commit hook on the commit itself already ran spotless + commitlint + secret scan — no extra step needed here. If the hook reports a failure, fix the underlying issue rather than re-running with `--no-verify`.

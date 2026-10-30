@@ -23,8 +23,8 @@ import net.kikin.nubecita.designsystem.preview.NubecitaComponentPreview
  * the baseline locks the M3 Expressive LoadingIndicator's offset below a
  * (simulated) top bar — the regression guard for the indicator rendering
  * behind a `topBar` (nubecita-tfbc). Baselines live under
- * `src/screenshotTestDebug/reference/`. Regenerate after intentional visual
- * changes with `./gradlew :designsystem:updateDebugScreenshotTest`.
+ * `src/screenshotTestDefaultDebug/reference/`. Regenerate after intentional visual
+ * changes with `./gradlew :designsystem:updateDebugScreenshotTestDefaultTestSuite`.
  */
 
 @PreviewTest

@@ -264,10 +264,10 @@ jobs:
         # `validateScreenshots` is a flavor-agnostic lifecycle alias the
         # `nubecita.android.library.compose` convention plugin registers in
         # every Compose library + feature module. It fans out to whichever
-        # canonical debug-variant screenshot task that module has —
-        # `validateDebugScreenshotTest` for non-flavored modules,
-        # `validateProductionDebugScreenshotTest` for `environment`-flavored
-        # ones (`:feature:feed:impl`, `:chats:impl`, `:profile:impl`,
+        # canonical debug-variant screenshot suite task that module has —
+        # `testDebugScreenshotTestDefaultTestSuite` for non-flavored modules,
+        # `testProductionDebugScreenshotTestDefaultTestSuite` for
+        # `environment`-flavored ones (`:feature:feed:impl`, `:chats:impl`, `:profile:impl`,
         # `:search:impl`) — without hand-listing each flavored module here.
         # The bench flavor and release variants are deliberately excluded.
         # `:app` is intentionally NOT covered (its Mac-generated baselines are
@@ -279,7 +279,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: screenshot-diff-report
-          path: "**/build/reports/screenshotTest/preview/debug/"
+          path: "**/build/reports/tests/test*ScreenshotTestDefaultTestSuite/"
           if-no-files-found: ignore
           retention-days: 14
 

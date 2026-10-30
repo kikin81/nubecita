@@ -13,9 +13,9 @@ import net.kikin.nubecita.designsystem.preview.PreviewNubecitaScreenPreviews
  * Screenshot baselines for [LoginScreen]'s state matrix. Each preview
  * renders the stateless `LoginScreen(state, onEvent)` overload directly
  * (no Hilt) so the captures are deterministic across machines. Run
- * `./gradlew :feature:login:impl:updateDebugScreenshotTest` to regenerate
+ * `./gradlew :feature:login:impl:updateDebugScreenshotTestDefaultTestSuite` to regenerate
  * baselines after intentional UI changes; CI runs
- * `validateDebugScreenshotTest` and fails on any unexpected diff.
+ * `testDebugScreenshotTestDefaultTestSuite` and fails on any unexpected diff.
  */
 
 @PreviewTest

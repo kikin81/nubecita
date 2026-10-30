@@ -26,7 +26,7 @@ import net.kikin.nubecita.feature.profile.impl.ViewerModerationState
  *    asserted in `ProfileViewModelTest`.
  *
  * Regenerate with
- * `./gradlew :feature:profile:impl:updateDebugScreenshotTest` after
+ * `./gradlew :feature:profile:impl:updateProductionDebugScreenshotTestDefaultTestSuite` after
  * intentional visual changes.
  */
 private val SAMPLE_HEADER =

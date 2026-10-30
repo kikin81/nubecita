@@ -154,7 +154,7 @@ Strings
   The :app lint task does NOT catch MissingTranslation.
 
 Screenshots
-- Regenerate baselines: \`./gradlew :feature:settings:impl:updateDebugScreenshotTest\`.
+- Regenerate baselines: \`./gradlew :feature:settings:impl:updateDebugScreenshotTestDefaultTestSuite\`.
 - That task regenerates EVERY baseline in the module, not just the ones you
   changed. Afterwards run \`git diff --cached --name-status -- '*.png'\` (or
   \`git status\`) and revert any PNG you did not intend to change.
@@ -167,7 +167,7 @@ Screenshots
 Verification before you push
 - \`./gradlew :feature:settings:impl:testDebugUnitTest\`
 - \`./gradlew :feature:settings:impl:lintDebug\`
-- \`./gradlew :feature:settings:impl:validateDebugScreenshotTest\`
+- \`./gradlew :feature:settings:impl:testDebugScreenshotTestDefaultTestSuite\`
 - \`./gradlew :app:assembleDebug\`
 All must pass. Do NOT do a device pass — there is one physical device and it
 cannot be shared between parallel agents. The human does that serially.

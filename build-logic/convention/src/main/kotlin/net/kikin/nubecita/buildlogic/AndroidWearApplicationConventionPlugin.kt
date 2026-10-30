@@ -3,16 +3,14 @@ package net.kikin.nubecita.buildlogic
 import com.android.build.api.dsl.ApplicationExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.tasks.testing.Test
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
-import org.gradle.kotlin.dsl.withType
 
 /**
  * Convention plugin for the Wear OS app (`:wear:app`, epic nubecita-sn52).
  *
- * Mirrors `nubecita.android.application` (Compose, Hilt, KSP, JaCoCo, the AGP
- * screenshot plugin, release minification) with the Wear-specific differences:
+ * Mirrors `nubecita.android.application` (Compose, Hilt, KSP, JaCoCo, the
+ * screenshot test suite, release minification) with the Wear-specific differences:
  *
  * - `minSdk = 33` (Wear OS 4) instead of the phone's 28. `targetSdk` stays at
  *   the phone's 37 — Play requires ≥ 34 for new Wear apps.
@@ -42,7 +40,6 @@ class AndroidWearApplicationConventionPlugin : Plugin<Project> {
             pluginManager.apply("com.android.application")
             pluginManager.apply("com.squareup.sort-dependencies")
             pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
-            pluginManager.apply("com.android.compose.screenshot")
             pluginManager.apply("com.google.dagger.hilt.android")
             pluginManager.apply("com.google.devtools.ksp")
             pluginManager.apply("nubecita.android.jacoco")
@@ -68,9 +65,6 @@ class AndroidWearApplicationConventionPlugin : Plugin<Project> {
                 }
 
                 buildFeatures.compose = true
-
-                @Suppress("UnstableApiUsage")
-                experimentalProperties["android.experimental.enableScreenshotTest"] = true
 
                 buildTypes.getByName("debug").apply {
                     enableUnitTestCoverage = true
@@ -99,12 +93,9 @@ class AndroidWearApplicationConventionPlugin : Plugin<Project> {
                 }
             }
 
-            tasks.withType<Test>().configureEach {
-                if (name in CANONICAL_SCREENSHOT_TASKS) {
-                    failOnNoDiscoveredTests.set(false)
-                }
-            }
-
+            // Wear preview annotations (@WearPreviewDevices / @WearPreviewFontScales)
+            // must also reach the screenshot suite.
+            configureScreenshotTests("androidx-wear-compose-ui-tooling")
             registerScreenshotAliasTasks()
             configureComposeCompilerReports()
             registerWearForbiddenDependencyCheck()
@@ -122,9 +113,6 @@ class AndroidWearApplicationConventionPlugin : Plugin<Project> {
                 // Wear preview annotations (@WearPreviewDevices / @WearPreviewFontScales):
                 // previews and screenshot tests only, never the release app.
                 "debugImplementation"(libs.findLibrary("androidx-wear-compose-ui-tooling").get())
-                "screenshotTestImplementation"(libs.findLibrary("androidx-wear-compose-ui-tooling").get())
-                "screenshotTestImplementation"(libs.findLibrary("androidx-compose-ui-tooling").get())
-                "screenshotTestImplementation"(libs.findLibrary("screenshot-validation-api").get())
                 "ksp"(libs.findLibrary("hilt-android-compiler").get())
                 "lintChecks"(libs.findLibrary("slack-compose-lints").get())
             }

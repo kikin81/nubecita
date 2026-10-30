@@ -12,7 +12,6 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
             pluginManager.apply("com.android.application")
             pluginManager.apply("com.squareup.sort-dependencies")
             pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
-            pluginManager.apply("com.android.compose.screenshot")
             pluginManager.apply("com.google.dagger.hilt.android")
             pluginManager.apply("com.google.devtools.ksp")
             pluginManager.apply("nubecita.android.jacoco")
@@ -27,9 +26,6 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
 
                 buildFeatures.buildConfig = true
                 buildFeatures.compose = true
-
-                @Suppress("UnstableApiUsage")
-                experimentalProperties["android.experimental.enableScreenshotTest"] = true
 
                 buildTypes.getByName("debug").apply {
                     // Routes test execution through JaCoCo's runtime agent so
@@ -81,6 +77,8 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                 }
             }
 
+            configureScreenshotTests()
+
             configureComposeCompilerReports()
 
             configureComposePreview()
@@ -95,8 +93,6 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                 "implementation"(libs.findLibrary("androidx-hilt-navigation-compose").get())
                 "implementation"(libs.findLibrary("hilt-android").get())
                 "debugImplementation"(libs.findLibrary("androidx-compose-ui-tooling").get())
-                "screenshotTestImplementation"(libs.findLibrary("androidx-compose-ui-tooling").get())
-                "screenshotTestImplementation"(libs.findLibrary("screenshot-validation-api").get())
                 "ksp"(libs.findLibrary("hilt-android-compiler").get())
                 "lintChecks"(libs.findLibrary("slack-compose-lints").get())
             }

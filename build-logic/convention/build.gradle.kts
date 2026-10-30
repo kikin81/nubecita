@@ -32,7 +32,6 @@ dependencies {
     compileOnly(libs.kotlin.gradlePlugin)
     compileOnly(libs.ksp.gradlePlugin)
     compileOnly(libs.room.gradlePlugin)
-    compileOnly(libs.screenshot.gradlePlugin)
     compileOnly(libs.sortDependencies.gradlePlugin)
 }
 

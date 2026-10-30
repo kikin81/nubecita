@@ -9,7 +9,7 @@ import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 /**
  * Screenshot baselines for [FeedEmptyState]. Light + dark in a single
  * `@PreviewTest` function via stacked `@Preview` annotations. Regenerate
- * with `./gradlew :feature:feed:impl:updateDebugScreenshotTest` after
+ * with `./gradlew :feature:feed:impl:updateProductionDebugScreenshotTestDefaultTestSuite` after
  * intentional visual changes.
  */
 @PreviewTest

@@ -58,7 +58,7 @@ reorderable = "3.1.0"
 paging = "3.5.3"
 room = "2.8.5"
 screengrab = "2.1.1"
-screenshot = "0.0.1-alpha16"
+screenshot = "0.0.1-alpha17"
 slackComposeLints = "1.6.1"
 sortDependencies = "0.21.0"
 spotless = "8.10.4"
@@ -200,7 +200,6 @@ room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
 room-gradlePlugin = { group = "androidx.room", name = "room-gradle-plugin", version.ref = "room" }
 screengrab = { module = "tools.fastlane:screengrab", version.ref = "screengrab" }
-screenshot-gradlePlugin = { group = "com.android.compose.screenshot", name = "com.android.compose.screenshot.gradle.plugin", version.ref = "screenshot" }
 screenshot-validation-api = { module = "com.android.tools.screenshot:screenshot-validation-api", version.ref = "screenshot" }
 slack-compose-lints = { module = "com.slack.lint.compose:compose-lint-checks", version.ref = "slackComposeLints" }
 telephoto-zoomable-image-coil3 = { module = "me.saket.telephoto:zoomable-image-coil3", version.ref = "telephoto" }
@@ -214,7 +213,6 @@ androidx-baselineprofile = { id = "androidx.baselineprofile", version.ref = "and
 androidx-benchmark = { id = "androidx.benchmark", version.ref = "androidxBenchmark" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
-compose-screenshot = { id = "com.android.compose.screenshot", version.ref = "screenshot" }
 firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlytics" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

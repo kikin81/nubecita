@@ -23,7 +23,7 @@ import kotlin.time.Instant
  * loaded / loading / error states and both badge tiers.
  *
  * Regenerate with
- * `./gradlew :feature:profile:impl:updateDebugScreenshotTest`.
+ * `./gradlew :feature:profile:impl:updateProductionDebugScreenshotTestDefaultTestSuite`.
  *
  * Verifier instants are pinned at **noon UTC** so the rendered date is
  * identical in every real host timezone — the screenshot host derives the
