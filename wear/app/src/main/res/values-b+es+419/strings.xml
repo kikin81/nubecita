@@ -93,4 +93,8 @@
     <string name="wear_input_send">Enviar</string>
     <string name="wear_input_change">Cambiar</string>
     <string name="wear_input_too_long">Demasiado largo: %1$d / %2$d</string>
+    <string name="wear_post_new">Nueva publicación</string>
+    <string name="wear_post_send">Publicar</string>
+    <string name="wear_post_posting">Publicando…</string>
+    <string name="wear_post_not_posted">No se publicó — toca para reintentar</string>
 </resources>

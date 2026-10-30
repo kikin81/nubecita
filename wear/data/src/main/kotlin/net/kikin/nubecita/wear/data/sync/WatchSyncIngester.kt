@@ -16,6 +16,7 @@ import net.kikin.nubecita.wear.data.db.WatchDmStateEntity
 import net.kikin.nubecita.wear.data.db.WatchFeedDao
 import net.kikin.nubecita.wear.data.db.WatchFeedEntity
 import net.kikin.nubecita.wear.data.db.WatchMessageEntity
+import net.kikin.nubecita.wear.data.db.WatchPostActionDao
 import net.kikin.nubecita.wear.data.db.WatchPostEntity
 import net.kikin.nubecita.wear.data.settledActions
 import net.kikin.nubecita.wear.data.settledDmActions
@@ -37,6 +38,7 @@ class WatchSyncIngester
         private val actionDao: WatchActionDao,
         private val dmDao: WatchDmDao,
         private val dmActionDao: WatchDmActionDao,
+        private val postActionDao: WatchPostActionDao,
         private val clock: Clock,
         private val dmObservers: Set<@JvmSuppressWildcards DmSyncObserver>,
     ) {
@@ -88,7 +90,8 @@ class WatchSyncIngester
         /**
          * The phone's answer to one of the watch's actions. Ok keeps the action
          * (with the record it created) until a snapshot shows it; failed drops
-         * it, which silently reverts the post. Returns false when [path] isn't
+         * it, which silently reverts the post. A watch post is deleted once
+         * posted and offers a retry on failure. Returns false when [path] isn't
          * a result, so the caller only deletes items it understood.
          */
         suspend fun onActionResult(
@@ -101,14 +104,17 @@ class WatchSyncIngester
                     if (result.value.isOk) {
                         actionDao.markConfirmed(actionId, result.value.recordUri, result.value.completedAtMs)
                         dmActionDao.markSent(actionId, result.value.recordUri)
+                        postActionDao.delete(listOf(actionId))
                     } else {
                         actionDao.delete(listOf(actionId))
                         dmActionDao.markFailed(actionId)
+                        postActionDao.markFailed(actionId)
                     }
                 // Unreadable: treat as failed, so the button doesn't stay locked.
                 is WearDecodeResult.UnsupportedVersion, is WearDecodeResult.Malformed -> {
                     actionDao.delete(listOf(actionId))
                     dmActionDao.markFailed(actionId)
+                    postActionDao.markFailed(actionId)
                 }
             }
             return true
@@ -184,6 +190,7 @@ class WatchSyncIngester
             actionDao.deleteExcept(account?.did.orEmpty())
             dmDao.keepOnlyAccount(account?.did.orEmpty())
             dmActionDao.deleteExcept(account?.did.orEmpty())
+            postActionDao.deleteExcept(account?.did.orEmpty())
             images.keepOnlyAccount(account?.did)
             notifyDmsChanged()
         }

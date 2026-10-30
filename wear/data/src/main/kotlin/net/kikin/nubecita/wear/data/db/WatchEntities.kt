@@ -137,3 +137,21 @@ data class WatchPendingDmEntity(
         const val STATUS_FAILED = "failed"
     }
 }
+
+/**
+ * A post written on the watch (W6), kept until the phone answers. [status] is
+ * `sending` or `failed` (the feed offers a retry); a posted one is deleted.
+ */
+@Entity(tableName = "watch_pending_post")
+data class WatchPendingPostEntity(
+    @PrimaryKey @ColumnInfo(name = "action_id") val actionId: String,
+    @ColumnInfo(name = "account_did") val accountDid: String,
+    val text: String,
+    @ColumnInfo(name = "created_at_ms") val createdAtMs: Long,
+    val status: String = STATUS_SENDING,
+) {
+    companion object {
+        const val STATUS_SENDING = "sending"
+        const val STATUS_FAILED = "failed"
+    }
+}

@@ -90,4 +90,8 @@
     <!-- Same in every language; a resource so the digits follow the locale. -->
     <string name="wear_input_counter" translatable="false">%1$d / %2$d</string>
     <string name="wear_input_too_long">Too long: %1$d / %2$d</string>
+    <string name="wear_post_new">New post</string>
+    <string name="wear_post_send">Post</string>
+    <string name="wear_post_posting">Posting…</string>
+    <string name="wear_post_not_posted">Not posted — tap to retry</string>
 </resources>

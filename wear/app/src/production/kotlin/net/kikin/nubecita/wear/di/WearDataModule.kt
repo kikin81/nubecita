@@ -14,10 +14,12 @@ import net.kikin.nubecita.wear.data.RoomWatchActionRepository
 import net.kikin.nubecita.wear.data.RoomWatchDmActionRepository
 import net.kikin.nubecita.wear.data.RoomWatchDmRepository
 import net.kikin.nubecita.wear.data.RoomWatchFeedRepository
+import net.kikin.nubecita.wear.data.RoomWatchPostActionRepository
 import net.kikin.nubecita.wear.data.WatchActionRepository
 import net.kikin.nubecita.wear.data.WatchDmActionRepository
 import net.kikin.nubecita.wear.data.WatchDmRepository
 import net.kikin.nubecita.wear.data.WatchFeedRepository
+import net.kikin.nubecita.wear.data.WatchPostActionRepository
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -39,6 +41,9 @@ internal interface WearDataModule {
 
     @Binds
     fun bindWatchDmActionRepository(impl: RoomWatchDmActionRepository): WatchDmActionRepository
+
+    @Binds
+    fun bindWatchPostActionRepository(impl: RoomWatchPostActionRepository): WatchPostActionRepository
 
     @Binds
     fun bindPhoneActionSupport(impl: CapabilityPhoneActionSupport): PhoneActionSupport

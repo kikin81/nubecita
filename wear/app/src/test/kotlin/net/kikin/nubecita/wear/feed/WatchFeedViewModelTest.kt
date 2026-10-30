@@ -15,8 +15,10 @@ import net.kikin.nubecita.wear.data.PhoneAppStatus
 import net.kikin.nubecita.wear.data.PhoneConnection
 import net.kikin.nubecita.wear.data.WatchActionRepository
 import net.kikin.nubecita.wear.data.WatchFeedRepository
+import net.kikin.nubecita.wear.data.WatchPostActionRepository
 import net.kikin.nubecita.wear.data.db.WatchFeedEntity
 import net.kikin.nubecita.wear.data.db.WatchPendingActionEntity
+import net.kikin.nubecita.wear.data.db.WatchPendingPostEntity
 import net.kikin.nubecita.wear.data.db.WatchPostEntity
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -33,8 +35,9 @@ class WatchFeedViewModelTest {
     private val actions = FakeActions()
     private val support = FakeSupport()
     private val phone = FakePhone()
+    private val posts = FakePosts()
 
-    private fun vm() = WatchFeedViewModel(repo, actions, support, phone)
+    private fun vm() = WatchFeedViewModel(repo, actions, posts, support, phone)
 
     @Test
     fun without_an_account_it_is_loading() =
@@ -305,6 +308,93 @@ class WatchFeedViewModelTest {
         }
 
         override suspend fun dmAvailable() = available
+
+        var posting = true
+
+        override suspend fun postAvailable(): Boolean {
+            if (fail) error("Play services unavailable")
+            return posting
+        }
+    }
+
+    @Test
+    fun posting_is_offered_only_while_the_phone_supports_it() =
+        runTest {
+            repo.feeds.value = listOf(feed(WearFeedKey.FOLLOWING, null))
+            val vm = vm()
+            vm.handleEvent(WatchFeedEvent.AccountChanged(did))
+            advanceUntilIdle()
+            assertTrue(vm.uiState.value.postingAvailable)
+
+            support.posting = false
+            val older = vm()
+            older.handleEvent(WatchFeedEvent.AccountChanged(did))
+            advanceUntilIdle()
+            assertFalse(older.uiState.value.postingAvailable)
+
+            support.fail = true
+            val unknown = vm()
+            unknown.handleEvent(WatchFeedEvent.AccountChanged(did))
+            advanceUntilIdle()
+            assertFalse(unknown.uiState.value.postingAvailable)
+        }
+
+    @Test
+    fun a_reviewed_post_is_queued_for_the_account_and_shown_until_posted_or_failed() =
+        runTest {
+            repo.feeds.value = listOf(feed(WearFeedKey.FOLLOWING, null))
+            val vm = vm()
+            vm.handleEvent(WatchFeedEvent.AccountChanged(did))
+            advanceUntilIdle()
+
+            vm.handleEvent(WatchFeedEvent.PostSent("Finished my first 10k"))
+            advanceUntilIdle()
+            assertEquals(listOf(did to "Finished my first 10k"), posts.posted)
+
+            posts.rows.value =
+                listOf(
+                    WatchPendingPostEntity("p1", did, "Finished my first 10k", createdAtMs = 1),
+                    WatchPendingPostEntity("p2", did, "Earlier one", createdAtMs = 2, status = WatchPendingPostEntity.STATUS_FAILED),
+                )
+            advanceUntilIdle()
+            assertEquals(
+                listOf(WatchPendingPostUi("p1", "Finished my first 10k", failed = false), WatchPendingPostUi("p2", "Earlier one", failed = true)),
+                vm.uiState.value.pendingPosts,
+            )
+
+            vm.handleEvent(WatchFeedEvent.RetryPost("p2"))
+            advanceUntilIdle()
+            assertEquals(listOf("p2"), posts.retried)
+        }
+
+    @Test
+    fun without_an_account_a_post_is_not_queued() =
+        runTest {
+            val vm = vm()
+
+            vm.handleEvent(WatchFeedEvent.PostSent("hi"))
+            advanceUntilIdle()
+
+            assertTrue(posts.posted.isEmpty())
+        }
+
+    private class FakePosts : WatchPostActionRepository {
+        val rows = MutableStateFlow(emptyList<WatchPendingPostEntity>())
+        val posted = mutableListOf<Pair<String, String>>()
+        val retried = mutableListOf<String>()
+
+        override fun pending(accountDid: String): Flow<List<WatchPendingPostEntity>> = rows
+
+        override suspend fun post(
+            accountDid: String,
+            text: String,
+        ) {
+            posted += accountDid to text
+        }
+
+        override suspend fun retry(actionId: String) {
+            retried += actionId
+        }
     }
 
     private class FakeRepository : WatchFeedRepository {

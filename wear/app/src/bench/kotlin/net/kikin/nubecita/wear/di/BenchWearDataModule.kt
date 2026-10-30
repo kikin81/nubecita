@@ -4,6 +4,7 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -18,7 +19,9 @@ import net.kikin.nubecita.wear.data.PhoneSession
 import net.kikin.nubecita.wear.data.PhoneSessionSource
 import net.kikin.nubecita.wear.data.PostActionKind
 import net.kikin.nubecita.wear.data.WatchActionRepository
+import net.kikin.nubecita.wear.data.WatchPostActionRepository
 import net.kikin.nubecita.wear.data.db.WatchPendingActionEntity
+import net.kikin.nubecita.wear.data.db.WatchPendingPostEntity
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -41,6 +44,9 @@ internal interface BenchWearDataModule {
 
     @Binds
     fun bindWatchActionRepository(impl: BenchWatchActionRepository): WatchActionRepository
+
+    @Binds
+    fun bindWatchPostActionRepository(impl: BenchWatchPostActionRepository): WatchPostActionRepository
 }
 
 internal class BenchPhoneSessionSource
@@ -69,6 +75,8 @@ internal class BenchPhoneActionSupport
         override suspend fun available() = true
 
         override suspend fun dmAvailable() = true
+
+        override suspend fun postAvailable() = true
     }
 
 /**
@@ -92,5 +100,35 @@ internal class BenchWatchActionRepository
             val kind = PostActionKind.of(action)
             val record = if (kind.on && kind != PostActionKind.BOOKMARK) "at://did:plc:nubecitabench/${kind.wire}/$id" else null
             actions.update { it + WatchPendingActionEntity(actionId = "bench-$id", accountDid = accountDid, postUri = action.postUri, kind = kind.wire, createdAtMs = id, confirmed = true, recordUri = record, completedAtMs = id) }
+        }
+    }
+
+/**
+ * Bench flavor: a post shows "Posting…" for a moment, then is posted, in
+ * memory. Nothing reaches Bluesky.
+ */
+@Singleton
+internal class BenchWatchPostActionRepository
+    @Inject
+    constructor() : WatchPostActionRepository {
+        private val rows = MutableStateFlow(emptyList<WatchPendingPostEntity>())
+        private var next = 0L
+
+        override fun pending(accountDid: String): Flow<List<WatchPendingPostEntity>> = rows.map { all -> all.filter { it.accountDid == accountDid } }
+
+        override suspend fun post(
+            accountDid: String,
+            text: String,
+        ) {
+            val id = "bench-post-${next++}"
+            rows.update { it + WatchPendingPostEntity(actionId = id, accountDid = accountDid, text = text, createdAtMs = next) }
+            delay(POSTING_MS)
+            rows.update { all -> all.filterNot { it.actionId == id } }
+        }
+
+        override suspend fun retry(actionId: String) = Unit
+
+        private companion object {
+            const val POSTING_MS = 3_000L
         }
     }

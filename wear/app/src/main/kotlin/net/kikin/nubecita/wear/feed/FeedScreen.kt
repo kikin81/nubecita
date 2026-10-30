@@ -1,7 +1,9 @@
 package net.kikin.nubecita.wear.feed
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
@@ -50,6 +52,8 @@ fun FeedScreen(
     modifier: Modifier = Modifier,
     unreadMessages: Int = 0,
     onOpenMessages: (() -> Unit)? = null,
+    onNewPost: (() -> Unit)? = null,
+    onRetryPost: (WatchPendingPostUi) -> Unit = {},
     listState: TransformingLazyColumnState = rememberTransformingLazyColumnState(),
 ) {
     when (state.status) {
@@ -88,6 +92,30 @@ fun FeedScreen(
                     modifier = Modifier.transformedHeight(this, transformationSpec),
                 )
             }
+            if (onNewPost != null) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec), contentAlignment = Alignment.Center) {
+                        CompactButton(
+                            onClick = onNewPost,
+                            colors = ButtonDefaults.filledTonalButtonColors(),
+                            icon = { Icon(painter = painterResource(R.drawable.ic_edit), contentDescription = null, modifier = Modifier.size(18.dp)) },
+                            label = { Text(stringResource(R.string.wear_post_new), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        )
+                    }
+                }
+            }
+            items(state.pendingPosts, key = { it.actionId }) { pending ->
+                PendingPostCard(
+                    pending = pending,
+                    onRetry = { onRetryPost(pending) },
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .transformedHeight(this, transformationSpec)
+                            .minimumVerticalContentPadding(CardDefaults.minimumVerticalListContentPadding),
+                    transformation = SurfaceTransformation(transformationSpec),
+                )
+            }
             items(state.posts, key = { it.uri }) { post ->
                 Card(
                     onClick = { onPostClick(post) },
@@ -118,6 +146,47 @@ fun FeedScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * A post written on the watch, above the timeline until the phone posts it:
+ * "Posting…", or a full-card retry target once it failed.
+ */
+@Composable
+private fun PendingPostCard(
+    pending: WatchPendingPostUi,
+    onRetry: () -> Unit,
+    transformation: SurfaceTransformation,
+    modifier: Modifier = Modifier,
+) {
+    val content: @Composable ColumnScope.() -> Unit = {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(pending.text, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Text(
+                stringResource(if (pending.failed) R.string.wear_post_not_posted else R.string.wear_post_posting),
+                style = MaterialTheme.typography.labelSmall,
+                color = if (pending.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    if (pending.failed) {
+        val retryLabel = stringResource(R.string.wear_dms_retry)
+        Card(
+            onClick = onRetry,
+            modifier =
+                modifier.semantics {
+                    onClick(label = retryLabel) {
+                        onRetry()
+                        true
+                    }
+                },
+            transformation = transformation,
+            content = content,
+        )
+    } else {
+        // Nothing to do while it posts: not a click target.
+        Card(modifier = modifier, transformation = transformation, content = content)
     }
 }
 

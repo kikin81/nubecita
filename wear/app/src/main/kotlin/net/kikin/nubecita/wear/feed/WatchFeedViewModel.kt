@@ -21,8 +21,10 @@ import net.kikin.nubecita.wear.data.PhoneActionSupport
 import net.kikin.nubecita.wear.data.PhoneConnection
 import net.kikin.nubecita.wear.data.WatchActionRepository
 import net.kikin.nubecita.wear.data.WatchFeedRepository
+import net.kikin.nubecita.wear.data.WatchPostActionRepository
 import net.kikin.nubecita.wear.data.db.WatchFeedEntity
 import net.kikin.nubecita.wear.data.db.WatchPendingActionEntity
+import net.kikin.nubecita.wear.data.db.WatchPendingPostEntity
 import net.kikin.nubecita.wear.data.db.WatchPostEntity
 import net.kikin.nubecita.wear.data.effectiveViewer
 import timber.log.Timber
@@ -45,12 +47,14 @@ class WatchFeedViewModel
     constructor(
         private val repository: WatchFeedRepository,
         private val actions: WatchActionRepository,
+        private val posts: WatchPostActionRepository,
         private val actionSupport: PhoneActionSupport,
         private val phone: PhoneConnection,
     ) : MviViewModel<WatchFeedState, WatchFeedEvent, WatchFeedEffect>(WatchFeedState()) {
         private val account = MutableStateFlow<String?>(null)
         private val selected = MutableStateFlow<String?>(null)
         private val actionsAvailable = MutableStateFlow(false)
+        private val postingAvailable = MutableStateFlow(false)
 
         init {
             // Nested, not combined: posts are only ever queried with a feed key
@@ -81,8 +85,17 @@ class WatchFeedViewModel
                         }
                     }
                 }
-            combine(feed, actionsAvailable) { state, available -> state.copy(actionsAvailable = available) }
-                .onEach { state -> setState { state } }
+            val pendingPosts =
+                account.flatMapLatest { did ->
+                    if (did == null) flowOf(emptyList()) else posts.pending(did)
+                }
+            combine(feed, actionsAvailable, postingAvailable, pendingPosts) { state, available, canPost, pending ->
+                state.copy(
+                    actionsAvailable = available,
+                    postingAvailable = canPost,
+                    pendingPosts = pending.map { WatchPendingPostUi(it.actionId, it.text, failed = it.status == WatchPendingPostEntity.STATUS_FAILED) }.toImmutableList(),
+                )
+            }.onEach { state -> setState { state } }
                 .launchIn(viewModelScope)
         }
 
@@ -111,6 +124,11 @@ class WatchFeedViewModel
                         }
                     }
                 is WatchFeedEvent.OpenOnPhone -> bskyPostUrl(event.postUri)?.let(phone::openUrlOnPhone)
+                is WatchFeedEvent.PostSent -> {
+                    val did = account.value ?: return
+                    viewModelScope.launch { posts.post(did, event.text) }
+                }
+                is WatchFeedEvent.RetryPost -> viewModelScope.launch { posts.retry(event.actionId) }
                 is WatchFeedEvent.ToggleBookmark ->
                     submit(event.postUri) { post ->
                         when {
@@ -138,17 +156,20 @@ class WatchFeedViewModel
 
         private fun checkActionSupport() {
             viewModelScope.launch {
-                actionsAvailable.value =
-                    try {
-                        actionSupport.available()
-                    } catch (cancellation: CancellationException) {
-                        throw cancellation
-                    } catch (error: Exception) {
-                        Timber.w(error, "couldn't check the phone's action support")
-                        false
-                    }
+                actionsAvailable.value = supports { actionSupport.available() }
+                postingAvailable.value = supports { actionSupport.postAvailable() }
             }
         }
+
+        private suspend fun supports(check: suspend () -> Boolean): Boolean =
+            try {
+                check()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                Timber.w(error, "couldn't check the phone's action support")
+                false
+            }
     }
 
 private fun List<WatchFeedEntity>.toTabs(): List<WatchFeedTab> =

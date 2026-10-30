@@ -18,6 +18,9 @@ interface PhoneActionSupport {
 
     /** The phone runs DM quick replies and reactions ([WearCapabilities.PHONE_DM_ACTIONS], W4). */
     suspend fun dmAvailable(): Boolean
+
+    /** The phone posts from the watch ([WearCapabilities.PHONE_POST_ACTIONS], W6). */
+    suspend fun postAvailable(): Boolean
 }
 
 internal class CapabilityPhoneActionSupport
@@ -29,6 +32,8 @@ internal class CapabilityPhoneActionSupport
         override suspend fun available(): Boolean = has(WearCapabilities.PHONE_ACTIONS)
 
         override suspend fun dmAvailable(): Boolean = has(WearCapabilities.PHONE_DM_ACTIONS)
+
+        override suspend fun postAvailable(): Boolean = has(WearCapabilities.PHONE_POST_ACTIONS)
 
         private suspend fun has(capability: String): Boolean =
             Wearable

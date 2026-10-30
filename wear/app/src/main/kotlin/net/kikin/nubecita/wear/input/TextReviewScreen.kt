@@ -65,6 +65,7 @@ fun TextReviewScreen(
     onSend: () -> Unit,
     onChange: () -> Unit,
     modifier: Modifier = Modifier,
+    sendLabel: String = stringResource(R.string.wear_input_send),
     // Opens on the last item (Change): the edge button only shows its label
     // once the list is at its end, and Send is what the user came for.
     listState: TransformingLazyColumnState = rememberTransformingLazyColumnState(initialAnchorItemIndex = 3),
@@ -77,7 +78,7 @@ fun TextReviewScreen(
         scrollIndicator = { WearScrollIndicator(listState) },
         edgeButton = {
             EdgeButton(onClick = onSend, enabled = length.canSend, buttonSize = EdgeButtonSize.Small) {
-                Text(stringResource(R.string.wear_input_send))
+                Text(sendLabel)
             }
         },
     ) { contentPadding ->
