@@ -714,7 +714,8 @@ internal fun ComposerScreenContent(
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 NubecitaAvatar(
                     model = state.author?.avatarUrl,
-                    contentDescription = state.author?.displayName,
+                    // Decorative: the name line beside it already says who is posting.
+                    contentDescription = null,
                     size = AUTHOR_AVATAR_SIZE,
                     fallback =
                         state.author?.let {

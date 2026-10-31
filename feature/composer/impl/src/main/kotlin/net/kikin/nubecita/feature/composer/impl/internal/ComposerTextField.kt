@@ -10,8 +10,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import net.kikin.nubecita.feature.composer.impl.R
@@ -23,6 +21,10 @@ import net.kikin.nubecita.feature.composer.impl.R
  * Driven by the ViewModel-owned [TextFieldState] (the composer's sanctioned
  * editor exception), so the IME and cursor never round-trip through the
  * reducer. Over-limit is signalled by the character counter, not the field.
+ *
+ * No explicit accessibility label: the placeholder is exposed as the field's
+ * prompt while it is empty, and the typed text after that. A content
+ * description here would replace the placeholder in the accessibility tree.
  */
 @Composable
 internal fun ComposerTextField(
@@ -31,12 +33,9 @@ internal fun ComposerTextField(
     modifier: Modifier = Modifier,
 ) {
     val textStyle = MaterialTheme.typography.bodyLarge
-    // The visible "Compose post" label is gone, so give the field the same name
-    // for screen readers; otherwise it reads as an unnamed edit box.
-    val fieldLabel = stringResource(R.string.composer_text_field_label)
     BasicTextField(
         state = textFieldState,
-        modifier = modifier.semantics { contentDescription = fieldLabel },
+        modifier = modifier,
         enabled = enabled,
         textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
