@@ -3,6 +3,7 @@
     <string name="composer_close_action">Cerrar redactor</string>
     <string name="composer_post_action">Publicar</string>
     <string name="composer_add_image_action">Agregar imagen</string>
+    <string name="composer_language_action">Idioma de la publicación</string>
     <string name="composer_remove_attachment_action">Quitar archivo adjunto</string>
     <string name="composer_text_field_placeholder">¿Qué estás pensando?</string>
     <string name="composer_text_field_label">Redactar publicación</string>

@@ -148,4 +148,4 @@ private fun AltBadge(
     }
 }
 
-private val CHIP_SIZE = 96.dp
+private val CHIP_SIZE = 120.dp
