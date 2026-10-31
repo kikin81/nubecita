@@ -340,6 +340,10 @@ class ComposerViewModelTypeaheadTest {
             reviewManager = mockk(relaxed = true),
             sharedMediaStore = mockk(relaxed = true),
             applicationScope = kotlinx.coroutines.CoroutineScope(testDispatcher),
+            currentAccountRepository =
+                mockk {
+                    every { account } returns kotlinx.coroutines.flow.MutableStateFlow(null)
+                },
         )
 
     private fun TestScope.setComposerText(

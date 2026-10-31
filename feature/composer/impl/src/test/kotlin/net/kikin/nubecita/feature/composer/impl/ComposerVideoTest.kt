@@ -122,6 +122,10 @@ class ComposerVideoTest {
             reviewManager = mockk(relaxed = true),
             sharedMediaStore = sharedMediaStore,
             applicationScope = CoroutineScope(testDispatcher),
+            currentAccountRepository =
+                mockk {
+                    every { account } returns kotlinx.coroutines.flow.MutableStateFlow(null)
+                },
         )
 
     private fun uri(): Uri = mockk(relaxed = true)

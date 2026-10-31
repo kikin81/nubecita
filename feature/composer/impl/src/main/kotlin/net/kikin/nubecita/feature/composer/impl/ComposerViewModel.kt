@@ -41,10 +41,13 @@ import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.core.posting.PostDraft
 import net.kikin.nubecita.core.posting.ReplyRefs
 import net.kikin.nubecita.core.posting.SharedMediaStore
+import net.kikin.nubecita.core.profile.CurrentAccount
+import net.kikin.nubecita.core.profile.CurrentAccountRepository
 import net.kikin.nubecita.core.review.ReviewManager
 import net.kikin.nubecita.core.videoupload.VideoUploadError
 import net.kikin.nubecita.core.videoupload.VideoUploadRepository
 import net.kikin.nubecita.data.models.ActorUi
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.KlipyMediaUi
 import net.kikin.nubecita.data.models.toExternalEmbedUri
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
@@ -165,6 +168,8 @@ internal class ComposerViewModel
         // Deletes on dismiss run here, not in viewModelScope — onCleared cancels
         // viewModelScope, so a launch there would never complete.
         @param:ApplicationScope private val applicationScope: CoroutineScope,
+        // The posting identity shown beside the text field.
+        private val currentAccountRepository: CurrentAccountRepository,
     ) : MviViewModel<ComposerState, ComposerEvent, ComposerEffect>(
             // Pre-fill the audience from the synced default — a point-in-time read
             // of the repo's seeded/refreshed StateFlow at open, mirroring
@@ -178,6 +183,7 @@ internal class ComposerViewModel
                     replyToUri = route.replyToUri,
                     quotePostUri = route.quotePostUri,
                     audience = postAudienceDefaultRepository.default.value,
+                    author = currentAccountRepository.account.value?.toAuthorUi(),
                 ),
         ) {
         @AssistedFactory
@@ -318,6 +324,13 @@ internal class ComposerViewModel
         private val ownedCopyUris = mutableSetOf<Uri>()
 
         init {
+            // Follow the account: it is seeded with the handle and enriched with the
+            // display name and avatar once the profile loads.
+            viewModelScope.launch {
+                currentAccountRepository.account.collect { account ->
+                    setState { copy(author = account?.toAuthorUi()) }
+                }
+            }
             uiState.value.replyToUri?.let { uri ->
                 launchParentFetch(uri)
             }
@@ -1167,3 +1180,5 @@ internal class ComposerViewModel
             private val TYPEAHEAD_DEBOUNCE = 150.milliseconds
         }
     }
+
+private fun CurrentAccount.toAuthorUi(): AuthorUi = AuthorUi(did = did, handle = handle, displayName = displayName, avatarUrl = avatarUrl)
