@@ -62,11 +62,13 @@ import org.junit.runner.RunWith
  * Both tests drive the **signed-in** shape (Splash → MainShell → Feed). A
  * fresh install with no OAuth session routes Splash → Login, the
  * `feed_list` selector never appears, and the run fails fast with a
- * pointer back to this requirement. Sign in once on the device before
- * running `./gradlew :app:generateReleaseBaselineProfile`. The OAuth
+ * pointer back to this requirement. Sign in on the device before running
+ * `./gradlew :app:generateProductionReleaseBaselineProfile` (with the
+ * `class=` filter for this class — see `benchmark/README.md`). The OAuth
  * session lives in the app's `EncryptedSharedPreferences`, so it survives
- * `nonMinifiedRelease` reinstalls as long as the new APK is signed by the
- * same certificate as the installed one.
+ * the task's own `nonMinifiedRelease` reinstall (same signing certificate),
+ * but not the uninstall at the end of the run: sign in again before every
+ * regen.
  *
  * ## Regeneration cadence
  *
