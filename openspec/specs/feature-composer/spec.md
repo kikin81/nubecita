@@ -36,10 +36,10 @@ The system SHALL expose `net.kikin.nubecita.feature.composer.impl.ComposerViewMo
 - **WHEN** navigation pushes `ComposerRoute(replyToUri = "at://did:plc:abc/app.bsky.feed.post/xyz")`
 - **THEN** `ComposerViewModel.Factory.create(route)` constructs the VM with the assisted `route` parameter, and `state.replyToUri == "at://did:plc:abc/app.bsky.feed.post/xyz"` on first emission
 
-#### Scenario: Screen wires textFieldState into OutlinedTextField
+#### Scenario: Screen wires textFieldState into the text field
 
 - **WHEN** `ComposerScreen` composes the primary text input
-- **THEN** the `OutlinedTextField` call SHALL pass `state = viewModel.textFieldState` (no `value` / `onValueChange` parameters)
+- **THEN** the `BasicTextField` call (inside `ComposerTextField`) SHALL pass `state = viewModel.textFieldState` (no `value` / `onValueChange` parameters)
 
 ### Requirement: `ComposerState` carries count, attachments, and submit status as flat UI-ready fields
 
@@ -201,25 +201,25 @@ The system SHALL ensure created `app.bsky.feed.post` records carry a non-empty `
 
 ### Requirement: Composer language chip exposes a per-post BCP-47 override
 
-The system SHALL render an M3 `AssistChip` in `ComposerOptionsChipRow` showing current language tags (localized display name or `"+N"` overflow). Tapping opens a multi-select picker (`ModalBottomSheet` on Compact, `Popup` on Medium/Expanded) with up to 3 selections from `BLUESKY_LANGUAGE_TAGS`. Dismissing without confirmation preserves previous state.
+The system SHALL expose the per-post language override through the floating toolbar's Language action and show the current language tags (localized display name or `"+N"` overflow) on the composer's summary line. Tapping the Language action opens a multi-select picker (`ModalBottomSheet` on Compact, `Popup` on Medium/Expanded) with up to 3 selections from `BLUESKY_LANGUAGE_TAGS`. Dismissing without confirmation preserves previous state.
 
 #### Scenario: Chip label reflects device-locale fallback when no override is set
 
 - **GIVEN** `ComposerState.selectedLangs == null` and `ComposerViewModel.deviceLocaleTag == "en-US"`
 - **WHEN** `ComposerScreen` renders
-- **THEN** the chip's label is `"English"`
+- **THEN** the summary line's language label is `"English"`
 
 #### Scenario: Chip label reflects single explicit override
 
 - **GIVEN** `ComposerState.selectedLangs == listOf("ja-JP")`
 - **WHEN** `ComposerScreen` renders
-- **THEN** the chip's label is `"Japanese"`
+- **THEN** the summary line's language label is `"Japanese"`
 
 #### Scenario: Chip label shows overflow count for multi-language selection
 
 - **GIVEN** `ComposerState.selectedLangs == listOf("en-US", "ja-JP", "es-MX")`
 - **WHEN** `ComposerScreen` renders
-- **THEN** the chip's label is `"English +2"`
+- **THEN** the summary line's language label is `"English +2"`
 
 #### Scenario: Cap-of-3 enforced as disabled checkboxes
 
@@ -314,12 +314,25 @@ The system SHALL request focus on the composer text field on first composition s
 
 ### Requirement: Material 3 Expressive treatment for the Post button and counter
 
-The system SHALL render the Post action with expressive M3 styling: standard filled-button at `Idle`, inline wavy progress indicator when `Submitting` (tap disabled), and error-tone surface on `Error`. The counter arc tone shifts at 240 (warning) and 290 (error) graphemes. When `graphemeCount > 300`, the input outline MUST adopt the M3 error tone.
+The system SHALL render the Post action as the floating toolbar's `StandardFloatingActionButton`: enabled when the draft can be posted, visibly and semantically disabled when it cannot, and showing `NubecitaWavyProgressIndicator` (tap disabled) while `Submitting`. The counter arc tone shifts at 240 (warning) and 290 (error) graphemes; when `graphemeCount > 300` the counter is the over-limit signal (the borderless field has no outline).
 
 #### Scenario: Submitting button shows wavy progress
 
 - **WHEN** `state.submitStatus == ComposerSubmitStatus.Submitting`
-- **THEN** the Post button renders an M3 wavy progress indicator and has `enabled == false`
+- **THEN** the Post FAB renders `NubecitaWavyProgressIndicator` and taps are ignored
+
+#### Scenario: Disabled FAB is announced as disabled
+
+- **GIVEN** an empty draft with no attachments
+- **WHEN** a screen reader focuses the Post FAB
+- **THEN** it is announced as disabled and tapping it does nothing
+
+#### Scenario: Disabled FAB is inert and keeps its shape
+
+- **GIVEN** the draft cannot be posted
+- **WHEN** the user taps the Post FAB
+- **THEN** no ripple or click occurs (its pointer input is consumed before the FAB's clickable)
+- **AND** it is drawn with M3 disabled colors composited opaque, not an alpha layer, so its shadow is not clipped
 
 #### Scenario: Counter color band at 240
 
@@ -334,7 +347,7 @@ The system SHALL render the Post action with expressive M3 styling: standard fil
 #### Scenario: Over-limit input border
 
 - **WHEN** `state.isOverLimit == true`
-- **THEN** the text field's outline tone is the M3 error token
+- **THEN** the counter shows the M3 error tone and the Post FAB is disabled
 
 ### Requirement: Composer registers as an `@MainShell` Nav3 entry for Compact-width hosting
 
@@ -410,12 +423,12 @@ The "Discard draft?" dialog SHALL render its actions from an iterable parameter 
 
 ### Requirement: Top-bar action row reserves space for a future drafts entry point
 
-`ComposerScreen`'s top app bar SHALL position its close and post actions so that an additional icon button can be inserted between them without forcing a relayout or pushing actions off-screen. The reservation MUST be noted with `// reserved for drafts entry point` near the action row.
+`ComposerScreen`'s top app bar SHALL hold the close action (navigation slot) and the character counter (actions slot), positioned so that an additional icon button can be inserted beside the counter without forcing a relayout or pushing actions off-screen. The reservation MUST be noted with `// reserved for drafts entry point` near the action row. Post is not in the top bar.
 
 #### Scenario: Top-bar layout has room to grow
 
-- **WHEN** a hypothetical third `IconButton` is inserted between the existing actions in `ComposerScreen`'s top app bar
-- **THEN** all three actions render fully visible at Compact width without truncation or overflow
+- **WHEN** a hypothetical `IconButton` is inserted next to the counter in `ComposerScreen`'s top app bar
+- **THEN** close, the new button and the counter render fully visible at Compact width without truncation or overflow
 
 ### Requirement: `ComposerViewModel` constructor leaves room for a future `DraftRepository`
 
@@ -504,11 +517,11 @@ The system SHALL maintain unit tests in `:feature:composer:impl` covering: initi
 
 ### Requirement: Composer text input is owned by Compose `TextFieldState`
 
-`ComposerViewModel` SHALL expose canonical text in `val textFieldState: TextFieldState`. `ComposerScreen` MUST use `OutlinedTextField(state = vm.textFieldState, ...)`. Legacy `value`/`onValueChange` overloads SHALL NOT be used. `ComposerState` MUST NOT contain a `text` field, and `ComposerEvent` MUST NOT contain a `TextChanged` variant.
+`ComposerViewModel` SHALL expose canonical text in `val textFieldState: TextFieldState`. `ComposerScreen` MUST use the state-based text field overload (`BasicTextField(state = vm.textFieldState, ...)` in the borderless `ComposerTextField`). Legacy `value`/`onValueChange` overloads SHALL NOT be used. `ComposerState` MUST NOT contain a `text` field, and `ComposerEvent` MUST NOT contain a `TextChanged` variant.
 
 #### Scenario: Screen wires TextFieldState directly
 
-- **WHEN** `ComposerScreenContent` renders its primary `OutlinedTextField`
+- **WHEN** `ComposerScreenContent` renders its primary text field
 - **THEN** the call SHALL pass `state = viewModel.textFieldState` and SHALL NOT pass `value` / `onValueChange` parameters
 
 #### Scenario: TextChanged event is removed from the contract
@@ -632,7 +645,7 @@ The system SHALL expose pure function `net.kikin.nubecita.feature.composer.impl.
 
 ### Requirement: Suggestion list renders inline above the IME
 
-When `state.typeahead` is `Suggestions` or `NoResults`, `ComposerScreenContent` SHALL render suggestions inline in an M3 `OutlinedCard` (`LazyColumn(heightIn(max = 240.dp))`) between the text field and attachment row. Each row shows avatar, display name, and `@handle`, tapping which dispatches `TypeaheadResultClicked`. It does not render in `Idle` or `Querying`.
+When `state.typeahead` is `Suggestions` or `NoResults`, `ComposerScreenContent` SHALL render suggestions inline in an M3 `OutlinedCard` (`LazyColumn(heightIn(max = 240.dp))`) directly below the text field inside the scrolling body, and bring the list into view when it appears so it is not hidden behind the keyboard or the floating toolbar. Each row shows avatar, display name, and `@handle`, tapping which dispatches `TypeaheadResultClicked`. It does not render in `Idle` or `Querying`.
 
 #### Scenario: Suggestions visible only in Suggestions or NoResults
 
@@ -644,9 +657,15 @@ When `state.typeahead` is `Suggestions` or `NoResults`, `ComposerScreenContent` 
 - **WHEN** a suggestion row is tapped
 - **THEN** the host MUST dispatch `ComposerEvent.TypeaheadResultClicked(actor)` with the actor backing the tapped row
 
+#### Scenario: Suggestions near the bottom of a long draft are brought into view
+
+- **GIVEN** a long draft scrolled so the cursor is just above the toolbar
+- **WHEN** typing `@al` produces `Suggestions`
+- **THEN** the body scrolls so the suggestion card is visible above the floating toolbar
+
 ### Requirement: Typeahead does not interact with the submit lifecycle
 
-The submit lifecycle (`ComposerSubmitStatus`) SHALL be independent of `TypeaheadStatus`. While `state.submitStatus is Submitting`, the `OutlinedTextField`'s `enabled = false` flag SHALL prevent further IME edits and therefore further snapshot emissions; the typeahead state at the moment submit started SHALL persist until the next user-driven snapshot change. Submit MUST NOT clear `state.typeahead`.
+The submit lifecycle (`ComposerSubmitStatus`) SHALL be independent of `TypeaheadStatus`. While `state.submitStatus is Submitting`, the text field's `enabled = false` flag SHALL prevent further IME edits and therefore further snapshot emissions; the typeahead state at the moment submit started SHALL persist until the next user-driven snapshot change. Submit MUST NOT clear `state.typeahead`.
 
 #### Scenario: Typeahead state persists across submit
 
@@ -800,3 +819,135 @@ The picker SHALL present the KLIPY-required branding and a content-report afford
 #### Scenario: Report from preview
 - **WHEN** a user opens an item's preview and reports it with a reason
 - **THEN** the report is submitted for that item
+
+### Requirement: Composer shows the posting account
+
+`ComposerScreenContent` SHALL render the signed-in account from `CurrentAccountRepository` (via `ComposerState.author`) as a 40dp avatar to the left of the text field, with the account's display name on one line above the field in `labelMedium` / `onSurfaceVariant`, ellipsized. When the account has no display name the handle MUST be shown. Content below the field (suggestions, attachments, cards, quote) aligns to the avatar's text column.
+
+#### Scenario: Display name shown beside the avatar
+
+- **GIVEN** `state.author.displayName == "Alice"`
+- **WHEN** the composer renders
+- **THEN** an avatar for Alice and the text `"Alice"` appear above the text field
+
+#### Scenario: Handle fallback
+
+- **GIVEN** `state.author.displayName` is blank and `handle == "alice.bsky.social"`
+- **WHEN** the composer renders
+- **THEN** the name line reads `"alice.bsky.social"`
+
+### Requirement: Composer text field is borderless
+
+The text field SHALL render with no outline and no floating label: only the placeholder ("What's on your mind?") and the text, on the screen's `surface`. It MUST remain driven by the VM-owned `TextFieldState` (`BasicTextField(state = …)`), keep `testTag("composer_text_field")`, auto-focus, and accept pasted images.
+
+#### Scenario: No outline or label
+
+- **WHEN** the composer renders with an empty draft
+- **THEN** no outline or "Compose post" label is drawn; only the placeholder text is visible
+
+#### Scenario: Image paste still attaches
+
+- **WHEN** an image is pasted into the field
+- **THEN** it is added as an attachment, as before
+
+### Requirement: Composer body scrolls and keeps content clear of the keyboard and toolbar
+
+The composer body SHALL scroll vertically. The screen MUST have a single IME owner: `Scaffold(contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime))`, the body consuming the scaffold padding, and the floating toolbar applying `imePadding()`. The scrolling content MUST carry bottom padding at least the toolbar's height plus its margin, so its last element can scroll clear of the toolbar, in both the full-screen and the `adaptiveDialog()` presentations.
+
+#### Scenario: Long post scrolls
+
+- **GIVEN** a draft longer than the visible area with the keyboard open
+- **WHEN** the user keeps typing
+- **THEN** the body scrolls and the cursor stays above the toolbar
+
+#### Scenario: Last card reachable
+
+- **GIVEN** a reply with a quoted post at the bottom
+- **WHEN** the user scrolls to the end
+- **THEN** the quoted post is fully visible above the toolbar
+
+#### Scenario: Dialog presentation
+
+- **GIVEN** the composer is shown as the Medium/Expanded `adaptiveDialog()` card with the keyboard open
+- **WHEN** it renders
+- **THEN** the floating toolbar sits above the keyboard, not behind it
+
+### Requirement: Composer actions live in an M3 floating toolbar with Post as its FAB
+
+The composer SHALL render a `HorizontalFloatingToolbar` with `FloatingToolbarDefaults.standardFloatingToolbarColors()`, anchored bottom-center, holding the Add image, GIF, Language and Audience actions, with Post as the toolbar's `StandardFloatingActionButton`.
+
+#### Scenario: Toolbar actions open the existing pickers
+
+- **WHEN** the Language action is tapped
+- **THEN** the existing language picker opens (same for GIF and Audience)
+
+#### Scenario: Audience uses the Settings icon and is hidden in reply mode
+
+- **GIVEN** `state.replyToUri != null`
+- **WHEN** the composer renders
+- **THEN** the Audience action (Settings icon) is absent from the toolbar
+
+### Requirement: Floating toolbar actions are announced once by name
+
+Each toolbar action SHALL be an icon-only `IconButton` named by its icon's `contentDescription`, which the button merges so the label is announced once with the button role. Actions MUST NOT also set an `onClickLabel`, which would announce the label twice. The GIF action's visible "GIF" text is its name.
+
+#### Scenario: Each action is announced once with its name
+
+- **WHEN** a screen reader focuses the Add image action
+- **THEN** it announces "Add image" and the button role once, with no duplicated label
+
+### Requirement: Floating toolbar is always visible and rides the keyboard
+
+The floating toolbar SHALL stay on screen at all times (no scroll-away behaviour): at the bottom of the composer when the keyboard is closed and directly on top of the keyboard when it is open.
+
+#### Scenario: Toolbar stays visible while scrolling
+
+- **WHEN** the user scrolls the body
+- **THEN** the toolbar and the Post FAB remain on screen
+
+#### Scenario: Toolbar sits on the keyboard
+
+- **WHEN** the keyboard opens
+- **THEN** the toolbar moves up to sit directly above it
+
+### Requirement: Floating toolbar keeps the existing action enablement rules
+
+The toolbar actions SHALL keep today's rules: GIF disabled while photos are attached, Add image unavailable while a GIF is attached, and every action disabled while a post is submitting.
+
+#### Scenario: GIF disabled with photos
+
+- **GIVEN** one or more photos are attached
+- **WHEN** the composer renders
+- **THEN** the GIF action is disabled
+
+#### Scenario: Actions disabled while submitting
+
+- **GIVEN** `state.submitStatus == ComposerSubmitStatus.Submitting`
+- **WHEN** the composer renders
+- **THEN** every toolbar action is disabled
+
+### Requirement: Composer shows language and audience on a summary line
+
+Under the text field the composer SHALL render one quiet line (`labelSmall` / `onSurfaceVariant`) with the current language label (same formatting as the former chip, including `"+N"` overflow) and, for top-level posts, the audience label, joined by `" · "`. The line is not interactive.
+
+#### Scenario: Default top-level post
+
+- **GIVEN** `selectedLangs == null`, device locale `en-US`, default audience, `replyToUri == null`
+- **WHEN** the composer renders
+- **THEN** the summary line reads `"English · Visible to all"` (localized)
+
+#### Scenario: Reply omits audience
+
+- **GIVEN** `replyToUri != null`
+- **WHEN** the composer renders
+- **THEN** the summary line shows only the language label
+
+### Requirement: Attachment thumbnails are taller
+
+The attachment strip SHALL keep its horizontal scroll, drag-to-reorder, ALT badge, remove button and tap-to-edit-alt behaviour, with thumbnails roughly 120dp tall (about double the previous chip height).
+
+#### Scenario: Reorder still works
+
+- **GIVEN** three attached photos
+- **WHEN** the user drags the third thumbnail to the first position
+- **THEN** `state.attachments` reflects the new order
