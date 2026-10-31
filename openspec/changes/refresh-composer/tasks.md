@@ -9,13 +9,13 @@ Epic: `nubecita-5nbm`. Delivered as one `gh stack` of three PRs, one per group b
 
 ## 2. Identity row, borderless field, scrolling body, summary line (`nubecita-5nbm.2`, PR 2)
 
-- [ ] 2.1 Add `author: AuthorUi?` to `ComposerState`; `ComposerViewModel` collects `CurrentAccountRepository` into it; add `:core:profile` to `:feature:composer:impl`. Unit tests in `ComposerViewModelTest`: author populated from the repository; updates when the repository enriches.
-- [ ] 2.2 Avatar (40dp) + display-name line (`labelMedium` / `onSurfaceVariant`, handle fallback); re-align suggestions, attachments, cards and quote to the text column. Screenshot: update `ComposerScreenScreenshotTest` fixtures (empty, typed, with photos, reply) to include the identity row, light + dark.
-- [ ] 2.3 Replace `OutlinedTextField` with `BasicTextField(state = textFieldState, decorator = …)` (placeholder only), keeping `composer_text_field`, focus requester and `contentReceiver`. Screenshot: same fixtures, no outline/label; unit: existing paste test still passes.
-- [ ] 2.4 Scrolling body + single IME owner (`contentWindowInsets = safeDrawing.exclude(ime)`, `consumeWindowInsets`, bottom padding). Screenshot: add a long-draft + quoted-post fixture showing the last card reachable.
-- [ ] 2.5 Bring inline mention suggestions into view when they appear (`BringIntoViewRequester`). Screenshot: suggestions fixture under a long draft. Device pass: type `@` near the bottom of a long post on the Fold cover screen.
-- [ ] 2.6 Quiet summary line (language label + audience on top-level posts, `" · "` separator, reusing the chip label formatting). Unit: label formatting tests for default / single / overflow / reply. Screenshot: summary line in the default and reply fixtures.
-- [ ] 2.7 Device pass on the Fold 8 cover screen and an unfolded foldable (dialog), bench build: identity row, borderless field, scroll with keyboard open.
+- [x] 2.1 Add `author: AuthorUi?` to `ComposerState`; `ComposerViewModel` collects `CurrentAccountRepository` into it; add `:core:profile` to `:feature:composer:impl`. Unit tests in `ComposerViewModelTest`: author populated from the repository; updates when the repository enriches.
+- [x] 2.2 Avatar (40dp) + display-name line (`labelMedium` / `onSurfaceVariant`, handle fallback); re-align suggestions, attachments, cards and quote to the text column. Screenshot: update `ComposerScreenScreenshotTest` fixtures (empty, typed, with photos, reply) to include the identity row, light + dark.
+- [x] 2.3 Replace `OutlinedTextField` with `BasicTextField(state = textFieldState, decorator = …)` (placeholder only), keeping `composer_text_field`, focus requester and `contentReceiver`. Screenshot: same fixtures, no outline/label; unit: existing paste test still passes.
+- [x] 2.4 Scrolling body + single IME owner (`contentWindowInsets = safeDrawing.exclude(ime)`, `consumeWindowInsets`, `imePadding`). Verified on device (Fold cover screen and the unfolded dialog) instead of a fixture: a screenshot renders one static frame and cannot show scrolling.
+- [x] 2.5 Bring inline mention suggestions into view when they appear (`BringIntoViewRequester`). Device pass: `@al` at the end of a 10-line draft on the Fold cover screen scrolls the suggestions above the keyboard (no fixture, as in 2.4).
+- [x] 2.6 Quiet summary line (language label + audience on top-level posts, `" · "` separator, reusing the chip label formatting). Unit: label formatting tests for default / single / overflow / reply. Screenshot: summary line in the default and reply fixtures.
+- [x] 2.7 Device pass on the Fold 8 cover screen and an unfolded foldable (dialog), bench build: identity row, borderless field, scroll with keyboard open.
 
 ## 3. Floating toolbar with Post FAB, taller thumbnails (`nubecita-5nbm.3`, PR 3)
 

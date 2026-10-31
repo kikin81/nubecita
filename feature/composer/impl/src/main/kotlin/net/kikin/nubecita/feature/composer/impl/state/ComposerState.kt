@@ -5,6 +5,7 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiState
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.PostAudience
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.KlipyMediaUi
 
 /**
@@ -139,6 +140,11 @@ internal data class ComposerState(
      * or up to four images, never both.
      */
     val video: ComposerVideo? = null,
+    /**
+     * The signed-in account the post goes out from, shown beside the text field.
+     * Null only while signed out (the composer is never reachable then).
+     */
+    val author: AuthorUi? = null,
 ) : UiState
 
 /**

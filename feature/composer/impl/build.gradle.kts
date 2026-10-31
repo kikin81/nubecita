@@ -27,6 +27,7 @@ dependencies {
     // :core:moderation alongside the other app.bsky.actor preferences.
     implementation(project(":core:moderation"))
     implementation(project(":core:posting"))
+    implementation(project(":core:profile"))
     implementation(project(":core:review"))
     implementation(project(":core:video-upload"))
     implementation(libs.androidx.activity.compose)

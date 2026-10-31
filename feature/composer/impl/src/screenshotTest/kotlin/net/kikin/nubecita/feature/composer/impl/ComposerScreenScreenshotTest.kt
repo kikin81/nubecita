@@ -16,6 +16,7 @@ import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.LinkPreview
 import net.kikin.nubecita.data.models.ActorUi
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 import net.kikin.nubecita.feature.composer.impl.state.ComposerState
 import net.kikin.nubecita.feature.composer.impl.state.ComposerSubmitStatus
@@ -70,7 +71,7 @@ import net.kikin.nubecita.feature.composer.impl.state.TypeaheadStatus
 private fun ComposerScreenEmptyScreenshot() {
     NubecitaCanvasPreviewTheme {
         ComposerScreenContent(
-            state = ComposerState(),
+            state = ComposerState(author = PREVIEW_AUTHOR),
             textFieldState = remember { TextFieldState() },
             snackbarHostState = remember { SnackbarHostState() },
             onSubmit = {},
@@ -97,6 +98,7 @@ private fun ComposerScreenNearLimitScreenshot() {
         ComposerScreenContent(
             state =
                 ComposerState(
+                    author = PREVIEW_AUTHOR,
                     graphemeCount = 295,
                     isOverLimit = false,
                     submitStatus = ComposerSubmitStatus.Idle,
@@ -127,6 +129,7 @@ private fun ComposerScreenSubmittingScreenshot() {
         ComposerScreenContent(
             state =
                 ComposerState(
+                    author = PREVIEW_AUTHOR,
                     graphemeCount = 15,
                     isOverLimit = false,
                     submitStatus = ComposerSubmitStatus.Submitting,
@@ -161,6 +164,7 @@ private fun ComposerScreenTypeaheadSuggestionsScreenshot() {
         ComposerScreenContent(
             state =
                 ComposerState(
+                    author = PREVIEW_AUTHOR,
                     graphemeCount = 6,
                     typeahead =
                         TypeaheadStatus.Suggestions(
@@ -238,6 +242,7 @@ private fun ComposerScreenQuoteModeLocalizedScreenshot() {
         ComposerScreenContent(
             state =
                 ComposerState(
+                    author = PREVIEW_AUTHOR,
                     quotePostLoad =
                         QuoteLoadStatus.Loaded(
                             QuotePostUi(
@@ -276,6 +281,7 @@ private fun ComposerScreenReplyModeLocalizedScreenshot() {
         ComposerScreenContent(
             state =
                 ComposerState(
+                    author = PREVIEW_AUTHOR,
                     replyToUri = parentRef.uri.raw,
                     replyParentLoad =
                         ParentLoadStatus.Loaded(
@@ -322,6 +328,7 @@ private fun ComposerScreenReplyModeLoadedScreenshot() {
         ComposerScreenContent(
             state =
                 ComposerState(
+                    author = PREVIEW_AUTHOR,
                     replyToUri = parentRef.uri.raw,
                     replyParentLoad =
                         ParentLoadStatus.Loaded(
@@ -362,6 +369,7 @@ private fun ComposerScreenWithImagesScreenshot() {
         ComposerScreenContent(
             state =
                 ComposerState(
+                    author = PREVIEW_AUTHOR,
                     graphemeCount = 29,
                     attachments =
                         persistentListOf(
@@ -399,6 +407,7 @@ private fun ComposerScreenGalleryCapScreenshot() {
         ComposerScreenContent(
             state =
                 ComposerState(
+                    author = PREVIEW_AUTHOR,
                     graphemeCount = 22,
                     attachments =
                         (0 until 10)
@@ -434,6 +443,7 @@ private fun ComposerScreenAltEditorScreenshot() {
         ComposerScreenContent(
             state =
                 ComposerState(
+                    author = PREVIEW_AUTHOR,
                     attachments =
                         (0 until 6)
                             .map {
@@ -475,6 +485,7 @@ private fun ComposerScreenQuoteModeLoadedScreenshot() {
         ComposerScreenContent(
             state =
                 ComposerState(
+                    author = PREVIEW_AUTHOR,
                     quotePostUri = quoteRef.uri.raw,
                     quotePostLoad =
                         QuoteLoadStatus.Loaded(
@@ -516,6 +527,7 @@ private fun ComposerScreenLinkCardLoadedScreenshot() {
         ComposerScreenContent(
             state =
                 ComposerState(
+                    author = PREVIEW_AUTHOR,
                     externalLink =
                         ExternalLinkStatus.Loaded(
                             LinkPreview(
@@ -550,7 +562,7 @@ private fun ComposerScreenLinkCardLoadedScreenshot() {
 private fun ComposerScreenLinkCardLoadingScreenshot() {
     NubecitaCanvasPreviewTheme {
         ComposerScreenContent(
-            state = ComposerState(externalLink = ExternalLinkStatus.Loading("https://example.com/the-article")),
+            state = ComposerState(author = PREVIEW_AUTHOR, externalLink = ExternalLinkStatus.Loading("https://example.com/the-article")),
             textFieldState = remember { TextFieldState(initialText = "Worth a read: https://example.com/the-article") },
             snackbarHostState = remember { SnackbarHostState() },
             onSubmit = {},
@@ -567,3 +579,10 @@ private fun ComposerScreenLinkCardLoadingScreenshot() {
         )
     }
 }
+
+/**
+ * The posting identity every fixture shows beside the text field. No avatar
+ * URL, so the avatar renders its initial: deterministic, no network image.
+ */
+private val PREVIEW_AUTHOR =
+    AuthorUi(did = "did:plc:preview", handle = "preview.bsky.social", displayName = "Preview Author", avatarUrl = null)
