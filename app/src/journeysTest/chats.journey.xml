@@ -1,0 +1,27 @@
+<journey name="Memory Leak Check - Chats Surface">
+  <description>
+    Verifies that navigating into chat conversations, typing messages, opening the new chat modal,
+    and popping navigation entries does not leak conversation state or ViewModels.
+
+    Executes 3 loop iterations with theme switches (dark/light) to trigger Activity
+    recreation while observing LeakCanary output.
+  </description>
+  <actions>
+    <action>Tap the Chats tab on the main navigation bar</action>
+    <action>Verify that the Chats conversation list is visible</action>
+    <action>Tap the first conversation in the list to open chat thread</action>
+    <action>Verify that the conversation thread screen is visible</action>
+    <action>Type text into the chat message input field</action>
+    <action>Press the system back button to return to conversation list</action>
+    <action>Verify that the Chats conversation list is visible</action>
+    <action>Tap the New Chat button</action>
+    <action>Verify that the user picker or new chat sheet is visible</action>
+    <action>Press the system back button to cancel new chat</action>
+    <action>Verify that the Chats conversation list is visible</action>
+    <action>Switch the device to dark theme</action>
+    <action>Switch the device back to light theme</action>
+    <action>Repeat all of the steps above two more times</action>
+    <action>Press the Home button to send the app to the background, then wait 15 seconds for LeakCanary analysis</action>
+    <action>Verify that no LeakCanary leak notification appears except for known accessibility delegate semantics cache</action>
+  </actions>
+</journey>

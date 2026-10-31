@@ -1,0 +1,28 @@
+<journey name="Memory Leak Check - Media Viewer Surface">
+  <description>
+    Verifies that opening full-screen image and video media viewers, swiping through images,
+    and dismissing the overlay does not leak image loaders, Coil targets, or ViewModels.
+
+    Executes 3 loop iterations with theme switches (dark/light) to trigger Activity
+    recreation while observing LeakCanary output.
+  </description>
+  <actions>
+    <action>Verify that the app is open on the Home feed</action>
+    <action>Tap a post image in the feed to open the full-screen media viewer</action>
+    <action>Verify that the image is displayed in full-screen media viewer overlay</action>
+    <action>Swipe left to view the next image if available</action>
+    <action>Swipe right to view the previous image</action>
+    <action>Tap the Close button or swipe down to dismiss the media viewer</action>
+    <action>Verify that the Home feed is visible</action>
+    <action>Scroll down to find a video post in the feed</action>
+    <action>Tap the video post player or thumbnail to open full-screen video player</action>
+    <action>Verify that the video player overlay is active</action>
+    <action>Press back or tap Close to dismiss the video player</action>
+    <action>Verify that the Home feed is visible</action>
+    <action>Switch the device to dark theme</action>
+    <action>Switch the device back to light theme</action>
+    <action>Repeat all of the steps above two more times</action>
+    <action>Press the Home button to send the app to the background, then wait 15 seconds for LeakCanary analysis</action>
+    <action>Verify that no LeakCanary leak notification appears except for known accessibility delegate semantics cache</action>
+  </actions>
+</journey>

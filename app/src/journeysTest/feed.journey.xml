@@ -1,0 +1,27 @@
+<journey name="Memory Leak Check - Feed Surface">
+  <description>
+    Verifies that switching top-level feed tabs (Following, Discover, Pinned Feeds) and opening
+    Manage Feeds does not retain FeedViewModel or tab state upon pop/recreation.
+
+    Executes 3 loop iterations with theme switches (dark/light) to trigger Activity
+    recreation while observing LeakCanary output.
+  </description>
+  <actions>
+    <action>Verify that the app is open on the Home feed</action>
+    <action>Tap the Discover tab or swipe to Discover feed</action>
+    <action>Verify that Discover feed content is visible</action>
+    <action>Tap a pinned custom list feed tab if present</action>
+    <action>Verify that custom list feed content is visible</action>
+    <action>Tap the Manage Feeds icon/button</action>
+    <action>Verify that the Manage Feeds screen is visible</action>
+    <action>Press the system back button to return to feed</action>
+    <action>Verify that Home feed is visible</action>
+    <action>Tap the Following feed tab</action>
+    <action>Verify that Following feed is visible</action>
+    <action>Switch the device to dark theme</action>
+    <action>Switch the device back to light theme</action>
+    <action>Repeat all of the steps above two more times</action>
+    <action>Press the Home button to send the app to the background, then wait 15 seconds for LeakCanary analysis</action>
+    <action>Verify that no LeakCanary leak notification appears except for known accessibility delegate semantics cache</action>
+  </actions>
+</journey>

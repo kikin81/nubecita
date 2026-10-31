@@ -1,0 +1,28 @@
+<journey name="Memory Leak Check - Profile Surface">
+  <description>
+    Verifies that opening Edit Profile, switching profile tabs (Posts, Replies, Likes),
+    and opening dialog overlays on the profile screen does not retain ViewModels or profile state.
+
+    Executes 3 loop iterations with theme switches (dark/light) to trigger Activity
+    recreation while observing LeakCanary output.
+  </description>
+  <actions>
+    <action>Tap the You tab on the main navigation bar</action>
+    <action>Verify that your profile screen is visible</action>
+    <action>Tap the Edit Profile button</action>
+    <action>Verify that the Edit Profile sheet or dialog is visible</action>
+    <action>Tap Cancel or Close on the Edit Profile sheet</action>
+    <action>Verify that your profile screen is visible</action>
+    <action>Tap the Replies tab on the profile header</action>
+    <action>Verify that reply posts list is visible</action>
+    <action>Tap the Likes tab on the profile header</action>
+    <action>Verify that liked posts list is visible</action>
+    <action>Tap the Posts tab on the profile header</action>
+    <action>Verify that own posts list is visible</action>
+    <action>Switch the device to dark theme</action>
+    <action>Switch the device back to light theme</action>
+    <action>Repeat all of the steps above two more times</action>
+    <action>Press the Home button to send the app to the background, then wait 15 seconds for LeakCanary analysis</action>
+    <action>Verify that no LeakCanary leak notification appears except for known accessibility delegate semantics cache</action>
+  </actions>
+</journey>
