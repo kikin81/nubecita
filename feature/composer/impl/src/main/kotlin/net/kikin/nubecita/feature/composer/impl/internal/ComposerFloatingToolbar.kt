@@ -13,7 +13,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
@@ -97,7 +99,7 @@ internal fun ComposerFloatingToolbar(
 /**
  * Post as the toolbar's FAB. The toolbar FAB has no `enabled` parameter, so a
  * draft that can't be posted renders at reduced emphasis, is announced as
- * disabled and ignores taps. While submitting it swaps to the brand wavy
+ * disabled and swallows taps (no ripple). While submitting it swaps to the brand wavy
  * spinner, announced as "Submitting".
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -107,12 +109,21 @@ private fun ComposerPostFab(
     isSubmitting: Boolean,
     onClick: () -> Unit,
 ) {
+    // M3's disabled colors, composited opaque over the canvas: an alpha layer
+    // would clip the FAB's shadow to its bounds.
+    val dimmed = !enabled && !isSubmitting
+    val toolbarColors = FloatingToolbarDefaults.standardFloatingToolbarColors()
+    val surface = MaterialTheme.colorScheme.surface
+    val onSurface = MaterialTheme.colorScheme.onSurface
     FloatingToolbarDefaults.StandardFloatingActionButton(
         onClick = { if (enabled) onClick() },
+        containerColor =
+            if (dimmed) onSurface.copy(alpha = DISABLED_CONTAINER_ALPHA).compositeOver(surface) else toolbarColors.fabContainerColor,
+        contentColor = if (dimmed) onSurface.copy(alpha = DISABLED_CONTENT_ALPHA) else toolbarColors.fabContentColor,
         modifier =
             Modifier
-                .alpha(if (enabled || isSubmitting) 1f else DISABLED_FAB_ALPHA)
-                .semantics { if (!enabled) disabled() },
+                .semantics { if (!enabled) disabled() }
+                .then(if (enabled) Modifier else Modifier.blockTouches()),
     ) {
         val submittingDescription = stringResource(R.string.composer_submitting)
         AnimatedContent(
@@ -137,4 +148,19 @@ private fun ComposerPostFab(
     }
 }
 
-private const val DISABLED_FAB_ALPHA = 0.38f
+private const val DISABLED_CONTAINER_ALPHA = 0.12f
+private const val DISABLED_CONTENT_ALPHA = 0.38f
+
+/**
+ * Consumes every pointer change in the Initial pass, before the FAB's own
+ * clickable sees it. The clickable ignores an already-consumed press, so a
+ * disabled FAB neither ripples nor clicks.
+ */
+private fun Modifier.blockTouches(): Modifier =
+    pointerInput(Unit) {
+        awaitPointerEventScope {
+            while (true) {
+                awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
+            }
+        }
+    }
