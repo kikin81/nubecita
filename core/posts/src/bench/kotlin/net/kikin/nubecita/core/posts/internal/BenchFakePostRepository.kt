@@ -3,6 +3,7 @@ package net.kikin.nubecita.core.posts.internal
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.core.posts.BenchPostSource
 import net.kikin.nubecita.core.posts.PostNotFoundException
 import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.data.models.PostUi
@@ -31,6 +32,7 @@ internal class BenchFakePostRepository
     @Inject
     constructor(
         @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+        private val sources: Set<@JvmSuppressWildcards BenchPostSource>,
     ) : PostRepository {
         override suspend fun getPost(uri: String): Result<PostUi> =
             withContext(ioDispatcher) {
@@ -40,9 +42,13 @@ internal class BenchFakePostRepository
                     return@withContext Result.failure(PostNotFoundException(uri))
                 }
                 // Resolve any bench post that carries media (gallery focus,
-                // image replies, quoted-image post); fall back to the video post
-                // so the fullscreen player still has a fixture.
-                val post = benchPostsByUri[uri] ?: benchVideoPost
+                // image replies, quoted-image post), then any post another
+                // module's fixture rendered (e.g. the feed timeline); fall back
+                // to the video post so the fullscreen player still has a fixture.
+                val post =
+                    benchPostsByUri[uri]
+                        ?: sources.firstNotNullOfOrNull { it.findPost(uri) }
+                        ?: benchVideoPost
                 Result.success(post)
             }
     }

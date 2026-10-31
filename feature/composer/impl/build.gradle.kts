@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.nubecita.android.feature)
+    alias(libs.plugins.nubecita.android.flavors)
 }
 
 android {
@@ -43,6 +44,10 @@ dependencies {
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.reorderable)
     implementation(libs.timber)
+
+    // Bench only: BenchParentFetchSource resolves reply targets through the
+    // bench PostRepository fake instead of the network.
+    benchImplementation(project(":core:posts"))
 
     // Compose UI tests for ComposerScreen — mirrors :feature:feed:impl's
     // setup. Required so the BackHandler / discard-dialog gate can be

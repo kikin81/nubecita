@@ -12,6 +12,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
+import net.kikin.nubecita.data.models.FeedItemUi
+import net.kikin.nubecita.data.models.PostUi
 import timber.log.Timber
 import java.io.FileNotFoundException
 import java.util.concurrent.ConcurrentHashMap
@@ -151,6 +153,20 @@ internal class BenchFakeFeedRepository
                 else -> TIMELINE_ASSET_PATH
             }
 
+        /**
+         * The fixture post whose id is [uri], searched across every feed fixture
+         * (Following then Discover). Backs [BenchFeedPostSource] so the bench
+         * `PostRepository.getPost` resolves posts the feed rendered — e.g. the
+         * media viewer opened from a feed image.
+         */
+        suspend fun findPost(uri: String): PostUi? =
+            listOf(TIMELINE_ASSET_PATH, DISCOVER_ASSET_PATH).firstNotNullOfOrNull { asset ->
+                pageForAsset(asset)
+                    .getOrNull()
+                    ?.feedItems
+                    ?.firstNotNullOfOrNull { item -> item.posts().firstOrNull { it.id == uri } }
+            }
+
         private suspend fun pageForAsset(assetPath: String): Result<TimelinePage> =
             withContext(dispatcher) {
                 cache[assetPath]?.let { return@withContext Result.success(it) }
@@ -249,3 +265,12 @@ internal class FixtureLoadException(
     message: String,
     cause: Throwable? = null,
 ) : RuntimeException(message, cause)
+
+/** Every post a feed item renders, in display order. */
+private fun FeedItemUi.posts(): List<PostUi> =
+    when (this) {
+        is FeedItemUi.Single -> listOf(post)
+        is FeedItemUi.ReplyCluster -> listOf(root, parent, leaf)
+        is FeedItemUi.SelfThreadChain -> posts
+        is FeedItemUi.Blocked, is FeedItemUi.NotFound -> emptyList()
+    }

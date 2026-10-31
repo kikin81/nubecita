@@ -5,11 +5,6 @@
 
     Executes 3 loop iterations with theme switches (dark/light) to trigger Activity
     recreation while observing LeakCanary output.
-
-    Bench note (2026-10-31): the reply composer opens with "Couldn't load reply
-    target" because the bench fixtures can't resolve the replied-to post. The
-    composer still opens and closes, so the push/pop is exercised, but the
-    reply-target loading path is not.
   </description>
   <actions>
     <action>Verify that the app is open on the Home feed</action>

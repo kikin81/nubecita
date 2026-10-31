@@ -4,7 +4,10 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
+import net.kikin.nubecita.core.posts.BenchPostSource
 import net.kikin.nubecita.feature.feed.impl.data.BenchFakeFeedRepository
+import net.kikin.nubecita.feature.feed.impl.data.BenchFeedPostSource
 import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
 
 /**
@@ -29,4 +32,8 @@ import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
 internal interface FeedRepositoryModule {
     @Binds
     fun bindFeedRepository(impl: BenchFakeFeedRepository): FeedRepository
+
+    @Binds
+    @IntoSet
+    fun bindFeedPostSource(impl: BenchFeedPostSource): BenchPostSource
 }
