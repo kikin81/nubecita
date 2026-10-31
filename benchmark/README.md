@@ -181,14 +181,24 @@ produce materially different profiles:
   a ~weekly cadence**, not CI:
 
   ```bash
-  ./gradlew :app:generateProductionReleaseBaselineProfile -PbaselineProfileEnvironment=production
+  ./gradlew :app:generateProductionReleaseBaselineProfile -PbaselineProfileEnvironment=production \
+    -Pandroid.testInstrumentationRunnerArguments.class=net.kikin.nubecita.benchmark.BaselineProfileGenerator
   ```
+
+  Keep the `class=` filter: without it the task also runs the startup,
+  scroll and video benchmarks, which reinstall the app and wipe its data —
+  and the OAuth session with it.
 
   Pre-requisite — **the device must be signed in** on the
   `productionNonMinifiedRelease` build before the run. The generator
   waits for `feed_list` and fails fast if the cold-start path routes
   Splash → Login instead of Splash → MainShell (see
   `BaselineProfileGenerator`'s KDoc for the diagnostic message).
+  Sign in again before **every** run: the test task uninstalls the app
+  when it finishes, so a session never carries over to the next regen.
+  After the run, check the `baseline journey coverage: …` logcat line
+  (in `build/outputs/androidTest-results/connected/nonMinifiedRelease/`)
+  and don't commit a profile whose journeys came back `SKIPPED`.
 
 - **`bench` — the default; validation only.** The deterministic offline
   path (fake repos, fake `SignedIn`, mock feed). No sign-in needed and it

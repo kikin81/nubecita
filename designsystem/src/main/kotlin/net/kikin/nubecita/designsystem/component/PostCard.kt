@@ -21,6 +21,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
@@ -316,7 +317,11 @@ private fun BodyText(
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 ),
         )
-    Text(text = withHighlight, style = MaterialTheme.typography.bodyLarge)
+    Text(
+        text = withHighlight,
+        style = MaterialTheme.typography.bodyLarge,
+        modifier = Modifier.testTag(PostCardTestTags.BODY),
+    )
 }
 
 /**
