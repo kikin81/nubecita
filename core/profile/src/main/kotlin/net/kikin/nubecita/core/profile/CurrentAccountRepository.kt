@@ -50,7 +50,9 @@ internal class DefaultCurrentAccountRepository
         private val actorProfileRepository: ActorProfileRepository,
         @param:ApplicationScope private val scope: CoroutineScope,
     ) : CurrentAccountRepository {
-        private val _account = MutableStateFlow<CurrentAccount?>(null)
+        // Seeded synchronously, so a screen created while already signed in reads the
+        // account straight away instead of a null until the collector first runs.
+        private val _account = MutableStateFlow((sessionStateProvider.state.value as? SessionState.SignedIn)?.toSeed())
         override val account: StateFlow<CurrentAccount?> = _account.asStateFlow()
 
         init {
@@ -63,13 +65,7 @@ internal class DefaultCurrentAccountRepository
                             _account.value = null
                             return@collectLatest
                         }
-                        _account.value =
-                            CurrentAccount(
-                                did = signedIn.did,
-                                handle = signedIn.handle,
-                                displayName = signedIn.handle,
-                                avatarUrl = null,
-                            )
+                        _account.value = seed(signedIn.did, signedIn.handle)
                         actorProfileRepository.fetchProfile(signedIn.did).onSuccess { profile ->
                             _account.value =
                                 CurrentAccount(
@@ -88,3 +84,11 @@ internal class DefaultCurrentAccountRepository
             val handle: String,
         )
     }
+
+/** The account before its profile loads: the handle stands in for the display name. */
+private fun seed(
+    did: String,
+    handle: String,
+) = CurrentAccount(did = did, handle = handle, displayName = handle, avatarUrl = null)
+
+private fun SessionState.SignedIn.toSeed() = seed(did, handle)

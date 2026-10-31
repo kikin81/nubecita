@@ -41,6 +41,21 @@ internal class DefaultCurrentAccountRepositoryTest {
         }
 
     @Test
+    fun `seeds synchronously when already signed in at creation`() =
+        runTest {
+            coEvery { actorProfileRepository.fetchProfile(did) } coAnswers { CompletableDeferred<Result<ActorProfile>>().await() }
+            session.value = SessionState.SignedIn(handle = "alice.bsky.social", did = did)
+
+            val repo = repository()
+
+            // No runCurrent(): the value is there before the collector has run.
+            assertEquals(
+                CurrentAccount(did = did, handle = "alice.bsky.social", displayName = "alice.bsky.social", avatarUrl = null),
+                repo.account.value,
+            )
+        }
+
+    @Test
     fun `enriches the account once the profile loads`() =
         runTest {
             coEvery { actorProfileRepository.fetchProfile(did) } returns
