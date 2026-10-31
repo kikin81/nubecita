@@ -54,7 +54,7 @@ The composer body SHALL scroll vertically. The screen MUST have a single IME own
 
 ### Requirement: Composer actions live in an M3 floating toolbar with Post as its FAB
 
-The composer SHALL render a `HorizontalFloatingToolbar` with `FloatingToolbarDefaults.standardFloatingToolbarColors()`, anchored bottom-center, holding the Add image, GIF, Language and Audience actions (each with an accessibility label), with Post as the toolbar's `StandardFloatingActionButton`.
+The composer SHALL render a `HorizontalFloatingToolbar` with `FloatingToolbarDefaults.standardFloatingToolbarColors()`, anchored bottom-center, holding the Add image, GIF, Language and Audience actions, with Post as the toolbar's `StandardFloatingActionButton`.
 
 #### Scenario: Toolbar actions open the existing pickers
 
@@ -66,6 +66,15 @@ The composer SHALL render a `HorizontalFloatingToolbar` with `FloatingToolbarDef
 - **GIVEN** `state.replyToUri != null`
 - **WHEN** the composer renders
 - **THEN** the Audience action (Settings icon) is absent from the toolbar
+
+### Requirement: Floating toolbar actions are announced once by name
+
+Each toolbar action SHALL be an icon-only `IconButton` named by its icon's `contentDescription`, which the button merges so the label is announced once with the button role. Actions MUST NOT also set an `onClickLabel`, which would announce the label twice. The GIF action's visible "GIF" text is its name.
+
+#### Scenario: Each action is announced once with its name
+
+- **WHEN** a screen reader focuses the Add image action
+- **THEN** it announces "Add image" and the button role once, with no duplicated label
 
 ### Requirement: Floating toolbar is always visible and rides the keyboard
 
