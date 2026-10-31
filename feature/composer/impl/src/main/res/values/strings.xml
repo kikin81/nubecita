@@ -6,6 +6,7 @@
 
     <!-- Attachment-row actions -->
     <string name="composer_add_image_action">Add image</string>
+    <string name="composer_language_action">Post language</string>
     <string name="composer_remove_attachment_action">Remove attachment</string>
 
     <!-- Text input affordances -->

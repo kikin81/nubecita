@@ -7,6 +7,7 @@ import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.content.contentReceiver
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -75,17 +76,13 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.composer.impl.internal.AltEditorLayer
 import net.kikin.nubecita.feature.composer.impl.internal.AudiencePicker
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerAttachmentChip
-import net.kikin.nubecita.feature.composer.impl.internal.ComposerAudienceChip
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerCharacterCounter
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerCloseAction
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerDialogAction
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerDiscardDialog
+import net.kikin.nubecita.feature.composer.impl.internal.ComposerFloatingToolbar
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerGifCard
-import net.kikin.nubecita.feature.composer.impl.internal.ComposerGifChip
-import net.kikin.nubecita.feature.composer.impl.internal.ComposerLanguageChip
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerLinkCard
-import net.kikin.nubecita.feature.composer.impl.internal.ComposerOptionsChipRow
-import net.kikin.nubecita.feature.composer.impl.internal.ComposerPostButton
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerQuoteSection
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerReplyParentSection
 import net.kikin.nubecita.feature.composer.impl.internal.ComposerSuggestionList
@@ -664,22 +661,13 @@ internal fun ComposerScreenContent(
                     }
                 },
                 actions = {
+                    // reserved for drafts entry point: a future drafts icon goes
+                    // beside the counter. Post lives in the floating toolbar.
                     ComposerCharacterCounter(
                         graphemeCount = state.graphemeCount,
                         isOverLimit = state.isOverLimit,
                         contentDescription = counterContentDescription(state),
-                        modifier = Modifier,
-                    )
-                    // Reserved-spacer slot between the counter and Post
-                    // for the future drafts entry icon (see the
-                    // forward-compat note in design.md). Not yet
-                    // populated; leaving the gap so wtq.4 → :core:drafts
-                    // doesn't reflow the action row when drafts ship.
-                    ComposerPostButton(
-                        enabled = canPost(state, textFieldState),
-                        submitStatus = state.submitStatus,
-                        onClick = onSubmit,
-                        modifier = Modifier.padding(start = 8.dp, end = 8.dp),
+                        modifier = Modifier.padding(end = 12.dp),
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(),
@@ -688,227 +676,215 @@ internal fun ComposerScreenContent(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
     ) { padding ->
         // Canvas paint is owned by the Scaffold's containerColor = surface.
-        // The body consumes the scaffold padding, rides the IME, and scrolls so
-        // a long draft plus cards never ends up behind the keyboard.
-        Column(
+        // The body and the floating toolbar both consume the scaffold padding and
+        // ride the IME: the body scrolls (its bottom padding keeps the last card
+        // clear of the toolbar), the toolbar sits on top of the keyboard.
+        Box(
             modifier =
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .consumeWindowInsets(padding)
-                    .imePadding()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.Top,
-            horizontalAlignment = Alignment.Start,
+                    .consumeWindowInsets(padding),
         ) {
-            // Reply-mode parent context — renders nothing in
-            // new-post mode (replyParentLoad == null), a
-            // skeleton while Loading, the parent-post card
-            // when Loaded, and an inline retry tile when
-            // Failed.
-            ComposerReplyParentSection(
-                status = state.replyParentLoad,
-                onRetryClick = onRetryParentLoad,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                NubecitaAvatar(
-                    model = state.author?.avatarUrl,
-                    // Decorative: the name line beside it already says who is posting.
-                    contentDescription = null,
-                    size = AUTHOR_AVATAR_SIZE,
-                    fallback =
-                        state.author?.let {
-                            avatarFallbackFor(did = it.did, handle = it.handle, displayName = it.displayName)
-                        },
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .imePadding()
+                        .verticalScroll(rememberScrollState())
+                        .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = TOOLBAR_CLEARANCE),
+                verticalArrangement = Arrangement.Top,
+                horizontalAlignment = Alignment.Start,
+            ) {
+                // Reply-mode parent context — renders nothing in
+                // new-post mode (replyParentLoad == null), a
+                // skeleton while Loading, the parent-post card
+                // when Loaded, and an inline retry tile when
+                // Failed.
+                ComposerReplyParentSection(
+                    status = state.replyParentLoad,
+                    onRetryClick = onRetryParentLoad,
                 )
-                // Everything after the avatar lines up with the text column.
-                Column(modifier = Modifier.weight(1f)) {
-                    state.author?.let { author ->
-                        Text(
-                            text = author.displayName.ifBlank { author.handle },
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    ComposerTextField(
-                        textFieldState = textFieldState,
-                        enabled = state.submitStatus !is ComposerSubmitStatus.Submitting,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(top = 2.dp)
-                                .focusRequester(focusRequester)
-                                // Accepts pasted / keyboard-inserted images as
-                                // attachments; text still pastes as text.
-                                .contentReceiver(imagePasteReceiver)
-                                // Stable tag (surfaced as a bare resource-id via
-                                // testTagsAsResourceId) so the baseline-profile journey
-                                // can focus + type into the composer (nubecita-ioe5).
-                                .testTag("composer_text_field"),
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    NubecitaAvatar(
+                        model = state.author?.avatarUrl,
+                        // Decorative: the name line beside it already says who is posting.
+                        contentDescription = null,
+                        size = AUTHOR_AVATAR_SIZE,
+                        fallback =
+                            state.author?.let {
+                                avatarFallbackFor(did = it.did, handle = it.handle, displayName = it.displayName)
+                            },
                     )
-                    ComposerSummaryLine(
-                        selectedLangs = state.selectedLangs,
-                        deviceLocaleTag = deviceLocaleTag,
-                        audience = state.audience.takeIf { state.replyToUri == null },
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                    // `@`-mention typeahead surface — renders only on
-                    // Suggestions / NoResults, hidden in Idle / Querying.
-                    // Sits between the text field and the attachment row
-                    // so the IME's inset push naturally keeps it visible
-                    // above the keyboard without explicit anchoring.
-                    //
-                    // Hidden entirely while submitting: the VM gates
-                    // TypeaheadResultClicked on submitInFlight, so a
-                    // tap during submit is a no-op. Rendering the rows
-                    // would be a visible control that does nothing —
-                    // hide them to match the actual behavior.
-                    if (state.submitStatus !is ComposerSubmitStatus.Submitting) {
-                        ComposerSuggestionList(
-                            typeahead = state.typeahead,
-                            onSuggestionClick = onSuggestionClick,
-                            modifier = Modifier.bringIntoViewRequester(suggestionsRequester),
-                        )
-                    }
-                    // Composer-options chip row. Hosts the language chip
-                    // in V1; visibility / threadgate / drafts chips land
-                    // in the same row in follow-up PRs without further
-                    // chrome changes. When `nubecita-86m`'s
-                    // HorizontalFloatingToolbar lands, this row migrates
-                    // wholesale into the toolbar's content slot.
-                    ComposerOptionsChipRow {
-                        ComposerLanguageChip(
-                            selectedLangs = state.selectedLangs,
-                            deviceLocaleTag = deviceLocaleTag,
-                            onClick = onLanguageChipClick,
-                        )
-                        // Audience chip — top-level posts only. threadgate/postgate
-                        // belong to the thread root, so it's hidden in reply mode.
-                        if (state.replyToUri == null) {
-                            ComposerAudienceChip(
-                                audience = state.audience,
-                                onClick = onAudienceChipClick,
+                    // Everything after the avatar lines up with the text column.
+                    Column(modifier = Modifier.weight(1f)) {
+                        state.author?.let { author ->
+                            Text(
+                                text = author.displayName.ifBlank { author.handle },
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
-                        // GIF chip — disabled while photos are attached (a GIF and images
-                        // are mutually exclusive, sharing the single embed slot).
-                        ComposerGifChip(
-                            onClick = onGifChipClick,
-                            enabled = state.attachments.isEmpty(),
+                        ComposerTextField(
+                            textFieldState = textFieldState,
+                            enabled = state.submitStatus !is ComposerSubmitStatus.Submitting,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 2.dp)
+                                    .focusRequester(focusRequester)
+                                    // Accepts pasted / keyboard-inserted images as
+                                    // attachments; text still pastes as text.
+                                    .contentReceiver(imagePasteReceiver)
+                                    // Stable tag (surfaced as a bare resource-id via
+                                    // testTagsAsResourceId) so the baseline-profile journey
+                                    // can focus + type into the composer (nubecita-ioe5).
+                                    .testTag("composer_text_field"),
                         )
-                    }
-                    // Composer attachment action row. Hosts the leading
-                    // "Add image" affordance and a horizontally-scrolling
-                    // chip strip of the picked attachments (each chip with
-                    // a Coil-loaded thumbnail + remove button). Both
-                    // wtq.5.1 (picker) and wtq.5.2 (chips + remove) are
-                    // wired in this PR.
-                    ComposerAttachmentRow(
-                        attachments = state.attachments,
-                        isSubmitting = state.submitStatus is ComposerSubmitStatus.Submitting,
-                        // GIF XOR images: hide the add-image affordance while a GIF is
-                        // attached (the GIF chip is likewise disabled while photos exist).
-                        blockAdd = state.pickedGif != null,
-                        onAddImageClick = onAddImageClick,
-                        onRemoveAttachment = onRemoveAttachment,
-                        onMoveAttachment = onMoveAttachment,
-                        onChipClick = onOpenAltEditor,
-                    )
-                    // Gallery required-alt hint: explains why Post is disabled when a
-                    // >4-image gallery still has an undescribed photo. The chip ALT
-                    // badges + the editor filmstrip show which ones.
-                    if (state.isGalleryMissingAlt) {
-                        Text(
-                            text = stringResource(R.string.composer_alt_required_hint),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
-                    // External link-preview card — renders nothing when Idle. Below the
-                    // attachment row (mutually exclusive with images) and above the quote
-                    // section (a card may coexist with a quote).
-                    ComposerLinkCard(
-                        status = state.externalLink,
-                        onRemove = onRemoveExternalLink,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                    // Picked-GIF preview — mutually exclusive with images + the link card
-                    // (the scanner is suppressed while a GIF is set), so at most one of
-                    // these two cards renders.
-                    state.pickedGif?.let { gif ->
-                        ComposerGifCard(
-                            gif = gif,
-                            onRemove = onRemoveGif,
+                        ComposerSummaryLine(
+                            selectedLangs = state.selectedLangs,
+                            deviceLocaleTag = deviceLocaleTag,
+                            audience = state.audience.takeIf { state.replyToUri == null },
                             modifier = Modifier.padding(top = 8.dp),
                         )
-                    }
-                    // Attached video — mutually exclusive with images, GIF and the
-                    // link card, so at most one media card renders.
-                    state.video?.let { video ->
-                        ComposerVideoCard(
-                            video = video,
-                            // The flow, not a collected value: the screen must not read
-                            // the fraction or it recomposes four times a second.
-                            progressFlow = videoProgress,
-                            onRemove = onRemoveVideo,
-                            onRetry = onRetryVideoUpload,
-                            onEditAlt = onEditVideoAlt,
+                        // `@`-mention typeahead surface — renders only on
+                        // Suggestions / NoResults, hidden in Idle / Querying.
+                        // Sits between the text field and the attachment row
+                        // so the IME's inset push naturally keeps it visible
+                        // above the keyboard without explicit anchoring.
+                        //
+                        // Hidden entirely while submitting: the VM gates
+                        // TypeaheadResultClicked on submitInFlight, so a
+                        // tap during submit is a no-op. Rendering the rows
+                        // would be a visible control that does nothing —
+                        // hide them to match the actual behavior.
+                        if (state.submitStatus !is ComposerSubmitStatus.Submitting) {
+                            ComposerSuggestionList(
+                                typeahead = state.typeahead,
+                                onSuggestionClick = onSuggestionClick,
+                                modifier = Modifier.bringIntoViewRequester(suggestionsRequester),
+                            )
+                        }
+                        // Horizontally-scrolling strip of the picked attachments
+                        // (thumbnail, ALT badge, remove; drag to reorder). Adding
+                        // photos is the floating toolbar's job.
+                        ComposerAttachmentRow(
+                            attachments = state.attachments,
+                            isSubmitting = state.submitStatus is ComposerSubmitStatus.Submitting,
+                            onRemoveAttachment = onRemoveAttachment,
+                            onMoveAttachment = onMoveAttachment,
+                            onChipClick = onOpenAltEditor,
+                        )
+                        // Gallery required-alt hint: explains why Post is disabled when a
+                        // >4-image gallery still has an undescribed photo. The chip ALT
+                        // badges + the editor filmstrip show which ones.
+                        if (state.isGalleryMissingAlt) {
+                            Text(
+                                text = stringResource(R.string.composer_alt_required_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                        // External link-preview card — renders nothing when Idle. Below the
+                        // attachment row (mutually exclusive with images) and above the quote
+                        // section (a card may coexist with a quote).
+                        ComposerLinkCard(
+                            status = state.externalLink,
+                            onRemove = onRemoveExternalLink,
                             modifier = Modifier.padding(top = 8.dp),
                         )
+                        // Picked-GIF preview — mutually exclusive with images + the link card
+                        // (the scanner is suppressed while a GIF is set), so at most one of
+                        // these two cards renders.
+                        state.pickedGif?.let { gif ->
+                            ComposerGifCard(
+                                gif = gif,
+                                onRemove = onRemoveGif,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                        }
+                        // Attached video — mutually exclusive with images, GIF and the
+                        // link card, so at most one media card renders.
+                        state.video?.let { video ->
+                            ComposerVideoCard(
+                                video = video,
+                                // The flow, not a collected value: the screen must not read
+                                // the fraction or it recomposes four times a second.
+                                progressFlow = videoProgress,
+                                onRemove = onRemoveVideo,
+                                onRetry = onRetryVideoUpload,
+                                onEditAlt = onEditVideoAlt,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                        }
+                        // Quote-mode section — renders nothing when not quoting
+                        // (quotePostLoad == null). Sits at the bottom (below text +
+                        // attachments), matching the reader's stacked layout: reply
+                        // context on top, your text, then the quoted post.
+                        ComposerQuoteSection(
+                            status = state.quotePostLoad,
+                            onRetryClick = onRetryQuoteLoad,
+                            onRemoveClick = onRemoveQuote,
+                        )
                     }
-                    // Quote-mode section — renders nothing when not quoting
-                    // (quotePostLoad == null). Sits at the bottom (below text +
-                    // attachments), matching the reader's stacked layout: reply
-                    // context on top, your text, then the quoted post.
-                    ComposerQuoteSection(
-                        status = state.quotePostLoad,
-                        onRetryClick = onRetryQuoteLoad,
-                        onRemoveClick = onRemoveQuote,
-                    )
                 }
             }
+            val isSubmitting = state.submitStatus is ComposerSubmitStatus.Submitting
+            ComposerFloatingToolbar(
+                canPost = canPost(state, textFieldState),
+                isSubmitting = isSubmitting,
+                // GIF XOR photos: they share the single embed slot. Photos also
+                // stop at the attachment cap.
+                canAddImage =
+                    !isSubmitting &&
+                        state.pickedGif == null &&
+                        state.attachments.size < ComposerViewModel.MAX_ATTACHMENTS,
+                canAddGif = !isSubmitting && state.attachments.isEmpty(),
+                showAudience = state.replyToUri == null,
+                onPostClick = onSubmit,
+                onAddImageClick = onAddImageClick,
+                onGifClick = onGifChipClick,
+                onLanguageClick = onLanguageChipClick,
+                onAudienceClick = onAudienceChipClick,
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .imePadding()
+                        .padding(bottom = 16.dp),
+            )
         }
     }
 }
 
+/** Bottom padding that lets the body's last element scroll clear of the floating toolbar. */
+private val TOOLBAR_CLEARANCE = 104.dp
+
 /**
- * Horizontal action row beneath the composer's text field — composes
- * the leading "Add image" affordance and a horizontally-scrolling
- * `LazyRow` of [ComposerAttachmentChip]s for the picked attachments.
+ * Horizontally-scrolling `LazyRow` of [ComposerAttachmentChip]s for the
+ * picked attachments, beneath the composer's text. Adding photos is the
+ * floating toolbar's job.
  *
  * The LazyRow uses each attachment's URI string as its stable key so
  * Compose can survive list reorderings without re-laying-out the
  * surviving chips. The remove-button on each chip is gated off
- * during submission for the same reason the leading "Add image"
- * affordance is — once the upload pipeline starts reading the list,
+ * during submission — once the upload pipeline starts reading the list,
  * mutations would race the parallel `awaitAll()` in the repository.
- *
- * The leading affordance is hidden (not just disabled) once the
- * composer hits the 4-image cap — keeping it visible at "always
- * disabled" past the cap would draw the eye to a control that can't
- * do anything. While submitting, it stays visible-but-disabled so
- * the user sees the same affordance they tapped a moment ago.
  */
 @Composable
 private fun ComposerAttachmentRow(
     attachments: ImmutableList<ComposerAttachment>,
     isSubmitting: Boolean,
-    onAddImageClick: () -> Unit,
     onRemoveAttachment: (Int) -> Unit,
     onMoveAttachment: (Int, Int) -> Unit,
     onChipClick: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    blockAdd: Boolean = false,
 ) {
     val attachmentCount = attachments.size
-    val isAtCap = attachmentCount >= ComposerViewModel.MAX_ATTACHMENTS
-    val canAddImage = !isSubmitting && !isAtCap && !blockAdd
-    // The "Add image" button lives OUTSIDE the LazyRow, so LazyRow item
-    // indices map 1:1 to attachment indices — onMove can forward them as-is.
+    // LazyRow item indices map 1:1 to attachment indices, so onMove can forward
+    // them as-is.
     val listState = rememberLazyListState()
     val reorderableState =
         rememberReorderableLazyListState(listState) { from, to ->
@@ -922,17 +898,6 @@ private fun ComposerAttachmentRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (!isAtCap) {
-            IconButton(
-                onClick = onAddImageClick,
-                enabled = canAddImage,
-            ) {
-                NubecitaIcon(
-                    name = NubecitaIconName.AddPhotoAlternate,
-                    contentDescription = stringResource(R.string.composer_add_image_action),
-                )
-            }
-        }
         if (attachmentCount > 0) {
             LazyRow(
                 state = listState,

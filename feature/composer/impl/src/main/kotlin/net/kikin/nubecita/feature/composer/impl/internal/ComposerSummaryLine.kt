@@ -52,3 +52,38 @@ internal fun summaryLineFor(
     languageLabel: String,
     audienceLabel: String?,
 ): String = if (audienceLabel == null) languageLabel else "$languageLabel · $audienceLabel"
+
+/**
+ * Pure language-label rule for [ComposerSummaryLine] (named for the
+ * language chip that preceded it; pinned by `ChipLabelForTest`). Exposed
+ * `internal` so the JVM unit test can pin the contract without booting
+ * the Compose runtime.
+ *
+ * `null` and `emptyList()` are deliberately distinct — `null` means
+ * "user hasn't touched the picker; createPost will derive the device-
+ * locale default per wtq.12", so the label mirrors that device-locale
+ * display name. `emptyList()` means "user explicitly chose no
+ * language; createPost will omit the langs field entirely", so the
+ * label is a localized "No language" string supplied by the caller via
+ * [emptyLabel]. Collapsing both to the device-locale label would make
+ * the summary lie about what's about to be sent.
+ *
+ * The multi-tag overflow form is `"<first> +N"` where N is
+ * `selectedLangs.size - 1`.
+ */
+internal fun chipLabelFor(
+    selectedLangs: List<String>?,
+    deviceLocaleTag: String,
+    emptyLabel: String,
+): String =
+    when {
+        selectedLangs == null -> languageDisplayName(deviceLocaleTag)
+        selectedLangs.isEmpty() -> emptyLabel
+        else -> {
+            val first = languageDisplayName(selectedLangs.first())
+            when (val extras = selectedLangs.size - 1) {
+                0 -> first
+                else -> "$first +$extras"
+            }
+        }
+    }
