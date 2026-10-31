@@ -32,6 +32,8 @@ import net.kikin.nubecita.core.posting.PostAudience
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.ReplyAudience
 import net.kikin.nubecita.core.posting.ReplyRefs
+import net.kikin.nubecita.core.profile.CurrentAccount
+import net.kikin.nubecita.core.profile.CurrentAccountRepository
 import net.kikin.nubecita.data.models.KlipyMediaUiFixtures
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.composer.impl.data.ParentFetchSource
@@ -93,6 +95,17 @@ class ComposerViewModelTest {
     private val parentFetchSource = mockk<ParentFetchSource>()
     private val quotePostFetcher = mockk<QuotePostFetcher>()
 
+    // The posting identity: seeded with the handle, enriched later by the tests
+    // that care.
+    private val accountFlow =
+        MutableStateFlow<CurrentAccount?>(
+            CurrentAccount(did = "did:plc:me", handle = "me.test", displayName = "me.test", avatarUrl = null),
+        )
+    private val currentAccountRepository =
+        mockk<CurrentAccountRepository> {
+            every { account } returns accountFlow
+        }
+
     // Default: no link preview (relaxed → fetch/downloadThumb return null). The
     // link-card tests override `fetch` per case.
     private val externalLinkMetadataRepository = mockk<ExternalLinkMetadataRepository>(relaxed = true)
@@ -152,6 +165,30 @@ class ComposerViewModelTest {
             assertNull(state.replyToUri)
             assertNull(state.replyParentLoad)
             assertEquals(ComposerSubmitStatus.Idle, state.submitStatus)
+        }
+
+    @Test
+    fun author_isTheCurrentAccountFromTheFirstState() =
+        runTest {
+            val vm = newVm()
+
+            val author = vm.uiState.value.author
+            assertEquals("did:plc:me", author?.did)
+            assertEquals("me.test", author?.displayName)
+            assertNull(author?.avatarUrl)
+        }
+
+    @Test
+    fun author_followsTheAccountWhenItsProfileLoads() =
+        runTest {
+            val vm = newVm()
+
+            accountFlow.value =
+                CurrentAccount(did = "did:plc:me", handle = "me.test", displayName = "Me", avatarUrl = "https://cdn/avatar")
+
+            val author = vm.uiState.value.author
+            assertEquals("Me", author?.displayName)
+            assertEquals("https://cdn/avatar", author?.avatarUrl)
         }
 
     @Test
@@ -1658,6 +1695,7 @@ class ComposerViewModelTest {
             reviewManager = mockk(relaxed = true),
             sharedMediaStore = sharedMediaStore,
             applicationScope = kotlinx.coroutines.CoroutineScope(testDispatcher),
+            currentAccountRepository = currentAccountRepository,
         )
 
     private fun fixedLocaleProvider(tag: String): LocaleProvider =
