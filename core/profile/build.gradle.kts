@@ -1,10 +1,15 @@
 plugins {
     alias(libs.plugins.nubecita.android.library)
     alias(libs.plugins.nubecita.android.hilt)
+    alias(libs.plugins.nubecita.android.flavors)
 }
 
 android {
     namespace = "net.kikin.nubecita.core.profile"
+
+    // The `environment` dimension swaps the production
+    // CurrentAccountBindingsModule for a bench-flavor parallel that binds a
+    // fixed, offline account (BenchCurrentAccountRepository).
 }
 
 dependencies {

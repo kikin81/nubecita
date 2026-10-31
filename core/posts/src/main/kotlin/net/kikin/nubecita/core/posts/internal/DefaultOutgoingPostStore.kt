@@ -10,8 +10,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import net.kikin.nubecita.core.auth.SessionState
-import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.core.posting.OutgoingPost
@@ -22,7 +20,8 @@ import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.SharedMediaStore
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.posts.PostRepository
-import net.kikin.nubecita.core.profile.ActorProfileRepository
+import net.kikin.nubecita.core.profile.CurrentAccount
+import net.kikin.nubecita.core.profile.CurrentAccountRepository
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.ImageUi
@@ -39,8 +38,7 @@ internal class DefaultOutgoingPostStore
     constructor(
         private val postingRepository: PostingRepository,
         private val postRepository: PostRepository,
-        private val actorProfileRepository: ActorProfileRepository,
-        private val sessionStateProvider: SessionStateProvider,
+        private val currentAccountRepository: CurrentAccountRepository,
         private val sharedMediaStore: SharedMediaStore,
         private val postInteractionsCache: PostInteractionsCache,
         @param:ApplicationScope private val scope: CoroutineScope,
@@ -48,13 +46,6 @@ internal class DefaultOutgoingPostStore
     ) : OutgoingPostStore {
         private val _posts = MutableStateFlow<ImmutableList<OutgoingPost>>(persistentListOf())
         override val posts: StateFlow<ImmutableList<OutgoingPost>> = _posts.asStateFlow()
-
-        /**
-         * The signed-in user's profile, fetched once per DID for avatar and display name.
-         * Written from the application scope and read on the submitting thread.
-         */
-        @Volatile
-        private var viewerAuthor: AuthorUi? = null
 
         override fun submit(draft: PostDraft): String {
             val localId = UUID.randomUUID().toString()
@@ -69,7 +60,6 @@ internal class DefaultOutgoingPostStore
             // Count the reply on its parent everywhere right away; undone if the
             // user discards it after a failed send.
             draft.replyToUri?.let(postInteractionsCache::noteReplySent)
-            scope.launch { resolveViewerAuthor() }
             send(localId)
             return localId
         }
@@ -144,37 +134,15 @@ internal class DefaultOutgoingPostStore
             Timber.tag(TAG).d("Server copy not indexed yet; keeping the local post")
         }
 
-        private fun currentAuthor(): AuthorUi {
-            val session = sessionStateProvider.state.value as? SessionState.SignedIn
-            viewerAuthor?.takeIf { it.did == session?.did }?.let { return it }
-            val handle = session?.handle.orEmpty()
-            return AuthorUi(did = session?.did.orEmpty(), handle = handle, displayName = handle, avatarUrl = null)
-        }
-
-        private suspend fun resolveViewerAuthor() {
-            val did = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did ?: return
-            if (viewerAuthor?.did == did) return
-            val profile = actorProfileRepository.fetchProfile(did).getOrNull() ?: return
-            val author =
-                AuthorUi(
-                    did = profile.did,
-                    handle = profile.handle,
-                    displayName = profile.displayName ?: profile.handle,
-                    avatarUrl = profile.avatarUrl,
-                )
-            viewerAuthor = author
-            // Only local projections carry the placeholder author; a server copy already has the real one.
-            _posts.update { list ->
-                list
-                    .map { entry ->
-                        if (entry.post.cid.isEmpty() && entry.post.author.did == did) {
-                            entry.copy(post = entry.post.copy(author = author))
-                        } else {
-                            entry
-                        }
-                    }.toImmutableList()
-            }
-        }
+        /**
+         * The shared account is fetched at sign-in, so by the time a post is
+         * submitted it normally carries the display name and avatar already. If it
+         * hasn't loaded yet, the handle-only seed is used and the server copy that
+         * replaces the local post shortly after sending carries the real author.
+         */
+        private fun currentAuthor(): AuthorUi =
+            currentAccountRepository.account.value?.toAuthorUi()
+                ?: AuthorUi(did = "", handle = "", displayName = "", avatarUrl = null)
 
         private fun trimSent() {
             _posts.update { list ->
@@ -238,3 +206,5 @@ internal class DefaultOutgoingPostStore
             val SERVER_COPY_BACKOFF_MS = longArrayOf(500L, 1_000L, 2_000L)
         }
     }
+
+private fun CurrentAccount.toAuthorUi(): AuthorUi = AuthorUi(did = did, handle = handle, displayName = displayName, avatarUrl = avatarUrl)
