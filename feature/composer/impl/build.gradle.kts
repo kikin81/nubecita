@@ -57,6 +57,10 @@ dependencies {
     testImplementation(libs.turbine)
 
     androidTestImplementation(platform(libs.androidx.compose.bom))
+    // The composer VM injects OutgoingPostStore, bound in :core:posts. :app
+    // aggregates it in production; this module's own Hilt test graph needs it
+    // too, or every @HiltAndroidTest here fails to compile.
+    androidTestImplementation(project(":core:posts"))
     androidTestImplementation(project(":core:testing-android"))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.core)
