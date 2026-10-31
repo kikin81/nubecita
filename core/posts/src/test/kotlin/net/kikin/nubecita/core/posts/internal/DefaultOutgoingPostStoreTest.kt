@@ -16,8 +16,6 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import net.kikin.nubecita.core.auth.SessionState
-import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.posting.ComposerAttachment
 import net.kikin.nubecita.core.posting.ComposerError
 import net.kikin.nubecita.core.posting.OutgoingPost
@@ -28,8 +26,8 @@ import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.SharedMediaStore
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.posts.PostRepository
-import net.kikin.nubecita.core.profile.ActorProfile
-import net.kikin.nubecita.core.profile.ActorProfileRepository
+import net.kikin.nubecita.core.profile.CurrentAccount
+import net.kikin.nubecita.core.profile.CurrentAccountRepository
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
@@ -46,12 +44,15 @@ internal class DefaultOutgoingPostStoreTest {
     private val did = "did:plc:me"
     private val postingRepository = mockk<PostingRepository>()
     private val postRepository = mockk<PostRepository>()
-    private val actorProfileRepository = mockk<ActorProfileRepository>()
     private val sharedMediaStore = mockk<SharedMediaStore>(relaxed = true)
     private val postInteractionsCache = mockk<PostInteractionsCache>(relaxed = true)
-    private val sessionStateProvider =
-        mockk<SessionStateProvider> {
-            every { state } returns MutableStateFlow(SessionState.SignedIn(handle = "me.test", did = did))
+
+    // Seeded with the handle, as the real repository is before the profile loads.
+    private val accountFlow =
+        MutableStateFlow<CurrentAccount?>(CurrentAccount(did = did, handle = "me.test", displayName = "me.test", avatarUrl = null))
+    private val currentAccountRepository =
+        mockk<CurrentAccountRepository> {
+            every { account } returns accountFlow
         }
     private val now = Instant.parse("2026-10-30T12:00:00Z")
     private val clock =
@@ -241,8 +242,8 @@ internal class DefaultOutgoingPostStoreTest {
         runTest {
             coEvery { postingRepository.createPost(any(), any(), any(), any(), any(), any(), any(), any()) } coAnswers
                 { CompletableDeferred<Result<AtUri>>().await() }
-            coEvery { actorProfileRepository.fetchProfile(did) } returns
-                Result.success(ActorProfile(did = did, handle = "me.test", displayName = "Me", avatarUrl = "https://cdn/avatar"))
+            // The shared account was enriched at sign-in, before the post is written.
+            accountFlow.value = CurrentAccount(did = did, handle = "me.test", displayName = "Me", avatarUrl = "https://cdn/avatar")
             val store = store(backgroundScope)
 
             store.submit(draft("hello"))
@@ -299,8 +300,7 @@ internal class DefaultOutgoingPostStoreTest {
         DefaultOutgoingPostStore(
             postingRepository = postingRepository,
             postRepository = postRepository,
-            actorProfileRepository = actorProfileRepository,
-            sessionStateProvider = sessionStateProvider,
+            currentAccountRepository = currentAccountRepository,
             sharedMediaStore = sharedMediaStore,
             postInteractionsCache = postInteractionsCache,
             scope = scope,
@@ -314,9 +314,8 @@ internal class DefaultOutgoingPostStoreTest {
             Result.success(AtUri(POST_URI))
     }
 
-    private fun noProfile() {
-        coEvery { actorProfileRepository.fetchProfile(any()) } returns Result.failure(RuntimeException("offline"))
-    }
+    /** The account stays at its handle-only seed (profile never loaded). */
+    private fun noProfile() = Unit
 
     private fun noServerCopy() {
         coEvery { postRepository.getPost(any()) } returns Result.failure(RuntimeException("not indexed"))

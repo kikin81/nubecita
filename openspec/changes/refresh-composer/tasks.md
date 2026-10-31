@@ -2,10 +2,10 @@ Epic: `nubecita-5nbm`. Delivered as one `gh stack` of three PRs, one per group b
 
 ## 1. Shared current-account source (`nubecita-5nbm.1`, PR 1)
 
-- [ ] 1.1 Add `CurrentAccount` + `CurrentAccountRepository` (`StateFlow<CurrentAccount?>`) to `:core:profile`, with a `@Singleton` default implementation seeded from `SessionStateProvider` and refreshed once per session via `ActorProfileRepository.fetchProfile`; emit `null` on sign-out. Unit tests: immediate seed, enrichment, handle fallback, fetch failure keeps the seed, one fetch per session, sign-out clears (`CurrentAccountRepositoryTest`).
-- [ ] 1.2 Hilt binding in `:core:profile`'s DI module. Unit test: none (wiring); covered by 1.4's bench smoke.
-- [ ] 1.3 Make `:core:profile` flavored (`nubecita.android.flavors`) and add a `src/bench/` fake binding a fixed `CurrentAccount` with no network. Update any `:core:profile:` task references to the `…ProductionDebug…` names. Unit test: `BenchCurrentAccountRepositoryTest` asserts the fixed account.
-- [ ] 1.4 Move `DefaultOutgoingPostStore` onto `CurrentAccountRepository` (drop its private profile fetch). Update `DefaultOutgoingPostStoreTest` to fake the repository and assert the outgoing `AuthorUi` uses its display name and avatar. Bench smoke: queue a post and confirm the outgoing card renders the bench identity.
+- [x] 1.1 Add `CurrentAccount` + `CurrentAccountRepository` (`StateFlow<CurrentAccount?>`) to `:core:profile`, with a `@Singleton` default implementation seeded from `SessionStateProvider` and refreshed once per session via `ActorProfileRepository.fetchProfile`; emit `null` on sign-out. Unit tests: immediate seed, enrichment, handle fallback, fetch failure keeps the seed, one fetch per session, sign-out clears (`CurrentAccountRepositoryTest`).
+- [x] 1.2 Hilt binding in `:core:profile`'s DI module. Unit test: none (wiring); covered by 1.4's bench smoke.
+- [x] 1.3 Make `:core:profile` flavored (`nubecita.android.flavors`) and add a `src/bench/` fake binding a fixed `CurrentAccount` with no network. Update any `:core:profile:` task references to the `…ProductionDebug…` names (only a historical plan doc referenced them; left as is). Verified by bench smoke instead of a unit test: no module has bench-flavor unit tests and CI runs only production ones.
+- [x] 1.4 Move `DefaultOutgoingPostStore` onto `CurrentAccountRepository` (drop its private profile fetch). Update `DefaultOutgoingPostStoreTest` to fake the repository and assert the outgoing `AuthorUi` uses its display name and avatar. Bench smoke: queue a post and confirm the outgoing card renders the bench identity.
 
 ## 2. Identity row, borderless field, scrolling body, summary line (`nubecita-5nbm.2`, PR 2)
 
