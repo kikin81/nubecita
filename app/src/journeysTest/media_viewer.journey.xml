@@ -5,6 +5,11 @@
 
     Executes 3 loop iterations with theme switches (dark/light) to trigger Activity
     recreation while observing LeakCanary output.
+
+    Bench note (2026-10-31): tapping a feed image opens the viewer with "This
+    post has no images" because the bench fixtures can't resolve the post, so
+    the image-verify step fails on bench until that fixture gap is fixed. The
+    full-screen video player works on bench.
   </description>
   <actions>
     <action>Verify that the app is open on the Home feed</action>
