@@ -1,0 +1,14 @@
+<journey name="Memory Leak Check - Navigation Loop">
+  <description>
+    Performs repeated navigation between the main feed, search, and settings screens to verify no memory leaks occur.
+  </description>
+  <actions>
+    <action>Verify that the app is open on the main screen</action>
+    <action>Tap the Search tab</action>
+    <action>Verify that the search interface is visible</action>
+    <action>Tap the Settings button or tab</action>
+    <action>Verify that Settings options are visible</action>
+    <action>Tap the Home tab</action>
+    <action>Verify that the main feed is visible</action>
+  </actions>
+</journey>
