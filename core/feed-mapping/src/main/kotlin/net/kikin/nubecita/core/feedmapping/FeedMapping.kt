@@ -95,6 +95,12 @@ fun PostView.toPostUiCore(viewerDid: String? = null): PostUi? {
             ),
         viewer = viewer.toViewerStateUi(authorViewer = author.viewer, isOwnPost = author.did.raw == viewerDid),
         repostedBy = null,
+        threadRootUri =
+            (postRecord.reply as? AtField.Defined)
+                ?.value
+                ?.root
+                ?.uri
+                ?.raw,
     )
 }
 
@@ -201,6 +207,8 @@ fun ViewerState?.toViewerStateUi(
         // Server-computed postgate result; fail open when absent (no gate).
         canViewerQuote = this?.embeddingDisabled != true,
         isOwnPost = isOwnPost,
+        isPinned = this?.pinned == true,
+        isThreadMuted = this?.threadMuted == true,
     )
 
 /**

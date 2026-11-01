@@ -47,4 +47,10 @@ public data class PostUi(
      * feed as the original author's own post.
      */
     val repostedBy: String?,
+    /**
+     * AT URI of the root post of the thread this post replies into — the
+     * record's `reply.root.uri` — or null for a top-level post. A thread is
+     * keyed by `threadRootUri ?: id`; thread mute targets that key.
+     */
+    val threadRootUri: String? = null,
 )
