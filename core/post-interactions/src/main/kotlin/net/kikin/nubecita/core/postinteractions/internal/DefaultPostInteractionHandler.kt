@@ -311,6 +311,34 @@ internal class DefaultPostInteractionHandler
                     }
                 }
 
+                PostOverflowAction.PinPost,
+                PostOverflowAction.UnpinPost,
+                -> {
+                    val pinning = action == PostOverflowAction.PinPost
+                    requireScope().launch {
+                        cache.togglePin(post.id, post.cid).fold(
+                            onSuccess = { nowPinned ->
+                                // null: ignored because a pin write was already in flight.
+                                if (nowPinned != null) {
+                                    emit(
+                                        InteractionEffect.ShowNotice(
+                                            if (nowPinned) InteractionNotice.PostPinned else InteractionNotice.PostUnpinned,
+                                        ),
+                                    )
+                                }
+                            },
+                            onFailure = { throwable ->
+                                if (throwable is CancellationException) throw throwable
+                                emit(
+                                    InteractionEffect.ShowNotice(
+                                        if (pinning) InteractionNotice.PinFailed else InteractionNotice.UnpinFailed,
+                                    ),
+                                )
+                            },
+                        )
+                    }
+                }
+
                 // Block removal is not implemented yet. Surface a coming-soon snackbar.
                 PostOverflowAction.UnblockAuthor ->
                     emit(InteractionEffect.ShowComingSoon(action))
@@ -371,4 +399,6 @@ internal fun PostOverflowAction.toMenuAction(): PostMenuAction =
         PostOverflowAction.CopyPostText -> PostMenuAction.CopyText
         PostOverflowAction.TranslatePost -> PostMenuAction.Translate
         PostOverflowAction.DeletePost -> PostMenuAction.Delete
+        PostOverflowAction.PinPost -> PostMenuAction.PinPost
+        PostOverflowAction.UnpinPost -> PostMenuAction.UnpinPost
     }

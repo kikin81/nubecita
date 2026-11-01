@@ -36,6 +36,12 @@
     <string name="post_notice_thread_unmuted">Hilo con sonido de nuevo</string>
     <string name="post_notice_mute_thread_failed">No se pudo silenciar el hilo</string>
     <string name="post_notice_unmute_thread_failed">No se pudo dejar de silenciar el hilo</string>
+    <string name="post_overflow_pin">Fijar en tu perfil</string>
+    <string name="post_overflow_unpin">Dejar de fijar en el perfil</string>
+    <string name="post_notice_post_pinned">Publicación fijada</string>
+    <string name="post_notice_post_unpinned">Publicación desfijada</string>
+    <string name="post_notice_pin_failed">No se pudo fijar la publicación</string>
+    <string name="post_notice_unpin_failed">No se pudo desfijar la publicación</string>
     <string name="moderation_action_copy_post_text">Copiar texto de la publicación</string>
     <string name="tombstone_blocked_post">Publicación de un usuario bloqueado</string>
     <string name="tombstone_unblock">Desbloquear</string>

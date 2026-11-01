@@ -20,6 +20,7 @@ import net.kikin.nubecita.core.postinteractions.PendingState
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.ThreadMuteRepository
+import net.kikin.nubecita.core.profile.PinnedPostRepository
 import net.kikin.nubecita.data.models.PostUi
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -45,6 +46,7 @@ internal class DefaultPostInteractionsCache
         private val likeRepostRepository: LikeRepostRepository,
         private val bookmarkRepository: BookmarkRepository,
         private val threadMuteRepository: ThreadMuteRepository,
+        private val pinnedPostRepository: PinnedPostRepository,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) : PostInteractionsCache,
         SessionClearable {
@@ -53,6 +55,11 @@ internal class DefaultPostInteractionsCache
         private val repostJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
         private val bookmarkJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
         private val threadMuteJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
+
+        // One profile record holds the pin, so at most one pin write at a time.
+        private val pinJob =
+            java.util.concurrent.atomic
+                .AtomicReference<kotlinx.coroutines.Job?>(null)
 
         override val state: StateFlow<PersistentMap<String, PostInteractionState>> = _state.asStateFlow()
 
@@ -93,6 +100,7 @@ internal class DefaultPostInteractionsCache
                                     replyCount = post.stats.replyCount.toLong(),
                                     replyCountFloor = existing?.replyCountFloor?.liveAbove(post),
                                     threadMuteOverride = existing?.threadMuteOverride,
+                                    pinOverride = existing?.pinOverride,
                                 ).withWireOverlays(post)
                         }
                     acc.putting(post.id, merged)
@@ -263,6 +271,56 @@ internal class DefaultPostInteractionsCache
             }
         }
 
+        override suspend fun togglePin(
+            postUri: String,
+            postCid: String,
+        ): Result<Boolean?> {
+            if (pinJob.get()?.isActive == true) return Result.success(null)
+            val target = _state.value[postUri]?.isPinned != true
+
+            // Flip this post, and (when pinning) clear every other pinned post,
+            // atomically. A post absent from the cache is not inserted — a
+            // default entry would zero its counts on merge — so it simply
+            // isn't flipped; every surface seeds before it renders.
+            var before: Map<String, PostInteractionState> = emptyMap()
+            _state.update { map ->
+                val affected = map.filter { (id, state) -> id == postUri || (target && state.isPinned) }
+                before = affected
+                affected.entries.fold(map) { acc, (id, state) ->
+                    val pinned = id == postUri && target
+                    acc.putting(id, state.copy(isPinned = pinned, pinOverride = pinned))
+                }
+            }
+
+            val job =
+                applicationScope.async {
+                    runCatchingCancellable {
+                        if (target) {
+                            pinnedPostRepository.pin(uri = postUri, cid = postCid).getOrThrow()
+                        } else {
+                            pinnedPostRepository.unpin(uri = postUri).getOrThrow()
+                        }
+                    }.fold(
+                        onSuccess = { Result.success<Boolean?>(target) },
+                        onFailure = { throwable ->
+                            _state.update { map ->
+                                before.entries.fold(map) { acc, (id, previous) ->
+                                    val now = acc[id] ?: previous
+                                    acc.putting(id, now.copy(isPinned = previous.isPinned, pinOverride = previous.pinOverride))
+                                }
+                            }
+                            Result.failure(throwable)
+                        },
+                    )
+                }
+            pinJob.set(job)
+            return try {
+                job.await()
+            } finally {
+                pinJob.compareAndSet(job, null)
+            }
+        }
+
         override suspend fun toggleThreadMute(postUri: String): Result<Boolean> {
             val current = _state.value[postUri] ?: PostInteractionState()
             val threadKey = current.threadRootUri ?: postUri
@@ -375,7 +433,14 @@ private fun PostInteractionState.withWireReplyCount(post: PostUi): PostInteracti
  */
 private fun PostInteractionState.withWireOverlays(post: PostUi): PostInteractionState {
     val (muted, muteOverride) = resolveOverride(wire = post.viewer.isThreadMuted, override = threadMuteOverride)
-    return copy(threadRootUri = post.threadRootUri, isThreadMuted = muted, threadMuteOverride = muteOverride)
+    val (pinned, pinnedOverride) = resolveOverride(wire = post.viewer.isPinned, override = pinOverride)
+    return copy(
+        threadRootUri = post.threadRootUri,
+        isThreadMuted = muted,
+        threadMuteOverride = muteOverride,
+        isPinned = pinned,
+        pinOverride = pinnedOverride,
+    )
 }
 
 private fun resolveOverride(

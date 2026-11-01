@@ -130,6 +130,20 @@ interface PostInteractionsCache {
     fun markDeleted(postUri: String)
 
     /**
+     * Pin [postUri] to the viewer's profile, or unpin it if it is pinned.
+     * Pinning optimistically clears the pin from any other cached post (one
+     * profile record holds one pin) and rolls everything back on failure.
+     *
+     * Returns the new pinned value, or `success(null)` when the call was
+     * ignored because another pin write is already in flight. Defaulted so
+     * test doubles that don't exercise pinning need no change.
+     */
+    suspend fun togglePin(
+        postUri: String,
+        postCid: String,
+    ): Result<Boolean?> = Result.failure(UnsupportedOperationException("togglePin"))
+
+    /**
      * Mute or unmute the thread [postUri] belongs to (keyed by its thread root),
      * optimistically flipping every cached post in that thread and rolling back
      * on failure. Returns the new muted value. A call while a write for the same

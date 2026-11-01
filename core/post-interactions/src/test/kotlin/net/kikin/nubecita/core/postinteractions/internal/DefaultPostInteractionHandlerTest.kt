@@ -352,6 +352,8 @@ internal class DefaultPostInteractionHandlerTest {
                 PostOverflowAction.CopyPostText,
                 PostOverflowAction.TranslatePost,
                 PostOverflowAction.DeletePost,
+                PostOverflowAction.PinPost,
+                PostOverflowAction.UnpinPost,
             )
         assertEquals(all.size, all.map { it.toMenuAction() }.toSet().size)
     }
@@ -583,6 +585,66 @@ internal class DefaultPostInteractionHandlerTest {
 
                 val effect = awaitItem() as InteractionEffect.ShowNotice
                 assertEquals(InteractionNotice.UnmuteThreadFailed, effect.notice)
+            }
+        }
+
+    @Test
+    fun `onOverflowAction PinPost toggles the pin and emits PostPinned`() =
+        runTest(mainDispatcher.dispatcher) {
+            fakeCache.nextTogglePinResult = Result.success(true)
+            val handler = makeHandler()
+            handler.bind(PostSurface.Feed, this)
+
+            handler.interactionEffects.test {
+                handler.onOverflowAction(unlikedPost(), PostOverflowAction.PinPost)
+
+                val effect = awaitItem() as InteractionEffect.ShowNotice
+                assertEquals(InteractionNotice.PostPinned, effect.notice)
+            }
+            assertEquals(listOf("at://did:plc:author/app.bsky.feed.post/post-1" to "bafy123"), fakeCache.togglePinArgs)
+        }
+
+    @Test
+    fun `onOverflowAction UnpinPost emits PostUnpinned`() =
+        runTest(mainDispatcher.dispatcher) {
+            fakeCache.nextTogglePinResult = Result.success(false)
+            val handler = makeHandler()
+            handler.bind(PostSurface.Feed, this)
+
+            handler.interactionEffects.test {
+                handler.onOverflowAction(unlikedPost(), PostOverflowAction.UnpinPost)
+
+                val effect = awaitItem() as InteractionEffect.ShowNotice
+                assertEquals(InteractionNotice.PostUnpinned, effect.notice)
+            }
+        }
+
+    @Test
+    fun `a failed PinPost emits PinFailed`() =
+        runTest(mainDispatcher.dispatcher) {
+            fakeCache.nextTogglePinResult = Result.failure(RuntimeException("boom"))
+            val handler = makeHandler()
+            handler.bind(PostSurface.Feed, this)
+
+            handler.interactionEffects.test {
+                handler.onOverflowAction(unlikedPost(), PostOverflowAction.PinPost)
+
+                val effect = awaitItem() as InteractionEffect.ShowNotice
+                assertEquals(InteractionNotice.PinFailed, effect.notice)
+            }
+        }
+
+    @Test
+    fun `an ignored pin tap emits nothing`() =
+        runTest(mainDispatcher.dispatcher) {
+            fakeCache.nextTogglePinResult = Result.success(null)
+            val handler = makeHandler()
+            handler.bind(PostSurface.Feed, this)
+
+            handler.interactionEffects.test {
+                handler.onOverflowAction(unlikedPost(), PostOverflowAction.PinPost)
+
+                expectNoEvents()
             }
         }
 

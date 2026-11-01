@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.postinteractions.internal.DefaultPostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.internal.FakeBookmarkRepository
 import net.kikin.nubecita.core.postinteractions.internal.FakeLikeRepostRepository
+import net.kikin.nubecita.core.postinteractions.internal.FakePinnedPostRepository
 import net.kikin.nubecita.core.postinteractions.internal.FakeThreadMuteRepository
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
@@ -554,6 +555,7 @@ internal class DefaultPostInteractionsCacheTest {
             likeRepostRepository = fake,
             bookmarkRepository = bookmarks,
             threadMuteRepository = FakeThreadMuteRepository(),
+            pinnedPostRepository = FakePinnedPostRepository(),
             applicationScope = this,
         )
 

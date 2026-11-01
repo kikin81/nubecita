@@ -49,6 +49,10 @@ enum class InteractionNotice {
     ThreadUnmuted,
     MuteThreadFailed,
     UnmuteThreadFailed,
+    PostPinned,
+    PostUnpinned,
+    PinFailed,
+    UnpinFailed,
 }
 
 /**

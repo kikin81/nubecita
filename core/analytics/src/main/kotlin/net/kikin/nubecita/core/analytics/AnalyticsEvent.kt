@@ -899,6 +899,8 @@ enum class PostMenuAction(
     CopyText("copy_text"),
     Translate("translate"),
     Delete("delete"),
+    PinPost("pin_post"),
+    UnpinPost("unpin_post"),
 
     /** The user confirmed the delete dialog — the post is actually being deleted. */
     DeleteConfirmed("delete_confirmed"),

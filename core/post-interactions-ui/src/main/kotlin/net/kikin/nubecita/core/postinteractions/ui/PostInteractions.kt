@@ -273,6 +273,11 @@ fun rememberPostInteractions(
                             // through ConfirmDeletePost → onConfirmDeletePost.
                             // Present only to keep this when exhaustive.
                             PostOverflowAction.DeletePost -> currentStrings.deleteTitle
+                            // Pin / unpin report through ShowNotice, never as a
+                            // coming-soon; present only to keep this when exhaustive.
+                            PostOverflowAction.PinPost,
+                            PostOverflowAction.UnpinPost,
+                            -> currentStrings.errorUnknown
                         }
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(message = message)
@@ -371,12 +376,20 @@ private fun rememberInteractionNoticeText(): Map<InteractionNotice, String> {
     val threadUnmuted = stringResource(DesignSystemR.string.post_notice_thread_unmuted)
     val muteThreadFailed = stringResource(DesignSystemR.string.post_notice_mute_thread_failed)
     val unmuteThreadFailed = stringResource(DesignSystemR.string.post_notice_unmute_thread_failed)
-    return remember(threadMuted, threadUnmuted, muteThreadFailed, unmuteThreadFailed) {
+    val postPinned = stringResource(DesignSystemR.string.post_notice_post_pinned)
+    val postUnpinned = stringResource(DesignSystemR.string.post_notice_post_unpinned)
+    val pinFailed = stringResource(DesignSystemR.string.post_notice_pin_failed)
+    val unpinFailed = stringResource(DesignSystemR.string.post_notice_unpin_failed)
+    return remember(threadMuted, threadUnmuted, muteThreadFailed, unmuteThreadFailed, postPinned, postUnpinned, pinFailed, unpinFailed) {
         mapOf(
             InteractionNotice.ThreadMuted to threadMuted,
             InteractionNotice.ThreadUnmuted to threadUnmuted,
             InteractionNotice.MuteThreadFailed to muteThreadFailed,
             InteractionNotice.UnmuteThreadFailed to unmuteThreadFailed,
+            InteractionNotice.PostPinned to postPinned,
+            InteractionNotice.PostUnpinned to postUnpinned,
+            InteractionNotice.PinFailed to pinFailed,
+            InteractionNotice.UnpinFailed to unpinFailed,
         )
     }
 }
