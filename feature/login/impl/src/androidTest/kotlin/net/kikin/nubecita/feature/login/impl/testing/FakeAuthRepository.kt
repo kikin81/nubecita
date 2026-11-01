@@ -25,9 +25,20 @@ internal class FakeAuthRepository
         @Volatile
         var beginLoginFailure: Throwable? = null
 
+        @Volatile
+        var beginSignupUrl: String = DEFAULT_SIGNUP_AUTHORIZATION_URL
+
+        @Volatile
+        var beginSignupFailure: Throwable? = null
+
         override suspend fun beginLogin(handle: String): Result<String> {
             beginLoginFailure?.let { return Result.failure(it) }
             return Result.success(beginLoginUrl)
+        }
+
+        override suspend fun beginSignup(): Result<String> {
+            beginSignupFailure?.let { return Result.failure(it) }
+            return Result.success(beginSignupUrl)
         }
 
         override suspend fun completeLogin(redirectUri: String): Result<Unit> = Result.success(Unit)
@@ -37,5 +48,10 @@ internal class FakeAuthRepository
         companion object {
             const val DEFAULT_AUTHORIZATION_URL: String =
                 "https://bsky.social/oauth/authorize?client_id=test&state=abc123"
+
+            // Distinct fixture URL so the instrumentation test can distinguish a
+            // CTA-triggered intent from a submit-triggered intent if both ever fire.
+            const val DEFAULT_SIGNUP_AUTHORIZATION_URL: String =
+                "https://bsky.social/oauth/authorize?client_id=test&request_uri=urn:test:signup"
         }
     }
