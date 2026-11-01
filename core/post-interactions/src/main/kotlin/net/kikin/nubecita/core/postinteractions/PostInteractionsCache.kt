@@ -130,6 +130,16 @@ interface PostInteractionsCache {
     fun markDeleted(postUri: String)
 
     /**
+     * Mute or unmute the thread [postUri] belongs to (keyed by its thread root),
+     * optimistically flipping every cached post in that thread and rolling back
+     * on failure. Returns the new muted value. A call while a write for the same
+     * thread is in flight is ignored and returns the current value.
+     *
+     * Defaulted so test doubles that don't exercise thread mute need no change.
+     */
+    suspend fun toggleThreadMute(postUri: String): Result<Boolean> = Result.failure(UnsupportedOperationException("toggleThreadMute"))
+
+    /**
      * The viewer just sent a reply to [parentUri]: raise its reply count by one
      * on every surface. A no-op for a post no surface has loaded.
      */

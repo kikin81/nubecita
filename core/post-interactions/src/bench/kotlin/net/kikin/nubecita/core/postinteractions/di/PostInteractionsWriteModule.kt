@@ -6,8 +6,10 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.core.postinteractions.FollowRepository
 import net.kikin.nubecita.core.postinteractions.LikeRepostRepository
+import net.kikin.nubecita.core.postinteractions.ThreadMuteRepository
 import net.kikin.nubecita.core.postinteractions.internal.BenchFakeFollowRepository
 import net.kikin.nubecita.core.postinteractions.internal.BenchFakeLikeRepostRepository
+import net.kikin.nubecita.core.postinteractions.internal.BenchFakeThreadMuteRepository
 import javax.inject.Singleton
 
 /**
@@ -44,4 +46,10 @@ abstract class PostInteractionsWriteModule {
     internal abstract fun bindFollowRepository(
         impl: BenchFakeFollowRepository,
     ): FollowRepository
+
+    @Binds
+    @Singleton
+    internal abstract fun bindThreadMuteRepository(
+        impl: BenchFakeThreadMuteRepository,
+    ): ThreadMuteRepository
 }

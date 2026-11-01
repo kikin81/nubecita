@@ -18,6 +18,7 @@ import net.kikin.nubecita.core.analytics.PostTextTarget
 import net.kikin.nubecita.core.analytics.Share
 import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.postinteractions.InteractionEffect
+import net.kikin.nubecita.core.postinteractions.InteractionNotice
 import net.kikin.nubecita.core.postinteractions.PostDeletionRepository
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
@@ -525,30 +526,63 @@ internal class DefaultPostInteractionHandlerTest {
         }
 
     @Test
-    fun `onOverflowAction MuteThread emits ShowComingSoon`() =
+    fun `onOverflowAction MuteThread toggles the thread mute and emits ThreadMuted`() =
         runTest(mainDispatcher.dispatcher) {
+            fakeCache.nextToggleThreadMuteResult = Result.success(true)
             val handler = makeHandler()
             handler.bind(PostSurface.Feed, this)
 
             handler.interactionEffects.test {
                 handler.onOverflowAction(unlikedPost(), PostOverflowAction.MuteThread)
 
-                val effect = awaitItem() as InteractionEffect.ShowComingSoon
-                assertEquals(PostOverflowAction.MuteThread, effect.action)
+                val effect = awaitItem() as InteractionEffect.ShowNotice
+                assertEquals(InteractionNotice.ThreadMuted, effect.notice)
             }
+            assertEquals(listOf("at://did:plc:author/app.bsky.feed.post/post-1"), fakeCache.toggleThreadMuteArgs)
         }
 
     @Test
-    fun `onOverflowAction UnmuteThread emits ShowComingSoon`() =
+    fun `onOverflowAction UnmuteThread emits ThreadUnmuted`() =
         runTest(mainDispatcher.dispatcher) {
+            fakeCache.nextToggleThreadMuteResult = Result.success(false)
             val handler = makeHandler()
             handler.bind(PostSurface.Feed, this)
 
             handler.interactionEffects.test {
                 handler.onOverflowAction(unlikedPost(), PostOverflowAction.UnmuteThread)
 
-                val effect = awaitItem() as InteractionEffect.ShowComingSoon
-                assertEquals(PostOverflowAction.UnmuteThread, effect.action)
+                val effect = awaitItem() as InteractionEffect.ShowNotice
+                assertEquals(InteractionNotice.ThreadUnmuted, effect.notice)
+            }
+        }
+
+    @Test
+    fun `a failed MuteThread emits MuteThreadFailed`() =
+        runTest(mainDispatcher.dispatcher) {
+            fakeCache.nextToggleThreadMuteResult = Result.failure(RuntimeException("boom"))
+            val handler = makeHandler()
+            handler.bind(PostSurface.Feed, this)
+
+            handler.interactionEffects.test {
+                handler.onOverflowAction(unlikedPost(), PostOverflowAction.MuteThread)
+
+                val effect = awaitItem() as InteractionEffect.ShowNotice
+                assertEquals(InteractionNotice.MuteThreadFailed, effect.notice)
+            }
+        }
+
+    @Test
+    fun `a failed UnmuteThread emits UnmuteThreadFailed`() =
+        runTest(mainDispatcher.dispatcher) {
+            fakeCache.nextToggleThreadMuteResult = Result.failure(RuntimeException("boom"))
+            val handler = makeHandler()
+            handler.bind(PostSurface.Feed, this)
+
+            handler.interactionEffects.test {
+                handler.onOverflowAction(unlikedPost(), PostOverflowAction.UnmuteThread)
+
+                val effect = awaitItem() as InteractionEffect.ShowNotice
+                assertEquals(InteractionNotice.UnmuteThreadFailed, effect.notice)
             }
         }
 

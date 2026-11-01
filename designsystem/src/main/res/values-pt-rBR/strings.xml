@@ -32,6 +32,10 @@
     <string name="moderation_action_unblock_author">Desbloquear \@%1$s</string>
     <string name="moderation_action_mute_thread">Silenciar thread</string>
     <string name="moderation_action_unmute_thread">Reativar som do thread</string>
+    <string name="post_notice_thread_muted">Thread silenciado</string>
+    <string name="post_notice_thread_unmuted">Som do thread reativado</string>
+    <string name="post_notice_mute_thread_failed">Não foi possível silenciar o thread</string>
+    <string name="post_notice_unmute_thread_failed">Não foi possível reativar o som do thread</string>
     <string name="moderation_action_copy_post_text">Copiar texto do post</string>
     <string name="tombstone_blocked_post">Post de um usuário bloqueado</string>
     <string name="tombstone_unblock">Desbloquear</string>

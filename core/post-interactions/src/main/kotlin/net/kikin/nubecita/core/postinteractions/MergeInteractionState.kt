@@ -42,6 +42,7 @@ fun PostUi.mergeInteractionState(state: PostInteractionState): PostUi =
                 isRepostedByViewer = state.viewerRepostUri != null,
                 repostUri = state.viewerRepostUri?.takeIf { it != PENDING_REPOST_SENTINEL },
                 isBookmarked = state.isBookmarked,
+                isThreadMuted = state.isThreadMuted,
             ),
         stats =
             stats.copy(

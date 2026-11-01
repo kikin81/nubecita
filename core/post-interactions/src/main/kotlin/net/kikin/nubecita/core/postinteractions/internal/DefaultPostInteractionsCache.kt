@@ -19,6 +19,7 @@ import net.kikin.nubecita.core.postinteractions.LikeRepostRepository
 import net.kikin.nubecita.core.postinteractions.PendingState
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
+import net.kikin.nubecita.core.postinteractions.ThreadMuteRepository
 import net.kikin.nubecita.data.models.PostUi
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -43,6 +44,7 @@ internal class DefaultPostInteractionsCache
     constructor(
         private val likeRepostRepository: LikeRepostRepository,
         private val bookmarkRepository: BookmarkRepository,
+        private val threadMuteRepository: ThreadMuteRepository,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) : PostInteractionsCache,
         SessionClearable {
@@ -50,6 +52,7 @@ internal class DefaultPostInteractionsCache
         private val likeJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
         private val repostJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
         private val bookmarkJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
+        private val threadMuteJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
 
         override val state: StateFlow<PersistentMap<String, PostInteractionState>> = _state.asStateFlow()
 
@@ -63,22 +66,22 @@ internal class DefaultPostInteractionsCache
                             // writes. The appview keeps serving a deleted post
                             // briefly, so without this the next refresh would
                             // seed it straight back into view.
-                            existing?.isDeleted == true -> existing.withWireReplyCount(post)
+                            existing?.isDeleted == true -> existing.withWireReplyCount(post).withWireOverlays(post)
                             // In-flight optimistic state takes precedence over wire data.
                             existing?.pendingLikeWrite == PendingState.Pending ||
                                 existing?.pendingRepostWrite == PendingState.Pending ||
-                                existing?.pendingBookmarkWrite == PendingState.Pending -> existing.withWireReplyCount(post)
+                                existing?.pendingBookmarkWrite == PendingState.Pending -> existing.withWireReplyCount(post).withWireOverlays(post)
                             // Cached likeUri non-null but wire says null: assume appview lag,
                             // preserve cache. Same for repost / bookmark.
                             existing != null &&
                                 existing.viewerLikeUri != null &&
-                                post.viewer.likeUri == null -> existing.withWireReplyCount(post)
+                                post.viewer.likeUri == null -> existing.withWireReplyCount(post).withWireOverlays(post)
                             existing != null &&
                                 existing.viewerRepostUri != null &&
-                                post.viewer.repostUri == null -> existing.withWireReplyCount(post)
+                                post.viewer.repostUri == null -> existing.withWireReplyCount(post).withWireOverlays(post)
                             existing != null &&
                                 existing.isBookmarked &&
-                                !post.viewer.isBookmarked -> existing.withWireReplyCount(post)
+                                !post.viewer.isBookmarked -> existing.withWireReplyCount(post).withWireOverlays(post)
                             else ->
                                 PostInteractionState(
                                     viewerLikeUri = post.viewer.likeUri,
@@ -89,7 +92,8 @@ internal class DefaultPostInteractionsCache
                                     bookmarkCount = post.stats.bookmarkCount.toLong(),
                                     replyCount = post.stats.replyCount.toLong(),
                                     replyCountFloor = existing?.replyCountFloor?.liveAbove(post),
-                                )
+                                    threadMuteOverride = existing?.threadMuteOverride,
+                                ).withWireOverlays(post)
                         }
                     acc.putting(post.id, merged)
                 }
@@ -259,6 +263,61 @@ internal class DefaultPostInteractionsCache
             }
         }
 
+        override suspend fun toggleThreadMute(postUri: String): Result<Boolean> {
+            val current = _state.value[postUri] ?: PostInteractionState()
+            val threadKey = current.threadRootUri ?: postUri
+            if (threadMuteJobs[threadKey]?.isActive == true) {
+                return Result.success(current.isThreadMuted)
+            }
+            val target = !current.isThreadMuted
+
+            // Snapshot the thread's posts and flip them all in one atomic update.
+            var before: Map<String, PostInteractionState> = emptyMap()
+            _state.update { map ->
+                val inThread = map.filter { (id, state) -> (state.threadRootUri ?: id) == threadKey }
+                before = inThread
+                inThread.entries.fold(map) { acc, (id, state) ->
+                    acc.putting(id, state.copy(isThreadMuted = target, threadMuteOverride = target))
+                }
+            }
+
+            val job =
+                applicationScope.async {
+                    runCatchingCancellable {
+                        if (target) {
+                            threadMuteRepository.mute(threadKey).getOrThrow()
+                        } else {
+                            threadMuteRepository.unmute(threadKey).getOrThrow()
+                        }
+                    }.fold(
+                        onSuccess = { Result.success(target) },
+                        onFailure = { throwable ->
+                            // Restore only the thread-mute fields, so a like or
+                            // bookmark that landed meanwhile is not rolled back too.
+                            _state.update { map ->
+                                before.entries.fold(map) { acc, (id, previous) ->
+                                    val now = acc[id] ?: previous
+                                    acc.putting(
+                                        id,
+                                        now.copy(
+                                            isThreadMuted = previous.isThreadMuted,
+                                            threadMuteOverride = previous.threadMuteOverride,
+                                        ),
+                                    )
+                                }
+                            }
+                            Result.failure(throwable)
+                        },
+                    )
+                }
+            threadMuteJobs[threadKey] = job
+            return try {
+                job.await()
+            } finally {
+                threadMuteJobs.remove(threadKey)
+            }
+        }
+
         override fun markDeleted(postUri: String) {
             _state.update { current ->
                 val existing = current[postUri] ?: PostInteractionState()
@@ -308,6 +367,25 @@ internal class DefaultPostInteractionsCache
 
 /** Keeps the latest wire reply count (the floor's base) when the rest of [this] is preserved. */
 private fun PostInteractionState.withWireReplyCount(post: PostUi): PostInteractionState = copy(replyCount = post.stats.replyCount.toLong(), replyCountFloor = replyCountFloor?.liveAbove(post))
+
+/**
+ * Refresh the server-sourced overlay fields from [post], honouring any local
+ * override: an override is kept until the wire reports the same value, then
+ * cleared so the server is the source of truth again.
+ */
+private fun PostInteractionState.withWireOverlays(post: PostUi): PostInteractionState {
+    val (muted, muteOverride) = resolveOverride(wire = post.viewer.isThreadMuted, override = threadMuteOverride)
+    return copy(threadRootUri = post.threadRootUri, isThreadMuted = muted, threadMuteOverride = muteOverride)
+}
+
+private fun resolveOverride(
+    wire: Boolean,
+    override: Boolean?,
+): Pair<Boolean, Boolean?> =
+    when (override) {
+        null, wire -> wire to null
+        else -> override to override
+    }
 
 /** A floor the wire count has reached no longer does anything; drop it. */
 private fun Long.liveAbove(post: PostUi): Long? = takeIf { it > post.stats.replyCount }

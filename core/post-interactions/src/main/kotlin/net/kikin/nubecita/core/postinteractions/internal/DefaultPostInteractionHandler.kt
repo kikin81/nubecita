@@ -24,6 +24,7 @@ import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.postinteractions.InteractionEffect
 import net.kikin.nubecita.core.postinteractions.InteractionError
+import net.kikin.nubecita.core.postinteractions.InteractionNotice
 import net.kikin.nubecita.core.postinteractions.PostDeletionRepository
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
@@ -285,12 +286,34 @@ internal class DefaultPostInteractionHandler
                 PostOverflowAction.TranslatePost ->
                     emit(InteractionEffect.OpenTranslation(googleTranslateUrl(post.text)))
 
-                // These actions are not yet implemented on the server side
-                // (block removal, thread muting). Surface a coming-soon snackbar.
-                PostOverflowAction.UnblockAuthor,
                 PostOverflowAction.MuteThread,
                 PostOverflowAction.UnmuteThread,
-                -> emit(InteractionEffect.ShowComingSoon(action))
+                -> {
+                    val muting = action == PostOverflowAction.MuteThread
+                    requireScope().launch {
+                        cache.toggleThreadMute(post.id).fold(
+                            onSuccess = { nowMuted ->
+                                emit(
+                                    InteractionEffect.ShowNotice(
+                                        if (nowMuted) InteractionNotice.ThreadMuted else InteractionNotice.ThreadUnmuted,
+                                    ),
+                                )
+                            },
+                            onFailure = { throwable ->
+                                if (throwable is CancellationException) throw throwable
+                                emit(
+                                    InteractionEffect.ShowNotice(
+                                        if (muting) InteractionNotice.MuteThreadFailed else InteractionNotice.UnmuteThreadFailed,
+                                    ),
+                                )
+                            },
+                        )
+                    }
+                }
+
+                // Block removal is not implemented yet. Surface a coming-soon snackbar.
+                PostOverflowAction.UnblockAuthor ->
+                    emit(InteractionEffect.ShowComingSoon(action))
             }
         }
 

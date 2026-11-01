@@ -40,6 +40,18 @@ enum class InteractionError {
 }
 
 /**
+ * A one-line outcome the surface shows as a snackbar after a post-menu write
+ * (thread mute, pin). Resolved to copy by `rememberPostInteractions` from
+ * `:designsystem` strings, so the surfaces' `InteractionStrings` stay unchanged.
+ */
+enum class InteractionNotice {
+    ThreadMuted,
+    ThreadUnmuted,
+    MuteThreadFailed,
+    UnmuteThreadFailed,
+}
+
+/**
  * One-shot effects emitted by [PostInteractionHandler]. Consumed by the
  * host screen/ViewModel exactly once via a single collector.
  *
@@ -137,6 +149,11 @@ sealed interface InteractionEffect {
      */
     data class ShowComingSoon(
         val action: PostOverflowAction,
+    ) : InteractionEffect
+
+    /** Show [notice] as a snackbar — the outcome of a thread-mute or pin write. */
+    data class ShowNotice(
+        val notice: InteractionNotice,
     ) : InteractionEffect
 
     /**

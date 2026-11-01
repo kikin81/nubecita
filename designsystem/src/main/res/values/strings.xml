@@ -86,6 +86,10 @@
     <string name="moderation_action_unblock_author">Unblock \@%1$s</string>
     <string name="moderation_action_mute_thread">Mute thread</string>
     <string name="moderation_action_unmute_thread">Unmute thread</string>
+    <string name="post_notice_thread_muted">Thread muted</string>
+    <string name="post_notice_thread_unmuted">Thread unmuted</string>
+    <string name="post_notice_mute_thread_failed">Couldn\'t mute thread</string>
+    <string name="post_notice_unmute_thread_failed">Couldn\'t unmute thread</string>
     <string name="moderation_action_copy_post_text">Copy post text</string>
 
     <!-- Tombstone copy for blocked / not-found / detached posts rendered in
