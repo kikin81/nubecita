@@ -19,11 +19,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.postinteractions.InteractionEffect
 import net.kikin.nubecita.core.postinteractions.InteractionError
+import net.kikin.nubecita.core.postinteractions.InteractionNotice
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostTapMarkers
 import net.kikin.nubecita.core.postinteractions.sharing.launchPostShare
@@ -33,6 +35,7 @@ import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.moderation.api.Block
 import net.kikin.nubecita.feature.moderation.api.Report
+import net.kikin.nubecita.designsystem.R as DesignSystemR
 
 /**
  * Pre-resolved snackbar / clipboard strings for [rememberPostInteractions].
@@ -154,6 +157,7 @@ fun rememberPostInteractions(
     // InteractionStrings, but the running collector keeps using the latest
     // copy without restarting (which would drop in-flight effects).
     val currentStrings by rememberUpdatedState(strings)
+    val currentNoticeText by rememberUpdatedState(rememberInteractionNoticeText())
 
     val callbacks =
         remember(handler) {
@@ -274,6 +278,11 @@ fun rememberPostInteractions(
                     snackbarHostState.showSnackbar(message = message)
                 }
 
+                is InteractionEffect.ShowNotice -> {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(message = currentNoticeText.getValue(effect.notice))
+                }
+
                 is InteractionEffect.NavigateToComposer ->
                     currentNavState.add(
                         ComposerRoute(
@@ -350,4 +359,24 @@ private suspend fun SnackbarHostState.showCopyConfirmation(message: String) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return
     currentSnackbarData?.dismiss()
     showSnackbar(message = message)
+}
+
+/**
+ * Copy for every [InteractionNotice], resolved from `:designsystem` strings so
+ * the per-surface [InteractionStrings] need no new fields.
+ */
+@Composable
+private fun rememberInteractionNoticeText(): Map<InteractionNotice, String> {
+    val threadMuted = stringResource(DesignSystemR.string.post_notice_thread_muted)
+    val threadUnmuted = stringResource(DesignSystemR.string.post_notice_thread_unmuted)
+    val muteThreadFailed = stringResource(DesignSystemR.string.post_notice_mute_thread_failed)
+    val unmuteThreadFailed = stringResource(DesignSystemR.string.post_notice_unmute_thread_failed)
+    return remember(threadMuted, threadUnmuted, muteThreadFailed, unmuteThreadFailed) {
+        mapOf(
+            InteractionNotice.ThreadMuted to threadMuted,
+            InteractionNotice.ThreadUnmuted to threadUnmuted,
+            InteractionNotice.MuteThreadFailed to muteThreadFailed,
+            InteractionNotice.UnmuteThreadFailed to unmuteThreadFailed,
+        )
+    }
 }

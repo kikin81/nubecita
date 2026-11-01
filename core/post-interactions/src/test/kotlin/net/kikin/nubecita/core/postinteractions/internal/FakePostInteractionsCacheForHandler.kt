@@ -59,6 +59,14 @@ internal class FakePostInteractionsCacheForHandler : PostInteractionsCache {
         return nextToggleRepostResult
     }
 
+    val toggleThreadMuteArgs: MutableList<String> = mutableListOf()
+    var nextToggleThreadMuteResult: Result<Boolean> = Result.success(true)
+
+    override suspend fun toggleThreadMute(postUri: String): Result<Boolean> {
+        toggleThreadMuteArgs += postUri
+        return nextToggleThreadMuteResult
+    }
+
     var toggleBookmarkCalls: Int = 0
     val lastToggleBookmarkArgs: MutableList<Pair<String, String>> = mutableListOf()
     var nextToggleBookmarkResult: Result<Unit> = Result.success(Unit)
