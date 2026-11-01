@@ -758,24 +758,14 @@ private fun RepostAction(
 }
 
 /**
- * 5th action-row affordance — an icon-button that opens a DropdownMenu
- * with the moderation / utility entries listed in [PostOverflowAction].
+ * 5th action-row affordance — an icon-button that opens the post overflow
+ * [PostOverflowSheet]: grouped rows from [postOverflowGroups] (utility, thread,
+ * then Delete on your own post or Mute / Block / Report on anyone else's).
  *
- * **DropdownMenu (not ModalBottomSheet).** Matches the existing
- * ProfileHero pattern, cheaper to render at 120Hz scroll (no scrim, no
- * sheet animations to budget around), and matches social-app's
- * PostMenu shape on web. Owns its own `expanded` state — the parent
- * passes a single dispatch lambda, not visibility.
- *
- * Visibility rules (per the oftc.2 spec):
- * - "Report post" — always visible.
- * - "Mute @handle" / "Unmute @handle" — exactly one of the pair,
- *   keyed on `post.viewer.isAuthorMutedByViewer`.
- * - "Block @handle" / "Unblock @handle" — exactly one of the pair,
- *   keyed on `post.viewer.isAuthorBlockedByViewer`.
- * - "Mute thread" — always visible in oftc.2; per-thread mute-state
- *   lookup ships under oftc.5.
- * - "Copy post text" — always visible.
+ * **Lazy by construction.** The sheet is composed only while open, so a closed
+ * overflow adds no sheet state or row content to the 120 Hz scroll path
+ * (pinned by `PostOverflowSheetLazinessTest`). Owns its own open state — the
+ * parent passes a single dispatch lambda, not visibility.
  */
 @Composable
 private fun PostOverflowAffordance(
@@ -783,143 +773,18 @@ private fun PostOverflowAffordance(
     onAction: (PostOverflowAction) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    Box {
-        PostStat(
-            name = NubecitaIconName.MoreHoriz,
-            count = null,
-            accessibilityLabel = stringResource(R.string.postcard_action_more),
-            onClick = { expanded = true },
+    PostStat(
+        name = NubecitaIconName.MoreHoriz,
+        count = null,
+        accessibilityLabel = stringResource(R.string.postcard_action_more),
+        onClick = { expanded = true },
+    )
+    if (expanded) {
+        PostOverflowSheet(
+            post = post,
+            onDismiss = { expanded = false },
+            onAction = onAction,
         )
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            // Own posts only. A viewer can never delete somebody else's post,
-            // so the row is absent rather than disabled — and the condition is
-            // free: a collapsed DropdownMenu does not compose its content
-            // (pinned by DropdownMenuLazinessTest), so this never runs on the
-            // scroll path.
-            if (post.viewer.isOwnPost) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.postcard_action_delete_post)) },
-                    onClick = {
-                        expanded = false
-                        onAction(PostOverflowAction.DeletePost)
-                    },
-                )
-            }
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.moderation_action_report_post)) },
-                onClick = {
-                    expanded = false
-                    onAction(PostOverflowAction.ReportPost)
-                },
-            )
-            if (!post.viewer.isOwnPost) {
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            stringResource(
-                                R.string.moderation_action_report_author,
-                                post.author.handle,
-                            ),
-                        )
-                    },
-                    onClick = {
-                        expanded = false
-                        onAction(PostOverflowAction.ReportAuthor)
-                    },
-                )
-            }
-            // Mute / Unmute pair — exactly one renders. Keyed on the
-            // post's viewer projection so oftc.1's mapper population is
-            // load-bearing.
-            if (post.viewer.isAuthorMutedByViewer) {
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            stringResource(
-                                R.string.moderation_action_unmute_author,
-                                post.author.handle,
-                            ),
-                        )
-                    },
-                    onClick = {
-                        expanded = false
-                        onAction(PostOverflowAction.UnmuteAuthor)
-                    },
-                )
-            } else {
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            stringResource(
-                                R.string.moderation_action_mute_author,
-                                post.author.handle,
-                            ),
-                        )
-                    },
-                    onClick = {
-                        expanded = false
-                        onAction(PostOverflowAction.MuteAuthor)
-                    },
-                )
-            }
-            if (post.viewer.isAuthorBlockedByViewer) {
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            stringResource(
-                                R.string.moderation_action_unblock_author,
-                                post.author.handle,
-                            ),
-                        )
-                    },
-                    onClick = {
-                        expanded = false
-                        onAction(PostOverflowAction.UnblockAuthor)
-                    },
-                )
-            } else {
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            stringResource(
-                                R.string.moderation_action_block_author,
-                                post.author.handle,
-                            ),
-                        )
-                    },
-                    onClick = {
-                        expanded = false
-                        onAction(PostOverflowAction.BlockAuthor)
-                    },
-                )
-            }
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.moderation_action_mute_thread)) },
-                onClick = {
-                    expanded = false
-                    onAction(PostOverflowAction.MuteThread)
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.moderation_action_copy_post_text)) },
-                onClick = {
-                    expanded = false
-                    onAction(PostOverflowAction.CopyPostText)
-                },
-            )
-            // Omitted entirely on an image- or video-only post: there is no
-            // text to translate, so the row would open a translator on an
-            // empty string.
-            if (post.text.isNotBlank()) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.moderation_action_translate_post)) },
-                    onClick = {
-                        expanded = false
-                        onAction(PostOverflowAction.TranslatePost)
-                    },
-                )
-            }
-        }
     }
 }
 

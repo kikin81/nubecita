@@ -101,4 +101,17 @@ public data class ViewerStateUi(
      * Delete affordance, never offer it on somebody else's post.
      */
     val isOwnPost: Boolean = false,
+    /**
+     * Whether this post is the viewer's pinned post. Sourced from the post
+     * viewer's `pinned` flag (`app.bsky.feed.defs#viewerState`); only ever
+     * true on the viewer's own posts. Drives the overflow sheet's
+     * "Pin to your profile" / "Unpin from profile" row.
+     */
+    val isPinned: Boolean = false,
+    /**
+     * Whether the viewer has muted this post's thread. Sourced from the post
+     * viewer's `threadMuted` flag; drives the "Mute thread" / "Unmute thread"
+     * row.
+     */
+    val isThreadMuted: Boolean = false,
 )

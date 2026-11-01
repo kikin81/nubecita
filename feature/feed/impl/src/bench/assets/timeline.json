@@ -33,9 +33,58 @@
           "repostUri": null,
           "isAuthorMutedByViewer": false,
           "isAuthorBlockedByViewer": false,
-          "isAuthorBlockingViewer": false
+          "isAuthorBlockingViewer": false,
+          "isThreadMuted": true
         },
         "repostedBy": null
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:benchnubecita0000000000000/app.bsky.feed.post/3kbenchpin01",
+        "cid": "bafyreibenchpinned00000000000000000000000000000000000000001",
+        "author": {
+          "did": "did:plc:benchnubecita0000000000000",
+          "handle": "bench.nubecita.app",
+          "displayName": "Nubecita Bench"
+        },
+        "createdAt": "2026-05-26T16:50:00Z",
+        "text": "pinned: building nubecita in the open. a fast, native bluesky client.",
+        "embed": {
+          "type": "Empty"
+        },
+        "stats": {
+          "replyCount": 3,
+          "repostCount": 1,
+          "likeCount": 24
+        },
+        "viewer": {
+          "isOwnPost": true,
+          "isPinned": true
+        }
+      }
+    },
+    {
+      "type": "Single",
+      "post": {
+        "id": "at://did:plc:benchnubecita0000000000000/app.bsky.feed.post/3kbenchrep01",
+        "cid": "bafyreibenchreply000000000000000000000000000000000000000001",
+        "author": {
+          "did": "did:plc:benchnubecita0000000000000",
+          "handle": "bench.nubecita.app",
+          "displayName": "Nubecita Bench"
+        },
+        "createdAt": "2026-05-26T16:45:00Z",
+        "text": "replying to alice: the scroll really does hold at 120hz now.",
+        "embed": {
+          "type": "Empty"
+        },
+        "stats": {},
+        "viewer": {
+          "isOwnPost": true
+        },
+        "threadRootUri": "at://did:plc:alice000000000000000000/app.bsky.feed.post/3kfeed0001"
       }
     },
     {

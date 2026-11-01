@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
+import net.kikin.nubecita.designsystem.component.PostOverflowSheet
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.semanticColors
 import net.kikin.nubecita.feature.videos.impl.R
@@ -127,12 +128,15 @@ internal fun VideoPageChrome(
                     onClick = { overflowExpanded = true },
                     testTag = VideoFeedTestTags.RAIL_OVERFLOW,
                 )
-                VideoOverflowMenu(
-                    post = post,
-                    expanded = overflowExpanded,
-                    onDismiss = { overflowExpanded = false },
-                    onAction = onOverflowAction,
-                )
+                // Same grouped sheet and rules as PostCard's overflow; composed
+                // only while open so a closed overflow costs nothing.
+                if (overflowExpanded) {
+                    PostOverflowSheet(
+                        post = post,
+                        onDismiss = { overflowExpanded = false },
+                        onAction = onOverflowAction,
+                    )
+                }
             }
             VideoRailAction(
                 icon = if (isMuted) NubecitaIconName.VolumeOff else NubecitaIconName.VolumeUp,
