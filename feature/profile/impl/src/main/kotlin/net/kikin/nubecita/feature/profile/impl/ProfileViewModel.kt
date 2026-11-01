@@ -454,10 +454,12 @@ internal class ProfileViewModel
                 }
             val expected = fromCache ?: fromHeader
             when {
-                expected == null && current != null -> {
+                // Nothing should be pinned: cancel any in-flight resolve too, even
+                // with an empty slot — a pin rolled back mid-fetch must not land.
+                expected == null -> {
                     pinnedPostResolveJob?.cancel()
                     pinnedPostResolveTarget = null
-                    setState { copy(pinnedPost = null) }
+                    if (current != null) setState { copy(pinnedPost = null) }
                 }
                 expected != null &&
                     expected != current?.id &&
@@ -478,7 +480,14 @@ internal class ProfileViewModel
         private fun resolvePinnedPost(ref: PinnedPostRef?) {
             // A header (re)load is the one place a previously failed resolve is retried.
             pinnedPostFailedUri = null
-            resolvePinnedPostUri(ref?.uri)
+            if (uiState.value.ownProfile) {
+                // Same cache-aware selection as cache updates, so a header fetched
+                // before the appview indexed a local pin can't undo it. The header
+                // is already in state here.
+                reconcilePinnedSlot(postInteractionsCache.state.value)
+            } else {
+                resolvePinnedPostUri(ref?.uri)
+            }
         }
 
         private fun resolvePinnedPostUri(uri: String?) {
