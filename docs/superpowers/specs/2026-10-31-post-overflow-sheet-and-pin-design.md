@@ -165,7 +165,9 @@ surface that hosts the sheet already delegates to it.
    succeeded.
    - Treat the pin flag exactly like `isLikedByViewer`. `PostInteractionsCache.seed`
      already keeps the local value of a like while its write is in flight and after it
-     succeeds. The pin flag follows the same rule, with the same expiry.
+     succeeds. The pin flag uses the same idea, but in **both directions**: a local override
+     set by the write is kept until a refresh reports the same value, then cleared. (The
+     like rule only protects the "on" direction; a pin move and an unmute need "off" too.)
    - This is the cache's existing optimistic layer applied to one more field, not new
      state the app tracks on its own. The server's `viewerState.pinned` is still the
      source of truth whenever no local write is involved.

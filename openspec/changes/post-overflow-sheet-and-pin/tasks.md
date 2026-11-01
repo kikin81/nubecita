@@ -14,7 +14,7 @@ Epic `nubecita-iwjz`. One `gh stack`, one PR per section 1–3, landed together 
 ## 2. Real thread mute — `nubecita-iwjz.4` (PR 2, stacked on PR 1)
 
 - [ ] 2.1 Add `ThreadMuteRepository` (`mute(rootUri)` / `unmute(rootUri)` over `MuteThreadRequest` / `UnmuteThreadRequest`) with a production implementation and a bench fake. Test: repository unit tests with a mocked XRPC client.
-- [ ] 2.2 Add an optimistic `isThreadMuted` flag to `PostInteractionsCache`, keyed by root URI, with the same in-flight and after-success rule as likes, and rollback. Test: cache unit tests for the flip across the thread, the rollback, and survival of a stale refresh.
+- [ ] 2.2 Add an optimistic `isThreadMuted` flag to `PostInteractionsCache`, keyed by root URI, kept as a local override, in both directions, until a server refresh agrees with it, and rollback. Test: cache unit tests for the flip across the thread, the rollback, and survival of a stale refresh.
 - [ ] 2.3 Route `MuteThread` / `UnmuteThread` in `DefaultPostInteractionHandler` off the coming-soon branch (`UnblockAuthor` stays). Add the success and failure snackbar effects and the repeat-tap guard. Test: handler unit tests for muting the root from a reply, failure rollback, and the repeat-tap guard.
 - [ ] 2.4 Add the strings "Thread muted", "Thread unmuted", "Couldn't mute thread" and "Couldn't unmute thread" with es-419 and pt-BR. Test: the touched module's own lint (`MissingTranslation`).
 - [ ] 2.5 Bench device pass: mute a thread from a reply, confirm the root post's sheet reads "Unmute thread", then unmute. Confirm the persisted state with a screenshot.

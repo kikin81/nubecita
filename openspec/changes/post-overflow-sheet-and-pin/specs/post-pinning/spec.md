@@ -59,7 +59,7 @@ Unpin SHALL clear `pinnedPost` only if the record's current `pinnedPost.uri` equ
 
 ### Requirement: Pin state updates optimistically across every surface
 
-On `PinPost` for post `B`, `PostInteractionsCache` SHALL immediately set `isPinned = true` on `B`, and `false` on any other cached post that was pinned. Feed, Post detail, Profile and Videos all reflect this. Flipped values survive stale server refreshes, under the same rule as `isLikedByViewer`.
+On `PinPost` for post `B`, `PostInteractionsCache` SHALL immediately set `isPinned = true` on `B`, and `false` on any other cached post that was pinned. Feed, Post detail, Profile and Videos all reflect this. Flipped values are kept as a local override, in both directions, until a server refresh agrees with it.
 
 #### Scenario: Moving the pin from A to B
 
