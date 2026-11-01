@@ -4,13 +4,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -49,6 +54,9 @@ fun PostOverflowSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val groups = remember(post) { postOverflowGroups(post) }
+    // One selection per open sheet: rows stay tappable during the hide
+    // animation, and a second tap must not dispatch a second action.
+    var selected by remember { mutableStateOf(false) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -58,9 +66,15 @@ fun PostOverflowSheet(
             groups = groups,
             handle = post.author.handle,
             onAction = { action ->
-                scope.launch { sheetState.hide() }.invokeOnCompletion {
-                    onDismiss()
-                    onAction(action)
+                if (!selected) {
+                    selected = true
+                    // Sequential, on the composition's main-thread scope: dispatch
+                    // only after the hide animation completes.
+                    scope.launch {
+                        sheetState.hide()
+                        onDismiss()
+                        onAction(action)
+                    }
                 }
             },
         )
@@ -79,7 +93,13 @@ fun PostOverflowGroupsContent(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+        // Scrollable so every row stays reachable on a short window or with
+        // enlarged text (up to eight rows on your own post).
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         groups.forEach { group ->
