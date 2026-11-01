@@ -47,6 +47,12 @@
         <meta-data
             android:name="firebase_analytics_collection_enabled"
             android:value="false" />
+
+        <!-- Debug-only LeakCanary tuning (dump on the first retained object). -->
+        <provider
+            android:name="net.kikin.nubecita.leakcanary.LeakCanaryConfigProvider"
+            android:authorities="${applicationId}.leakcanary-config"
+            android:exported="false" />
     </application>
 
 </manifest>

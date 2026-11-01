@@ -4,6 +4,8 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.Multibinds
+import net.kikin.nubecita.core.posts.BenchPostSource
 import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.core.posts.internal.BenchFakePostRepository
 
@@ -32,4 +34,8 @@ import net.kikin.nubecita.core.posts.internal.BenchFakePostRepository
 internal interface PostRepositoryModule {
     @Binds
     fun bindPostRepository(impl: BenchFakePostRepository): PostRepository
+
+    /** Declared so the set is injectable even when no module contributes a source. */
+    @Multibinds
+    fun benchPostSources(): Set<BenchPostSource>
 }

@@ -99,6 +99,11 @@ dependencies {
     implementation(libs.media3.ui.compose)
     implementation(libs.timber)
 
+    // Bench only: BenchFeedPostSource contributes the feed fixtures to the
+    // bench PostRepository.getPost (BenchPostSource lives in :core:posts' bench
+    // source set), so the media viewer resolves feed posts offline.
+    benchImplementation(project(":core:posts"))
+
     // Compose UI tests for FeedScreen — mirrors :app's setup. Declared inline rather
     // than promoted into AndroidFeatureConventionPlugin until a second feature module
     // adopts createComposeRule() (per add-feature-feed-screen tasks 1.3).

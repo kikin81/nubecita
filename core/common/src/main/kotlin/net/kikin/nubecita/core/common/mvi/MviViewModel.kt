@@ -37,6 +37,17 @@ abstract class MviViewModel<S : UiState, E : UiEvent, F : UiEffect>(
     private val _effects = Channel<F>(Channel.BUFFERED)
     val effects: Flow<F> = _effects.receiveAsFlow()
 
+    init {
+        // A closeable rather than an onCleared() override: closeables run on
+        // clear even when a subclass overrides onCleared() without super.
+        // Registered only when an observer is installed (debug builds install
+        // it from a ContentProvider, before any ViewModel exists), so release
+        // builds allocate nothing per ViewModel.
+        if (ClearedViewModelObserver.onCleared != null) {
+            addCloseable { ClearedViewModelObserver.onCleared?.invoke(this) }
+        }
+    }
+
     /**
      * Dispatches an incoming UI intent. Implementations MUST return quickly —
      * any suspending work MUST be launched into [viewModelScope] with the

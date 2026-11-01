@@ -380,6 +380,7 @@ dependencies {
 
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.firebase.appcheck.debug)
+    debugImplementation(libs.leakcanary.android)
 
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)

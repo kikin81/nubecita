@@ -1,0 +1,32 @@
+<journey name="Memory Leak Check - Composer Surface">
+  <description>
+    Verifies that opening and discarding the post composer and reply composer
+    does not retain ViewModels or UI components across push/pop lifecycle events.
+
+    Executes 3 loop iterations with theme switches (dark/light) to trigger Activity
+    recreation while observing LeakCanary output.
+  </description>
+  <actions>
+    <action>Verify that the app is open on the Home feed</action>
+    <action>Tap the Compose Floating Action Button to open the composer</action>
+    <action>Verify that the composer overlay is visible with text input focused</action>
+    <action>Type sample text into the post composer field</action>
+    <action>Tap the Add image button in the composer</action>
+    <action>In the system photo picker, select the first photo or video in the grid</action>
+    <action>Verify that the composer is visible again with a media attachment in the draft</action>
+    <action>Tap the Close composer button</action>
+    <action>Confirm Discard in the discard changes dialog</action>
+    <action>Verify that the composer closes and the Home feed is visible</action>
+    <action>Tap the Reply icon on the first post in the feed</action>
+    <action>Verify that the reply composer overlay is visible</action>
+    <action>Type reply text into the composer input field</action>
+    <action>Tap the Close composer button</action>
+    <action>Confirm Discard in the discard changes dialog</action>
+    <action>Verify that the composer closes and the Home feed is visible</action>
+    <action>Switch the device to dark theme</action>
+    <action>Switch the device back to light theme</action>
+    <action>Repeat all of the steps above two more times</action>
+    <action>Press the Home button to send the app to the background, then wait 15 seconds for LeakCanary analysis</action>
+    <action>Verify that no LeakCanary leak notification appears except for known accessibility delegate semantics cache</action>
+  </actions>
+</journey>

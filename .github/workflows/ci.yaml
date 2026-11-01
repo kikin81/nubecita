@@ -231,11 +231,17 @@ jobs:
         # main / labelled PRs), so a feature/core module's androidTest can rot
         # invisibly — a constructor change breaks its instrumentation test and no
         # PR ever compiles it. Compiling every module's androidTest sources here
-        # (Kotlin + KSP/Hilt, no emulator, no dexing) catches those breaks —
-        # both plain compile errors AND Hilt-graph `MissingBinding` failures —
-        # on every PR. `*AndroidTestSources` is the AGP anchor that runs the
-        # annotation processors without packaging a test APK.
-        run: ./gradlew compileProductionDebugAndroidTestSources compileDebugAndroidTestSources
+        # (Kotlin + KSP/Hilt, no emulator, no dexing) catches those breaks on
+        # every PR. `*AndroidTestSources` is the AGP anchor that runs the
+        # annotation processors without packaging a test APK, but it stops at
+        # javac: Hilt's aggregating `hiltJavaCompile*AndroidTest` task, which
+        # assembles the test component and reports `[Dagger/MissingBinding]`,
+        # only runs as a dependency of dexing. Name it explicitly, or a missing
+        # binding passes here and surfaces only in the nightly.
+        run: >-
+          ./gradlew
+          compileProductionDebugAndroidTestSources compileDebugAndroidTestSources
+          hiltJavaCompileProductionDebugAndroidTest hiltJavaCompileDebugAndroidTest
 
   screenshot:
     name: Screenshot tests

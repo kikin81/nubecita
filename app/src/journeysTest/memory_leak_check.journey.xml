@@ -1,0 +1,48 @@
+<journey name="Memory Leak Check - Navigation Loop">
+  <description>
+    Exercises the destroy paths LeakCanary can observe in a single-Activity
+    Compose + Navigation 3 app: Activity recreation and pushing then popping
+    sub-routes. Recreation is driven by a light/dark theme switch, not rotation:
+    MainActivity declares configChanges for orientation/screenSize (PiP), so
+    rotating never destroys it, while uiMode is not handled and recreates it. Switching tabs alone destroys nothing LeakCanary
+    watches. Run against the bench debug build (no sign-in, offline fixtures).
+    The debug build sets LeakCanary's retainedVisibleThreshold to 1, so a single
+    retained object triggers a heap dump and a "leak" notification, and it
+    watches every cleared MviViewModel (Navigation 3 entry ViewModels included).
+
+    Known automation artifact: when the journey is driven through accessibility
+    (Studio journeys, `android input tap`, UiAutomator), LeakCanary reports a
+    ProfileViewModel retained via
+    AndroidComposeViewAccessibilityDelegateCompat.currentSemanticsNodes
+    (signature b020956c7d10705657721b2c39790d5fe3ac5780). The same journey
+    driven by coordinate taps with no accessibility client retains nothing, so
+    treat that signature as expected and anything else as a real leak.
+  </description>
+  <actions>
+    <action>Verify that the app is open on the Home feed with the bottom navigation bar visible</action>
+    <action>Tap the first post in the feed to open its thread</action>
+    <action>Verify that the post thread screen is visible</action>
+    <action>Press the system back button</action>
+    <action>Verify that the Home feed is visible</action>
+    <action>Tap the author avatar or name on the first post in the feed</action>
+    <action>Verify that the author's profile screen is visible</action>
+    <action>Press the system back button</action>
+    <action>Tap the Search tab</action>
+    <action>Verify that the search interface is visible</action>
+    <action>Tap the Notifications tab</action>
+    <action>Tap the Chats tab</action>
+    <action>Tap the You tab</action>
+    <action>Verify that your own profile screen is visible</action>
+    <action>Open Settings from the profile screen</action>
+    <action>Verify that Settings options are visible</action>
+    <action>Press the system back button</action>
+    <action>Switch the device to dark theme</action>
+    <action>Verify that the app is still showing your profile</action>
+    <action>Switch the device back to light theme</action>
+    <action>Tap the Home tab</action>
+    <action>Verify that the Home feed is visible</action>
+    <action>Repeat all of the steps above two more times</action>
+    <action>Press the Home button to send the app to the background, then wait 10 seconds so LeakCanary can check for retained objects</action>
+    <action>Verify that LeakCanary reports no leak other than the known accessibility artifact described above (ProfileViewModel retained via AndroidComposeViewAccessibilityDelegateCompat.currentSemanticsNodes, signature b020956c7d10705657721b2c39790d5fe3ac5780)</action>
+  </actions>
+</journey>
