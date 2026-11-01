@@ -290,6 +290,7 @@ internal class DefaultPostInteractionHandler
                 PostOverflowAction.UnmuteThread,
                 -> {
                     val muting = action == PostOverflowAction.MuteThread
+                    seedIfUncached(post)
                     requireScope().launch {
                         cache.toggleThreadMute(post.id, post.threadRootUri, target = muting).fold(
                             onSuccess = { nowMuted ->
@@ -315,8 +316,9 @@ internal class DefaultPostInteractionHandler
                 PostOverflowAction.UnpinPost,
                 -> {
                     val pinning = action == PostOverflowAction.PinPost
+                    seedIfUncached(post)
                     requireScope().launch {
-                        cache.togglePin(post.id, post.cid).fold(
+                        cache.togglePin(post.id, post.cid, target = pinning).fold(
                             onSuccess = { nowPinned ->
                                 // null: ignored because a pin write was already in flight.
                                 if (nowPinned != null) {
@@ -348,6 +350,16 @@ internal class DefaultPostInteractionHandler
         // ──────────────────────────────────────────────────────────────────────
         // Helpers
         // ──────────────────────────────────────────────────────────────────────
+
+        /**
+         * A post can be interactive before any surface seeded it (a just-sent
+         * outgoing card resolving to its server copy). Seed it from the PostUi in
+         * hand so the optimistic flip — and the profile slot that follows the
+         * cache — has an entry to work on. A seeded post keeps its own counts.
+         */
+        private fun seedIfUncached(post: PostUi) {
+            if (cache.state.value[post.id] == null) cache.seed(listOf(post))
+        }
 
         /**
          * Returns the bound [CoroutineScope], throwing if [bind] was never called.

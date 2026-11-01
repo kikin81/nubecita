@@ -29,7 +29,9 @@ fun postOverflowGroups(post: PostUi): ImmutableList<PostOverflowGroup> {
     // Own posts lead with Pin / Unpin. Eligibility is authorship alone —
     // replies and quotes included — matching social-app's PostMenuItems.
     val pin =
-        if (viewer.isOwnPost) {
+        // …once it has a CID: a just-sent post becomes interactive before its
+        // server copy arrives, and a pin needs a real strong ref.
+        if (viewer.isOwnPost && post.cid.isNotBlank()) {
             listOf(if (viewer.isPinned) PostOverflowAction.UnpinPost else PostOverflowAction.PinPost)
         } else {
             emptyList()

@@ -292,9 +292,15 @@ internal class DefaultPostInteractionsCache
         override suspend fun togglePin(
             postUri: String,
             postCid: String,
+            target: Boolean?,
         ): Result<Boolean?> {
             if (pinJob.get()?.isActive == true) return Result.success(null)
-            val target = _state.value[postUri]?.isPinned != true
+            val current = _state.value[postUri]
+            val isPinnedNow = current?.isPinned == true
+            // An explicit target (the menu's Pin vs Unpin) wins over toggling, so a
+            // stale "Unpin" can never pin; already there → no write.
+            val target = target ?: !isPinnedNow
+            if (target == isPinnedNow && current?.pinOverride == null) return Result.success(target)
 
             // Flip this post, and (when pinning) clear every other pinned post,
             // atomically. A post absent from the cache is not inserted — a

@@ -141,6 +141,7 @@ interface PostInteractionsCache {
     suspend fun togglePin(
         postUri: String,
         postCid: String,
+        target: Boolean? = null,
     ): Result<Boolean?> = Result.failure(UnsupportedOperationException("togglePin"))
 
     /**

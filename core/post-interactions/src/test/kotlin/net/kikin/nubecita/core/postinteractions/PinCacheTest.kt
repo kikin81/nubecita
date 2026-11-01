@@ -131,6 +131,19 @@ internal class PinCacheTest {
         }
 
     @Test
+    fun `an explicit unpin of a post that isn't pinned writes nothing`() =
+        runTest {
+            val repo = FakePinnedPostRepository()
+            val cache = newCache(repo).apply { seed(posts(aPinned = false)) }
+
+            val result = cache.togglePin(postA, "bafa", target = false)
+            advanceUntilIdle()
+
+            assertEquals(Result.success(false), result)
+            assertTrue(repo.pinCalls.isEmpty() && repo.unpinCalls.isEmpty(), "a stale Unpin must never pin")
+        }
+
+    @Test
     fun `unpin clears only this post`() =
         runTest {
             val repo = FakePinnedPostRepository()

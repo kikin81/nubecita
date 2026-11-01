@@ -635,6 +635,22 @@ internal class DefaultPostInteractionHandlerTest {
         }
 
     @Test
+    fun `pin seeds an uncached post and passes the explicit target`() =
+        runTest(mainDispatcher.dispatcher) {
+            val handler = makeHandler()
+            handler.bind(PostSurface.Feed, this)
+            val post = unlikedPost()
+
+            handler.interactionEffects.test {
+                handler.onOverflowAction(post, PostOverflowAction.UnpinPost)
+                awaitItem()
+            }
+
+            assertEquals(listOf(post), fakeCache.seeded)
+            assertEquals(listOf<Boolean?>(false), fakeCache.togglePinTargets)
+        }
+
+    @Test
     fun `an ignored pin tap emits nothing`() =
         runTest(mainDispatcher.dispatcher) {
             fakeCache.nextTogglePinResult = Result.success(null)

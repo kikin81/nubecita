@@ -107,6 +107,12 @@ class PostOverflowRowsTest {
         assertTrue(PinPost !in all && UnpinPost !in all, "others' post offered $all")
     }
 
+    @Test
+    fun `own post without a cid yet has no pin row`() {
+        val all = postOverflowGroups(post(ViewerStateUi(isOwnPost = true)).copy(cid = "")).asLists().flatten()
+        assertTrue(PinPost !in all && UnpinPost !in all, "a just-sent post can't be pinned before its cid exists: $all")
+    }
+
     private fun List<PostOverflowGroup>.asLists(): List<List<PostOverflowAction>> = map { it.actions.toList() }
 
     private fun post(

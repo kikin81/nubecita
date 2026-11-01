@@ -37,7 +37,11 @@ internal class FakePostInteractionsCacheForHandler : PostInteractionsCache {
     private val _state = MutableStateFlow<PersistentMap<String, PostInteractionState>>(persistentMapOf())
     override val state: StateFlow<PersistentMap<String, PostInteractionState>> = _state.asStateFlow()
 
-    override fun seed(posts: List<PostUi>) = Unit
+    val seeded: MutableList<PostUi> = mutableListOf()
+
+    override fun seed(posts: List<PostUi>) {
+        seeded += posts
+    }
 
     override suspend fun toggleLike(
         postUri: String,
@@ -62,11 +66,15 @@ internal class FakePostInteractionsCacheForHandler : PostInteractionsCache {
     val togglePinArgs: MutableList<Pair<String, String>> = mutableListOf()
     var nextTogglePinResult: Result<Boolean?> = Result.success(true)
 
+    val togglePinTargets: MutableList<Boolean?> = mutableListOf()
+
     override suspend fun togglePin(
         postUri: String,
         postCid: String,
+        target: Boolean?,
     ): Result<Boolean?> {
         togglePinArgs += postUri to postCid
+        togglePinTargets += target
         return nextTogglePinResult
     }
 
