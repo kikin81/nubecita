@@ -13,6 +13,8 @@ android {
 }
 
 dependencies {
+    api(libs.kotlinx.serialization.json)
+
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     implementation(libs.atproto.models)
@@ -22,5 +24,6 @@ dependencies {
 
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.ktor.client.mock)
     testImplementation(libs.mockk)
 }
