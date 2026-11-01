@@ -55,6 +55,20 @@ data class PostInteractionState(
      * `max(wire, floor)`, so it stops mattering once the wire catches up.
      */
     val replyCountFloor: Long? = null,
+    /**
+     * The thread this post belongs to (`PostUi.threadRootUri`), refreshed on
+     * every seed. A thread is keyed by `threadRootUri ?: postUri`.
+     */
+    val threadRootUri: String? = null,
+    /** Effective thread-muted flag — wire value unless [threadMuteOverride] holds. */
+    val isThreadMuted: Boolean = false,
+    /**
+     * A local thread-mute/unmute write's value, kept in BOTH directions until a
+     * seed reports the same value from the wire (then cleared). Unlike likes,
+     * the "off" direction needs protecting too: an unmute must survive a stale
+     * refresh that still says muted.
+     */
+    val threadMuteOverride: Boolean? = null,
 )
 
 /**
