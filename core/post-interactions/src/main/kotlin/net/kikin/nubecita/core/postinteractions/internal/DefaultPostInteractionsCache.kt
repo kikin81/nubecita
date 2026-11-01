@@ -284,7 +284,13 @@ internal class DefaultPostInteractionsCache
             // isn't flipped; every surface seeds before it renders.
             var before: Map<String, PostInteractionState> = emptyMap()
             _state.update { map ->
-                val affected = map.filter { (id, state) -> id == postUri || (target && state.isPinned) }
+                // Only B's author's pins move: another author's pinned post (as the
+                // appview may flag it) is never touched.
+                val author = postUri.atUriAuthority()
+                val affected =
+                    map.filter { (id, state) ->
+                        id == postUri || (target && state.isPinned && id.atUriAuthority() == author)
+                    }
                 before = affected
                 affected.entries.fold(map) { acc, (id, state) ->
                     val pinned = id == postUri && target
@@ -457,3 +463,6 @@ private fun resolveOverride(
 
 /** A floor the wire count has reached no longer does anything; drop it. */
 private fun Long.liveAbove(post: PostUi): Long? = takeIf { it > post.stats.replyCount }
+
+/** The DID authority of an `at://<did>/<collection>/<rkey>` URI. */
+private fun String.atUriAuthority(): String = removePrefix("at://").substringBefore('/')

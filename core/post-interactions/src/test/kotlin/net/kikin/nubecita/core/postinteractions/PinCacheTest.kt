@@ -116,6 +116,21 @@ internal class PinCacheTest {
         }
 
     @Test
+    fun `pinning leaves another author's pinned post untouched`() =
+        runTest {
+            val alicePinned = "at://did:plc:alice/app.bsky.feed.post/hers"
+            val cache = newCache(FakePinnedPostRepository())
+            cache.seed(posts(aPinned = false) + post(alicePinned, pinned = true).copy(author = post(alicePinned, pinned = true).author.copy(did = "did:plc:alice")))
+
+            cache.togglePin(postB, "bafb")
+            advanceUntilIdle()
+
+            assertTrue(pinned(cache, alicePinned), "another author's pin must not be cleared")
+            assertNull(cache.state.value[alicePinned]?.pinOverride)
+            assertTrue(pinned(cache, postB))
+        }
+
+    @Test
     fun `unpin clears only this post`() =
         runTest {
             val repo = FakePinnedPostRepository()
