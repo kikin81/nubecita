@@ -250,6 +250,8 @@ class PostCardClickModelTest {
 
         composeTestRule.onNode(hasClickLabel(moreOptionsLabel), useUnmergedTree = true).performClick()
         composeTestRule.onNodeWithText(reportPostLabel).performClick()
+        // The sheet dispatches after its hide animation settles.
+        composeTestRule.waitForIdle()
 
         assertEquals(PostOverflowAction.ReportPost, recorded)
     }
@@ -273,6 +275,7 @@ class PostCardClickModelTest {
         composeTestRule
             .onNodeWithText(muteAuthorLabel())
             .performClick()
+        composeTestRule.waitForIdle()
 
         assertEquals(PostOverflowAction.MuteAuthor, recorded)
     }
@@ -296,6 +299,7 @@ class PostCardClickModelTest {
         composeTestRule
             .onNodeWithText(unmuteAuthorLabel())
             .performClick()
+        composeTestRule.waitForIdle()
 
         assertEquals(PostOverflowAction.UnmuteAuthor, recorded)
     }
@@ -319,6 +323,7 @@ class PostCardClickModelTest {
         composeTestRule
             .onNodeWithText(blockAuthorLabel())
             .performClick()
+        composeTestRule.waitForIdle()
 
         assertEquals(PostOverflowAction.BlockAuthor, recorded)
     }
@@ -342,6 +347,7 @@ class PostCardClickModelTest {
         composeTestRule
             .onNodeWithText(unblockAuthorLabel())
             .performClick()
+        composeTestRule.waitForIdle()
 
         assertEquals(PostOverflowAction.UnblockAuthor, recorded)
     }
@@ -363,6 +369,8 @@ class PostCardClickModelTest {
 
         composeTestRule.onNode(hasClickLabel(moreOptionsLabel), useUnmergedTree = true).performClick()
         composeTestRule.onNodeWithText(muteThreadLabel).performClick()
+        // The sheet dispatches after its hide animation settles.
+        composeTestRule.waitForIdle()
 
         assertEquals(PostOverflowAction.MuteThread, recorded)
     }
@@ -384,6 +392,8 @@ class PostCardClickModelTest {
 
         composeTestRule.onNode(hasClickLabel(moreOptionsLabel), useUnmergedTree = true).performClick()
         composeTestRule.onNodeWithText(copyPostTextLabel).performClick()
+        // The sheet dispatches after its hide animation settles.
+        composeTestRule.waitForIdle()
 
         assertEquals(PostOverflowAction.CopyPostText, recorded)
     }
@@ -452,6 +462,7 @@ class PostCardClickModelTest {
 
         composeTestRule.onNode(hasClickLabel(moreOptionsLabel), useUnmergedTree = true).performClick()
         composeTestRule.onNodeWithText(reportPostLabel).performClick()
+        composeTestRule.waitForIdle()
 
         assertTrue("callback should receive the post it was rendered for", recordedPost === target)
     }
