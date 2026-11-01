@@ -7,9 +7,11 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -82,6 +84,10 @@ internal fun ProfileScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    // Bumped by ProfileEffect.RevealPinnedPost; the content scrolls the pinned
+    // slot into view on each bump. Plain remember: a recreated screen must not
+    // replay an old reveal.
+    var pinnedRevealSignal by remember { mutableIntStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Profile-tab re-tap: scroll the list back to position 0. Same shape
@@ -290,6 +296,7 @@ internal fun ProfileScreen(
                 is ProfileEffect.NavigateToVideoPlayer ->
                     currentOnNavigateToVideoPlayer(effect.postUri)
                 is ProfileEffect.NavigateTo -> currentOnNavigateTo(effect.key)
+                ProfileEffect.RevealPinnedPost -> pinnedRevealSignal++
             }
         }
     }
@@ -305,6 +312,7 @@ internal fun ProfileScreen(
     ProfileScreenContent(
         state = state,
         listState = listState,
+        pinnedRevealSignal = pinnedRevealSignal,
         snackbarHostState = snackbarHostState,
         postCallbacks = callbacks,
         onEvent = viewModel::handleEvent,

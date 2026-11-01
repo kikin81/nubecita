@@ -15,6 +15,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
+import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.VerifierUi
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
 import net.kikin.nubecita.feature.profile.impl.VerifierRef
@@ -54,6 +55,12 @@ internal class BenchFakeProfileRepository
                         )
                     }.toImmutableList(),
             )
+
+        /** A profile fixture post by URI, so the bench `getPost` resolves pins of profile posts. */
+        suspend fun findPost(uri: String): PostUi? =
+            ensureLoaded().getOrNull()?.let { dto ->
+                BenchProfileMapper.toPostUiList(dto.posts + dto.replies).firstOrNull { it.id == uri }
+            }
 
         override suspend fun fetchTab(
             actor: String,

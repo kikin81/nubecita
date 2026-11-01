@@ -2767,6 +2767,46 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun localPin_emitsRevealPinnedPost_butHeaderLoadDoesNot() =
+        runTest(mainDispatcher.dispatcher) {
+            val headerPinned = samplePostUi(id = "at://did:plc:alice/app.bsky.feed.post/a", cid = "bafa")
+            val newlyPinned = samplePostUi(id = "at://did:plc:alice/app.bsky.feed.post/b", cid = "bafb")
+            val postRepo =
+                mockk<PostRepository> {
+                    coEvery { getPost(headerPinned.id) } returns Result.success(headerPinned)
+                    coEvery { getPost(newlyPinned.id) } returns Result.success(newlyPinned)
+                }
+            val cache = FakePostInteractionsCache()
+            val vm =
+                newVm(
+                    repo = headerWithPinned(PinnedPostRef(uri = headerPinned.id, cid = headerPinned.cid)),
+                    postRepository = postRepo,
+                    postInteractionsCache = cache,
+                )
+
+            vm.effects.test {
+                advanceUntilIdle()
+                // The header's own pin resolving on load is not a reveal.
+                expectNoEvents()
+
+                cache.emit(
+                    persistentMapOf(
+                        newlyPinned.id to PostInteractionState(isPinned = true, pinOverride = true),
+                        headerPinned.id to PostInteractionState(isPinned = false, pinOverride = false),
+                    ),
+                )
+                advanceUntilIdle()
+
+                assertEquals(ProfileEffect.RevealPinnedPost, awaitItem())
+                assertEquals(
+                    newlyPinned.id,
+                    vm.uiState.value.pinnedPost
+                        ?.id,
+                )
+            }
+        }
+
+    @Test
     fun anotherAccountsPinOverride_isIgnored() =
         runTest(mainDispatcher.dispatcher) {
             val postRepo = mockk<PostRepository>(relaxed = true)

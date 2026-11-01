@@ -651,6 +651,14 @@ sealed interface ProfileEvent : UiEvent {
  */
 sealed interface ProfileEffect : UiEffect {
     /**
+     * The viewer just pinned a post and the pinned slot now shows it: bring the
+     * slot into view so the pin lands where they can see it (nubecita-iwjz.5).
+     * Emitted only for a pin the viewer made, never for the header's pin
+     * resolving on load. Scrolling is a Compose concern, so the screen owns it.
+     */
+    data object RevealPinnedPost : ProfileEffect
+
+    /**
      * Header load failed; surface a transient Snackbar. The screen
      * composable maps [error] to a string resource for the SnackbarHost
      * — same pattern as [PostDetail] (typed error in the effect,

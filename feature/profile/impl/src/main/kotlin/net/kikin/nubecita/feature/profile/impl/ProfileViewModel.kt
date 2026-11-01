@@ -431,7 +431,10 @@ internal class ProfileViewModel
          * - the slot's post with `pinOverride == false` was unpinned → clear.
          * No new event stream: this rides the cache collector the tabs already use.
          */
-        private fun reconcilePinnedSlot(snapshot: PersistentMap<String, PostInteractionState>) {
+        private fun reconcilePinnedSlot(
+            snapshot: PersistentMap<String, PostInteractionState>,
+            allowReveal: Boolean = true,
+        ) {
             // Own profile only. The appview sets viewer.pinned solely on the
             // viewer's own posts (unset → false elsewhere), and only the viewer
             // can pin, so on anyone else's profile the header ref is the truth.
@@ -465,7 +468,9 @@ internal class ProfileViewModel
                     expected != current?.id &&
                     expected != pinnedPostResolveTarget &&
                     expected != pinnedPostFailedUri ->
-                    resolvePinnedPostUri(expected)
+                    // Reveal only a pin the viewer just made (a local override),
+                    // not the header's pin or a rollback restoring it.
+                    resolvePinnedPostUri(expected, reveal = allowReveal && snapshot[expected]?.pinOverride == true)
             }
         }
 
@@ -484,13 +489,17 @@ internal class ProfileViewModel
                 // Same cache-aware selection as cache updates, so a header fetched
                 // before the appview indexed a local pin can't undo it. The header
                 // is already in state here.
-                reconcilePinnedSlot(postInteractionsCache.state.value)
+                // A reload is never a reveal.
+                reconcilePinnedSlot(postInteractionsCache.state.value, allowReveal = false)
             } else {
                 resolvePinnedPostUri(ref?.uri)
             }
         }
 
-        private fun resolvePinnedPostUri(uri: String?) {
+        private fun resolvePinnedPostUri(
+            uri: String?,
+            reveal: Boolean = false,
+        ) {
             // Single-flight: cancel any in-flight resolution so a slower stale fetch
             // (from a rapid refresh / repeated ownProfileUpdates) can't land last and
             // overwrite a newer one.
@@ -516,6 +525,7 @@ internal class ProfileViewModel
                                 postInteractionsCache.state.value[post.id]?.let { post.mergeInteractionState(it) } ?: post
                             pinnedPostResolveTarget = null
                             setState { copy(pinnedPost = merged) }
+                            if (reveal) sendEffect(ProfileEffect.RevealPinnedPost)
                         }.onFailure {
                             pinnedPostResolveTarget = null
                             pinnedPostFailedUri = uri

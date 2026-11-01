@@ -130,7 +130,8 @@ internal val benchPinnedPost: PostUi =
         facets = persistentListOf(),
         embed = EmbedUi.Empty,
         stats = PostStatsUi(replyCount = 12, repostCount = 48, likeCount = 305),
-        viewer = ViewerStateUi(),
+        // The viewer's own pinned post — the appview flags it pinned for its author.
+        viewer = ViewerStateUi(isOwnPost = true, isPinned = true),
         repostedBy = null,
     )
 

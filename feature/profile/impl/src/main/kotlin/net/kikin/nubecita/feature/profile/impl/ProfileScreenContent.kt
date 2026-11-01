@@ -30,6 +30,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -83,6 +84,7 @@ internal fun ProfileScreenContent(
     onEvent: (ProfileEvent) -> Unit,
     onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    pinnedRevealSignal: Int = 0,
     /**
      * Composer FAB tap. Carries the handle to pre-`@`-mention: `null` on the
      * signed-in user's own profile (a blank "What's on your mind?" composer)
@@ -174,6 +176,17 @@ internal fun ProfileScreenContent(
         },
     ) { padding ->
         val topBarPadding = padding.calculateTopPadding()
+        // Reveal a just-pinned post: scroll its slot (right under the verbs + tabs
+        // row) to the top of the viewport, below the overlaying top bar, so the
+        // pin's insert animation plays where the viewer can see it. Posts tab only
+        // — the slot doesn't exist on the other tabs.
+        val topBarPx = with(LocalDensity.current) { topBarPadding.roundToPx() }
+        val currentSelectedTabForReveal by rememberUpdatedState(state.selectedTab)
+        LaunchedEffect(pinnedRevealSignal) {
+            if (pinnedRevealSignal > 0 && currentSelectedTabForReveal == ProfileTab.Posts) {
+                listState.animateScrollToItem(PINNED_POST_ITEM_INDEX, scrollOffset = -topBarPx)
+            }
+        }
 
         NubecitaPullToRefreshBox(
             isRefreshing = activeTabIsRefreshing,
@@ -399,3 +412,6 @@ private fun ProfileScreenViewState.activeTabIsRefreshing(): Boolean {
     val status = activeTabStatus()
     return status is TabLoadStatus.Loaded && status.isRefreshing
 }
+
+/** The pinned slot's index on the Posts tab: after the hero and the verbs + tabs row. */
+private const val PINNED_POST_ITEM_INDEX = 2
