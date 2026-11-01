@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.os.Build
 import coil3.ImageLoader
+import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import coil3.request.allowHardware
@@ -36,13 +37,21 @@ internal interface WearImageEncoder {
  * Decodes through the app's shared Coil [ImageLoader] (so it reuses Coil's
  * disk cache and any image the app already fetched) and re-encodes as lossy
  * WebP — photos compress to ~10–15 KB at thumbnail size.
+ *
+ * The loader comes from [SingletonImageLoader], not constructor injection:
+ * `:app`'s `CoilModule` is the only `ImageLoader` binding, so injecting it
+ * broke the Hilt test graph of every module that includes this one
+ * (chats, settings, widget-sync androidTest). `NubecitaApplication`
+ * supplies the Hilt-built loader as the singleton, so the app gets the same
+ * instance either way.
  */
 internal class CoilWearImageEncoder
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
-        private val imageLoader: ImageLoader,
     ) : WearImageEncoder {
+        private val imageLoader: ImageLoader get() = SingletonImageLoader.get(context)
+
         override suspend fun encode(
             url: String,
             maxPx: Int,
