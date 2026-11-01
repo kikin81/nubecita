@@ -50,21 +50,31 @@ The profile-record read-modify-write SHALL live in `:core:profile` and be reused
 
 ### Requirement: Unpin clears only the post it was asked to unpin
 
-Unpin SHALL clear `pinnedPost` only if the record's current `pinnedPost.uri` equals the unpinned post's URI. Otherwise it writes nothing and reports success.
+Unpin SHALL clear `pinnedPost` only if the record's current `pinnedPost.uri` equals the unpinned post's URI. Otherwise — including when `pinnedPost` is absent — it MUST NOT call `putRecord`, and reports success.
 
 #### Scenario: Unpin of a no-longer-pinned post is a no-op
 
 - **WHEN** Unpin is tapped on post `A`, but the record's `pinnedPost.uri` is post `B`
 - **THEN** no `putRecord` is issued, the call succeeds, and `A` shows `isPinned = false`
 
+#### Scenario: Unpin with nothing pinned is a no-op
+
+- **WHEN** Unpin is tapped on post `A`, and the record has no `pinnedPost`
+- **THEN** `putRecord` is called zero times, and the call succeeds
+
 ### Requirement: Pin state updates optimistically across every surface
 
-On `PinPost` for post `B`, `PostInteractionsCache` SHALL immediately set `isPinned = true` on `B`, and `false` on any other cached post that was pinned. Feed, Post detail, Profile and Videos all reflect this. Flipped values are kept as a local override, in both directions, until a server refresh agrees with it.
+On `PinPost` for post `B`, `PostInteractionsCache` SHALL immediately set `isPinned = true` on `B`, and `false` on any other pinned cached post **by `B`'s author**; other authors' posts are untouched. Feed, Post detail, Profile and Videos all reflect this. Flipped values are kept as a local override, in both directions, until a server refresh agrees with it.
 
 #### Scenario: Moving the pin from A to B
 
 - **WHEN** post `A` is pinned and the user pins post `B`
 - **THEN** `B` shows "Unpin from profile" and `A` shows "Pin to your profile" on every loaded surface, before the write returns
+
+#### Scenario: Another author's pinned post is untouched
+
+- **WHEN** a cached post by another author is flagged pinned and the user pins their own post `B`
+- **THEN** that other author's post keeps `isPinned = true`
 
 ### Requirement: Pin failures roll back, and successes confirm
 
@@ -77,9 +87,14 @@ On a failed pin or unpin, the handler MUST restore every flag it changed and emi
 
 ### Requirement: The profile's pinned slot follows pin changes without a refresh
 
-`ProfileViewModel` SHALL update `ProfileState.pinnedPost` from `PostInteractionsCache` state. When a post by the profile's DID becomes pinned, it becomes `pinnedPost`; when the pinned post becomes unpinned, `pinnedPost` clears. This MUST NOT introduce an app-wide event stream; in particular, `ownProfileUpdates` stays inside `:feature:profile:impl`.
+`ProfileViewModel` SHALL update `ProfileState.pinnedPost` from `PostInteractionsCache` state. When a post by the profile's DID becomes pinned, the VM resolves it by URI via `getPost` (the cache holds flags, not content) and it becomes `pinnedPost`; when the pinned post becomes unpinned, `pinnedPost` clears. This MUST NOT introduce an app-wide event stream; in particular, `ownProfileUpdates` stays inside `:feature:profile:impl`.
 
 #### Scenario: Pin from Feed shows on Profile
 
 - **WHEN** the user pins their own post from the Feed, then opens their profile without pulling to refresh
 - **THEN** that post renders in the pinned slot at the top of the Posts tab
+
+#### Scenario: Pinning a post the profile hasn't loaded
+
+- **WHEN** the user pins an older reply from the Feed that no loaded profile tab contains
+- **THEN** `ProfileViewModel` resolves it via `getPost` and renders it in the pinned slot

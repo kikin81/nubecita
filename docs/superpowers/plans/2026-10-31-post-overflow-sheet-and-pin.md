@@ -413,7 +413,7 @@ interface ProfileRecordWriter {
   - New `PostInteractionState` fields: `isPinned: Boolean = false`, `pinOverride: Boolean? = null`. These follow the same two-way override rule as Task 8, inside `withWireOverlays`.
   - `suspend fun PostInteractionsCache.togglePin(postUri: String, postCid: String): Result<Boolean>`:
     - It holds one global in-flight job, because there is one profile record. While that job runs, any call returns the current value without writing.
-    - Pinning B sets B true and every other entry with an effective `isPinned` false, all as overrides.
+    - Pinning B sets B true and every other pinned entry **by B's author** false, all as overrides. Other authors' entries are never touched.
     - On failure, it restores every changed entry.
   - `mergeInteractionState` sets `viewer.isPinned = state.isPinned`.
   - The handler routes `PinPost` / `UnpinPost` → `togglePin` → `ShowNotice(PostPinned | PostUnpinned | PinFailed | UnpinFailed)`.

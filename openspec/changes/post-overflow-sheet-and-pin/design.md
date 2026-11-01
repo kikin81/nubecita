@@ -80,7 +80,8 @@ from the wire keeps the override until the wire value equals it, then clears it.
 - **Two-way, unlike likes.** The like rule only protects the "on" direction: a cached
   `true` survives a stale `false`. A pin move (A off, B on) and an unmute both need the
   "off" direction protected too.
-- **Pin:** pinning B clears the flag on any previously pinned cached post.
+- **Pin:** pinning B clears the flag on any previously pinned cached post by B's author
+  (other authors' posts are never touched).
 - **Thread mute:** keyed by root URI, so it flips every cached post in the thread.
 - **Alternative:** let server refreshes always win.
 - **Rejected because:** server lag would show a stale pin or mute right after a

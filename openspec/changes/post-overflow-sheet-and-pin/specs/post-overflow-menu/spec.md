@@ -94,7 +94,7 @@ While the sheet is closed, a `PostCard` MUST NOT compose a `ModalBottomSheet`, s
 
 ### Requirement: Thread mute is optimistic across the whole thread
 
-The handler SHALL flip `isThreadMuted` right away on every cached post with the same root. The flipped value is kept as a local override, in both directions, until a server refresh agrees with it.
+The handler SHALL flip `isThreadMuted` right away on every cached post whose thread key (`threadRootUri ?: id`) equals the root — the root post itself included. The flipped value is kept as a local override, in both directions, until a server refresh agrees with it.
 
 On failure, it MUST restore every flipped post and emit an error snackbar. A repeat tap on the same root while a write is in flight is ignored.
 
@@ -102,6 +102,11 @@ On failure, it MUST restore every flipped post and emit an error snackbar. A rep
 
 - **WHEN** "Mute thread" is tapped on a post whose root is `R`, and the cache holds three posts with root `R`
 - **THEN** all three show `isThreadMuted = true` before the call returns
+
+#### Scenario: The root post itself flips
+
+- **WHEN** "Mute thread" is tapped on a reply whose root `R` is also cached (with `threadRootUri = null`)
+- **THEN** the cached root post `R` shows `isThreadMuted = true` too
 
 #### Scenario: Failure rolls back
 

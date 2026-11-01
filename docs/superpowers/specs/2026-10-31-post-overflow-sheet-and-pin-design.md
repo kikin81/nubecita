@@ -134,7 +134,8 @@ surface that hosts the sheet already delegates to it.
 
 1. Add `PostOverflowAction.PinPost` and `UnpinPost`.
 2. `DefaultPostInteractionHandler.onOverflowAction` routes them to a new repository call:
-   - `setPinnedPost(strongRef?)` — `null` means unpin.
+   - `pin(uri, cid)` and `unpin(postUri)`. Unpin takes the post being unpinned, never a
+     bare `null`, so the writer can compare-and-clear (D4.8).
    - The call is a read-modify-write of the viewer's `app.bsky.actor.profile` record:
      `getRecord`, then `putRecord` with `swapRecord`.
 3. **Where that code lives (builder's call).** The read-modify-write logic currently lives
@@ -145,16 +146,20 @@ surface that hosts the sheet already delegates to it.
    `:core:post-interactions` depend on a feature module.
 4. **Optimistic, with rollback.** Like the like/repost flow, `PostInteractionsCache`
    updates `viewer.isPinned` right away:
-   - Pinning B sets `isPinned = true` on B and `false` on any other cached post that was
-     pinned.
+   - Pinning B sets `isPinned = true` on B and `false` on any other cached post **by B's
+     author** that was pinned. Other authors' posts are never touched, so their pinned
+     posts (and pinned slots) are unaffected.
    - On failure, both flags are restored and an error snackbar shows, through the
      handler's existing interaction effects.
    - On success, the snackbar reads "Post pinned" or "Post unpinned".
 5. **Profile refresh** *(Claude's call)*. After a successful pin or unpin, the profile
    screen's pinned-post slot (`ProfileState.pinnedPost`) must update.
-   - `ProfileViewModel` already merges `PostInteractionsCache.state` into its posts. Use
-     that same merge: when the cache reports a post by the profile's DID whose
-     `isPinned` changed, set `pinnedPost` from it (or clear it on unpin).
+   - `ProfileViewModel` already collects `PostInteractionsCache.state`. The cache holds
+     interaction flags, not post content, so when it reports a newly pinned post by the
+     profile's DID, the VM resolves that URI through the existing `getPost` path (the
+     same one the header's pinned ref uses), even if the post isn't in a loaded tab.
+     When the slot's post is unpinned, the slot clears. A failed resolve is retried on
+     the next header load, not on every cache emission.
    - Do **not** move `ownProfileUpdates` out of `:feature:profile:impl` into
      `:core:profile`. That would make it an app-wide event stream, which is the kind
      of bus this repo avoids.
