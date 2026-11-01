@@ -140,6 +140,7 @@ internal object BenchTimelineMapper {
             stats = stats.toPostStatsUi(),
             viewer = viewer.toViewerStateUi(),
             repostedBy = repostedBy,
+            threadRootUri = threadRootUri,
         )
 
     private fun BenchAuthorDto.toAuthorUi(): AuthorUi =
@@ -168,6 +169,9 @@ internal object BenchTimelineMapper {
             isAuthorMutedByViewer = isAuthorMutedByViewer,
             isAuthorBlockedByViewer = isAuthorBlockedByViewer,
             isAuthorBlockingViewer = isAuthorBlockingViewer,
+            isOwnPost = isOwnPost,
+            isPinned = isPinned,
+            isThreadMuted = isThreadMuted,
         )
 
     private fun BenchEmbedDto.toEmbedUi(): EmbedUi {

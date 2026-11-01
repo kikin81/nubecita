@@ -128,6 +128,7 @@ internal data class BenchPostDto(
     val stats: BenchStatsDto = BenchStatsDto(),
     val viewer: BenchViewerDto = BenchViewerDto(),
     val repostedBy: String? = null,
+    val threadRootUri: String? = null,
 )
 
 @Serializable
@@ -156,6 +157,9 @@ internal data class BenchViewerDto(
     val isAuthorMutedByViewer: Boolean = false,
     val isAuthorBlockedByViewer: Boolean = false,
     val isAuthorBlockingViewer: Boolean = false,
+    val isOwnPost: Boolean = false,
+    val isPinned: Boolean = false,
+    val isThreadMuted: Boolean = false,
 )
 
 /**
