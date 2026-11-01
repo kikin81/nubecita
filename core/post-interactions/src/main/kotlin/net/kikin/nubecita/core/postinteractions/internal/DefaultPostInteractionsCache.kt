@@ -314,16 +314,21 @@ internal class DefaultPostInteractionsCache
                     )
                 }
             pinJob.set(job)
-            return try {
-                job.await()
-            } finally {
-                pinJob.compareAndSet(job, null)
-            }
+            // The job clears its own guard: the awaiting caller (a VM scope) can be
+            // cancelled while the write keeps running on the application scope,
+            // and a finally there would reopen the guard mid-write.
+            job.invokeOnCompletion { pinJob.compareAndSet(job, null) }
+            return job.await()
         }
 
-        override suspend fun toggleThreadMute(postUri: String): Result<Boolean> {
+        override suspend fun toggleThreadMute(
+            postUri: String,
+            threadRootUri: String?,
+        ): Result<Boolean> {
             val current = _state.value[postUri] ?: PostInteractionState()
-            val threadKey = current.threadRootUri ?: postUri
+            // The caller's PostUi root wins when the cache has none (an unseeded
+            // or locally-projected post, e.g. a just-sent reply).
+            val threadKey = current.threadRootUri ?: threadRootUri ?: postUri
             if (threadMuteJobs[threadKey]?.isActive == true) {
                 return Result.success(current.isThreadMuted)
             }
@@ -369,11 +374,9 @@ internal class DefaultPostInteractionsCache
                     )
                 }
             threadMuteJobs[threadKey] = job
-            return try {
-                job.await()
-            } finally {
-                threadMuteJobs.remove(threadKey)
-            }
+            // Cleared by the job itself, not the (cancellable) awaiting caller.
+            job.invokeOnCompletion { threadMuteJobs.remove(threadKey, job) }
+            return job.await()
         }
 
         override fun markDeleted(postUri: String) {

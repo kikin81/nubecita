@@ -4,6 +4,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -146,6 +147,36 @@ internal class ThreadMuteCacheTest {
             assertEquals(1, repo.muteCalls.size + repo.unmuteCalls.size)
             assertEquals(Result.success(true), second)
             assertTrue(muted(cache, replyB))
+        }
+
+    @Test
+    fun `leaving the screen mid-mute keeps the in-flight guard`() =
+        runTest {
+            val repo = FakeThreadMuteRepository().apply { gate = CompletableDeferred() }
+            val cache = newCache(repo).seeded()
+
+            val awaiting = launch { cache.toggleThreadMute(replyA) }
+            runCurrent()
+            awaiting.cancel()
+            runCurrent()
+            val second = async { cache.toggleThreadMute(replyB) }
+            runCurrent()
+
+            assertEquals(1, repo.muteCalls.size + repo.unmuteCalls.size)
+            repo.gate?.complete(Unit)
+            second.await()
+        }
+
+    @Test
+    fun `an unseeded reply mutes the root the caller passes`() =
+        runTest {
+            val repo = FakeThreadMuteRepository()
+            val cache = newCache(repo)
+
+            cache.toggleThreadMute("at://did:plc:me/app.bsky.feed.post/justsent", threadRootUri = root)
+            advanceUntilIdle()
+
+            assertEquals(listOf(root), repo.muteCalls)
         }
 
     @Test

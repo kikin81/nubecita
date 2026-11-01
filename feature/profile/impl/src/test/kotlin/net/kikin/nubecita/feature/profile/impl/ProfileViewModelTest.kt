@@ -2575,6 +2575,24 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun failedPinnedResolve_isNotRetriedOnEveryCacheEmission() =
+        runTest(mainDispatcher.dispatcher) {
+            val uri = "at://did:plc:alice/app.bsky.feed.post/new"
+            val postRepo = mockk<PostRepository> { coEvery { getPost(uri) } returns Result.failure(RuntimeException("offline")) }
+            val cache = FakePostInteractionsCache()
+            newVm(repo = FakeProfileRepository(), postRepository = postRepo, postInteractionsCache = cache)
+            advanceUntilIdle()
+
+            val pinned = PostInteractionState(isPinned = true, pinOverride = true)
+            cache.emit(persistentMapOf(uri to pinned))
+            advanceUntilIdle()
+            cache.emit(persistentMapOf(uri to pinned, "at://did:plc:x/app.bsky.feed.post/other" to PostInteractionState(likeCount = 1)))
+            advanceUntilIdle()
+
+            coVerify(exactly = 1) { postRepo.getPost(uri) }
+        }
+
+    @Test
     fun anotherAccountsPinOverride_isIgnored() =
         runTest(mainDispatcher.dispatcher) {
             val postRepo = mockk<PostRepository>(relaxed = true)

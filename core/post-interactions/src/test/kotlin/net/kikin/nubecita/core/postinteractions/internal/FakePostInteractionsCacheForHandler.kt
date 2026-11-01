@@ -73,7 +73,10 @@ internal class FakePostInteractionsCacheForHandler : PostInteractionsCache {
     val toggleThreadMuteArgs: MutableList<String> = mutableListOf()
     var nextToggleThreadMuteResult: Result<Boolean> = Result.success(true)
 
-    override suspend fun toggleThreadMute(postUri: String): Result<Boolean> {
+    override suspend fun toggleThreadMute(
+        postUri: String,
+        threadRootUri: String?,
+    ): Result<Boolean> {
         toggleThreadMuteArgs += postUri
         return nextToggleThreadMuteResult
     }

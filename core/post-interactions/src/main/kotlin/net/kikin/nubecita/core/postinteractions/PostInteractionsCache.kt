@@ -151,7 +151,10 @@ interface PostInteractionsCache {
      *
      * Defaulted so test doubles that don't exercise thread mute need no change.
      */
-    suspend fun toggleThreadMute(postUri: String): Result<Boolean> = Result.failure(UnsupportedOperationException("toggleThreadMute"))
+    suspend fun toggleThreadMute(
+        postUri: String,
+        threadRootUri: String? = null,
+    ): Result<Boolean> = Result.failure(UnsupportedOperationException("toggleThreadMute"))
 
     /**
      * The viewer just sent a reply to [parentUri]: raise its reply count by one

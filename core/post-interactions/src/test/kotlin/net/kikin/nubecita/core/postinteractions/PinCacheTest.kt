@@ -4,6 +4,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -94,6 +95,24 @@ internal class PinCacheTest {
             assertEquals(Result.success(null), second)
             assertEquals(1, repo.pinCalls.size + repo.unpinCalls.size)
             assertFalse(pinned(cache, postA))
+        }
+
+    @Test
+    fun `leaving the screen mid-pin keeps the in-flight guard`() =
+        runTest {
+            val repo = FakePinnedPostRepository().apply { gate = CompletableDeferred() }
+            val cache = newCache(repo).apply { seed(posts(aPinned = false)) }
+
+            val awaiting = launch { cache.togglePin(postB, "bafb") }
+            runCurrent()
+            awaiting.cancel()
+            runCurrent()
+            val second = async { cache.togglePin(postA, "bafa") }
+            runCurrent()
+
+            assertEquals(1, repo.pinCalls.size + repo.unpinCalls.size)
+            repo.gate?.complete(Unit)
+            assertEquals(Result.success(null), second.await())
         }
 
     @Test

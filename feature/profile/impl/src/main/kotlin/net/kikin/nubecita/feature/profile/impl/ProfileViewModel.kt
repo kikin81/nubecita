@@ -126,6 +126,11 @@ internal class ProfileViewModel
         // emission (the resolve itself seeds the cache) can't re-trigger it.
         private var pinnedPostResolveTarget: String? = null
 
+        // A pinned URI whose resolve failed (offline, deleted). Not retried on
+        // cache emissions — only when the header reloads — so a failure can't
+        // turn every like / page seed into another getPost (battery).
+        private var pinnedPostFailedUri: String? = null
+
         /**
          * The [VerifierRef] set the in-flight [verifierResolveJob] is resolving,
          * or `null` when idle. Single-flight is keyed on this, not a blanket
@@ -431,10 +436,14 @@ internal class ProfileViewModel
             val current = uiState.value.pinnedPost
             val newlyPinned =
                 snapshot.entries
-                    .firstOrNull { (uri, state) -> state.pinOverride == true && uri.atUriAuthority() == profileDid }
-                    ?.key
+                    .firstOrNull { (uri, state) ->
+                        state.pinOverride == true && !state.isDeleted && uri.atUriAuthority() == profileDid
+                    }?.key
             when {
-                newlyPinned != null && newlyPinned != current?.id && newlyPinned != pinnedPostResolveTarget ->
+                newlyPinned != null &&
+                    newlyPinned != current?.id &&
+                    newlyPinned != pinnedPostResolveTarget &&
+                    newlyPinned != pinnedPostFailedUri ->
                     resolvePinnedPostUri(newlyPinned)
                 newlyPinned == null && current != null && snapshot[current.id]?.pinOverride == false -> {
                     pinnedPostResolveJob?.cancel()
@@ -452,7 +461,11 @@ internal class ProfileViewModel
          * card. The resolved post is seeded into the interaction cache and merged
          * so its like/repost state stays consistent with the rest of the feed.
          */
-        private fun resolvePinnedPost(ref: PinnedPostRef?) = resolvePinnedPostUri(ref?.uri)
+        private fun resolvePinnedPost(ref: PinnedPostRef?) {
+            // A header (re)load is the one place a previously failed resolve is retried.
+            pinnedPostFailedUri = null
+            resolvePinnedPostUri(ref?.uri)
+        }
 
         private fun resolvePinnedPostUri(uri: String?) {
             // Single-flight: cancel any in-flight resolution so a slower stale fetch
@@ -482,6 +495,7 @@ internal class ProfileViewModel
                             setState { copy(pinnedPost = merged) }
                         }.onFailure {
                             pinnedPostResolveTarget = null
+                            pinnedPostFailedUri = uri
                             // Deleted/dangling or a fetch error → omit the slot, clearing any
                             // previously-shown pinned post so stale data can't persist.
                             setState { copy(pinnedPost = null) }
