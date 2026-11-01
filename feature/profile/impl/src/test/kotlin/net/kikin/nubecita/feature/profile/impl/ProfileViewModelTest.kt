@@ -2593,6 +2593,83 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun failedPin_rollback_restoresTheHeaderPinnedPost() =
+        runTest(mainDispatcher.dispatcher) {
+            val headerPinned = samplePostUi(id = "at://did:plc:alice/app.bsky.feed.post/a", cid = "bafa")
+            val attempted = samplePostUi(id = "at://did:plc:alice/app.bsky.feed.post/b", cid = "bafb")
+            val postRepo =
+                mockk<PostRepository> {
+                    coEvery { getPost(headerPinned.id) } returns Result.success(headerPinned)
+                    coEvery { getPost(attempted.id) } returns Result.success(attempted)
+                }
+            val cache = FakePostInteractionsCache()
+            val vm =
+                newVm(
+                    repo = headerWithPinned(PinnedPostRef(uri = headerPinned.id, cid = headerPinned.cid)),
+                    postRepository = postRepo,
+                    postInteractionsCache = cache,
+                )
+            advanceUntilIdle()
+
+            // Optimistic pin of B moves the slot to B…
+            cache.emit(
+                persistentMapOf(
+                    attempted.id to PostInteractionState(isPinned = true, pinOverride = true),
+                    headerPinned.id to PostInteractionState(isPinned = false, pinOverride = false),
+                ),
+            )
+            advanceUntilIdle()
+            assertEquals(
+                attempted.id,
+                vm.uiState.value.pinnedPost
+                    ?.id,
+            )
+
+            // …and the failed write's rollback puts A back.
+            cache.emit(
+                persistentMapOf(
+                    attempted.id to PostInteractionState(isPinned = false),
+                    headerPinned.id to PostInteractionState(isPinned = true),
+                ),
+            )
+            advanceUntilIdle()
+
+            assertEquals(
+                headerPinned.id,
+                vm.uiState.value.pinnedPost
+                    ?.id,
+            )
+        }
+
+    @Test
+    fun failedUnpin_rollback_restoresTheSlot() =
+        runTest(mainDispatcher.dispatcher) {
+            val pinned = samplePostUi(id = "at://did:plc:alice/app.bsky.feed.post/pinned", cid = "bafypinned")
+            val postRepo = mockk<PostRepository> { coEvery { getPost(pinned.id) } returns Result.success(pinned) }
+            val cache = FakePostInteractionsCache()
+            val vm =
+                newVm(
+                    repo = headerWithPinned(PinnedPostRef(uri = pinned.id, cid = pinned.cid)),
+                    postRepository = postRepo,
+                    postInteractionsCache = cache,
+                )
+            advanceUntilIdle()
+
+            cache.emit(persistentMapOf(pinned.id to PostInteractionState(isPinned = false, pinOverride = false)))
+            advanceUntilIdle()
+            assertNull(vm.uiState.value.pinnedPost)
+
+            cache.emit(persistentMapOf(pinned.id to PostInteractionState(isPinned = true)))
+            advanceUntilIdle()
+
+            assertEquals(
+                pinned.id,
+                vm.uiState.value.pinnedPost
+                    ?.id,
+            )
+        }
+
+    @Test
     fun anotherAccountsPinOverride_isIgnored() =
         runTest(mainDispatcher.dispatcher) {
             val postRepo = mockk<PostRepository>(relaxed = true)

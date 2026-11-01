@@ -432,24 +432,34 @@ internal class ProfileViewModel
          * No new event stream: this rides the cache collector the tabs already use.
          */
         private fun reconcilePinnedSlot(snapshot: PersistentMap<String, PostInteractionState>) {
-            val profileDid = uiState.value.header?.did ?: return
+            val header = uiState.value.header ?: return
+            val profileDid = header.did
             val current = uiState.value.pinnedPost
-            val newlyPinned =
-                snapshot.entries
-                    .firstOrNull { (uri, state) ->
-                        state.pinOverride == true && !state.isDeleted && uri.atUriAuthority() == profileDid
-                    }?.key
+            // The post the slot should show: a pin the cache knows about for this
+            // profile (a local write first), else the header's ref unless the cache
+            // says it's no longer pinned. Recomputed from scratch on every emission,
+            // so a rolled-back pin or unpin restores the slot too.
+            val ownPinned =
+                snapshot.entries.filter { (uri, state) ->
+                    state.isPinned && !state.isDeleted && uri.atUriAuthority() == profileDid
+                }
+            val fromCache = (ownPinned.firstOrNull { it.value.pinOverride == true } ?: ownPinned.firstOrNull())?.key
+            val fromHeader =
+                header.pinnedPost?.uri?.takeIf { uri ->
+                    snapshot[uri].let { state -> state == null || (state.isPinned && !state.isDeleted) }
+                }
+            val expected = fromCache ?: fromHeader
             when {
-                newlyPinned != null &&
-                    newlyPinned != current?.id &&
-                    newlyPinned != pinnedPostResolveTarget &&
-                    newlyPinned != pinnedPostFailedUri ->
-                    resolvePinnedPostUri(newlyPinned)
-                newlyPinned == null && current != null && snapshot[current.id]?.pinOverride == false -> {
+                expected == null && current != null -> {
                     pinnedPostResolveJob?.cancel()
                     pinnedPostResolveTarget = null
                     setState { copy(pinnedPost = null) }
                 }
+                expected != null &&
+                    expected != current?.id &&
+                    expected != pinnedPostResolveTarget &&
+                    expected != pinnedPostFailedUri ->
+                    resolvePinnedPostUri(expected)
             }
         }
 
