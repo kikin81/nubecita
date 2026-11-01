@@ -122,6 +122,10 @@ internal class ProfileViewModel
         private var verifierResolveJob: Job? = null
         private var pinnedPostResolveJob: Job? = null
 
+        // The URI the in-flight pinned-post resolve is fetching, so a cache
+        // emission (the resolve itself seeds the cache) can't re-trigger it.
+        private var pinnedPostResolveTarget: String? = null
+
         /**
          * The [VerifierRef] set the in-flight [verifierResolveJob] is resolving,
          * or `null` when idle. Single-flight is keyed on this, not a blanket
@@ -181,6 +185,7 @@ internal class ProfileViewModel
             viewModelScope.launch {
                 postInteractionsCache.state.collect { snapshot ->
                     setState { applyInteractions(snapshot) }
+                    reconcilePinnedSlot(snapshot)
                 }
             }
             // Mirror the viewer's Pro entitlement into flat state. isPro is a
@@ -413,6 +418,33 @@ internal class ProfileViewModel
         }
 
         /**
+         * Keep the pinned slot in step with a pin or unpin made from any surface
+         * (nubecita-iwjz.2). The interaction cache holds a `pinOverride` for each
+         * local pin write until the server agrees, so:
+         * - a post by this profile's DID with `pinOverride == true` that isn't the
+         *   slot's post becomes the slot (resolved by URI);
+         * - the slot's post with `pinOverride == false` was unpinned → clear.
+         * No new event stream: this rides the cache collector the tabs already use.
+         */
+        private fun reconcilePinnedSlot(snapshot: PersistentMap<String, PostInteractionState>) {
+            val profileDid = uiState.value.header?.did ?: return
+            val current = uiState.value.pinnedPost
+            val newlyPinned =
+                snapshot.entries
+                    .firstOrNull { (uri, state) -> state.pinOverride == true && uri.atUriAuthority() == profileDid }
+                    ?.key
+            when {
+                newlyPinned != null && newlyPinned != current?.id && newlyPinned != pinnedPostResolveTarget ->
+                    resolvePinnedPostUri(newlyPinned)
+                newlyPinned == null && current != null && snapshot[current.id]?.pinOverride == false -> {
+                    pinnedPostResolveJob?.cancel()
+                    pinnedPostResolveTarget = null
+                    setState { copy(pinnedPost = null) }
+                }
+            }
+        }
+
+        /**
          * Resolve the profile's pinned-post strongRef into a full post for the top
          * of the Posts tab. A null ref (nothing pinned, or a header refresh that
          * cleared the pin) clears the slot; a resolve failure (deleted/dangling
@@ -420,30 +452,36 @@ internal class ProfileViewModel
          * card. The resolved post is seeded into the interaction cache and merged
          * so its like/repost state stays consistent with the rest of the feed.
          */
-        private fun resolvePinnedPost(ref: PinnedPostRef?) {
+        private fun resolvePinnedPost(ref: PinnedPostRef?) = resolvePinnedPostUri(ref?.uri)
+
+        private fun resolvePinnedPostUri(uri: String?) {
             // Single-flight: cancel any in-flight resolution so a slower stale fetch
             // (from a rapid refresh / repeated ownProfileUpdates) can't land last and
             // overwrite a newer one.
             pinnedPostResolveJob?.cancel()
-            if (ref == null) {
+            if (uri == null) {
+                pinnedPostResolveTarget = null
                 setState { copy(pinnedPost = null) }
                 return
             }
+            pinnedPostResolveTarget = uri
             // Drop a now-stale slot immediately when the pinned target changed, so the
             // old post doesn't linger on screen while the new one resolves.
-            if (uiState.value.pinnedPost?.id != ref.uri) {
+            if (uiState.value.pinnedPost?.id != uri) {
                 setState { copy(pinnedPost = null) }
             }
             pinnedPostResolveJob =
                 viewModelScope.launch {
                     postRepository
-                        .getPost(ref.uri)
+                        .getPost(uri)
                         .onSuccess { post ->
                             postInteractionsCache.seed(listOf(post))
                             val merged =
                                 postInteractionsCache.state.value[post.id]?.let { post.mergeInteractionState(it) } ?: post
+                            pinnedPostResolveTarget = null
                             setState { copy(pinnedPost = merged) }
                         }.onFailure {
+                            pinnedPostResolveTarget = null
                             // Deleted/dangling or a fetch error → omit the slot, clearing any
                             // previously-shown pinned post so stale data can't persist.
                             setState { copy(pinnedPost = null) }
@@ -958,3 +996,6 @@ private fun ProfileScreenViewState.loadedPostIds(): Set<String> =
             if (item is TabItemUi.Post) add(item.post.id)
         }
     }
+
+/** The DID authority of an `at://<did>/<collection>/<rkey>` URI. */
+private fun String.atUriAuthority(): String = removePrefix("at://").substringBefore('/')
