@@ -50,7 +50,7 @@
           "displayName": "Nubecita Bench"
         },
         "createdAt": "2026-05-26T16:50:00Z",
-        "text": "pinned: building nubecita in the open. a fast, native bluesky client.",
+        "text": "building nubecita in the open. a fast, native bluesky client.",
         "embed": {
           "type": "Empty"
         },
@@ -60,8 +60,7 @@
           "likeCount": 24
         },
         "viewer": {
-          "isOwnPost": true,
-          "isPinned": true
+          "isOwnPost": true
         }
       }
     },

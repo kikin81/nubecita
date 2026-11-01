@@ -85,7 +85,9 @@ internal object BenchProfileMapper {
             facets = persistentListOf(),
             embed = embed.toEmbedUi(),
             stats = stats.toPostStatsUi(),
-            viewer = viewer.toViewerStateUi(),
+            // Bench posts by the bench account are the viewer's own, as production
+            // maps them (author DID == signed-in DID) — so the sheet offers Pin.
+            viewer = viewer.toViewerStateUi().copy(isOwnPost = author.did == BENCH_ACCOUNT_DID),
             repostedBy = repostedBy,
         )
 
@@ -202,3 +204,5 @@ internal object BenchProfileMapper {
             }
         }
 }
+
+private const val BENCH_ACCOUNT_DID = "did:plc:benchnubecita0000000000000"

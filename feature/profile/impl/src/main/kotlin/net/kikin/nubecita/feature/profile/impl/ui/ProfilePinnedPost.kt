@@ -36,8 +36,10 @@ internal fun LazyListScope.pinnedPostItem(
     isMediaRevealed: Boolean,
     onRevealMedia: (postId: String) -> Unit,
 ) {
-    item(key = "pinned-post", contentType = "pinned-post") {
-        Column {
+    // Keyed by the post so a pin change is a remove + insert the list can
+    // animate (fade / slide), rather than an in-place swap in a single frame.
+    item(key = "pinned-post:${post.id}", contentType = "pinned-post") {
+        Column(modifier = Modifier.animateItem()) {
             PinnedPostLabel(modifier = Modifier.padding(start = 56.dp, top = 8.dp, bottom = 2.dp))
             ProfileFeedPostCard(
                 post = post,
