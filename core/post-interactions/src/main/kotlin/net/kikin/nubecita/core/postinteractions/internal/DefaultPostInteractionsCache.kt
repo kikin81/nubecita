@@ -142,18 +142,24 @@ internal class DefaultPostInteractionsCache
                     callResult.fold(
                         onSuccess = { newLikeUri: AtUri? ->
                             _state.update {
-                                it.putting(
-                                    postUri,
-                                    optimistic.copy(
-                                        viewerLikeUri = newLikeUri?.raw,
-                                        pendingLikeWrite = PendingState.None,
-                                    ),
-                                )
+                                // Merge only this write's fields into the latest entry: a
+                                // mute or pin that landed meanwhile must survive.
+                                it.mergeAt(postUri) { now ->
+                                    now.copy(viewerLikeUri = newLikeUri?.raw, pendingLikeWrite = PendingState.None)
+                                }
                             }
                             Result.success(Unit)
                         },
                         onFailure = { throwable ->
-                            _state.update { it.putting(postUri, before) }
+                            _state.update {
+                                it.mergeAt(postUri) { now ->
+                                    now.copy(
+                                        viewerLikeUri = before.viewerLikeUri,
+                                        likeCount = before.likeCount,
+                                        pendingLikeWrite = before.pendingLikeWrite,
+                                    )
+                                }
+                            }
                             Result.failure(throwable)
                         },
                     )
@@ -198,18 +204,22 @@ internal class DefaultPostInteractionsCache
                     callResult.fold(
                         onSuccess = { newRepostUri: AtUri? ->
                             _state.update {
-                                it.putting(
-                                    postUri,
-                                    optimistic.copy(
-                                        viewerRepostUri = newRepostUri?.raw,
-                                        pendingRepostWrite = PendingState.None,
-                                    ),
-                                )
+                                it.mergeAt(postUri) { now ->
+                                    now.copy(viewerRepostUri = newRepostUri?.raw, pendingRepostWrite = PendingState.None)
+                                }
                             }
                             Result.success(Unit)
                         },
                         onFailure = { throwable ->
-                            _state.update { it.putting(postUri, before) }
+                            _state.update {
+                                it.mergeAt(postUri) { now ->
+                                    now.copy(
+                                        viewerRepostUri = before.viewerRepostUri,
+                                        repostCount = before.repostCount,
+                                        pendingRepostWrite = before.pendingRepostWrite,
+                                    )
+                                }
+                            }
                             Result.failure(throwable)
                         },
                     )
@@ -253,12 +263,20 @@ internal class DefaultPostInteractionsCache
                     }.fold(
                         onSuccess = {
                             _state.update {
-                                it.putting(postUri, optimistic.copy(pendingBookmarkWrite = PendingState.None))
+                                it.mergeAt(postUri) { now -> now.copy(pendingBookmarkWrite = PendingState.None) }
                             }
                             Result.success(Unit)
                         },
                         onFailure = { throwable ->
-                            _state.update { it.putting(postUri, before) }
+                            _state.update {
+                                it.mergeAt(postUri) { now ->
+                                    now.copy(
+                                        isBookmarked = before.isBookmarked,
+                                        bookmarkCount = before.bookmarkCount,
+                                        pendingBookmarkWrite = before.pendingBookmarkWrite,
+                                    )
+                                }
+                            }
                             Result.failure(throwable)
                         },
                     )
@@ -311,8 +329,7 @@ internal class DefaultPostInteractionsCache
                         onFailure = { throwable ->
                             _state.update { map ->
                                 before.entries.fold(map) { acc, (id, previous) ->
-                                    val now = acc[id] ?: previous
-                                    acc.putting(id, now.copy(isPinned = previous.isPinned, pinOverride = previous.pinOverride))
+                                    acc.mergeAt(id) { now -> now.copy(isPinned = previous.isPinned, pinOverride = previous.pinOverride) }
                                 }
                             }
                             Result.failure(throwable)
@@ -330,6 +347,7 @@ internal class DefaultPostInteractionsCache
         override suspend fun toggleThreadMute(
             postUri: String,
             threadRootUri: String?,
+            target: Boolean?,
         ): Result<Boolean> {
             val current = _state.value[postUri] ?: PostInteractionState()
             // The caller's PostUi root wins when the cache has none (an unseeded
@@ -338,7 +356,12 @@ internal class DefaultPostInteractionsCache
             if (threadMuteJobs[threadKey]?.isActive == true) {
                 return Result.success(current.isThreadMuted)
             }
-            val target = !current.isThreadMuted
+            // An explicit target (the menu's Mute vs Unmute) wins over toggling, so
+            // a stale menu can never invert the request; already there → no write.
+            val target = target ?: !current.isThreadMuted
+            if (target == current.isThreadMuted && current.threadMuteOverride == null) {
+                return Result.success(target)
+            }
 
             // Snapshot the thread's posts and flip them all in one atomic update.
             var before: Map<String, PostInteractionState> = emptyMap()
@@ -365,14 +388,12 @@ internal class DefaultPostInteractionsCache
                             // bookmark that landed meanwhile is not rolled back too.
                             _state.update { map ->
                                 before.entries.fold(map) { acc, (id, previous) ->
-                                    val now = acc[id] ?: previous
-                                    acc.putting(
-                                        id,
+                                    acc.mergeAt(id) { now ->
                                         now.copy(
                                             isThreadMuted = previous.isThreadMuted,
                                             threadMuteOverride = previous.threadMuteOverride,
-                                        ),
-                                    )
+                                        )
+                                    }
                                 }
                             }
                             Result.failure(throwable)
@@ -431,6 +452,16 @@ internal class DefaultPostInteractionsCache
             _state.update { it.putting(postUri, state) }
         }
     }
+
+/**
+ * Apply [block] to the LATEST entry for [postUri], so a completing or rolled-back
+ * write touches only its own fields. A missing entry (the cache was cleared on
+ * sign-out meanwhile) stays missing instead of being recreated.
+ */
+private fun PersistentMap<String, PostInteractionState>.mergeAt(
+    postUri: String,
+    block: (PostInteractionState) -> PostInteractionState,
+): PersistentMap<String, PostInteractionState> = this[postUri]?.let { putting(postUri, block(it)) } ?: this
 
 /** Keeps the latest wire reply count (the floor's base) when the rest of [this] is preserved. */
 private fun PostInteractionState.withWireReplyCount(post: PostUi): PostInteractionState = copy(replyCount = post.stats.replyCount.toLong(), replyCountFloor = replyCountFloor?.liveAbove(post))

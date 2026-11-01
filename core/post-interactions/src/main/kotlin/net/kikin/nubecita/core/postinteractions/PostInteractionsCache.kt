@@ -154,6 +154,7 @@ interface PostInteractionsCache {
     suspend fun toggleThreadMute(
         postUri: String,
         threadRootUri: String? = null,
+        target: Boolean? = null,
     ): Result<Boolean> = Result.failure(UnsupportedOperationException("toggleThreadMute"))
 
     /**

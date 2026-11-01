@@ -76,6 +76,7 @@ internal class FakePostInteractionsCacheForHandler : PostInteractionsCache {
     override suspend fun toggleThreadMute(
         postUri: String,
         threadRootUri: String?,
+        target: Boolean?,
     ): Result<Boolean> {
         toggleThreadMuteArgs += postUri
         return nextToggleThreadMuteResult

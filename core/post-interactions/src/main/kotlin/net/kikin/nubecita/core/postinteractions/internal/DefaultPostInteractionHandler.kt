@@ -291,7 +291,7 @@ internal class DefaultPostInteractionHandler
                 -> {
                     val muting = action == PostOverflowAction.MuteThread
                     requireScope().launch {
-                        cache.toggleThreadMute(post.id, post.threadRootUri).fold(
+                        cache.toggleThreadMute(post.id, post.threadRootUri, target = muting).fold(
                             onSuccess = { nowMuted ->
                                 emit(
                                     InteractionEffect.ShowNotice(
