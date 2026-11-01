@@ -40,7 +40,12 @@ abstract class MviViewModel<S : UiState, E : UiEvent, F : UiEffect>(
     init {
         // A closeable rather than an onCleared() override: closeables run on
         // clear even when a subclass overrides onCleared() without super.
-        addCloseable { ClearedViewModelObserver.onCleared?.invoke(this) }
+        // Registered only when an observer is installed (debug builds install
+        // it from a ContentProvider, before any ViewModel exists), so release
+        // builds allocate nothing per ViewModel.
+        if (ClearedViewModelObserver.onCleared != null) {
+            addCloseable { ClearedViewModelObserver.onCleared?.invoke(this) }
+        }
     }
 
     /**
