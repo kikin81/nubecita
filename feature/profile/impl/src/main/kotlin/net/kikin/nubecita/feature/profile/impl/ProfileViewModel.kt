@@ -432,6 +432,10 @@ internal class ProfileViewModel
          * No new event stream: this rides the cache collector the tabs already use.
          */
         private fun reconcilePinnedSlot(snapshot: PersistentMap<String, PostInteractionState>) {
+            // Own profile only. The appview sets viewer.pinned solely on the
+            // viewer's own posts (unset → false elsewhere), and only the viewer
+            // can pin, so on anyone else's profile the header ref is the truth.
+            if (!uiState.value.ownProfile) return
             val header = uiState.value.header ?: return
             val profileDid = header.did
             val current = uiState.value.pinnedPost

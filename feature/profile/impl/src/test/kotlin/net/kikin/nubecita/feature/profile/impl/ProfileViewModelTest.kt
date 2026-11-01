@@ -2670,6 +2670,33 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun anotherProfilesPinnedPost_survivesTheAppviewsUnsetPinnedFlag() =
+        runTest(mainDispatcher.dispatcher) {
+            // The appview only sets viewer.pinned when the viewer authored the post,
+            // so someone else's pinned post always seeds the cache with isPinned=false.
+            val theirPinned = samplePostUi(id = "at://did:plc:alice/app.bsky.feed.post/pinned", cid = "bafypinned")
+            val postRepo = mockk<PostRepository> { coEvery { getPost(theirPinned.id) } returns Result.success(theirPinned) }
+            val cache = FakePostInteractionsCache()
+            val vm =
+                newVm(
+                    repo = headerWithPinned(PinnedPostRef(uri = theirPinned.id, cid = theirPinned.cid)),
+                    route = Profile(handle = "alice.bsky.social"),
+                    postRepository = postRepo,
+                    postInteractionsCache = cache,
+                )
+            advanceUntilIdle()
+
+            cache.emit(persistentMapOf(theirPinned.id to PostInteractionState(isPinned = false)))
+            advanceUntilIdle()
+
+            assertEquals(
+                theirPinned.id,
+                vm.uiState.value.pinnedPost
+                    ?.id,
+            )
+        }
+
+    @Test
     fun anotherAccountsPinOverride_isIgnored() =
         runTest(mainDispatcher.dispatcher) {
             val postRepo = mockk<PostRepository>(relaxed = true)
