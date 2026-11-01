@@ -63,4 +63,15 @@ sealed interface PostOverflowAction {
      * Irreversible, so the consuming surface confirms before acting.
      */
     data object DeletePost : PostOverflowAction
+
+    /**
+     * Pin the viewer's own post to their profile. Offered only when
+     * `PostUi.viewer.isOwnPost` and the post is not already pinned; any post the
+     * viewer authored is eligible, replies and quotes included (matches the
+     * official client).
+     */
+    data object PinPost : PostOverflowAction
+
+    /** Clear the viewer's profile pin from this post. Offered when `isPinned`. */
+    data object UnpinPost : PostOverflowAction
 }

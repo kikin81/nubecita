@@ -9,14 +9,12 @@ import io.github.kikin81.atproto.com.atproto.repo.DeleteRecordRequest
 import io.github.kikin81.atproto.com.atproto.repo.GetRecordRequest
 import io.github.kikin81.atproto.com.atproto.repo.PutRecordRequest
 import io.github.kikin81.atproto.com.atproto.repo.RepoService
-import io.github.kikin81.atproto.runtime.AtField
 import io.github.kikin81.atproto.runtime.AtIdentifier
 import io.github.kikin81.atproto.runtime.Blob
 import io.github.kikin81.atproto.runtime.Cid
 import io.github.kikin81.atproto.runtime.Nsid
 import io.github.kikin81.atproto.runtime.RecordKey
 import io.github.kikin81.atproto.runtime.XrpcError
-import io.github.kikin81.atproto.runtime.present
 import io.ktor.http.ContentType
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -44,6 +42,7 @@ import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.image.ImageEncoder
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.postinteractions.FollowRepository
+import net.kikin.nubecita.core.profile.ProfileRecordWriter
 import net.kikin.nubecita.data.models.VerifierUi
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
 import net.kikin.nubecita.feature.profile.impl.VerifierRef
@@ -75,6 +74,7 @@ internal class DefaultProfileRepository
         private val moderationPreferences: ModerationPreferencesRepository,
         private val encoder: ImageEncoder,
         private val followRepository: FollowRepository,
+        private val profileRecordWriter: ProfileRecordWriter,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : ProfileRepository {
         // replay = 0 (only live collectors react) + extraBufferCapacity = 1
@@ -211,55 +211,39 @@ internal class DefaultProfileRepository
                     val client = xrpcClientProvider.authenticated()
                     val repo = RepoService(client)
 
-                    // Step 1+2: fetch the existing record (+ its CID for
-                    // compare-and-swap), or fall into the create-if-missing
-                    // path when a brand-new account has no profile record.
-                    val (existing, swapCid) = fetchProfileRecord(repo, selfDid)
-
-                    // Step 3: merge edits onto the fetched JsonObject,
-                    // uploading only changed images. Unmanaged keys are
-                    // copied verbatim, so pinnedPost / labels / createdAt /
-                    // unknown future keys all survive.
-                    val merged =
-                        buildMergedRecord(
-                            repo = repo,
-                            existing = existing,
-                            isCreate = swapCid == null,
-                            displayName = displayName,
-                            description = description,
-                            avatar = avatar,
-                            banner = banner,
-                        ).toMutableMap()
-
-                    // Links: write link records BEFORE the profile so the
-                    // profile never points at a record that doesn't exist yet.
-                    val deletes =
-                        when (links) {
-                            LinksChange.Unchanged -> emptyList()
-                            is LinksChange.Replaced -> {
-                                val plan = planLinkWrites(links.links, links.original)
-                                val refs = writeLinkRecords(repo, selfDid, plan)
-                                if (refs.isEmpty()) merged.remove(KEY_LINKS) else merged[KEY_LINKS] = JsonArray(refs)
-                                plan.deletes
-                            }
-                        }
-
-                    // Step 4: write back. swapRecord is present only when we
-                    // read a prior CID — the create path omits it so a
-                    // first write can't fail on a missing-record swap.
-                    repo.putRecord(
-                        PutRecordRequest(
-                            collection = Nsid(PROFILE_NSID),
-                            repo = AtIdentifier(selfDid),
-                            rkey = RecordKey(PROFILE_RKEY),
-                            record = JsonObject(merged),
-                            // Present only when we read a prior CID. On the
-                            // create path we omit swapRecord entirely (leave
-                            // the default AtField.Missing) so the first write
-                            // can't fail on a missing-record compare-and-swap.
-                            swapRecord = swapCid?.let { present(it) } ?: AtField.Missing,
-                        ),
-                    )
+                    // Read-modify-write through the shared :core:profile writer:
+                    // it fetches the record (+ its CID for compare-and-swap, or
+                    // null on a brand-new account), applies the merge below, and
+                    // writes back with swapRecord. Unmanaged keys are copied
+                    // verbatim, so pinnedPost / labels / createdAt / unknown
+                    // future keys all survive.
+                    var deletes: List<String> = emptyList()
+                    profileRecordWriter
+                        .update { existing ->
+                            val merged =
+                                buildMergedRecord(
+                                    repo = repo,
+                                    existing = existing ?: JsonObject(emptyMap()),
+                                    isCreate = existing == null,
+                                    displayName = displayName,
+                                    description = description,
+                                    avatar = avatar,
+                                    banner = banner,
+                                ).toMutableMap()
+                            // Links: write link records BEFORE the profile so the
+                            // profile never points at a record that doesn't exist yet.
+                            deletes =
+                                when (links) {
+                                    LinksChange.Unchanged -> emptyList()
+                                    is LinksChange.Replaced -> {
+                                        val plan = planLinkWrites(links.links, links.original)
+                                        val refs = writeLinkRecords(repo, selfDid, plan)
+                                        if (refs.isEmpty()) merged.remove(KEY_LINKS) else merged[KEY_LINKS] = JsonArray(refs)
+                                        plan.deletes
+                                    }
+                                }
+                            JsonObject(merged)
+                        }.getOrThrow()
                     // Tell any live own-profile screen to refetch its header so
                     // the saved fields (incl. the new avatar/banner CDN URLs)
                     // show without a manual refresh.

@@ -7,6 +7,8 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -2520,6 +2522,263 @@ internal class ProfileViewModelTest {
             val postRepo = mockk<PostRepository>(relaxed = true)
 
             val vm = newVm(repo = FakeProfileRepository(), postRepository = postRepo)
+            advanceUntilIdle()
+
+            assertNull(vm.uiState.value.pinnedPost)
+            coVerify(exactly = 0) { postRepo.getPost(any()) }
+        }
+
+    // --- pinned post follows pin changes from any surface (nubecita-iwjz.2) ---
+
+    @Test
+    fun pinFromAnotherSurface_resolvesAndFillsTheSlot() =
+        runTest(mainDispatcher.dispatcher) {
+            val pinned = samplePostUi(id = "at://did:plc:alice/app.bsky.feed.post/new", cid = "bafynew")
+            val postRepo = mockk<PostRepository> { coEvery { getPost(pinned.id) } returns Result.success(pinned) }
+            val cache = FakePostInteractionsCache()
+            val vm = newVm(repo = FakeProfileRepository(), postRepository = postRepo, postInteractionsCache = cache)
+            advanceUntilIdle()
+
+            cache.emit(persistentMapOf(pinned.id to PostInteractionState(isPinned = true, pinOverride = true)))
+            advanceUntilIdle()
+
+            assertEquals(
+                pinned.id,
+                vm.uiState.value.pinnedPost
+                    ?.id,
+            )
+            coVerify(exactly = 1) { postRepo.getPost(pinned.id) }
+        }
+
+    @Test
+    fun unpinFromAnotherSurface_clearsTheSlot() =
+        runTest(mainDispatcher.dispatcher) {
+            val pinned = samplePostUi(id = "at://did:plc:alice/app.bsky.feed.post/pinned", cid = "bafypinned")
+            val postRepo = mockk<PostRepository> { coEvery { getPost(pinned.id) } returns Result.success(pinned) }
+            val cache = FakePostInteractionsCache()
+            val vm =
+                newVm(
+                    repo = headerWithPinned(PinnedPostRef(uri = pinned.id, cid = pinned.cid)),
+                    postRepository = postRepo,
+                    postInteractionsCache = cache,
+                )
+            advanceUntilIdle()
+            assertEquals(
+                pinned.id,
+                vm.uiState.value.pinnedPost
+                    ?.id,
+            )
+
+            cache.emit(persistentMapOf(pinned.id to PostInteractionState(isPinned = false, pinOverride = false)))
+            advanceUntilIdle()
+
+            assertNull(vm.uiState.value.pinnedPost)
+        }
+
+    @Test
+    fun failedPinnedResolve_isNotRetriedOnEveryCacheEmission() =
+        runTest(mainDispatcher.dispatcher) {
+            val uri = "at://did:plc:alice/app.bsky.feed.post/new"
+            val postRepo = mockk<PostRepository> { coEvery { getPost(uri) } returns Result.failure(RuntimeException("offline")) }
+            val cache = FakePostInteractionsCache()
+            newVm(repo = FakeProfileRepository(), postRepository = postRepo, postInteractionsCache = cache)
+            advanceUntilIdle()
+
+            val pinned = PostInteractionState(isPinned = true, pinOverride = true)
+            cache.emit(persistentMapOf(uri to pinned))
+            advanceUntilIdle()
+            cache.emit(persistentMapOf(uri to pinned, "at://did:plc:x/app.bsky.feed.post/other" to PostInteractionState(likeCount = 1)))
+            advanceUntilIdle()
+
+            coVerify(exactly = 1) { postRepo.getPost(uri) }
+        }
+
+    @Test
+    fun failedPin_rollback_restoresTheHeaderPinnedPost() =
+        runTest(mainDispatcher.dispatcher) {
+            val headerPinned = samplePostUi(id = "at://did:plc:alice/app.bsky.feed.post/a", cid = "bafa")
+            val attempted = samplePostUi(id = "at://did:plc:alice/app.bsky.feed.post/b", cid = "bafb")
+            val postRepo =
+                mockk<PostRepository> {
+                    coEvery { getPost(headerPinned.id) } returns Result.success(headerPinned)
+                    coEvery { getPost(attempted.id) } returns Result.success(attempted)
+                }
+            val cache = FakePostInteractionsCache()
+            val vm =
+                newVm(
+                    repo = headerWithPinned(PinnedPostRef(uri = headerPinned.id, cid = headerPinned.cid)),
+                    postRepository = postRepo,
+                    postInteractionsCache = cache,
+                )
+            advanceUntilIdle()
+
+            // Optimistic pin of B moves the slot to B…
+            cache.emit(
+                persistentMapOf(
+                    attempted.id to PostInteractionState(isPinned = true, pinOverride = true),
+                    headerPinned.id to PostInteractionState(isPinned = false, pinOverride = false),
+                ),
+            )
+            advanceUntilIdle()
+            assertEquals(
+                attempted.id,
+                vm.uiState.value.pinnedPost
+                    ?.id,
+            )
+
+            // …and the failed write's rollback puts A back.
+            cache.emit(
+                persistentMapOf(
+                    attempted.id to PostInteractionState(isPinned = false),
+                    headerPinned.id to PostInteractionState(isPinned = true),
+                ),
+            )
+            advanceUntilIdle()
+
+            assertEquals(
+                headerPinned.id,
+                vm.uiState.value.pinnedPost
+                    ?.id,
+            )
+        }
+
+    @Test
+    fun failedUnpin_rollback_restoresTheSlot() =
+        runTest(mainDispatcher.dispatcher) {
+            val pinned = samplePostUi(id = "at://did:plc:alice/app.bsky.feed.post/pinned", cid = "bafypinned")
+            val postRepo = mockk<PostRepository> { coEvery { getPost(pinned.id) } returns Result.success(pinned) }
+            val cache = FakePostInteractionsCache()
+            val vm =
+                newVm(
+                    repo = headerWithPinned(PinnedPostRef(uri = pinned.id, cid = pinned.cid)),
+                    postRepository = postRepo,
+                    postInteractionsCache = cache,
+                )
+            advanceUntilIdle()
+
+            cache.emit(persistentMapOf(pinned.id to PostInteractionState(isPinned = false, pinOverride = false)))
+            advanceUntilIdle()
+            assertNull(vm.uiState.value.pinnedPost)
+
+            cache.emit(persistentMapOf(pinned.id to PostInteractionState(isPinned = true)))
+            advanceUntilIdle()
+
+            assertEquals(
+                pinned.id,
+                vm.uiState.value.pinnedPost
+                    ?.id,
+            )
+        }
+
+    @Test
+    fun anotherProfilesPinnedPost_survivesTheAppviewsUnsetPinnedFlag() =
+        runTest(mainDispatcher.dispatcher) {
+            // The appview only sets viewer.pinned when the viewer authored the post,
+            // so someone else's pinned post always seeds the cache with isPinned=false.
+            val theirPinned = samplePostUi(id = "at://did:plc:alice/app.bsky.feed.post/pinned", cid = "bafypinned")
+            val postRepo = mockk<PostRepository> { coEvery { getPost(theirPinned.id) } returns Result.success(theirPinned) }
+            val cache = FakePostInteractionsCache()
+            val vm =
+                newVm(
+                    repo = headerWithPinned(PinnedPostRef(uri = theirPinned.id, cid = theirPinned.cid)),
+                    route = Profile(handle = "alice.bsky.social"),
+                    postRepository = postRepo,
+                    postInteractionsCache = cache,
+                )
+            advanceUntilIdle()
+
+            cache.emit(persistentMapOf(theirPinned.id to PostInteractionState(isPinned = false)))
+            advanceUntilIdle()
+
+            assertEquals(
+                theirPinned.id,
+                vm.uiState.value.pinnedPost
+                    ?.id,
+            )
+        }
+
+    @Test
+    fun rollbackDuringAnInFlightResolve_cancelsIt() =
+        runTest(mainDispatcher.dispatcher) {
+            val uri = "at://did:plc:alice/app.bsky.feed.post/new"
+            val gate = CompletableDeferred<Unit>()
+            val postRepo =
+                mockk<PostRepository> {
+                    coEvery { getPost(uri) } coAnswers {
+                        gate.await()
+                        Result.success(samplePostUi(id = uri, cid = "bafy"))
+                    }
+                }
+            val cache = FakePostInteractionsCache()
+            val vm = newVm(repo = FakeProfileRepository(), postRepository = postRepo, postInteractionsCache = cache)
+            advanceUntilIdle()
+
+            cache.emit(persistentMapOf(uri to PostInteractionState(isPinned = true, pinOverride = true)))
+            advanceUntilIdle()
+            // The pin fails and rolls back while getPost is still in flight.
+            cache.emit(persistentMapOf(uri to PostInteractionState(isPinned = false)))
+            advanceUntilIdle()
+            gate.complete(Unit)
+            advanceUntilIdle()
+
+            assertNull(vm.uiState.value.pinnedPost)
+        }
+
+    @Test
+    fun staleHeaderRefresh_keepsTheLocallyPinnedPost() =
+        runTest(mainDispatcher.dispatcher) {
+            val stale = samplePostUi(id = "at://did:plc:alice/app.bsky.feed.post/a", cid = "bafa")
+            val pinned = samplePostUi(id = "at://did:plc:alice/app.bsky.feed.post/b", cid = "bafb")
+            val postRepo =
+                mockk<PostRepository> {
+                    coEvery { getPost(stale.id) } returns Result.success(stale)
+                    coEvery { getPost(pinned.id) } returns Result.success(pinned)
+                }
+            val cache = FakePostInteractionsCache()
+            val vm =
+                newVm(
+                    repo = headerWithPinned(PinnedPostRef(uri = stale.id, cid = stale.cid)),
+                    postRepository = postRepo,
+                    postInteractionsCache = cache,
+                )
+            advanceUntilIdle()
+            cache.emit(
+                persistentMapOf(
+                    pinned.id to PostInteractionState(isPinned = true, pinOverride = true),
+                    stale.id to PostInteractionState(isPinned = false, pinOverride = false),
+                ),
+            )
+            advanceUntilIdle()
+            assertEquals(
+                pinned.id,
+                vm.uiState.value.pinnedPost
+                    ?.id,
+            )
+
+            // A pull-to-refresh before the appview indexes the new pin still reports A.
+            vm.handleEvent(ProfileEvent.Refresh)
+            advanceUntilIdle()
+
+            assertEquals(
+                pinned.id,
+                vm.uiState.value.pinnedPost
+                    ?.id,
+            )
+        }
+
+    @Test
+    fun anotherAccountsPinOverride_isIgnored() =
+        runTest(mainDispatcher.dispatcher) {
+            val postRepo = mockk<PostRepository>(relaxed = true)
+            val cache = FakePostInteractionsCache()
+            val vm = newVm(repo = FakeProfileRepository(), postRepository = postRepo, postInteractionsCache = cache)
+            advanceUntilIdle()
+
+            cache.emit(
+                persistentMapOf(
+                    "at://did:plc:someoneelse/app.bsky.feed.post/x" to PostInteractionState(isPinned = true, pinOverride = true),
+                ),
+            )
             advanceUntilIdle()
 
             assertNull(vm.uiState.value.pinnedPost)

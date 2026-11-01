@@ -17,7 +17,7 @@ data class PostOverflowGroup(
  * can never drift apart; pure so the rules are unit-tested without Compose.
  *
  * Order follows the official client's post menu (social-app `PostMenuItems.tsx`):
- * - Own post: utility → thread → Delete. Report / Mute / Block aimed at
+ * - Own post: Pin / Unpin → utility → thread → Delete. Report / Mute / Block aimed at
  *   yourself are omitted.
  * - Others' post: utility → thread → moderation (Mute, Block, Report last).
  *
@@ -26,6 +26,16 @@ data class PostOverflowGroup(
  */
 fun postOverflowGroups(post: PostUi): ImmutableList<PostOverflowGroup> {
     val viewer = post.viewer
+    // Own posts lead with Pin / Unpin. Eligibility is authorship alone —
+    // replies and quotes included — matching social-app's PostMenuItems.
+    val pin =
+        // …once it has a CID: a just-sent post becomes interactive before its
+        // server copy arrives, and a pin needs a real strong ref.
+        if (viewer.isOwnPost && post.cid.isNotBlank()) {
+            listOf(if (viewer.isPinned) PostOverflowAction.UnpinPost else PostOverflowAction.PinPost)
+        } else {
+            emptyList()
+        }
     val utility =
         buildList {
             if (post.text.isNotBlank()) add(PostOverflowAction.TranslatePost)
@@ -44,7 +54,7 @@ fun postOverflowGroups(post: PostUi): ImmutableList<PostOverflowGroup> {
                 PostOverflowAction.ReportAuthor,
             )
         }
-    return listOf(utility, thread, last)
+    return listOf(pin, utility, thread, last)
         .filter { it.isNotEmpty() }
         .map { PostOverflowGroup(it.toImmutableList()) }
         .toImmutableList()

@@ -4,6 +4,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -11,6 +12,7 @@ import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.postinteractions.internal.DefaultPostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.internal.FakeBookmarkRepository
 import net.kikin.nubecita.core.postinteractions.internal.FakeLikeRepostRepository
+import net.kikin.nubecita.core.postinteractions.internal.FakePinnedPostRepository
 import net.kikin.nubecita.core.postinteractions.internal.FakeThreadMuteRepository
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
@@ -148,6 +150,92 @@ internal class ThreadMuteCacheTest {
         }
 
     @Test
+    fun `leaving the screen mid-mute keeps the in-flight guard`() =
+        runTest {
+            val repo = FakeThreadMuteRepository().apply { gate = CompletableDeferred() }
+            val cache = newCache(repo).seeded()
+
+            val awaiting = launch { cache.toggleThreadMute(replyA) }
+            runCurrent()
+            awaiting.cancel()
+            runCurrent()
+            val second = async { cache.toggleThreadMute(replyB) }
+            runCurrent()
+
+            assertEquals(1, repo.muteCalls.size + repo.unmuteCalls.size)
+            repo.gate?.complete(Unit)
+            second.await()
+        }
+
+    @Test
+    fun `an unseeded reply mutes the root the caller passes`() =
+        runTest {
+            val repo = FakeThreadMuteRepository()
+            val cache = newCache(repo)
+
+            cache.toggleThreadMute("at://did:plc:me/app.bsky.feed.post/justsent", threadRootUri = root)
+            advanceUntilIdle()
+
+            assertEquals(listOf(root), repo.muteCalls)
+        }
+
+    @Test
+    fun `a like completing after a mute keeps the mute`() =
+        runTest {
+            val likes = FakeLikeRepostRepository().apply { nextDelayMs = 1_000 }
+            val cache =
+                DefaultPostInteractionsCache(
+                    likeRepostRepository = likes,
+                    bookmarkRepository = FakeBookmarkRepository(),
+                    threadMuteRepository = FakeThreadMuteRepository(),
+                    pinnedPostRepository = FakePinnedPostRepository(),
+                    applicationScope = this,
+                ).seeded()
+
+            val like = async { cache.toggleLike(replyA, "bafy") }
+            runCurrent()
+            cache.toggleThreadMute(replyA)
+            runCurrent()
+            assertTrue(muted(cache, replyA))
+            like.await()
+
+            assertTrue(muted(cache, replyA), "the like's completion must not restore its pre-mute snapshot")
+            assertEquals(true, cache.state.value[replyA]?.threadMuteOverride)
+        }
+
+    @Test
+    fun `an explicit target that already holds writes nothing`() =
+        runTest {
+            val repo = FakeThreadMuteRepository()
+            val cache = newCache(repo).apply { seed(thread(threadMuted = true)) }
+
+            val result = cache.toggleThreadMute(replyA, target = true)
+            advanceUntilIdle()
+
+            assertEquals(Result.success(true), result)
+            assertTrue(repo.muteCalls.isEmpty() && repo.unmuteCalls.isEmpty())
+        }
+
+    @Test
+    fun `a rollback after the cache was cleared recreates nothing`() =
+        runTest {
+            val repo =
+                FakeThreadMuteRepository().apply {
+                    gate = CompletableDeferred()
+                    nextResult = Result.failure(RuntimeException("signed out"))
+                }
+            val cache = newCache(repo).seeded()
+
+            val write = async { cache.toggleThreadMute(replyA) }
+            runCurrent()
+            cache.clear()
+            repo.gate?.complete(Unit)
+            write.await()
+
+            assertTrue(cache.state.value.isEmpty(), "rollback must not resurrect cleared entries: ${cache.state.value.keys}")
+        }
+
+    @Test
     fun `merge projects the thread-muted flag onto the post`() =
         runTest {
             val cache = newCache(FakeThreadMuteRepository()).seeded()
@@ -179,6 +267,7 @@ internal class ThreadMuteCacheTest {
             likeRepostRepository = FakeLikeRepostRepository(),
             bookmarkRepository = FakeBookmarkRepository(),
             threadMuteRepository = repo,
+            pinnedPostRepository = FakePinnedPostRepository(),
             applicationScope = this,
         )
 

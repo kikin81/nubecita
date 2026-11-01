@@ -32,6 +32,7 @@ class PostOverflowSheetLazinessTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val moreOptionsLabel = context.getString(R.string.postcard_action_more)
     private val copyTextLabel = context.getString(R.string.moderation_action_copy_post_text)
+    private val translateLabel = context.getString(R.string.moderation_action_translate_post)
 
     @Test
     fun closedOverflowComposesNoSheet() {
@@ -50,6 +51,25 @@ class PostOverflowSheetLazinessTest {
 
         composeTestRule.onNodeWithTag(POST_OVERFLOW_SHEET_TAG).assertExists()
         composeTestRule.onNodeWithText(copyTextLabel).assertIsDisplayed()
+    }
+
+    @Test
+    fun aSecondRowTapDuringTheHideAnimationDispatchesNothing() {
+        val dispatched = mutableListOf<PostOverflowAction>()
+        composeTestRule.mainClock.autoAdvance = false
+        composeTestRule.setContent {
+            NubecitaTheme {
+                PostOverflowSheet(post = POST, onDismiss = {}, onAction = { dispatched += it })
+            }
+        }
+        composeTestRule.mainClock.advanceTimeBy(1_000)
+
+        composeTestRule.onNodeWithText(copyTextLabel).performClick()
+        composeTestRule.onNodeWithText(translateLabel).performClick()
+        composeTestRule.mainClock.autoAdvance = true
+        composeTestRule.waitForIdle()
+
+        org.junit.Assert.assertEquals(listOf(PostOverflowAction.CopyPostText), dispatched)
     }
 
     private fun setCard() {

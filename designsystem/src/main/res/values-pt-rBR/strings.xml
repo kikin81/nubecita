@@ -36,6 +36,12 @@
     <string name="post_notice_thread_unmuted">Som do thread reativado</string>
     <string name="post_notice_mute_thread_failed">Não foi possível silenciar o thread</string>
     <string name="post_notice_unmute_thread_failed">Não foi possível reativar o som do thread</string>
+    <string name="post_overflow_pin">Fixar no seu perfil</string>
+    <string name="post_overflow_unpin">Desafixar do perfil</string>
+    <string name="post_notice_post_pinned">Post fixado</string>
+    <string name="post_notice_post_unpinned">Post desafixado</string>
+    <string name="post_notice_pin_failed">Não foi possível fixar o post</string>
+    <string name="post_notice_unpin_failed">Não foi possível desafixar o post</string>
     <string name="moderation_action_copy_post_text">Copiar texto do post</string>
     <string name="tombstone_blocked_post">Post de um usuário bloqueado</string>
     <string name="tombstone_unblock">Desbloquear</string>

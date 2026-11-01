@@ -69,6 +69,10 @@ data class PostInteractionState(
      * refresh that still says muted.
      */
     val threadMuteOverride: Boolean? = null,
+    /** Effective pinned flag — wire value unless [pinOverride] holds. */
+    val isPinned: Boolean = false,
+    /** A local pin/unpin write's value, held two-way until the wire agrees (as [threadMuteOverride]). */
+    val pinOverride: Boolean? = null,
 )
 
 /**

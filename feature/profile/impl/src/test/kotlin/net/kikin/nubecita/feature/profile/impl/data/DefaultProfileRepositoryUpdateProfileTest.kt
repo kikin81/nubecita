@@ -32,6 +32,7 @@ import net.kikin.nubecita.core.moderation.LabelVisibility
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.core.postinteractions.FollowRepository
+import net.kikin.nubecita.core.profile.DefaultProfileRecordWriter
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -865,29 +866,35 @@ class DefaultProfileRepositoryUpdateProfileTest {
                 httpClient = HttpClient(engine),
                 authProvider = NoAuth,
             )
+        val xrpcClientProvider =
+            object : XrpcClientProvider {
+                override suspend fun authenticated(): XrpcClient = xrpcClient
+            }
+        val sessionStateProvider =
+            object : SessionStateProvider {
+                override val state: StateFlow<SessionState> =
+                    MutableStateFlow(
+                        if (signedIn) {
+                            SessionState.SignedIn(handle = "alice.test", did = testDid)
+                        } else {
+                            SessionState.SignedOut
+                        },
+                    )
+
+                override suspend fun refresh() = Unit
+            }
+        val dispatcher = UnconfinedTestDispatcher()
         val repo =
             DefaultProfileRepository(
-                xrpcClientProvider =
-                    object : XrpcClientProvider {
-                        override suspend fun authenticated(): XrpcClient = xrpcClient
-                    },
-                sessionStateProvider =
-                    object : SessionStateProvider {
-                        override val state: StateFlow<SessionState> =
-                            MutableStateFlow(
-                                if (signedIn) {
-                                    SessionState.SignedIn(handle = "alice.test", did = testDid)
-                                } else {
-                                    SessionState.SignedOut
-                                },
-                            )
-
-                        override suspend fun refresh() = Unit
-                    },
+                xrpcClientProvider = xrpcClientProvider,
+                sessionStateProvider = sessionStateProvider,
                 moderationPreferences = inertModerationPrefs(),
                 encoder = encoder,
                 followRepository = inertFollowRepository(),
-                dispatcher = UnconfinedTestDispatcher(),
+                // The real shared writer, so these tests keep exercising the
+                // full getRecord → merge → putRecord path end to end.
+                profileRecordWriter = DefaultProfileRecordWriter(xrpcClientProvider, sessionStateProvider, dispatcher),
+                dispatcher = dispatcher,
             )
         return engine to repo
     }

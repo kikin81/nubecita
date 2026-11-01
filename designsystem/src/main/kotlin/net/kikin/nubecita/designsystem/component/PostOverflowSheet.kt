@@ -133,6 +133,8 @@ fun postOverflowLabel(
         PostOverflowAction.CopyPostText -> stringResource(R.string.moderation_action_copy_post_text)
         PostOverflowAction.TranslatePost -> stringResource(R.string.moderation_action_translate_post)
         PostOverflowAction.DeletePost -> stringResource(R.string.postcard_action_delete_post)
+        PostOverflowAction.PinPost -> stringResource(R.string.post_overflow_pin)
+        PostOverflowAction.UnpinPost -> stringResource(R.string.post_overflow_unpin)
     }
 
 /** The trailing icon for [this] row. */
@@ -147,4 +149,5 @@ fun PostOverflowAction.iconName(): NubecitaIconName =
         PostOverflowAction.BlockAuthor, PostOverflowAction.UnblockAuthor -> NubecitaIconName.Block
         PostOverflowAction.ReportPost, PostOverflowAction.ReportAuthor -> NubecitaIconName.Flag
         PostOverflowAction.DeletePost -> NubecitaIconName.Delete
+        PostOverflowAction.PinPost, PostOverflowAction.UnpinPost -> NubecitaIconName.Keep
     }

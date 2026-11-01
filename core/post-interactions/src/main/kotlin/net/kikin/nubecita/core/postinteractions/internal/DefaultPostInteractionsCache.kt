@@ -20,6 +20,7 @@ import net.kikin.nubecita.core.postinteractions.PendingState
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.ThreadMuteRepository
+import net.kikin.nubecita.core.profile.PinnedPostRepository
 import net.kikin.nubecita.data.models.PostUi
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -45,6 +46,7 @@ internal class DefaultPostInteractionsCache
         private val likeRepostRepository: LikeRepostRepository,
         private val bookmarkRepository: BookmarkRepository,
         private val threadMuteRepository: ThreadMuteRepository,
+        private val pinnedPostRepository: PinnedPostRepository,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) : PostInteractionsCache,
         SessionClearable {
@@ -53,6 +55,11 @@ internal class DefaultPostInteractionsCache
         private val repostJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
         private val bookmarkJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
         private val threadMuteJobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
+
+        // One profile record holds the pin, so at most one pin write at a time.
+        private val pinJob =
+            java.util.concurrent.atomic
+                .AtomicReference<kotlinx.coroutines.Job?>(null)
 
         override val state: StateFlow<PersistentMap<String, PostInteractionState>> = _state.asStateFlow()
 
@@ -93,6 +100,7 @@ internal class DefaultPostInteractionsCache
                                     replyCount = post.stats.replyCount.toLong(),
                                     replyCountFloor = existing?.replyCountFloor?.liveAbove(post),
                                     threadMuteOverride = existing?.threadMuteOverride,
+                                    pinOverride = existing?.pinOverride,
                                 ).withWireOverlays(post)
                         }
                     acc.putting(post.id, merged)
@@ -134,18 +142,24 @@ internal class DefaultPostInteractionsCache
                     callResult.fold(
                         onSuccess = { newLikeUri: AtUri? ->
                             _state.update {
-                                it.putting(
-                                    postUri,
-                                    optimistic.copy(
-                                        viewerLikeUri = newLikeUri?.raw,
-                                        pendingLikeWrite = PendingState.None,
-                                    ),
-                                )
+                                // Merge only this write's fields into the latest entry: a
+                                // mute or pin that landed meanwhile must survive.
+                                it.mergeAt(postUri) { now ->
+                                    now.copy(viewerLikeUri = newLikeUri?.raw, pendingLikeWrite = PendingState.None)
+                                }
                             }
                             Result.success(Unit)
                         },
                         onFailure = { throwable ->
-                            _state.update { it.putting(postUri, before) }
+                            _state.update {
+                                it.mergeAt(postUri) { now ->
+                                    now.copy(
+                                        viewerLikeUri = before.viewerLikeUri,
+                                        likeCount = before.likeCount,
+                                        pendingLikeWrite = before.pendingLikeWrite,
+                                    )
+                                }
+                            }
                             Result.failure(throwable)
                         },
                     )
@@ -190,18 +204,22 @@ internal class DefaultPostInteractionsCache
                     callResult.fold(
                         onSuccess = { newRepostUri: AtUri? ->
                             _state.update {
-                                it.putting(
-                                    postUri,
-                                    optimistic.copy(
-                                        viewerRepostUri = newRepostUri?.raw,
-                                        pendingRepostWrite = PendingState.None,
-                                    ),
-                                )
+                                it.mergeAt(postUri) { now ->
+                                    now.copy(viewerRepostUri = newRepostUri?.raw, pendingRepostWrite = PendingState.None)
+                                }
                             }
                             Result.success(Unit)
                         },
                         onFailure = { throwable ->
-                            _state.update { it.putting(postUri, before) }
+                            _state.update {
+                                it.mergeAt(postUri) { now ->
+                                    now.copy(
+                                        viewerRepostUri = before.viewerRepostUri,
+                                        repostCount = before.repostCount,
+                                        pendingRepostWrite = before.pendingRepostWrite,
+                                    )
+                                }
+                            }
                             Result.failure(throwable)
                         },
                     )
@@ -245,12 +263,20 @@ internal class DefaultPostInteractionsCache
                     }.fold(
                         onSuccess = {
                             _state.update {
-                                it.putting(postUri, optimistic.copy(pendingBookmarkWrite = PendingState.None))
+                                it.mergeAt(postUri) { now -> now.copy(pendingBookmarkWrite = PendingState.None) }
                             }
                             Result.success(Unit)
                         },
                         onFailure = { throwable ->
-                            _state.update { it.putting(postUri, before) }
+                            _state.update {
+                                it.mergeAt(postUri) { now ->
+                                    now.copy(
+                                        isBookmarked = before.isBookmarked,
+                                        bookmarkCount = before.bookmarkCount,
+                                        pendingBookmarkWrite = before.pendingBookmarkWrite,
+                                    )
+                                }
+                            }
                             Result.failure(throwable)
                         },
                     )
@@ -263,13 +289,85 @@ internal class DefaultPostInteractionsCache
             }
         }
 
-        override suspend fun toggleThreadMute(postUri: String): Result<Boolean> {
+        override suspend fun togglePin(
+            postUri: String,
+            postCid: String,
+            target: Boolean?,
+        ): Result<Boolean?> {
+            if (pinJob.get()?.isActive == true) return Result.success(null)
+            val current = _state.value[postUri]
+            val isPinnedNow = current?.isPinned == true
+            // An explicit target (the menu's Pin vs Unpin) wins over toggling, so a
+            // stale "Unpin" can never pin; already there → no write.
+            val target = target ?: !isPinnedNow
+            if (target == isPinnedNow && current?.pinOverride == null) return Result.success(target)
+
+            // Flip this post, and (when pinning) clear every other pinned post,
+            // atomically. A post absent from the cache is not inserted — a
+            // default entry would zero its counts on merge — so it simply
+            // isn't flipped; every surface seeds before it renders.
+            var before: Map<String, PostInteractionState> = emptyMap()
+            _state.update { map ->
+                // Only B's author's pins move: another author's pinned post (as the
+                // appview may flag it) is never touched.
+                val author = postUri.atUriAuthority()
+                val affected =
+                    map.filter { (id, state) ->
+                        id == postUri || (target && state.isPinned && id.atUriAuthority() == author)
+                    }
+                before = affected
+                affected.entries.fold(map) { acc, (id, state) ->
+                    val pinned = id == postUri && target
+                    acc.putting(id, state.copy(isPinned = pinned, pinOverride = pinned))
+                }
+            }
+
+            val job =
+                applicationScope.async {
+                    runCatchingCancellable {
+                        if (target) {
+                            pinnedPostRepository.pin(uri = postUri, cid = postCid).getOrThrow()
+                        } else {
+                            pinnedPostRepository.unpin(uri = postUri).getOrThrow()
+                        }
+                    }.fold(
+                        onSuccess = { Result.success<Boolean?>(target) },
+                        onFailure = { throwable ->
+                            _state.update { map ->
+                                before.entries.fold(map) { acc, (id, previous) ->
+                                    acc.mergeAt(id) { now -> now.copy(isPinned = previous.isPinned, pinOverride = previous.pinOverride) }
+                                }
+                            }
+                            Result.failure(throwable)
+                        },
+                    )
+                }
+            pinJob.set(job)
+            // The job clears its own guard: the awaiting caller (a VM scope) can be
+            // cancelled while the write keeps running on the application scope,
+            // and a finally there would reopen the guard mid-write.
+            job.invokeOnCompletion { pinJob.compareAndSet(job, null) }
+            return job.await()
+        }
+
+        override suspend fun toggleThreadMute(
+            postUri: String,
+            threadRootUri: String?,
+            target: Boolean?,
+        ): Result<Boolean> {
             val current = _state.value[postUri] ?: PostInteractionState()
-            val threadKey = current.threadRootUri ?: postUri
+            // The caller's PostUi root wins when the cache has none (an unseeded
+            // or locally-projected post, e.g. a just-sent reply).
+            val threadKey = current.threadRootUri ?: threadRootUri ?: postUri
             if (threadMuteJobs[threadKey]?.isActive == true) {
                 return Result.success(current.isThreadMuted)
             }
-            val target = !current.isThreadMuted
+            // An explicit target (the menu's Mute vs Unmute) wins over toggling, so
+            // a stale menu can never invert the request; already there → no write.
+            val target = target ?: !current.isThreadMuted
+            if (target == current.isThreadMuted && current.threadMuteOverride == null) {
+                return Result.success(target)
+            }
 
             // Snapshot the thread's posts and flip them all in one atomic update.
             var before: Map<String, PostInteractionState> = emptyMap()
@@ -296,14 +394,12 @@ internal class DefaultPostInteractionsCache
                             // bookmark that landed meanwhile is not rolled back too.
                             _state.update { map ->
                                 before.entries.fold(map) { acc, (id, previous) ->
-                                    val now = acc[id] ?: previous
-                                    acc.putting(
-                                        id,
+                                    acc.mergeAt(id) { now ->
                                         now.copy(
                                             isThreadMuted = previous.isThreadMuted,
                                             threadMuteOverride = previous.threadMuteOverride,
-                                        ),
-                                    )
+                                        )
+                                    }
                                 }
                             }
                             Result.failure(throwable)
@@ -311,11 +407,9 @@ internal class DefaultPostInteractionsCache
                     )
                 }
             threadMuteJobs[threadKey] = job
-            return try {
-                job.await()
-            } finally {
-                threadMuteJobs.remove(threadKey)
-            }
+            // Cleared by the job itself, not the (cancellable) awaiting caller.
+            job.invokeOnCompletion { threadMuteJobs.remove(threadKey, job) }
+            return job.await()
         }
 
         override fun markDeleted(postUri: String) {
@@ -365,6 +459,16 @@ internal class DefaultPostInteractionsCache
         }
     }
 
+/**
+ * Apply [block] to the LATEST entry for [postUri], so a completing or rolled-back
+ * write touches only its own fields. A missing entry (the cache was cleared on
+ * sign-out meanwhile) stays missing instead of being recreated.
+ */
+private fun PersistentMap<String, PostInteractionState>.mergeAt(
+    postUri: String,
+    block: (PostInteractionState) -> PostInteractionState,
+): PersistentMap<String, PostInteractionState> = this[postUri]?.let { putting(postUri, block(it)) } ?: this
+
 /** Keeps the latest wire reply count (the floor's base) when the rest of [this] is preserved. */
 private fun PostInteractionState.withWireReplyCount(post: PostUi): PostInteractionState = copy(replyCount = post.stats.replyCount.toLong(), replyCountFloor = replyCountFloor?.liveAbove(post))
 
@@ -375,7 +479,14 @@ private fun PostInteractionState.withWireReplyCount(post: PostUi): PostInteracti
  */
 private fun PostInteractionState.withWireOverlays(post: PostUi): PostInteractionState {
     val (muted, muteOverride) = resolveOverride(wire = post.viewer.isThreadMuted, override = threadMuteOverride)
-    return copy(threadRootUri = post.threadRootUri, isThreadMuted = muted, threadMuteOverride = muteOverride)
+    val (pinned, pinnedOverride) = resolveOverride(wire = post.viewer.isPinned, override = pinOverride)
+    return copy(
+        threadRootUri = post.threadRootUri,
+        isThreadMuted = muted,
+        threadMuteOverride = muteOverride,
+        isPinned = pinned,
+        pinOverride = pinnedOverride,
+    )
 }
 
 private fun resolveOverride(
@@ -389,3 +500,6 @@ private fun resolveOverride(
 
 /** A floor the wire count has reached no longer does anything; drop it. */
 private fun Long.liveAbove(post: PostUi): Long? = takeIf { it > post.stats.replyCount }
+
+/** The DID authority of an `at://<did>/<collection>/<rkey>` URI. */
+private fun String.atUriAuthority(): String = removePrefix("at://").substringBefore('/')

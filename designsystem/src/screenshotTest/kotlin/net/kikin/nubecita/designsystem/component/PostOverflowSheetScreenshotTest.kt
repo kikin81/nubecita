@@ -86,3 +86,12 @@ private fun PostOverflowSheetThreadMutedScreenshot() {
 private fun PostOverflowSheetMediaOnlyScreenshot() {
     SheetBody(sheetPost(ViewerStateUi(isOwnPost = true), text = ""))
 }
+
+@PreviewTest
+@Preview(name = "own-post-pinned-light", showBackground = true)
+@Preview(name = "own-post-pinned-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
+@Composable
+private fun PostOverflowSheetOwnPostPinnedScreenshot() {
+    SheetBody(sheetPost(ViewerStateUi(isOwnPost = true, isPinned = true)))
+}

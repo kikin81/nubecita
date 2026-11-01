@@ -11,12 +11,14 @@ import net.kikin.nubecita.designsystem.component.PostOverflowAction.CopyPostText
 import net.kikin.nubecita.designsystem.component.PostOverflowAction.DeletePost
 import net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteAuthor
 import net.kikin.nubecita.designsystem.component.PostOverflowAction.MuteThread
+import net.kikin.nubecita.designsystem.component.PostOverflowAction.PinPost
 import net.kikin.nubecita.designsystem.component.PostOverflowAction.ReportAuthor
 import net.kikin.nubecita.designsystem.component.PostOverflowAction.ReportPost
 import net.kikin.nubecita.designsystem.component.PostOverflowAction.TranslatePost
 import net.kikin.nubecita.designsystem.component.PostOverflowAction.UnblockAuthor
 import net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteAuthor
 import net.kikin.nubecita.designsystem.component.PostOverflowAction.UnmuteThread
+import net.kikin.nubecita.designsystem.component.PostOverflowAction.UnpinPost
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -28,9 +30,9 @@ import kotlin.time.Instant
  */
 class PostOverflowRowsTest {
     @Test
-    fun `own post groups are utility, thread, delete`() {
+    fun `own post groups are pin, utility, thread, delete`() {
         assertEquals(
-            listOf(listOf(TranslatePost, CopyPostText), listOf(MuteThread), listOf(DeletePost)),
+            listOf(listOf(PinPost), listOf(TranslatePost, CopyPostText), listOf(MuteThread), listOf(DeletePost)),
             postOverflowGroups(post(ViewerStateUi(isOwnPost = true))).asLists(),
         )
     }
@@ -82,6 +84,33 @@ class PostOverflowRowsTest {
             ).asLists().flatten()
         val selfAimed = setOf(ReportPost, ReportAuthor, MuteAuthor, UnmuteAuthor, BlockAuthor, UnblockAuthor)
         assertTrue(all.none { it in selfAimed }, "own post offered $all")
+    }
+
+    @Test
+    fun `pinned own post offers unpin`() {
+        val groups = postOverflowGroups(post(ViewerStateUi(isOwnPost = true, isPinned = true))).asLists()
+        assertEquals(listOf(UnpinPost), groups.first())
+    }
+
+    @Test
+    fun `own reply is pinnable`() {
+        val groups =
+            postOverflowGroups(
+                post(ViewerStateUi(isOwnPost = true)).copy(threadRootUri = "at://did:plc:b/app.bsky.feed.post/root"),
+            ).asLists()
+        assertEquals(listOf(PinPost), groups.first())
+    }
+
+    @Test
+    fun `others post has no pin row`() {
+        val all = postOverflowGroups(post(ViewerStateUi(isPinned = true))).asLists().flatten()
+        assertTrue(PinPost !in all && UnpinPost !in all, "others' post offered $all")
+    }
+
+    @Test
+    fun `own post without a cid yet has no pin row`() {
+        val all = postOverflowGroups(post(ViewerStateUi(isOwnPost = true)).copy(cid = "")).asLists().flatten()
+        assertTrue(PinPost !in all && UnpinPost !in all, "a just-sent post can't be pinned before its cid exists: $all")
     }
 
     private fun List<PostOverflowGroup>.asLists(): List<List<PostOverflowAction>> = map { it.actions.toList() }

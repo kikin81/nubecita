@@ -290,8 +290,9 @@ internal class DefaultPostInteractionHandler
                 PostOverflowAction.UnmuteThread,
                 -> {
                     val muting = action == PostOverflowAction.MuteThread
+                    seedIfUncached(post)
                     requireScope().launch {
-                        cache.toggleThreadMute(post.id).fold(
+                        cache.toggleThreadMute(post.id, post.threadRootUri, target = muting).fold(
                             onSuccess = { nowMuted ->
                                 emit(
                                     InteractionEffect.ShowNotice(
@@ -311,6 +312,35 @@ internal class DefaultPostInteractionHandler
                     }
                 }
 
+                PostOverflowAction.PinPost,
+                PostOverflowAction.UnpinPost,
+                -> {
+                    val pinning = action == PostOverflowAction.PinPost
+                    seedIfUncached(post)
+                    requireScope().launch {
+                        cache.togglePin(post.id, post.cid, target = pinning).fold(
+                            onSuccess = { nowPinned ->
+                                // null: ignored because a pin write was already in flight.
+                                if (nowPinned != null) {
+                                    emit(
+                                        InteractionEffect.ShowNotice(
+                                            if (nowPinned) InteractionNotice.PostPinned else InteractionNotice.PostUnpinned,
+                                        ),
+                                    )
+                                }
+                            },
+                            onFailure = { throwable ->
+                                if (throwable is CancellationException) throw throwable
+                                emit(
+                                    InteractionEffect.ShowNotice(
+                                        if (pinning) InteractionNotice.PinFailed else InteractionNotice.UnpinFailed,
+                                    ),
+                                )
+                            },
+                        )
+                    }
+                }
+
                 // Block removal is not implemented yet. Surface a coming-soon snackbar.
                 PostOverflowAction.UnblockAuthor ->
                     emit(InteractionEffect.ShowComingSoon(action))
@@ -320,6 +350,16 @@ internal class DefaultPostInteractionHandler
         // ──────────────────────────────────────────────────────────────────────
         // Helpers
         // ──────────────────────────────────────────────────────────────────────
+
+        /**
+         * A post can be interactive before any surface seeded it (a just-sent
+         * outgoing card resolving to its server copy). Seed it from the PostUi in
+         * hand so the optimistic flip — and the profile slot that follows the
+         * cache — has an entry to work on. A seeded post keeps its own counts.
+         */
+        private fun seedIfUncached(post: PostUi) {
+            if (cache.state.value[post.id] == null) cache.seed(listOf(post))
+        }
 
         /**
          * Returns the bound [CoroutineScope], throwing if [bind] was never called.
@@ -371,4 +411,6 @@ internal fun PostOverflowAction.toMenuAction(): PostMenuAction =
         PostOverflowAction.CopyPostText -> PostMenuAction.CopyText
         PostOverflowAction.TranslatePost -> PostMenuAction.Translate
         PostOverflowAction.DeletePost -> PostMenuAction.Delete
+        PostOverflowAction.PinPost -> PostMenuAction.PinPost
+        PostOverflowAction.UnpinPost -> PostMenuAction.UnpinPost
     }
