@@ -12,7 +12,7 @@
     <action>Tap the first conversation in the list to open chat thread</action>
     <action>Verify that the conversation thread screen is visible</action>
     <action>Type text into the chat message input field</action>
-    <action>Press the system back button to return to conversation list</action>
+    <action>Tap the Back button in the conversation's top app bar to return to the conversation list (system Back would only dismiss the keyboard)</action>
     <action>Verify that the Chats conversation list is visible</action>
     <action>Tap the New Chat button</action>
     <action>Verify that the user picker or new chat sheet is visible</action>

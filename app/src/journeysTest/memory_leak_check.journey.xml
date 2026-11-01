@@ -43,6 +43,6 @@
     <action>Verify that the Home feed is visible</action>
     <action>Repeat all of the steps above two more times</action>
     <action>Press the Home button to send the app to the background, then wait 10 seconds so LeakCanary can check for retained objects</action>
-    <action>Verify that no LeakCanary notification reports a retained object or a leak</action>
+    <action>Verify that LeakCanary reports no leak other than the known accessibility artifact described above (ProfileViewModel retained via AndroidComposeViewAccessibilityDelegateCompat.currentSemanticsNodes, signature b020956c7d10705657721b2c39790d5fe3ac5780)</action>
   </actions>
 </journey>

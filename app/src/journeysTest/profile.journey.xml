@@ -10,8 +10,9 @@
     <action>Tap the You tab on the main navigation bar</action>
     <action>Verify that your profile screen is visible</action>
     <action>Tap the Edit Profile button</action>
-    <action>Verify that the Edit Profile sheet or dialog is visible</action>
-    <action>Tap Cancel or Close on the Edit Profile sheet</action>
+    <action>Verify that the Edit Profile screen is visible, with Back and Save in its top app bar (full screen on phones, a dialog on tablets)</action>
+    <action>Tap the Back button in the Edit Profile top app bar</action>
+    <action>If a discard changes dialog appears, confirm Discard</action>
     <action>Verify that your profile screen is visible</action>
     <action>Tap the Replies tab on the profile header</action>
     <action>Verify that reply posts list is visible</action>

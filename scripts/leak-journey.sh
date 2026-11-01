@@ -18,11 +18,16 @@ for i in 1 2 3; do
   adb shell cmd uimode night no >/dev/null; sleep 4
   T desc=Feed || return 1
 done; }
-adb install -r ${APK:?} >/dev/null && echo installed
-adb shell am force-stop net.kikin.nubecita; adb shell am start -n net.kikin.nubecita/.MainActivity >/dev/null; sleep 5
+adb install -r ${APK:?} >/dev/null || { echo "FAIL install $APK"; exit 1; }
+echo installed
+adb shell am force-stop net.kikin.nubecita
+adb shell am start -W -n net.kikin.nubecita/.MainActivity 2>&1 | grep -q "Status: ok" || { echo "FAIL launch"; exit 1; }
+sleep 5
 adb logcat -c
-run && echo JOURNEY_OK
+run; rc=$?
+(( rc == 0 )) && echo JOURNEY_OK || echo "JOURNEY_FAILED (exit $rc)"
 adb shell input keyevent HOME; sleep 25
 echo "--- LeakCanary (non-watch lines)"; adb logcat -d | grep -E "LeakCanary|FATAL" | grep -v "Watching instance" | cut -c1-220 | tail -40
 echo "--- watched"; adb logcat -d | grep 'Watching instance' | sed -E 's/.*Watching instance of ([^ ]+) .*/\1/' | sort | uniq -c
 adb shell dumpsys meminfo net.kikin.nubecita | grep -E "Activities"
+exit $rc
