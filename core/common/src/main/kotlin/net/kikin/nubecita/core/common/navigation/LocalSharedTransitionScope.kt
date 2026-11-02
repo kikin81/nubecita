@@ -21,9 +21,6 @@ val LocalSharedTransitionScope: ProvidableCompositionLocal<SharedTransitionScope
 /**
  * [CompositionLocal] exposing the current Nav entry's [AnimatedVisibilityScope]
  * to descendant composables.
- *
- * Provided inside individual entry providers (such as in `FeedNavigationModule`
- * and `MediaViewerNavigationModule`) where the entry's scope is active.
  */
 @Suppress("ktlint:compose:compositionlocal-allowlist")
 val LocalAnimatedVisibilityScope: ProvidableCompositionLocal<AnimatedVisibilityScope?> =

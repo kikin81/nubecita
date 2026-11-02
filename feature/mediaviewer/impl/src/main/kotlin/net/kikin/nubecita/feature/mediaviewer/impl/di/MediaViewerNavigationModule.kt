@@ -1,12 +1,15 @@
 package net.kikin.nubecita.feature.mediaviewer.impl.di
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.navigation3.ui.LocalNavAnimatedContentScope
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
+import net.kikin.nubecita.core.common.navigation.LocalAnimatedVisibilityScope
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.core.common.navigation.OuterShell
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
@@ -21,19 +24,6 @@ import net.kikin.nubecita.feature.mediaviewer.impl.MediaViewerViewModel
  * shell escapes `MainShell`'s `NavigationSuiteScaffold` chrome (the
  * bottom navigation bar / rail) so the user gets a true fullscreen
  * canvas while images are open.
- *
- * Pop semantics: the screen's `onDismiss` callback reads the outer
- * [LocalAppNavigator] and calls `goBack()` — popping the viewer off the
- * outer back stack returns to `Main`, which preserves `MainShell`'s
- * inner back stack including the post-detail screen the user was on.
- *
- * The push site (`PostDetailNavigationModule`) also routes through
- * [LocalAppNavigator] — see that module for the push contract.
- *
- * The entry block resolves the per-NavEntry [MediaViewerViewModel] via
- * Hilt's assisted-inject bridge (`hiltViewModel<VM, Factory>(creationCallback)`)
- * so the `MediaViewerRoute` flows from the back-stack key into the VM
- * constructor without a `SavedStateHandle` decode step.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -49,10 +39,14 @@ internal object MediaViewerNavigationModule {
                     hiltViewModel<MediaViewerViewModel, MediaViewerViewModel.Factory>(
                         creationCallback = { factory -> factory.create(route) },
                     )
-                MediaViewerScreen(
-                    onDismiss = { navigator.goBack() },
-                    viewModel = viewModel,
-                )
+                CompositionLocalProvider(
+                    LocalAnimatedVisibilityScope provides LocalNavAnimatedContentScope.current,
+                ) {
+                    MediaViewerScreen(
+                        onDismiss = { navigator.goBack() },
+                        viewModel = viewModel,
+                    )
+                }
             }
         }
 }

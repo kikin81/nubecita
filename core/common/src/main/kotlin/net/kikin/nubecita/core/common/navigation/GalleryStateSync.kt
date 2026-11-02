@@ -32,6 +32,13 @@ class GalleryStateSync(
     fun getActiveIndex(postUri: String): Int? = activeIndices[postUri]
 
     /**
+     * Returns and removes the active image index for [postUri], so an index
+     * applied on return from the viewer does not overwrite subsequent user swipes
+     * if the feed item is re-composed later.
+     */
+    fun consumeActiveIndex(postUri: String): Int? = activeIndices.remove(postUri)
+
+    /**
      * Clears synced index for [postUri].
      */
     fun clear(postUri: String) {

@@ -131,8 +131,6 @@ internal fun MediaViewerScreen(
 
     MediaViewerScreenContent(
         state = state,
-        postUri = viewModel.postUri,
-        contextKey = viewModel.contextKey,
         onRetry = onRetry,
         onDismissRequest = onDismissRequest,
         onPageChange = onPageChange,
@@ -141,8 +139,10 @@ internal fun MediaViewerScreen(
         onAltSheetDismiss = onAltSheetDismiss,
         onChromeAutoFadeTimeout = onChromeAutoFadeTimeout,
         onSaveClick = onSaveClick,
-        snackbarHostState = snackbarHostState,
         modifier = modifier,
+        postUri = viewModel.postUri,
+        contextKey = viewModel.contextKey,
+        snackbarHostState = snackbarHostState,
     )
 }
 
@@ -344,9 +344,9 @@ private fun LoadedState(
             val sharedTransitionScope = LocalSharedTransitionScope.current
             val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
 
+            val keyContext = contextKey.ifEmpty { postUri }
             val sharedBoundsModifier =
-                if (
-                    isActivePage &&
+                if (isActivePage &&
                     sharedTransitionScope != null &&
                     animatedVisibilityScope != null &&
                     postUri.isNotBlank()
@@ -355,7 +355,7 @@ private fun LoadedState(
                         Modifier.sharedBounds(
                             sharedContentState =
                                 rememberSharedContentState(
-                                    key = "shared_image_${contextKey}_${postUri}_$page",
+                                    key = "shared_image_${keyContext}_${postUri}_$page",
                                 ),
                             animatedVisibilityScope = animatedVisibilityScope,
                             resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(ContentScale.Fit),

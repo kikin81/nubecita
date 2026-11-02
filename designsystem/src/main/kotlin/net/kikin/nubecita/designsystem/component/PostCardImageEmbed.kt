@@ -112,16 +112,16 @@ private fun SingleImage(
     val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
 
     val sharedBoundsModifier =
-        if (
-            sharedTransitionScope != null &&
+        if (sharedTransitionScope != null &&
             animatedVisibilityScope != null &&
             postUri != null
         ) {
+            val keyContext = contextKey ?: postUri
             with(sharedTransitionScope) {
                 Modifier.sharedBounds(
                     sharedContentState =
                         rememberSharedContentState(
-                            key = "shared_image_${contextKey ?: ""}_${postUri}_0",
+                            key = "shared_image_${keyContext}_${postUri}_0",
                         ),
                     animatedVisibilityScope = animatedVisibilityScope,
                     resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(ContentScale.Crop),
@@ -163,7 +163,7 @@ private fun MultiImageCarousel(
     val gallerySync = LocalGalleryStateSync.current
 
     if (postUri != null) {
-        val syncedIndex = gallerySync.getActiveIndex(postUri)
+        val syncedIndex = gallerySync.consumeActiveIndex(postUri)
         LaunchedEffect(syncedIndex) {
             if (syncedIndex != null && syncedIndex in items.indices && state.currentItem != syncedIndex) {
                 state.scrollToItem(syncedIndex)
@@ -222,16 +222,16 @@ private fun MultiImageCarousel(
                 }
 
             val sharedBoundsModifier =
-                if (
-                    sharedTransitionScope != null &&
+                if (sharedTransitionScope != null &&
                     animatedVisibilityScope != null &&
                     postUri != null
                 ) {
+                    val keyContext = contextKey ?: postUri
                     with(sharedTransitionScope) {
                         Modifier.sharedBounds(
                             sharedContentState =
                                 rememberSharedContentState(
-                                    key = "shared_image_${contextKey ?: ""}_${postUri}_$index",
+                                    key = "shared_image_${keyContext}_${postUri}_$index",
                                 ),
                             animatedVisibilityScope = animatedVisibilityScope,
                             resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(ContentScale.Crop),
