@@ -486,7 +486,6 @@ private fun EmbedSlot(
             PostCardImageEmbed(
                 items = embed.items,
                 postUri = postUri,
-                contextKey = postUri,
                 onImageClick = onImageClick,
                 cover = coverFor(embed.contentWarning),
             )

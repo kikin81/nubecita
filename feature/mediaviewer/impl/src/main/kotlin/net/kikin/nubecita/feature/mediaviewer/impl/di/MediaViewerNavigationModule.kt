@@ -24,6 +24,19 @@ import net.kikin.nubecita.feature.mediaviewer.impl.MediaViewerViewModel
  * shell escapes `MainShell`'s `NavigationSuiteScaffold` chrome (the
  * bottom navigation bar / rail) so the user gets a true fullscreen
  * canvas while images are open.
+ *
+ * Pop semantics: the screen's `onDismiss` callback reads the outer
+ * [LocalAppNavigator] and calls `goBack()` — popping the viewer off the
+ * outer back stack returns to `Main`, which preserves `MainShell`'s
+ * inner back stack including the post-detail screen the user was on.
+ *
+ * The push site (`PostDetailNavigationModule`) also routes through
+ * [LocalAppNavigator] — see that module for the push contract.
+ *
+ * The entry block resolves the per-NavEntry [MediaViewerViewModel] via
+ * Hilt's assisted-inject bridge (`hiltViewModel<VM, Factory>(creationCallback)`)
+ * so the `MediaViewerRoute` flows from the back-stack key into the VM
+ * constructor without a `SavedStateHandle` decode step.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -39,6 +52,11 @@ internal object MediaViewerNavigationModule {
                     hiltViewModel<MediaViewerViewModel, MediaViewerViewModel.Factory>(
                         creationCallback = { factory -> factory.create(route) },
                     )
+                // The viewer's own half of the feed → viewer shared image
+                // transition. This scope comes from the OUTER NavDisplay's
+                // AnimatedContent — the same one `entry<Main>` in Navigation.kt
+                // provides to the post cards underneath — so the two halves sit
+                // in one transition and the shared element can match.
                 CompositionLocalProvider(
                     LocalAnimatedVisibilityScope provides LocalNavAnimatedContentScope.current,
                 ) {

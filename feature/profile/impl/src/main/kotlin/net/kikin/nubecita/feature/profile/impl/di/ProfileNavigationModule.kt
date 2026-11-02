@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.profile.impl.di
 
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import dagger.Module
@@ -12,7 +13,9 @@ import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
+import net.kikin.nubecita.core.common.navigation.LocalSharedImageSurface
 import net.kikin.nubecita.core.common.navigation.MainShell
+import net.kikin.nubecita.core.common.navigation.SharedImageSurfaces
 import net.kikin.nubecita.designsystem.R
 import net.kikin.nubecita.designsystem.component.DetailPaneEmptyState
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
@@ -97,54 +100,64 @@ internal object ProfileNavigationModule {
                     hiltViewModel<ProfileViewModel, ProfileViewModel.Factory>(
                         creationCallback = { factory -> factory.create(route) },
                     )
-                ProfileScreen(
-                    viewModel = viewModel,
-                    onNavigateToPost = { uri -> navState.add(PostDetailRoute(postUri = uri)) },
-                    onNavigateToProfile = { handle -> navState.add(Profile(handle = handle)) },
-                    onNavigateToSettings = { navState.add(Settings) },
-                    onNavigateToBookmarks = { navState.add(Bookmarks) },
-                    // Cross-tab nav: switch to Chats, then push the per-conversation
-                    // thread for the other user. ChatScreen resolves DID→convoId
-                    // itself via `chat.bsky.convo.getConvoForMembers`.
-                    onNavigateToMessage = { did ->
-                        navState.addTopLevel(Chats)
-                        navState.add(Chat(otherUserDid = did))
-                    },
-                    // Direct gallery launch: image-in-PostCard (Posts/Replies)
-                    // and image media-grid cell taps skip PostDetail and
-                    // open the MediaViewer carousel at the right start index.
-                    onNavigateToMediaViewer = { uri, idx ->
-                        appNavigator.goTo(MediaViewerRoute(postUri = uri, imageIndex = idx))
-                    },
-                    // Video media-grid cell taps land here instead of
-                    // MediaViewer (the viewer dead-ends on "post has no
-                    // images" for video embeds). VideoPlayerRoute is
-                    // @OuterShell-registered so it presents fullscreen
-                    // over MainShell's bottom-nav chrome.
-                    onNavigateToVideoPlayer = { uri ->
-                        appNavigator.goTo(VideoPlayerRoute(postUri = uri))
-                    },
-                    // Generic tab-internal sub-route push — pushed onto
-                    // MainShell's inner back stack so the @MainShell
-                    // entry provider for the key resolves it (e.g. the
-                    // Report dialog provider from :feature:moderation:impl).
-                    // The host-side callback shape ((NavKey) -> Unit) keeps
-                    // sub-route pushes out of the screen body: the screen
-                    // doesn't need to read `LocalMainShellNavState` to
-                    // push (it still reads it to wire the back-handler,
-                    // which is fine — back handling is host-policy that
-                    // legitimately lives at the shell seam). Mirrors the
-                    // canonical Nav3 modular-hilt recipe and matches
-                    // FeedScreen / FeedNavigationModule (PR3 of oftc.3).
-                    onNavigateTo = { key -> navState.add(key) },
-                    // Composer FAB → new-post composer. Prefills `@handle` when
-                    // composing from another user's profile (mentionHandle
-                    // non-null), blank on the own profile. Same adaptive-dialog
-                    // presentation as the Feed's onComposeClick.
-                    onComposeClick = { mentionHandle ->
-                        navState.add(ComposerRoute(mentionHandle = mentionHandle))
-                    },
-                )
+                CompositionLocalProvider(
+                    LocalSharedImageSurface provides SharedImageSurfaces.PROFILE,
+                ) {
+                    ProfileScreen(
+                        viewModel = viewModel,
+                        onNavigateToPost = { uri -> navState.add(PostDetailRoute(postUri = uri)) },
+                        onNavigateToProfile = { handle -> navState.add(Profile(handle = handle)) },
+                        onNavigateToSettings = { navState.add(Settings) },
+                        onNavigateToBookmarks = { navState.add(Bookmarks) },
+                        // Cross-tab nav: switch to Chats, then push the per-conversation
+                        // thread for the other user. ChatScreen resolves DID→convoId
+                        // itself via `chat.bsky.convo.getConvoForMembers`.
+                        onNavigateToMessage = { did ->
+                            navState.addTopLevel(Chats)
+                            navState.add(Chat(otherUserDid = did))
+                        },
+                        // Direct gallery launch: image-in-PostCard (Posts/Replies)
+                        // and image media-grid cell taps skip PostDetail and
+                        // open the MediaViewer carousel at the right start index.
+                        onNavigateToMediaViewer = { uri, idx ->
+                            appNavigator.goTo(
+                                MediaViewerRoute(
+                                    postUri = uri,
+                                    imageIndex = idx,
+                                    contextKey = SharedImageSurfaces.PROFILE,
+                                ),
+                            )
+                        },
+                        // Video media-grid cell taps land here instead of
+                        // MediaViewer (the viewer dead-ends on "post has no
+                        // images" for video embeds). VideoPlayerRoute is
+                        // @OuterShell-registered so it presents fullscreen
+                        // over MainShell's bottom-nav chrome.
+                        onNavigateToVideoPlayer = { uri ->
+                            appNavigator.goTo(VideoPlayerRoute(postUri = uri))
+                        },
+                        // Generic tab-internal sub-route push — pushed onto
+                        // MainShell's inner back stack so the @MainShell
+                        // entry provider for the key resolves it (e.g. the
+                        // Report dialog provider from :feature:moderation:impl).
+                        // The host-side callback shape ((NavKey) -> Unit) keeps
+                        // sub-route pushes out of the screen body: the screen
+                        // doesn't need to read `LocalMainShellNavState` to
+                        // push (it still reads it to wire the back-handler,
+                        // which is fine — back handling is host-policy that
+                        // legitimately lives at the shell seam). Mirrors the
+                        // canonical Nav3 modular-hilt recipe and matches
+                        // FeedScreen / FeedNavigationModule (PR3 of oftc.3).
+                        onNavigateTo = { key -> navState.add(key) },
+                        // Composer FAB → new-post composer. Prefills `@handle` when
+                        // composing from another user's profile (mentionHandle
+                        // non-null), blank on the own profile. Same adaptive-dialog
+                        // presentation as the Feed's onComposeClick.
+                        onComposeClick = { mentionHandle ->
+                            navState.add(ComposerRoute(mentionHandle = mentionHandle))
+                        },
+                    )
+                }
             }
         }
 }

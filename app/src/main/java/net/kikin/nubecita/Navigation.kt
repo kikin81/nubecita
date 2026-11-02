@@ -15,9 +15,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.navigation3.ui.LocalNavAnimatedContentScope
 import androidx.navigation3.ui.NavDisplay
 import dagger.hilt.android.EntryPointAccessors
 import net.kikin.nubecita.analytics.TrackScreenViews
+import net.kikin.nubecita.core.common.navigation.LocalAnimatedVisibilityScope
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.core.common.navigation.LocalGalleryStateSync
 import net.kikin.nubecita.core.common.navigation.LocalSharedTransitionScope
@@ -105,7 +107,24 @@ fun MainNavigation(modifier: Modifier = Modifier) {
                             // prevents an edge-to-edge screen." Per-screen content
                             // inside the inner `NavDisplay` (FeedScreen, etc.)
                             // owns its own inset handling via Scaffold padding.
-                            MainShell()
+                            //
+                            // `LocalAnimatedVisibilityScope` is provided HERE,
+                            // from the OUTER NavDisplay's AnimatedContent — not
+                            // from MainShell's inner one. The media viewer is an
+                            // `@OuterShell` entry, so the Main → MediaViewer
+                            // transition is the OUTER AnimatedContent's. A shared
+                            // element only matches when one half's
+                            // `boundsAnimation.target` is true and the other's is
+                            // false; a post card wired to the inner scope reports
+                            // `target = true` throughout (the inner display isn't
+                            // transitioning at all), so both halves read as
+                            // targets, no match is found, and the transition
+                            // silently does not run.
+                            CompositionLocalProvider(
+                                LocalAnimatedVisibilityScope provides LocalNavAnimatedContentScope.current,
+                            ) {
+                                MainShell()
+                            }
                         }
                         // `Onboarding`, `Login`, and other outer-shell routes are
                         // registered via `@Provides @IntoSet @OuterShell`

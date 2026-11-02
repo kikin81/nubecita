@@ -1,7 +1,5 @@
 package net.kikin.nubecita.designsystem.component
 
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
@@ -11,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.carousel.CarouselState
 import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
 import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.runtime.Composable
@@ -27,13 +26,16 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import coil3.request.ImageRequest
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
-import net.kikin.nubecita.core.common.navigation.LocalAnimatedVisibilityScope
 import net.kikin.nubecita.core.common.navigation.LocalGalleryStateSync
-import net.kikin.nubecita.core.common.navigation.LocalSharedTransitionScope
+import net.kikin.nubecita.core.common.navigation.LocalSharedImageSurface
+import net.kikin.nubecita.core.common.navigation.SharedImageSurfaces
+import net.kikin.nubecita.core.common.navigation.postImageMemoryCacheKey
+import net.kikin.nubecita.core.common.navigation.sharedImageModifier
 import net.kikin.nubecita.data.models.ImageUi
 import net.kikin.nubecita.data.models.thumbOrFullsize
 import net.kikin.nubecita.designsystem.NubecitaTheme
@@ -47,13 +49,18 @@ import net.kikin.nubecita.designsystem.spacing
  *   to `[MIN_ASPECT_RATIO, MAX_ASPECT_RATIO]` = `[2/3, 3/1]`.
  * - **Multi-image (`items.size > 1`):** delegates to M3's
  *   [HorizontalMultiBrowseCarousel].
+ *
+ * [postUri] opts the embed into the shared-element transition into the
+ * full-screen media viewer and into the Coil memory-cache hand-off that makes
+ * the viewer's first frame non-blank. Both also require the host surface to
+ * provide `LocalSharedImageSurface`; cards on surfaces that cannot open the
+ * viewer pass `postUri` and still render normally, just without either.
  */
 @Composable
 fun PostCardImageEmbed(
     items: ImmutableList<ImageUi>,
     modifier: Modifier = Modifier,
     postUri: String? = null,
-    contextKey: String? = null,
     onImageClick: ((imageIndex: Int) -> Unit)? = null,
     cover: MediaCover? = null,
 ) {
@@ -65,7 +72,6 @@ fun PostCardImageEmbed(
                 SingleImage(
                     image = items[0],
                     postUri = postUri,
-                    contextKey = contextKey,
                     onClick = effectiveImageClick?.let { handler -> { handler(0) } },
                     covered = cover != null,
                 )
@@ -73,7 +79,6 @@ fun PostCardImageEmbed(
                 MultiImageCarousel(
                     items = items,
                     postUri = postUri,
-                    contextKey = contextKey,
                     onImageClick = effectiveImageClick,
                     covered = cover != null,
                 )
@@ -84,53 +89,52 @@ fun PostCardImageEmbed(
     }
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
+/**
+ * Builds the card's Coil request, tagging it with the surface-scoped memory
+ * cache key the viewer reuses as its placeholder.
+ *
+ * The explicit key is only set when the surface participates — it replaces
+ * Coil's default key, which includes the requested size, so setting it
+ * unconditionally would make every surface share one entry per image at
+ * whatever size happened to load first.
+ */
+@Composable
+private fun rememberPostImageRequest(
+    url: String?,
+    postUri: String?,
+    index: Int,
+    covered: Boolean,
+): ImageRequest {
+    val context = LocalContext.current
+    val surface = LocalSharedImageSurface.current
+    return remember(url, postUri, index, covered, surface) {
+        ImageRequest
+            .Builder(context)
+            .data(if (covered) null else url)
+            .apply {
+                if (!postUri.isNullOrBlank() && surface != SharedImageSurfaces.NONE) {
+                    memoryCacheKey(postImageMemoryCacheKey(surface, postUri, index))
+                }
+            }.build()
+    }
+}
+
 @Composable
 private fun SingleImage(
     image: ImageUi,
     modifier: Modifier = Modifier,
     postUri: String? = null,
-    contextKey: String? = null,
     onClick: (() -> Unit)? = null,
     covered: Boolean = false,
 ) {
-    val context = LocalContext.current
     val imageRequest =
-        remember(image.fullsizeUrl, covered, postUri) {
-            val url = if (covered) null else image.fullsizeUrl
-            ImageRequest
-                .Builder(context)
-                .data(url)
-                .apply {
-                    if (postUri != null) {
-                        memoryCacheKey("coil_${postUri}_0")
-                    }
-                }.build()
-        }
-
-    val sharedTransitionScope = LocalSharedTransitionScope.current
-    val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
-
-    val sharedBoundsModifier =
-        if (sharedTransitionScope != null &&
-            animatedVisibilityScope != null &&
-            postUri != null
-        ) {
-            val keyContext = contextKey ?: postUri
-            with(sharedTransitionScope) {
-                Modifier.sharedBounds(
-                    sharedContentState =
-                        rememberSharedContentState(
-                            key = "shared_image_${keyContext}_${postUri}_0",
-                        ),
-                    animatedVisibilityScope = animatedVisibilityScope,
-                    resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(ContentScale.Crop),
-                )
-            }
-        } else {
-            Modifier
-        }
-
+        rememberPostImageRequest(
+            url = image.fullsizeUrl,
+            postUri = postUri,
+            index = 0,
+            covered = covered,
+        )
+    val sharedBoundsModifier = sharedImageModifier(postUri = postUri, index = 0)
     val clickModifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
 
     NubecitaAsyncImage(
@@ -149,28 +153,32 @@ private fun SingleImage(
 
 internal fun ImageUi.displayedAspectRatio(): Float = (aspectRatio ?: FALLBACK_ASPECT_RATIO).coerceIn(MIN_ASPECT_RATIO, MAX_ASPECT_RATIO)
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun MultiImageCarousel(
     items: ImmutableList<ImageUi>,
     modifier: Modifier = Modifier,
     postUri: String? = null,
-    contextKey: String? = null,
     onImageClick: ((imageIndex: Int) -> Unit)? = null,
     covered: Boolean = false,
 ) {
     val state = rememberCarouselState(itemCount = { items.size })
     val gallerySync = LocalGalleryStateSync.current
 
-    if (postUri != null) {
-        val syncedIndex = gallerySync.consumeActiveIndex(postUri)
-        LaunchedEffect(syncedIndex) {
+    // Consuming the hand-off WRITES state, so it belongs in the effect, not in
+    // the composable body — a write to state this composable also reads would
+    // invalidate it mid-composition.
+    LaunchedEffect(postUri, items.size) {
+        if (postUri != null) {
+            val syncedIndex = gallerySync.consumeActiveIndex(postUri)
             if (syncedIndex != null && syncedIndex in items.indices && state.currentItem != syncedIndex) {
                 state.scrollToItem(syncedIndex)
             }
         }
     }
 
+    // The carousel sits inside the feed's horizontally-paged tab host. Without
+    // this, a swipe that runs past the carousel's last item leaks the leftover
+    // delta to the parent pager and switches tabs mid-gesture.
     val nestedScrollConnection =
         remember {
             object : NestedScrollConnection {
@@ -184,11 +192,13 @@ private fun MultiImageCarousel(
                     } else {
                         Offset.Zero
                     }
+
+                override suspend fun onPostFling(
+                    consumed: Velocity,
+                    available: Velocity,
+                ): Velocity = Velocity(available.x, 0f)
             }
         }
-
-    val sharedTransitionScope = LocalSharedTransitionScope.current
-    val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
 
     Box(
         modifier =
@@ -206,40 +216,14 @@ private fun MultiImageCarousel(
             val image = items[index]
             val clickModifier =
                 if (onImageClick != null) Modifier.clickable { onImageClick(index) } else Modifier
-
-            val context = LocalContext.current
             val imageRequest =
-                remember(image.carouselSlideUrl, covered, postUri, index) {
-                    val url = if (covered) null else image.carouselSlideUrl
-                    ImageRequest
-                        .Builder(context)
-                        .data(url)
-                        .apply {
-                            if (postUri != null) {
-                                memoryCacheKey("coil_${postUri}_$index")
-                            }
-                        }.build()
-                }
-
-            val sharedBoundsModifier =
-                if (sharedTransitionScope != null &&
-                    animatedVisibilityScope != null &&
-                    postUri != null
-                ) {
-                    val keyContext = contextKey ?: postUri
-                    with(sharedTransitionScope) {
-                        Modifier.sharedBounds(
-                            sharedContentState =
-                                rememberSharedContentState(
-                                    key = "shared_image_${keyContext}_${postUri}_$index",
-                                ),
-                            animatedVisibilityScope = animatedVisibilityScope,
-                            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(ContentScale.Crop),
-                        )
-                    }
-                } else {
-                    Modifier
-                }
+                rememberPostImageRequest(
+                    url = image.carouselSlideUrl,
+                    postUri = postUri,
+                    index = index,
+                    covered = covered,
+                )
+            val sharedBoundsModifier = sharedImageModifier(postUri = postUri, index = index)
 
             Box(
                 modifier =
@@ -259,8 +243,9 @@ private fun MultiImageCarousel(
         }
 
         if (items.size > 1) {
-            NubecitaOverlayPill(
-                text = "${state.currentItem + 1}/${items.size}",
+            CarouselCountPill(
+                state = state,
+                total = items.size,
                 modifier =
                     Modifier
                         .align(Alignment.BottomEnd)
@@ -268,6 +253,26 @@ private fun MultiImageCarousel(
             )
         }
     }
+}
+
+/**
+ * The `3/5` position pill.
+ *
+ * Its own composable so that reading `CarouselState.currentItem` — which is
+ * `pagerState.currentPage`, and so changes on every page crossing — invalidates
+ * only the pill. Read inline in [MultiImageCarousel] it would recompose the
+ * whole carousel subtree, shared-element registrations included, on every swipe.
+ */
+@Composable
+private fun CarouselCountPill(
+    state: CarouselState,
+    total: Int,
+    modifier: Modifier = Modifier,
+) {
+    NubecitaOverlayPill(
+        text = "${state.currentItem + 1}/$total",
+        modifier = modifier,
+    )
 }
 
 private val EMBED_HEIGHT: Dp = 240.dp

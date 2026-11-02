@@ -4,8 +4,6 @@ package net.kikin.nubecita.feature.mediaviewer.impl
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.gestures.Orientation
@@ -62,9 +60,10 @@ import kotlinx.coroutines.launch
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import me.saket.telephoto.zoomable.rememberZoomableState
-import net.kikin.nubecita.core.common.navigation.LocalAnimatedVisibilityScope
 import net.kikin.nubecita.core.common.navigation.LocalGalleryStateSync
-import net.kikin.nubecita.core.common.navigation.LocalSharedTransitionScope
+import net.kikin.nubecita.core.common.navigation.SharedImageSurfaces
+import net.kikin.nubecita.core.common.navigation.postImageMemoryCacheKey
+import net.kikin.nubecita.core.common.navigation.sharedImageModifier
 import net.kikin.nubecita.designsystem.component.NubecitaOverlayIconButton
 import net.kikin.nubecita.designsystem.component.NubecitaOverlayPill
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
@@ -241,7 +240,6 @@ private fun ErrorState(
     }
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun LoadedState(
     status: MediaViewerLoadStatus.Loaded,
@@ -328,48 +326,42 @@ private fun LoadedState(
             }
 
             val context = LocalContext.current
+            // The placeholder is the card's already-decoded thumbnail, keyed
+            // exactly as the card wrote it, so the first frame is the image
+            // rather than black. crossfade(false) because the thumbnail and the
+            // fullsize are the same picture — a crossfade reads as a flicker.
             val imageRequest =
-                remember(image.fullsizeUrl, page, postUri) {
+                remember(image.fullsizeUrl, page, postUri, contextKey) {
                     ImageRequest
                         .Builder(context)
                         .data(image.fullsizeUrl)
                         .apply {
-                            if (postUri.isNotBlank()) {
-                                placeholderMemoryCacheKey("coil_${postUri}_$page")
+                            if (postUri.isNotBlank() && contextKey != SharedImageSurfaces.NONE) {
+                                placeholderMemoryCacheKey(
+                                    postImageMemoryCacheKey(contextKey, postUri, page),
+                                )
                                 crossfade(false)
                             }
                         }.build()
                 }
 
-            val sharedTransitionScope = LocalSharedTransitionScope.current
-            val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
-
-            val keyContext = contextKey.ifEmpty { postUri }
-            val sharedBoundsModifier =
-                if (isActivePage &&
-                    sharedTransitionScope != null &&
-                    animatedVisibilityScope != null &&
-                    postUri.isNotBlank()
-                ) {
-                    with(sharedTransitionScope) {
-                        Modifier.sharedBounds(
-                            sharedContentState =
-                                rememberSharedContentState(
-                                    key = "shared_image_${keyContext}_${postUri}_$page",
-                                ),
-                            animatedVisibilityScope = animatedVisibilityScope,
-                            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(ContentScale.Fit),
-                        )
-                    }
-                } else {
-                    Modifier
-                }
+            // Only the page the user is actually on takes part in the
+            // transition — every composed page registering at once would
+            // animate the off-screen neighbours too. Gating `enabled` rather
+            // than the whole call keeps the registration stable across swipes.
+            val sharedModifier =
+                sharedImageModifier(
+                    postUri = postUri,
+                    index = page,
+                    enabled = isActivePage,
+                    surface = contextKey,
+                )
 
             ZoomableAsyncImage(
                 model = imageRequest,
                 contentDescription = image.altText,
                 state = zoomableState,
-                modifier = Modifier.fillMaxSize().then(sharedBoundsModifier),
+                modifier = Modifier.fillMaxSize().then(sharedModifier),
                 contentScale = ContentScale.Fit,
                 onClick = { onTapImage() },
             )
