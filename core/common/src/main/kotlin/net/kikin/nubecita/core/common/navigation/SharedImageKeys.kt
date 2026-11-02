@@ -155,7 +155,7 @@ fun sharedImageModifier(
                     EnterExitState.PreEnter, EnterExitState.PostExit -> peerCornerRadius
                 }
             }
-        val overlayClip = remember { AnimatedCornerOverlayClip(animatedCorner) }
+        val overlayClip = remember(animatedCorner) { AnimatedCornerOverlayClip(animatedCorner) }
         if (enabled) {
             Modifier.sharedElement(
                 sharedContentState = sharedContentState,
@@ -202,7 +202,12 @@ private class AnimatedCornerOverlayClip(
         layoutDirection: LayoutDirection,
         density: Density,
     ): Path {
-        val radiusPx = with(density) { cornerRadius.value.toPx() }
+        // Coerced because a bouncy animation spec would undershoot past 0.dp
+        // and a negative CornerRadius is not a defined input. The current
+        // default spec (animateDp -> spring(DampingRatioNoBouncy)) is
+        // critically damped and cannot overshoot, so this is a guard against a
+        // future spec change rather than a live defect.
+        val radiusPx = with(density) { cornerRadius.value.toPx() }.coerceAtLeast(0f)
         path.reset()
         // `bounds` is already in the SharedTransitionScope's coordinate space,
         // so the rect is used as-is with no extra offset.
