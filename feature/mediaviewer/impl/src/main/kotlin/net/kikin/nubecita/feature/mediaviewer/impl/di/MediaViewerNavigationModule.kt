@@ -1,12 +1,15 @@
 package net.kikin.nubecita.feature.mediaviewer.impl.di
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.navigation3.ui.LocalNavAnimatedContentScope
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
+import net.kikin.nubecita.core.common.navigation.LocalAnimatedVisibilityScope
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.core.common.navigation.OuterShell
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
@@ -49,10 +52,19 @@ internal object MediaViewerNavigationModule {
                     hiltViewModel<MediaViewerViewModel, MediaViewerViewModel.Factory>(
                         creationCallback = { factory -> factory.create(route) },
                     )
-                MediaViewerScreen(
-                    onDismiss = { navigator.goBack() },
-                    viewModel = viewModel,
-                )
+                // The viewer's own half of the feed → viewer shared image
+                // transition. This scope comes from the OUTER NavDisplay's
+                // AnimatedContent — the same one `entry<Main>` in Navigation.kt
+                // provides to the post cards underneath — so the two halves sit
+                // in one transition and the shared element can match.
+                CompositionLocalProvider(
+                    LocalAnimatedVisibilityScope provides LocalNavAnimatedContentScope.current,
+                ) {
+                    MediaViewerScreen(
+                        onDismiss = { navigator.goBack() },
+                        viewModel = viewModel,
+                    )
+                }
             }
         }
 }

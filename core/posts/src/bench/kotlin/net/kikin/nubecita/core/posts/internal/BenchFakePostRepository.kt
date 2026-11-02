@@ -48,7 +48,7 @@ internal class BenchFakePostRepository
                 val post =
                     benchPostsByUri[uri]
                         ?: sources.firstNotNullOfOrNull { it.findPost(uri) }
-                        ?: benchVideoPost
+                        ?: if (uri.contains("canyon") || uri.contains("video")) benchVideoPost else benchGalleryPost
                 Result.success(post)
             }
     }

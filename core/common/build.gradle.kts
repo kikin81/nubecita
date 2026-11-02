@@ -9,10 +9,12 @@ android {
 
 dependencies {
     api(platform(libs.androidx.compose.bom))
+    api(libs.androidx.compose.animation)
     api(libs.androidx.compose.runtime)
     api(libs.androidx.compose.runtime.saveable)
     api(libs.androidx.lifecycle.viewmodel.ktx)
     api(libs.androidx.navigation3.runtime)
+    api(libs.androidx.navigation3.ui)
     api(libs.androidx.savedstate.compose)
     api(libs.kotlinx.coroutines.core)
     api(libs.kotlinx.datetime)

@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.postdetail.impl.di
 
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import dagger.Module
 import dagger.Provides
@@ -11,7 +12,9 @@ import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
+import net.kikin.nubecita.core.common.navigation.LocalSharedImageSurface
 import net.kikin.nubecita.core.common.navigation.MainShell
+import net.kikin.nubecita.core.common.navigation.SharedImageSurfaces
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
@@ -63,42 +66,52 @@ internal object PostDetailNavigationModule {
                     hiltViewModel<PostDetailViewModel, PostDetailViewModel.Factory>(
                         creationCallback = { factory -> factory.create(route) },
                     )
-                PostDetailScreen(
-                    onBack = { navState.removeLast() },
-                    onNavigateToPost = { uri -> navState.add(PostDetailRoute(postUri = uri)) },
-                    onNavigateToAuthor = { handle -> navState.add(Profile(handle = handle)) },
-                    onNavigateToMediaViewer = { uri, index ->
-                        appNavigator.goTo(MediaViewerRoute(postUri = uri, imageIndex = index))
-                    },
-                    // VideoPlayerRoute is `@OuterShell`-qualified (see
-                    // VideoPlayerNavigationModule) so it escapes
-                    // MainShell's NavigationSuiteScaffold chrome the same
-                    // way MediaViewer does — push via the outer Navigator.
-                    onNavigateToVideoPlayer = { uri ->
-                        appNavigator.goTo(VideoPlayerRoute(postUri = uri))
-                    },
-                    // Push ComposerRoute(replyToUri) — tagged `adaptiveDialog()`,
-                    // so it's full-screen at Compact and a centered Dialog at
-                    // Medium/Expanded (same as Feed). The reply tap skips the VM
-                    // and pushes directly.
-                    onReplyClick = { uri -> navState.add(ComposerRoute(replyToUri = uri)) },
-                    // "Quote post" from a PostCard's repost menu — push the
-                    // composer in quote mode (same adaptive-dialog presentation).
-                    onQuoteClick = { uri -> navState.add(ComposerRoute(quotePostUri = uri)) },
-                    // Generic tab-internal sub-route push — pushed onto
-                    // MainShell's inner back stack so the @MainShell
-                    // entry provider for the key resolves it (e.g. the
-                    // Report dialog provider from :feature:moderation:impl).
-                    // The host-callback shape keeps Report-NavKey pushes
-                    // out of the screen body; the screen still reads
-                    // LocalMainShellNavState for back-handler wiring,
-                    // which is fine (back handling is host-policy at the
-                    // shell seam). Matches FeedScreen / FeedNavigationModule
-                    // (PR 3 of oftc.3) and ProfileScreen / ProfileNavigationModule
-                    // (PR 4 of oftc.3).
-                    onNavigateTo = { key -> navState.add(key) },
-                    viewModel = viewModel,
-                )
+                CompositionLocalProvider(
+                    LocalSharedImageSurface provides SharedImageSurfaces.POST_DETAIL,
+                ) {
+                    PostDetailScreen(
+                        onBack = { navState.removeLast() },
+                        onNavigateToPost = { uri -> navState.add(PostDetailRoute(postUri = uri)) },
+                        onNavigateToAuthor = { handle -> navState.add(Profile(handle = handle)) },
+                        onNavigateToMediaViewer = { uri, index ->
+                            appNavigator.goTo(
+                                MediaViewerRoute(
+                                    postUri = uri,
+                                    imageIndex = index,
+                                    contextKey = SharedImageSurfaces.POST_DETAIL,
+                                ),
+                            )
+                        },
+                        // VideoPlayerRoute is `@OuterShell`-qualified (see
+                        // VideoPlayerNavigationModule) so it escapes
+                        // MainShell's NavigationSuiteScaffold chrome the same
+                        // way MediaViewer does — push via the outer Navigator.
+                        onNavigateToVideoPlayer = { uri ->
+                            appNavigator.goTo(VideoPlayerRoute(postUri = uri))
+                        },
+                        // Push ComposerRoute(replyToUri) — tagged `adaptiveDialog()`,
+                        // so it's full-screen at Compact and a centered Dialog at
+                        // Medium/Expanded (same as Feed). The reply tap skips the VM
+                        // and pushes directly.
+                        onReplyClick = { uri -> navState.add(ComposerRoute(replyToUri = uri)) },
+                        // "Quote post" from a PostCard's repost menu — push the
+                        // composer in quote mode (same adaptive-dialog presentation).
+                        onQuoteClick = { uri -> navState.add(ComposerRoute(quotePostUri = uri)) },
+                        // Generic tab-internal sub-route push — pushed onto
+                        // MainShell's inner back stack so the @MainShell
+                        // entry provider for the key resolves it (e.g. the
+                        // Report dialog provider from :feature:moderation:impl).
+                        // The host-callback shape keeps Report-NavKey pushes
+                        // out of the screen body; the screen still reads
+                        // LocalMainShellNavState for back-handler wiring,
+                        // which is fine (back handling is host-policy at the
+                        // shell seam). Matches FeedScreen / FeedNavigationModule
+                        // (PR 3 of oftc.3) and ProfileScreen / ProfileNavigationModule
+                        // (PR 4 of oftc.3).
+                        onNavigateTo = { key -> navState.add(key) },
+                        viewModel = viewModel,
+                    )
+                }
             }
         }
 }
