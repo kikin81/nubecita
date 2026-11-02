@@ -178,6 +178,24 @@ object SharedImageCorners {
 }
 
 /**
+ * The overlay clip's corner radius in pixels, clamped at zero.
+ *
+ * Split out of [AnimatedCornerOverlayClip] so the clamp is unit-testable:
+ * `Path` is backed by `android.graphics.Path`, which is not available to a
+ * plain JVM test, whereas this is pure arithmetic over [Density].
+ *
+ * The clamp exists because a bouncy animation spec would undershoot past
+ * `0.dp` and a negative `CornerRadius` is not a defined input. The current
+ * default spec (`animateDp` -> `spring(DampingRatioNoBouncy)`) is critically
+ * damped and cannot overshoot, so this guards a future spec change rather
+ * than a live defect.
+ */
+internal fun sharedImageCornerRadiusPx(
+    cornerRadius: Dp,
+    density: Density,
+): Float = with(density) { cornerRadius.toPx() }.coerceAtLeast(0f)
+
+/**
  * Clips the shared image to a rounded rect whose radius follows
  * [cornerRadius] while the element is in the shared-transition overlay.
  *
@@ -202,12 +220,7 @@ private class AnimatedCornerOverlayClip(
         layoutDirection: LayoutDirection,
         density: Density,
     ): Path {
-        // Coerced because a bouncy animation spec would undershoot past 0.dp
-        // and a negative CornerRadius is not a defined input. The current
-        // default spec (animateDp -> spring(DampingRatioNoBouncy)) is
-        // critically damped and cannot overshoot, so this is a guard against a
-        // future spec change rather than a live defect.
-        val radiusPx = with(density) { cornerRadius.value.toPx() }.coerceAtLeast(0f)
+        val radiusPx = sharedImageCornerRadiusPx(cornerRadius.value, density)
         path.reset()
         // `bounds` is already in the SharedTransitionScope's coordinate space,
         // so the rect is used as-is with no extra offset.
