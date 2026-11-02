@@ -52,6 +52,9 @@ internal class MediaViewerViewModel
             fun create(route: MediaViewerRoute): MediaViewerViewModel
         }
 
+        val postUri: String get() = route.postUri
+        val contextKey: String get() = route.contextKey
+
         override fun handleEvent(event: MediaViewerEvent) {
             when (event) {
                 MediaViewerEvent.Load -> load()

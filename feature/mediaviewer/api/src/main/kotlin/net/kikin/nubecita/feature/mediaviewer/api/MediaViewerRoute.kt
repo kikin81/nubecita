@@ -29,4 +29,5 @@ import kotlinx.serialization.Serializable
 data class MediaViewerRoute(
     val postUri: String,
     val imageIndex: Int,
+    val contextKey: String = "",
 ) : NavKey

@@ -179,6 +179,7 @@ fun PostCard(
                     )
                     EmbedSlot(
                         embed = post.embed,
+                        postUri = post.id,
                         callbacks = callbacks,
                         videoEmbedSlot = videoEmbedSlot,
                         quotedVideoEmbedSlot = quotedVideoEmbedSlot,
@@ -465,6 +466,7 @@ private fun EmbedSlot(
     onImageClick: ((imageIndex: Int) -> Unit)?,
     onQuotedImageClick: ((quotedPostUri: String, imageIndex: Int) -> Unit)?,
     isMediaRevealed: Boolean,
+    postUri: String? = null,
     onRevealMedia: () -> Unit,
 ) {
     // Build a cover from a media embed's precomputed warning + the per-post
@@ -481,7 +483,13 @@ private fun EmbedSlot(
         is EmbedUi.ImageContainerEmbed -> {
             // Images (≤4) and Gallery (≤10) share the same carousel render path.
             Spacer(Modifier.height(10.dp))
-            PostCardImageEmbed(items = embed.items, onImageClick = onImageClick, cover = coverFor(embed.contentWarning))
+            PostCardImageEmbed(
+                items = embed.items,
+                postUri = postUri,
+                contextKey = postUri,
+                onImageClick = onImageClick,
+                cover = coverFor(embed.contentWarning),
+            )
         }
         is EmbedUi.Video -> {
             // No spacer when the host hasn't supplied a slot — the

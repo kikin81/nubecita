@@ -4,6 +4,8 @@ package net.kikin.nubecita.feature.mediaviewer.impl
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.gestures.Orientation
@@ -21,7 +23,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -49,16 +50,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import me.saket.telephoto.zoomable.rememberZoomableState
+import net.kikin.nubecita.core.common.navigation.LocalAnimatedVisibilityScope
+import net.kikin.nubecita.core.common.navigation.LocalGalleryStateSync
+import net.kikin.nubecita.core.common.navigation.LocalSharedTransitionScope
 import net.kikin.nubecita.designsystem.component.NubecitaOverlayIconButton
 import net.kikin.nubecita.designsystem.component.NubecitaOverlayPill
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
@@ -66,48 +72,10 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.spacing
 import kotlin.time.Duration.Companion.seconds
 
-/**
- * Auto-fade delay for the chrome overlay. Resets on every page change
- * and on every chrome-show transition driven by [MediaViewerEvent.OnTapImage].
- */
 private val CHROME_AUTO_FADE_DELAY = 3.seconds
-
-/**
- * Vertical drag distance (px) past which a swipe-down at min-zoom
- * dispatches [MediaViewerEvent.OnDismissRequest]. Resolved from a dp
- * value at the call site so it scales with display density.
- */
 private const val SWIPE_DOWN_DISMISS_THRESHOLD_DP: Int = 120
-
-/**
- * Tolerance for "is the active page at min-zoom?". `zoomFraction` is a
- * `Float` reported by telephoto that can hover near zero from anti-jitter
- * smoothing during a fling — anything below this counts as min-zoom for
- * the paging-enabled / swipe-down-dismiss-enabled gates.
- */
 private const val MIN_ZOOM_TOLERANCE: Float = 0.02f
 
-/**
- * Screen-level entry composable for the fullscreen image viewer.
- *
- * - [onDismiss] is the only nav side-effect — invoked when the
- *   ViewModel emits [MediaViewerEffect.Dismiss]. The screen does NOT
- *   import any nav-state holder; the entry-provider call site in
- *   `MediaViewerNavigationModule` wires `onDismiss` to
- *   `LocalAppNavigator.current.goBack()` on the outer `Navigator`.
- * - The `BackHandler` collects the system back press and dispatches
- *   `OnDismissRequest` (or `OnAltSheetDismiss` if the sheet is open).
- *
- * Event-dispatch lambdas are hoisted via `remember(viewModel) { … }`
- * so children (and especially the active page's `ZoomableAsyncImage`)
- * see stable references and don't recompose during pinch/zoom from
- * lambda-identity churn alone.
- *
- * Suppresses VM-forwarding lints — see ComposerScreen / ProfileScreen
- * for the full rationale (slack compose-lints 1.5.0+ tightened
- * ComposeViewModelForwarding's data-flow analysis; conflicts with
- * ComposeViewModelInjection on stateful screens that hoist state).
- */
 @Suppress("ktlint:compose:vm-forwarding-check", "ComposeViewModelForwarding")
 @Composable
 internal fun MediaViewerScreen(
@@ -130,11 +98,6 @@ internal fun MediaViewerScreen(
     LaunchedEffect(Unit) { viewModel.handleEvent(MediaViewerEvent.Load) }
 
     val snackbarHostState = remember { SnackbarHostState() }
-    // Resolved in composition and tracked with rememberUpdatedState rather than
-    // read off a captured Context inside the effect: stringResource recomposes
-    // on a configuration change, so a locale switch mid-save still shows the
-    // right wording. (A captured Context would go stale — lint's
-    // LocalContextGetResourceValueCall.)
     val savedMessage by rememberUpdatedState(stringResource(R.string.mediaviewer_save_success))
     val retrievalFailedMessage by rememberUpdatedState(stringResource(R.string.mediaviewer_save_failed_retrieval))
     val storageFailedMessage by rememberUpdatedState(stringResource(R.string.mediaviewer_save_failed_storage))
@@ -144,13 +107,6 @@ internal fun MediaViewerScreen(
             when (effect) {
                 MediaViewerEffect.Dismiss -> currentOnDismiss()
                 is MediaViewerEffect.ShowSaveOutcome ->
-                    // Launched, not awaited: showSnackbar suspends until the
-                    // snackbar is dismissed or times out, and awaiting it here
-                    // would stall this collector — so a back press during the
-                    // ~4s snackbar would sit unhandled behind it.
-                    //
-                    // Wording chosen here, not in the VM: the presenter stays
-                    // free of Android resources, same as MediaViewerError.
                     launch {
                         snackbarHostState.showSnackbar(
                             when (effect.outcome) {
@@ -175,6 +131,8 @@ internal fun MediaViewerScreen(
 
     MediaViewerScreenContent(
         state = state,
+        postUri = viewModel.postUri,
+        contextKey = viewModel.contextKey,
         onRetry = onRetry,
         onDismissRequest = onDismissRequest,
         onPageChange = onPageChange,
@@ -188,11 +146,6 @@ internal fun MediaViewerScreen(
     )
 }
 
-/**
- * Stateless content composable. Previews and screenshot tests call this
- * directly with fixture state — no ViewModel, no Hilt graph, no live
- * `BackHandler`. Mirrors the `PostDetailScreenContent` split.
- */
 @Composable
 internal fun MediaViewerScreenContent(
     state: MediaViewerState,
@@ -205,6 +158,8 @@ internal fun MediaViewerScreenContent(
     onChromeAutoFadeTimeout: () -> Unit,
     onSaveClick: () -> Unit,
     modifier: Modifier = Modifier,
+    postUri: String = "",
+    contextKey: String = "",
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     Surface(
@@ -223,6 +178,8 @@ internal fun MediaViewerScreenContent(
                 is MediaViewerLoadStatus.Loaded ->
                     LoadedState(
                         status = status,
+                        postUri = postUri,
+                        contextKey = contextKey,
                         onPageChange = onPageChange,
                         onTapImage = onTapImage,
                         onAltBadgeClick = onAltBadgeClick,
@@ -232,8 +189,6 @@ internal fun MediaViewerScreenContent(
                         onSaveClick = onSaveClick,
                     )
             }
-            // Sits above the viewer rather than in a Scaffold: this screen is a
-            // full-bleed black surface with no app bars to coordinate with.
             SnackbarHost(
                 hostState = snackbarHostState,
                 modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),
@@ -257,9 +212,6 @@ private fun ErrorState(
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-        // Close affordance stays visible on error so the user can always
-        // exit even if retry keeps failing. Same overlay control as the
-        // loaded chrome so the two states look like one screen.
         NubecitaOverlayIconButton(
             icon = NubecitaIconName.Close,
             accessibilityLabel = stringResource(R.string.mediaviewer_close_content_description),
@@ -280,9 +232,6 @@ private fun ErrorState(
                 style = MaterialTheme.typography.bodyLarge,
             )
             Spacer(Modifier.height(16.dp))
-            // Retry is hidden for NoImages because re-fetching can't change
-            // the embed type — the user has to dismiss and re-enter from a
-            // different surface.
             if (error !is MediaViewerError.NoImages) {
                 Button(onClick = onRetry) {
                     Text(stringResource(R.string.mediaviewer_retry))
@@ -292,9 +241,12 @@ private fun ErrorState(
     }
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun LoadedState(
     status: MediaViewerLoadStatus.Loaded,
+    postUri: String,
+    contextKey: String,
     onPageChange: (Int) -> Unit,
     onTapImage: () -> Unit,
     onAltBadgeClick: () -> Unit,
@@ -312,12 +264,8 @@ private fun LoadedState(
     val currentOnPageChange by rememberUpdatedState(onPageChange)
     val currentOnChromeAutoFadeTimeout by rememberUpdatedState(onChromeAutoFadeTimeout)
     val currentOnDismissRequest by rememberUpdatedState(onDismissRequest)
+    val gallerySync = LocalGalleryStateSync.current
 
-    // Active page's zoom factor, written by the active slot's
-    // snapshotFlow collector below. The pager's `userScrollEnabled` and
-    // the swipe-down-dismiss draggable both read this to gate gestures —
-    // paging only at min-zoom, dismiss only at min-zoom. Above min-zoom,
-    // telephoto's pan/zoom absorbs all gestures on the active page.
     var activePageZoomFraction by remember { mutableFloatStateOf(0f) }
     val isAtMinZoom = activePageZoomFraction <= MIN_ZOOM_TOLERANCE
 
@@ -325,33 +273,20 @@ private fun LoadedState(
     var dismissDragOffset by remember { mutableFloatStateOf(0f) }
     val dismissDraggableState =
         rememberDraggableState { delta ->
-            // Only accumulate downward motion; an upward drag at min-zoom
-            // does nothing (no gesture is bound to it). Negative delta
-            // (finger moved up) resets the accumulator so half-down /
-            // half-up wobbles don't latch into a dismiss.
             dismissDragOffset = (dismissDragOffset + delta).coerceAtLeast(0f)
         }
 
-    // Sync pager → state. distinctUntilChanged absorbs the round-trip
-    // (OnPageChanged → setState → recomposition → snapshotFlow re-emit).
-    // No `.filter { it != status.currentIndex }` guard — the captured
-    // status would go stale after the first emission, blocking subsequent
-    // page changes; the VM's own `if (status.currentIndex == index) return`
-    // guard in onPageChanged() makes the filter redundant anyway.
-    LaunchedEffect(pagerState) {
+    LaunchedEffect(pagerState, postUri) {
         snapshotFlow { pagerState.currentPage }
             .distinctUntilChanged()
-            .collect { currentOnPageChange(it) }
+            .collect { page ->
+                if (postUri.isNotBlank()) {
+                    gallerySync.setActiveIndex(postUri, page)
+                }
+                currentOnPageChange(page)
+            }
     }
 
-    // Auto-fade timer. Restarts whenever the visibility flag flips to
-    // true OR the page changes. The status fields are the trigger keys
-    // so the LaunchedEffect coroutine cancels and restarts on every
-    // relevant state change.
-    // `isSaving` is a key, not just a guard: the in-flight indicator lives in
-    // the chrome, so letting the timer run during a save would fade out the
-    // very progress the user is waiting on. Re-keying also restarts the timer
-    // when the save finishes, so the chrome still fades on its own afterwards.
     LaunchedEffect(status.isChromeVisible, status.currentIndex, status.isSaving) {
         if (status.isChromeVisible && !status.isSaving) {
             kotlinx.coroutines.delay(CHROME_AUTO_FADE_DELAY)
@@ -363,11 +298,6 @@ private fun LoadedState(
         modifier =
             modifier
                 .fillMaxSize()
-                // Vertical-only draggable for swipe-down dismiss. Enabled
-                // only at min-zoom so an above-min-zoom vertical motion is
-                // absorbed by telephoto's pan instead. `Orientation.Vertical`
-                // tells Compose's gesture system to leave horizontal drags
-                // alone — they pass through to HorizontalPager.
                 .draggable(
                     orientation = Orientation.Vertical,
                     state = dismissDraggableState,
@@ -384,35 +314,62 @@ private fun LoadedState(
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),
-            // Disable paging when the active page is zoomed — telephoto's
-            // pan absorbs the horizontal gesture instead of advancing the
-            // page. At min-zoom the user can swipe horizontally to page.
             userScrollEnabled = isAtMinZoom,
         ) { page ->
             val image = status.images[page]
             val zoomableState = rememberZoomableImageState(rememberZoomableState())
-            // Only the active page reports its zoom factor up to LoadedState.
-            // Off-screen pages also have their own state but their zoom is
-            // unobserved (and resets on next composition anyway).
             val isActivePage = page == pagerState.currentPage
+
             LaunchedEffect(isActivePage, zoomableState) {
                 if (isActivePage) {
-                    // zoomFraction is nullable while the image content is
-                    // still being measured (no intrinsic size yet). Treat
-                    // null as min-zoom — the image isn't laid out so there's
-                    // nothing to gate gestures on anyway.
                     snapshotFlow { zoomableState.zoomableState.zoomFraction ?: 0f }
                         .collect { activePageZoomFraction = it }
                 }
             }
+
+            val context = LocalContext.current
+            val imageRequest =
+                remember(image.fullsizeUrl, page, postUri) {
+                    ImageRequest
+                        .Builder(context)
+                        .data(image.fullsizeUrl)
+                        .apply {
+                            if (postUri.isNotBlank()) {
+                                placeholderMemoryCacheKey("coil_${postUri}_$page")
+                                crossfade(false)
+                            }
+                        }.build()
+                }
+
+            val sharedTransitionScope = LocalSharedTransitionScope.current
+            val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
+
+            val sharedBoundsModifier =
+                if (
+                    isActivePage &&
+                    sharedTransitionScope != null &&
+                    animatedVisibilityScope != null &&
+                    postUri.isNotBlank()
+                ) {
+                    with(sharedTransitionScope) {
+                        Modifier.sharedBounds(
+                            sharedContentState =
+                                rememberSharedContentState(
+                                    key = "shared_image_${contextKey}_${postUri}_$page",
+                                ),
+                            animatedVisibilityScope = animatedVisibilityScope,
+                            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(ContentScale.Fit),
+                        )
+                    }
+                } else {
+                    Modifier
+                }
+
             ZoomableAsyncImage(
-                // The viewer is full-screen — always pick the fullsize
-                // variant. The thumb variant exists for n×n grids (Profile
-                // Media tab) but would be visibly soft at this scale.
-                model = image.fullsizeUrl,
+                model = imageRequest,
                 contentDescription = image.altText,
                 state = zoomableState,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().then(sharedBoundsModifier),
                 contentScale = ContentScale.Fit,
                 onClick = { onTapImage() },
             )
@@ -456,17 +413,6 @@ private fun LoadedState(
     }
 }
 
-/**
- * Floating chrome: close at top-start, the page indicator at top-center, and
- * save + ALT at top-end — each its own designsystem overlay control, with no
- * full-width band behind them. A bar spanning the screen read as a phone-only
- * app bar stretched across a tablet or unfolded foldable; floating controls
- * keep their size and corners on every width, and the overlay scrim keeps each
- * one legible over any image.
- *
- * Inset by `safeDrawing` (system bars AND display cutout) so the corner
- * controls never sit under a status bar, a gesture bar or a camera cutout.
- */
 @Composable
 private fun OverlayChrome(
     currentIndex: Int,
@@ -495,8 +441,6 @@ private fun OverlayChrome(
         if (totalImages > 1) {
             NubecitaOverlayPill(
                 text = stringResource(R.string.mediaviewer_page_indicator, currentIndex + 1, totalImages),
-                // Centered on the 48dp control row so the pill lines up with
-                // the corner buttons rather than hugging the top inset.
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = MaterialTheme.spacing.s2),
             )
         }
@@ -512,10 +456,6 @@ private fun OverlayChrome(
                     accessibilityLabel = stringResource(R.string.mediaviewer_alt_badge_content_description),
                 )
             }
-            // Omitted entirely — not disabled — where the platform cannot
-            // write to the shared gallery without a permission the app
-            // deliberately does not declare. A control that can never work
-            // is worse than no control.
             if (canSave) {
                 NubecitaOverlayIconButton(
                     icon = NubecitaIconName.Download,

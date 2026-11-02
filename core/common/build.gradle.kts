@@ -9,6 +9,7 @@ android {
 
 dependencies {
     api(platform(libs.androidx.compose.bom))
+    api(libs.androidx.compose.animation)
     api(libs.androidx.compose.runtime)
     api(libs.androidx.compose.runtime.saveable)
     api(libs.androidx.lifecycle.viewmodel.ktx)
