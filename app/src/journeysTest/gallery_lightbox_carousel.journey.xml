@@ -1,0 +1,21 @@
+<journey name="Image Carousel &amp; Gallery Lightbox CUJ">
+  <description>
+    Verifies multi-image post carousel interaction in feed, boundary swipe isolation,
+    in-feed count indicator, opening full-screen lightbox, swiping images, live index sync,
+    and smooth dismiss transition back to the feed.
+  </description>
+  <actions>
+    <action>Verify that the app is open on the Home feed</action>
+    <action>Locate a multi-image post card in the timeline</action>
+    <action>Verify that the in-feed image count pill (e.g. 1/3 or 1/4) is visible on the carousel</action>
+    <action>Swipe left on the post image carousel to view the second image</action>
+    <action>Verify that the in-feed count pill updates to 2/x</action>
+    <action>Swipe left past the last image of the carousel</action>
+    <action>Verify that horizontal drag delta is consumed and the parent feed tab pager does not switch tabs</action>
+    <action>Tap the active image in the post card to open the full-screen gallery lightbox</action>
+    <action>Verify that the full-screen lightbox overlay is displayed without a blank black frame</action>
+    <action>Swipe left to view image 3 in the full-screen lightbox</action>
+    <action>Tap the Close button or swipe down to dismiss the full-screen lightbox</action>
+    <action>Verify that the app returns to the feed and the feed carousel is synced to image 3</action>
+  </actions>
+</journey>

@@ -1,5 +1,7 @@
 package net.kikin.nubecita
 
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
@@ -17,11 +19,15 @@ import androidx.navigation3.ui.NavDisplay
 import dagger.hilt.android.EntryPointAccessors
 import net.kikin.nubecita.analytics.TrackScreenViews
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
+import net.kikin.nubecita.core.common.navigation.LocalGalleryStateSync
+import net.kikin.nubecita.core.common.navigation.LocalSharedTransitionScope
+import net.kikin.nubecita.core.common.navigation.rememberGalleryStateSync
 import net.kikin.nubecita.designsystem.NubecitaPalette
 import net.kikin.nubecita.designsystem.component.NubecitaLogomark
 import net.kikin.nubecita.navigation.NavigationEntryPoint
 import net.kikin.nubecita.shell.MainShell
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun MainNavigation(modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -32,76 +38,83 @@ fun MainNavigation(modifier: Modifier = Modifier) {
     val navigator = remember(entryPoint) { entryPoint.navigator() }
     val outerInstallers = remember(entryPoint) { entryPoint.outerEntryProviderInstallers() }
     val analytics = remember(entryPoint) { entryPoint.analyticsClient() }
+    val galleryStateSync = rememberGalleryStateSync()
 
     // Manual screen_view for the outer NavDisplay (Splash → Login →
     // Onboarding → Main). Splash and Main map to null — Main delegates to
     // MainShell's inner display, which tracks the real tab / sub-route.
     TrackScreenViews(topRoute = navigator.backStack.lastOrNull(), analytics = analytics)
 
-    CompositionLocalProvider(LocalAppNavigator provides navigator) {
-        NavDisplay(
-            modifier = modifier,
-            backStack = navigator.backStack,
-            onBack = { navigator.goBack() },
-            // SceneSetupNavEntryDecorator is internal in nav3-ui 1.1.1 — NavDisplay applies
-            // it itself. We supply the two decorators that are public + required for
-            // hiltViewModel() inside NavEntries to work and for state to survive
-            // recomposition / configuration change.
-            entryDecorators =
-                listOf(
-                    rememberSaveableStateHolderNavEntryDecorator(),
-                    rememberViewModelStoreNavEntryDecorator(),
-                ),
-            entryProvider =
-                entryProvider {
-                    // The system SplashScreen API overlays this surface via
-                    // setKeepOnScreenCondition while SessionStateProvider is still Loading.
-                    // Once the bootstrap resolves, MainActivity's reactive collector calls
-                    // navigator.replaceTo(Onboarding / Login / Main) and Splash leaves
-                    // the back stack.
-                    //
-                    // We render the brand cloud here (rather than an empty Box) so the
-                    // brief window between the system splash dismissing and the route
-                    // swap shows brand identity instead of an empty background.
-                    entry<Splash> {
-                        // Background is painted by MainActivity's outer Surface
-                        // (MaterialTheme.colorScheme.background) — no .background()
-                        // here to avoid an extra draw pass on every cold start.
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            NubecitaLogomark(
-                                modifier = Modifier.size(96.dp),
-                                tint = NubecitaPalette.LauncherBlue,
-                            )
+    SharedTransitionLayout {
+        CompositionLocalProvider(
+            LocalAppNavigator provides navigator,
+            LocalSharedTransitionScope provides this,
+            LocalGalleryStateSync provides galleryStateSync,
+        ) {
+            NavDisplay(
+                modifier = modifier,
+                backStack = navigator.backStack,
+                onBack = { navigator.goBack() },
+                // SceneSetupNavEntryDecorator is internal in nav3-ui 1.1.1 — NavDisplay applies
+                // it itself. We supply the two decorators that are public + required for
+                // hiltViewModel() inside NavEntries to work and for state to survive
+                // recomposition / configuration change.
+                entryDecorators =
+                    listOf(
+                        rememberSaveableStateHolderNavEntryDecorator(),
+                        rememberViewModelStoreNavEntryDecorator(),
+                    ),
+                entryProvider =
+                    entryProvider {
+                        // The system SplashScreen API overlays this surface via
+                        // setKeepOnScreenCondition while SessionStateProvider is still Loading.
+                        // Once the bootstrap resolves, MainActivity's reactive collector calls
+                        // navigator.replaceTo(Onboarding / Login / Main) and Splash leaves
+                        // the back stack.
+                        //
+                        // We render the brand cloud here (rather than an empty Box) so the
+                        // brief window between the system splash dismissing and the route
+                        // swap shows brand identity instead of an empty background.
+                        entry<Splash> {
+                            // Background is painted by MainActivity's outer Surface
+                            // (MaterialTheme.colorScheme.background) — no .background()
+                            // here to avoid an extra draw pass on every cold start.
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                NubecitaLogomark(
+                                    modifier = Modifier.size(96.dp),
+                                    tint = NubecitaPalette.LauncherBlue,
+                                )
+                            }
                         }
-                    }
-                    entry<Main> {
-                        // No `safeDrawingPadding` here — `NavigationSuiteScaffold`
-                        // inside `MainShell` consumes the bottom system inset
-                        // itself and draws its `surfaceContainer` background
-                        // under the gesture-bar / nav-bar region. Wrapping it
-                        // in `safeDrawingPadding` carves the inset OUT of the
-                        // scaffold's drawable area, leaving the outer
-                        // MainActivity Surface (`background` color) bleeding
-                        // through behind the gesture pill — exactly the gap
-                        // `add-feed-scroll-to-top`'s manual smoke surfaced.
-                        // Per the edge-to-edge skill: "DO NOT apply
-                        // `safeDrawingPadding` or similar modifiers to the
-                        // `NavigationSuiteScaffold` parent. This clips and
-                        // prevents an edge-to-edge screen." Per-screen content
-                        // inside the inner `NavDisplay` (FeedScreen, etc.)
-                        // owns its own inset handling via Scaffold padding.
-                        MainShell()
-                    }
-                    // `Onboarding`, `Login`, and other outer-shell routes are
-                    // registered via `@Provides @IntoSet @OuterShell`
-                    // EntryProviderInstaller multibindings in each feature's
-                    // :impl module. The set is collected here and applied to
-                    // this entryProvider scope.
-                    outerInstallers.forEach { installer -> installer() }
-                },
-        )
+                        entry<Main> {
+                            // No `safeDrawingPadding` here — `NavigationSuiteScaffold`
+                            // inside `MainShell` consumes the bottom system inset
+                            // itself and draws its `surfaceContainer` background
+                            // under the gesture-bar / nav-bar region. Wrapping it
+                            // in `safeDrawingPadding` carves the inset OUT of the
+                            // scaffold's drawable area, leaving the outer
+                            // MainActivity Surface (`background` color) bleeding
+                            // through behind the gesture pill — exactly the gap
+                            // `add-feed-scroll-to-top`'s manual smoke surfaced.
+                            // Per the edge-to-edge skill: "DO NOT apply
+                            // `safeDrawingPadding` or similar modifiers to the
+                            // `NavigationSuiteScaffold` parent. This clips and
+                            // prevents an edge-to-edge screen." Per-screen content
+                            // inside the inner `NavDisplay` (FeedScreen, etc.)
+                            // owns its own inset handling via Scaffold padding.
+                            MainShell()
+                        }
+                        // `Onboarding`, `Login`, and other outer-shell routes are
+                        // registered via `@Provides @IntoSet @OuterShell`
+                        // EntryProviderInstaller multibindings in each feature's
+                        // :impl module. The set is collected here and applied to
+                        // this entryProvider scope.
+                        outerInstallers.forEach { installer -> installer() }
+                    },
+            )
+        }
     }
 }
