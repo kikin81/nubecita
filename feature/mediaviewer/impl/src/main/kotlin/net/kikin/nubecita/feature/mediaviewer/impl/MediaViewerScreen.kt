@@ -61,6 +61,7 @@ import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import me.saket.telephoto.zoomable.rememberZoomableState
 import net.kikin.nubecita.core.common.navigation.LocalGalleryStateSync
+import net.kikin.nubecita.core.common.navigation.SharedImageCorners
 import net.kikin.nubecita.core.common.navigation.SharedImageSurfaces
 import net.kikin.nubecita.core.common.navigation.postImageMemoryCacheKey
 import net.kikin.nubecita.core.common.navigation.sharedImageModifier
@@ -355,6 +356,10 @@ private fun LoadedState(
                     index = page,
                     enabled = isActivePage,
                     surface = contextKey,
+                    // Inverted relative to the card: the viewer rests square
+                    // and rounds off toward the card's radius as it shrinks.
+                    cornerRadius = SharedImageCorners.VIEWER,
+                    peerCornerRadius = SharedImageCorners.CARD,
                 )
 
             ZoomableAsyncImage(

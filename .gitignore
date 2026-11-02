@@ -110,3 +110,7 @@ app/src/benchRelease/generated/
 # Perfetto trace_processor wrapper, downloaded on demand by the perfetto-sql
 # skill to query Macrobenchmark traces. Not a project dependency.
 trace_processor
+
+# AI skill scratch output (play-policy-insights, etc.) — large, regenerable,
+# and contains absolute local paths. Reports worth keeping are copied out.
+.scratch/

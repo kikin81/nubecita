@@ -1,10 +1,23 @@
 package net.kikin.nubecita.core.common.navigation
 
+import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.animateDp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ProvidableCompositionLocal
+import androidx.compose.runtime.State
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 
 /**
  * The post-rendering surfaces that opt into feed → media-viewer shared image
@@ -103,6 +116,14 @@ fun postImageMemoryCacheKey(
  * `rememberSharedContentState` call — the viewer flips it per page as the user
  * swipes, and re-running the remember would unregister and re-register the
  * shared element on every swipe.
+ *
+ * [cornerRadius] is this side's resting corner radius and [peerCornerRadius]
+ * is the other side's. Only ONE of the two halves draws during the transition
+ * — `sharedElement` renders the target and skips the source — so whichever
+ * side is arriving would otherwise paint its own fixed radius across the whole
+ * animation while the bounds travel between a card-sized and a full-screen
+ * rect. Interpolating between the two radii is what keeps the corners from
+ * popping at the hand-off.
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -111,6 +132,8 @@ fun sharedImageModifier(
     index: Int,
     enabled: Boolean = true,
     surface: String = LocalSharedImageSurface.current,
+    cornerRadius: Dp = SharedImageCorners.CARD,
+    peerCornerRadius: Dp = SharedImageCorners.VIEWER,
 ): Modifier {
     val sharedTransitionScope = LocalSharedTransitionScope.current
     val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
@@ -123,13 +146,85 @@ fun sharedImageModifier(
     }
     return with(sharedTransitionScope) {
         val sharedContentState = rememberSharedContentState(key = sharedImageKey(surface, postUri, index))
+        // Held as State, not unwrapped by `by`: the overlay clip reads it at
+        // draw time on every frame of the transition.
+        val animatedCorner =
+            animatedVisibilityScope.transition.animateDp(label = "sharedImageCorner") { state ->
+                when (state) {
+                    EnterExitState.Visible -> cornerRadius
+                    EnterExitState.PreEnter, EnterExitState.PostExit -> peerCornerRadius
+                }
+            }
+        val overlayClip = remember(animatedCorner) { AnimatedCornerOverlayClip(animatedCorner) }
         if (enabled) {
             Modifier.sharedElement(
                 sharedContentState = sharedContentState,
                 animatedVisibilityScope = animatedVisibilityScope,
+                clipInOverlayDuringTransition = overlayClip,
             )
         } else {
             Modifier
         }
+    }
+}
+
+/** Resting corner radii of the two halves of the shared image transition. */
+object SharedImageCorners {
+    /** Post-card images, matching the embed's `RoundedCornerShape(16.dp)`. */
+    val CARD: Dp = 16.dp
+
+    /** The full-screen viewer, which runs edge to edge. */
+    val VIEWER: Dp = 0.dp
+}
+
+/**
+ * The overlay clip's corner radius in pixels, clamped at zero.
+ *
+ * Split out of [AnimatedCornerOverlayClip] so the clamp is unit-testable:
+ * `Path` is backed by `android.graphics.Path`, which is not available to a
+ * plain JVM test, whereas this is pure arithmetic over [Density].
+ *
+ * The clamp exists because a bouncy animation spec would undershoot past
+ * `0.dp` and a negative `CornerRadius` is not a defined input. The current
+ * default spec (`animateDp` -> `spring(DampingRatioNoBouncy)`) is critically
+ * damped and cannot overshoot, so this guards a future spec change rather
+ * than a live defect.
+ */
+internal fun sharedImageCornerRadiusPx(
+    cornerRadius: Dp,
+    density: Density,
+): Float = with(density) { cornerRadius.toPx() }.coerceAtLeast(0f)
+
+/**
+ * Clips the shared image to a rounded rect whose radius follows
+ * [cornerRadius] while the element is in the shared-transition overlay.
+ *
+ * This is deliberately an [SharedTransitionScope.OverlayClip] rather than a
+ * `Modifier.clip` on either half. The overlay clip applies *only* while the
+ * transition is running, so the card keeps M3's own
+ * `CarouselItemScope.maskClip` — which does the carousel's item masking, not
+ * just corner rounding — completely untouched at rest and during carousel
+ * scrolling. Nothing here reaches into the Material carousel.
+ */
+@OptIn(ExperimentalSharedTransitionApi::class)
+private class AnimatedCornerOverlayClip(
+    private val cornerRadius: State<Dp>,
+) : SharedTransitionScope.OverlayClip {
+    // Reused across frames per the OverlayClip contract — it asks
+    // implementations to mutate one Path rather than allocate per frame.
+    private val path = Path()
+
+    override fun getClipPath(
+        sharedContentState: SharedTransitionScope.SharedContentState,
+        bounds: Rect,
+        layoutDirection: LayoutDirection,
+        density: Density,
+    ): Path {
+        val radiusPx = sharedImageCornerRadiusPx(cornerRadius.value, density)
+        path.reset()
+        // `bounds` is already in the SharedTransitionScope's coordinate space,
+        // so the rect is used as-is with no extra offset.
+        path.addRoundRect(RoundRect(rect = bounds, cornerRadius = CornerRadius(radiusPx, radiusPx)))
+        return path
     }
 }
