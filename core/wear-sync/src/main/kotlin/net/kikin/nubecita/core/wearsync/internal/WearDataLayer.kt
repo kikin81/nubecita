@@ -2,6 +2,8 @@ package net.kikin.nubecita.core.wearsync.internal
 
 import android.content.Context
 import android.net.Uri
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.CommonStatusCodes
 import com.google.android.gms.wearable.Asset
 import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.DataClient
@@ -21,7 +23,14 @@ import javax.inject.Inject
  * services Wearable.
  */
 internal interface WearDataLayer {
-    /** True when any known node (connected or not) has the Wear app installed. */
+    /**
+     * True when any known node (connected or not) has the Wear app installed.
+     *
+     * `false` — not a throw — on a device with no Wearable API at all (an
+     * emulator, a phone without Wear OS services): that is a definitive "no
+     * watch", and callers gate real work on the answer. A transient failure
+     * still throws, so a caller can tell "there is no watch" from "ask again".
+     */
     suspend fun hasWearAppNode(): Boolean
 
     /**
@@ -60,12 +69,23 @@ internal class PlayServicesWearDataLayer
         @param:ApplicationContext private val context: Context,
     ) : WearDataLayer {
         override suspend fun hasWearAppNode(): Boolean =
-            Wearable
-                .getCapabilityClient(context)
-                .getCapability(WearCapabilities.WEAR_APP, CapabilityClient.FILTER_ALL)
-                .await()
-                .nodes
-                .isNotEmpty()
+            try {
+                Wearable
+                    .getCapabilityClient(context)
+                    .getCapability(WearCapabilities.WEAR_APP, CapabilityClient.FILTER_ALL)
+                    .await()
+                    .nodes
+                    .isNotEmpty()
+            } catch (apiException: ApiException) {
+                // API_NOT_CONNECTED is Play services saying "Wearable.API is not
+                // available on this device" — there is no watch here and there
+                // never will be, so answer the question instead of making every
+                // caller treat an unanswerable check as a maybe. Anything else
+                // (a disconnected-but-present service, an internal error) is
+                // genuinely transient and still propagates.
+                if (apiException.statusCode != CommonStatusCodes.API_NOT_CONNECTED) throw apiException
+                false
+            }
 
         override suspend fun put(
             path: String,
