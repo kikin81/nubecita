@@ -99,7 +99,8 @@ The six `ColorScheme`s exposed by `:designsystem` MUST populate every Material 3
 
 #### Scenario: Mono type is available via extension
 
-- **WHEN** a composable reads `MaterialTheme.typography` it does NOT find a mono role (M3 has none); a composable reading `MaterialTheme.extendedTypography.mono` resolves to a `TextStyle` with JetBrains Mono.
+- **WHEN** a composable reads `MaterialTheme.typography`
+- **THEN** it does NOT find a mono role (M3 has none); a composable reading `MaterialTheme.extendedTypography.mono` resolves to a `TextStyle` with JetBrains Mono.
 
 ### Requirement: Shape roles map to the brand shape scale
 
