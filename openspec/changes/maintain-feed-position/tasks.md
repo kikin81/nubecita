@@ -1,0 +1,72 @@
+# Tasks — maintain-feed-position (epic `nubecita-lgoo.5`)
+
+Cross-links: bead `nubecita-lgoo.5` (epic) and its six children. Reference `proposal.md` and `design.md` (D1–D14). One `gh stack`, one PR per child, landed with a single `gh stack merge --squash --yes`. Each child PR is titled as a Conventional Commit and carries `Closes: <child-id>` in its body.
+
+**Blocked on D22.** The design's open question — what a runtime preference change does to a projection baked at write time, and whether the reply filter moves into the cache — decides whether a re-projection subsystem exists and whether the Following widget's content changes. Task group 2 should not start before it is answered.
+
+Gate per `CLAUDE.md`: each child branch lints its touched modules only before `gh stack submit`; the **top** branch runs the full gate (`:app:assembleDebug`, every touched module's lint, and the compose-expert review against the cumulative `git diff origin/main...HEAD`) before `gh stack merge`.
+
+Flavor status of the touched modules, checked (`git grep -l nubecita.android.flavors -- <module-dir>`) rather than inferred — these pick the task names:
+
+| Module | Variant | Lint / unit-test task |
+|---|---|---|
+| `:feature:feed:impl` | **flavored** | `lintProductionDebug` / `testProductionDebugUnitTest` |
+| `:core:feed-cache` | **flavored** | `lintProductionDebug` / `testProductionDebugUnitTest` |
+| `:core:database` | plain | `lintDebug` / `testDebugUnitTest` |
+| `:core:widget-sync` | plain | `lintDebug` / `testDebugUnitTest` |
+| `:core:feed-mapping` | plain | `lintDebug` / `testDebugUnitTest` |
+| `:data:models` | plain | `lintDebug` / `testDebugUnitTest` |
+
+Both flavored modules ship a `bench` source set, so the `bench` variant must compile too — the feed's bench fakes are part of task 5.3, not an afterthought.
+
+`:feature:search:impl` also consumes `FeedItemUi`, but only via `toFlatFeedItemUiSingle` — grep confirms it never constructs `ReplyCluster` or `SelfThreadChain`, so the key renaming in task 5.2 does not reach it (`Single`'s key stays the bare post URI).
+
+## 1. Persist feed entries, not bare posts (`nubecita-lgoo.5.1`, D2 + D13)
+
+- [ ] 1.1 Widen `FeedPostEntity` to carry the per-entry context the grouping needs: the blob becomes the serialized `FeedViewPost`, plus the denormalized columns the write-time projection and the anchor lookup actually query (reply root URI, reply parent URI, repost-by DID). Bump `NubecitaDatabase` to `version = 7`, commit `core/database/schemas/.../7.json`. **Tests:** extend `FeedPostDaoTest` for the new columns (round-trip, partition scoping, index-served lookups).
+- [ ] 1.2 Write the v6 → v7 migration. Drop `feed_post` / `feed_remote_keys` rows (D13 — the `reason`/`reply` data was never persisted and cannot be recovered locally); preserve recent searches and cached actors. Prefer `@AutoMigration`; hand-write a `Migration` in `Migrations.kt` if the row drop makes the diff unresolvable. **Tests:** a migration test asserting non-feed data survives and the feed tables come back empty.
+- [ ] 1.3 Rewrite `FeedPostMappers` so `toFeedPostEntity` serializes the whole `FeedViewPost` and the read mapper reconstructs repost attribution and reply context. Delete the "reason is NOT persisted" carve-out from the KDoc. **Tests:** extend the mapper's unit tests — a reposted entry round-trips with attribution, a reply entry round-trips with root+parent, a malformed blob still degrades to a skipped row rather than throwing.
+- [ ] 1.4 Add the projected-item table (D15): one row per rendered `FeedItemUi`, blob + display position, partitioned like `feed_post`, with the context posts inline. Add the prepend cursor columns to `feed_remote_keys` (D18): boundary `since`, in-range fill cursor, pending new boundary. **Tests:** DAO tests for the projection table (ordered read, partition scoping, purge-with-account) and for independent read/write of the three cursors.
+- [ ] 1.5 Re-run `FeedPostScaleTest` (`scale_powerUserCache_readsStayFlat_writesStayCheap_sizeBounded`) against the widened blob and record the new on-disk figure in the PR body. **Test:** the existing instrumented scale test, unchanged assertions.
+
+## 2. Write-time `FeedItemUi` projection (`nubecita-lgoo.5.2`, D3 + D7)
+
+- [ ] 2.1 Move `FeedItemDedupe` and `FeedViewPostMapper`'s entry-point projection (`toFeedItemUiOrNull`) out of `:feature:feed:impl` into the cache's write path, preserving the documented non-commutative pass order and the repost exemption verbatim. **Tests:** relocate `FeedItemDedupeTest`, `FeedThreadRootDedupeTest`, `FeedChainProjectionTest`, `FeedViewPostMapperTest` with assertions unchanged — a behaviour change here is a bug, not a refactor.
+- [ ] 2.2 Persist the projection and scope de-duplication to the written page plus the partition below the insertion point (D7). An APPEND still de-duplicates against everything above it; only a PREPEND is exempt from roots below the seam. **Tests:** new cases — a newer reply into a seen thread survives a *prepend*; the same reply arriving via *append* is still dropped (the existing two-pages scenario must not regress); a duplicate root within one written page is still dropped; a destructive refresh restores single-occurrence semantics.
+- [ ] 2.3 Write the hand-rolled `PagingSource` keyed on `position` over the projection table, and change `pagedFeed` to `Flow<PagingData<FeedItemUi>>` backed by it (D16). Room's generated offset-based source cannot be used: the `InvalidationTracker` fires on every write and an offset refresh key then resolves to a different entry — the viewport jump this change forbids. Expose the initial key so anchor restore is a `Pager` parameter rather than a post-hoc scroll. **Tests:** `TestPager` coverage for load/refresh/append, plus the regression that matters — after an additive prepend, a refresh reloads at the same entry rather than shifting by the number of inserted rows.
+- [ ] 2.4 Keep `head(feedKey, n)` reading the raw `feed_post` rows, undeduplicated, so the widget and Wear surfaces are untouched by the projection (D15). **Tests:** a cache test asserting `head` output is byte-identical to today for a fixture page.
+
+## 3. `since`-bounded PREPEND on the mediator (`nubecita-lgoo.5.3`, D4 + D5)
+
+- [ ] 3.1 Add `since` + `startCursor` to `FeedNetworkSource` for the `since`-capable methods (`getTimeline`, `getListFeed`), leaving `getFeed` without it. **Tests:** unit tests over a fake XRPC client — `since` is passed through, the returned `startCursor` is captured, and a generator feed's call carries no `since`.
+- [ ] 3.2 Implement `LoadType.PREPEND` in `FeedRemoteMediator`: fetch within the range from the persisted boundary cursor, allocate downward inside the reserved negative window relative to the partition's current minimum (D17), write back the fill and boundary cursors (D18), leave the append cursor untouched, and report exhaustion when the returned cursor equals the `since` passed. Keep the early `endOfPaginationReached = true` return for feeds with no `since`. **Tests:** mediator unit tests — additive write, no renumbering, a second fill page landing *below* the first without overwriting it, cursor write-back so a second prepend makes progress, an interrupted fill resuming from the persisted fill cursor, budget stop, and the generator-feed no-op.
+- [ ] 3.3 Rewrite `trimToCap` to count rows rather than position values, and make it anchor-aware (D17 + D19): retain the newest `cap` rows or everything from the anchor upward, whichever is larger, under a hard ceiling. Denominate the catch-up budget against `DEFAULT_CAP` so a full catch-up cannot fill the partition by itself. **Tests:** extend `FeedPostDaoTest` — trim over a gapped range keeps `cap` rows (the old `MIN(position) + cap` arithmetic keeps far fewer); a partition with more above-anchor entries than `cap` keeps the anchor and its backlog; the ceiling bounds worst-case growth.
+
+## 4. Worker moves off the destructive refresh (`nubecita-lgoo.5.4`, D10)
+
+- [ ] 4.1 Point `WidgetRefreshRunner` at the additive prepend for `since`-capable partitions, keeping the destructive refresh for a cold partition and for generator feeds. Its control flow is unchanged: per-feed independence, retry only on total failure, the foreground guard, the consumer gate, and the `trimToCap` → prefetch sequencing. **Tests:** extend `WidgetRefreshRunnerTest` — a warm partition is added to rather than cleared, a cold partition still loads from the top, a generator feed still uses the destructive path, and every existing isolation/outcome assertion still holds.
+- [ ] 4.2 Add the regression this epic exists to prevent: a worker run against a warm partition with a saved anchor leaves the anchored entry present and resolvable. **Test:** a new case in `WidgetRefreshRunnerTest` (or an instrumented test in `:core:widget-sync` if the anchor read needs Room).
+
+## 5. Screen migration + anchor restore (`nubecita-lgoo.5.5`, D1 + D6 + D9 + D11 + D12)
+
+- [ ] 5.1 Add the anchor storage — one row per `(accountDid, feedType, feedUri)` holding entry URI + offset — beside the cached entries, purged by the same `clearAccount` call. **Tests:** DAO tests for round-trip, partition scoping, and purge-with-account.
+- [ ] 5.2 Namespace the `FeedItemUi` keys (`"chain:"` + first post, `"cluster:"` + root) and anchor grouped variants on their first post (D12). Move the interaction overlay's delete-removal check off `item.key` onto an explicit leaf-URI accessor (D21) — it relies today on `key` being the leaf's id, which this task changes. **Tests:** extend `FeedItemUiTest` — keys are unique across a mixed list containing a chain and a `Single` sharing a root, and a chain's key is stable when extended; plus a case asserting deletion of a chain's leaf still removes the item.
+- [ ] 5.3 Migrate `FeedViewModel` + `FeedScreen` to `collectAsLazyPagingItems`, deleting `:feature:feed:impl`'s `FeedRepository` / `DefaultFeedRepository` / `TimelinePage`. Keep the `PostInteractionHandler` delegation, the optimistic `outgoing:` rows, the inline composer entry points, `FeedLoadStatus`, the tab re-tap signal, the video coordinator, and `listPane{}` metadata. Re-express the three in-place list mutations (optimistic mute-hide with rollback, the `PostInteractionsCache` overlay, the outgoing-post projection) as `PagingData` transforms fed by their external flows with `cachedIn` (D21) — `PagingData` is immutable, so none of them can keep mutating a list in state. **Tests:** rework `FeedViewModelTest` and `FeedScreenViewStateTest` against `TestPager`/`asSnapshot`, keeping a case per optimistic mechanism; keep the existing Compose UI tests passing; update the bench fakes (`BenchFakeFeedRepository`, `BenchTimelineMapper`) and `FakeFeedRepository` in `androidTest`.
+- [ ] 5.4 Write and restore the anchor: record it off the scroll frame (debounced or lifecycle-snapshot), restore before first frame on a warm partition, resolve downward when the anchored entry is gone (D11). The collector must be cancelled with its composition and the ViewModel must not hold `LazyListState` (D9). **Tests:** unit tests for the resolve-downward and resolve-to-top cases; a Compose UI test asserting no initial-loading state renders on a warm partition.
+- [ ] 5.5 Repoint pull-to-refresh at the destructive path (D8) and confirm launch does not dispatch `Refresh`. **Tests:** extend the existing pull-to-refresh UI test — the anchor is cleared after a refresh, and launch with a warm partition dispatches no `Refresh`.
+- [ ] 5.6 Verify the screenshot surface. Regenerate only the baselines this change actually alters and `git checkout --` the macOS antialiasing noise (`scripts/triage-screenshot-failures.py`); never commit a whole regeneration. CI's `screenshot` job is the authority. **Tests:** `FeedScreenScreenshotTest` / `FeedViewScreenScreenshotTest` — unchanged where the rendering is unchanged.
+
+## 6. Pill, seam, and jump-to-newest (`nubecita-lgoo.5.6`, D5 + D14)
+
+- [ ] 6.1 Derive pill visibility from undismissed projected entries above the anchor, and persist the dismissal marker on the anchor row (D20) — not from an in-session prepend result, or the background worker's writes raise no pill. **Tests:** unit tests — a background prepend raises the pill on the next composition; a dismissal survives process death; no entries above the anchor means no pill.
+- [ ] 6.2 Build the pill: up to three overlapping author avatars from the prepended batch plus an upward affordance, no count, floating over the feed; tap scrolls to top and dismisses. Localize any content description into `es-419` and `pt-BR` in the same commit and run the module's own lint. **Tests:** a screenshot test for the pill at 1/2/3 avatars in light + dark, and a UI test for tap → scroll-to-top → dismissed.
+- [ ] 6.3 Render the seam between prepended entries and previously-read content, filling on scroll proximity within the `since` range. **Tests:** UI test — scrolling within the threshold triggers exactly one fill per crossing; the seam is removed when the range is exhausted.
+- [ ] 6.4 At the page cap, swap the seam's affordance for jump-to-newest, routed through the destructive refresh. **Tests:** UI test — reaching the cap renders the jump affordance, and tapping it clears the partition and lands at the top. Assert no seam state renders a bare visual break.
+- [ ] 6.5 Confirm no pill, seam, or anchor appears on Discover or custom feeds (D14). **Tests:** a UI test per surface asserting the Following-only gating.
+
+## 7. Top-of-stack gate
+
+- [ ] 7.1 `./gradlew :app:assembleDebug`, plus lint for every touched module using the correct flavored/plain task names.
+- [ ] 7.2 Run the compose-expert skill against the **cumulative** stack diff (`git diff origin/main...HEAD` from the top branch), not the top PR's own diff.
+- [ ] 7.3 Device pass on the plugged-in foldable, bench flavor: background/foreground several times mid-partition and confirm the position holds; drive 5+ cycles with LeakCanary for the scroll-state collector (D9 — LeakCanary does **not** watch Compose state holders, so inspect the collector's cancellation directly).
+- [ ] 7.4 Confirm the stack's atomic merge lands as **one** `Release` run (`gh run list --workflow=release.yaml --limit 5`).
