@@ -9,6 +9,7 @@ them here.
 - [Conventions](#conventions)
 - [1. Auth & login](#1-auth--login)
 - [1a. Spurious logouts](#1a-spurious-logouts--read-this-before-judging-the-number)
+- [1b. Refresh-POST rate](#1b-refresh-post-rate--the-exposure-metric)
 - [2. Engagement](#2-engagement)
 - [3. Paywall & Pro](#3-paywall--pro)
 - [4. Stability](#4-stability)
@@ -130,6 +131,42 @@ shouldn't?
   sustained rise is 🔴 — it means real users are being kicked out. Pair with
   `session_read_error_terminal` and `auth_keyset_regenerated` (both should be
   near-zero; a rise signals the encrypted-session path is failing).
+
+### 1b. Refresh-POST rate — the exposure metric
+
+Shipped in **1.351.1** (`TokenRefreshTelemetry`, nubecita-z2gt). Earlier builds
+send nothing, so always split by `appVersion` and read only instrumented ones.
+
+```
+event: token_refresh
+dimensions: customEvent:outcome, customEvent:refresh_caller, customEvent:foreground, appVersion
+metric: eventCount, activeUsers
+```
+
+`outcome`: `ok` (rotated), `nonce_challenge` (routine — the SDK retries once,
+so it roughly equals `ok` and is not a failure), `invalid_grant`, `rejected`,
+`server_error`, `not_sent` (failed before reaching the server — the token is
+provably intact), `lost_response` (**failed after sending — the server may have
+consumed the token; this is the precursor of a spurious logout**).
+`refresh_caller`: `dm_poll`, `widget`, `push_registration`, `untagged`.
+
+Two numbers to report:
+
+1. **`lost_response` per active user.** Any non-zero value is worth naming,
+   because each one is a session that may already be dead. Pair it with the
+   `session_cleared` invalid_grant count — a `lost_response` followed by a
+   clear on the same build is the mechanism caught in the act.
+2. **Rotations per user per day** = `ok` eventCount ÷ activeUsers ÷ days. Every
+   rotation is one chance to lose the response, so this is the exposure, and
+   the caller split says what is driving it.
+
+Measured 2026-10-26 → 11-01: **739 `ok` across 10 users = 10.6 rotations per
+user per day**, split `untagged` ~41% / `widget` ~32% / `dm_poll` ~27% — i.e.
+roughly **59% of all exposure comes from two 15-minute background workers**.
+That answers spike nubecita-bhqv, whose own threshold was "~2/day, don't
+bother; ~40/day, that's the whole ballgame". `lost_response` was 0 and
+`not_sent` 1 that week, so the mechanism itself is still not directly observed
+— the denominator is only 10 instrumented users.
 
 ### 1a. Spurious logouts — read this before judging the number
 
