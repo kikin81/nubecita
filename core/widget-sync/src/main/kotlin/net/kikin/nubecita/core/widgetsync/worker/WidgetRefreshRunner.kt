@@ -185,8 +185,8 @@ internal class WidgetRefreshRunner
                 placedWidgets.anyPlaced()
             } catch (cancellation: CancellationException) {
                 throw cancellation
-            } catch (throwable: Throwable) {
-                Timber.tag(TAG).w(throwable, "placed-widget check failed — refreshing anyway")
+            } catch (exception: Exception) {
+                Timber.tag(TAG).w(exception, "placed-widget check failed — refreshing anyway")
                 true
             }
 
@@ -200,8 +200,8 @@ internal class WidgetRefreshRunner
                 wearFeedSync.hasWatch()
             } catch (cancellation: CancellationException) {
                 throw cancellation
-            } catch (throwable: Throwable) {
-                Timber.tag(TAG).w(throwable, "watch presence check failed — refreshing anyway")
+            } catch (exception: Exception) {
+                Timber.tag(TAG).w(exception, "watch presence check failed — refreshing anyway")
                 true
             }
 

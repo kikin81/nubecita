@@ -207,7 +207,7 @@ internal class DmPollRunner
                 !wearDms.hasWatch()
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: Throwable) {
+            } catch (e: Exception) {
                 Timber.tag(LOG_TAG).w(e, "watch presence check failed -> polling anyway")
                 false
             }
