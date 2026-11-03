@@ -240,6 +240,11 @@ A seam SHALL NEVER be a bare visual break: it always carries either a fill indic
 - **WHEN** a seam is present for any reason
 - **THEN** it renders either a fill-in-progress indication or the jump-to-newest affordance
 
+#### Scenario: The seam is rendered from a paged marker row
+
+- **WHEN** the feed's paging transform encounters the cache's seam marker row
+- **THEN** it maps that row to a feed-local seam item and renders it in list order — the seam is never inferred from a gap in positions, which a keyset source would skip
+
 ### Requirement: Reaching the catch-up budget offers jump-to-newest
 
 When the configured budget is reached with the range still unexhausted, the seam SHALL offer **jump to newest**, which performs the destructive refresh rather than another fill.

@@ -134,13 +134,11 @@ De-duplication SHALL apply within the page being written. An entry written by a 
 
 ### Requirement: The projection is persisted at its own grain
 
-The projection SHALL be stored as one row per rendered `FeedItemUi`, carrying its context posts inline, positioned in display order. It SHALL NOT be expressed as grouping tags over `feed_post` rows.
-
-A `ReplyCluster`'s root and parent are usually not timeline entries and hold no position in the partition; a `SelfThreadChain` of N posts is one rendered item where a generated Room `PagingSource` is strictly one row per item; and reassembling groups on read is the re-derivation this design removes.
+The projection SHALL be stored as one row per rendered `FeedItemUi`, positioned in display order, holding the group's structural layout — variant, ordered member URIs, suppressed-reply count — and references to its posts. It SHALL NOT be expressed as grouping tags over `feed_post` rows.
 
 #### Scenario: Cluster context with no partition position is retained
 - **WHEN** a `ReplyCluster` is projected whose root and parent are not themselves timeline entries
-- **THEN** those context posts are persisted with the projected item and survive a read
+- **THEN** those context posts are retrievable for that projected item and survive a read, despite holding no position in the partition
 
 #### Scenario: A chain is one paged item
 - **WHEN** a `SelfThreadChain` of N posts is read back
@@ -195,3 +193,43 @@ Because the blob's serialized shape changes and the per-entry `reason` / `reply`
 #### Scenario: A cold partition after upgrade is a correct state
 - **WHEN** a feed is opened for the first time after the v7 upgrade
 - **THEN** `initialize()` reports `LAUNCH_INITIAL_REFRESH` and the partition refills from the network
+
+### Requirement: Posts are stored once per account and referenced by URI
+
+The system SHALL store each post once per account, keyed by URI, and SHALL have both the partition rows and the projection rows reference it rather than carry their own serialized copy. Read SHALL hydrate by URI.
+
+Eviction SHALL be reference-aware: a post SHALL survive until nothing live references it, evaluated in the same trim pass as the count cap.
+
+#### Scenario: One copy of a post serves every reference
+- **WHEN** a post appears both as a standalone item and as another item's cluster context
+- **THEN** both references resolve to the same stored post, and a change to it is visible from both
+
+#### Scenario: A context post with no partition row is still stored
+- **WHEN** a projected `ReplyCluster` references a root that never arrived as a timeline entry
+- **THEN** that post is stored in the by-URI store and hydrates on read
+
+#### Scenario: Eviction keeps a post that is still referenced
+- **WHEN** the trim removes a partition row whose post is still referenced by a live projection row
+- **THEN** the post itself survives, and is removed only once nothing references it
+
+### Requirement: A seam is a persisted marker row
+
+When a catch-up leaves part of the range unfetched, the system SHALL write an explicit seam marker row into the projection table at the boundary position, carrying whether the range is exhausted. The seam SHALL NOT be inferred from a gap in the position sequence, which a keyset `PagingSource` skips.
+
+The marker SHALL be a row-type discriminator on the projection table, never a new `FeedItemUi` variant — that sealed type is shared with features that have no notion of a seam.
+
+#### Scenario: An incomplete catch-up writes a marker
+- **WHEN** a prepend stops with the range unexhausted
+- **THEN** a seam marker row exists at the boundary position between the prepended entries and the previously-read content
+
+#### Scenario: The seam is paged like any other row
+- **WHEN** the reader scrolls to the boundary
+- **THEN** the seam row is emitted by the `PagingSource` in position order, with a stable key, rather than being inferred from a position gap
+
+#### Scenario: Exhausting the range removes the marker
+- **WHEN** a fill reports the range exhausted
+- **THEN** the seam marker row is deleted and the timeline is continuous
+
+#### Scenario: A half-filled seam survives process death
+- **WHEN** a multi-page fill is interrupted and the feed is reopened
+- **THEN** the seam marker is still present with its fill state, and scrolling to it resumes the fill

@@ -227,3 +227,31 @@ Baking the projection at write time means a toggle no longer changes what is alr
 3. **Apply to future pages only** — cheapest, and a visible regression against the behaviour that instrumented test pins today: you flip "hide replies" and the replies already on screen stay.
 
 There is a second half to it. `:core:feed-cache` does not depend on `:core:feeds` today. If the reply filter moves into the cache so the write path is the single projection site, then the Following **widget** partition becomes reply-filtered too — a user-visible change to a surface this change promised not to touch. If the filter stays in the feature module, the write path is no longer the only place projection happens, which weakens D3.
+
+## Decisions added after PR review
+
+### D23 — The seam is a persisted marker row, not an absence
+
+A reviewer pointed out a genuine hole: D17 leaves unused positions empty inside the reserved window, and a keyset `PagingSource` (`WHERE position > :key ORDER BY position`) simply returns the next existing rows. There is no row at a gap, so nothing renders. The spec requires that a seam "SHALL NEVER be a bare visual break", but nothing in the design said what *materializes* it — so the timeline would have come out visually disjoint with no fill trigger, which is one of this change's anti-goals.
+
+The seam is therefore an explicit marker row written into the projection table at the boundary position, carrying the fill state (range exhausted or not). Three reasons to prefer it over synthesizing the gap inside the `PagingSource`:
+
+- It gives the seam a real position and therefore a stable `LazyColumn` key, which a synthesized item would have to invent.
+- Seam existence *is* state — whether the range is exhausted, and where the fill resumes — and D18 already requires a half-filled seam to survive process death. A marker row gets that for free; a synthesized one would need the state threaded in anyway.
+- Gap detection by arithmetic is unreliable precisely because gaps are expected by D17. A sentinel is unambiguous.
+
+The marker is **not** a new `FeedItemUi` variant. `FeedItemUi` lives in `:data:models` and is consumed by `:feature:search:impl` as well, so a new variant would force exhaustive-`when` changes across modules that have no notion of a seam (and would break the `bench` flavor's `when` blocks). Instead the projection table carries a row-type discriminator, and `:feature:feed:impl`'s own paging transform maps a seam row to a feed-local UI item. The blast radius stays inside the feature.
+
+### D24 — Posts are stored once per account by URI; projection rows hold layout plus references
+
+The same review flagged that serializing context posts inline into each projected item duplicates post data, so copies can diverge — stale display names and avatars, or a deleted post still rendering.
+
+Part of that concern is already answered, and it is worth separating. Deletions and interaction state are applied **at read time** by `applyInteractions`, which merges by URI into `Single.post` and into a cluster's `root`, `parent` and `leaf` individually, dropping an item whose leaf is deleted. So a post the reader has interacted with or deleted does not go stale, and that is pre-existing behaviour rather than something this change introduces — `feed_post` has always stored a blob snapshot, which is what the widget already renders.
+
+What *is* new is the duplication: a post can appear as a `Single` in one projection row and as another row's cluster context, and with inline blobs those are two independent copies.
+
+The reviewer's proposed remedy — hydrate from `feed_post` on read — does not work here, and the reason is D15's: a cluster's root and parent are usually **not** timeline entries, so they have no row and no position in `feed_post`. Joining against it would lose exactly the posts that made inlining necessary.
+
+So the shape is a third one: posts are stored **once per account, keyed by URI**, and both grains reference them. `feed_post` keeps its partition/position rows for order, `head` and eviction; a projection row holds the group's structural layout (variant, ordered member URIs, suppressed-reply count) plus references. Read hydrates by URI, which is the lookup the interaction overlay already performs and which `feed_post` already indexes.
+
+Costs, stated plainly rather than buried: one more table, a join on read, and eviction becomes reference-aware — a context post must survive until no live projection row or partition row references it, which folds into the same trim pass as D19 rather than becoming its own mechanism. In exchange there is one copy of each post, a profile or label change updates every surface that references it, and non-entry context posts finally have a home that is not a duplicate.
