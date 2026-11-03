@@ -39,6 +39,10 @@ internal class MessagingStyleDmNotifier
         @param:ApplicationContext private val context: Context,
         @param:DmNotificationSmallIcon @param:DrawableRes private val smallIconRes: Int,
     ) : DmNotifier {
+        // Same predicate notify() gates on, so the runner's pre-network check and
+        // the post itself can never disagree about whether this poll is useful.
+        override fun canPost(): Boolean = NotificationManagerCompat.from(context).areNotificationsEnabled()
+
         override fun notify(notifications: List<DmNotification>) {
             if (notifications.isEmpty()) return
             val manager = NotificationManagerCompat.from(context)

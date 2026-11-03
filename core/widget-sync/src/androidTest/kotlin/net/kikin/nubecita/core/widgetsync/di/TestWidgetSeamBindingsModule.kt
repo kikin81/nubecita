@@ -6,6 +6,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.core.widgetsync.NoOpWidgetImagePrefetcher
 import net.kikin.nubecita.core.widgetsync.NoOpWidgetUpdater
+import net.kikin.nubecita.core.widgetsync.PlacedWidgets
+import net.kikin.nubecita.core.widgetsync.UngatedPlacedWidgets
 import net.kikin.nubecita.core.widgetsync.WidgetImagePrefetcher
 import net.kikin.nubecita.core.widgetsync.WidgetUpdater
 import javax.inject.Singleton
@@ -32,4 +34,10 @@ internal abstract class TestWidgetSeamBindingsModule {
     @Binds
     @Singleton
     internal abstract fun bindWidgetImagePrefetcher(impl: NoOpWidgetImagePrefetcher): WidgetImagePrefetcher
+
+    // Ungated, so the instrumentation test exercises the refresh path itself
+    // rather than the consumer gate (no widget is placed under test).
+    @Binds
+    @Singleton
+    internal abstract fun bindPlacedWidgets(impl: UngatedPlacedWidgets): PlacedWidgets
 }

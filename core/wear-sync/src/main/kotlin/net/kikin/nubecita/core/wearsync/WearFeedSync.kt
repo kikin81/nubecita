@@ -32,6 +32,17 @@ import kotlin.time.Clock
  * sent for nobody.
  */
 interface WearFeedSync {
+    /**
+     * Whether a paired watch has the Wear app installed.
+     *
+     * Separate from [feedKeysToRefresh] returning nothing, which also happens
+     * when a watch IS present but has no feeds selected — in that case
+     * [publish] still has work to do (it deletes the deselected feeds'
+     * snapshots). Callers deciding whether the watch needs this run at all
+     * must ask this, not whether the key list is empty.
+     */
+    suspend fun hasWatch(): Boolean
+
     /** The cache keys of the selected watch feeds, or nothing when no watch has the app. */
     suspend fun feedKeysToRefresh(accountDid: String): List<FeedKey>
 
@@ -55,6 +66,8 @@ internal class DefaultWearFeedSync(
     private val imageEncoder: WearImageEncoder,
     private val clock: Clock,
 ) : WearFeedSync {
+    override suspend fun hasWatch(): Boolean = dataLayer.hasWearAppNode()
+
     override suspend fun feedKeysToRefresh(accountDid: String): List<FeedKey> {
         if (!dataLayer.hasWearAppNode()) return emptyList()
         return selectedUris().map { feedKeyFor(accountDid, it) }
