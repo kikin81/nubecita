@@ -233,3 +233,45 @@ The marker SHALL be a row-type discriminator on the projection table, never a ne
 #### Scenario: A half-filled seam survives process death
 - **WHEN** a multi-page fill is interrupted and the feed is reopened
 - **THEN** the seam marker is still present with its fill state, and scrolling to it resumes the fill
+
+### Requirement: The partition records the preferences its projection was built with
+
+The system SHALL accept the viewer's moderation and feed-view preferences as a **parameter** to the projection, and SHALL persist a fingerprint of the preferences each partition's projection was built with. The cache SHALL NOT read preferences itself.
+
+#### Scenario: A preference change re-projects the partition
+- **WHEN** the feed is opened and the live preference fingerprint differs from the partition's
+- **THEN** the stored entries are re-projected locally and the `PagingSource` is invalidated, with no network fetch
+
+#### Scenario: Re-projection keeps the reader's place
+- **WHEN** a re-projection runs while an anchor is set and the anchored entry survives the new preferences
+- **THEN** the reader's position is retained
+
+#### Scenario: A filtered-out anchor resolves downward
+- **WHEN** a re-projection removes the anchored entry because the new preferences filter it
+- **THEN** restore resolves to the nearest surviving entry below it
+
+#### Scenario: A background write uses the persisted preferences
+- **WHEN** the background worker writes to a partition
+- **THEN** it projects using that partition's persisted fingerprint, not live preferences, so the partition's meaning does not change underneath the reader
+
+#### Scenario: `head` is unaffected by preferences
+- **WHEN** `head(feedKey, n)` is called on a partition whose projection is reply-filtered
+- **THEN** it returns the raw unfiltered entries, so the widget surface is unchanged
+
+### Requirement: A page that projects to zero items tops up rather than ending pagination
+
+When a fetched page projects to zero items and a next cursor exists, the mediator SHALL fetch again, bounded by a fixed round limit, rather than reporting end of pagination.
+
+This SHALL apply to prepend fills as well as appends. Range exhaustion has its own signal — the returned cursor equalling the `since` value — and SHALL NOT be inferred from an empty projection.
+
+#### Scenario: An aggressively filtered append page tops up
+- **WHEN** an appended page projects to zero items and a next cursor exists
+- **THEN** the mediator fetches the following page, up to the round limit, before yielding a result
+
+#### Scenario: Topping up stops at the round limit
+- **WHEN** consecutive pages all project to zero items
+- **THEN** the mediator stops after the round limit and does not loop indefinitely
+
+#### Scenario: An empty fill page is not mistaken for exhaustion
+- **WHEN** a prepend fill page projects to zero items while the returned cursor still differs from the `since` value
+- **THEN** the range is not reported exhausted and the fill continues within its budget

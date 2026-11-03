@@ -214,9 +214,9 @@ Three mechanisms mutate the feed list in place today: the mute-hide-with-rollbac
 
 One specific trap: `applyInteractions` performs its delete-removal check against `item.key`, and its KDoc states this works *only* because `key` is the leaf's id. D12 moves a chain's key to its **first** post, which would make delete-of-leaf stop removing the item and delete-of-context start removing it. The deletion check moves to an explicit leaf-URI accessor rather than riding on `key`. Task 5.2 covers it.
 
-### D22 — OPEN: what a runtime preference change does to a baked projection
+### D22 — A preference change re-projects the partition
 
-**This is the one question the review left that is not mine to answer.**
+**Decided: re-project.** The alternatives were to invalidate the partition destructively, which throws away the reader's position to service a setting people touch rarely and so fights the whole feature, or to apply the change to future pages only, which is a visible regression against the behaviour `FeedViewPrefsFilterInstrumentationTest` pins today — you would flip "hide replies" and watch the replies already on screen stay put. Re-projecting costs a pass over the partition plus an invalidation, and it is the only option where the setting means what it says.
 
 The projection is not a pure function of the wire page. `toFeedItemUiOrNull` takes `ModerationPrefs` and the viewer DID, and the page is additionally filtered through `shouldDisplayInFollowingFeed(feedViewPrefs, viewerDid)` *before* mapping — deliberately, "while the wire entries still carry the reply ancestry the predicate needs". All of those inputs change at runtime: adult-content prefs, mutes and blocks, and the Settings toggles `hideReplies`, `hideRepliesByUnfollowed`, `hideReposts`, `hideQuotePosts`. Today `pagedFeed` reads prefs *inside* the per-item map precisely so a toggle takes effect on the next load, and `FeedViewPrefsFilterInstrumentationTest` asserts that.
 
@@ -226,7 +226,7 @@ Baking the projection at write time means a toggle no longer changes what is alr
 2. **Invalidate destructively on change** — simple, and it throws away the reader's position, which fights the whole feature for a setting people flip rarely.
 3. **Apply to future pages only** — cheapest, and a visible regression against the behaviour that instrumented test pins today: you flip "hide replies" and the replies already on screen stay.
 
-There is a second half to it. `:core:feed-cache` does not depend on `:core:feeds` today. If the reply filter moves into the cache so the write path is the single projection site, then the Following **widget** partition becomes reply-filtered too — a user-visible change to a surface this change promised not to touch. If the filter stays in the feature module, the write path is no longer the only place projection happens, which weakens D3.
+The second half — where the filter lives — follows from that answer plus D15, so it is settled below as D23a rather than left open. The short version: prefs are an *input* to the projection, not something the cache owns, and the widget is untouched because `head()` reads raw rows.
 
 ## Decisions added after PR review
 
@@ -255,3 +255,24 @@ The reviewer's proposed remedy — hydrate from `feed_post` on read — does not
 So the shape is a third one: posts are stored **once per account, keyed by URI**, and both grains reference them. `feed_post` keeps its partition/position rows for order, `head` and eviction; a projection row holds the group's structural layout (variant, ordered member URIs, suppressed-reply count) plus references. Read hydrates by URI, which is the lookup the interaction overlay already performs and which `feed_post` already indexes.
 
 Costs, stated plainly rather than buried: one more table, a join on read, and eviction becomes reference-aware — a context post must survive until no live projection row or partition row references it, which folds into the same trim pass as D19 rather than becoming its own mechanism. In exchange there is one copy of each post, a profile or label change updates every surface that references it, and non-entry context posts finally have a home that is not a duplicate.
+
+## Decisions following from D22
+
+### D23a — Preferences are an input to the projection, and the partition remembers which ones it was built with
+
+Re-projecting needs the projection to be a function the cache can re-run, which needs the preferences at hand. It does **not** require the cache to own them.
+
+`shouldDisplayInFollowingFeed` lives in `:feature:feed:impl/data/FeedReplyFilter.kt` and `FeedViewPrefs` lives in `:core:feeds`. The predicate moves to `:core:feed-mapping` — already the shared home for wire→UI mapping, already unflavored, already depended on by both sides — and the preferences are passed in as a parameter at write and re-project time. `:core:feed-cache` takes a dependency on `:core:feeds` for the value type only; it does not read preferences itself, so there is no hidden second source of truth.
+
+The partition then stores a **preference fingerprint** alongside its rows: the prefs the projection was built with. On opening the feed, a fingerprint differing from the live one triggers a re-projection of the partition — a local pass over stored entries, not a refetch, so it costs no network and keeps the reader's place. If the anchored entry is filtered out by the new prefs, D11's resolve-downward already covers it.
+
+Two consequences worth stating:
+
+- **The widget stays untouched**, as promised. `head(feedKey, n)` reads raw `feed_post` rows by D15, so the Following widget is never reply-filtered and never sees the projection. The concern that moving the filter into the cache would silently filter the widget does not arise, because the filter applies to the projection and the widget does not read it.
+- **The background worker projects with the persisted fingerprint**, not with live preferences it has no business reading. A background write therefore never reinterprets the feed under settings the reader has not seen applied; the app re-projects on open if the live prefs have since moved. One writer, one meaning, no flip-flop between the worker's view and the screen's.
+
+### D23b — The filtered-empty-page top-up moves into the mediator
+
+`DefaultFeedRepository` loops up to `MAX_TOP_UP_ROUNDS = 3` because an aggressively filtered page can come back empty and strand the caller. That loop is being deleted along with the repository, and the problem does not go away: with filtering and grouping both on the write path, a fetched page can project to **zero** items, which Paging reads as either end-of-pagination or a dead APPEND trigger — a feed that silently stops scrolling.
+
+The top-up therefore moves into the `RemoteMediator`: when a fetched page projects to zero items and a next cursor exists, fetch again, bounded by the same round limit. It applies to **PREPEND fills too**, which the old loop never had to consider — a fill page that projects to nothing must not be mistaken for an exhausted range, since exhaustion has its own signal (the returned cursor equalling `since`, D5).
