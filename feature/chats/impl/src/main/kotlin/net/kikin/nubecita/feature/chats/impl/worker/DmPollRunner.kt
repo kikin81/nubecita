@@ -28,14 +28,18 @@ import kotlin.time.Clock
  *    immediately WITHOUT polling or advancing the cursor; the in-app surface
  *    already shows unread, and holding the cursor lets the next background run
  *    re-evaluate these events.
- * 3. **Unread set** — refresh the convo list (one `listConvos`) for the
+ * 3. **Consumer gate (nubecita-kvh0)** — no-op success when notifications are
+ *    blocked at the OS level AND no watch has the app: the only two consumers
+ *    of a poll are both gone, so skipping before any network means the run
+ *    cannot rotate the OAuth refresh token.
+ * 4. **Unread set** — refresh the convo list (one `listConvos`) for the
  *    read-state filter; a failed refresh retries.
- * 4. **Detect** — `getLog` from the stored cursor, then [toDmNotifyPlan]
+ * 5. **Detect** — `getLog` from the stored cursor, then [toDmNotifyPlan]
  *    (inbound + still-unread + capped). A `null` cursor is the first-ever poll:
  *    establish the baseline cursor WITHOUT notifying the pre-existing backlog.
- * 5. **Notify + advance** — post per-convo notifications, then persist the
+ * 6. **Notify + advance** — post per-convo notifications, then persist the
  *    advanced cursor.
- * 6. **Watch** (W4) — only while a watch has the app: fetch messages for the
+ * 7. **Watch** (W4) — only while a watch has the app: fetch messages for the
  *    conversations [getLog] saw change (seeding the shown ones once) and publish
  *    the watch's DM snapshot. Isolated: a watch failure never touches the
  *    notifications, the cursor or the outcome.
@@ -88,6 +92,18 @@ internal class DmPollRunner
             // D5: foreground-suppress before any network or cursor mutation.
             if (foreground.isForegrounded()) {
                 Timber.tag(LOG_TAG).d("gate: app foregrounded -> SUCCESS (suppressed)")
+                return Outcome.SUCCESS
+            }
+
+            // Nothing can consume this poll: notifications are blocked at the OS
+            // level (so MessagingStyleDmNotifier would drop whatever we found) and
+            // no watch is listening. Skip BEFORE any network — a poll that reaches
+            // the network can rotate the single-use OAuth refresh token, and a
+            // rotation whose response is lost strands that token into a permanent
+            // logout (nubecita-09xt). Leaving the cursor untouched is correct: the
+            // first run after notifications are re-enabled picks up the backlog.
+            if (nothingCanConsume()) {
+                Timber.tag(LOG_TAG).d("gate: notifications blocked and no watch -> SUCCESS (skipped)")
                 return Outcome.SUCCESS
             }
 
@@ -176,6 +192,25 @@ internal class DmPollRunner
             plan.advancedCursor?.let { cursorStore.setCursor(viewerDid, it) }
             syncWatch(viewerDid, convos, page)
             return Outcome.SUCCESS
+        }
+
+        /**
+         * Whether this poll has no possible consumer. Asks the watch only when
+         * notifications are already blocked, so the common case costs one local
+         * call. A throwing watch check answers "something can consume it": the
+         * gate exists to skip waste, so when we cannot tell we keep polling
+         * rather than silently stop delivering DMs.
+         */
+        private suspend fun nothingCanConsume(): Boolean {
+            if (notifier.canPost()) return false
+            return try {
+                !wearDms.hasWatch()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                Timber.tag(LOG_TAG).w(e, "watch presence check failed -> polling anyway")
+                false
+            }
         }
 
         private suspend fun syncWatch(

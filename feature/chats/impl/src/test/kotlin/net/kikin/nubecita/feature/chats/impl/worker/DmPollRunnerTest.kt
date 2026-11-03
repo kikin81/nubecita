@@ -50,6 +50,50 @@ internal class DmPollRunnerTest {
         }
 
     @Test
+    fun `notifications blocked and no watch skips without polling or advancing the cursor`() =
+        runTest {
+            val repo = FakeChatRepository()
+            val cursor = FakeCursorStore(initial = "c0")
+            val f =
+                fixture(
+                    repo = repo,
+                    cursorStore = cursor,
+                    wear = FakeWearDms(hasWatch = false),
+                    notificationsEnabled = false,
+                )
+
+            assertEquals(DmPollRunner.Outcome.SUCCESS, f.runner.run())
+            assertEquals(0, repo.refreshCalls.get(), "no listConvos — nothing could consume it")
+            assertEquals(0, repo.getLogCalls.get(), "no getLog, so no token rotation")
+            assertEquals("c0", cursor.value, "cursor held for the first run that can notify")
+        }
+
+    @Test
+    fun `notifications blocked still polls while a watch is listening`() =
+        runTest {
+            val repo = FakeChatRepository()
+            val f = fixture(repo = repo, wear = FakeWearDms(), notificationsEnabled = false)
+
+            assertEquals(DmPollRunner.Outcome.SUCCESS, f.runner.run())
+            assertEquals(1, repo.getLogCalls.get(), "the watch is a consumer of its own")
+        }
+
+    @Test
+    fun `a failing watch check polls rather than silently stopping delivery`() =
+        runTest {
+            val repo = FakeChatRepository()
+            val f =
+                fixture(
+                    repo = repo,
+                    wear = FakeWearDms(failHasWatch = true),
+                    notificationsEnabled = false,
+                )
+
+            assertEquals(DmPollRunner.Outcome.SUCCESS, f.runner.run())
+            assertEquals(1, repo.getLogCalls.get(), "unknown consumer state must not skip")
+        }
+
+    @Test
     fun `foregrounded suppresses without polling or advancing the cursor`() =
         runTest {
             val repo = FakeChatRepository()
@@ -284,10 +328,14 @@ internal class DmPollRunnerTest {
         private val hasWatch: Boolean = true,
         private val previous: WearDmSnapshot? = null,
         private val failPublish: Boolean = false,
+        private val failHasWatch: Boolean = false,
     ) : WearDmPublisher {
         val published = mutableListOf<WearDmSnapshot>()
 
-        override suspend fun hasWatch() = hasWatch
+        override suspend fun hasWatch(): Boolean {
+            if (failHasWatch) error("Data Layer unavailable")
+            return hasWatch
+        }
 
         override suspend fun lastSnapshot(accountDid: String) = previous
 
@@ -318,8 +366,9 @@ internal class DmPollRunnerTest {
         foregrounded: Boolean = false,
         cursorStore: FakeCursorStore = FakeCursorStore(initial = "old"),
         wear: FakeWearDms = FakeWearDms(),
+        notificationsEnabled: Boolean = true,
     ): Fixture {
-        val notifier = RecordingNotifier()
+        val notifier = RecordingNotifier(canPost = notificationsEnabled)
         val runner =
             DmPollRunner(
                 repository = repo,
@@ -390,8 +439,12 @@ internal class DmPollRunnerTest {
             sentAt = Instant.parse("2026-05-14T12:00:00Z"),
         )
 
-    private class RecordingNotifier : DmNotifier {
+    private class RecordingNotifier(
+        private val canPost: Boolean = true,
+    ) : DmNotifier {
         val posted = mutableListOf<DmNotification>()
+
+        override fun canPost(): Boolean = canPost
 
         override fun notify(notifications: List<DmNotification>) {
             posted += notifications

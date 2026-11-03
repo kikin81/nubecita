@@ -4,9 +4,11 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import net.kikin.nubecita.core.widgetsync.PlacedWidgets
 import net.kikin.nubecita.core.widgetsync.WidgetImagePrefetcher
 import net.kikin.nubecita.core.widgetsync.WidgetUpdater
 import net.kikin.nubecita.feature.widgets.impl.image.GlanceWidgetImagePrefetcher
+import net.kikin.nubecita.feature.widgets.impl.widget.AppWidgetManagerPlacedWidgets
 import net.kikin.nubecita.feature.widgets.impl.widget.GlanceWidgetUpdater
 import javax.inject.Singleton
 
@@ -14,13 +16,12 @@ import javax.inject.Singleton
  * Binds the real `:core:widget-sync` Glance seams to their implementations
  * (D-C3 / task 8): [WidgetUpdater] → [GlanceWidgetUpdater] (live re-render) and
  * [WidgetImagePrefetcher] → [GlanceWidgetImagePrefetcher] (thumbnail decode +
- * eviction).
+ * eviction), and [PlacedWidgets] → [AppWidgetManagerPlacedWidgets] (the
+ * background refresh's consumer gate, nubecita-kvh0).
  *
- * This module ships only in the production flavor: `:app` depends on
- * `:feature:widgets:impl` via `productionImplementation`, so these bindings
- * enter only the production graph. The bench flavor binds the no-ops in its own
- * `:app/src/bench` module and never sees this one — no duplicate-binding clash,
- * no `androidx.glance` in bench.
+ * `:app` takes `:feature:widgets:impl` in BOTH flavors (bench renders the
+ * widget offline against fakes), so these are the live bindings everywhere and
+ * `:core:widget-sync`'s no-op / ungated fallbacks are reached only by tests.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -32,4 +33,8 @@ internal abstract class WidgetSeamBindingsModule {
     @Binds
     @Singleton
     abstract fun bindWidgetImagePrefetcher(impl: GlanceWidgetImagePrefetcher): WidgetImagePrefetcher
+
+    @Binds
+    @Singleton
+    abstract fun bindPlacedWidgets(impl: AppWidgetManagerPlacedWidgets): PlacedWidgets
 }

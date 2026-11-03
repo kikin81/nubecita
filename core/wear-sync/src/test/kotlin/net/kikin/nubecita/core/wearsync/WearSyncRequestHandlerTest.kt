@@ -120,6 +120,8 @@ class WearSyncRequestHandlerTest {
         val published = mutableListOf<Pair<String, Boolean>>()
         var fail = false
 
+        override suspend fun hasWatch(): Boolean = true
+
         override suspend fun feedKeysToRefresh(accountDid: String): List<FeedKey> = emptyList()
 
         override suspend fun publish(

@@ -22,5 +22,14 @@ internal data class DmNotification(
  * ([MessagingStyleDmNotifier]).
  */
 internal interface DmNotifier {
+    /**
+     * Whether a notification posted right now could actually reach the user.
+     *
+     * [DmPollRunner] asks this BEFORE any network so a poll whose only possible
+     * output would be dropped never runs (nubecita-kvh0). It MUST be no stricter
+     * than [notify]'s own check, or a run that would have notified gets skipped.
+     */
+    fun canPost(): Boolean
+
     fun notify(notifications: List<DmNotification>)
 }

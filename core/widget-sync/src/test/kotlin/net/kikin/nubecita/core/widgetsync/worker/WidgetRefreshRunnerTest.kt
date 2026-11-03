@@ -15,6 +15,7 @@ import net.kikin.nubecita.core.feedcache.FeedKey
 import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.feedcache.FeedType
 import net.kikin.nubecita.core.wearsync.WearFeedSync
+import net.kikin.nubecita.core.widgetsync.PlacedWidgets
 import net.kikin.nubecita.core.widgetsync.WidgetImagePrefetcher
 import net.kikin.nubecita.core.widgetsync.WidgetUpdater
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -47,6 +48,89 @@ internal class WidgetRefreshRunnerTest {
             coVerify(exactly = 0) { repo.refresh(any()) }
             coVerify(exactly = 0) { repo.trimToCap(any(), any()) }
             assertEquals(0, updater.calls)
+        }
+
+    @Test
+    fun `no placed widget and no watch skips refresh entirely (nubecita-kvh0)`() =
+        runTest {
+            val repo = mockk<FeedRepository>()
+            val updater = RecordingUpdater()
+            val watch = RecordingWearFeedSync(hasWatch = false)
+            val runner =
+                runner(
+                    repo,
+                    updater = updater,
+                    wearFeedSync = watch,
+                    placedWidgets = FakePlacedWidgets(placed = false),
+                )
+
+            assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
+            coVerify(exactly = 0) { repo.refresh(any()) }
+            coVerify(exactly = 0) { repo.trimToCap(any(), any()) }
+            assertEquals(0, updater.calls)
+            assertEquals(0, watch.feedKeyCalls, "the run never reached the watch sync")
+            assertEquals(emptyList<String>(), watch.published, "no watch to publish to")
+        }
+
+    @Test
+    fun `no placed widget but a watch refreshes only the watch feeds, and never retries`() =
+        runTest {
+            val cats = FeedKey(VIEWER, FeedType.CUSTOM, "at://cats")
+            val repo = mockk<FeedRepository>()
+            coEvery { repo.refresh(any()) } returns Result.success(false)
+            coEvery { repo.trimToCap(any(), any()) } just Runs
+            val updater = RecordingUpdater()
+            val watch = RecordingWearFeedSync(extraFeeds = listOf(cats))
+            val runner =
+                runner(
+                    repo,
+                    updater = updater,
+                    wearFeedSync = watch,
+                    placedWidgets = FakePlacedWidgets(placed = false),
+                )
+
+            // An empty widget feed list must not read as "every feed failed".
+            assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
+            coVerify(exactly = 1) { repo.refresh(cats) }
+            coVerify(exactly = 0) { repo.refresh(FeedKey.following(VIEWER)) }
+            assertEquals(0, updater.calls, "no widget to re-render")
+            assertEquals(listOf(VIEWER), watch.published)
+        }
+
+    @Test
+    fun `a failing placed-widget check refreshes rather than freezing a live widget`() =
+        runTest {
+            val repo = mockk<FeedRepository>()
+            coEvery { repo.refresh(any()) } returns Result.success(false)
+            coEvery { repo.trimToCap(any(), any()) } just Runs
+            val runner =
+                runner(
+                    repo,
+                    wearFeedSync = RecordingWearFeedSync(hasWatch = false),
+                    placedWidgets = FakePlacedWidgets(fail = true),
+                )
+
+            assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
+            coVerify(exactly = 1) { repo.refresh(FeedKey.following(VIEWER)) }
+        }
+
+    @Test
+    fun `a failing watch check runs rather than skipping`() =
+        runTest {
+            val repo = mockk<FeedRepository>()
+            val watch = RecordingWearFeedSync(failHasWatch = true)
+            val runner =
+                runner(
+                    repo,
+                    wearFeedSync = watch,
+                    placedWidgets = FakePlacedWidgets(placed = false),
+                )
+
+            // No widget is placed, so there are no widget feeds to fetch — what
+            // must NOT happen is the gate concluding "no consumer" from a watch
+            // check it could not answer.
+            assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
+            assertEquals(1, watch.feedKeyCalls, "unknown watch state must not skip the run")
         }
 
     @Test
@@ -162,6 +246,7 @@ internal class WidgetRefreshRunnerTest {
                     repository = repo,
                     sessionStateProvider = throwingProvider,
                     foreground = FakeForeground(foregrounded = false),
+                    placedWidgets = FakePlacedWidgets(),
                     widgetUpdater = updater,
                     imagePrefetcher = RecordingPrefetcher(),
                     wearFeedSync = RecordingWearFeedSync(),
@@ -258,24 +343,54 @@ internal class WidgetRefreshRunnerTest {
         updater: WidgetUpdater = RecordingUpdater(),
         prefetcher: WidgetImagePrefetcher = RecordingPrefetcher(),
         wearFeedSync: WearFeedSync = RecordingWearFeedSync(),
+        placedWidgets: PlacedWidgets = FakePlacedWidgets(),
     ): WidgetRefreshRunner =
         WidgetRefreshRunner(
             repository = repo,
             sessionStateProvider = FakeSessionStateProvider(session),
             foreground = FakeForeground(foregrounded),
+            placedWidgets = placedWidgets,
             widgetUpdater = updater,
             imagePrefetcher = prefetcher,
             wearFeedSync = wearFeedSync,
         )
 
+    /**
+     * A widget is placed by default, so every test that does not say otherwise
+     * exercises the refresh path rather than the consumer gate.
+     */
+    private class FakePlacedWidgets(
+        private val placed: Boolean = true,
+        private val fail: Boolean = false,
+    ) : PlacedWidgets {
+        override suspend fun anyPlaced(): Boolean {
+            if (fail) error("AppWidgetManager unavailable")
+            return placed
+        }
+    }
+
     /** No watch by default (empty extra feeds); records what the runner asked of it. */
     private class RecordingWearFeedSync(
         private val extraFeeds: List<FeedKey> = emptyList(),
         private val failPublish: Boolean = false,
+        private val hasWatch: Boolean = extraFeeds.isNotEmpty(),
+        private val failHasWatch: Boolean = false,
     ) : WearFeedSync {
         val published = mutableListOf<String>()
 
-        override suspend fun feedKeysToRefresh(accountDid: String): List<FeedKey> = extraFeeds
+        /** Non-zero iff the consumer gate let the run through to the watch sync. */
+        var feedKeyCalls = 0
+            private set
+
+        override suspend fun hasWatch(): Boolean {
+            if (failHasWatch) error("Data Layer unavailable")
+            return hasWatch
+        }
+
+        override suspend fun feedKeysToRefresh(accountDid: String): List<FeedKey> {
+            feedKeyCalls++
+            return extraFeeds
+        }
 
         override suspend fun publish(
             accountDid: String,

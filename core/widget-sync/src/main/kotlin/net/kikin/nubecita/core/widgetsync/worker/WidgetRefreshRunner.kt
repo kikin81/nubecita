@@ -7,6 +7,7 @@ import net.kikin.nubecita.core.feedcache.FeedKey
 import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.feedcache.FeedType
 import net.kikin.nubecita.core.wearsync.WearFeedSync
+import net.kikin.nubecita.core.widgetsync.PlacedWidgets
 import net.kikin.nubecita.core.widgetsync.WidgetFeeds
 import net.kikin.nubecita.core.widgetsync.WidgetImagePrefetcher
 import net.kikin.nubecita.core.widgetsync.WidgetUpdater
@@ -28,7 +29,11 @@ import javax.inject.Inject
  *    foregrounded the app's `RemoteMediator` is the writer, so the worker stays
  *    out of the way. (Coarse: process-wide, so we also skip while foregrounded on
  *    a non-feed screen — accepted in D-B4.)
- * 3. **Per-feed refresh (D-B6/D-B7)** — refresh the MVP feeds (Following +
+ * 3. **Consumer gate (nubecita-kvh0)** — no-op [Outcome.SUCCESS] when no feed
+ *    widget is placed AND no watch has the app: nothing would read the result,
+ *    and skipping before any network means the run cannot rotate the OAuth
+ *    refresh token.
+ * 4. **Per-feed refresh (D-B6/D-B7)** — refresh the MVP feeds (Following +
  *    Discover) for the signed-in DID **independently**, and `trimToCap` each one
  *    that succeeds, then prefetch that feed's head thumbnails via
  *    [WidgetImagePrefetcher] (D-C4) off the scroll path — a prefetch failure is
@@ -37,10 +42,10 @@ import javax.inject.Inject
  *    → [Outcome.SUCCESS], so a feed that already refreshed is never re-fetched by
  *    a WorkManager retry (which only fires when all failed). The failed feed in a
  *    partial-success run is picked up by the next periodic run.
- * 4. **Watch sync** — when a paired watch has the Wear app, refresh its extra
+ * 5. **Watch sync** — when a paired watch has the Wear app, refresh its extra
  *    selected feeds and publish them to the watch ([WearFeedSync]). Isolated:
  *    a watch failure never changes the outcome.
- * 5. **Widget re-render** — call [WidgetUpdater.updateFeedWidgets] if at least
+ * 6. **Widget re-render** — call [WidgetUpdater.updateFeedWidgets] if at least
  *    one feed succeeded (no-op until sub-project C swaps in the Glance impl).
  *
  * Auth: all network goes through [FeedRepository], whose `:core:feed-cache`
@@ -53,6 +58,7 @@ internal class WidgetRefreshRunner
         private val repository: FeedRepository,
         private val sessionStateProvider: SessionStateProvider,
         private val foreground: AppForegroundSignal,
+        private val placedWidgets: PlacedWidgets,
         private val widgetUpdater: WidgetUpdater,
         private val imagePrefetcher: WidgetImagePrefetcher,
         private val wearFeedSync: WearFeedSync,
@@ -84,11 +90,30 @@ internal class WidgetRefreshRunner
             // is the writer, and a write would invalidate its active PagingSource.
             if (foreground.isForegrounded()) return Outcome.SUCCESS
 
+            // Nothing consumes this run unless a widget is placed or a watch has
+            // the app (nubecita-kvh0). Both checks are local, and they run BEFORE
+            // any network on purpose: a run that reaches the network can rotate
+            // the single-use OAuth refresh token, and a rotation whose response is
+            // lost strands that token into a permanent logout (nubecita-09xt). A
+            // signed-in user with neither surface used to pay two feed fetches
+            // every 15 minutes, forever, for output nobody read.
+            val widgetsPlaced = widgetsPlaced()
+            if (!widgetsPlaced && !watchPresent()) {
+                Timber.tag(TAG).d("no placed widget and no watch — skipping refresh")
+                return Outcome.SUCCESS
+            }
+
+            // Only the widgets need the MVP pair; the watch's own selection is
+            // refreshed by syncWatch below, which subtracts whatever ran here.
             val feedKeys =
-                listOf(
-                    FeedKey.following(viewerDid),
-                    FeedKey(viewerDid, FeedType.DISCOVER, WidgetFeeds.DISCOVER_FEED_URI),
-                )
+                if (widgetsPlaced) {
+                    listOf(
+                        FeedKey.following(viewerDid),
+                        FeedKey(viewerDid, FeedType.DISCOVER, WidgetFeeds.DISCOVER_FEED_URI),
+                    )
+                } else {
+                    emptyList()
+                }
 
             var anySucceeded = false
             var allFailed = true
@@ -129,8 +154,9 @@ internal class WidgetRefreshRunner
             }
 
             // D-B7: RETRY only when EVERY feed failed; partial/full success → SUCCESS
-            // (a succeeded feed must not be re-fetched by a retry).
-            if (allFailed) return Outcome.RETRY
+            // (a succeeded feed must not be re-fetched by a retry). An empty list
+            // is a watch-only run — nothing failed, so it must not retry.
+            if (feedKeys.isNotEmpty() && allFailed) return Outcome.RETRY
 
             syncWatch(viewerDid, alreadyRefreshed = feedKeys)
 
@@ -148,6 +174,36 @@ internal class WidgetRefreshRunner
             }
             return Outcome.SUCCESS
         }
+
+        /**
+         * Whether any feed widget is placed. A failure answers `true`: this gate
+         * exists to skip work nobody consumes, so when we cannot tell, keep the
+         * old behaviour and refresh rather than silently freezing a live widget.
+         */
+        private suspend fun widgetsPlaced(): Boolean =
+            try {
+                placedWidgets.anyPlaced()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
+                Timber.tag(TAG).w(throwable, "placed-widget check failed — refreshing anyway")
+                true
+            }
+
+        /**
+         * Whether a watch has the app. A failure answers `true` for the same
+         * reason [widgetsPlaced] does — the run proceeds and [syncWatch], which
+         * is already isolated from the outcome, absorbs the failure again there.
+         */
+        private suspend fun watchPresent(): Boolean =
+            try {
+                wearFeedSync.hasWatch()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
+                Timber.tag(TAG).w(throwable, "watch presence check failed — refreshing anyway")
+                true
+            }
 
         /**
          * Wear OS companion (nubecita-jh9c.2): refresh the watch's extra feeds
