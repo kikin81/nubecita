@@ -422,11 +422,12 @@ numbers in the metric tables, and use the CLI only for the per-issue detail unde
 ```bash
 APP=1:231886524292:android:39f7396cfb287cb01297d1   # from `android signals context`
 
-# the issue list (ids are prefixed `firebase/`)
+# the issue list. Its issueId values already carry the `firebase/` prefix
+# (e.g. firebase/f4234f9e1aed6f5667d0710a0b35ff88) — pass one through verbatim.
 android signals crashes list --firebase-app=$APP --timeframe=7d --format=json
 
 # the useful one: stack + KEYS (e.g. session_clear_reason) + LOGS (breadcrumbs)
-android signals crashes describe firebase/<issueId> --firebase-app=$APP --timeframe=7d
+android signals crashes describe <issueId> --firebase-app=$APP --timeframe=7d
 
 # which versions an issue type is landing on
 android signals crashes facets app-version --firebase-app=$APP --timeframe=7d --type=non-fatal
