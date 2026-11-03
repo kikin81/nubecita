@@ -99,13 +99,23 @@ specifies for BOTH the current and prior windows. The four areas:
    ordinary expiry, `0`/`1` means a healthy session was rejected. Catalog
    §1a has the fixed-in versions, the amplification check, and the breadcrumb
    signature to look for — read it before calling a logout number good or bad.
+   When someone *reports* a logout, §1a's FIRST step is the `first_open` /
+   `app_remove` check on their device: a reinstall or downgrade wipes the
+   session and fires none of the four auth signals, so the absence of a
+   `session_cleared` is not evidence that nothing happened.
 2. **Engagement** — active users + the interaction events (feed views, post/actor
    interactions, posting, search, video, share, PiP).
 3. **Paywall & Pro** — the GA paywall funnel *paired with RevenueCat actuals*
    (real conversions, MRR, active subs, restore success, churn). GA shows intent;
    RevenueCat shows money.
 4. **Stability** — crash-free users & sessions %, ANR rate, and the top issues to
-   fix (with console links).
+   fix (with console links). Crash-free % comes back **directly** from
+   `crashlytics_get_report`; don't derive it. An empty report means zero crashes
+   (100% crash-free), which is a result, not a gap. For any issue worth
+   explaining — especially a session clear — enrich it with
+   `android signals crashes describe` (catalog §4a): it prints the custom keys
+   and breadcrumb logs that distinguish the two spurious-logout signatures. Keep
+   CLI numbers out of the WoW tables; its window is rolling, not calendar.
 
 Batch calls where the MCP allows. Don't invent numbers — if a metric returns
 nothing, say so.
@@ -135,6 +145,40 @@ things to fix — that's what the reader wants first. Every 🔴/🟡 needs a on
   When a spurious-logout number moves, say which app versions moved — "up 40%"
   without the version split is not a finding.
 - **File**: the full report to `health-reports/<YYYY-MM-DD>.md` (the run date).
+- **Dashboard**: append this week to the running Artifact titled
+  **"Nubecita app health"**. Find it with the `Artifact` tool,
+  `action: "list"` — its URL is deliberately not written down here, because
+  this repo is public and the Artifact holds real user metrics. Ask the user
+  for the link if the listing doesn't show it.
+
+  It is a Dashboard-type Artifact, mobile-first, and it is the thing to look at
+  for trend; the markdown file stays the full written record. Keep the same
+  Artifact every week so the series grows — never create a second one.
+
+  Each completed week is a closed period, so the data is two attached JSON
+  files rather than live queries:
+
+  | dataset | file | shape |
+  |---|---|---|
+  | `weekly` | `weekly.json` | one row per week, metrics as columns — the trend spine |
+  | `findings` | `findings.json` | this week's ranked findings, replaced each run |
+
+  To update: read the current `weekly.json` (its url is in the `datasets/weekly`
+  document, `Artifact` `action: "read"` with that `path`), append one row for
+  the new week, re-upload both files (`Artifact` `action: "publish"` with
+  `asset: true`, one call each — a JSON file is approved on its own), then one
+  `ArtifactData` `batch` updating `datasets/weekly` and `datasets/findings`
+  with the new `url` and `updated`. The page itself needs no change: it reads
+  whatever rows the file holds. Pin every write with the `if_version` you read.
+
+  Add a metric by adding its column to `weekly.json` *and* a tile or row to
+  `files/index.html`; older weeks simply lack the key. Leave a metric you did
+  not measure out of the row rather than writing a zero — a zero is a reading,
+  an absent key is not.
+
+  The Artifact is private to the user's Claude account. It holds real user
+  metrics, so it is the one place outside `health-reports/` they live: never
+  put them in the repo, and don't share the Artifact on the user's behalf.
 
 ## Report template
 
