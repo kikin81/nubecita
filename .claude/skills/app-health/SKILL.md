@@ -99,6 +99,10 @@ specifies for BOTH the current and prior windows. The four areas:
    ordinary expiry, `0`/`1` means a healthy session was rejected. Catalog
    §1a has the fixed-in versions, the amplification check, and the breadcrumb
    signature to look for — read it before calling a logout number good or bad.
+   When someone *reports* a logout, §1a's FIRST step is the `first_open` /
+   `app_remove` check on their device: a reinstall or downgrade wipes the
+   session and fires none of the four auth signals, so the absence of a
+   `session_cleared` is not evidence that nothing happened.
 2. **Engagement** — active users + the interaction events (feed views, post/actor
    interactions, posting, search, video, share, PiP).
 3. **Paywall & Pro** — the GA paywall funnel *paired with RevenueCat actuals*
