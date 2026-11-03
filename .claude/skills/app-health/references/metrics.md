@@ -8,9 +8,11 @@ them here.
 ## Contents
 - [Conventions](#conventions)
 - [1. Auth & login](#1-auth--login)
+- [1a. Spurious logouts](#1a-spurious-logouts--read-this-before-judging-the-number)
 - [2. Engagement](#2-engagement)
 - [3. Paywall & Pro](#3-paywall--pro)
 - [4. Stability](#4-stability)
+- [4a. Enriching an issue with the `android` CLI](#4a-enriching-an-issue-with-the-android-cli)
 - [Week-over-week method](#week-over-week-method)
 - [Flag thresholds](#flag-thresholds)
 
@@ -22,10 +24,17 @@ names below). Query with `mcp__analytics-mcp__run_report`:
   both side by side, which gives the WoW delta in one call.
 - `dimensions`: usually `eventName` (and `customEvent:<param>` for a breakdown —
   see the param note).
-- `metrics`: `eventCount`, `activeUsers`, `totalUsers`, `eventCountPerActiveUser`.
+- `metrics`: `eventCount`, `activeUsers`, `totalUsers`, `eventCountPerUser`.
+  ⚠️ The per-user metric is **`eventCountPerUser`**. `eventCountPerActiveUser` does not
+  exist and GA4 rejects the whole request with a 400 (*"Did you mean eventCountPerUser?"*).
 - `dimension_filter`: restrict to the event(s) for the section.
-- Use `mcp__analytics-mcp__run_funnel_report` for the ordered funnels (auth
-  redirect, paywall) so drop-off at each step is explicit.
+- ⚠️ **`mcp__analytics-mcp__run_funnel_report` could not be made to work** (2026-11-02).
+  `steps` is rejected (wants `funnel_steps`); `funnel_steps` with `event_name` is rejected
+  (*"must contain either 'filter_expression' or 'event' key"*); wrapping it as
+  `{"event": {"event_name": …}}` then fails with *"Failed to initialize FunnelEventFilter"*.
+  **Build funnels from per-step `activeUsers` instead** — one `run_report` with an `inList`
+  filter over the step events, then read the user counts in order. That gives the same
+  user-level drop-off, just without GA's own funnel attribution. Note it under Data gaps.
 
 **Param-level breakdowns need registered custom dimensions, and the dimension
 name is NOT always the param name.** GA4 only splits by an event param if it's
@@ -56,7 +65,7 @@ metric by Pro vs free. If a param isn't registered, report the event total and
 note "breakdown unavailable (dimension not registered)" rather than failing.
 
 **Rates over counts.** Traffic grows; counts grow with it. Prefer
-`eventCountPerActiveUser` or an explicit ratio (errors ÷ attempts) so a healthy
+`eventCountPerUser` or an explicit ratio (errors ÷ attempts) so a healthy
 rate isn't mistaken for a regression. **Always pull total active users first**
 (one `run_report`, no event filter, metric `activeUsers`) — it's the denominator
 *and* the sanity check: a broad count drop that matches the active-user drop is a
@@ -112,7 +121,7 @@ shouldn't?
   question; a small count spread across many is a product problem. They need
   opposite responses, and the raw number cannot tell them apart.
 - Login success per active user is a fine coarse "are people getting in" check.
-- **Auth redirect funnel** (`run_funnel_report`, ordered):
+- **Auth redirect funnel** (per-step `activeUsers`, ordered — see the funnel note above):
   `login_redirect_launched` → `login_redirect_returned` → `login`. Big drop
   `launched→returned` = users not completing the browser redirect (e.g. the
   debug-build App Link break, or a broker misconfig).
@@ -185,6 +194,32 @@ tell. **If short-age (`0`/`1`) invalid_grant clears keep appearing on builds
 between rotation and persist, which needs durability work rather than another
 cancellation fix. Escalate rather than re-fixing cancellation.
 
+**The token-endpoint timeout signature (observed 2026-11-01 on 1.351.0).** The other
+short-age cause, and the one seen most recently — distinguishable from cancellation only by
+reading the breadcrumbs:
+
+```
+[13:09:32] [ModerationPrefs] moderation prefs refresh failed: Refresh request failed (nonce retry)
+           Caused by: java.net.SocketTimeoutException: Socket timeout has expired
+           [url=https://bsky.social/oauth/token, socket_timeout=30000]
+[13:09:33] [PushRegistration] (un)register failed: No authenticated session
+```
+
+with the stack running `DpopAuthProvider.refreshTokensWithNonce` →
+`DpopAuthProvider.failRefresh` → `EncryptedOAuthSessionStore.clear`.
+
+A 30s socket timeout against the token endpoint is **a lost token-endpoint response**: the
+server may well have processed the refresh and consumed the token while the reply never
+arrived, so the next attempt is rejected as reuse. That is the known upstream
+"server deletes the session on replay" behaviour — **not client-fixable, and not a
+regression of the cancellation bug**. Do not re-open cancellation work on the strength of a
+short-age clear until you have checked the breadcrumbs for which of the two signatures it is.
+
+Worth noting separately: `failRefresh` treats a *socket timeout* as terminal and clears the
+session, though a timeout is not evidence of `invalid_grant`. If these keep appearing, the
+tractable change is upstream in `DpopAuthProvider` (retry/soft-fail on timeout) rather than
+anything in nubecita.
+
 **Two dead ends — do not re-walk them.** (1) nubecita *does* wire the SDK's
 persist-failure callback; it is `onSessionPersistFailure` on `AtOAuth`, not the
 SDK's inner `onPersistFailure` name. (2) A cancelled persist can never be
@@ -220,7 +255,7 @@ Answers: are people using the app, and how deeply?
 **Queries:**
 - **Active users** (`activeUsers`, and DAU/WAU if useful) — the denominator for
   everything else; report first.
-- Each event: `eventCount` + `eventCountPerActiveUser`, WoW. The per-user view is
+- Each event: `eventCount` + `eventCountPerUser`, WoW. The per-user view is
   what tells you whether engagement *depth* moved vs just traffic.
 - `view_feed` split by `feed_type` (if registered) — following vs discover mix.
 - `interact_post` split by `action_type` — likes/reposts/replies balance.
@@ -239,7 +274,7 @@ Answers: how many see the upgrade prompt, and how many actually pay? GA gives
 `paywall_viewed` with flat RevenueCat conversions is a conversion problem, not a
 visibility one.
 
-**GA paywall funnel** (`run_funnel_report`, ordered):
+**GA paywall funnel** (per-step `activeUsers`, ordered — see the funnel note above):
 `paywall_viewed` → `paywall_plan_selected` → `paywall_checkout_started` →
 (`paywall_purchase_cancelled` | `paywall_purchase_error`).
 | event | breakdown dim |
@@ -291,13 +326,18 @@ Answers: is the app crashing, and what should we fix first?
 First read the guide once — call `mcp__plugin_firebase_firebase__firebase_read_resources`
 with `uris: ["firebase://guides/crashlytics/reports"]` (the report tool asks for it).
 
-- ⚠️ **There is no crash-free-% report via this MCP.** The available reports are
-  `topIssues` / `topVariants` / `topVersions` / `topOperatingSystems` /
-  `topAndroidDevices` — each returns `eventsCount`, `impactedUsersCount`, and
-  `sessionsCount`, not a crash-free rate. So **derive** it: run
-  `mcp__plugin_firebase_firebase__crashlytics_get_report` with
-  `report: "topIssues"` and `filter.issueErrorTypes: ["FATAL"]` for the window,
-  then estimate against the GA totals for the same window:
+- ✅ **Crash-free % is returned directly — do NOT derive it.** (Corrected 2026-11-02; this
+  section previously said no such report existed and gave a GA-based estimate recipe. That
+  was wrong and produced a fuzzier number than the real one.) Run
+  `mcp__plugin_firebase_firebase__crashlytics_get_report` with `report: "topIssues"` and
+  `filter.issueErrorTypes: ["FATAL"]`, and every group's `metrics` entry carries
+  `crashFreeUsersPercentage`, `crashFreeSessionsPercentage`, `totalUsersCount` and
+  `totalSessionsCount` for the filtered interval. Report those as-is.
+  **A response of "This report response contains no results" means zero crashes in the
+  window — i.e. 100% crash-free, a measured zero, not a data gap.** Say so plainly.
+  Crashlytics `totalUsersCount` and GA4 `activeUsers` are different populations and will not
+  match; don't reconcile them. The old derivation, kept only for the case where the direct
+  fields are ever absent:
   - `impactedUsers = min(Σ impactedUsersCount, activeUsers)` — **clamp the sum**:
     a user can appear in several issues, so the raw sum is an upper bound and can
     exceed `activeUsers`; clamping keeps `crash-free ≥ 0`.
@@ -324,6 +364,40 @@ with `uris: ["firebase://guides/crashlytics/reports"]` (the report tool asks for
 The "top crashes/ANRs to fix" list is often the single most actionable part of
 the report — make each row a clear candidate: what it is, how many it hits,
 whether it's growing, and where to look.
+
+### 4a. Enriching an issue with the `android` CLI
+
+The `android signals` command group (Android CLI, already authenticated against this
+project) is **a complement to the MCP, not a replacement**. Use it for *investigation*, keep
+the MCP for the *windowed WoW numbers*.
+
+| | `android signals` | firebase MCP |
+|---|---|---|
+| Custom time window | ❌ fixed `--timeframe` only: `24h/7d/30d/60d/90d`, rolling from now | ✅ `intervalStartTime` / `intervalEndTime` |
+| Crash-free % | ❌ not reported | ✅ direct |
+| Stack + custom keys + **breadcrumb logs** | ✅ one command | ✖ needs `crashlytics_batch_get_events` |
+| Version / device / API facets | ✅ one command | ✖ several reports |
+
+Because its `7d` is rolling from *now* and the report's window is calendar-aligned, its
+counts will differ slightly from the MCP's. **Never mix the two in one table** — quote MCP
+numbers in the metric tables, and use the CLI only for the per-issue detail underneath.
+
+```bash
+APP=1:231886524292:android:39f7396cfb287cb01297d1   # from `android signals context`
+
+# the issue list (ids are prefixed `firebase/`)
+android signals crashes list --firebase-app=$APP --timeframe=7d --format=json
+
+# the useful one: stack + KEYS (e.g. session_clear_reason) + LOGS (breadcrumbs)
+android signals crashes describe firebase/<issueId> --firebase-app=$APP --timeframe=7d
+
+# which versions an issue type is landing on
+android signals crashes facets app-version --firebase-app=$APP --timeframe=7d --type=non-fatal
+```
+
+`describe` is what makes §1a's signature check cheap: it prints the breadcrumb trail for the
+sample event, which is where the `Job was cancelled` vs `SocketTimeoutException` distinction
+actually shows up. Run it on any session-clear issue before judging the cause.
 
 ---
 
