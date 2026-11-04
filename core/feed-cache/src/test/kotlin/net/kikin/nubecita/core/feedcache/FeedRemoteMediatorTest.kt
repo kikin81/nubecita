@@ -10,6 +10,7 @@ import io.github.kikin81.atproto.app.bsky.feed.PostView
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.slot
@@ -21,8 +22,10 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
+import net.kikin.nubecita.core.database.model.CachedFeedEntry
 import net.kikin.nubecita.core.database.model.FeedPostEntity
 import net.kikin.nubecita.core.database.model.FeedRemoteKeyEntity
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -34,6 +37,7 @@ import org.junit.jupiter.api.Test
 internal class FeedRemoteMediatorTest {
     private val key = FeedKey.following("did:plc:me")
     private val feedPostDao = mockk<FeedPostDao>(relaxed = true)
+    private val cachedPostDao = mockk<CachedPostDao>(relaxed = true)
     private val remoteKeyDao = mockk<FeedRemoteKeyDao>(relaxed = true)
     private val networkSource = mockk<FeedNetworkSource>()
 
@@ -48,6 +52,7 @@ internal class FeedRemoteMediatorTest {
             feedKey = key,
             networkSource = networkSource,
             feedPostDao = feedPostDao,
+            cachedPostDao = cachedPostDao,
             remoteKeyDao = remoteKeyDao,
             transactionRunner = transactionRunner,
             // REFRESH now delegates to the shared FeedRefresher; wire a real one
@@ -57,18 +62,38 @@ internal class FeedRemoteMediatorTest {
                 FeedRefresher(
                     networkSource = networkSource,
                     feedPostDao = feedPostDao,
+                    cachedPostDao = cachedPostDao,
                     remoteKeyDao = remoteKeyDao,
                     transactionRunner = transactionRunner,
                 ),
         )
 
-    private fun emptyState(): PagingState<Int, FeedPostEntity> =
+    private fun emptyState(): PagingState<Int, CachedFeedEntry> =
         PagingState(
             pages = emptyList(),
             anchorPosition = null,
             config = PagingConfig(pageSize = 25),
             leadingPlaceholderCount = 0,
         )
+
+    @Test
+    fun `append writes the page's posts before its envelopes`() =
+        runTest {
+            // Same reason as the refresher's: cachedPostDao is a relaxed mock,
+            // so dropping the call would otherwise be invisible.
+            coEvery {
+                remoteKeyDao.remoteKey(any(), any(), any())
+            } returns FeedRemoteKeyEntity("did:plc:me", "FOLLOWING", "", "cursor-1")
+            coEvery { networkSource.fetchPage(key, cursor = "cursor-1") } returns
+                Result.success(listOf(post("a")) to null)
+
+            mediator().load(LoadType.APPEND, emptyState())
+
+            coVerifyOrder {
+                cachedPostDao.upsert(any())
+                feedPostDao.upsert(any())
+            }
+        }
 
     @Test
     fun `REFRESH clears the partition, inserts page with positions 0_n, stores cursor`() =

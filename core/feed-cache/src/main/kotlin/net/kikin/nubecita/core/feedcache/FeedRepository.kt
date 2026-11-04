@@ -12,7 +12,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
-import net.kikin.nubecita.core.database.model.FeedPostEntity
+import net.kikin.nubecita.core.database.model.CachedFeedEntry
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.data.models.PostUi
 import javax.inject.Inject
@@ -85,7 +85,7 @@ interface FeedRepository {
 }
 
 /**
- * Default [FeedRepository]. The read path maps `FeedPostEntity → PostUi?` at map
+ * Default [FeedRepository]. The read path maps `CachedFeedEntry → PostUi?` at map
  * time (so a later prefs/account change reflects on the next load), dropping the
  * nulls that moderation / malformed-blob produce. Reads `viewerDid` / `prefs`
  * via `.value` per item so the projection always reflects current state.
@@ -107,7 +107,7 @@ internal open class DefaultFeedRepository
          * JVM unit test can swap a no-op mediator (the assisted factory needs the
          * Hilt-generated impl, which a pure-JVM test can't construct).
          */
-        protected open fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, FeedPostEntity> = mediatorFactory.create(feedKey)
+        protected open fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, CachedFeedEntry> = mediatorFactory.create(feedKey)
 
         override fun pagedFeed(feedKey: FeedKey): Flow<PagingData<PostUi>> =
             Pager(

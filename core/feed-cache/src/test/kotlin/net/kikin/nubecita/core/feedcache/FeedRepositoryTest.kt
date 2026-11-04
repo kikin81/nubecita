@@ -25,9 +25,10 @@ import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
-import net.kikin.nubecita.core.database.model.FeedPostEntity
+import net.kikin.nubecita.core.database.model.CachedFeedEntry
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPrefs
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.Test
 internal class FeedRepositoryTest {
     private val key = FeedKey.following("did:plc:me")
     private val feedPostDao = mockk<FeedPostDao>(relaxed = true)
+    private val cachedPostDao = mockk<CachedPostDao>(relaxed = true)
     private val remoteKeyDao = mockk<FeedRemoteKeyDao>(relaxed = true)
     private val networkSource = mockk<FeedNetworkSource>(relaxed = true)
 
@@ -58,16 +60,16 @@ internal class FeedRepositoryTest {
     // No-op mediator so the Pager doesn't hit the network; the PagingSource
     // already returns the seeded rows.
     private val noopMediator =
-        object : RemoteMediator<Int, FeedPostEntity>() {
+        object : RemoteMediator<Int, CachedFeedEntry>() {
             override suspend fun initialize() = InitializeAction.SKIP_INITIAL_REFRESH
 
             override suspend fun load(
                 loadType: LoadType,
-                state: PagingState<Int, FeedPostEntity>,
+                state: PagingState<Int, CachedFeedEntry>,
             ) = MediatorResult.Success(endOfPaginationReached = true)
         }
 
-    private fun repository(seed: List<FeedPostEntity>): DefaultFeedRepository {
+    private fun repository(seed: List<CachedFeedEntry>): DefaultFeedRepository {
         coEvery { feedPostDao.pagingSource(any(), any(), any()) } answers { FakePagingSource(seed) }
         val factory =
             object : FeedRemoteMediator.Factory {
@@ -84,6 +86,7 @@ internal class FeedRepositoryTest {
                 FeedRefresher(
                     networkSource = networkSource,
                     feedPostDao = feedPostDao,
+                    cachedPostDao = cachedPostDao,
                     remoteKeyDao = remoteKeyDao,
                     transactionRunner = passthroughRunner,
                 ),
@@ -207,12 +210,29 @@ internal class FeedRepositoryTest {
             override suspend fun <T> run(block: suspend () -> T): T = block()
         }
 
+    /**
+     * One row of the joined read shape, built from the two production write
+     * mappers so the fake source cannot serve a pairing the write path would
+     * never produce.
+     */
     private fun entity(
         tail: String,
         text: String,
         position: Int,
         labels: List<Pair<String, String>> = emptyList(),
-    ): FeedPostEntity = FeedViewPost(post = wirePost(tail, text, labels)).toFeedPostEntity(key, position)
+    ): CachedFeedEntry {
+        val wire = FeedViewPost(post = wirePost(tail, text, labels))
+        val envelope = wire.toFeedPostEntity(key, position)
+        return CachedFeedEntry(
+            position = envelope.position,
+            uri = envelope.uri,
+            repostedByDid = envelope.repostedByDid,
+            repostedByLabel = envelope.repostedByLabel,
+            replyRootUri = envelope.replyRootUri,
+            replyParentUri = envelope.replyParentUri,
+            post = wire.toCachedPosts(key).first { it.uri == envelope.uri },
+        )
+    }
 }
 
 /**
@@ -228,7 +248,7 @@ private class TestFeedRepository(
     moderationPreferences: ModerationPreferencesRepository,
     transactionRunner: FeedCacheTransactionRunner,
     feedRefresher: FeedRefresher,
-    private val testMediator: RemoteMediator<Int, FeedPostEntity>,
+    private val testMediator: RemoteMediator<Int, CachedFeedEntry>,
 ) : DefaultFeedRepository(
         feedPostDao,
         remoteKeyDao,
@@ -238,16 +258,16 @@ private class TestFeedRepository(
         transactionRunner,
         feedRefresher,
     ) {
-    override fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, FeedPostEntity> = testMediator
+    override fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, CachedFeedEntry> = testMediator
 }
 
 /** In-memory single-page [PagingSource] over the seeded rows. */
 private class FakePagingSource(
-    private val rows: List<FeedPostEntity>,
-) : PagingSource<Int, FeedPostEntity>() {
-    override fun getRefreshKey(state: PagingState<Int, FeedPostEntity>): Int? = null
+    private val rows: List<CachedFeedEntry>,
+) : PagingSource<Int, CachedFeedEntry>() {
+    override fun getRefreshKey(state: PagingState<Int, CachedFeedEntry>): Int? = null
 
-    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, FeedPostEntity> = LoadResult.Page(data = rows, prevKey = null, nextKey = null)
+    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, CachedFeedEntry> = LoadResult.Page(data = rows, prevKey = null, nextKey = null)
 }
 
 private val repoTestJson =

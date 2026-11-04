@@ -1,5 +1,6 @@
 package net.kikin.nubecita.core.feedcache
 
+import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.model.FeedRemoteKeyEntity
@@ -17,8 +18,10 @@ import javax.inject.Inject
  * [FeedRepository]. Both instead depend on this plain injectable.
  *
  * Fetch page 1 (null cursor) → map to entities at positions 0..n → in ONE
- * transaction clear the partition, upsert the page, and upsert the next-page
- * cursor. Returns `endOfPaginationReached` (a null next cursor or an empty page)
+ * transaction clear the partition, upsert the page's posts and envelopes, and
+ * upsert the next-page cursor. The partition clear leaves `cached_post` alone:
+ * a post may still be referenced as another partition's reply context, so
+ * eviction there is reference-counted rather than partition-scoped. Returns `endOfPaginationReached` (a null next cursor or an empty page)
  * on success, or the network failure on `Result.failure`.
  */
 internal class FeedRefresher
@@ -26,6 +29,7 @@ internal class FeedRefresher
     constructor(
         private val networkSource: FeedNetworkSource,
         private val feedPostDao: FeedPostDao,
+        private val cachedPostDao: CachedPostDao,
         private val remoteKeyDao: FeedRemoteKeyDao,
         private val transactionRunner: FeedCacheTransactionRunner,
     ) {
@@ -44,8 +48,14 @@ internal class FeedRefresher
             val (page, nextCursor) = result.getOrElse { return Result.failure(it) }
 
             val entities = page.mapIndexed { index, post -> post.toFeedPostEntity(feedKey, position = index) }
+            val posts = page.flatMap { it.toCachedPosts(feedKey) }
             transactionRunner.run {
                 feedPostDao.clearPartition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
+                // Posts before envelopes: the read path inner-joins the two, so
+                // an envelope whose post is not yet stored is invisible. Both
+                // land in one transaction, so no reader observes the gap, but
+                // the order keeps the invariant obvious rather than incidental.
+                cachedPostDao.upsert(posts)
                 feedPostDao.upsert(entities)
                 remoteKeyDao.upsert(
                     FeedRemoteKeyEntity(

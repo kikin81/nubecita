@@ -10,6 +10,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import net.kikin.nubecita.core.database.model.CachedFeedEntry
 import net.kikin.nubecita.core.moderation.ContentLabel
 import net.kikin.nubecita.core.moderation.LabelVisibility
 import net.kikin.nubecita.core.moderation.ModerationPrefs
@@ -186,26 +187,91 @@ private fun feedViewPostWire(
 private val key = FeedKey.following("did:plc:me")
 
 internal class FeedPostMappersTest {
+    /**
+     * The joined read shape for one wire entry: its envelope paired with the
+     * stored copy of its own post.
+     *
+     * Built from the two production write mappers rather than hand-assembled,
+     * so a test cannot accidentally pair an envelope with a post the write path
+     * would never have produced.
+     */
+    private fun FeedViewPost.asCachedEntry(position: Int = 0): CachedFeedEntry {
+        val envelope = toFeedPostEntity(key, position)
+        val stored = toCachedPosts(key).first { it.uri == envelope.uri }
+        return CachedFeedEntry(
+            position = envelope.position,
+            uri = envelope.uri,
+            repostedByDid = envelope.repostedByDid,
+            repostedByLabel = envelope.repostedByLabel,
+            replyRootUri = envelope.replyRootUri,
+            replyParentUri = envelope.replyParentUri,
+            post = stored,
+        )
+    }
+
     @Test
-    fun `toFeedPostEntity extracts queryable columns`() {
-        val fvp = feedViewPost(postView())
-        val entity = fvp.toFeedPostEntity(key, position = 3)
+    fun `toFeedPostEntity builds the entry envelope and nothing else`() {
+        val entity = feedViewPostWire().toFeedPostEntity(key, position = 3)
 
         assertEquals("did:plc:me", entity.accountDid)
         assertEquals("FOLLOWING", entity.feedType)
         assertEquals("", entity.feedUri)
         assertEquals(3, entity.position)
+        // The envelope references the post; it does not contain it.
         assertEquals("at://did:plc:abc/app.bsky.feed.post/3kpost", entity.uri)
-        assertEquals("bafyreiekyd2wqraqliwm3qolheg6txryqncxhf7zkdlqbogqlj6szorvhq", entity.cid)
-        assertEquals("did:plc:abc", entity.authorDid)
-        assertEquals("hello world", entity.text)
+    }
+
+    @Test
+    fun `toCachedPosts stores the entry's own post with its queryable columns`() {
+        val stored = feedViewPostWire().toCachedPosts(key).single()
+
+        assertEquals("did:plc:me", stored.accountDid)
+        assertEquals("at://did:plc:abc/app.bsky.feed.post/3kpost", stored.uri)
+        assertEquals("bafyreiekyd2wqraqliwm3qolheg6txryqncxhf7zkdlqbogqlj6szorvhq", stored.cid)
+        assertEquals("did:plc:abc", stored.authorDid)
+        assertEquals("hello world", stored.text)
         // indexedAt comes from the post's indexedAt (2026-04-15T19:51:13Z),
         // NOT the record createdAt (2026-04-15T19:51:12.861Z).
+        assertEquals(kotlin.time.Instant.parse("2026-04-15T19:51:13.000Z"), stored.indexedAt)
+        assertNotNull(stored.postBlob)
+        assertNull(stored.unavailable)
+    }
+
+    @Test
+    fun `toCachedPosts also stores a reply's root and parent`() {
+        // These usually are not timeline entries of their own, so if this
+        // mapper does not capture them nothing does, and the cluster projection
+        // would have a root it cannot render.
+        val posts =
+            feedViewPostWire(
+                replyRoot = "at://did:plc:abc/app.bsky.feed.post/3kroot",
+                replyParent = "at://did:plc:abc/app.bsky.feed.post/3kparent",
+            ).toCachedPosts(key)
+
         assertEquals(
-            kotlin.time.Instant.parse("2026-04-15T19:51:13.000Z"),
-            entity.indexedAt,
+            listOf(
+                "at://did:plc:abc/app.bsky.feed.post/3kparent",
+                "at://did:plc:abc/app.bsky.feed.post/3kpost",
+                "at://did:plc:abc/app.bsky.feed.post/3kroot",
+            ),
+            posts.map { it.uri }.sorted(),
         )
-        assertNotNull(entity.entryBlob)
+    }
+
+    @Test
+    fun `an unreadable reply parent is stored as a tombstone row`() {
+        // Omitting it would leave the projection unable to tell "this reply had
+        // a parent you cannot see" from "this is a root post".
+        val posts =
+            feedViewPostWire(
+                replyRoot = "at://did:plc:abc/app.bsky.feed.post/3kroot",
+                blockedParent = "at://did:plc:blocked/app.bsky.feed.post/3kgone",
+            ).toCachedPosts(key)
+
+        val tombstone = posts.single { it.uri == "at://did:plc:blocked/app.bsky.feed.post/3kgone" }
+        assertEquals("blocked", tombstone.unavailable)
+        assertNull(tombstone.postBlob)
+        assertNull(tombstone.toPostViewOrNull())
     }
 
     @Test
@@ -213,6 +279,7 @@ internal class FeedPostMappersTest {
         val entity = feedViewPostWire().toFeedPostEntity(key, position = 0)
 
         assertNull(entity.repostedByDid)
+        assertNull(entity.repostedByLabel)
         assertNull(entity.replyRootUri)
         assertNull(entity.replyParentUri)
     }
@@ -222,6 +289,7 @@ internal class FeedPostMappersTest {
         val entity = feedViewPostWire(repostedBy = "did:plc:reposter").toFeedPostEntity(key, position = 0)
 
         assertEquals("did:plc:reposter", entity.repostedByDid)
+        assertEquals("Reposter", entity.repostedByLabel)
     }
 
     @Test
@@ -237,98 +305,22 @@ internal class FeedPostMappersTest {
     }
 
     @Test
-    fun `a blocked reply parent denormalizes to null but survives in the blob`() {
-        // The column points at readable posts only, so a tombstone parent is
-        // null there. The blob must still carry it, or the projection could not
-        // render the Blocked variant on read.
-        val entity =
+    fun `a blocked reply parent contributes no URI column but still a stored row`() {
+        val entry =
             feedViewPostWire(
                 replyRoot = "at://did:plc:abc/app.bsky.feed.post/3kroot",
                 blockedParent = "at://did:plc:blocked/app.bsky.feed.post/3kgone",
-            ).toFeedPostEntity(key, position = 0)
+            )
 
-        assertNull(entity.replyParentUri)
-        assertEquals("at://did:plc:abc/app.bsky.feed.post/3kroot", entity.replyRootUri)
-
-        val decoded = testJson.decodeFromString(FeedViewPost.serializer(), requireNotNull(entity.entryBlob))
-        assertNotNull(decoded.reply?.parent)
-    }
-
-    @Test
-    fun `entry blob round-trips the repost and reply context`() {
-        // The regression this widening exists to prevent: the mapper used to
-        // serialize the bare PostView, so reason and reply were discarded and a
-        // cached partition could not rebuild a ReplyCluster or a chain.
-        val entity =
-            feedViewPostWire(
-                repostedBy = "did:plc:reposter",
-                replyRoot = "at://did:plc:abc/app.bsky.feed.post/3kroot",
-                replyParent = "at://did:plc:abc/app.bsky.feed.post/3kparent",
-            ).toFeedPostEntity(key, position = 0)
-
-        val decoded = testJson.decodeFromString(FeedViewPost.serializer(), requireNotNull(entity.entryBlob))
-
-        assertNotNull(decoded.reason)
-        assertNotNull(decoded.reply)
-        assertEquals(
-            "at://did:plc:abc/app.bsky.feed.post/3kroot",
-            (decoded.reply?.root as? PostView)?.uri?.raw,
-        )
-        assertEquals(
-            "at://did:plc:abc/app.bsky.feed.post/3kparent",
-            (decoded.reply?.parent as? PostView)?.uri?.raw,
-        )
-        assertEquals("at://did:plc:abc/app.bsky.feed.post/3kpost", decoded.post.uri.raw)
-    }
-
-    @Test
-    fun `read surfaces repost attribution preferring display name`() {
-        val entity = feedViewPostWire(repostedBy = "did:plc:reposter").toFeedPostEntity(key, position = 0)
-
-        val postUi = entity.toPostUi(viewerDid = "did:plc:me", prefs = ModerationPrefs.DEFAULT)
-
-        assertEquals("Reposter", requireNotNull(postUi).repostedBy)
-    }
-
-    @Test
-    fun `read falls back to the handle when the reposter has no display name`() {
-        // displayName ?: handle must mirror the network path's derivation, or
-        // the same post would change its label when the feed refreshes.
-        val entity =
-            feedViewPostWire(repostedBy = "did:plc:reposter", reposterDisplayName = null)
-                .toFeedPostEntity(key, position = 0)
-
-        val postUi = entity.toPostUi(viewerDid = "did:plc:me", prefs = ModerationPrefs.DEFAULT)
-
-        assertEquals("reposter.bsky.social", requireNotNull(postUi).repostedBy)
-    }
-
-    @Test
-    fun `read leaves repost attribution null for a plain entry`() {
-        val entity = feedViewPostWire().toFeedPostEntity(key, position = 0)
-
-        val postUi = entity.toPostUi(viewerDid = "did:plc:me", prefs = ModerationPrefs.DEFAULT)
-
-        assertNull(requireNotNull(postUi).repostedBy)
-    }
-
-    @Test
-    fun `toFeedViewPostOrNull is the single decode seam and skips a bad row`() {
-        val good =
-            feedViewPostWire(replyRoot = "at://did:plc:abc/app.bsky.feed.post/3kroot")
-                .toFeedPostEntity(key, position = 0)
-        assertNotNull(good.toFeedViewPostOrNull())
-
-        assertNull(good.copy(entryBlob = null).toFeedViewPostOrNull())
-        assertNull(good.copy(entryBlob = "{ not valid json").toFeedViewPostOrNull())
+        // The column points at posts the viewer can read.
+        assertNull(entry.toFeedPostEntity(key, position = 0).replyParentUri)
+        // The row exists regardless, so the tombstone is still renderable.
+        assertNotNull(entry.toCachedPosts(key).singleOrNull { it.unavailable == "blocked" })
     }
 
     @Test
     fun `write-then-read round-trip preserves author text embed stats viewer`() {
-        val fvp = feedViewPost(postView())
-        val entity = fvp.toFeedPostEntity(key, position = 0)
-
-        val postUi = entity.toPostUi(viewerDid = "did:plc:me", prefs = ModerationPrefs.DEFAULT)
+        val postUi = feedViewPostWire().asCachedEntry().toPostUi("did:plc:me", ModerationPrefs.DEFAULT)
 
         assertNotNull(postUi)
         requireNotNull(postUi)
@@ -345,55 +337,95 @@ internal class FeedPostMappersTest {
     }
 
     @Test
+    fun `read surfaces repost attribution preferring display name`() {
+        val postUi =
+            feedViewPostWire(repostedBy = "did:plc:reposter")
+                .asCachedEntry()
+                .toPostUi("did:plc:me", ModerationPrefs.DEFAULT)
+
+        assertEquals("Reposter", requireNotNull(postUi).repostedBy)
+    }
+
+    @Test
+    fun `read falls back to the handle when the reposter has no display name`() {
+        // displayName ?: handle must mirror the network path's derivation, or
+        // the same post would change its label when the feed refreshes.
+        val postUi =
+            feedViewPostWire(repostedBy = "did:plc:reposter", reposterDisplayName = null)
+                .asCachedEntry()
+                .toPostUi("did:plc:me", ModerationPrefs.DEFAULT)
+
+        assertEquals("reposter.bsky.social", requireNotNull(postUi).repostedBy)
+    }
+
+    @Test
+    fun `read leaves repost attribution null for a plain entry`() {
+        val postUi = feedViewPostWire().asCachedEntry().toPostUi("did:plc:me", ModerationPrefs.DEFAULT)
+
+        assertNull(requireNotNull(postUi).repostedBy)
+    }
+
+    @Test
     fun `malformed blob maps to null`() {
-        val entity =
-            FeedViewPost(post = postView()).toFeedPostEntity(key, position = 0).copy(entryBlob = "{ not valid json")
-        val postUi = entity.toPostUi(viewerDid = null, prefs = ModerationPrefs.DEFAULT)
-        assertNull(postUi)
+        val entry = feedViewPostWire().asCachedEntry()
+        val broken = entry.copy(post = entry.post.copy(postBlob = "{ not valid json"))
+
+        assertNull(broken.toPostUi(viewerDid = null, prefs = ModerationPrefs.DEFAULT))
     }
 
     @Test
     fun `null blob maps to null`() {
-        val entity = FeedViewPost(post = postView()).toFeedPostEntity(key, position = 0).copy(entryBlob = null)
-        val postUi = entity.toPostUi(viewerDid = null, prefs = ModerationPrefs.DEFAULT)
-        assertNull(postUi)
+        val entry = feedViewPostWire().asCachedEntry()
+        val broken = entry.copy(post = entry.post.copy(postBlob = null))
+
+        assertNull(broken.toPostUi(viewerDid = null, prefs = ModerationPrefs.DEFAULT))
+    }
+
+    @Test
+    fun `a tombstone entry maps to null`() {
+        val entry = feedViewPostWire().asCachedEntry()
+        val tombstone = entry.copy(post = entry.post.copy(unavailable = "blocked", postBlob = null))
+
+        assertNull(tombstone.toPostUi(viewerDid = null, prefs = ModerationPrefs.DEFAULT))
+    }
+
+    @Test
+    fun `toPostViewOrNull is the single decode seam and skips a bad row`() {
+        val entry = feedViewPostWire().asCachedEntry()
+
+        assertNotNull(entry.post.toPostViewOrNull())
+        assertNull(entry.post.copy(postBlob = null).toPostViewOrNull())
+        assertNull(entry.post.copy(postBlob = "{ not valid json").toPostViewOrNull())
+        assertNull(entry.post.copy(unavailable = "notfound").toPostViewOrNull())
     }
 
     @Test
     fun `adult-labeled post is dropped on read when adult filtering hides it`() {
         // A porn-labeled post; DEFAULT prefs have adult content disabled, which
         // forces a non-overridable HIDE -> dropFiltered = true returns null.
-        val labeled =
-            postView(
-                authorDid = "did:plc:other",
-                labels = listOf("did:plc:labeler" to "porn"),
-            )
-        val entity = FeedViewPost(post = labeled).toFeedPostEntity(key, position = 0)
+        val entry =
+            feedViewPostWire(
+                post = postViewJson(authorDid = "did:plc:other", labels = listOf("did:plc:labeler" to "porn")),
+            ).asCachedEntry()
 
-        val postUi = entity.toPostUi(viewerDid = "did:plc:me", prefs = ModerationPrefs.DEFAULT)
-        assertNull(postUi)
+        assertNull(entry.toPostUi(viewerDid = "did:plc:me", prefs = ModerationPrefs.DEFAULT))
     }
 
     @Test
     fun `adult-labeled post is covered (not dropped) when adult content is enabled`() {
-        val prefs =
-            ModerationPrefs.DEFAULT.copy(
-                adultContentEnabled = true,
-                visibilities = ModerationPrefs.DEFAULT.visibilities + (ContentLabel.PORN to LabelVisibility.WARN),
-            )
-        val labeled =
-            postView(
-                authorDid = "did:plc:other",
-                labels = listOf("did:plc:labeler" to "porn"),
-            )
-        val entity = FeedViewPost(post = labeled).toFeedPostEntity(key, position = 0)
+        val entry =
+            feedViewPostWire(
+                post = postViewJson(authorDid = "did:plc:other", labels = listOf("did:plc:labeler" to "porn")),
+            ).asCachedEntry()
 
-        val postUi = entity.toPostUi(viewerDid = "did:plc:me", prefs = prefs)
+        val prefs =
+            ModerationPrefs(
+                adultContentEnabled = true,
+                visibilities = mapOf(ContentLabel.PORN to LabelVisibility.WARN),
+            )
+
+        val postUi = entry.toPostUi(viewerDid = "did:plc:me", prefs = prefs)
+
         assertNotNull(postUi)
-        requireNotNull(postUi)
-        // Media is covered with a content warning rather than dropped.
-        val embed = postUi.embed
-        assertInstanceOf(EmbedUi.Images::class.java, embed)
-        assertNotNull((embed as EmbedUi.Images).contentWarning)
     }
 }

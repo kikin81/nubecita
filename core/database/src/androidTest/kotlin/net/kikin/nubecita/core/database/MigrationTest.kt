@@ -196,24 +196,24 @@ internal class MigrationTest {
             assertEquals(0, c.getInt(0))
         }
 
-        // The widened shape is usable: the three entry columns and the renamed
-        // blob all accept writes, and the recreated indices are in place.
+        // The new envelope shape is usable: the per-entry columns accept writes,
+        // the post columns are gone, and the recreated index is in place.
         db.execSQL(
             "INSERT INTO feed_post " +
-                "(account_did, feed_type, feed_uri, position, uri, cid, author_did, indexed_at, text, " +
-                "reposted_by_did, reply_root_uri, reply_parent_uri, entry_blob) " +
-                "VALUES ('did:c', 'FOLLOWING', '', -1, 'at://post/new', 'cidnew', 'did:e', 7300, 'fresh', " +
-                "'did:reposter', 'at://post/root', 'at://post/parent', '{\"post\":{}}')",
+                "(account_did, feed_type, feed_uri, position, uri, " +
+                "reposted_by_did, reposted_by_label, reply_root_uri, reply_parent_uri) " +
+                "VALUES ('did:c', 'FOLLOWING', '', -1, 'at://post/new', " +
+                "'did:reposter', 'Reposter', 'at://post/root', 'at://post/parent')",
         )
         db
             .query(
-                "SELECT reposted_by_did, reply_root_uri, reply_parent_uri, entry_blob, position FROM feed_post",
+                "SELECT reposted_by_did, reposted_by_label, reply_root_uri, reply_parent_uri, position FROM feed_post",
             ).use { c ->
                 assertTrue(c.moveToFirst())
                 assertEquals("did:reposter", c.getString(0))
-                assertEquals("at://post/root", c.getString(1))
-                assertEquals("at://post/parent", c.getString(2))
-                assertEquals("{\"post\":{}}", c.getString(3))
+                assertEquals("Reposter", c.getString(1))
+                assertEquals("at://post/root", c.getString(2))
+                assertEquals("at://post/parent", c.getString(3))
                 // A prepend writes above existing rows, so negatives must persist.
                 assertEquals(-1, c.getInt(4))
             }

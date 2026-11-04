@@ -2,17 +2,17 @@
 
 ### Requirement: Feed posts are cached in a DID-keyed offline store
 
-The system SHALL persist fetched feed entries in a `feed_post` table keyed by `(accountDid, feedType, feedUri, position)` with entry blobs and query columns, and paging cursors in a `feed_remote_keys` table keyed by `(accountDid, feedType, feedUri)`. `feedType` SHALL distinguish Following, Discover, custom, and list feeds. `feedUri` SHALL hold the feed-generator or list AT-URI (empty sentinel for Following). The store SHALL index `uri` and `authorDid`.
+The system SHALL persist fetched feed entries in a `feed_post` table keyed by `(accountDid, feedType, feedUri, position)`, and paging cursors in a `feed_remote_keys` table keyed by `(accountDid, feedType, feedUri)`. `feedType` SHALL distinguish Following, Discover, custom, and list feeds. `feedUri` SHALL hold the feed-generator or list AT-URI (empty sentinel for Following). `feed_post` SHALL index `uri`; the by-author index belongs to the post store, where the author is.
 
-The persisted blob SHALL be the whole wire `app.bsky.feed.defs#feedViewPost` — the post **together with** its per-entry `reason` (repost attribution) and `reply` (root / parent) context, which `FeedItemUi.ReplyCluster` and `FeedItemUi.SelfThreadChain` are projected from. This table SHALL keep its present grain: every fetched entry, undeduplicated, so `head`, by-uri overlays and deep links are unaffected by the grouping projection. `position` SHALL be signed.
+A `feed_post` row SHALL be an entry **envelope**: a position, a reference to the post it shows, and the per-entry `reason` and `reply` context that belongs to the timeline rather than to the post — the entire input to the `ReplyCluster` and `SelfThreadChain` projection. It SHALL carry no post content. This table SHALL keep its present grain: every fetched entry, undeduplicated, so `head`, by-uri overlays and deep links are unaffected by the grouping projection. `position` SHALL be signed.
 
 #### Scenario: Fetched posts are stored under the account partition
 - **WHEN** a feed page is fetched for the signed-in account
 - **THEN** its entries are written to `feed_post` under that account's DID, feed type, and feed URI, preserving server order via `position`
 
 #### Scenario: Lookups by uri and author do not full-scan
-- **WHEN** a post is looked up by `uri` (e.g. deep-link or interaction-state overlay) or by `authorDid`
-- **THEN** the query is served by an index, not a full table scan
+- **WHEN** an entry is looked up by `uri` (e.g. deep-link or interaction-state overlay), or a post by `authorDid`
+- **THEN** the query is served by an index, not a full table scan — `uri` on the entry table, `authorDid` on the post store
 
 #### Scenario: Repost attribution survives a cache round-trip
 - **WHEN** a timeline entry carrying a `reason` of `ReasonRepost` is written and read back

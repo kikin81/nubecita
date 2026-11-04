@@ -16,10 +16,14 @@ import androidx.sqlite.execSQL
 internal val MANUAL_MIGRATIONS: Array<Migration> = arrayOf(Migration6To7)
 
 /**
- * v6 → v7: the cached feed unit widens from a bare `postView` to a whole feed
- * **entry** (`feedViewPost`). `feed_post` gains `reposted_by_did`,
- * `reply_root_uri` and `reply_parent_uri`, and `post_blob` is renamed to
- * `entry_blob` because it no longer holds a post.
+ * v6 → v7 splits the cached feed into two grains. `feed_post` becomes an entry
+ * **envelope** — a position, a reference to the post it shows, and the
+ * per-entry context (`reposted_by_did`, `reposted_by_label`, `reply_root_uri`,
+ * `reply_parent_uri`) that belongs to the timeline rather than to the post —
+ * and `cached_post` becomes the one store for post content, keyed by
+ * `(account_did, uri)`. The post columns and the blob leave `feed_post`
+ * entirely, the by-author index moves to `cached_post` where the author is, and
+ * the read path joins the two.
  *
  * This is hand-written rather than an `@AutoMigration` for two reasons, and
  * the second is the one that matters:
@@ -65,15 +69,12 @@ internal object Migration6To7 : Migration(6, 7) {
         connection.execSQL(
             "CREATE TABLE IF NOT EXISTS `feed_post` (" +
                 "`account_did` TEXT NOT NULL, `feed_type` TEXT NOT NULL, `feed_uri` TEXT NOT NULL, " +
-                "`position` INTEGER NOT NULL, `uri` TEXT NOT NULL, `cid` TEXT NOT NULL, " +
-                "`author_did` TEXT NOT NULL, `indexed_at` INTEGER NOT NULL, `text` TEXT NOT NULL, " +
-                "`reposted_by_did` TEXT, `reply_root_uri` TEXT, `reply_parent_uri` TEXT, `entry_blob` TEXT, " +
+                "`position` INTEGER NOT NULL, `uri` TEXT NOT NULL, " +
+                "`reposted_by_did` TEXT, `reposted_by_label` TEXT, " +
+                "`reply_root_uri` TEXT, `reply_parent_uri` TEXT, " +
                 "PRIMARY KEY(`account_did`, `feed_type`, `feed_uri`, `position`))",
         )
         connection.execSQL("CREATE INDEX IF NOT EXISTS `index_feed_post_uri` ON `feed_post` (`uri`)")
-        connection.execSQL(
-            "CREATE INDEX IF NOT EXISTS `index_feed_post_author_did` ON `feed_post` (`author_did`)",
-        )
         connection.execSQL("DELETE FROM `feed_remote_keys`")
         // The by-URI post store. New at v7, so there is nothing to carry over.
         connection.execSQL(

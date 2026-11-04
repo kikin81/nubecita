@@ -50,11 +50,6 @@ internal class CachedPostDaoTest : DatabaseTest() {
         feedUri = FEED_URI,
         position = position,
         uri = postUri,
-        cid = "cid-$position",
-        authorDid = "did:author",
-        indexedAt = Instant.fromEpochMilliseconds(position.toLong()),
-        text = "entry $position",
-        entryBlob = null,
     )
 
     @Test

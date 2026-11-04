@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.database.model.CachedPostEntity
 import net.kikin.nubecita.core.database.model.FeedPostEntity
 import org.junit.After
 import org.junit.Assert.assertTrue
@@ -70,6 +71,7 @@ internal class FeedPostScaleTest {
     fun scale_powerUserCache_readsStayFlat_writesStayCheap_sizeBounded() =
         runTest {
             val dao = db.feedPostDao()
+            val cachedDao = db.cachedPostDao()
 
             // ---- populate: >=PARTITIONS partitions x CAP posts, cross-feed overlap ----
             val partitions = buildPartitions()
@@ -90,6 +92,7 @@ internal class FeedPostScaleTest {
                             }
                         rowFor(partition, position, postUri)
                     }
+                cachedDao.upsert(rows.map { cachedPostRow(partition, it.position, it.uri) })
                 dao.upsert(rows)
                 totalInserted += rows.size
             }
@@ -142,6 +145,7 @@ internal class FeedPostScaleTest {
                     // insert page rows. (The real mediator wraps these in one
                     // withTransaction; the timing is dominated by the same SQL.)
                     dao.clearPartition(sample.accountDid, sample.feedType, sample.feedUri)
+                    cachedDao.upsert(refreshRows.map { cachedPostRow(sample, it.position, it.uri) })
                     dao.upsert(refreshRows)
                 }
             Log.i(TAG, "REFRESH (clearPartition + upsert $CAP rows) took $refreshMs ms")
@@ -193,12 +197,29 @@ internal class FeedPostScaleTest {
             feedUri = partition.feedUri,
             position = position,
             uri = postUri,
-            cid = "bafyrei$position",
-            authorDid = "did:plc:author${position % 200}",
-            indexedAt = Instant.fromEpochMilliseconds(1_700_000_000_000L + position),
-            text = "post $position in ${partition.feedType}/${partition.feedUri}",
-            entryBlob = representativeBlob(postUri, position),
         )
+
+    /**
+     * The stored post an entry references. The blob lives here now, not on the
+     * envelope, so the on-disk figure this test reports covers both grains.
+     *
+     * NOTE: [representativeBlob] is still `postView`-shaped. The cache persists
+     * a whole feed entry, and a reply entry contributes two further posts, so
+     * this fixture understates the real shape — see task 1.6.
+     */
+    private fun cachedPostRow(
+        partition: Partition,
+        position: Int,
+        postUri: String,
+    ) = CachedPostEntity(
+        accountDid = partition.accountDid,
+        uri = postUri,
+        cid = "cid-$position",
+        authorDid = "did:plc:author${position % 200}",
+        indexedAt = Instant.fromEpochMilliseconds(1_700_000_000_000L + position),
+        text = "post $position in ${partition.feedType}/${partition.feedUri}",
+        postBlob = representativeBlob(postUri, position),
+    )
 
     /** Run a raw `EXPLAIN QUERY PLAN` and concatenate the `detail` column rows. */
     private fun queryPlan(
