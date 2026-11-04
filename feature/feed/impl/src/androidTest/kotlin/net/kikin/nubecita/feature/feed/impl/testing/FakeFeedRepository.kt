@@ -47,7 +47,18 @@ internal class FakeFeedRepository
             n: Int,
         ): Flow<List<PostUi>> = flowOf(emptyList())
 
-        override suspend fun refresh(feedKey: FeedKey): Result<Boolean> = Result.success(true)
+        /** How many times the destructive path was taken. */
+        @Volatile
+        var refreshCalls: Int = 0
+
+        /** Whether the reader's place was dropped — what the destructive path does to it. */
+        @Volatile
+        var anchorCleared: Boolean = false
+
+        override suspend fun refresh(feedKey: FeedKey): Result<Boolean> {
+            refreshCalls++
+            return Result.success(true)
+        }
 
         override suspend fun catchUp(feedKey: FeedKey): Result<CatchUpOutcome> = Result.success(CatchUpOutcome.NOT_POSSIBLE)
 
@@ -70,6 +81,7 @@ internal class FakeFeedRepository
         }
 
         override suspend fun clearAnchor(feedKey: FeedKey) {
+            anchorCleared = true
             storedAnchor = null
             savedAnchor = null
         }

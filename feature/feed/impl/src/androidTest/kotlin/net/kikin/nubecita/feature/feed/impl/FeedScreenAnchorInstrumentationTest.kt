@@ -8,6 +8,8 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import dagger.hilt.android.testing.HiltAndroidRule
@@ -110,6 +112,56 @@ class FeedScreenAnchorInstrumentationTest {
                 .isNotEmpty()
         }
         composeTestRule.onNodeWithText(postText(SCROLL_TARGET), substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun openingTheFeed_doesNotBehaveLikeAPullToRefresh() {
+        // The regression this whole epic exists to prevent. Launch used to
+        // mean "fetch the top"; it now means "show me where I was", and only
+        // the gesture is destructive (D8). If opening ever cleared the place
+        // again, every session would start at the top with no symptom in any
+        // unit test.
+        val target = FakeFeedRepository.posts(FIXTURE_SIZE)[SCROLL_TARGET].key
+        fake.storedAnchor = FeedAnchor(position = SCROLL_TARGET, itemKey = target, offset = 0)
+
+        composeTestRule.setContent {
+            NubecitaTheme {
+                CompositionLocalProvider(LocalMainShellNavState provides navState) {
+                    FeedScreen()
+                }
+            }
+        }
+        awaitPost(SCROLL_TARGET)
+
+        assertEquals(false, fake.anchorCleared)
+        assertEquals(0, fake.refreshCalls)
+    }
+
+    @Test
+    fun pullToRefresh_dropsTheReadersPlace() {
+        // The one destructive path (D8). The gesture means "I am done with
+        // this, give me a clean timeline", so keeping the place and restoring
+        // into the old one would be the opposite of what was asked.
+        //
+        // No stored anchor here on purpose: the gesture has to be made from
+        // the top of the list, and restoring one would scroll away from it.
+        // The assertion holds either way — the gesture drops the place
+        // whether or not there was one to drop.
+        composeTestRule.setContent {
+            NubecitaTheme {
+                CompositionLocalProvider(LocalMainShellNavState provides navState) {
+                    FeedScreen()
+                }
+            }
+        }
+        awaitPost(0)
+
+        composeTestRule.onNodeWithTag(FeedTestTags.LIST).performTouchInput {
+            swipeDown(startY = centerY, endY = bottom)
+        }
+
+        composeTestRule.waitUntil(timeoutMillis = WAIT_TIMEOUT_MILLIS) { fake.anchorCleared }
+        assertEquals(true, fake.anchorCleared)
     }
 
     private fun awaitPost(index: Int) {
