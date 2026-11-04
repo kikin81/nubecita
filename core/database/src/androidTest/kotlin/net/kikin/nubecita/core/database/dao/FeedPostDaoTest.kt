@@ -184,6 +184,43 @@ internal class FeedPostDaoTest : DatabaseTest() {
         }
 
     @Test
+    fun minPosition_returnsNewest_orNullWhenEmpty() =
+        runTest {
+            assertNull(dao.minPosition(ACCOUNT, TYPE, FEED_URI))
+            upsertEntries(listOf(post(position = 0), post(position = -7), post(position = 3)))
+            // Newest = lowest, and a prepend puts it below zero.
+            assertEquals(-7, dao.minPosition(ACCOUNT, TYPE, FEED_URI))
+        }
+
+    @Test
+    fun maxNegativePosition_findsTheBottomOfThePrependBlock() =
+        runTest {
+            // Where an interrupted catch-up continues from. Positions at or
+            // above zero are the pre-existing partition and must not count.
+            upsertEntries(listOf(post(position = -250), post(position = -249), post(position = 0), post(position = 4)))
+            assertEquals(-249, dao.maxNegativePosition(ACCOUNT, TYPE, FEED_URI))
+        }
+
+    @Test
+    fun maxNegativePosition_isNullWhenNothingWasPrepended() =
+        runTest {
+            upsertEntries(listOf(post(position = 0), post(position = 1)))
+            assertNull(dao.maxNegativePosition(ACCOUNT, TYPE, FEED_URI))
+        }
+
+    @Test
+    fun firstPositionAtOrAbove_boundsTheRemainingWindow() =
+        runTest {
+            // The prepend's room check. From -250 the next occupied row is
+            // -249, so one slot is free; from -248 it is 0, so the window
+            // between them is what a resumed fill may still use.
+            upsertEntries(listOf(post(position = -249), post(position = 0)))
+            assertEquals(-249, dao.firstPositionAtOrAbove(ACCOUNT, TYPE, FEED_URI, from = -250))
+            assertEquals(0, dao.firstPositionAtOrAbove(ACCOUNT, TYPE, FEED_URI, from = -248))
+            assertNull(dao.firstPositionAtOrAbove(ACCOUNT, TYPE, FEED_URI, from = 1))
+        }
+
+    @Test
     fun upsert_overwritesSamePositionRow() =
         runTest {
             upsertEntries(listOf(post(position = 0, postUri = "at://old")))

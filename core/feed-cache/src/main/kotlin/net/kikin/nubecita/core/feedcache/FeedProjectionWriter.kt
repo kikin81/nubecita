@@ -46,10 +46,11 @@ import javax.inject.Inject
  *   and it is the only direction that can extend a chain across the pagination
  *   cut.
  *
- * A PREPEND writer is deliberately absent until the prepend path itself lands;
- * when it does, it seeds **neither** parameter, so a thread resurfaces with its
- * newer reply above the reader rather than being suppressed by an occurrence
- * they already scrolled past.
+ * - [writePrepend] lands above what is already rendered and seeds **neither**
+ *   parameter, so a thread resurfaces with its newer reply above the reader
+ *   rather than being suppressed by an occurrence they already scrolled past.
+ *   It also does not merge across the seam: the entries below it are older
+ *   than the reader's last session, not the continuation of this page.
  *
  * Callers run this inside the same transaction as the entry and post writes, so
  * no reader observes a partition whose projection disagrees with its rows.
@@ -202,6 +203,51 @@ internal class FeedProjectionWriter
 
             val base = (feedItemDao.maxPosition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri) ?: -1) + 1
             write(feedKey, items, basePosition = base)
+            recordFingerprint(feedKey)
+            return items.size
+        }
+
+        /** [writePrepend] with the current viewer and preferences. */
+        suspend fun writePrepend(
+            feedKey: FeedKey,
+            page: List<FeedViewPost>,
+            basePosition: Int,
+        ) = writePrepend(feedKey, page, basePosition, viewerDid(), prefs())
+
+        /**
+         * Writes a catch-up page's projection above what is already there, at
+         * positions the caller allocated.
+         *
+         * [basePosition] is passed in rather than derived because the prepend's
+         * allocation is a partition-wide decision: the entry rows and these
+         * projection rows share one reserved window, so only the mediator —
+         * which knows how much of the window the fill has already used — can
+         * say where this page starts. A block of items is never longer than the
+         * block of entries it was projected from, so it always fits inside the
+         * slice the entries took.
+         *
+         * No seeding and no chain merge (D7). The partition below the seam was
+         * fetched in an earlier session, so an occurrence down there is
+         * something the reader has already scrolled past — suppressing the new
+         * reply on its account would mean the thread never resurfaces, which is
+         * the regression persisting the projection would otherwise introduce.
+         * De-duplication within the page still applies.
+         */
+        suspend fun writePrepend(
+            feedKey: FeedKey,
+            page: List<FeedViewPost>,
+            basePosition: Int,
+            viewerDid: String?,
+            prefs: ModerationPrefs,
+        ): Int {
+            val items =
+                page
+                    .filteredForFeed(feedKey, viewerDid)
+                    .toFeedItemsUi(prefs, viewerDid)
+                    .dedupeByThreadRoot()
+                    .dedupeClusterContext()
+            if (items.isEmpty()) return 0
+            write(feedKey, items, basePosition = basePosition)
             recordFingerprint(feedKey)
             return items.size
         }

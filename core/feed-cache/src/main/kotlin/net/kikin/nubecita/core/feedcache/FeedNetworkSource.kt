@@ -158,8 +158,15 @@ class FeedNetworkSource
                 }
             }
 
-        private companion object {
-            const val TAG = "FeedNetworkSource"
+        internal companion object {
+            private const val TAG = "FeedNetworkSource"
+
+            /**
+             * Entries one fetch asks for. Visible to the mediator because the
+             * catch-up budget is denominated in *fetched entries* (D19), so the
+             * window arithmetic has to be derived from this rather than from
+             * `PagingConfig.pageSize`, which is a different number.
+             */
             const val DEFAULT_LIMIT = 50
         }
     }

@@ -70,6 +70,26 @@ internal class FeedRefresherTest {
         }
 
     @Test
+    fun `the refresh records the page's startCursor as the catch-up boundary`() =
+        runTest {
+            // Without this the prepend has no range to fetch and the catch-up
+            // never runs at all — and nothing else here would notice, since
+            // every other assertion is about the append direction.
+            coEvery { networkSource.fetchPage(key, cursor = null) } returns
+                Result.success(FeedNetworkPage(listOf(feedPost("a", "first")), "next-cursor", "newest-item"))
+            val keySlot = slot<FeedRemoteKeyEntity>()
+            coEvery { remoteKeyDao.upsert(capture(keySlot)) } returns Unit
+
+            refresher.refresh(key)
+
+            assertEquals("newest-item", keySlot.captured.boundarySince)
+            // A refresh replaces the partition, so any in-flight fill
+            // describes a range that no longer exists.
+            assertEquals(null, keySlot.captured.fillCursor)
+            assertEquals(null, keySlot.captured.pendingBoundary)
+        }
+
+    @Test
     fun `the page's posts are written before its envelopes`() =
         runTest {
             // Without this the refresher can stop writing cached_post and every

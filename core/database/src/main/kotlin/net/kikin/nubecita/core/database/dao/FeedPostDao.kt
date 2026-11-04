@@ -116,6 +116,68 @@ interface FeedPostDao {
         cap: Int,
     )
 
+    /**
+     * The partition's newest position — the lowest value, since position 0 is
+     * the top of the newest REFRESH page and a prepend goes negative.
+     *
+     * A prepend allocates its reserved window relative to this rather than
+     * assuming `-1`, so a catch-up into an already-prepended partition cannot
+     * collide with the batch above it (design D17).
+     */
+    @Query(
+        "SELECT MIN(position) FROM feed_post " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri",
+    )
+    suspend fun minPosition(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+    ): Int?
+
+    /**
+     * The bottom of the prepend block: the highest negative position in the
+     * partition, or `null` when nothing has been prepended.
+     *
+     * This is how an interrupted multi-page catch-up finds where to continue.
+     * The fill writes contiguously from the top of its window, so the position
+     * after this one is the next free slot — and deriving it from the rows
+     * means a fill that resumes after process death lands below the pages that
+     * already landed rather than on top of them.
+     */
+    @Query(
+        "SELECT MAX(position) FROM feed_post " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND position < 0",
+    )
+    suspend fun maxNegativePosition(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+    ): Int?
+
+    /**
+     * The lowest occupied position at or above [from], or `null` if nothing is
+     * stored there.
+     *
+     * The prepend's room check. The reserved window bounds one fill, but the
+     * round budget is per-`load()`, so a fill interrupted and resumed often
+     * enough could otherwise walk past its window — and because the write is
+     * an `@Upsert` keyed on `position`, that would silently overwrite stored
+     * entries instead of failing. Asking the database what is still free turns
+     * that into a stop condition.
+     */
+    @Query(
+        "SELECT MIN(position) FROM feed_post " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND position >= :from",
+    )
+    suspend fun firstPositionAtOrAbove(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        from: Int,
+    ): Int?
+
     @Query("DELETE FROM feed_post WHERE account_did = :accountDid")
     suspend fun clearAccount(accountDid: String)
 }

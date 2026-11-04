@@ -64,6 +64,16 @@ private fun replyEntry(uri: String): FeedViewPost {
     return writerJson.decodeFromJsonElement(FeedViewPost.serializer(), wire)
 }
 
+/** A plain top-level entry — its own thread root, so two of these survive de-duplication together. */
+private fun topLevelEntry(uri: String): FeedViewPost {
+    val wire =
+        buildJsonObject {
+            put("\$type", "app.bsky.feed.defs#feedViewPost")
+            put("post", postJson(uri))
+        }
+    return writerJson.decodeFromJsonElement(FeedViewPost.serializer(), wire)
+}
+
 internal class FeedProjectionWriterTest {
     private val feedItemDao = mockk<FeedItemDao>(relaxed = true)
     private val partitionStateDao = mockk<FeedPartitionStateDao>(relaxed = true)
@@ -138,6 +148,49 @@ internal class FeedProjectionWriterTest {
             writer().writeRefresh(FeedKey.following("did:plc:me"), listOf(replyEntry("at://p/1")))
 
             coVerify { feedItemDao.clearPartition("did:plc:me", "FOLLOWING", "") }
+        }
+
+    @Test
+    fun `a prepend writes at the position the caller allocated`() =
+        runTest {
+            // The mediator owns the window arithmetic: only it knows how much
+            // of the reserved slice the fill has already used.
+            prefs(hideReplies = false)
+            val rows = slot<List<FeedItemEntity>>()
+            coEvery { feedItemDao.upsert(capture(rows)) } returns Unit
+
+            val written =
+                writer().writePrepend(
+                    FeedKey.following("did:plc:me"),
+                    listOf(topLevelEntry("at://p/1"), topLevelEntry("at://p/2")),
+                    basePosition = -250,
+                )
+
+            assertEquals(2, written)
+            assertEquals(listOf(-250, -249), rows.captured.map { it.position })
+        }
+
+    @Test
+    fun `a prepend neither clears the partition nor seeds from it`() =
+        runTest {
+            // D7: the entries below the seam were fetched in an earlier
+            // session, so an occurrence down there is one the reader already
+            // scrolled past. Seeding from it would suppress the new reply and
+            // the thread would never resurface — the regression that comes free
+            // with persisting the projection.
+            prefs(hideReplies = false)
+
+            writer().writePrepend(
+                FeedKey.following("did:plc:me"),
+                listOf(replyEntry("at://p/1")),
+                basePosition = -250,
+            )
+
+            coVerify(exactly = 0) { feedItemDao.clearPartition(any(), any(), any()) }
+            coVerify(exactly = 0) { feedItemDao.seenThreadRoots(any(), any(), any()) }
+            coVerify(exactly = 0) { feedItemDao.renderedPostUris(any(), any(), any()) }
+            // No chain merge across the seam either.
+            coVerify(exactly = 0) { feedItemDao.tailItem(any(), any(), any()) }
         }
 
     @Test
