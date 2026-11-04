@@ -16,6 +16,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedItemDao
+import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.model.FeedItemEntity
 import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
@@ -64,6 +65,7 @@ private fun replyEntry(uri: String): FeedViewPost {
 
 internal class FeedProjectionWriterTest {
     private val feedItemDao = mockk<FeedItemDao>(relaxed = true)
+    private val partitionStateDao = mockk<FeedPartitionStateDao>(relaxed = true)
     private val cachedPostDao = mockk<CachedPostDao>(relaxed = true)
     private val sessionStateProvider =
         mockk<SessionStateProvider>().also {
@@ -78,6 +80,7 @@ internal class FeedProjectionWriterTest {
     private fun writer() =
         FeedProjectionWriter(
             feedItemDao = feedItemDao,
+            partitionStateDao = partitionStateDao,
             cachedPostDao = cachedPostDao,
             sessionStateProvider = sessionStateProvider,
             moderationPreferences = moderationPreferences,
@@ -132,6 +135,47 @@ internal class FeedProjectionWriterTest {
             writer().writeRefresh(FeedKey.following("did:plc:me"), listOf(replyEntry("at://p/1")))
 
             coVerify { feedItemDao.clearPartition("did:plc:me", "FOLLOWING", "") }
+        }
+
+    @Test
+    fun `the projection records the preferences it was built with`() =
+        runTest {
+            prefs(hideReplies = false)
+            val state = slot<net.kikin.nubecita.core.database.model.FeedPartitionStateEntity>()
+            coEvery { partitionStateDao.upsert(capture(state)) } returns Unit
+
+            writer().writeRefresh(FeedKey.following("did:plc:me"), listOf(replyEntry("at://p/1")))
+
+            assertTrue(state.isCaptured, "a projection must record its preferences")
+            assertTrue(
+                state.captured.prefsFingerprint?.contains("replies=false") == true,
+                "fingerprint should reflect the reply tuner, was ${state.captured.prefsFingerprint}",
+            )
+        }
+
+    @Test
+    fun `a different reply tuner yields a different fingerprint`() =
+        runTest {
+            // The whole mechanism rests on this: equal preferences must give
+            // equal strings and different ones must differ, or a stale
+            // projection either never refreshes or refreshes forever.
+            val captured = mutableListOf<String?>()
+            coEvery { partitionStateDao.upsert(any()) } answers {
+                captured += firstArg<net.kikin.nubecita.core.database.model.FeedPartitionStateEntity>().prefsFingerprint
+            }
+
+            prefs(hideReplies = false)
+            writer().writeRefresh(FeedKey.following("did:plc:me"), listOf(replyEntry("at://p/1")))
+            prefs(hideReplies = true)
+            // hideReplies = true filters the page to nothing, so project a
+            // generator page instead to still reach the fingerprint write.
+            writer().writeRefresh(
+                FeedKey("did:plc:me", FeedType.DISCOVER, "at://gen"),
+                listOf(replyEntry("at://p/2")),
+            )
+
+            assertEquals(2, captured.size)
+            assertTrue(captured[0] != captured[1], "fingerprints must differ: $captured")
         }
 
     @Test

@@ -6,8 +6,10 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedItemDao
+import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.model.FeedItemEntity
 import net.kikin.nubecita.core.database.model.FeedItemMemberEntity
+import net.kikin.nubecita.core.database.model.FeedPartitionStateEntity
 import net.kikin.nubecita.core.feedmapping.dedupeByThreadRoot
 import net.kikin.nubecita.core.feedmapping.dedupeClusterContext
 import net.kikin.nubecita.core.feedmapping.mergeChainBoundary
@@ -18,6 +20,7 @@ import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.data.models.FeedItemUi
+import net.kikin.nubecita.data.models.FeedViewPrefs
 import javax.inject.Inject
 
 /**
@@ -54,6 +57,7 @@ internal class FeedProjectionWriter
     @Inject
     constructor(
         private val feedItemDao: FeedItemDao,
+        private val partitionStateDao: FeedPartitionStateDao,
         private val cachedPostDao: CachedPostDao,
         private val sessionStateProvider: SessionStateProvider,
         private val moderationPreferences: ModerationPreferencesRepository,
@@ -71,6 +75,8 @@ internal class FeedProjectionWriter
         private fun viewerDid(): String? = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
 
         private fun prefs(): ModerationPrefs = moderationPreferences.prefs.value
+
+        private fun feedViewPrefs(): FeedViewPrefs = feedViewPreferences.prefs.value
 
         /**
          * The page as the viewer's feed-view preferences leave it.
@@ -91,7 +97,7 @@ internal class FeedProjectionWriter
             viewerDid: String?,
         ): List<FeedViewPost> {
             if (!feedKey.feedType.isFollowScoped) return this
-            val viewPrefs = feedViewPreferences.prefs.value
+            val viewPrefs = feedViewPrefs()
             return filter { it.shouldDisplayInFollowingFeed(viewPrefs, viewerDid) }
         }
 
@@ -122,6 +128,7 @@ internal class FeedProjectionWriter
                     .dedupeByThreadRoot()
                     .dedupeClusterContext()
             write(feedKey, items, basePosition = 0)
+            recordFingerprint(feedKey)
         }
 
         /**
@@ -186,6 +193,27 @@ internal class FeedProjectionWriter
 
             val base = (feedItemDao.maxPosition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri) ?: -1) + 1
             write(feedKey, items, basePosition = base)
+            recordFingerprint(feedKey)
+        }
+
+        /**
+         * Stores the preferences this projection was computed with.
+         *
+         * Written on every projection, including an append: the partition's
+         * projection is only coherent if every row in it was produced under the
+         * same preferences, so the fingerprint describes the partition rather
+         * than the page.
+         */
+        private suspend fun recordFingerprint(feedKey: FeedKey) {
+            val fingerprint = projectionPrefsFingerprint(prefs(), feedViewPrefs())
+            partitionStateDao.upsert(
+                FeedPartitionStateEntity(
+                    accountDid = feedKey.accountDid,
+                    feedType = feedKey.feedType.name,
+                    feedUri = feedKey.feedUri,
+                    prefsFingerprint = fingerprint,
+                ),
+            )
         }
 
         private data class Tail(

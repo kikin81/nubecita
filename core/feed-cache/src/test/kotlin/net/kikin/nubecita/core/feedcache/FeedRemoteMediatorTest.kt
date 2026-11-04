@@ -15,6 +15,7 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.add
@@ -23,11 +24,17 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import net.kikin.nubecita.core.database.dao.CachedPostDao
+import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.model.CachedFeedEntry
+import net.kikin.nubecita.core.database.model.FeedPartitionStateEntity
 import net.kikin.nubecita.core.database.model.FeedPostEntity
 import net.kikin.nubecita.core.database.model.FeedRemoteKeyEntity
+import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
+import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
+import net.kikin.nubecita.core.moderation.ModerationPrefs
+import net.kikin.nubecita.data.models.FeedViewPrefs
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -38,6 +45,21 @@ internal class FeedRemoteMediatorTest {
     private val key = FeedKey.following("did:plc:me")
     private val feedPostDao = mockk<FeedPostDao>(relaxed = true)
     private val cachedPostDao = mockk<CachedPostDao>(relaxed = true)
+    private val partitionStateDao =
+        mockk<FeedPartitionStateDao>(relaxed = true).also {
+            // Explicit: a relaxed mock answers a nullable return with a STUB,
+            // not null, which would read as "a fingerprint exists and differs"
+            // and make every partition look stale.
+            coEvery { it.state(any(), any(), any()) } returns null
+        }
+    private val moderationPreferences =
+        mockk<ModerationPreferencesRepository>().also {
+            coEvery { it.prefs } returns MutableStateFlow(ModerationPrefs.DEFAULT)
+        }
+    private val feedViewPreferences =
+        mockk<FeedViewPreferencesRepository>().also {
+            coEvery { it.prefs } returns MutableStateFlow(FeedViewPrefs.DEFAULT)
+        }
     private val projectionWriter = mockk<FeedProjectionWriter>(relaxed = true)
     private val remoteKeyDao = mockk<FeedRemoteKeyDao>(relaxed = true)
     private val networkSource = mockk<FeedNetworkSource>()
@@ -55,6 +77,9 @@ internal class FeedRemoteMediatorTest {
             feedPostDao = feedPostDao,
             cachedPostDao = cachedPostDao,
             projectionWriter = projectionWriter,
+            partitionStateDao = partitionStateDao,
+            moderationPreferences = moderationPreferences,
+            feedViewPreferences = feedViewPreferences,
             remoteKeyDao = remoteKeyDao,
             transactionRunner = transactionRunner,
             // REFRESH now delegates to the shared FeedRefresher; wire a real one
@@ -243,6 +268,47 @@ internal class FeedRemoteMediatorTest {
     fun `initialize skips refresh when partition already has cached rows`() =
         runTest {
             coEvery { feedPostDao.maxPosition("did:plc:me", "FOLLOWING", "") } returns 12
+
+            assertEquals(RemoteMediator.InitializeAction.SKIP_INITIAL_REFRESH, mediator().initialize())
+        }
+
+    @Test
+    fun `initialize launches a refresh when the projection's preferences are stale`() =
+        runTest {
+            // The reader changed a setting since this partition was projected,
+            // so its stored rows would keep showing what they asked to hide.
+            coEvery { feedPostDao.maxPosition("did:plc:me", "FOLLOWING", "") } returns 12
+            coEvery { partitionStateDao.state("did:plc:me", "FOLLOWING", "") } returns
+                FeedPartitionStateEntity("did:plc:me", "FOLLOWING", "", prefsFingerprint = "stale-fingerprint")
+
+            assertEquals(RemoteMediator.InitializeAction.LAUNCH_INITIAL_REFRESH, mediator().initialize())
+        }
+
+    @Test
+    fun `initialize skips when the projection's preferences still match`() =
+        runTest {
+            coEvery { feedPostDao.maxPosition("did:plc:me", "FOLLOWING", "") } returns 12
+            coEvery { partitionStateDao.state("did:plc:me", "FOLLOWING", "") } returns
+                FeedPartitionStateEntity(
+                    "did:plc:me",
+                    "FOLLOWING",
+                    "",
+                    prefsFingerprint =
+                        projectionPrefsFingerprint(ModerationPrefs.DEFAULT, FeedViewPrefs.DEFAULT),
+                )
+
+            assertEquals(RemoteMediator.InitializeAction.SKIP_INITIAL_REFRESH, mediator().initialize())
+        }
+
+    @Test
+    fun `a partition with no recorded preferences is not treated as stale`() =
+        runTest {
+            // Rows written before the column existed have nothing recorded.
+            // Calling that stale would refetch every partition once on upgrade
+            // for no reader-visible gain.
+            coEvery { feedPostDao.maxPosition("did:plc:me", "FOLLOWING", "") } returns 12
+            coEvery { partitionStateDao.state("did:plc:me", "FOLLOWING", "") } returns
+                FeedPartitionStateEntity("did:plc:me", "FOLLOWING", "", prefsFingerprint = null)
 
             assertEquals(RemoteMediator.InitializeAction.SKIP_INITIAL_REFRESH, mediator().initialize())
         }

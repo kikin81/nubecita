@@ -8,10 +8,13 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import net.kikin.nubecita.core.database.dao.CachedPostDao
+import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.model.CachedFeedEntry
 import net.kikin.nubecita.core.database.model.FeedRemoteKeyEntity
+import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
+import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 
 /**
  * Paging 3 [RemoteMediator] for one cached feed partition. Reverse-chronological,
@@ -35,6 +38,9 @@ internal class FeedRemoteMediator
         private val feedPostDao: FeedPostDao,
         private val cachedPostDao: CachedPostDao,
         private val projectionWriter: FeedProjectionWriter,
+        private val partitionStateDao: FeedPartitionStateDao,
+        private val moderationPreferences: ModerationPreferencesRepository,
+        private val feedViewPreferences: FeedViewPreferencesRepository,
         private val remoteKeyDao: FeedRemoteKeyDao,
         private val transactionRunner: FeedCacheTransactionRunner,
         private val feedRefresher: FeedRefresher,
@@ -53,12 +59,47 @@ internal class FeedRemoteMediator
          * the off-scroll refresh schedule. We don't add a `fetched_at` column or
          * a freshness check here; the foundation only needs "cached ⇒ skip".
          */
-        override suspend fun initialize(): InitializeAction =
-            if (feedPostDao.maxPosition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri) != null) {
-                InitializeAction.SKIP_INITIAL_REFRESH
-            } else {
+        override suspend fun initialize(): InitializeAction {
+            val cached = feedPostDao.maxPosition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri) != null
+            if (!cached) return InitializeAction.LAUNCH_INITIAL_REFRESH
+            // A cached partition is still stale if the viewer's preferences have
+            // moved since its projection was computed: the stored rows would
+            // keep showing replies the reader has just asked to hide, and the
+            // setting would appear to do nothing.
+            return if (projectionIsStale()) {
                 InitializeAction.LAUNCH_INITIAL_REFRESH
+            } else {
+                InitializeAction.SKIP_INITIAL_REFRESH
             }
+        }
+
+        /**
+         * Whether the partition's projection was built under different viewer
+         * preferences than the current ones.
+         *
+         * An absent fingerprint counts as **not** stale: a partition written
+         * before this column existed has no recorded preferences, and treating
+         * that as a mismatch would refetch every partition once on upgrade for
+         * no reader-visible benefit.
+         *
+         * A mismatch currently triggers a refetch rather than the local
+         * re-projection D22 chose, and that is a deliberate interim — see D27.
+         * Re-projecting without a fetch needs the entry-level wire context on
+         * disk, which the two-grain split removed; a refetch applies the
+         * preference correctly today at the cost of the reader's position.
+         */
+        private suspend fun projectionIsStale(): Boolean {
+            val stored =
+                partitionStateDao
+                    .state(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
+                    ?.prefsFingerprint ?: return false
+            val live =
+                projectionPrefsFingerprint(
+                    moderation = moderationPreferences.prefs.value,
+                    feedView = feedViewPreferences.prefs.value,
+                )
+            return stored != live
+        }
 
         override suspend fun load(
             loadType: LoadType,

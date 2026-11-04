@@ -12,6 +12,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedItemDao
+import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.model.CachedFeedEntry
@@ -99,6 +100,7 @@ internal open class DefaultFeedRepository
         private val feedPostDao: FeedPostDao,
         private val cachedPostDao: CachedPostDao,
         private val feedItemDao: FeedItemDao,
+        private val partitionStateDao: FeedPartitionStateDao,
         private val remoteKeyDao: FeedRemoteKeyDao,
         private val mediatorFactory: FeedRemoteMediator.Factory,
         private val sessionStateProvider: SessionStateProvider,
@@ -175,6 +177,7 @@ internal open class DefaultFeedRepository
                 feedPostDao.clearAccount(accountDid)
                 feedItemDao.clearAccount(accountDid)
                 cachedPostDao.clearAccount(accountDid)
+                partitionStateDao.clearAccount(accountDid)
                 remoteKeyDao.clearAccount(accountDid)
             }
         }

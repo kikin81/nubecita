@@ -27,6 +27,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedItemDao
+import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.model.CachedFeedEntry
@@ -42,6 +43,7 @@ internal class FeedRepositoryTest {
     private val cachedPostDao = mockk<CachedPostDao>(relaxed = true)
     private val projectionWriter = mockk<FeedProjectionWriter>(relaxed = true)
     private val feedItemDao = mockk<FeedItemDao>(relaxed = true)
+    private val partitionStateDao = mockk<FeedPartitionStateDao>(relaxed = true)
     private val remoteKeyDao = mockk<FeedRemoteKeyDao>(relaxed = true)
     private val networkSource = mockk<FeedNetworkSource>(relaxed = true)
 
@@ -82,6 +84,7 @@ internal class FeedRepositoryTest {
             feedPostDao = feedPostDao,
             cachedPostDao = cachedPostDao,
             feedItemDao = feedItemDao,
+            partitionStateDao = partitionStateDao,
             remoteKeyDao = remoteKeyDao,
             mediatorFactory = factory,
             sessionStateProvider = sessionProvider,
@@ -200,6 +203,7 @@ internal class FeedRepositoryTest {
             coVerify { feedPostDao.clearAccount("did:plc:me") }
             coVerify { feedItemDao.clearAccount("did:plc:me") }
             coVerify { cachedPostDao.clearAccount("did:plc:me") }
+            coVerify { partitionStateDao.clearAccount("did:plc:me") }
             coVerify { remoteKeyDao.clearAccount("did:plc:me") }
         }
 
@@ -256,6 +260,7 @@ private class TestFeedRepository(
     feedPostDao: FeedPostDao,
     cachedPostDao: CachedPostDao,
     feedItemDao: FeedItemDao,
+    partitionStateDao: FeedPartitionStateDao,
     remoteKeyDao: FeedRemoteKeyDao,
     mediatorFactory: FeedRemoteMediator.Factory,
     sessionStateProvider: SessionStateProvider,
@@ -267,6 +272,7 @@ private class TestFeedRepository(
         feedPostDao,
         cachedPostDao,
         feedItemDao,
+        partitionStateDao,
         remoteKeyDao,
         mediatorFactory,
         sessionStateProvider,

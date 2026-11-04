@@ -116,6 +116,14 @@ internal object Migration6To7 : Migration(6, 7) {
         // The prepend cursors. ALTER rather than a recreate: the table keeps its
         // shape and its rows were already emptied above, so there is nothing to
         // preserve and nothing to rewrite.
+        // Per-partition reader state. New at v7, and the future home of the
+        // scroll anchor as well as this fingerprint.
+        connection.execSQL(
+            "CREATE TABLE IF NOT EXISTS `feed_partition_state` (" +
+                "`account_did` TEXT NOT NULL, `feed_type` TEXT NOT NULL, `feed_uri` TEXT NOT NULL, " +
+                "`prefs_fingerprint` TEXT, " +
+                "PRIMARY KEY(`account_did`, `feed_type`, `feed_uri`))",
+        )
         connection.execSQL("ALTER TABLE `feed_remote_keys` ADD COLUMN `boundary_since` TEXT")
         connection.execSQL("ALTER TABLE `feed_remote_keys` ADD COLUMN `fill_cursor` TEXT")
         connection.execSQL("ALTER TABLE `feed_remote_keys` ADD COLUMN `pending_boundary` TEXT")

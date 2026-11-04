@@ -296,3 +296,18 @@ Task 2.3 as planned had the reply filter land in `:core:feed-mapping` *and* `:co
 `:core:feed-mapping` then needs no new dependency at all, because it already depends on `:data:models`. `:core:feed-cache` does gain `:core:feeds`, but for the preferences *repository* it reads at write time, which is a service-to-service edge rather than an inversion.
 
 27 import sites moved with the type, across `:core:feeds`, `:feature:feed:impl` and `:feature:settings:impl`.
+
+### D27 — Local re-projection needs the entry's wire context, which the grain split removed
+
+D22 chose to **re-project** on a preference change rather than invalidate, specifically so the reader keeps their place. Building it exposed a conflict with D15/D24.
+
+The projection's input is a wire `feedViewPost`: the post, plus `reason` and `reply` as open unions. After the two-grain split, `feed_post` is an envelope holding a post reference and three denormalized columns, and `cached_post` holds `postView` blobs. The wire entry is therefore **not recoverable from disk** — the `reason`'s `by` profile is reduced to a DID and a label, and the `reply` slots to two URIs. Reconstructing an approximation would feed the projection something subtly unlike what the server sent, and the grouping rules (`linksTo`, the repost exemption, the cluster shape) are exactly where that drift would show.
+
+So two of my own decisions disagree, and the resolution is a real choice rather than a detail:
+
+1. **Persist the entry's wire context** — a small `reason`/`reply` JSON blob on the envelope. It duplicates nothing (that data has no other home), makes faithful local re-projection possible, and keeps the reader's position on a preference change. Cost: a column, and the write path serializing it.
+2. **Refetch on a preference change** — what is implemented now. Correct, cheap to build, and loses the reader's position exactly when they touched a setting, which is the thing D22 rejected.
+
+What is implemented today is option 2, deliberately and visibly: `FeedRemoteMediator.initialize()` compares the live fingerprint against the partition's and returns `LAUNCH_INITIAL_REFRESH` on a mismatch. The preference applies correctly; the position does not survive. An absent fingerprint counts as *not* stale, so upgrading does not refetch every partition once for nothing.
+
+Also settled here: **D23a's worker clause was unnecessary.** It said a background write should project with the persisted fingerprint rather than live preferences, to avoid reinterpreting the feed under settings the reader has not seen. But a fingerprint is a hash and cannot be projected with, and the concern does not arise: `head` — the widget and Wear read path — reads the raw entry rows, not the projection, and already combines live preferences so a toggle refreshes it immediately. No reader observes the projection while the worker writes, because the worker's foreground guard means the app is backgrounded. The worker projects with live preferences and records the fingerprint, like any other writer.
