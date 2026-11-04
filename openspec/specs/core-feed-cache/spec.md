@@ -284,11 +284,23 @@ Resolution SHALL be by entry identity, never by list index.
 - **WHEN** the user logs out or an account is removed
 - **THEN** that account's anchor rows are deleted in the same operation that clears its `feed_post` and `feed_remote_keys` rows
 
-### Requirement: Database migration v6 → v7
+### Requirement: Database migrations v7, v8 and v9
 
-The system SHALL migrate `NubecitaDatabase` from version 6 to version 7 by widening the persisted feed-entry shape, adding the projected-item table, the prepend cursor columns and the scroll-anchor storage, and committing the exported `7.json` schema.
+The system SHALL reach the persisted feed shape over three schema bumps, each committing its exported `{N}.json`. v7 → v8 and v8 → v9 SHALL be expressible as `@AutoMigration`.
 
-Because the blob's serialized shape changes and the per-entry `reason` / `reply` data was never persisted and cannot be recovered locally, the migration SHALL drop cached feed rows rather than rewrite blobs. Non-feed data SHALL be preserved.
+Because the v7 blob shape changes and the per-entry `reason` / `reply` data was never persisted and cannot be recovered locally, v6 → v7 SHALL drop cached feed rows rather than rewrite blobs. Non-feed data SHALL be preserved.
+
+#### Scenario: v7 widens the entry and adds the projection tables
+- **WHEN** the database upgrades from v6 to v7
+- **THEN** `feed_post` carries the whole entry, `cached_post`, `feed_item`, `feed_item_member` and `feed_partition_state` exist, and `feed_remote_keys` carries the prepend cursor columns
+
+#### Scenario: v8 adds the reader's scroll anchor
+- **WHEN** the database upgrades from v7 to v8
+- **THEN** `feed_partition_state` gains the nullable anchor columns, and a partition with no anchor reads exactly like one the reader has never scrolled
+
+#### Scenario: v9 adds the pill's dismissal waterline
+- **WHEN** the database upgrades from v8 to v9
+- **THEN** `feed_partition_state` gains the nullable dismissal position, and a partition with none falls back to the anchor
 
 #### Scenario: Upgrade drops cached feed rows and preserves everything else
 - **WHEN** the database upgrades from v6 to v7

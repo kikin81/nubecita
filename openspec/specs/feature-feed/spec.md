@@ -220,15 +220,13 @@ The system SHALL replace the placeholder `FeedScreen` in `:feature:feed:impl` wi
 - **WHEN** `FeedState.posts.isNotEmpty()` and `FeedState.loadStatus == Appending`
 - **THEN** the `LazyColumn` SHALL contain `FeedState.posts.size` `PostCard` rows followed by exactly one `PostCardShimmer` tail row
 
-### Requirement: `LazyColumn` items use `PostUi.id` as the stable key
+### Requirement: `LazyColumn` items use a stable, variant-namespaced key
 
 The feed list MUST pass a stable, variant-namespaced `key` for every row, and a `contentType` so the view-type dispatch fast-path applies.
 
 Keys SHALL be: `Single` → the post URI; `ReplyCluster` → `"cluster:"` + the **leaf's** URI; `SelfThreadChain` → `"chain:"` + the **first** post's URI; `Blocked` → `"blocked:"` + URI; `NotFound` → `"notfound:"` + URI.
 
-
-
-#### Scenario: Item key is the PostUi id
+#### Scenario: A single post is keyed by its URI
 
 - **WHEN** the feed list renders a `FeedItemUi.Single`
 - **THEN** its key SHALL be the post's URI, unchanged from before this change
