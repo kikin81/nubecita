@@ -2,31 +2,37 @@
 
 ### Requirement: `FeedRepository` is the only layer that calls `FeedService` directly
 
-The system SHALL expose an `internal interface FeedRepository` in `:feature:feed:impl` fetching pages for supported feed kinds, each returning `Result<TimelinePage>`:
-- `getTimeline`: Following timeline (`app.bsky.feed.getTimeline`).
-- `getFeed`: Generator/custom feed (`app.bsky.feed.getFeed`).
-- `getListFeed`: List feed (`app.bsky.feed.getListFeed`).
-All responses MUST flow through `toFeedItemsUi()` mapping. `DefaultFeedRepository` MUST be the sole class in `:feature:feed:impl` importing `FeedService`. `FeedViewModel` MUST inject the interface.
+The Following timeline SHALL be read from `:core:feed-cache` as `Flow<PagingData<FeedItemUi>>`, collected via `collectAsLazyPagingItems`. `:feature:feed:impl` SHALL NOT declare its own feed repository, `FeedService` call site, or network cursor.
+
+`FeedViewModel` SHALL remain the canonical presenter and keep `FeedState` for every non-paged field — `PagingData` alongside `UiState`, never remote data in a sum type inside `UiState`.
+
+Every feed kind this change switches between — Following, generator/custom, and list — SHALL be addressed by `FeedKey.feedType` and SHALL share one mapper inside `:core:feed-cache`, so no kind gets its own projection branch.
 
 #### Scenario: VM injects the interface
 
 - **WHEN** `FeedViewModel`'s constructor is inspected
-- **THEN** it MUST declare a `private val feedRepository: FeedRepository` parameter
-  (interface type) and MUST NOT declare `DefaultFeedRepository` or `FeedService`
+- **THEN** it MUST declare the `:core:feed-cache` repository **interface** type, and MUST NOT declare a concrete implementation or `FeedService`
 
 #### Scenario: Single import of FeedService
 
-- **WHEN** the project source is grepped for `import io.github.kikin81.atproto.app.bsky.feed.FeedService`
-- **THEN** the only match in production code SHALL be `DefaultFeedRepository.kt`
+- **WHEN** `:feature:feed:impl` production source is grepped for `import io.github.kikin81.atproto.app.bsky.feed.FeedService`
+- **THEN** there SHALL be no match — the only remaining call site in the app is inside `:core:feed-cache`
+
+#### Scenario: The screen collects paged items
+
+- **WHEN** `FeedScreen` renders the loaded timeline
+- **THEN** it SHALL consume `LazyPagingItems<FeedItemUi>` collected from the cache-backed flow
+
+#### Scenario: Non-paged state stays flat on FeedState
+
+- **WHEN** `FeedState` is inspected
+- **THEN** every field other than the paged items SHALL be a concrete UI-ready value or a per-screen sealed status, and no field SHALL wrap remote data in a generic `Async`/`Result` type
 
 #### Scenario: All kinds yield the same page shape
 
-- **WHEN** `getTimeline`, `getFeed`, and `getListFeed` each decode a response of
-  `FeedViewPost`s
-- **THEN** each returns a `TimelinePage` whose `feedItems` were produced by the shared
-  `toFeedItemsUi()` mapper, with no kind-specific mapping branch
+- **WHEN** a Following, generator, and list feed each decode a response of `FeedViewPost`s
+- **THEN** each is stored and projected by the shared `:core:feed-cache` mapper, with no kind-specific mapping branch
 
-## ADDED Requirements
 
 ### Requirement: `FeedViewModel` dispatches by feed kind
 
