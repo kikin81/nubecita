@@ -21,7 +21,9 @@ Get a release ready to promote. Four things, in this order, each stopping the ru
 
 ## Why the order
 
-Journeys run first because they are the only step that can tell you the release is a non-starter, and because steps 3 and 4 cost roughly an hour of device time. Finding a broken Search tab after a 40-minute profile regen wastes the hour.
+The hand-checked flows run first because they are the only thing that can call the release off in minutes, and because steps 3 and 4 cost roughly an hour of device time. Finding a dead Notifications tab after a 40-minute profile regen wastes the hour.
+
+The seven automated journeys are the exception: they are a by-product of the generator in step 4, so their verdict necessarily arrives at the end. That is the cost of not running the generator twice, and it is why step 4 refuses to accept a profile whose coverage line shows a `SKIPPED` journey.
 
 ## Preflight
 
@@ -44,9 +46,9 @@ Most of these are already automated. `:benchmark`'s `BaselineProfileGenerator` d
 baseline journey coverage: feed_scroll=ok, post_detail=ok, trending_videos=SKIPPED, profile=ok, search=ok, chats=ok, composer=ok
 ```
 
-That line is the result for those seven. **A `SKIPPED` journey is a failure, not a gap.** The trending-videos leg reported `SKIPPED` on every iteration for weeks and read as silence; the screens it covers were simply missing from the shipped profile. Treat anything that did not run as a journey that did not pass.
+That line is the verdict for those seven, and it is read in **step 4**, where the generator actually runs — there is no reason to spend forty minutes running it twice.
 
-Since step 4 runs that generator anyway, don't run it twice — run step 4's generator, then read its coverage. What the generator does **not** cover, check by hand on the device first, because these are cheap and a failure here ends the run before the expensive part:
+So this step is the cheap gate: the flows the generator does **not** cover, checked by hand on the device now, before any of the expensive work. A failure here ends the run in minutes instead of an hour.
 
 | Flow | Why it's a show-stopper |
 |---|---|
@@ -111,7 +113,7 @@ Use the `run-startup-bench` skill for the mechanics; it already carries the devi
 
 **Then check the profile before trusting it**, because the generator's summary lies by omission:
 
-- Read the coverage line (step 1). Any `SKIPPED` journey means those screens are absent from the profile.
+- **Read the coverage line.** This is where the seven automated journeys from step 1 get their verdict. **A `SKIPPED` journey is a failure, not a gap** — the trending-videos leg reported `SKIPPED` on every iteration for weeks and read as silence, while the screens it covers were simply missing from the shipped profile. Anything that did not run did not pass, and the profile is not shippable until it does.
 - The summary reports "0 Removed rules" against its own previous output, **not** against the committed file. Diff them properly as a set:
 
 ```bash
