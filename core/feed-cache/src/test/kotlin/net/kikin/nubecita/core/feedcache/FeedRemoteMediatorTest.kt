@@ -60,7 +60,13 @@ internal class FeedRemoteMediatorTest {
         mockk<FeedViewPreferencesRepository>().also {
             coEvery { it.prefs } returns MutableStateFlow(FeedViewPrefs.DEFAULT)
         }
-    private val projectionWriter = mockk<FeedProjectionWriter>(relaxed = true)
+    private val projectionWriter =
+        mockk<FeedProjectionWriter>(relaxed = true).also {
+            // A relaxed mock answers an Int with 0, which now MEANS "this page
+            // projected to nothing" and sends append into its top-up loop.
+            // Default to a productive page; the top-up tests override it.
+            coEvery { it.writeAppend(any(), any()) } returns 1
+        }
     private val remoteKeyDao = mockk<FeedRemoteKeyDao>(relaxed = true)
     private val networkSource = mockk<FeedNetworkSource>()
 
@@ -103,6 +109,84 @@ internal class FeedRemoteMediatorTest {
             config = PagingConfig(pageSize = 25),
             leadingPlaceholderCount = 0,
         )
+
+    @Test
+    fun `append follows a barren page rather than reporting the end`() =
+        runTest {
+            // The page arrived but projected to nothing - every entry filtered
+            // or de-duplicated away. Reporting end-of-pagination here would
+            // stop the feed while the server still has content.
+            coEvery {
+                remoteKeyDao.remoteKey(any(), any(), any())
+            } returns FeedRemoteKeyEntity("did:plc:me", "FOLLOWING", "", "cursor-1")
+            coEvery { networkSource.fetchPage(key, cursor = "cursor-1") } returns
+                Result.success(listOf(post("a")) to "cursor-2")
+            coEvery { networkSource.fetchPage(key, cursor = "cursor-2") } returns
+                Result.success(listOf(post("b")) to "cursor-3")
+            coEvery { projectionWriter.writeAppend(key, any()) } returns 0 andThen 2
+
+            val result = mediator().load(LoadType.APPEND, emptyState())
+
+            assertTrue(result is RemoteMediator.MediatorResult.Success)
+            assertEquals(false, (result as RemoteMediator.MediatorResult.Success).endOfPaginationReached)
+            coVerify { networkSource.fetchPage(key, cursor = "cursor-2") }
+        }
+
+    @Test
+    fun `the top-up is bounded`() =
+        runTest {
+            // An aggressively filtered account could otherwise walk its whole
+            // timeline inside one load().
+            coEvery {
+                remoteKeyDao.remoteKey(any(), any(), any())
+            } returns FeedRemoteKeyEntity("did:plc:me", "FOLLOWING", "", "c")
+            coEvery { networkSource.fetchPage(key, cursor = any()) } returns
+                Result.success(listOf(post("a")) to "c")
+            coEvery { projectionWriter.writeAppend(key, any()) } returns 0
+
+            mediator().load(LoadType.APPEND, emptyState())
+
+            coVerify(exactly = 3) { networkSource.fetchPage(key, cursor = any()) }
+        }
+
+    @Test
+    fun `a barren page that is also the last page reports the end`() =
+        runTest {
+            // Nothing projected AND no cursor: this really is the end, and
+            // following it would be a wasted fetch.
+            coEvery {
+                remoteKeyDao.remoteKey(any(), any(), any())
+            } returns FeedRemoteKeyEntity("did:plc:me", "FOLLOWING", "", "cursor-1")
+            coEvery { networkSource.fetchPage(key, cursor = "cursor-1") } returns
+                Result.success(listOf(post("a")) to null)
+            coEvery { projectionWriter.writeAppend(key, any()) } returns 0
+
+            val result = mediator().load(LoadType.APPEND, emptyState())
+
+            assertEquals(
+                true,
+                (result as RemoteMediator.MediatorResult.Success).endOfPaginationReached,
+            )
+            coVerify(exactly = 1) { networkSource.fetchPage(key, cursor = any()) }
+        }
+
+    @Test
+    fun `append advances only the append cursor`() =
+        runTest {
+            // The row also carries the prepend cursors; a whole-row upsert from
+            // this direction would clear them and break the catch-up range.
+            coEvery {
+                remoteKeyDao.remoteKey(any(), any(), any())
+            } returns FeedRemoteKeyEntity("did:plc:me", "FOLLOWING", "", "cursor-1")
+            coEvery { networkSource.fetchPage(key, cursor = "cursor-1") } returns
+                Result.success(listOf(post("a")) to "cursor-2")
+            coEvery { projectionWriter.writeAppend(key, any()) } returns 1
+
+            mediator().load(LoadType.APPEND, emptyState())
+
+            coVerify { remoteKeyDao.updateAppendCursor("did:plc:me", "FOLLOWING", "", "cursor-2") }
+            coVerify(exactly = 0) { remoteKeyDao.upsert(any()) }
+        }
 
     @Test
     fun `append writes the projection, and prepend writes none`() =

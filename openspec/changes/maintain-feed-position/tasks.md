@@ -72,7 +72,18 @@ Both flavored modules ship a `bench` source set, so the `bench` variant must com
 
   The anchor-dependent tests from the original text ("the reader's place survives", "a filtered-out anchor resolves downward") still belong with task 5.1, which owns the anchor storage — re-projection preserves ordering and content keys, but there is no anchor yet to assert against — persist the prefs a projection was built with, re-project locally on open when the live fingerprint differs, and have the background worker project with the persisted one rather than live preferences. The anchor-related tests in the original task text ("the reader's place survives", "a filtered-out anchor resolves downward") need the anchor storage from task 5.1, which does not exist yet.
 
-- [ ] 2.4 Move the filtered-empty-page top-up into the mediator (D23b): `MAX_TOP_UP_ROUNDS = 3` is deleted with `DefaultFeedRepository`, and a page projecting to zero items must top up rather than read as end-of-pagination. Applies to prepend fills, where exhaustion has its own signal. **Tests:** mediator tests — an append page projecting to zero tops up; the round limit stops it; an empty fill page is not reported as an exhausted range.
+- [x] 2.4 The top-up moved into the mediator (D23b).
+
+  `append()` now follows a page that projects to **zero** items instead of reporting it. A fetched page can legitimately render nothing — the reply tuners can drop every entry, de-duplication the rest — and calling that end-of-pagination stops the feed while the server still has content, while calling it success-with-nothing leaves Paging no reason to ask again. Bounded at `MAX_TOP_UP_ROUNDS = 3`, mirroring the limit `DefaultFeedRepository` used, because an aggressively filtered account could otherwise walk its whole timeline inside one `load()`. A barren page that is also the last page still reports the end rather than spending a fetch to confirm it.
+
+  `writeRefresh` / `writeAppend` now return the item count, which is deliberately not the page size — that gap is the whole signal.
+
+  **Also fixed a bug I introduced in 1.5:** append wrote the cursor row with a whole-row `upsert`, which would have cleared the prepend cursors added in that task — exactly what the DAO's own KDoc says not to do. It uses `updateAppendCursor` now, with a test asserting the targeted update *and* that no whole-row upsert happens.
+
+  **Worth knowing:** a relaxed MockK answers an `Int` with `0`, which now *means* "barren page", so two existing mediator tests started topping up into unstubbed fetches. The writer mock now defaults to a productive page and the top-up tests override it.
+
+  **Not covered here:** a REFRESH page that projects to zero. It is reachable — a reader with `hideReplies` and a page of all replies — and leaves the feed momentarily empty until Paging appends, where the top-up applies. The entry rows are written unfiltered, so `head` and the widget are unaffected. Worth a follow-up in the screen migration if it shows up on the device pass.
+
 - [ ] 2.5 Write the hand-rolled `PagingSource` keyed on `position` over the projection table, and change `pagedFeed` to `Flow<PagingData<FeedItemUi>>` backed by it (D16). Room's generated offset-based source cannot be used: the `InvalidationTracker` fires on every write and an offset refresh key then resolves to a different entry — the viewport jump this change forbids. Expose the initial key so anchor restore is a `Pager` parameter rather than a post-hoc scroll. **Tests:** `TestPager` coverage for load/refresh/append, plus the regression that matters — after an additive prepend, a refresh reloads at the same entry rather than shifting by the number of inserted rows.
 - [ ] 2.6 Keep `head(feedKey, n)` reading the raw `feed_post` rows, undeduplicated, so the widget and Wear surfaces are untouched by the projection (D15). **Tests:** a cache test asserting `head` output is byte-identical to today for a fixture page.
 

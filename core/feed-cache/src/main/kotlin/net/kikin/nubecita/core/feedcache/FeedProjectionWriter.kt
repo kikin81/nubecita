@@ -115,13 +115,19 @@ internal class FeedProjectionWriter
             page: List<FeedViewPost>,
         ) = writeAppend(feedKey, page, viewerDid(), prefs())
 
-        /** Rebuilds [feedKey]'s projection from a REFRESH page. */
+        /**
+         * Rebuilds [feedKey]'s projection from a REFRESH page.
+         *
+         * Returns the number of items written, which is **not** the page size:
+         * filtering and de-duplication can reduce a full page to nothing, and
+         * the caller needs to know that to decide whether to fetch further.
+         */
         suspend fun writeRefresh(
             feedKey: FeedKey,
             page: List<FeedViewPost>,
             viewerDid: String?,
             prefs: ModerationPrefs,
-        ) {
+        ): Int {
             feedItemDao.clearPartition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
             val items =
                 page
@@ -131,6 +137,7 @@ internal class FeedProjectionWriter
                     .dedupeClusterContext()
             write(feedKey, items, basePosition = 0)
             recordFingerprint(feedKey)
+            return items.size
         }
 
         /**
@@ -146,9 +153,9 @@ internal class FeedProjectionWriter
             page: List<FeedViewPost>,
             viewerDid: String?,
             prefs: ModerationPrefs,
-        ) {
+        ): Int {
             val projected = page.filteredForFeed(feedKey, viewerDid).toFeedItemsUi(prefs, viewerDid)
-            if (projected.isEmpty()) return
+            if (projected.isEmpty()) return 0
 
             val tail = rehydrateTail(feedKey, viewerDid, prefs)
             val merged =
@@ -196,6 +203,7 @@ internal class FeedProjectionWriter
             val base = (feedItemDao.maxPosition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri) ?: -1) + 1
             write(feedKey, items, basePosition = base)
             recordFingerprint(feedKey)
+            return items.size
         }
 
         /**

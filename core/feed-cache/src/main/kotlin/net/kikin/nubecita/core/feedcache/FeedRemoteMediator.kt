@@ -12,7 +12,6 @@ import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.model.CachedFeedEntry
-import net.kikin.nubecita.core.database.model.FeedRemoteKeyEntity
 import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 
@@ -125,36 +124,80 @@ internal class FeedRemoteMediator
                 LoadType.APPEND -> append()
             }
 
+        /**
+         * Loads one page of older entries, topping up when a page projects to
+         * nothing.
+         *
+         * A fetched page can legitimately produce **zero** rendered items: the
+         * viewer's reply tuners can drop every entry in it, and
+         * de-duplication can drop the rest. Reporting that as
+         * `endOfPaginationReached` would stop the feed scrolling while the
+         * server still has content, and reporting it as success-with-nothing
+         * would leave Paging with no new items and no reason to ask again.
+         *
+         * So a barren page is followed, bounded by [MAX_TOP_UP_ROUNDS]. The
+         * bound matters as much as the loop: an aggressively filtered account
+         * could otherwise walk its whole timeline in one `load()`.
+         *
+         * This replaces the top-up loop in `DefaultFeedRepository`, which is
+         * deleted with the screen migration. That one existed for the same
+         * reason — filtering can empty a page — but sat above the cache, where
+         * the projection it has to react to no longer happens.
+         */
         private suspend fun append(): MediatorResult {
-            val storedCursor =
+            var cursor =
                 remoteKeyDao.remoteKey(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)?.nextCursor
                     ?: return MediatorResult.Success(endOfPaginationReached = true)
 
-            val result = networkSource.fetchPage(feedKey, cursor = storedCursor)
-            val (page, nextCursor) = result.getOrElse { return MediatorResult.Error(it) }
+            var rounds = 0
+            while (true) {
+                rounds++
+                val result = networkSource.fetchPage(feedKey, cursor = cursor)
+                val (page, nextCursor) = result.getOrElse { return MediatorResult.Error(it) }
 
-            transactionRunner.run {
-                // Compute the next free position inside the transaction so a
-                // concurrent write can't race the position assignment.
-                val base = (feedPostDao.maxPosition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri) ?: -1) + 1
-                val entities = page.mapIndexed { index, post -> post.toFeedPostEntity(feedKey, position = base + index) }
-                // Posts first, for the same reason as the refresher: the read
-                // path inner-joins, so an envelope without its post is invisible.
-                cachedPostDao.upsert(page.flatMap { it.toCachedPosts(feedKey) })
-                feedPostDao.upsert(entities)
-                // Same transaction, and after the posts: the projection's
-                // members reference them, and the chain merge rehydrates the
-                // partition's tail from them.
-                projectionWriter.writeAppend(feedKey, page)
-                remoteKeyDao.upsert(
-                    FeedRemoteKeyEntity(
+                var projected = 0
+                transactionRunner.run {
+                    // Compute the next free position inside the transaction so a
+                    // concurrent write can't race the position assignment.
+                    val base =
+                        (feedPostDao.maxPosition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri) ?: -1) + 1
+                    val entities = page.mapIndexed { index, post -> post.toFeedPostEntity(feedKey, position = base + index) }
+                    // Posts first, for the same reason as the refresher: the read
+                    // path inner-joins, so an envelope without its post is invisible.
+                    cachedPostDao.upsert(page.flatMap { it.toCachedPosts(feedKey) })
+                    feedPostDao.upsert(entities)
+                    // Same transaction, and after the posts: the projection's
+                    // members reference them, and the chain merge rehydrates the
+                    // partition's tail from them.
+                    projected = projectionWriter.writeAppend(feedKey, page)
+                    // A targeted update, not a whole-row write: the row also
+                    // carries the prepend cursors, and upserting the whole thing
+                    // from this direction would clear them.
+                    remoteKeyDao.updateAppendCursor(
                         accountDid = feedKey.accountDid,
                         feedType = feedKey.feedType.name,
                         feedUri = feedKey.feedUri,
                         nextCursor = nextCursor,
-                    ),
-                )
+                    )
+                }
+
+                val exhausted = nextCursor == null || page.isEmpty()
+                if (projected > 0 || exhausted || rounds >= MAX_TOP_UP_ROUNDS) {
+                    return MediatorResult.Success(endOfPaginationReached = exhausted)
+                }
+                // Barren page, more to come, budget left: follow the cursor.
+                cursor = nextCursor
             }
-            return MediatorResult.Success(endOfPaginationReached = nextCursor == null || page.isEmpty())
+        }
+
+        private companion object {
+            /**
+             * How many consecutive barren pages to follow in one `load()`.
+             *
+             * Mirrors the limit `DefaultFeedRepository` used, so a reader whose
+             * filters empty several pages behaves as it did before the
+             * projection moved.
+             */
+            const val MAX_TOP_UP_ROUNDS = 3
         }
     }
