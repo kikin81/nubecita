@@ -31,9 +31,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
@@ -86,7 +89,7 @@ fun isCommentsSheetSettledHidden(
  *   [WindowInsets.ime] padding applied strictly to the comments side sheet.
  */
 @Suppress("ktlint:compose:content-slot-reused")
-@OptIn(ExperimentalMaterial3AdaptiveApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3AdaptiveApi::class, ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
 fun VideoCommentsSheetScaffold(
     isCommentsOpen: Boolean,
@@ -152,6 +155,16 @@ fun VideoCommentsSheetScaffold(
                         scrimColor = BottomSheetDefaults.ScrimColor,
                         dragHandle = { BottomSheetDefaults.DragHandle() },
                         contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
+                        // A ModalBottomSheet composes into its OWN window, and
+                        // `testTagsAsResourceId` does not cross a window
+                        // boundary — the flag `MainActivity` sets on the root
+                        // Surface stops at the edge of this sheet. Without
+                        // this, not one Compose tag inside the sheet reaches
+                        // UIAutomator, so `:benchmark`'s baseline-profile
+                        // journey could never find the comments list or the
+                        // docked pill and skipped the whole trending-videos
+                        // leg (nubecita-09n0).
+                        modifier = Modifier.semantics { testTagsAsResourceId = true },
                     ) {
                         movableComments()
                     }

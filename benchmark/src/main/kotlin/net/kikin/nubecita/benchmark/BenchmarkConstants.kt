@@ -137,3 +137,9 @@ internal const val VIDEO_COMMENTS_LIST_RES_ID: String = "video_comments_list"
  * `:core:post-interactions-ui/VideoCommentsTestTagsTest`.
  */
 internal const val DOCKED_COMMENT_PILL_RES_ID: String = "docked_comment_pill"
+
+/**
+ * Content description of the comments sheet's drag handle — Material3's own,
+ * so it needs no app-side tag and survives the sheet having no comments.
+ */
+internal const val SHEET_DRAG_HANDLE_DESC: String = "Drag handle"
