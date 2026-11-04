@@ -209,6 +209,16 @@ sealed interface FeedEvent : UiEvent {
     data object RestoreConsumed : FeedEvent
 
     /**
+     * The reader has seen what arrived above them — they tapped the pill, or
+     * scrolled up past it.
+     *
+     * Recorded rather than just hidden: the pill is derived from what is
+     * stored above the reader (D20), so without a persisted acknowledgement it
+     * would be back on the next composition.
+     */
+    data object DismissNewPosts : FeedEvent
+
+    /**
      * The loaded pages changed: every [PostUi] they now hold.
      *
      * Dispatched by the screen because the signal lives in `LazyPagingItems`.

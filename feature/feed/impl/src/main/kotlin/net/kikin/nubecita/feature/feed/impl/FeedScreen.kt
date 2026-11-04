@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.windowInsetsTopHeight
@@ -45,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -89,6 +91,7 @@ import net.kikin.nubecita.feature.feed.impl.ui.FeedAnchoring
 import net.kikin.nubecita.feature.feed.impl.ui.FeedChipRow
 import net.kikin.nubecita.feature.feed.impl.ui.FeedEmptyState
 import net.kikin.nubecita.feature.feed.impl.ui.FeedErrorState
+import net.kikin.nubecita.feature.feed.impl.ui.NewPostsPill
 import net.kikin.nubecita.feature.feed.impl.ui.PinnedListsSheet
 import net.kikin.nubecita.feature.feed.impl.ui.PostFeedList
 import net.kikin.nubecita.feature.feed.impl.ui.TrendingVideosCarousel
@@ -100,6 +103,9 @@ import net.kikin.nubecita.feature.videos.api.VideoFeed
 import kotlin.math.roundToInt
 import kotlin.time.Clock
 import kotlin.time.Instant
+
+/** Clear of the chip row, so the pill floats over the posts rather than the chrome. */
+private val PILL_TOP_INSET = 8.dp
 
 private const val SHIMMER_PREVIEW_COUNT = 6
 
@@ -265,6 +271,7 @@ internal fun FeedScreen(
 
     // The reader's place. Only this surface keeps one: a generator feed
     // refreshes on open (D14), so an anchor written there would never be read.
+    val newPosts by viewModel.newPosts.collectAsStateWithLifecycle()
     val restoreTo by viewModel.restoreTarget.collectAsStateWithLifecycle()
     val anchoring =
         remember(viewModel, restoreTo) {
@@ -275,10 +282,24 @@ internal fun FeedScreen(
             )
         }
 
+    val scope = rememberCoroutineScope()
+    // Tapping means "take me there and stop telling me": the list goes to the
+    // top and the acknowledgement is recorded, so the same entries never raise
+    // the pill again.
+    val onNewPostsClick =
+        remember(viewModel, listState, scope) {
+            {
+                scope.launch { listState.scrollToItem(0) }
+                viewModel.handleEvent(FeedEvent.DismissNewPosts)
+            }
+        }
+
     FeedScreenContent(
         viewState = viewState,
         items = items,
         anchoring = anchoring,
+        newPosts = newPosts,
+        onNewPostsClick = onNewPostsClick,
         listState = listState,
         snackbarHostState = snackbarHostState,
         callbacks = interactions.callbacks,
@@ -340,6 +361,9 @@ internal fun FeedScreenContent(
     modifier: Modifier = Modifier,
     // Null on a surface that keeps no reading position — see PostFeedList.
     anchoring: FeedAnchoring? = null,
+    // Faces for the new-posts pill; empty means no pill.
+    newPosts: ImmutableList<AuthorUi> = persistentListOf(),
+    onNewPostsClick: () -> Unit = {},
     onComposeClick: () -> Unit = {},
     onRetryOutgoing: (localId: String) -> Unit = {},
     onDiscardOutgoing: (localId: String) -> Unit = {},
@@ -588,30 +612,45 @@ internal fun FeedScreenContent(
                     contentPadding = effectivePadding,
                 )
             is FeedScreenViewState.Loaded ->
-                PostFeedList(
-                    onQuotedImageTap = onQuotedImageTap,
-                    items = items,
-                    anchoring = anchoring,
-                    outgoingPosts = viewState.outgoingPosts,
-                    onRetryOutgoing = onRetryOutgoing,
-                    onDiscardOutgoing = onDiscardOutgoing,
-                    isAppending = viewState.isAppending,
-                    isRefreshing = viewState.isRefreshing,
-                    listState = listState,
-                    callbacks = callbacks,
-                    onRefresh = onRefresh,
-                    onImageTap = onImageTap,
-                    cardColor = cardColor,
-                    cardShape = cardShape,
-                    contentPadding = effectivePadding,
-                    lastLikeTapPostUri = viewState.lastLikeTapPostUri,
-                    lastRepostTapPostUri = viewState.lastRepostTapPostUri,
-                    onVideoTap = onVideoTap,
-                    coordinator = coordinator,
-                    videoAutoplayEnabled = viewState.videoAutoplayEnabled,
-                    isPageActive = isPageActive,
-                    header = header,
-                )
+                Box(modifier = Modifier.fillMaxSize()) {
+                    PostFeedList(
+                        onQuotedImageTap = onQuotedImageTap,
+                        items = items,
+                        anchoring = anchoring,
+                        outgoingPosts = viewState.outgoingPosts,
+                        onRetryOutgoing = onRetryOutgoing,
+                        onDiscardOutgoing = onDiscardOutgoing,
+                        isAppending = viewState.isAppending,
+                        isRefreshing = viewState.isRefreshing,
+                        listState = listState,
+                        callbacks = callbacks,
+                        onRefresh = onRefresh,
+                        onImageTap = onImageTap,
+                        cardColor = cardColor,
+                        cardShape = cardShape,
+                        contentPadding = effectivePadding,
+                        lastLikeTapPostUri = viewState.lastLikeTapPostUri,
+                        lastRepostTapPostUri = viewState.lastRepostTapPostUri,
+                        onVideoTap = onVideoTap,
+                        coordinator = coordinator,
+                        videoAutoplayEnabled = viewState.videoAutoplayEnabled,
+                        isPageActive = isPageActive,
+                        header = header,
+                    )
+                    // Over the list, not in it: the pill has to stay put while
+                    // the timeline scrolls underneath, and it must not take a
+                    // slot that the anchor's index arithmetic would have to
+                    // account for.
+                    NewPostsPill(
+                        authors = newPosts,
+                        onClick = onNewPostsClick,
+                        modifier =
+                            Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(effectivePadding)
+                                .padding(top = PILL_TOP_INSET),
+                    )
+                }
         }
     }
 

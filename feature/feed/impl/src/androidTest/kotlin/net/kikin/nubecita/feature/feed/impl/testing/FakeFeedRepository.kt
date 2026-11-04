@@ -4,6 +4,7 @@ import androidx.paging.PagingData
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import net.kikin.nubecita.core.feedcache.CatchUpOutcome
 import net.kikin.nubecita.core.feedcache.FeedAnchor
@@ -87,9 +88,19 @@ internal class FakeFeedRepository
             savedAnchor = null
         }
 
-        override fun newPostAuthors(feedKey: FeedKey): Flow<ImmutableList<AuthorUi>> = flowOf(persistentListOf())
+        /** Faces the pill shows; tests set this before composing. */
+        val newPosts = MutableStateFlow<ImmutableList<AuthorUi>>(persistentListOf())
 
-        override suspend fun dismissNewPosts(feedKey: FeedKey) = Unit
+        /** How many times the reader acknowledged them. */
+        @Volatile
+        var dismissals: Int = 0
+
+        override fun newPostAuthors(feedKey: FeedKey): Flow<ImmutableList<AuthorUi>> = newPosts
+
+        override suspend fun dismissNewPosts(feedKey: FeedKey) {
+            dismissals++
+            newPosts.value = persistentListOf()
+        }
 
         override suspend fun trimToCap(
             feedKey: FeedKey,

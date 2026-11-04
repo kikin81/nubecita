@@ -15,12 +15,16 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.actors.MuteRepository
 import net.kikin.nubecita.core.analytics.AnalyticsClient
@@ -44,6 +48,7 @@ import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
 import net.kikin.nubecita.core.preferences.AutoplayPolicy
 import net.kikin.nubecita.core.video.SharedVideoPlayer
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.FeedKind
 import net.kikin.nubecita.data.models.OutgoingPostUi
@@ -106,6 +111,13 @@ class FeedViewModel
          */
         val restoreTarget = MutableStateFlow<FeedAnchor?>(null)
 
+        /** The partition this VM reads, once an account is known. */
+        private val feedKey: Flow<FeedKey> =
+            combine(sessionStateProvider.state, binding) { session, bound ->
+                (session as? SessionState.SignedIn)?.did?.let { bound.toFeedKey(it) }
+            }.filterNotNull()
+                .distinctUntilChanged()
+
         /**
          * The paged feed, read from `:core:feed-cache` (D1).
          *
@@ -120,10 +132,7 @@ class FeedViewModel
          * would be dropped by the next generation anyway (D21).
          */
         val feed: Flow<PagingData<FeedItemUi>> =
-            combine(sessionStateProvider.state, binding) { session, bound ->
-                (session as? SessionState.SignedIn)?.did?.let { bound.toFeedKey(it) }
-            }.filterNotNull()
-                .distinctUntilChanged()
+            feedKey
                 .flatMapLatest { key ->
                     // Read before the Pager is built, so the first page loaded
                     // is the one the reader was in rather than the top. A
@@ -138,6 +147,21 @@ class FeedViewModel
                     unmutedAuthors = optimisticUnmutes,
                     interactions = postInteractionsCache.state,
                 )
+
+        /**
+         * The faces on the new-posts pill, or empty when there is nothing to
+         * tell the reader about.
+         *
+         * Gated on the feed supporting a bounded catch-up rather than on a
+         * hardcoded list of kinds: a pill means "entries arrived above you",
+         * and only a feed that can prepend has those. A generator refreshes on
+         * open instead (D14), so its reader is already at the newest content.
+         */
+        val newPosts: StateFlow<ImmutableList<AuthorUi>> =
+            feedKey
+                .flatMapLatest { key ->
+                    if (key.feedType.supportsSince) feedRepository.newPostAuthors(key) else flowOf(persistentListOf())
+                }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), persistentListOf())
 
         init {
             // Bind the handler to Feed surface and this VM's scope first.
@@ -180,6 +204,7 @@ class FeedViewModel
                 FeedEvent.Refresh -> refresh()
                 is FeedEvent.ItemsLoaded -> onItemsLoaded(event.posts)
                 is FeedEvent.AnchorChanged -> saveAnchor(event.itemKey, event.offset)
+                FeedEvent.DismissNewPosts -> dismissNewPosts()
                 FeedEvent.RestoreConsumed -> restoreTarget.value = null
                 FeedEvent.ClearError -> Unit
                 is FeedEvent.OnPostTapped -> sendEffect(FeedEffect.NavigateToPost(event.post.id))
@@ -325,6 +350,15 @@ class FeedViewModel
             viewModelScope.launch { feedRepository.saveAnchor(key, itemKey, offset) }
         }
 
+        /**
+         * The reader has seen what arrived — they tapped the pill, or scrolled
+         * up past it. Everything currently above them stops being new.
+         */
+        private fun dismissNewPosts() {
+            val key = currentFeedKey() ?: return
+            viewModelScope.launch { feedRepository.dismissNewPosts(key) }
+        }
+
         private fun currentFeedKey(): FeedKey? =
             (sessionStateProvider.state.value as? SessionState.SignedIn)
                 ?.did
@@ -352,6 +386,12 @@ class FeedViewModel
                     if (uri == PinnedFeedsRepository.DISCOVER_FEED_URI) FeedType.Discover else FeedType.Custom
             }
     }
+
+/**
+ * How long the pill's query stays warm after the screen stops collecting, so a
+ * tab switch and back does not re-query Room.
+ */
+private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
 
 /** What a [FeedViewModel] is bound to: one cached partition, once a DID is known. */
 internal data class FeedBinding(

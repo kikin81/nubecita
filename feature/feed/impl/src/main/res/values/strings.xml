@@ -103,4 +103,6 @@
         <item quantity="one">%1$d more reply in this thread</item>
         <item quantity="other">%1$d more replies in this thread</item>
     </plurals>
+    <!-- Floating pill shown when posts arrived above the reader's place. Accessibility label; the pill itself shows only faces. -->
+    <string name="feed_new_posts">New posts</string>
 </resources>

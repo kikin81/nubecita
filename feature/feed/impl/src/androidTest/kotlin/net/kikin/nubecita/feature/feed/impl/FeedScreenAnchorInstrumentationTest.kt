@@ -5,8 +5,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
@@ -14,11 +16,13 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShellNavState
 import net.kikin.nubecita.core.feedcache.FeedAnchor
 import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.testing.android.HiltTestActivity
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.feed.api.Feed
 import net.kikin.nubecita.feature.feed.impl.testing.FakeFeedRepository
@@ -164,6 +168,56 @@ class FeedScreenAnchorInstrumentationTest {
         assertEquals(true, fake.anchorCleared)
     }
 
+    @Test
+    fun tappingTheNewPostsPill_goesToTheTopAndStopsAsking() {
+        // The pill is derived from storage (D20), so hiding it is not enough:
+        // without a recorded acknowledgement the same rows raise it again on
+        // the next composition.
+        fake.newPosts.value =
+            persistentListOf(
+                AuthorUi(did = "did:plc:nova", handle = "nova.astro", displayName = "Nova", avatarUrl = null),
+            )
+
+        composeTestRule.setContent {
+            NubecitaTheme {
+                CompositionLocalProvider(LocalMainShellNavState provides navState) {
+                    FeedScreen()
+                }
+            }
+        }
+        awaitPost(0)
+        composeTestRule.onNodeWithTag(FeedTestTags.LIST).performScrollToIndex(SCROLL_TARGET)
+
+        val pill = composeTestRule.onNodeWithContentDescription(NEW_POSTS_LABEL)
+        pill.assertIsDisplayed()
+        pill.performClick()
+
+        composeTestRule.waitUntil(timeoutMillis = WAIT_TIMEOUT_MILLIS) { fake.dismissals > 0 }
+        // Back at the top, with the first post on screen again.
+        composeTestRule.waitUntil(timeoutMillis = WAIT_TIMEOUT_MILLIS) {
+            composeTestRule
+                .onAllNodes(hasText(postText(0), substring = true))
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        composeTestRule.onNodeWithText(postText(0), substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun noNewPosts_noPill() =
+        run {
+            composeTestRule.setContent {
+                NubecitaTheme {
+                    CompositionLocalProvider(LocalMainShellNavState provides navState) {
+                        FeedScreen()
+                    }
+                }
+            }
+            awaitPost(0)
+
+            composeTestRule.onNodeWithContentDescription(NEW_POSTS_LABEL).assertDoesNotExist()
+        }
+
     private fun awaitPost(index: Int) {
         composeTestRule.waitUntil(timeoutMillis = WAIT_TIMEOUT_MILLIS) {
             composeTestRule
@@ -179,5 +233,8 @@ class FeedScreenAnchorInstrumentationTest {
         const val FIXTURE_SIZE = 20
         const val SCROLL_TARGET = 12
         const val WAIT_TIMEOUT_MILLIS = 10_000L
+
+        /** Mirrors `R.string.feed_new_posts`; the pill shows faces, so the label is its only text. */
+        const val NEW_POSTS_LABEL = "New posts"
     }
 }

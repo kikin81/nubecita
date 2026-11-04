@@ -73,4 +73,5 @@
         <item quantity="other">%1$d respuestas m\u00e1s en este hilo</item>
     </plurals>
     <string name="feed_following">Siguiendo</string>
+    <string name="feed_new_posts">Publicaciones nuevas</string>
 </resources>
