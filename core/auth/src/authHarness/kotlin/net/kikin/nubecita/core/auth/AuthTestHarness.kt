@@ -3,6 +3,7 @@ package net.kikin.nubecita.core.auth
 import androidx.datastore.core.DataStore
 import io.github.kikin81.atproto.oauth.OAuthSession
 import io.github.kikin81.atproto.oauth.OAuthSessionStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import net.kikin.nubecita.core.analytics.SessionClearReason
 import timber.log.Timber
@@ -148,10 +149,12 @@ class AuthTestHarness
             refreshToken: String?,
         ) {
             dataStore.updateData { current ->
-                current?.copy(
-                    accessToken = accessToken,
-                    refreshToken = refreshToken ?: current.refreshToken,
-                )
+                current?.let { session ->
+                    session.copy(
+                        accessToken = accessToken,
+                        refreshToken = refreshToken ?: session.refreshToken,
+                    )
+                }
             }
         }
 
@@ -164,7 +167,20 @@ class AuthTestHarness
          */
         private suspend fun stageInterruptedClear() {
             clearPending.markPending(SessionClearReason.InvalidGrant)
-            dataStore.updateData { null }
+            try {
+                dataStore.updateData { null }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // The wipe is what makes the marker honest. If it throws, the
+                // session is still there and the marker would make the next
+                // launch report a logout that never happened — the harness
+                // would manufacture the exact false positive it exists to
+                // detect, and the run would read as a clean pass. Roll the
+                // marker back so the failure is visible instead.
+                clearPending.clearPending()
+                throw e
+            }
         }
 
         internal fun halt(): Nothing {
