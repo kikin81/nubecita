@@ -255,6 +255,18 @@ android {
         // stays non-profileable, non-debuggable.
     }
 
+    // Opt-in auth test harness (nubecita-zh7p): `-PauthTestHarness=true`.
+    // Mirrors the gated source set in `:core:auth` — see the comment there for
+    // why this is a source set and not a BuildConfig flag. `production` only:
+    // the harness drives the real session store, which `bench` fakes out.
+    if (providers.gradleProperty("authTestHarness").orNull.toBoolean()) {
+        // kotlin.srcDir, not java.srcDir: KSP picks a java srcDir up and
+        // generates Hilt factories for it, but kotlinc never compiles the
+        // sources, so the build fails on generated code referencing classes
+        // that were never built.
+        sourceSets.getByName("production").kotlin.srcDir("src/authHarness/java")
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
