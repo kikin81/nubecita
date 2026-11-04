@@ -84,7 +84,18 @@ Both flavored modules ship a `bench` source set, so the `bench` variant must com
 
   **Not covered here:** a REFRESH page that projects to zero. It is reachable — a reader with `hideReplies` and a page of all replies — and leaves the feed momentarily empty until Paging appends, where the top-up applies. The entry rows are written unfiltered, so `head` and the widget are unaffected. Worth a follow-up in the screen migration if it shows up on the device pass.
 
-- [ ] 2.5 Write the hand-rolled `PagingSource` keyed on `position` over the projection table, and change `pagedFeed` to `Flow<PagingData<FeedItemUi>>` backed by it (D16). Room's generated offset-based source cannot be used: the `InvalidationTracker` fires on every write and an offset refresh key then resolves to a different entry — the viewport jump this change forbids. Expose the initial key so anchor restore is a `Pager` parameter rather than a post-hoc scroll. **Tests:** `TestPager` coverage for load/refresh/append, plus the regression that matters — after an additive prepend, a refresh reloads at the same entry rather than shifting by the number of inserted rows.
+- [x] 2.5 `FeedItemPagingSource` pages the projection on `position`, and `pagedFeed` returns `Flow<PagingData<FeedItemUi>>` backed by it.
+
+  Keyed on `position` because Room's generated source answers `getRefreshKey` with an **offset**: the `InvalidationTracker` is table-level, so any write invalidates the source — including one that added rows the reader cannot see — and the same offset then names an item N rows further down. A position does not move, because positions are assigned once and never renumbered. The test that matters asserts exactly this: the refresh key is unchanged after three rows arrive above, and reloading at it returns the same item.
+
+  **Both directions, not just forward.** A reader restored at an anchor sits mid-partition and must be able to scroll back towards newer items, so `load` branches on `LoadParams.Prepend` and reads `itemsBefore` descending, reversed to display order. A forward-only source would have stranded them.
+
+  Invalidation is wired by hand — the generated source would have done it, this one must — observing `feed_item`, `feed_item_member` and `cached_post`, with the observer removed when the source is invalidated since a `PagingSource` is single-use. `initialPosition` is the `Pager`'s initial key, which is how a restored anchor will enter Paging in 5.x.
+
+  **`pagedFeed` gained a `pagingSourceFor` seam**, matching the existing `mediatorFor` one, because the repository now constructs its own source and a JVM test could otherwise no longer serve fixed rows.
+
+  **One test moved rather than being kept passing.** `moderation-filtered entity is dropped from the paged stream` asserted a job this layer no longer has — moderation is applied where the projection is computed. It is replaced by a pass-through assertion, and the dropping behaviour is covered against the rehydration mapper, where it now lives.
+
 - [ ] 2.6 Keep `head(feedKey, n)` reading the raw `feed_post` rows, undeduplicated, so the widget and Wear surfaces are untouched by the projection (D15). **Tests:** a cache test asserting `head` output is byte-identical to today for a fixture page.
 
 ## 3. `since`-bounded PREPEND on the mediator (`nubecita-lgoo.5.3`, D4 + D5)

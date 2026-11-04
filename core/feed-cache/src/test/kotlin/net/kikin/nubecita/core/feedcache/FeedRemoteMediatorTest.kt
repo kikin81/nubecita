@@ -27,13 +27,13 @@ import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
-import net.kikin.nubecita.core.database.model.CachedFeedEntry
 import net.kikin.nubecita.core.database.model.FeedPartitionStateEntity
 import net.kikin.nubecita.core.database.model.FeedPostEntity
 import net.kikin.nubecita.core.database.model.FeedRemoteKeyEntity
 import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPrefs
+import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.FeedViewPrefs
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
@@ -102,7 +102,7 @@ internal class FeedRemoteMediatorTest {
                 ),
         )
 
-    private fun emptyState(): PagingState<Int, CachedFeedEntry> =
+    private fun emptyState(): PagingState<Int, FeedItemUi> =
         PagingState(
             pages = emptyList(),
             anchorPosition = null,

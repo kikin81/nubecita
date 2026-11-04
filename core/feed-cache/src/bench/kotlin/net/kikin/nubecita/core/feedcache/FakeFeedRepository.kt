@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
@@ -30,7 +31,10 @@ import kotlin.time.Instant
 internal class FakeFeedRepository
     @Inject
     constructor() : FeedRepository {
-        override fun pagedFeed(feedKey: FeedKey): Flow<PagingData<PostUi>> = flowOf(PagingData.from(SAMPLE_POSTS))
+        override fun pagedFeed(
+            feedKey: FeedKey,
+            initialPosition: Int?,
+        ): Flow<PagingData<FeedItemUi>> = flowOf(PagingData.from(SAMPLE_POSTS.map(FeedItemUi::Single)))
 
         override fun head(
             feedKey: FeedKey,

@@ -125,6 +125,28 @@ interface FeedItemDao {
         feedUri: String,
     ): FeedItemEntity?
 
+    /**
+     * The window immediately **above** [beforePosition], newest-last.
+     *
+     * The upward half of the keyset read. A reader restored at an anchor sits
+     * mid-partition and must be able to scroll back towards newer items, which
+     * a forward-only source cannot serve. Returned in descending order; the
+     * caller reverses it to display order.
+     */
+    @Query(
+        "SELECT * FROM feed_item " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND position < :beforePosition " +
+            "ORDER BY position DESC LIMIT :limit",
+    )
+    suspend fun itemsBefore(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        beforePosition: Int,
+        limit: Int,
+    ): List<FeedItemEntity>
+
     /** Resolves a persisted scroll anchor: the position of the row with this key. */
     @Query(
         "SELECT position FROM feed_item " +
