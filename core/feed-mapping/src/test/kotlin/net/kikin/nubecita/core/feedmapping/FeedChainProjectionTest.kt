@@ -58,7 +58,12 @@ internal class FeedChainProjectionTest {
         assertEquals("at://did:plc:alice000000000000000000/app.bsky.feed.post/2", chain.posts[1].id)
         assertEquals("at://did:plc:alice000000000000000000/app.bsky.feed.post/3", chain.posts[2].id)
         // Leaf-anchored key matches the last post's URI.
-        assertEquals("at://did:plc:alice000000000000000000/app.bsky.feed.post/3", chain.key)
+        // The key anchors on the chain's FIRST post, so a chain that gains a
+        // post keeps it and the reader's anchor still resolves (D12). The LEAF
+        // is still post 3 — that is the timeline slot, and what a deletion or
+        // the one-item-per-post pass acts on.
+        assertEquals("chain:at://did:plc:alice000000000000000000/app.bsky.feed.post/1", chain.key)
+        assertEquals("at://did:plc:alice000000000000000000/app.bsky.feed.post/3", chain.leafId)
     }
 
     @Test

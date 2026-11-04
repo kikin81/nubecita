@@ -47,9 +47,16 @@ internal data class FeedInteractions(
     val onImageTap: (PostUi, Int) -> Unit,
     val onQuotedImageTap: (quotedPostUri: String, imageIndex: Int) -> Unit,
     val onVideoTap: (String) -> Unit,
+    /**
+     * Clears the state Paging does not own (the optimistic sets).
+     *
+     * The fetch itself is the items' own `refresh()`, which the screen calls
+     * alongside this: Paging owns the load, the VM owns everything else about
+     * the gesture. Retry and append have no entry here at all — those are
+     * `LazyPagingItems.retry()` and reading near the end of the list, and a
+     * VM event for either would be a second source of truth for one fetch.
+     */
     val onRefresh: () -> Unit,
-    val onRetry: () -> Unit,
-    val onLoadMore: () -> Unit,
     val onRetryOutgoing: (localId: String) -> Unit,
     val onDiscardOutgoing: (localId: String) -> Unit,
     val coordinator: FeedVideoPlayerCoordinator?,
@@ -75,7 +82,8 @@ internal data class FeedInteractions(
  *   [rememberPostInteractions].
  * - [DisposableEffect] on coordinator: `(viewModel, coordinator)`.
  *
- * Screen-specific triggers ([FeedEvent.Load] / [FeedEvent.Bind]) are
+ * Screen-specific triggers ([FeedEvent.Bind], and the items' own
+ * `refresh()` / `retry()`) are
  * deliberately NOT here — each screen wires its own binding [LaunchedEffect].
  */
 @Composable
@@ -284,8 +292,6 @@ internal fun rememberFeedInteractions(
     // skip-friendly (all params @Stable / @Immutable), preserving lambda
     // identity here lets it skip recomposition when only viewState changes.
     val onRefresh = remember(viewModel) { { viewModel.handleEvent(FeedEvent.Refresh) } }
-    val onRetry = remember(viewModel) { { viewModel.handleEvent(FeedEvent.Retry) } }
-    val onLoadMore = remember(viewModel) { { viewModel.handleEvent(FeedEvent.LoadMore) } }
     val onRetryOutgoing = remember(viewModel) { { localId: String -> viewModel.handleEvent(FeedEvent.RetryOutgoing(localId)) } }
     val onDiscardOutgoing = remember(viewModel) { { localId: String -> viewModel.handleEvent(FeedEvent.DiscardOutgoing(localId)) } }
 
@@ -364,10 +370,8 @@ internal fun rememberFeedInteractions(
         onQuotedImageTap = onQuotedImageTap,
         onVideoTap = onVideoTap,
         onRefresh = onRefresh,
-        onRetry = onRetry,
         onRetryOutgoing = onRetryOutgoing,
         onDiscardOutgoing = onDiscardOutgoing,
-        onLoadMore = onLoadMore,
         coordinator = coordinator,
     )
 }

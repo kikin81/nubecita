@@ -11,9 +11,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Validates the v4 → v5 `@AutoMigration` that adds the offline feed cache
- * (`feed_post` + `feed_remote_keys`): the new tables are created and the
- * existing v4 rows (recent searches, actors) survive untouched.
+ * Validates each schema bump against its committed JSON, with real rows in the
+ * old database: a migration that drops or fails to create something is a crash
+ * on upgrade for every installed copy, and nothing else in the suite runs the
+ * upgrade path at all.
  *
  * Reads the committed schema JSON from `core/database/schemas/` (added as
  * androidTest assets by the module's `build.gradle.kts`).
@@ -294,6 +295,75 @@ internal class MigrationTest {
             assertTrue(c.moveToFirst())
             // Both named indices were recreated after the table was dropped.
             assertTrue(c.getInt(0) >= 2)
+        }
+
+        db.close()
+    }
+
+    @Test
+    fun migrate7To8_addsTheScrollAnchor_andPreservesTheCache() {
+        // The anchor is three nullable columns on a table that already exists,
+        // so AutoMigration expresses it — but a reader's cached partition must
+        // come through untouched, since the whole point of the anchor is to
+        // return them to rows that are still there.
+        helper.createDatabase(dbName, 7).use { db ->
+            db.execSQL("INSERT INTO recent_search (`query`, recorded_at) VALUES ('nubecita', 8000)")
+            db.execSQL(
+                "INSERT INTO cached_post (account_did, uri, cid, author_did, indexed_at, text, post_blob, unavailable) " +
+                    "VALUES ('did:d', 'at://post/kept', 'cidk', 'did:e', 8100, 'kept', '{}', NULL)",
+            )
+            db.execSQL(
+                "INSERT INTO feed_post (account_did, feed_type, feed_uri, position, uri) " +
+                    "VALUES ('did:d', 'FOLLOWING', '', 0, 'at://post/kept')",
+            )
+            db.execSQL(
+                "INSERT INTO feed_item " +
+                    "(account_did, feed_type, feed_uri, position, row_type, variant, item_key, leaf_uri, " +
+                    "suppressed_reply_count, seam_exhausted) " +
+                    "VALUES ('did:d', 'FOLLOWING', '', 0, 'item', 'single', 'single:at://post/kept', " +
+                    "'at://post/kept', 0, NULL)",
+            )
+            db.execSQL(
+                "INSERT INTO feed_partition_state (account_did, feed_type, feed_uri, prefs_fingerprint) " +
+                    "VALUES ('did:d', 'FOLLOWING', '', 'replies=false')",
+            )
+        }
+
+        // Validates the migrated schema against 8.json.
+        val db = helper.runMigrationsAndValidate(dbName, 8, true)
+
+        // The cache and the fingerprint survive.
+        db.query("SELECT COUNT(*) FROM feed_post").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(1, c.getInt(0))
+        }
+        db.query("SELECT item_key FROM feed_item").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("single:at://post/kept", c.getString(0))
+        }
+        // An existing row reads as "never scrolled" rather than as a broken
+        // anchor, which is what makes the columns nullable rather than defaulted.
+        db
+            .query("SELECT prefs_fingerprint, anchor_item_key, anchor_position, anchor_offset FROM feed_partition_state")
+            .use { c ->
+                assertTrue(c.moveToFirst())
+                assertEquals("replies=false", c.getString(0))
+                assertTrue(c.isNull(1))
+                assertTrue(c.isNull(2))
+                assertTrue(c.isNull(3))
+            }
+
+        // And the new columns accept the reader's place, negative offset included.
+        db.execSQL(
+            "UPDATE feed_partition_state SET anchor_item_key = 'single:at://post/kept', " +
+                "anchor_position = 0, anchor_offset = -24 " +
+                "WHERE account_did = 'did:d' AND feed_type = 'FOLLOWING' AND feed_uri = ''",
+        )
+        db.query("SELECT anchor_item_key, anchor_position, anchor_offset FROM feed_partition_state").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("single:at://post/kept", c.getString(0))
+            assertEquals(0, c.getInt(1))
+            assertEquals(-24, c.getInt(2))
         }
 
         db.close()

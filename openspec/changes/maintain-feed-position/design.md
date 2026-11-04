@@ -315,3 +315,27 @@ So two of my own decisions disagree, and the resolution is a real choice rather 
 What was implemented first, and is now replaced, was option 2: `FeedRemoteMediator.initialize()` compares the live fingerprint against the partition's and returns `LAUNCH_INITIAL_REFRESH` on a mismatch. The preference applies correctly; the position does not survive. An absent fingerprint counts as *not* stale, so upgrading does not refetch every partition once for nothing.
 
 Also settled here: **D23a's worker clause was unnecessary.** It said a background write should project with the persisted fingerprint rather than live preferences, to avoid reinterpreting the feed under settings the reader has not seen. But a fingerprint is a hash and cannot be projected with, and the concern does not arise: `head` — the widget and Wear read path — reads the raw entry rows, not the projection, and already combines live preferences so a toggle refreshes it immediately. No reader observes the projection while the worker writes, because the worker's foreground guard means the app is backgrounded. The worker projects with live preferences and records the fingerprint, like any other writer.
+
+## Decisions from implementing the key change (group 5)
+
+### D28 — A cluster keys on its leaf, not its root; D12 was wrong on that point
+
+D12 namespaced both grouped keys and anchored both on "the group's first post", giving `ReplyCluster` the key `"cluster:${root.id}"`. That is a crash.
+
+A `ReplyCluster` is **one reply** with its ancestors drawn as context, so two replies into the same thread are two clusters sharing a root. D7 deliberately allows exactly that pair to coexist: a newer reply prepended above an older one still rendered below the seam. Keyed on the root they are the same key, and a duplicate `LazyColumn` key throws — the very failure D12's namespace was introduced to prevent. It would also make the anchor's `item_key` lookup ambiguous between two rows.
+
+The stability argument D12 made holds for a chain, which can gain a post between sessions and so change its leaf. A cluster's leaf does not move that way. So the chain keeps `"chain:" + first post` and the cluster takes `"cluster:" + leaf`.
+
+Namespacing also broke the equality `key == the leaf's id`, which three call sites relied on: the interaction overlay's delete-removal check, the final de-duplication pass, and the projection's `leaf_uri` column. Each would have kept compiling and silently stopped matching, so `FeedItemUi` now exposes `leafId` explicitly and those callers read it.
+
+### D29 — The one-item-per-timeline-post pass runs on every direction, prepends included
+
+The projection as written in group 2 ran two passes — thread-root, then cluster-context — and omitted the third pass the in-memory screen ran (`dedupeByKey`). Once the screen reads the cache, that omission is reachable in three ways:
+
+- Two reposts of the same post in one page. The thread-root pass **exempts reposts** from its drop, so it cannot catch this; it is the original `nubecita-7p3` crash.
+- A cluster's leaf reposted further down the same page.
+- A prepend's overlap with the cached head. A `since`-bounded catch-up returns the boundary entries by design.
+
+So the pass is restored, keyed on `leafId`, and seeded from the partition in **every** direction. D7's prepend exemption is about a thread resurfacing with a newer reply — not about the same post being drawn twice, which is duplication whatever its key.
+
+The seed is the partition's rendered **leaves**, not every rendered post. A `Single` whose post appears above only as some cluster's context belongs to the cluster-context pass, which keeps it when it is a repost; seeding from every rendered post would quietly take that decision away from it.

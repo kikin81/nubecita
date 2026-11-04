@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.feed.impl.data
+package net.kikin.nubecita.core.feedcache
 
 import io.github.kikin81.atproto.app.bsky.richtext.Facet
 import io.github.kikin81.atproto.app.bsky.richtext.FacetByteSlice

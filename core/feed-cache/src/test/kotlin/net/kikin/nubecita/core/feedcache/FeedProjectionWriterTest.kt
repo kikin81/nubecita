@@ -151,6 +151,46 @@ internal class FeedProjectionWriterTest {
         }
 
     @Test
+    fun `a prepend drops the page's overlap with what is already rendered`() =
+        runTest {
+            // A `since`-bounded catch-up overlaps the cached head by design, so
+            // the boundary entries come back. The thread-root pass is exempt on
+            // a prepend (D7) and would let them through; this pass is not, and
+            // the overlap would otherwise render a second time (D29).
+            prefs(hideReplies = false)
+            coEvery { feedItemDao.renderedLeafUris("did:plc:me", "FOLLOWING", "") } returns listOf("at://p/1")
+            val rows = slot<List<FeedItemEntity>>()
+            coEvery { feedItemDao.upsert(capture(rows)) } returns Unit
+
+            val written =
+                writer().writePrepend(
+                    FeedKey.following("did:plc:me"),
+                    listOf(topLevelEntry("at://p/2"), topLevelEntry("at://p/1")),
+                    basePosition = -250,
+                )
+
+            assertEquals(1, written)
+            assertEquals(listOf("at://p/2"), rows.captured.map { it.leafUri })
+        }
+
+    @Test
+    fun `a prepend that is pure overlap writes nothing`() =
+        runTest {
+            prefs(hideReplies = false)
+            coEvery { feedItemDao.renderedLeafUris("did:plc:me", "FOLLOWING", "") } returns listOf("at://p/1")
+
+            val written =
+                writer().writePrepend(
+                    FeedKey.following("did:plc:me"),
+                    listOf(topLevelEntry("at://p/1")),
+                    basePosition = -250,
+                )
+
+            assertEquals(0, written)
+            coVerify(exactly = 0) { feedItemDao.upsert(any()) }
+        }
+
+    @Test
     fun `a prepend writes at the position the caller allocated`() =
         runTest {
             // The mediator owns the window arithmetic: only it knows how much

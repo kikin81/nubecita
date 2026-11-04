@@ -50,15 +50,48 @@ import kotlinx.collections.immutable.ImmutableList
 @Stable
 public sealed interface FeedItemUi {
     /**
-     * Stable identifier used as the LazyColumn `key` lambda.
+     * Stable identifier used as the LazyColumn `key` lambda, and as the
+     * reader's persisted scroll anchor.
      *
-     * For [Single] this is the post's URI. For [ReplyCluster] and
-     * [SelfThreadChain] this is the leaf's URI — pagination +
-     * scroll-position are anchored on the leaf because that's "the post
-     * in your timeline" from the user's perspective; preceding posts
-     * are context.
+     * Grouped variants are **namespaced** and anchored on a post that does not
+     * change as the group grows (D12):
+     *
+     * - [Single] — the post's own URI.
+     * - [SelfThreadChain] — `"chain:"` plus the chain's FIRST post. A chain can
+     *   gain a post between sessions, which changes its leaf; keyed on the leaf,
+     *   an anchor saved in one session would resolve to nothing in the next.
+     * - [ReplyCluster] — `"cluster:"` plus the leaf. A cluster is one reply with
+     *   its ancestors as context, so its leaf does not move the way a chain's
+     *   does.
+     *
+     * The namespace is not decoration. Keyed on the bare post id, a chain rooted
+     * at P and a [Single] rendering P would share a key, and a duplicate
+     * LazyColumn key throws. That collision used to be unreachable only because
+     * of the "at most one item per thread root" invariant living in another
+     * module — and that invariant is now per-page rather than global (D7), so
+     * the namespace carries the safety locally instead of borrowing it.
+     *
+     * Use [leafId], not this, to ask *which post* an item occupies a timeline
+     * slot for. The two were the same value before namespacing, and code that
+     * leans on that equality breaks silently here.
      */
     public val key: String
+
+    /**
+     * The post this item occupies a timeline slot for — "the post in your
+     * timeline", with any preceding posts being context.
+     *
+     * Deleting this post removes the item; deleting an ancestor shown only as
+     * context leaves the reply standing, which is what the reader still wants
+     * to see. It is also the identity a "one item per timeline post" pass
+     * de-duplicates on, since two items rendering the same post is duplication
+     * however differently they are keyed.
+     *
+     * Separate from [key] on purpose. They held the same value until the
+     * grouped keys were namespaced, and every caller that read [key] meaning
+     * "the leaf" would have kept compiling and started being wrong.
+     */
+    public val leafId: String
 
     /**
      * How many replies into this item's thread were suppressed by feed
@@ -82,6 +115,8 @@ public sealed interface FeedItemUi {
         override val suppressedReplyCount: Int = 0,
     ) : FeedItemUi {
         override val key: String get() = post.id
+
+        override val leafId: String get() = post.id
     }
 
     public data class ReplyCluster(
@@ -91,7 +126,14 @@ public sealed interface FeedItemUi {
         val hasEllipsis: Boolean,
         override val suppressedReplyCount: Int = 0,
     ) : FeedItemUi {
-        override val key: String get() = leaf.id
+        // The leaf, not the root. Two replies into one thread are two clusters
+        // sharing a root, which D7 now allows to coexist across a prepend seam
+        // — keyed on the root they would collide, and a duplicate LazyColumn
+        // key throws. It would also make the anchor's item_key lookup ambiguous
+        // between two rows. See the design's D28.
+        override val key: String get() = "cluster:${leaf.id}"
+
+        override val leafId: String get() = leaf.id
     }
 
     /**
@@ -109,7 +151,11 @@ public sealed interface FeedItemUi {
         val posts: ImmutableList<PostUi>,
         override val suppressedReplyCount: Int = 0,
     ) : FeedItemUi {
-        override val key: String get() = posts.last().id
+        // The FIRST post: a chain that gains a post between sessions keeps its
+        // key, so the reader's anchor still resolves to it.
+        override val key: String get() = "chain:${posts.first().id}"
+
+        override val leafId: String get() = posts.last().id
     }
 
     /**
@@ -134,6 +180,8 @@ public sealed interface FeedItemUi {
     ) : FeedItemUi {
         override val key: String get() = "blocked:$uri"
 
+        override val leafId: String get() = uri
+
         // A tombstone has no thread root, so it is never a de-dup survivor.
         override val suppressedReplyCount: Int get() = 0
     }
@@ -148,6 +196,8 @@ public sealed interface FeedItemUi {
         val uri: String,
     ) : FeedItemUi {
         override val key: String get() = "notfound:$uri"
+
+        override val leafId: String get() = uri
 
         // A tombstone has no thread root, so it is never a de-dup survivor.
         override val suppressedReplyCount: Int get() = 0

@@ -52,7 +52,8 @@ internal class FeedRemoteMediator
 
         /**
          * Render the cached partition immediately when it already holds rows
-         * (no auto-refetch on open/switch), else trigger the initial REFRESH.
+         * AND the feed is one a catch-up can keep current; otherwise trigger
+         * the initial REFRESH.
          *
          * A TTL / staleness refinement (refetch a cached-but-stale partition) is
          * intentionally DEFERRED to the refresh worker (sub-project B) — it owns
@@ -62,6 +63,13 @@ internal class FeedRemoteMediator
         override suspend fun initialize(): InitializeAction {
             val cached = feedPostDao.maxPosition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri) != null
             if (!cached) return InitializeAction.LAUNCH_INITIAL_REFRESH
+            // A feed that cannot bound a catch-up refreshes on open, which is
+            // what it did before the cache existed (D14). Rendering its cached
+            // partition instead would show stale algorithmic content with no
+            // way to reach the newest entries short of a pull — and for these
+            // feeds the destructive replace IS the behaviour readers expect,
+            // since nothing persists a position for them.
+            if (!feedKey.feedType.supportsSince) return InitializeAction.LAUNCH_INITIAL_REFRESH
             // A cached partition is still stale if the viewer's preferences have
             // moved since its projection was computed: the stored rows would
             // keep showing replies the reader has just asked to hide, and the

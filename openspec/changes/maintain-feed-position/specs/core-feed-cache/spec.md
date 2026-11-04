@@ -116,13 +116,13 @@ A storage guard SHALL NOT delete the anchor it exists to protect.
 
 ### Requirement: The `FeedItemUi` projection is computed at write time
 
-The system SHALL compute the `FeedItemUi` grouping projection — reply-cluster and self-thread-chain detection, thread-root de-duplication, and cluster-context de-duplication — on the **write** path, over the whole fetched page, and SHALL persist the result. The read path SHALL NOT re-derive the grouping.
+The system SHALL compute the `FeedItemUi` grouping projection — reply-cluster and self-thread-chain detection, thread-root de-duplication, cluster-context de-duplication, and a final one-item-per-timeline-post pass — on the **write** path, over the whole fetched page, and SHALL persist the result. The read path SHALL NOT re-derive the grouping.
 
 De-duplication SHALL apply within the page being written. An entry written by a prepend SHALL be exempt from thread roots already present below the seam.
 
 #### Scenario: Grouping is computed with the whole page in hand
 - **WHEN** a fetched page is written through to the cache
-- **THEN** the two-pass projection runs over that entire page, in the specified non-commutative order, before any row is read by a consumer
+- **THEN** the projection's passes run over that entire page, in the specified non-commutative order, before any row is read by a consumer
 
 #### Scenario: A chain is not split at a page boundary
 - **WHEN** a self-thread chain spans the cut between two fetched pages
@@ -131,6 +131,24 @@ De-duplication SHALL apply within the page being written. An entry written by a 
 #### Scenario: A newer reply into a seen thread surfaces on prepend
 - **WHEN** a prepend brings a reply whose thread root already appears in an entry below the seam
 - **THEN** the prepended entry is retained, because it is a new event above the reader's position
+
+### Requirement: One item per timeline post, across pagination
+
+The final projection pass SHALL retain at most one item per post occupying a timeline slot, and SHALL be seeded from the partition in **every** load direction, prepends included.
+
+The prepend exemption on thread roots concerns a thread resurfacing with a newer reply, not the same post being drawn twice. The seed SHALL be the partition's rendered leaf posts, not every rendered post.
+
+#### Scenario: A catch-up's overlap with the cached head is not rendered twice
+- **WHEN** a `since`-bounded prepend returns entries already rendered in the partition
+- **THEN** those entries are dropped from the written projection, while a newer reply into a thread below the seam is still retained
+
+#### Scenario: Two reposts of one post in a single page collapse
+- **WHEN** a page carries the same post twice because two accounts the viewer follows both reposted it
+- **THEN** one item is written, even though the thread-root pass exempts reposts from its drop
+
+#### Scenario: A repost of a context post is left to the cluster-context pass
+- **WHEN** a page carries a reposted `Single` for a post that appears above only as another item's context
+- **THEN** this pass does not drop it, because the seed holds rendered leaves rather than every rendered post
 
 ### Requirement: The projection is persisted at its own grain
 

@@ -34,7 +34,10 @@ import net.kikin.nubecita.core.database.util.InstantConverter
  * `entry_blob`. That diff is not additive and the dropped `reason`/`reply`
  * data cannot be recovered locally, so v6 → v7 is a **manual** migration that
  * drops the cached feed rows and lets the partition refill — a cold partition
- * is a state [FeedPostDao] and the `RemoteMediator` already handle.
+ * is a state [FeedPostDao] and the `RemoteMediator` already handle. v8 adds the
+ * reader's scroll anchor to [FeedPartitionStateEntity] — three nullable
+ * columns, so `@AutoMigration(7 → 8)` expresses it, and a partition with no
+ * anchor yet reads exactly like one the reader has never scrolled.
  *
  * Schema export is on; generated JSON is committed under
  * `core/database/schemas/`. Every schema bump must commit the new
@@ -54,7 +57,7 @@ import net.kikin.nubecita.core.database.util.InstantConverter
         FeedRemoteKeyEntity::class,
         SavedFeedEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = BootstrapEntityDrop::class),
@@ -62,6 +65,7 @@ import net.kikin.nubecita.core.database.util.InstantConverter
         AutoMigration(from = 3, to = 4),
         AutoMigration(from = 4, to = 5),
         AutoMigration(from = 5, to = 6),
+        AutoMigration(from = 7, to = 8),
     ],
 )
 @TypeConverters(InstantConverter::class)

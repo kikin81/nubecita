@@ -84,34 +84,43 @@ fun List<FeedItemUi>.dedupeClusterContext(): List<FeedItemUi> {
 }
 
 /**
- * Drops `FeedItemUi` entries whose `key` has already appeared earlier in
- * the list, keeping the first occurrence. The renderer's `LazyColumn`
- * uses [FeedItemUi.key] as the slot key, and Compose throws
- * `IllegalArgumentException: Key … was already used` on duplicates —
- * which crashes the feed mid-scroll if a duplicate slot scrolls into view.
+ * Keeps at most one item per timeline post, retaining the first occurrence.
  *
- * Two scenarios surface duplicates that [dedupeClusterContext] does not catch:
+ * Keyed on [FeedItemUi.leafId] — the post an item occupies a timeline slot for
+ * — because two items rendering the same post is duplication however
+ * differently they happen to be keyed. It was keyed on `key` while `key` *was*
+ * the leaf's id; the grouped keys are namespaced now (D12), so reading `key`
+ * here would stop catching a cluster and a `Single` that render the same post.
  *
- * - Two `Single` entries for the same post URI. Happens when (a) the user
- *   reposts a post AND (b) someone the user follows also reposts the same
- *   post — the timeline returns both as separate `FeedViewPost` entries
- *   with the same `post.uri`. Both project to `Single(post=samePost)`.
+ * Two scenarios surface duplicates that the earlier passes do not catch:
  *
- * - A `ReplyCluster.leaf.id` matching a later `Single.post.id` (the
- *   leaf got reposted further down the timeline). The cluster is canonical
- *   for the same reason as in [dedupeClusterContext]; the Single is the
- *   duplicate.
+ * - Two `Single` entries for the same post URI. Happens when (a) the viewer
+ *   reposts a post AND (b) someone they follow also reposts it — the timeline
+ *   returns both as separate entries with the same `post.uri`. Both project to
+ *   `Single(post = samePost)`, and **both are reposts**, which the thread-root
+ *   pass exempts from its drop. So that pass cannot be what catches this.
+ * - A `ReplyCluster`'s leaf matching a later `Single` (the leaf got reposted
+ *   further down the timeline). The cluster is canonical, for the same reason
+ *   as in [dedupeClusterContext]; the `Single` is the duplicate.
  *
- * Run AFTER [dedupeClusterContext] so cluster-context drops happen first,
- * then key-collisions are resolved on the surviving items. Pure O(n) —
- * one pass with a `HashSet` of seen keys.
+ * [visibleFromAbove] carries the posts already rendered above this page, which
+ * is what makes the pass span pagination. Unlike [dedupeByThreadRoot], **every**
+ * load direction seeds it, prepends included: D7's prepend exemption is about a
+ * thread resurfacing with a newer reply, not about the same post being drawn
+ * twice. A `since`-bounded catch-up overlaps the cached head by design, so
+ * without the seed the overlapping entries would render a second time — and,
+ * where the key matches too, throw.
+ *
+ * Run AFTER [dedupeClusterContext] so cluster-context drops happen first and
+ * collisions are resolved on the surviving items. Pure and O(n).
  *
  * Tracked as `nubecita-7p3`.
  */
-fun List<FeedItemUi>.dedupeByKey(): List<FeedItemUi> {
-    if (size < 2) return this
-    val seen = HashSet<String>(size)
-    return filter { item -> seen.add(item.key) }
+fun List<FeedItemUi>.dedupeByLeafPost(visibleFromAbove: Set<String> = emptySet()): List<FeedItemUi> {
+    if (size < 2 && visibleFromAbove.isEmpty()) return this
+    val seen = HashSet<String>(size + visibleFromAbove.size)
+    seen += visibleFromAbove
+    return filter { item -> seen.add(item.leafId) }
 }
 
 /**

@@ -32,10 +32,13 @@ import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.model.CachedFeedEntry
+import net.kikin.nubecita.core.database.model.FeedItemEntity
+import net.kikin.nubecita.core.database.model.FeedPartitionStateEntity
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.data.models.FeedItemUi
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 @OptIn(ExperimentalPagingApi::class, ExperimentalCoroutinesApi::class)
@@ -300,6 +303,130 @@ internal class FeedRepositoryTest {
             coVerify { feedPostDao.deleteOlderThan("did:plc:me", "FOLLOWING", "", 175) }
         }
 
+    // ---------- the reader's place ----------
+
+    @Test
+    fun `the anchor resolves by key, carrying its stored offset`() =
+        runTest {
+            // The key is what survives a re-projection moving the row, so it
+            // is tried first and the position it resolves to may differ from
+            // the one stored.
+            coEvery { partitionStateDao.state("did:plc:me", "FOLLOWING", "") } returns
+                FeedPartitionStateEntity(
+                    "did:plc:me",
+                    "FOLLOWING",
+                    "",
+                    anchorItemKey = "single:at://post/a",
+                    anchorPosition = 40,
+                    anchorOffset = -24,
+                )
+            coEvery { feedItemDao.positionOf("did:plc:me", "FOLLOWING", "", "single:at://post/a") } returns 37
+
+            assertEquals(
+                FeedAnchor(position = 37, itemKey = "single:at://post/a", offset = -24),
+                repository(emptyList()).anchor(key),
+            )
+        }
+
+    @Test
+    fun `a dead anchor resolves downward, to the first surviving row below it`() =
+        runTest {
+            // D11: the items just under where the reader stopped are the ones
+            // they had not read. Landing above would re-show what they
+            // finished, which is the one outcome worse than landing at the top.
+            coEvery { partitionStateDao.state("did:plc:me", "FOLLOWING", "") } returns
+                FeedPartitionStateEntity(
+                    "did:plc:me",
+                    "FOLLOWING",
+                    "",
+                    anchorItemKey = "single:at://post/deleted",
+                    anchorPosition = 40,
+                    anchorOffset = -24,
+                )
+            coEvery { feedItemDao.positionOf(any(), any(), any(), any()) } returns null
+            coEvery { feedItemDao.firstAtOrBelow("did:plc:me", "FOLLOWING", "", 40) } returns
+                itemRow(position = 43, key = "single:at://post/next")
+
+            val anchor = repository(emptyList()).anchor(key)
+
+            assertEquals(43, anchor?.position)
+            assertEquals("single:at://post/next", anchor?.itemKey)
+            // Offset 0: the stored one measured a scroll into a row that is
+            // gone, and a different row is a different height.
+            assertEquals(0, anchor?.offset)
+        }
+
+    @Test
+    fun `an anchor below everything that survived resolves to nothing`() =
+        runTest {
+            // The reader was in a stretch the trim has since evicted. Opening
+            // at the top is the honest answer; there is no backlog left to
+            // return them to.
+            coEvery { partitionStateDao.state("did:plc:me", "FOLLOWING", "") } returns
+                FeedPartitionStateEntity(
+                    "did:plc:me",
+                    "FOLLOWING",
+                    "",
+                    anchorItemKey = "single:at://post/evicted",
+                    anchorPosition = 900,
+                )
+            coEvery { feedItemDao.positionOf(any(), any(), any(), any()) } returns null
+            coEvery { feedItemDao.firstAtOrBelow(any(), any(), any(), any()) } returns null
+
+            assertNull(repository(emptyList()).anchor(key))
+        }
+
+    @Test
+    fun `a partition with no anchor restores nothing`() =
+        runTest {
+            coEvery { partitionStateDao.state(any(), any(), any()) } returns
+                FeedPartitionStateEntity("did:plc:me", "FOLLOWING", "", prefsFingerprint = "replies=false")
+
+            assertNull(repository(emptyList()).anchor(key))
+        }
+
+    @Test
+    fun `saving an anchor resolves its position first`() =
+        runTest {
+            coEvery { feedItemDao.positionOf("did:plc:me", "FOLLOWING", "", "single:at://post/a") } returns 12
+
+            repository(emptyList()).saveAnchor(key, itemKey = "single:at://post/a", offset = -8)
+
+            coVerify {
+                partitionStateDao.saveAnchor(
+                    accountDid = "did:plc:me",
+                    feedType = "FOLLOWING",
+                    feedUri = "",
+                    itemKey = "single:at://post/a",
+                    position = 12,
+                    offset = -8,
+                )
+            }
+        }
+
+    @Test
+    fun `an anchor whose row has gone is not written at all`() =
+        runTest {
+            // A refresh landed between the scroll settling and this write.
+            // Storing a position the key does not have would make the
+            // dead-anchor fallback resolve from a stale place; the next settle
+            // writes a current one.
+            coEvery { feedItemDao.positionOf(any(), any(), any(), any()) } returns null
+
+            repository(emptyList()).saveAnchor(key, itemKey = "single:at://post/gone", offset = 0)
+
+            coVerify(exactly = 0) { partitionStateDao.saveAnchor(any(), any(), any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `clearing the anchor leaves the rest of the partition state`() =
+        runTest {
+            repository(emptyList()).clearAnchor(key)
+
+            coVerify { partitionStateDao.clearAnchor("did:plc:me", "FOLLOWING", "") }
+            coVerify(exactly = 0) { partitionStateDao.upsert(any()) }
+        }
+
     @Test
     fun `clearAccount clears every grain, not just the entry table`() =
         runTest {
@@ -400,6 +527,22 @@ internal class FeedRepositoryTest {
             post = wire.toCachedPosts(key).first { it.uri == envelope.uri },
         )
     }
+
+    /** A projection row as the DAO returns it — what the dead-anchor fallback resolves to. */
+    private fun itemRow(
+        position: Int,
+        key: String,
+    ) = FeedItemEntity(
+        accountDid = "did:plc:me",
+        feedType = "FOLLOWING",
+        feedUri = "",
+        position = position,
+        rowType = FeedItemEntity.ROW_TYPE_ITEM,
+        variant = "single",
+        itemKey = key,
+        leafUri = key.substringAfter(':'),
+        suppressedReplyCount = 0,
+    )
 
     /** One rendered item, as the projection would have produced it. */
     private fun item(

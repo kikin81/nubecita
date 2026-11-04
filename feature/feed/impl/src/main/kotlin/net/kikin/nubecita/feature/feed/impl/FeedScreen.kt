@@ -53,6 +53,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.tooling.preview.Preview
@@ -61,9 +62,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
+import androidx.paging.PagingData
+import androidx.paging.compose.LazyPagingItems
+import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.window.core.layout.WindowSizeClass
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
@@ -80,6 +85,7 @@ import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCardShimmer
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.feature.feed.impl.ui.FeedAnchoring
 import net.kikin.nubecita.feature.feed.impl.ui.FeedChipRow
 import net.kikin.nubecita.feature.feed.impl.ui.FeedEmptyState
 import net.kikin.nubecita.feature.feed.impl.ui.FeedErrorState
@@ -105,8 +111,10 @@ private const val SHIMMER_PREVIEW_COUNT = 6
  * `LazyListState` hoisted via `rememberSaveable` (for back-nav and
  * config-change retention), the screen-internal `SnackbarHostState`,
  * the `remember`-d `PostCallbacks` that dispatch to the VM, and the
- * one-shot `LaunchedEffect(Unit)` that fires `FeedEvent.Load` on first
- * composition. Delegates the actual rendering to [FeedScreenContent]
+ * collection of the paged feed. There is no initial-load trigger: a
+ * `Pager` initializes itself, and an event here would race the
+ * mediator's own `initialize()`. Delegates the rendering to
+ * [FeedScreenContent]
  * which previews/screenshot tests call directly with fixture inputs.
  *
  * Suppresses VM-forwarding lints — see ComposerScreen / ProfileScreen
@@ -156,8 +164,38 @@ internal fun FeedScreen(
     trendingViewModel: TrendingVideosViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val viewState = remember(state) { state.toViewState() }
+    val items = viewModel.feed.collectAsLazyPagingItems()
+    // The loaded window. A new instance per generation, so it is the right
+    // `remember` key for anything derived from what is on screen.
+    val snapshot = items.itemSnapshotList
+    val loadStatus = items.loadState.toFeedLoadStatus(items.itemCount)
+    val viewState =
+        remember(state, loadStatus, snapshot) {
+            // The outgoing rows are filtered here rather than in the VM
+            // because only Paging knows what is loaded: a just-submitted post
+            // that a page now carries must stop rendering as an optimistic row.
+            state.copy(outgoingPosts = state.outgoingPosts.notYetInFeed(snapshot.items)).toViewState(loadStatus, items.itemCount)
+        }
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+
+    // Reconcile the interactions cache with what is loaded, and let the VM log
+    // `view_feed` once per feed. Paging has no VM-visible "pages changed"
+    // callback, so the screen carries the signal across.
+    //
+    // Keyed on the loaded posts' URIs, NOT on the snapshot. Seeding makes the
+    // interactions cache emit, which re-runs the feed's transforms and hands
+    // back a new snapshot — so keying on the snapshot would seed again, with
+    // posts the overlay had already been applied to. The URI list only changes
+    // when the pages really change, which closes that loop.
+    // The signature is O(1); the posts are materialized only when it moves.
+    // Flattening every loaded post per generation would allocate twice over
+    // the whole window on every like tap — a generation arrives on each
+    // interactions-cache emission, not only on a page load.
+    val pageSignature =
+        remember(snapshot) {
+            Triple(snapshot.size, snapshot.items.firstOrNull()?.key, snapshot.items.lastOrNull()?.key)
+        }
+    LaunchedEffect(pageSignature) { viewModel.handleEvent(FeedEvent.ItemsLoaded(snapshot.items.allPosts())) }
 
     // Discover-only Trending Videos carousel. The ViewModel is created
     // unconditionally (composition-safe across feed switches) but only loads
@@ -203,16 +241,52 @@ internal fun FeedScreen(
             onNavigateTo = onNavigateTo,
         )
 
-    LaunchedEffect(Unit) { viewModel.handleEvent(FeedEvent.Load) }
+    // No initial-load dispatch: a `Pager` initializes itself. An event here
+    // would race the mediator's own `initialize()` and, on a warm partition,
+    // could refetch the very page the reader's position points into.
+
+    // Two actions, one gesture: Paging refetches, the VM drops the state it
+    // owns. Splitting them keeps the destructive path (D8) in one place rather
+    // than duplicating the fetch in the VM.
+    //
+    // Remembered because both capture `LazyPagingItems`, which is not @Stable:
+    // the compiler cannot auto-remember a lambda over an unstable capture, so
+    // an inline one would allocate on every recomposition of this scope — and
+    // this scope reads loadState, itemCount and itemSnapshotList, so it
+    // recomposes often.
+    val onRefresh =
+        remember(interactions, items) {
+            {
+                interactions.onRefresh()
+                items.refresh()
+            }
+        }
+    val onRetry = remember(items) { { items.retry() } }
+
+    // The reader's place. Only this surface keeps one: a generator feed
+    // refreshes on open (D14), so an anchor written there would never be read.
+    val restoreTo by viewModel.restoreTarget.collectAsStateWithLifecycle()
+    val anchoring =
+        remember(viewModel, restoreTo) {
+            FeedAnchoring(
+                restoreTo = restoreTo,
+                onAnchorChanged = { key, offset -> viewModel.handleEvent(FeedEvent.AnchorChanged(key, offset)) },
+                onRestoreApplied = { viewModel.handleEvent(FeedEvent.RestoreConsumed) },
+            )
+        }
 
     FeedScreenContent(
         viewState = viewState,
+        items = items,
+        anchoring = anchoring,
         listState = listState,
         snackbarHostState = snackbarHostState,
         callbacks = interactions.callbacks,
-        onRefresh = interactions.onRefresh,
-        onRetry = interactions.onRetry,
-        onLoadMore = interactions.onLoadMore,
+        // Two actions, one gesture: Paging refetches, the VM drops the state
+        // it owns. Splitting them is what keeps the destructive path (D8) in
+        // one place instead of duplicating the fetch in the VM.
+        onRefresh = onRefresh,
+        onRetry = onRetry,
         onRetryOutgoing = interactions.onRetryOutgoing,
         onDiscardOutgoing = interactions.onDiscardOutgoing,
         feedChips = feedChips,
@@ -222,7 +296,7 @@ internal fun FeedScreen(
         status = status,
         onSelectFeed = onSelectFeed,
         onSelectList = onSelectList,
-        onRetryFeeds = interactions.onRetry,
+        onRetryFeeds = onRetry,
         onNavigateTo = onNavigateTo,
         onComposeClick = onComposeClick,
         onImageTap = interactions.onImageTap,
@@ -248,12 +322,12 @@ internal fun FeedScreen(
 @Composable
 internal fun FeedScreenContent(
     viewState: FeedScreenViewState,
+    items: LazyPagingItems<FeedItemUi>,
     listState: LazyListState,
     snackbarHostState: SnackbarHostState,
     callbacks: PostCallbacks,
     onRefresh: () -> Unit,
     onRetry: () -> Unit,
-    onLoadMore: () -> Unit,
     feedChips: ImmutableList<PinnedFeedUi>,
     pinnedLists: ImmutableList<PinnedFeedUi>,
     selectedFeedUri: String?,
@@ -264,6 +338,8 @@ internal fun FeedScreenContent(
     onRetryFeeds: () -> Unit,
     onNavigateTo: (NavKey) -> Unit,
     modifier: Modifier = Modifier,
+    // Null on a surface that keeps no reading position — see PostFeedList.
+    anchoring: FeedAnchoring? = null,
     onComposeClick: () -> Unit = {},
     onRetryOutgoing: (localId: String) -> Unit = {},
     onDiscardOutgoing: (localId: String) -> Unit = {},
@@ -482,7 +558,7 @@ internal fun FeedScreenContent(
         when (viewState) {
             FeedScreenViewState.InitialLoading ->
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().testTag(FeedTestTags.SHIMMER),
                     contentPadding = effectivePadding,
                 ) {
                     items(count = SHIMMER_PREVIEW_COUNT, key = { "shimmer-$it" }) { index ->
@@ -514,7 +590,8 @@ internal fun FeedScreenContent(
             is FeedScreenViewState.Loaded ->
                 PostFeedList(
                     onQuotedImageTap = onQuotedImageTap,
-                    feedItems = viewState.feedItems,
+                    items = items,
+                    anchoring = anchoring,
                     outgoingPosts = viewState.outgoingPosts,
                     onRetryOutgoing = onRetryOutgoing,
                     onDiscardOutgoing = onDiscardOutgoing,
@@ -523,7 +600,6 @@ internal fun FeedScreenContent(
                     listState = listState,
                     callbacks = callbacks,
                     onRefresh = onRefresh,
-                    onLoadMore = onLoadMore,
                     onImageTap = onImageTap,
                     cardColor = cardColor,
                     cardShape = cardShape,
@@ -602,9 +678,9 @@ private fun FeedScreenInitialErrorUnknownPreview() {
 private fun FeedScreenLoadedPreview() {
     NubecitaTheme {
         FeedScreenPreviewHost(
+            items = previewFeedItems(),
             viewState =
                 FeedScreenViewState.Loaded(
-                    feedItems = previewFeedItems(),
                     isAppending = false,
                     isRefreshing = false,
                 ),
@@ -618,9 +694,9 @@ private fun FeedScreenLoadedPreview() {
 private fun FeedScreenLoadedRefreshingPreview() {
     NubecitaTheme {
         FeedScreenPreviewHost(
+            items = previewFeedItems(),
             viewState =
                 FeedScreenViewState.Loaded(
-                    feedItems = previewFeedItems(),
                     isAppending = false,
                     isRefreshing = true,
                 ),
@@ -634,9 +710,9 @@ private fun FeedScreenLoadedRefreshingPreview() {
 private fun FeedScreenLoadedAppendingPreview() {
     NubecitaTheme {
         FeedScreenPreviewHost(
+            items = previewFeedItems(),
             viewState =
                 FeedScreenViewState.Loaded(
-                    feedItems = previewFeedItems(),
                     isAppending = true,
                     isRefreshing = false,
                 ),
@@ -645,12 +721,26 @@ private fun FeedScreenLoadedAppendingPreview() {
 }
 
 /**
+ * A fixed list as [LazyPagingItems], for previews and screenshot tests.
+ *
+ * `FeedScreenContent` takes the paged items rather than a list, so a fixture
+ * has to arrive as one. A single `PagingData.from` page is enough: nothing a
+ * preview renders depends on there being a second page, and it keeps the
+ * fixtures plain lists.
+ */
+@Composable
+internal fun rememberPreviewPagingItems(items: ImmutableList<FeedItemUi>): LazyPagingItems<FeedItemUi> = remember(items) { flowOf(PagingData.from(items)) }.collectAsLazyPagingItems()
+
+/**
  * Stateless preview/test host — wraps [FeedScreenContent] with a
  * fresh `LazyListState` + `SnackbarHostState` so the call site only
  * supplies the `viewState` to vary across previews.
  */
 @Composable
-private fun FeedScreenPreviewHost(viewState: FeedScreenViewState) {
+private fun FeedScreenPreviewHost(
+    viewState: FeedScreenViewState,
+    items: ImmutableList<FeedItemUi> = persistentListOf(),
+) {
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     // Provide a fixed clock so PostCard's relative-time label is
@@ -658,12 +748,12 @@ private fun FeedScreenPreviewHost(viewState: FeedScreenViewState) {
     CompositionLocalProvider(LocalClock provides PreviewClock) {
         FeedScreenContent(
             viewState = viewState,
+            items = rememberPreviewPagingItems(items),
             listState = listState,
             snackbarHostState = snackbarHostState,
             callbacks = PostCallbacks.None,
             onRefresh = {},
             onRetry = {},
-            onLoadMore = {},
             feedChips = persistentListOf(),
             pinnedLists = persistentListOf(),
             selectedFeedUri = null,

@@ -34,6 +34,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
+import androidx.paging.compose.LazyPagingItems
+import androidx.paging.compose.collectAsLazyPagingItems
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.analytics.PostSurface
@@ -98,21 +100,31 @@ internal fun FeedViewScreen(
             creationCallback = { factory -> factory.create(feedUri) },
         ),
 ) {
-    // Bind the VM to this feed's URI once per navigation entry, then
-    // immediately trigger the initial load. Both are sequential in a single
-    // effect so Bind always precedes Load (two separate LaunchedEffects are
-    // concurrent coroutines whose ordering is non-deterministic; worst-case
-    // Load fires first and is immediately cancelled when Bind resets the VM).
+    // Bind the VM to this feed's URI once per navigation entry. The binding
+    // is what selects the cache partition the `Pager` reads, so there is no
+    // separate load to trigger — and no ordering hazard between the two.
     LaunchedEffect(feedUri) {
         viewModel.handleEvent(
             FeedEvent.Bind(feedUri, FeedKind.Generator, surface = PostSurface.FeedView),
         )
-        viewModel.handleEvent(FeedEvent.Load)
     }
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val viewState = remember(state) { state.toViewState() }
+    val items = viewModel.feed.collectAsLazyPagingItems()
+    val snapshot = items.itemSnapshotList
+    val loadStatus = items.loadState.toFeedLoadStatus(items.itemCount)
+    val viewState = remember(state, loadStatus, snapshot) { state.toViewState(loadStatus, items.itemCount) }
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+
+    // Same reason as `FeedScreen`: seeding makes the interactions cache emit,
+    // which produces a new snapshot, so the signature is what keeps this from
+    // re-seeding its own output — and it is O(1), so a generation that changes
+    // nothing costs nothing.
+    val pageSignature =
+        remember(snapshot) {
+            Triple(snapshot.size, snapshot.items.firstOrNull()?.key, snapshot.items.lastOrNull()?.key)
+        }
+    LaunchedEffect(pageSignature) { viewModel.handleEvent(FeedEvent.ItemsLoaded(snapshot.items.allPosts())) }
     val pinState by pinViewModel.uiState.collectAsStateWithLifecycle()
     val haptics = rememberPostHaptics()
     val interactions =
@@ -143,14 +155,24 @@ internal fun FeedViewScreen(
         }
     }
 
+    // Remembered over the unstable LazyPagingItems — see `FeedScreen`.
+    val onRefresh =
+        remember(interactions, items) {
+            {
+                interactions.onRefresh()
+                items.refresh()
+            }
+        }
+    val onRetry = remember(items) { { items.retry() } }
+
     FeedViewScreenContent(
         viewState = viewState,
+        items = items,
         listState = listState,
         snackbarHostState = snackbarHostState,
         callbacks = interactions.callbacks,
-        onRefresh = interactions.onRefresh,
-        onRetry = interactions.onRetry,
-        onLoadMore = interactions.onLoadMore,
+        onRefresh = onRefresh,
+        onRetry = onRetry,
         displayName = displayName,
         isPinned = pinState.isPinned,
         onPinToggle = { pinViewModel.handleEvent(FeedPinEvent.TogglePin) },
@@ -174,12 +196,12 @@ internal fun FeedViewScreen(
 @Composable
 internal fun FeedViewScreenContent(
     viewState: FeedScreenViewState,
+    items: LazyPagingItems<FeedItemUi>,
     listState: LazyListState,
     snackbarHostState: SnackbarHostState,
     callbacks: PostCallbacks,
     onRefresh: () -> Unit,
     onRetry: () -> Unit,
-    onLoadMore: () -> Unit,
     displayName: String?,
     isPinned: Boolean,
     onPinToggle: () -> Unit,
@@ -286,13 +308,12 @@ internal fun FeedViewScreenContent(
                 )
             is FeedScreenViewState.Loaded ->
                 PostFeedList(
-                    feedItems = viewState.feedItems,
+                    items = items,
                     isAppending = viewState.isAppending,
                     isRefreshing = viewState.isRefreshing,
                     listState = listState,
                     callbacks = callbacks,
                     onRefresh = onRefresh,
-                    onLoadMore = onLoadMore,
                     onImageTap = onImageTap,
                     onQuotedImageTap = onQuotedImageTap,
                     cardColor = cardColor,
@@ -335,9 +356,9 @@ private fun FeedViewScreenInitialLoadingPreview() {
 private fun FeedViewScreenLoadedPinnedPreview() {
     NubecitaTheme {
         FeedViewScreenPreviewHost(
+            items = previewFeedViewItems(),
             viewState =
                 FeedScreenViewState.Loaded(
-                    feedItems = previewFeedViewItems(),
                     isAppending = false,
                     isRefreshing = false,
                 ),
@@ -351,9 +372,9 @@ private fun FeedViewScreenLoadedPinnedPreview() {
 private fun FeedViewScreenLoadedUnpinnedPreview() {
     NubecitaTheme {
         FeedViewScreenPreviewHost(
+            items = previewFeedViewItems(),
             viewState =
                 FeedScreenViewState.Loaded(
-                    feedItems = previewFeedViewItems(),
                     isAppending = false,
                     isRefreshing = false,
                 ),
@@ -366,18 +387,19 @@ private fun FeedViewScreenLoadedUnpinnedPreview() {
 private fun FeedViewScreenPreviewHost(
     viewState: FeedScreenViewState,
     isPinned: Boolean,
+    items: ImmutableList<FeedItemUi> = persistentListOf(),
 ) {
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     CompositionLocalProvider(LocalClock provides FeedViewPreviewClock) {
         FeedViewScreenContent(
             viewState = viewState,
+            items = rememberPreviewPagingItems(items),
             listState = listState,
             snackbarHostState = snackbarHostState,
             callbacks = PostCallbacks.None,
             onRefresh = {},
             onRetry = {},
-            onLoadMore = {},
             displayName = "Tech News",
             isPinned = isPinned,
             onPinToggle = {},
