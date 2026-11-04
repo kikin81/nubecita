@@ -180,7 +180,62 @@ Both flavored modules ship a `bench` source set, so the `bench` variant must com
 
 ## 7. Top-of-stack gate
 
-- [ ] 7.1 `./gradlew :app:assembleDebug`, plus lint for every touched module using the correct flavored/plain task names.
-- [ ] 7.2 Run the compose-expert skill against the **cumulative** stack diff (`git diff origin/main...HEAD` from the top branch), not the top PR's own diff.
-- [ ] 7.3 Device pass on the plugged-in foldable, bench flavor: background/foreground several times mid-partition and confirm the position holds; drive 5+ cycles with LeakCanary for the scroll-state collector (D9 — LeakCanary does **not** watch Compose state holders, so inspect the collector's cancellation directly).
+- [x] 7.1 `./gradlew :app:assembleDebug`, plus lint for every touched module using the correct flavored/plain task names.
+
+  As built: eight touched modules, three of them flavored (`:core:feed-cache`,
+  `:core:feeds`, `:feature:feed:impl` — checked with `git grep -l
+  nubecita.android.flavors`, not inferred from the path). All clean.
+
+- [x] 7.2 Run the compose-expert skill against the **cumulative** stack diff (`git diff origin/main...HEAD` from the top branch), not the top PR's own diff.
+
+  As built: nine added `@Composable` lines across six files, so the gate fired.
+  One critical finding, now fixed: the seam's self-fill was keyed on
+  composition, and a `LazyColumn` prefetch precomposes rows the reader never
+  reaches — `precompose` runs `setContent` on an *active* subcomposition, which
+  is where a `LaunchedEffect` launches — so an off-screen row fired a network
+  catch-up, repeatedly, every time a scroll reversal discarded and rebuilt the
+  composition. Gated on placement instead; premeasure does not place.
+
+  A second finding, that the pill's 40dp `Surface` had no reserved touch
+  target, was **wrong** and withdrawn: Material3's clickable `Surface` overload
+  calls `minimumInteractiveComponentSize()` itself, confirmed both in
+  `Surface.kt` and by a tap probe on device (hits land through 46dp, stop at
+  50dp, pill drawn 4–44dp). Nothing changed for it.
+
+- [x] 7.3 Device pass on the plugged-in foldable, bench flavor: background/foreground several times mid-partition and confirm the position holds; drive 5+ cycles with LeakCanary for the scroll-state collector (D9 — LeakCanary does **not** watch Compose state holders, so inspect the collector's cancellation directly).
+
+  As built, and **deliberately not as written** — neither the flavor nor the
+  device in the task could exercise this feature:
+
+  - *Not bench.* `:core:feed-cache`'s bench `FakeFeedRepository` returns `null`
+    from `anchor`, an empty flow from `newPostAuthors`, and `NOT_POSSIBLE` from
+    `catchUp`. A bench pass cannot see a restore, a pill, or a seam — it would
+    have been a pass that measures nothing.
+  - *Not the foldable.* `:app` sets no `applicationIdSuffix` (deliberately —
+    `google-services.json` is keyed to the one id), so every variant shares
+    `net.kikin.nubecita`. The foldable carries the owner's real signed-in
+    release build; any test install replaces it and destroys that session.
+
+  Run instead on the emulator's existing debuggable install, production flavor,
+  signed in against a real timeline — which also exercised the schema migration
+  over a populated database. Verified: the Room migration ran clean; the
+  new-posts pill rendered with **three distinct faces**; a full `am force-stop`
+  and relaunch restored the same anchor row at the same offset; tapping the
+  pill scrolled to top and dismissed it; a second kill/relaunch confirmed the
+  dismissal was persisted as a waterline rather than cleared in-session; six
+  background/foreground cycles mid-partition left the viewport pixel-identical;
+  five rotation round-trips (ten Activity recreations) showed no stale scene and
+  no retained instances under LeakCanary. No crashes in logcat throughout.
+
+  Not reachable on device: the **seam** and **jump-to-newest**, which need a gap
+  wider than one catch-up page and a partition at the page cap. Both stay covered
+  by `FeedScreenSeamInstrumentationTest` (7 tests) and
+  `FeedSeamRowInstrumentationTest` (3), the latter reproducing the prefetch shape
+  with a `Layout` that measures its child and places none of it.
+
 - [ ] 7.4 Confirm the stack's atomic merge lands as **one** `Release` run (`gh run list --workflow=release.yaml --limit 5`).
+
+  Pre-flight for this is ready: the stack's release type is **minor** — three
+  `feat:`-titled children (#1082, #1084, #1085), and the maximum across the stack
+  wins — so the epic reaches Play without relabelling. Runs after
+  `gh stack merge`.
