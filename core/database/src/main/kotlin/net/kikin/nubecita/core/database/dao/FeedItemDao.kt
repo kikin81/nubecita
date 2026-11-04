@@ -191,6 +191,48 @@ interface FeedItemDao {
         feedUri: String,
     ): FeedItemEntity?
 
+    /**
+     * Removes one item and its members.
+     *
+     * Used when an appended page absorbs the partition's tail into a chain:
+     * the old row has to go, or the same posts render twice — once as the tail
+     * and once inside the chain that swallowed it.
+     */
+    @Transaction
+    suspend fun deleteItemAt(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        position: Int,
+    ) {
+        deleteItemRowAt(accountDid, feedType, feedUri, position)
+        deleteMembersAt(accountDid, feedType, feedUri, position)
+    }
+
+    @Query(
+        "DELETE FROM feed_item " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND position = :position",
+    )
+    suspend fun deleteItemRowAt(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        position: Int,
+    )
+
+    @Query(
+        "DELETE FROM feed_item_member " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND position = :position",
+    )
+    suspend fun deleteMembersAt(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        position: Int,
+    )
+
     @Query(
         "DELETE FROM feed_item " +
             "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +

@@ -269,8 +269,16 @@ private fun FeedItemUi.withSuppressedReplyCount(count: Int): FeedItemUi =
         is FeedItemUi.Blocked, is FeedItemUi.NotFound -> this
     }
 
-/** The thread this item belongs to, or null for tombstones (see [dedupeByThreadRoot]). */
-private fun FeedItemUi.threadRootId(): String? =
+/**
+ * The thread this item occupies, or null for tombstones — as
+ * [dedupeByThreadRoot] defines it.
+ *
+ * Public because the persisted projection stores it as a column and the APPEND
+ * seed is a query over that column: if the writer derived the root differently
+ * from the pass that consumes it, the seed would silently miss and duplicates
+ * would reappear across page boundaries. One definition, both callers.
+ */
+fun FeedItemUi.threadRootId(): String? =
     when (this) {
         is FeedItemUi.ReplyCluster -> root.id
         is FeedItemUi.SelfThreadChain -> posts.first().id

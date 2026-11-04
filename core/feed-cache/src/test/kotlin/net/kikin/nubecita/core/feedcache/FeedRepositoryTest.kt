@@ -40,6 +40,7 @@ internal class FeedRepositoryTest {
     private val key = FeedKey.following("did:plc:me")
     private val feedPostDao = mockk<FeedPostDao>(relaxed = true)
     private val cachedPostDao = mockk<CachedPostDao>(relaxed = true)
+    private val projectionWriter = mockk<FeedProjectionWriter>(relaxed = true)
     private val feedItemDao = mockk<FeedItemDao>(relaxed = true)
     private val remoteKeyDao = mockk<FeedRemoteKeyDao>(relaxed = true)
     private val networkSource = mockk<FeedNetworkSource>(relaxed = true)
@@ -91,6 +92,7 @@ internal class FeedRepositoryTest {
                     networkSource = networkSource,
                     feedPostDao = feedPostDao,
                     cachedPostDao = cachedPostDao,
+                    projectionWriter = projectionWriter,
                     remoteKeyDao = remoteKeyDao,
                     transactionRunner = passthroughRunner,
                 ),

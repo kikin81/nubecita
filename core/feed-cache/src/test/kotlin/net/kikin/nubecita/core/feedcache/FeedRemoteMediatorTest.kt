@@ -38,6 +38,7 @@ internal class FeedRemoteMediatorTest {
     private val key = FeedKey.following("did:plc:me")
     private val feedPostDao = mockk<FeedPostDao>(relaxed = true)
     private val cachedPostDao = mockk<CachedPostDao>(relaxed = true)
+    private val projectionWriter = mockk<FeedProjectionWriter>(relaxed = true)
     private val remoteKeyDao = mockk<FeedRemoteKeyDao>(relaxed = true)
     private val networkSource = mockk<FeedNetworkSource>()
 
@@ -53,6 +54,7 @@ internal class FeedRemoteMediatorTest {
             networkSource = networkSource,
             feedPostDao = feedPostDao,
             cachedPostDao = cachedPostDao,
+            projectionWriter = projectionWriter,
             remoteKeyDao = remoteKeyDao,
             transactionRunner = transactionRunner,
             // REFRESH now delegates to the shared FeedRefresher; wire a real one
@@ -63,6 +65,7 @@ internal class FeedRemoteMediatorTest {
                     networkSource = networkSource,
                     feedPostDao = feedPostDao,
                     cachedPostDao = cachedPostDao,
+                    projectionWriter = projectionWriter,
                     remoteKeyDao = remoteKeyDao,
                     transactionRunner = transactionRunner,
                 ),
@@ -75,6 +78,25 @@ internal class FeedRemoteMediatorTest {
             config = PagingConfig(pageSize = 25),
             leadingPlaceholderCount = 0,
         )
+
+    @Test
+    fun `append writes the projection, and prepend writes none`() =
+        runTest {
+            // The direction asymmetry, asserted rather than assumed: a prepend
+            // path does not exist yet, so it must not be projecting anything.
+            coEvery {
+                remoteKeyDao.remoteKey(any(), any(), any())
+            } returns FeedRemoteKeyEntity("did:plc:me", "FOLLOWING", "", "cursor-1")
+            coEvery { networkSource.fetchPage(key, cursor = "cursor-1") } returns
+                Result.success(listOf(post("a")) to null)
+
+            mediator().load(LoadType.APPEND, emptyState())
+            coVerify(exactly = 1) { projectionWriter.writeAppend(key, any()) }
+
+            mediator().load(LoadType.PREPEND, emptyState())
+            coVerify(exactly = 0) { projectionWriter.writeRefresh(key, any()) }
+            coVerify(exactly = 1) { projectionWriter.writeAppend(key, any()) }
+        }
 
     @Test
     fun `append writes the page's posts before its envelopes`() =

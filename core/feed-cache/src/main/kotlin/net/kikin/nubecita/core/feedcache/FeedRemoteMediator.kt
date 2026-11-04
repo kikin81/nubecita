@@ -34,6 +34,7 @@ internal class FeedRemoteMediator
         private val networkSource: FeedNetworkSource,
         private val feedPostDao: FeedPostDao,
         private val cachedPostDao: CachedPostDao,
+        private val projectionWriter: FeedProjectionWriter,
         private val remoteKeyDao: FeedRemoteKeyDao,
         private val transactionRunner: FeedCacheTransactionRunner,
         private val feedRefresher: FeedRefresher,
@@ -97,6 +98,10 @@ internal class FeedRemoteMediator
                 // path inner-joins, so an envelope without its post is invisible.
                 cachedPostDao.upsert(page.flatMap { it.toCachedPosts(feedKey) })
                 feedPostDao.upsert(entities)
+                // Same transaction, and after the posts: the projection's
+                // members reference them, and the chain merge rehydrates the
+                // partition's tail from them.
+                projectionWriter.writeAppend(feedKey, page)
                 remoteKeyDao.upsert(
                     FeedRemoteKeyEntity(
                         accountDid = feedKey.accountDid,
