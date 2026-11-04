@@ -44,7 +44,9 @@ internal val MANUAL_MIGRATIONS: Array<Migration> = arrayOf(Migration6To7)
  * `LAUNCH_INITIAL_REFRESH` when the partition has no rows — and the cost is one
  * cold start after upgrade, which is what every launch costs today.
  *
- * v7 also adds `cached_post`, the by-URI post store: one row per post per
+ * v7 also adds the persisted grouping projection (`feed_item` plus its
+ * `feed_item_member` rows) and three prepend cursors on `feed_remote_keys`,
+ * and `cached_post`, the by-URI post store: one row per post per
  * account, which both the partition rows and the grouped projection reference
  * instead of carrying their own serialized copy. It is new, so there is nothing
  * to migrate into it — and nothing to migrate *from*, since the v6 blobs are
@@ -86,6 +88,33 @@ internal object Migration6To7 : Migration(6, 7) {
         connection.execSQL(
             "CREATE INDEX IF NOT EXISTS `index_cached_post_author_did` ON `cached_post` (`author_did`)",
         )
+        // The persisted grouping projection and its membership rows. Both new
+        // at v7, so there is nothing to carry over.
+        connection.execSQL(
+            "CREATE TABLE IF NOT EXISTS `feed_item` (" +
+                "`account_did` TEXT NOT NULL, `feed_type` TEXT NOT NULL, `feed_uri` TEXT NOT NULL, " +
+                "`position` INTEGER NOT NULL, `row_type` TEXT NOT NULL, `variant` TEXT, " +
+                "`item_key` TEXT NOT NULL, `leaf_uri` TEXT, " +
+                "`suppressed_reply_count` INTEGER NOT NULL, `seam_exhausted` INTEGER, " +
+                "PRIMARY KEY(`account_did`, `feed_type`, `feed_uri`, `position`))",
+        )
+        connection.execSQL("CREATE INDEX IF NOT EXISTS `index_feed_item_item_key` ON `feed_item` (`item_key`)")
+        connection.execSQL("CREATE INDEX IF NOT EXISTS `index_feed_item_leaf_uri` ON `feed_item` (`leaf_uri`)")
+        connection.execSQL(
+            "CREATE TABLE IF NOT EXISTS `feed_item_member` (" +
+                "`account_did` TEXT NOT NULL, `feed_type` TEXT NOT NULL, `feed_uri` TEXT NOT NULL, " +
+                "`position` INTEGER NOT NULL, `ordinal` INTEGER NOT NULL, `uri` TEXT NOT NULL, " +
+                "PRIMARY KEY(`account_did`, `feed_type`, `feed_uri`, `position`, `ordinal`))",
+        )
+        connection.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_feed_item_member_uri` ON `feed_item_member` (`uri`)",
+        )
+        // The prepend cursors. ALTER rather than a recreate: the table keeps its
+        // shape and its rows were already emptied above, so there is nothing to
+        // preserve and nothing to rewrite.
+        connection.execSQL("ALTER TABLE `feed_remote_keys` ADD COLUMN `boundary_since` TEXT")
+        connection.execSQL("ALTER TABLE `feed_remote_keys` ADD COLUMN `fill_cursor` TEXT")
+        connection.execSQL("ALTER TABLE `feed_remote_keys` ADD COLUMN `pending_boundary` TEXT")
     }
 }
 

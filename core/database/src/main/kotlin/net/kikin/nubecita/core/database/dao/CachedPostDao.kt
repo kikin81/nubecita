@@ -54,7 +54,11 @@ interface CachedPostDao {
             "AND NOT EXISTS (" +
             "SELECT 1 FROM feed_post " +
             "WHERE feed_post.account_did = cached_post.account_did " +
-            "AND feed_post.uri = cached_post.uri)",
+            "AND feed_post.uri = cached_post.uri) " +
+            "AND NOT EXISTS (" +
+            "SELECT 1 FROM feed_item_member " +
+            "WHERE feed_item_member.account_did = cached_post.account_did " +
+            "AND feed_item_member.uri = cached_post.uri)",
     )
     suspend fun deleteUnreferenced(accountDid: String)
 

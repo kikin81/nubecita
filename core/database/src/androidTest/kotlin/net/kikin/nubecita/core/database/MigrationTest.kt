@@ -240,6 +240,56 @@ internal class MigrationTest {
             assertTrue(c.getInt(0) >= 1)
         }
 
+        // v7 also adds the persisted projection, its membership rows, and the
+        // three prepend cursors.
+        db.execSQL(
+            "INSERT INTO feed_item " +
+                "(account_did, feed_type, feed_uri, position, row_type, variant, item_key, leaf_uri, " +
+                "suppressed_reply_count, seam_exhausted) " +
+                "VALUES ('did:c', 'FOLLOWING', '', -2, 'item', 'cluster', 'cluster:at://post/root', " +
+                "'at://post/leaf', 3, NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO feed_item " +
+                "(account_did, feed_type, feed_uri, position, row_type, variant, item_key, leaf_uri, " +
+                "suppressed_reply_count, seam_exhausted) " +
+                "VALUES ('did:c', 'FOLLOWING', '', -1, 'seam', NULL, 'seam:-1', NULL, 0, 0)",
+        )
+        db.execSQL(
+            "INSERT INTO feed_item_member (account_did, feed_type, feed_uri, position, ordinal, uri) " +
+                "VALUES ('did:c', 'FOLLOWING', '', -2, 0, 'at://post/root')",
+        )
+        db
+            .query("SELECT position, row_type, item_key, suppressed_reply_count, seam_exhausted FROM feed_item ORDER BY position")
+            .use { c ->
+                assertTrue(c.moveToFirst())
+                assertEquals(-2, c.getInt(0))
+                assertEquals("item", c.getString(1))
+                assertEquals(3, c.getInt(3))
+                assertTrue(c.moveToNext())
+                // The seam is a row, not an inferred gap.
+                assertEquals("seam", c.getString(1))
+                assertEquals(0, c.getInt(4))
+            }
+        db.query("SELECT ordinal, uri FROM feed_item_member").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("at://post/root", c.getString(1))
+        }
+        db.execSQL(
+            "INSERT INTO feed_remote_keys " +
+                "(account_did, feed_type, feed_uri, next_cursor, boundary_since, fill_cursor, pending_boundary) " +
+                "VALUES ('did:c', 'FOLLOWING', '', 'append', 'boundary', 'fill', 'pending')",
+        )
+        db
+            .query("SELECT next_cursor, boundary_since, fill_cursor, pending_boundary FROM feed_remote_keys")
+            .use { c ->
+                assertTrue(c.moveToFirst())
+                assertEquals("append", c.getString(0))
+                assertEquals("boundary", c.getString(1))
+                assertEquals("fill", c.getString(2))
+                assertEquals("pending", c.getString(3))
+            }
+
         db.query("SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND tbl_name = 'feed_post'").use { c ->
             assertTrue(c.moveToFirst())
             // Both named indices were recreated after the table was dropped.

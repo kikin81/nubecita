@@ -276,3 +276,13 @@ Two consequences worth stating:
 `DefaultFeedRepository` loops up to `MAX_TOP_UP_ROUNDS = 3` because an aggressively filtered page can come back empty and strand the caller. That loop is being deleted along with the repository, and the problem does not go away: with filtering and grouping both on the write path, a fetched page can project to **zero** items, which Paging reads as either end-of-pagination or a dead APPEND trigger — a feed that silently stops scrolling.
 
 The top-up therefore moves into the `RemoteMediator`: when a fetched page projects to zero items and a next cursor exists, fetch again, bounded by the same round limit. It applies to **PREPEND fills too**, which the old loop never had to consider — a fill page that projects to nothing must not be mistaken for an exhausted range, since exhaustion has its own signal (the returned cursor equalling `since`, D5).
+
+### D25 — Item membership is rows, not a delimited column
+
+D15 said a projection row holds "ordered member URIs", which I first built as a newline-delimited TEXT column. That is wrong, and the reason is D24's eviction rule rather than tidiness.
+
+A post must survive until nothing references it, so eviction has to ask *whether any projected item still uses this URI*. Against a delimited column that question is a chain of `LIKE` patterns with no index behind it — unanswerable at any real size, which means the reference check would have quietly degraded into "delete anything with no entry row". That is precisely how a cluster loses the root it renders: a reply's root usually has no entry row of its own.
+
+Membership is therefore a `feed_item_member` row per `(item, ordinal, uri)`, and the eviction check is an indexed `NOT EXISTS`. `ordinal` carries the render order, and the two ends carry meaning: the first member gives the stable list key (D12), the last is the leaf. The leaf is additionally denormalized onto the item row so the interaction overlay's deletion check does not need a subquery on a hot path.
+
+The cost is a second table and a join to read one item's members, against a reference check that actually works.

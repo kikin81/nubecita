@@ -134,7 +134,7 @@ De-duplication SHALL apply within the page being written. An entry written by a 
 
 ### Requirement: The projection is persisted at its own grain
 
-The projection SHALL be stored as one row per rendered `FeedItemUi`, positioned in display order, holding the group's structural layout — variant, ordered member URIs, suppressed-reply count — and references to its posts. It SHALL NOT be expressed as grouping tags over `feed_post` rows.
+The projection SHALL be stored as one row per rendered `FeedItemUi`, positioned in display order, holding the group's structural layout — variant, suppressed-reply count, stable list key — with its member posts recorded as **rows** carrying a render ordinal, never a delimited column. It SHALL NOT be expressed as grouping tags over `feed_post` rows.
 
 #### Scenario: Cluster context with no partition position is retained
 - **WHEN** a `ReplyCluster` is projected whose root and parent are not themselves timeline entries
@@ -211,6 +211,10 @@ Eviction SHALL be reference-aware: a post SHALL survive until nothing live refer
 #### Scenario: Eviction keeps a post that is still referenced
 - **WHEN** the trim removes a partition row whose post is still referenced by a live projection row
 - **THEN** the post itself survives, and is removed only once nothing references it
+
+#### Scenario: A cluster's context post has no entry row and still survives
+- **WHEN** eviction runs while a projected cluster references a root that never arrived as a timeline entry
+- **THEN** that post survives, because the reference check consults membership as indexed rows rather than only the entry table — against a delimited column the question has no indexed answer, and the check would degrade into "delete anything with no entry row"
 
 ### Requirement: A seam is a persisted marker row
 
