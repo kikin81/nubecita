@@ -2,20 +2,37 @@
 
 ## Purpose
 `:core:widget-sync` keeps the home-screen widget's feed fresh **off-app**: a battery-cooperative WorkManager worker refreshes the widget's feed(s) into `:core:feed-cache` and triggers a widget re-render through a **Glance-free `WidgetUpdater` seam**. Scheduling is periodic (15-minute platform floor) + on-demand, **foreground-guarded** (never write while the app's own feed `PagingSource` is live — Room invalidation is table-level), **per-feed-independent**, and retries only on total failure. Single-account MVP refreshing Following + a fixed Discover feed. Implemented in `nubecita-lgoo.2` (sub-project B of the Glance feed widgets epic); the Glance-backed `WidgetUpdater` impl is supplied by sub-project C. Reuses the DM-notification worker patterns; battery is the non-negotiable constraint (no expedited work / foreground service / wakelocks; Doze-cooperative).
-
 ## Requirements
-
 ### Requirement: Background refresh of the widget feed cache
 
 The system SHALL refresh the home-screen widget's feed(s) into `:core:feed-cache` from a background WorkManager worker, so the widget can show fresh content without the app being opened. The MVP SHALL refresh the signed-in account's Following and fixed Discover partitions. Work SHALL only run for a signed-in user.
 
+
 #### Scenario: Backgrounded refresh updates the cache
-- **WHEN** the worker runs while the app is backgrounded and the user is signed in
-- **THEN** it refreshes the configured feed partitions via `:core:feed-cache` and then triggers a widget re-render
+- **WHEN** the worker runs while the app is backgrounded and the user is signed in, on a warm partition
+- **THEN** it writes newer entries above the existing rows, leaves the existing rows and their positions intact, and then triggers a widget re-render
 
 #### Scenario: Signed out
 - **WHEN** the worker runs while the user is signed out
 - **THEN** it does nothing (success no-op) and performs no fetch or cache write
+
+### Requirement: Background refresh is additive, never clear-and-replace
+
+For any partition that supports a bounded prepend, the worker SHALL write newer entries above the existing rows and SHALL NOT clear the partition. Clear-and-replace is reserved for a cold partition and for a reader-initiated refresh in the app.
+
+The worker runs while the app is backgrounded, where the foreground guard does not apply, so clearing would delete the reader's scrollback and the row their anchor names.
+
+#### Scenario: A reader's saved position survives a background refresh
+- **WHEN** a reader backgrounds the app mid-partition with a saved anchor, and the worker then refreshes that partition
+- **THEN** the anchored entry is still present and still resolvable when the reader returns
+
+#### Scenario: A cold partition still loads from the top
+- **WHEN** the worker runs against an empty partition
+- **THEN** it fetches the newest page and populates the partition from position 0
+
+#### Scenario: A partition with no bounded prepend is refreshed as before
+- **WHEN** the worker refreshes a generator feed, whose XRPC method accepts no `since`
+- **THEN** it uses the existing clear-and-replace refresh, because no bounded prepend is possible and no reader position is persisted for that feed
 
 ### Requirement: Foreground guard
 
@@ -63,11 +80,21 @@ The worker SHALL refresh each feed independently and request a WorkManager retry
 
 ### Requirement: Refresh triggers off-scroll eviction
 
-After refreshing a feed partition, the worker SHALL run the count-cap trim (`:core:feed-cache` `trimToCap`) off the active-scroll path to bound cache growth.
+After refreshing a feed partition, the worker SHALL run the count-cap trim (`:core:feed-cache` `trimToCap`) off the active-scroll path to bound cache growth. The trim SHALL count rows rather than position values, and SHALL NOT delete the reader's anchor or the entries above it.
+
+The worker trims after every successful refresh while the app is backgrounded, so an unconditional newest-`cap` trim would, after a large catch-up, delete the anchor and the reader's whole unread backlog.
 
 #### Scenario: Trim after refresh
 - **WHEN** the worker successfully refreshes a feed partition
-- **THEN** it trims that partition to the retention cap (default 500 posts, off-scroll), leaving the partition's cursor intact
+- **THEN** it trims that partition to the retention cap (default 500 entries, off-scroll), leaving the partition's cursor intact
+
+#### Scenario: Trim counts rows over a gapped position range
+- **WHEN** the worker trims a partition whose positions contain gaps left by a bounded prepend window
+- **THEN** the newest `cap` rows are retained by ordinal, not the newest `cap` position values
+
+#### Scenario: Trim preserves a reader's unread backlog
+- **WHEN** the worker trims a partition holding more entries above the anchor than the cap would retain
+- **THEN** the anchor and the entries above it survive, under the hard ceiling that bounds worst-case growth
 
 ### Requirement: Widget update is triggered through a Glance-free seam
 
