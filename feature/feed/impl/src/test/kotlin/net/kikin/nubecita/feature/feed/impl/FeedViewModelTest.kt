@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.analytics.FeedType
 import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.core.auth.NoSessionException
+import net.kikin.nubecita.core.feedmapping.toFeedItemsUi
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
 import net.kikin.nubecita.core.posting.OutgoingPost
 import net.kikin.nubecita.core.posting.OutgoingPostStatus
@@ -38,7 +39,6 @@ import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
 import net.kikin.nubecita.feature.feed.impl.data.TimelinePage
-import net.kikin.nubecita.feature.feed.impl.data.toFeedItemsUi
 import net.kikin.nubecita.feature.search.api.Hashtag
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse

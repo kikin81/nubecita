@@ -23,6 +23,10 @@ import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.feedmapping.dedupeByKey
+import net.kikin.nubecita.core.feedmapping.dedupeByThreadRoot
+import net.kikin.nubecita.core.feedmapping.dedupeClusterContext
+import net.kikin.nubecita.core.feedmapping.linksToWire
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
 import net.kikin.nubecita.core.posting.OutgoingPost
 import net.kikin.nubecita.core.posting.OutgoingPostStore
@@ -41,10 +45,6 @@ import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
 import net.kikin.nubecita.feature.feed.impl.data.TimelinePage
-import net.kikin.nubecita.feature.feed.impl.data.dedupeByKey
-import net.kikin.nubecita.feature.feed.impl.data.dedupeByThreadRoot
-import net.kikin.nubecita.feature.feed.impl.data.dedupeClusterContext
-import net.kikin.nubecita.feature.feed.impl.data.linksToWire
 import net.kikin.nubecita.feature.search.api.Hashtag
 import java.io.IOException
 import javax.inject.Inject

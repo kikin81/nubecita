@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.feed.impl.data
+package net.kikin.nubecita.core.feedmapping
 
 import io.github.kikin81.atproto.app.bsky.feed.FeedViewPost
 import io.github.kikin81.atproto.app.bsky.feed.PostView
@@ -7,8 +7,6 @@ import io.github.kikin81.atproto.app.bsky.feed.ReplyRef
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import net.kikin.nubecita.core.feedmapping.applyModeration
-import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostUi

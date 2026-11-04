@@ -29,6 +29,7 @@ dependencies {
     implementation(libs.atproto.runtime)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.timber)
 
     testImplementation(project(":core:testing"))
 }

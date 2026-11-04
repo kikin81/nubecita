@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.feed.impl.data
+package net.kikin.nubecita.core.feedmapping
 
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.data.models.AuthorUi

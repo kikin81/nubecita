@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.feed.impl.data
+package net.kikin.nubecita.core.feedmapping
 
 import io.github.kikin81.atproto.app.bsky.feed.GetTimelineResponse
 import kotlinx.serialization.json.Json
