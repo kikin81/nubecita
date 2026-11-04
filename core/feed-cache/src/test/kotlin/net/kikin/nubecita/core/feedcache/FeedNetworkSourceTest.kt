@@ -56,7 +56,7 @@ internal class FeedNetworkSourceTest {
             val result = source.fetchPage(list, cursor = null)
 
             assertTrue(result.isSuccess, "expected success, got ${result.exceptionOrNull()}")
-            assertEquals(3, result.getOrThrow().first.size)
+            assertEquals(3, result.getOrThrow().posts.size)
         }
 
     @Test
@@ -65,7 +65,7 @@ internal class FeedNetworkSourceTest {
             val source = sourceFor(readFixture("timeline_with_repost.json"))
 
             // The repost fixture carries no cursor.
-            assertNull(source.fetchPage(following, cursor = null).getOrThrow().second)
+            assertNull(source.fetchPage(following, cursor = null).getOrThrow().nextCursor)
         }
 
     @Test
@@ -132,6 +132,92 @@ internal class FeedNetworkSourceTest {
             assertTrue(propagated, "CancellationException must propagate for cooperative cancellation")
         }
 
+    // --- `since`-bounded catch-up (task 3.1) ------------------------------
+    //
+    // Asserted against the URL that actually goes on the wire, not against the
+    // request object: a `since` that is built but not serialized would turn a
+    // bounded catch-up into an unbounded walk backwards through the feed, and
+    // nothing else would notice.
+
+    @Test
+    fun `FOLLOWING forwards since and captures startCursor`() =
+        runTest {
+            val urls = mutableListOf<String>()
+            val source = recordingSource(urls, BODY_WITH_START_CURSOR)
+
+            val page = source.fetchPage(following, cursor = null, since = "boundary-1").getOrThrow()
+
+            assertTrue(urls.single().contains("since=boundary-1"), "since missing from ${urls.single()}")
+            assertEquals("newest-item-cursor", page.startCursor)
+        }
+
+    @Test
+    fun `LIST forwards since`() =
+        runTest {
+            val urls = mutableListOf<String>()
+            val source = recordingSource(urls, BODY_WITH_START_CURSOR)
+
+            source.fetchPage(list, cursor = null, since = "boundary-1").getOrThrow()
+
+            assertTrue(urls.single().contains("since=boundary-1"), "since missing from ${urls.single()}")
+        }
+
+    @Test
+    fun `a generator feed never receives since`() =
+        runTest {
+            // getFeed has no `since` parameter. Sending one would be silently
+            // ignored by the server, so it is dropped here and logged instead.
+            val urls = mutableListOf<String>()
+            val source = recordingSource(urls, BODY_WITH_START_CURSOR)
+
+            val page = source.fetchPage(discover, cursor = null, since = "boundary-1").getOrThrow()
+
+            assertTrue(!urls.single().contains("since="), "since leaked into ${urls.single()}")
+            // And no startCursor comes back, which is why a generator feed
+            // cannot bound a catch-up range at all.
+            assertNull(page.startCursor)
+        }
+
+    @Test
+    fun `no since means no since parameter`() =
+        runTest {
+            val urls = mutableListOf<String>()
+            val source = recordingSource(urls, BODY_WITH_START_CURSOR)
+
+            source.fetchPage(following, cursor = null).getOrThrow()
+
+            assertTrue(!urls.single().contains("since="), "unexpected since in ${urls.single()}")
+        }
+
+    @Test
+    fun `supportsSince matches the protocol, exhaustively`() {
+        assertTrue(FeedType.FOLLOWING.supportsSince)
+        assertTrue(FeedType.LIST.supportsSince)
+        assertEquals(false, FeedType.DISCOVER.supportsSince)
+        assertEquals(false, FeedType.CUSTOM.supportsSince)
+    }
+
+    /** A source whose engine records every request URL it serves. */
+    private fun kotlinx.coroutines.test.TestScope.recordingSource(
+        urls: MutableList<String>,
+        body: String,
+    ): FeedNetworkSource {
+        val engine =
+            MockEngine { request ->
+                urls += request.url.toString()
+                respond(
+                    content = ByteReadChannel(body),
+                    status = HttpStatusCode.OK,
+                    headers = headersOf("Content-Type", "application/json"),
+                )
+            }
+        val provider =
+            FakeXrpcClientProvider {
+                XrpcClient(baseUrl = "https://example.test", httpClient = HttpClient(engine))
+            }
+        return FeedNetworkSource(provider, UnconfinedTestDispatcher(testScheduler))
+    }
+
     private fun kotlinx.coroutines.test.TestScope.sourceFor(fixture: String): FeedNetworkSource {
         val provider =
             FakeXrpcClientProvider {
@@ -148,6 +234,11 @@ internal class FeedNetworkSourceTest {
         return requireNotNull(classLoader.getResourceAsStream("fixtures/$name")) {
             "fixture $name not found on test classpath"
         }.bufferedReader().use { it.readText() }
+    }
+
+    private companion object {
+        /** An empty page that still carries a `startCursor`. */
+        const val BODY_WITH_START_CURSOR = """{"feed":[],"cursor":"next-1","startCursor":"newest-item-cursor"}"""
     }
 
     private fun jsonMockEngine(body: String): MockEngine =

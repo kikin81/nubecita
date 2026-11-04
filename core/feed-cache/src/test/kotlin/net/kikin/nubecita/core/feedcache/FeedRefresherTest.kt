@@ -52,7 +52,7 @@ internal class FeedRefresherTest {
     fun `success clears the partition, writes page 1 + cursor, and returns the end-of-pagination flag`() =
         runTest {
             coEvery { networkSource.fetchPage(key, cursor = null) } returns
-                Result.success(listOf(feedPost("a", "first"), feedPost("b", "second")) to "next-cursor")
+                Result.success(FeedNetworkPage(listOf(feedPost("a", "first"), feedPost("b", "second")), "next-cursor"))
 
             val postsSlot = slot<List<FeedPostEntity>>()
             val keySlot = slot<FeedRemoteKeyEntity>()
@@ -77,7 +77,7 @@ internal class FeedRefresherTest {
             // call is silent. In production the read path inner-joins, so
             // envelopes without posts render an empty feed.
             coEvery { networkSource.fetchPage(key, cursor = null) } returns
-                Result.success(listOf(feedPost("a", "first"), feedPost("b", "second")) to null)
+                Result.success(FeedNetworkPage(listOf(feedPost("a", "first"), feedPost("b", "second")), null))
 
             val storedSlot = slot<List<CachedPostEntity>>()
             coEvery { cachedPostDao.upsert(capture(storedSlot)) } returns Unit
@@ -99,7 +99,7 @@ internal class FeedRefresherTest {
             // projection write could be deleted and every other test here
             // would still pass while the feed rendered nothing.
             coEvery { networkSource.fetchPage(key, cursor = null) } returns
-                Result.success(listOf(feedPost("a", "first")) to null)
+                Result.success(FeedNetworkPage(listOf(feedPost("a", "first")), null))
 
             refresher.refresh(key)
 
@@ -114,7 +114,7 @@ internal class FeedRefresherTest {
     fun `null next cursor reports end of pagination`() =
         runTest {
             coEvery { networkSource.fetchPage(key, cursor = null) } returns
-                Result.success(listOf(feedPost("a", "only")) to null)
+                Result.success(FeedNetworkPage(listOf(feedPost("a", "only")), null))
 
             assertEquals(Result.success(true), refresher.refresh(key))
         }

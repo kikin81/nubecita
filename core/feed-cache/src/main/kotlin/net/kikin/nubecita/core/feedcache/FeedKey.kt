@@ -24,6 +24,26 @@ enum class FeedType {
     ;
 
     /**
+     * Whether this feed's XRPC method accepts a `since` bound, and so whether a
+     * catch-up range can be fetched at all.
+     *
+     * `getTimeline` and `getListFeed` do; `app.bsky.feed.getFeed` does not, so
+     * a generator feed can only page backwards hoping for URI overlap, with no
+     * guarantee of ever meeting the cached head. That asymmetry is upstream and
+     * is why this change is Following-and-lists only.
+     *
+     * Deliberately separate from [isFollowScoped] even though they agree today:
+     * one is about the viewer's preferences, the other about the protocol. A
+     * future feed type could easily be one and not the other.
+     */
+    val supportsSince: Boolean
+        get() =
+            when (this) {
+                FOLLOWING, LIST -> true
+                DISCOVER, CUSTOM -> false
+            }
+
+    /**
      * Whether the viewer's feed-view preferences — the reply, repost and quote
      * tuners — apply to this feed.
      *

@@ -213,7 +213,7 @@ internal class FeedRepositoryTest {
         runTest {
             // Empty page + null cursor -> endOfPaginationReached == true; the
             // delegated FeedRefresher fetches page 1 and writes through.
-            coEvery { networkSource.fetchPage(key, cursor = null) } returns Result.success(emptyList<FeedViewPost>() to null)
+            coEvery { networkSource.fetchPage(key, cursor = null) } returns Result.success(FeedNetworkPage(emptyList<FeedViewPost>(), null))
 
             val result = repository(emptyList()).refresh(key)
 

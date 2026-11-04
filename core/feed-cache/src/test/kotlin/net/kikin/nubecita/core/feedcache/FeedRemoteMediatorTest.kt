@@ -120,9 +120,9 @@ internal class FeedRemoteMediatorTest {
                 remoteKeyDao.remoteKey(any(), any(), any())
             } returns FeedRemoteKeyEntity("did:plc:me", "FOLLOWING", "", "cursor-1")
             coEvery { networkSource.fetchPage(key, cursor = "cursor-1") } returns
-                Result.success(listOf(post("a")) to "cursor-2")
+                Result.success(FeedNetworkPage(listOf(post("a")), "cursor-2"))
             coEvery { networkSource.fetchPage(key, cursor = "cursor-2") } returns
-                Result.success(listOf(post("b")) to "cursor-3")
+                Result.success(FeedNetworkPage(listOf(post("b")), "cursor-3"))
             coEvery { projectionWriter.writeAppend(key, any()) } returns 0 andThen 2
 
             val result = mediator().load(LoadType.APPEND, emptyState())
@@ -141,7 +141,7 @@ internal class FeedRemoteMediatorTest {
                 remoteKeyDao.remoteKey(any(), any(), any())
             } returns FeedRemoteKeyEntity("did:plc:me", "FOLLOWING", "", "c")
             coEvery { networkSource.fetchPage(key, cursor = any()) } returns
-                Result.success(listOf(post("a")) to "c")
+                Result.success(FeedNetworkPage(listOf(post("a")), "c"))
             coEvery { projectionWriter.writeAppend(key, any()) } returns 0
 
             mediator().load(LoadType.APPEND, emptyState())
@@ -158,7 +158,7 @@ internal class FeedRemoteMediatorTest {
                 remoteKeyDao.remoteKey(any(), any(), any())
             } returns FeedRemoteKeyEntity("did:plc:me", "FOLLOWING", "", "cursor-1")
             coEvery { networkSource.fetchPage(key, cursor = "cursor-1") } returns
-                Result.success(listOf(post("a")) to null)
+                Result.success(FeedNetworkPage(listOf(post("a")), null))
             coEvery { projectionWriter.writeAppend(key, any()) } returns 0
 
             val result = mediator().load(LoadType.APPEND, emptyState())
@@ -179,7 +179,7 @@ internal class FeedRemoteMediatorTest {
                 remoteKeyDao.remoteKey(any(), any(), any())
             } returns FeedRemoteKeyEntity("did:plc:me", "FOLLOWING", "", "cursor-1")
             coEvery { networkSource.fetchPage(key, cursor = "cursor-1") } returns
-                Result.success(listOf(post("a")) to "cursor-2")
+                Result.success(FeedNetworkPage(listOf(post("a")), "cursor-2"))
             coEvery { projectionWriter.writeAppend(key, any()) } returns 1
 
             mediator().load(LoadType.APPEND, emptyState())
@@ -197,7 +197,7 @@ internal class FeedRemoteMediatorTest {
                 remoteKeyDao.remoteKey(any(), any(), any())
             } returns FeedRemoteKeyEntity("did:plc:me", "FOLLOWING", "", "cursor-1")
             coEvery { networkSource.fetchPage(key, cursor = "cursor-1") } returns
-                Result.success(listOf(post("a")) to null)
+                Result.success(FeedNetworkPage(listOf(post("a")), null))
 
             mediator().load(LoadType.APPEND, emptyState())
             coVerify(exactly = 1) { projectionWriter.writeAppend(key, any()) }
@@ -216,7 +216,7 @@ internal class FeedRemoteMediatorTest {
                 remoteKeyDao.remoteKey(any(), any(), any())
             } returns FeedRemoteKeyEntity("did:plc:me", "FOLLOWING", "", "cursor-1")
             coEvery { networkSource.fetchPage(key, cursor = "cursor-1") } returns
-                Result.success(listOf(post("a")) to null)
+                Result.success(FeedNetworkPage(listOf(post("a")), null))
 
             mediator().load(LoadType.APPEND, emptyState())
 
@@ -230,7 +230,7 @@ internal class FeedRemoteMediatorTest {
     fun `REFRESH clears the partition, inserts page with positions 0_n, stores cursor`() =
         runTest {
             val posts = listOf(post("a"), post("b"), post("c"))
-            coEvery { networkSource.fetchPage(key, cursor = null) } returns Result.success(posts to "cursor-1")
+            coEvery { networkSource.fetchPage(key, cursor = null) } returns Result.success(FeedNetworkPage(posts, "cursor-1"))
             val inserted = slot<List<FeedPostEntity>>()
             coEvery { feedPostDao.upsert(capture(inserted)) } just Runs
             val storedKey = slot<FeedRemoteKeyEntity>()
@@ -249,7 +249,7 @@ internal class FeedRemoteMediatorTest {
     @Test
     fun `REFRESH with null cursor reaches end of pagination`() =
         runTest {
-            coEvery { networkSource.fetchPage(key, cursor = null) } returns Result.success(listOf(post("a")) to null)
+            coEvery { networkSource.fetchPage(key, cursor = null) } returns Result.success(FeedNetworkPage(listOf(post("a")), null))
 
             val result = mediator().load(LoadType.REFRESH, emptyState())
 
@@ -259,7 +259,7 @@ internal class FeedRemoteMediatorTest {
     @Test
     fun `REFRESH with empty page reaches end of pagination`() =
         runTest {
-            coEvery { networkSource.fetchPage(key, cursor = null) } returns Result.success(emptyList<FeedViewPost>() to "c")
+            coEvery { networkSource.fetchPage(key, cursor = null) } returns Result.success(FeedNetworkPage(emptyList<FeedViewPost>(), "c"))
 
             val result = mediator().load(LoadType.REFRESH, emptyState())
 
@@ -273,7 +273,7 @@ internal class FeedRemoteMediatorTest {
                 FeedRemoteKeyEntity("did:plc:me", "FOLLOWING", "", nextCursor = "stored-cursor")
             coEvery { feedPostDao.maxPosition("did:plc:me", "FOLLOWING", "") } returns 9
             val posts = listOf(post("x"), post("y"))
-            coEvery { networkSource.fetchPage(key, cursor = "stored-cursor") } returns Result.success(posts to "cursor-2")
+            coEvery { networkSource.fetchPage(key, cursor = "stored-cursor") } returns Result.success(FeedNetworkPage(posts, "cursor-2"))
             val inserted = slot<List<FeedPostEntity>>()
             coEvery { feedPostDao.upsert(capture(inserted)) } just Runs
 
@@ -294,7 +294,7 @@ internal class FeedRemoteMediatorTest {
             coEvery { remoteKeyDao.remoteKey("did:plc:me", "FOLLOWING", "") } returns
                 FeedRemoteKeyEntity("did:plc:me", "FOLLOWING", "", nextCursor = "stored-cursor")
             coEvery { feedPostDao.maxPosition("did:plc:me", "FOLLOWING", "") } returns null
-            coEvery { networkSource.fetchPage(key, cursor = "stored-cursor") } returns Result.success(listOf(post("x")) to "c2")
+            coEvery { networkSource.fetchPage(key, cursor = "stored-cursor") } returns Result.success(FeedNetworkPage(listOf(post("x")), "c2"))
             val inserted = slot<List<FeedPostEntity>>()
             coEvery { feedPostDao.upsert(capture(inserted)) } just Runs
 
