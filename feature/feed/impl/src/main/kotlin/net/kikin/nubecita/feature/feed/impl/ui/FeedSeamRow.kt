@@ -16,9 +16,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.feature.feed.impl.R
@@ -52,16 +56,34 @@ internal fun FeedSeamRow(
     modifier: Modifier = Modifier,
 ) {
     val fill by rememberUpdatedState(onFill)
-    if (!exhausted) {
-        // Proximity *is* composition. A `LazyColumn` composes ahead of the
-        // viewport, so the row entering the composition is the reader coming
-        // within the threshold — and the effect restarts only when the row
-        // leaves and re-enters, which is exactly one fill per crossing. A
-        // scroll-position threshold of our own would be a second, racing
-        // definition of the same distance.
+    // Proximity is *placement*, not composition.
+    //
+    // Composition would be the cheaper signal, and it is wrong: a `LazyColumn`
+    // precomposes rows the reader may never reach. A prefetch calls
+    // `SubcomposeLayout.precompose`, which runs `setContent` on an *active*
+    // subcomposition, which is where a `LaunchedEffect` launches — so keying
+    // the fill on composition starts a network catch-up for a row that is
+    // off-screen, and keeps starting one every time a scroll reversal throws
+    // that composition away and a later pass rebuilds it. `catchUp` has no
+    // cooldown, and the in-flight guard in the ViewModel only collapses
+    // *concurrent* fills, so nothing downstream would absorb the churn.
+    //
+    // Placement happens only for rows the list actually puts on screen, so it
+    // is the honest stand-in for the reader arriving, and it keeps the one
+    // property worth keeping: the row is disposed when it scrolls out of
+    // range and placed afresh when it comes back, which is exactly one fill
+    // per crossing. Premeasure does not place, so a prefetched row that is
+    // never shown never fires.
+    var placed by remember { mutableStateOf(false) }
+    if (!exhausted && placed) {
         LaunchedEffect(Unit) { fill() }
     }
-    Column(modifier = modifier.fillMaxWidth()) {
+    Column(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .onPlaced { if (!placed) placed = true },
+    ) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Surface(
             // Recessed, per the surface-token roles: the seam is a hole in the

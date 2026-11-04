@@ -466,7 +466,7 @@ internal class FeedRepositoryTest {
             coEvery { partitionStateDao.observe("did:plc:me", "FOLLOWING", "") } returns
                 flowOf(FeedPartitionStateEntity("did:plc:me", "FOLLOWING", "", anchorPosition = 12))
             coEvery {
-                feedItemDao.leafPostsAbove("did:plc:me", "FOLLOWING", "", position = 12, limit = 3)
+                feedItemDao.leafPostsAbove("did:plc:me", "FOLLOWING", "", position = 12, limit = 15)
             } returns flowOf(listOf(cachedPost("at://new/1", "did:plc:nova"), cachedPost("at://new/2", "did:plc:theo")))
 
             val authors = repository(emptyList()).newPostAuthors(key).first()
@@ -504,7 +504,7 @@ internal class FeedRepositoryTest {
             repository(emptyList()).newPostAuthors(key).first()
 
             // Queried above the dismissal, not above the anchor.
-            coVerify { feedItemDao.leafPostsAbove("did:plc:me", "FOLLOWING", "", position = -250, limit = 3) }
+            coVerify { feedItemDao.leafPostsAbove("did:plc:me", "FOLLOWING", "", position = -250, limit = 15) }
         }
 
     @Test
@@ -518,7 +518,45 @@ internal class FeedRepositoryTest {
 
             repository(emptyList()).newPostAuthors(key).first()
 
-            coVerify { feedItemDao.leafPostsAbove("did:plc:me", "FOLLOWING", "", position = 0, limit = 3) }
+            coVerify { feedItemDao.leafPostsAbove("did:plc:me", "FOLLOWING", "", position = 0, limit = 15) }
+        }
+
+    @Test
+    fun `a burst from one account does not crowd out the people behind it`() =
+        runTest {
+            // The ordinary shape of an absence: one account posts a thread,
+            // and two other people post once each behind it. De-duplicating a
+            // query that stopped at three rows would show nova alone, so the
+            // query reads further than the pill shows.
+            coEvery { partitionStateDao.observe(any(), any(), any()) } returns flowOf(null)
+            coEvery { feedItemDao.leafPostsAbove(any(), any(), any(), any(), any()) } returns
+                flowOf(
+                    listOf(
+                        cachedPost("at://new/1", "did:plc:nova"),
+                        cachedPost("at://new/2", "did:plc:nova"),
+                        cachedPost("at://new/3", "did:plc:nova"),
+                        cachedPost("at://new/4", "did:plc:theo"),
+                        cachedPost("at://new/5", "did:plc:wren"),
+                    ),
+                )
+
+            val authors = repository(emptyList()).newPostAuthors(key).first()
+
+            assertEquals(listOf("did:plc:nova", "did:plc:theo", "did:plc:wren"), authors.map { it.did })
+            // The mocked DAO hands back five rows whatever the limit, so the
+            // over-fetch itself is pinned here rather than inferred from them.
+            coVerify { feedItemDao.leafPostsAbove(any(), any(), any(), any(), limit = 15) }
+        }
+
+    @Test
+    fun `more distinct people than the pill holds are cut to its width`() =
+        runTest {
+            // Over-fetching is for de-duplication, not for a wider pill.
+            coEvery { partitionStateDao.observe(any(), any(), any()) } returns flowOf(null)
+            coEvery { feedItemDao.leafPostsAbove(any(), any(), any(), any(), any()) } returns
+                flowOf((1..6).map { cachedPost("at://new/$it", "did:plc:p$it") })
+
+            assertEquals(3, repository(emptyList()).newPostAuthors(key).first().size)
         }
 
     @Test

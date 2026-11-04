@@ -389,14 +389,20 @@ internal open class DefaultFeedRepository
                         feedKey.feedType.name,
                         feedKey.feedUri,
                         position = above,
-                        limit = FeedRepository.PILL_FACES,
+                        limit = PILL_FACE_CANDIDATES,
                     )
                 }.map { posts ->
                     // Distinct by author: three faces from three people says
                     // more than the same person three times.
+                    //
+                    // Which is why the query asks for more rows than the pill
+                    // shows: one person on a burst owns the newest three
+                    // entries often enough that de-duplicating a LIMIT 3 would
+                    // routinely leave a single face. Over-fetch, then cut.
                     posts
                         .mapNotNull { post -> post.toPostViewOrNull()?.toPostUiCore(currentViewerDid())?.author }
                         .distinctBy { author -> author.did }
+                        .take(FeedRepository.PILL_FACES)
                         .toImmutableList()
                 }
 
@@ -515,6 +521,17 @@ data class FeedAnchor(
     val itemKey: String,
     val offset: Int,
 )
+
+/**
+ * How many rows the pill's face query reads before de-duplicating by author.
+ *
+ * A multiple of [FeedRepository.PILL_FACES] rather than the count itself: the
+ * faces have to come from distinct people, and a burst from one account is the
+ * ordinary shape of what arrives while a reader is away. Bounded all the same —
+ * the window above the anchor can be hundreds of rows, and nothing here needs
+ * to read them.
+ */
+private const val PILL_FACE_CANDIDATES = FeedRepository.PILL_FACES * 5
 
 /**
  * Tiny non-null carrier so a nullable [PostUi] can flow through `PagingData`
