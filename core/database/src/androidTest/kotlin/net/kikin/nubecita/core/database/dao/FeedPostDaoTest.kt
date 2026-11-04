@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.database.DatabaseTest
 import net.kikin.nubecita.core.database.model.CachedPostEntity
+import net.kikin.nubecita.core.database.model.FeedItemMemberEntity
 import net.kikin.nubecita.core.database.model.FeedPostEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -231,21 +232,62 @@ internal class FeedPostDaoTest : DatabaseTest() {
         }
 
     @Test
-    fun trimToCap_keepsNewestCap() =
+    fun trim_keepsTheNewestCapRows() =
         runTest {
             upsertEntries((0 until 10).map { post(position = it) })
-            dao.trimToCap(ACCOUNT, TYPE, FEED_URI, cap = 3)
             // Newest = lowest position (position 0 = top of the newest page).
-            // cap = 3 keeps the newest three: positions 0, 1, 2.
+            val cut = dao.positionAtOffsetFromTop(ACCOUNT, TYPE, FEED_URI, offset = 2)
+            assertEquals(2, cut)
+            dao.deleteOlderThan(ACCOUNT, TYPE, FEED_URI, position = 2)
             assertEquals(listOf(0, 1, 2), dao.head(ACCOUNT, TYPE, FEED_URI, 100).first().map { it.position })
         }
 
     @Test
-    fun trimToCap_noOpWhenUnderCap() =
+    fun trim_countsRowsNotPositionValues() =
+        runTest {
+            // The case the old arithmetic got wrong. A prepend leaves the unused
+            // end of its reserved window empty, so positions are gapped: here
+            // -250, -249 and 0..4. `MIN(position) + cap` with cap = 3 would
+            // delete from -247 and keep TWO rows, not three.
+            upsertEntries(listOf(post(position = -250), post(position = -249)) + (0 until 5).map { post(position = it) })
+
+            val cut = dao.positionAtOffsetFromTop(ACCOUNT, TYPE, FEED_URI, offset = 2)
+
+            assertEquals(0, cut)
+            dao.deleteOlderThan(ACCOUNT, TYPE, FEED_URI, position = requireNotNull(cut))
+            assertEquals(listOf(-250, -249, 0), dao.head(ACCOUNT, TYPE, FEED_URI, 100).first().map { it.position })
+        }
+
+    @Test
+    fun trim_cutOffIsNullUnderTheCap() =
         runTest {
             upsertEntries((0 until 3).map { post(position = it) })
-            dao.trimToCap(ACCOUNT, TYPE, FEED_URI, cap = 10)
-            assertEquals(3, dao.head(ACCOUNT, TYPE, FEED_URI, 100).first().size)
+            assertNull(dao.positionAtOffsetFromTop(ACCOUNT, TYPE, FEED_URI, offset = 9))
+        }
+
+    @Test
+    fun oldestReferencedByProjection_tracksTheSurvivingItems() =
+        runTest {
+            // Entry positions and item positions are different coordinate
+            // spaces, so the two grains are tied by content: whatever the
+            // surviving projection still points at must stay, or a local
+            // re-projection cannot rebuild it.
+            upsertEntries((0 until 5).map { post(position = it) })
+            db.feedItemDao().upsertMembers(
+                listOf(
+                    FeedItemMemberEntity(ACCOUNT, TYPE, FEED_URI, position = 0, ordinal = 0, uri = "at://post/0"),
+                    FeedItemMemberEntity(ACCOUNT, TYPE, FEED_URI, position = 1, ordinal = 0, uri = "at://post/3"),
+                ),
+            )
+
+            assertEquals(3, dao.oldestReferencedByProjection(ACCOUNT, TYPE, FEED_URI))
+        }
+
+    @Test
+    fun oldestReferencedByProjection_isNullWithNoProjection() =
+        runTest {
+            upsertEntries((0 until 3).map { post(position = it) })
+            assertNull(dao.oldestReferencedByProjection(ACCOUNT, TYPE, FEED_URI))
         }
 
     @Test

@@ -73,13 +73,33 @@ interface FeedRepository {
     suspend fun refresh(feedKey: FeedKey): Result<Boolean>
 
     /**
-     * Evict everything beyond the newest [cap] posts in [feedKey]'s partition.
+     * Evict [feedKey]'s partition down to the newest [cap] rows, across every
+     * grain the cache stores.
+     *
      * NOT called from the mediator's `load()` (D-A5) — invoked off the scroll
      * path by the refresh worker. Leaves the partition's cursor row intact.
+     *
+     * [anchorItemPosition] is the reader's saved place, as a projection
+     * position. Everything from it upward survives even when that is more than
+     * [cap] rows (D19): an anchor is a reader's unread backlog, the cap is a
+     * storage guard, and a guard that deletes the thing it protects is worse
+     * than no guard. A catch-up can write up to half the cap above the anchor,
+     * so without this the next worker run would delete the anchor and the whole
+     * backlog while the app was backgrounded — the feature eating itself at
+     * exactly the volume it was built for.
+     *
+     * [ceiling] bounds that exception, so a partition cannot grow without limit
+     * just because an anchor sits deep in it.
+     *
+     * Resolving the stored anchor (a URI plus an offset, D6) to a position
+     * belongs to the anchor work; until then callers pass `null` and get the
+     * plain row-count trim.
      */
     suspend fun trimToCap(
         feedKey: FeedKey,
         cap: Int = DEFAULT_CAP,
+        anchorItemPosition: Int? = null,
+        ceiling: Int = HARD_CEILING,
     )
 
     /**
@@ -91,6 +111,17 @@ interface FeedRepository {
     companion object {
         /** Per-partition retention cap (D-A5: ~500 newest posts). */
         const val DEFAULT_CAP = 500
+
+        /**
+         * The most rows a partition may hold even when an anchor asks for more.
+         *
+         * The anchor exception has to be bounded by something, or a reader who
+         * never returns to a deep position keeps that partition alive forever.
+         * Three times the cap is a worst case, not a target: reaching it needs
+         * an anchor that far down, which only an unusually long unread backlog
+         * produces.
+         */
+        const val HARD_CEILING = DEFAULT_CAP * 3
 
         /** Paging page size for the app feed. */
         const val PAGE_SIZE = 25
@@ -186,8 +217,69 @@ internal open class DefaultFeedRepository
         override suspend fun trimToCap(
             feedKey: FeedKey,
             cap: Int,
+            anchorItemPosition: Int?,
+            ceiling: Int,
         ) {
-            feedPostDao.trimToCap(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri, cap)
+            val did = feedKey.accountDid
+            val type = feedKey.feedType.name
+            val uri = feedKey.feedUri
+            transactionRunner.run {
+                // The projection first, and by row count: it is the grain the
+                // reader actually sees, and the grain the anchor is expressed
+                // in. The old trim bounded `feed_post` alone, which left this
+                // table, its members and the post store growing without limit —
+                // measured at 5510 projection rows against a 5250-row cap.
+                val itemCut =
+                    cutOff(
+                        cap = cap,
+                        ceiling = ceiling,
+                        anchorPosition = anchorItemPosition,
+                        positionAtOffset = { offset -> feedItemDao.positionAtOffsetFromTop(did, type, uri, offset) },
+                    )
+                if (itemCut != null) feedItemDao.deleteOlderThan(did, type, uri, itemCut)
+
+                // Entries are tied to the projection by CONTENT, not by count:
+                // a self-thread chain folds several entries into one item, so
+                // trimming both to the same number would leave a surviving item
+                // whose entries are gone and a re-projection unable to rebuild
+                // it. Whatever the surviving items reference stays, and the cap
+                // only ever extends that.
+                val referenced = feedPostDao.oldestReferencedByProjection(did, type, uri)
+                val entryCut =
+                    cutOff(
+                        cap = cap,
+                        ceiling = ceiling,
+                        anchorPosition = referenced,
+                        positionAtOffset = { offset -> feedPostDao.positionAtOffsetFromTop(did, type, uri, offset) },
+                    )
+                if (entryCut != null) feedPostDao.deleteOlderThan(did, type, uri, entryCut)
+
+                // Last, and reference-counted: a post with no position in any
+                // partition can still be a cluster's root or parent, so
+                // position arithmetic cannot see whether it is still needed
+                // (D24). Running it after both deletes means the rows that just
+                // went are no longer holding anything alive.
+                cachedPostDao.deleteUnreferenced(did)
+            }
+        }
+
+        /**
+         * The oldest position to keep: the newest [cap] rows, extended to
+         * [anchorPosition] when that is deeper, and clamped to [ceiling].
+         *
+         * `null` means nothing to delete — the grain holds fewer than [cap]
+         * rows, so the cut-off is past its end.
+         */
+        private suspend inline fun cutOff(
+            cap: Int,
+            ceiling: Int,
+            anchorPosition: Int?,
+            positionAtOffset: (Int) -> Int?,
+        ): Int? {
+            val capCut = positionAtOffset(cap - 1) ?: return null
+            val extended = if (anchorPosition != null && anchorPosition > capCut) anchorPosition else capCut
+            val ceilingCut = positionAtOffset(ceiling - 1)
+            return if (ceilingCut != null && extended > ceilingCut) ceilingCut else extended
         }
 
         override suspend fun clearAccount(accountDid: String) {

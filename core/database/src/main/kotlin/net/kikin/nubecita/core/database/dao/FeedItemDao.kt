@@ -222,6 +222,70 @@ interface FeedItemDao {
         feedUri: String,
     ): Int?
 
+    /**
+     * The position of the item [offset] places down from the newest, or `null`
+     * when the projection holds fewer rows than that.
+     *
+     * The trim counts rows here too. Projection positions are as gapped as
+     * entry positions — a prepend writes into the same reserved window — so a
+     * cut-off derived from position arithmetic would keep an arbitrary fraction
+     * of the cap.
+     */
+    @Query(
+        "SELECT position FROM feed_item " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "ORDER BY position LIMIT 1 OFFSET :offset",
+    )
+    suspend fun positionAtOffsetFromTop(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        offset: Int,
+    ): Int?
+
+    /**
+     * Deletes the projection older than [position] — items and members
+     * together.
+     *
+     * `@Transaction` for the same reason [clearPartition] is one: members left
+     * without their item pin posts against reference-counted eviction, and an
+     * item left without its members renders a card with no content.
+     */
+    @Transaction
+    suspend fun deleteOlderThan(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        position: Int,
+    ) {
+        deleteItemsOlderThan(accountDid, feedType, feedUri, position)
+        deleteMembersOlderThan(accountDid, feedType, feedUri, position)
+    }
+
+    @Query(
+        "DELETE FROM feed_item " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND position > :position",
+    )
+    suspend fun deleteItemsOlderThan(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        position: Int,
+    )
+
+    @Query(
+        "DELETE FROM feed_item_member " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND position > :position",
+    )
+    suspend fun deleteMembersOlderThan(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        position: Int,
+    )
+
     /** The partition's seam marker, if a catch-up left one. At most one exists. */
     @Query(
         "SELECT * FROM feed_item " +

@@ -95,26 +95,63 @@ interface FeedPostDao {
     )
 
     /**
-     * Keeps the newest [cap] rows of the partition and deletes the rest.
-     * **Lowest `position` is newest** (position 0 is the top of the newest
-     * page; older APPEND posts get higher positions), so this deletes every row
-     * whose `position` is at or above `MIN(position) + cap` — leaving exactly
-     * the newest [cap] positions. A no-op when the partition holds `<= cap` rows
-     * (the threshold is above the maximum `position`).
+     * The position of the row [offset] places down from the newest, or `null`
+     * when the partition holds fewer rows than that.
+     *
+     * The trim's cut-off, counted in **rows**. The arithmetic this replaced —
+     * `DELETE WHERE position >= MIN(position) + cap` — retained a range of
+     * `cap` position *values*, which is the same thing only while positions are
+     * dense. A prepend allocates inside a reserved window and leaves the unused
+     * end of it empty, so gaps are normal and that form kept far fewer entries
+     * than the cap (design D17).
      */
     @Query(
-        "DELETE FROM feed_post " +
+        "SELECT position FROM feed_post " +
             "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
-            "AND position >= (" +
-            "SELECT MIN(position) + :cap FROM feed_post " +
-            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri)",
+            "ORDER BY position LIMIT 1 OFFSET :offset",
     )
-    suspend fun trimToCap(
+    suspend fun positionAtOffsetFromTop(
         accountDid: String,
         feedType: String,
         feedUri: String,
-        cap: Int,
+        offset: Int,
+    ): Int?
+
+    /** Deletes everything older than [position], which itself survives. */
+    @Query(
+        "DELETE FROM feed_post " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND position > :position",
     )
+    suspend fun deleteOlderThan(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        position: Int,
+    )
+
+    /**
+     * The oldest position among the entries that the partition's surviving
+     * projection rows still reference.
+     *
+     * Entry positions and projection positions are different coordinate
+     * spaces: a self-thread chain folds several entries into one item, so the
+     * two cannot be trimmed to the same number and stay consistent. Tying them
+     * by **content** instead keeps every entry the surviving items were built
+     * from, which is what local re-projection needs to rebuild them (D27).
+     */
+    @Query(
+        "SELECT MAX(position) FROM feed_post " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND uri IN (" +
+            "SELECT uri FROM feed_item_member " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri)",
+    )
+    suspend fun oldestReferencedByProjection(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+    ): Int?
 
     /**
      * The partition's newest position — the lowest value, since position 0 is

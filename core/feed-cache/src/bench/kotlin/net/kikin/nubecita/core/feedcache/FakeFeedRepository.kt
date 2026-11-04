@@ -46,6 +46,8 @@ internal class FakeFeedRepository
         override suspend fun trimToCap(
             feedKey: FeedKey,
             cap: Int,
+            anchorItemPosition: Int?,
+            ceiling: Int,
         ) = Unit
 
         override suspend fun clearAccount(accountDid: String) = Unit
