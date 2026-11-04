@@ -30,6 +30,15 @@ object FeedTestTags {
     const val LIST: String = "feed_list"
 
     /**
+     * The shimmer list shown while a cold partition loads.
+     *
+     * Tagged so a test can assert it is **absent**: a warm partition must
+     * render its cached rows without passing through a loading state, which
+     * is the whole reader-visible point of persisting the feed.
+     */
+    const val SHIMMER: String = "feed_shimmer"
+
+    /**
      * A poster in the Discover "Trending Videos" carousel. Applied to every
      * thumbnail (they share the tag); the `:benchmark` `VideoFeedScrollBenchmark`
      * selects the first via `By.res` to open the vertical video feed. Coordinated

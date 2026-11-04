@@ -73,6 +73,47 @@ interface FeedRepository {
     suspend fun refresh(feedKey: FeedKey): Result<Boolean>
 
     /**
+     * The reader's saved place in [feedKey], or `null` when there is nothing
+     * to restore.
+     *
+     * Resolved from the stored item key first, because that is what survives a
+     * re-projection moving the row. When the key is gone — the item was
+     * deleted, moderated out, or evicted — it resolves **downward** to the
+     * nearest surviving row below it (D11): the items just under where the
+     * reader stopped are the ones they had not read yet, so landing there
+     * loses nothing, while landing above would re-show what they finished.
+     *
+     * Carries the resolved row's own key, not just a position, because the two
+     * consumers need different things: the `Pager` opens at the position, and
+     * the list scrolls to the key, which is the only identity it has for a row.
+     */
+    suspend fun anchor(feedKey: FeedKey): FeedAnchor?
+
+    /**
+     * The reader's saved place, as the key of the item at the top of the
+     * viewport and its pixel offset within that row.
+     *
+     * Takes a key, not a position: the caller is the screen, which knows what
+     * is on screen but not where those rows sit in the partition. Resolving
+     * the key to a position is this layer's job, and storing both is what lets
+     * a later restore fall back when the key is gone.
+     */
+    suspend fun saveAnchor(
+        feedKey: FeedKey,
+        itemKey: String,
+        offset: Int,
+    )
+
+    /**
+     * Drop the reader's place — what pull-to-refresh does (D8).
+     *
+     * The gesture means "give me a clean timeline", so restoring into the old
+     * one would be the opposite of what was asked, and the rows the anchor
+     * named are gone with the partition anyway.
+     */
+    suspend fun clearAnchor(feedKey: FeedKey)
+
+    /**
      * Catch [feedKey]'s partition up on what arrived above its head, WITHOUT a
      * `Pager` and without clearing anything.
      *
@@ -234,6 +275,53 @@ internal open class DefaultFeedRepository
 
         override suspend fun catchUp(feedKey: FeedKey): Result<CatchUpOutcome> = feedCatchUp.catchUp(feedKey)
 
+        override suspend fun anchor(feedKey: FeedKey): FeedAnchor? {
+            val state =
+                partitionStateDao.state(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
+                    ?: return null
+            val key = state.anchorItemKey ?: return null
+            feedItemDao
+                .positionOf(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri, key)
+                ?.let { position ->
+                    return FeedAnchor(position = position, itemKey = key, offset = state.anchorOffset ?: 0)
+                }
+            // The key is gone. The stored position is the only thing left to
+            // resolve from, which is why it is stored alongside the key.
+            val from = state.anchorPosition ?: return null
+            val fallback =
+                feedItemDao.firstAtOrBelow(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri, from)
+                    ?: return null
+            // Offset 0, deliberately: the stored one measured a scroll into a
+            // row that no longer exists, and applying it to a different row of
+            // a different height would land somewhere arbitrary.
+            return FeedAnchor(position = fallback.position, itemKey = fallback.itemKey, offset = 0)
+        }
+
+        override suspend fun saveAnchor(
+            feedKey: FeedKey,
+            itemKey: String,
+            offset: Int,
+        ) {
+            // No row for this key means the list moved under the write — a
+            // refresh landed between the scroll settling and this call.
+            // Storing a position the key does not have would make the
+            // dead-anchor fallback resolve from a stale place, so skip it: the
+            // next settle writes a current one.
+            val position =
+                feedItemDao.positionOf(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri, itemKey)
+                    ?: return
+            partitionStateDao.saveAnchor(
+                accountDid = feedKey.accountDid,
+                feedType = feedKey.feedType.name,
+                feedUri = feedKey.feedUri,
+                itemKey = itemKey,
+                position = position,
+                offset = offset,
+            )
+        }
+
+        override suspend fun clearAnchor(feedKey: FeedKey) = partitionStateDao.clearAnchor(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
+
         override suspend fun trimToCap(
             feedKey: FeedKey,
             cap: Int,
@@ -317,6 +405,20 @@ internal open class DefaultFeedRepository
             }
         }
     }
+
+/**
+ * Where a reader left a feed: the row, and how far into it.
+ *
+ * [position] opens the `Pager` at the right page; [itemKey] is what the list
+ * scrolls to, since a key is the only identity a rendered row has; [offset]
+ * puts the row back where it sat in the viewport rather than snapping it to
+ * the top.
+ */
+data class FeedAnchor(
+    val position: Int,
+    val itemKey: String,
+    val offset: Int,
+)
 
 /**
  * Tiny non-null carrier so a nullable [PostUi] can flow through `PagingData`

@@ -31,6 +31,7 @@ import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.feedcache.FeedAnchor
 import net.kikin.nubecita.core.feedcache.FeedKey
 import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
@@ -94,6 +95,18 @@ class FeedViewModel
         private var loggedViewFeedFor: FeedBinding? = null
 
         /**
+         * The place the screen should scroll to once the first page is on
+         * screen, or `null` when there is nothing to restore.
+         *
+         * Seeding the `Pager` loads the right rows but does not position the
+         * list: Paging decides where the anchored row lands in the loaded
+         * window, and the reader's pixel offset within that row is not
+         * Paging's business at all. So the screen scrolls, once, and clears
+         * this — and the ViewModel never touches `LazyListState` (D9).
+         */
+        val restoreTarget = MutableStateFlow<FeedAnchor?>(null)
+
+        /**
          * The paged feed, read from `:core:feed-cache` (D1).
          *
          * `cachedIn` sits directly above the transforms and below the `Pager`:
@@ -111,8 +124,15 @@ class FeedViewModel
                 (session as? SessionState.SignedIn)?.did?.let { bound.toFeedKey(it) }
             }.filterNotNull()
                 .distinctUntilChanged()
-                .flatMapLatest { key -> feedRepository.pagedFeed(key) }
-                .cachedIn(viewModelScope)
+                .flatMapLatest { key ->
+                    // Read before the Pager is built, so the first page loaded
+                    // is the one the reader was in rather than the top. A
+                    // dead anchor resolves downward inside the repository
+                    // (D11); `null` just means "open at the top".
+                    val anchor = feedRepository.anchor(key)
+                    restoreTarget.value = anchor
+                    feedRepository.pagedFeed(key, initialPosition = anchor?.position)
+                }.cachedIn(viewModelScope)
                 .withOptimisticState(
                     mutedAuthors = optimisticMutes,
                     unmutedAuthors = optimisticUnmutes,
@@ -159,6 +179,8 @@ class FeedViewModel
                 is FeedEvent.Bind -> bind(event.feedUri, event.kind, event.surface)
                 FeedEvent.Refresh -> refresh()
                 is FeedEvent.ItemsLoaded -> onItemsLoaded(event.posts)
+                is FeedEvent.AnchorChanged -> saveAnchor(event.itemKey, event.offset)
+                FeedEvent.RestoreConsumed -> restoreTarget.value = null
                 FeedEvent.ClearError -> Unit
                 is FeedEvent.OnPostTapped -> sendEffect(FeedEffect.NavigateToPost(event.post.id))
                 is FeedEvent.OnAuthorTapped -> sendEffect(FeedEffect.NavigateToAuthor(event.authorDid))
@@ -254,6 +276,12 @@ class FeedViewModel
         private fun refresh() {
             optimisticMutes.value = persistentSetOf()
             optimisticUnmutes.value = persistentSetOf()
+            // And the reader's place: they asked for a clean timeline, so
+            // restoring them into the old one would be the opposite of the
+            // gesture — and the row the anchor named goes with the partition.
+            restoreTarget.value = null
+            val key = currentFeedKey() ?: return
+            viewModelScope.launch { feedRepository.clearAnchor(key) }
         }
 
         /**
@@ -279,6 +307,28 @@ class FeedViewModel
                 analytics.log(ViewFeed(bound.kind.toAnalyticsFeedType(bound.feedUri)))
             }
         }
+
+        /**
+         * Persist where the reader stopped.
+         *
+         * Fire-and-forget on the VM's scope rather than awaited: this runs
+         * every time a scroll settles, and the screen has nothing to do with
+         * the result. The repository drops a write whose key no longer has a
+         * row — a refresh landing between the settle and the write — so a
+         * stale place is never stored.
+         */
+        private fun saveAnchor(
+            itemKey: String,
+            offset: Int,
+        ) {
+            val key = currentFeedKey() ?: return
+            viewModelScope.launch { feedRepository.saveAnchor(key, itemKey, offset) }
+        }
+
+        private fun currentFeedKey(): FeedKey? =
+            (sessionStateProvider.state.value as? SessionState.SignedIn)
+                ?.did
+                ?.let { binding.value.toFeedKey(it) }
 
         private fun pendingOutgoing(
             outgoing: List<OutgoingPost>,

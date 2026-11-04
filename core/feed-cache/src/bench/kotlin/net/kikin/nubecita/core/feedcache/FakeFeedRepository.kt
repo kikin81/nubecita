@@ -87,6 +87,19 @@ internal class FakeFeedRepository
         // boundary cursor, so there is nothing above the head to catch up on.
         override suspend fun catchUp(feedKey: FeedKey): Result<CatchUpOutcome> = Result.success(CatchUpOutcome.NOT_POSSIBLE)
 
+        // The bench fixture is a fixed page with no reader state: nothing to
+        // restore, and nowhere to put a saved place.
+
+        override suspend fun anchor(feedKey: FeedKey): FeedAnchor? = null
+
+        override suspend fun saveAnchor(
+            feedKey: FeedKey,
+            itemKey: String,
+            offset: Int,
+        ) = Unit
+
+        override suspend fun clearAnchor(feedKey: FeedKey) = Unit
+
         override suspend fun trimToCap(
             feedKey: FeedKey,
             cap: Int,

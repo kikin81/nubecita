@@ -6,6 +6,8 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.navigation3.runtime.NavBackStack
@@ -85,6 +87,48 @@ class FeedScreenInstrumentationTest {
         composeTestRule.onNodeWithText(POST_ALICE_TEXT, substring = true).assertIsDisplayed()
         composeTestRule.onNodeWithText(POST_BOB_TEXT, substring = true).assertIsDisplayed()
         composeTestRule.onNodeWithText(POST_CAROL_TEXT, substring = true).assertIsDisplayed()
+    }
+
+    /**
+     * A warm partition renders its cached rows without a loading state.
+     *
+     * This is the reader-visible point of persisting the feed: reopening the
+     * app should show the timeline, not a shimmer that then becomes the
+     * timeline. The cached rows arrive from the `PagingSource` before any
+     * network work — the mediator skips the initial refresh on a warm
+     * partition — so the screen never maps to `InitialLoading`.
+     *
+     * The assertion is "the shimmer did not appear while we waited for the
+     * content", checked on every poll of the wait loop. That is an
+     * observation window, not a frame-by-frame guarantee: a test cannot see
+     * every frame. It would still catch the regression that matters — a
+     * screen that routes a warm partition through the loading branch leaves
+     * the shimmer up for far longer than one frame.
+     */
+    @Test
+    fun feedScreen_warmPartition_neverShowsTheLoadingShimmer() {
+        var shimmerSeen = false
+
+        composeTestRule.setContent {
+            NubecitaTheme {
+                CompositionLocalProvider(LocalMainShellNavState provides navState) {
+                    FeedScreen()
+                }
+            }
+        }
+
+        composeTestRule.waitUntil(timeoutMillis = WAIT_TIMEOUT_MILLIS) {
+            if (composeTestRule.onAllNodesWithTag(FeedTestTags.SHIMMER).fetchSemanticsNodes().isNotEmpty()) {
+                shimmerSeen = true
+            }
+            composeTestRule
+                .onAllNodes(hasText(POST_ALICE_TEXT, substring = true))
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+
+        assertEquals(false, shimmerSeen)
+        composeTestRule.onNodeWithTag(FeedTestTags.SHIMMER).assertDoesNotExist()
     }
 
     /**

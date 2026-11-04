@@ -26,6 +26,7 @@ import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.feedcache.CatchUpOutcome
+import net.kikin.nubecita.core.feedcache.FeedAnchor
 import net.kikin.nubecita.core.feedcache.FeedKey
 import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
@@ -49,6 +50,7 @@ import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.search.api.Hashtag
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -544,6 +546,93 @@ internal class FeedViewModelTest {
             )
         }
 
+    // ---------- the reader's place ----------
+
+    @Test
+    fun `the pager opens at the saved place`() =
+        feedTest {
+            // Seeding the Pager is what makes the first page fetched the one
+            // the reader was in, rather than the top of the feed.
+            val repo = FakeFeedRepository()
+            repo.storedAnchor = FeedAnchor(position = 37, itemKey = "single:at://post/a", offset = -24)
+            val vm = viewModel(repo)
+
+            vm.feed.first()
+
+            assertEquals(listOf(37), repo.initialPositions)
+        }
+
+    @Test
+    fun `a partition with no saved place opens at the top`() =
+        feedTest {
+            val repo = FakeFeedRepository()
+            val vm = viewModel(repo)
+
+            vm.feed.first()
+
+            assertEquals(listOf<Int?>(null), repo.initialPositions)
+        }
+
+    @Test
+    fun `the resolved place is offered to the screen, once`() =
+        feedTest {
+            // The VM never touches LazyListState (D9): it publishes where to
+            // go and the list does the scrolling, then says it is done.
+            val repo = FakeFeedRepository()
+            repo.storedAnchor = FeedAnchor(position = 37, itemKey = "single:at://post/a", offset = -24)
+            val vm = viewModel(repo)
+            vm.feed.first()
+
+            assertEquals(repo.storedAnchor, vm.restoreTarget.value)
+
+            vm.handleEvent(FeedEvent.RestoreConsumed)
+            assertNull(vm.restoreTarget.value)
+        }
+
+    @Test
+    fun `a settled scroll saves the key and the offset`() =
+        feedTest {
+            val repo = FakeFeedRepository()
+            val vm = viewModel(repo)
+
+            vm.handleEvent(FeedEvent.AnchorChanged("single:at://post/a", offset = -24))
+            advanceUntilIdle()
+
+            assertEquals(listOf("single:at://post/a" to -24), repo.savedAnchors)
+        }
+
+    @Test
+    fun `nothing is saved while signed out`() =
+        feedTest {
+            // There is no partition to key the place against.
+            session.state.value = SessionState.SignedOut
+            val repo = FakeFeedRepository()
+            val vm = viewModel(repo)
+
+            vm.handleEvent(FeedEvent.AnchorChanged("single:at://post/a", offset = 0))
+            advanceUntilIdle()
+
+            assertEquals(emptyList<Pair<String, Int>>(), repo.savedAnchors)
+        }
+
+    @Test
+    fun `a refresh drops the saved place`() =
+        feedTest {
+            // The reader asked for a clean timeline (D8), so restoring them
+            // into the old one would be the opposite of the gesture.
+            val repo = FakeFeedRepository()
+            repo.storedAnchor = FeedAnchor(position = 37, itemKey = "single:at://post/a", offset = -24)
+            val vm = viewModel(repo)
+            vm.feed.first()
+            assertEquals(repo.storedAnchor, vm.restoreTarget.value)
+
+            vm.handleEvent(FeedEvent.Refresh)
+            advanceUntilIdle()
+
+            assertNull(vm.restoreTarget.value)
+            assertEquals(1, repo.anchorCleared)
+        }
+
     // ---------- autoplay ----------
 
     @Test
@@ -751,12 +840,14 @@ private class FakeFeedRepository(
     private val items: List<FeedItemUi> = emptyList(),
 ) : FeedRepository {
     val keys = mutableListOf<FeedKey>()
+    val initialPositions = mutableListOf<Int?>()
 
     override fun pagedFeed(
         feedKey: FeedKey,
         initialPosition: Int?,
     ): Flow<PagingData<FeedItemUi>> {
         keys += feedKey
+        initialPositions += initialPosition
         return flowOf(PagingData.from(items))
     }
 
@@ -768,6 +859,25 @@ private class FakeFeedRepository(
     override suspend fun refresh(feedKey: FeedKey): Result<Boolean> = Result.success(true)
 
     override suspend fun catchUp(feedKey: FeedKey): Result<CatchUpOutcome> = Result.success(CatchUpOutcome.CAUGHT_UP)
+
+    /** The saved place, as the screen would have written it. */
+    var storedAnchor: FeedAnchor? = null
+    val savedAnchors = mutableListOf<Pair<String, Int>>()
+    var anchorCleared = 0
+
+    override suspend fun anchor(feedKey: FeedKey): FeedAnchor? = storedAnchor
+
+    override suspend fun saveAnchor(
+        feedKey: FeedKey,
+        itemKey: String,
+        offset: Int,
+    ) {
+        savedAnchors += itemKey to offset
+    }
+
+    override suspend fun clearAnchor(feedKey: FeedKey) {
+        anchorCleared++
+    }
 
     override suspend fun trimToCap(
         feedKey: FeedKey,

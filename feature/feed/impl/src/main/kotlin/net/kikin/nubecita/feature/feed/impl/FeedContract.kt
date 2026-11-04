@@ -192,6 +192,23 @@ sealed interface FeedEvent : UiEvent {
     data object Refresh : FeedEvent
 
     /**
+     * The reader stopped here: the key of the item at the top of the viewport
+     * and its pixel offset within that row.
+     *
+     * Dispatched from the screen when a scroll settles, never per frame. A key
+     * rather than an index, because an index means nothing across sessions —
+     * moderation toggles, a mute and the chain re-projection all change how
+     * many rows the same entries become (D6).
+     */
+    data class AnchorChanged(
+        val itemKey: String,
+        val offset: Int,
+    ) : FeedEvent
+
+    /** The screen has applied the pending restore and does not want it again. */
+    data object RestoreConsumed : FeedEvent
+
+    /**
      * The loaded pages changed: every [PostUi] they now hold.
      *
      * Dispatched by the screen because the signal lives in `LazyPagingItems`.

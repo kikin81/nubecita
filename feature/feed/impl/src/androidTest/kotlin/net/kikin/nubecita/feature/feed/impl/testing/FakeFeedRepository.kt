@@ -5,6 +5,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import net.kikin.nubecita.core.feedcache.CatchUpOutcome
+import net.kikin.nubecita.core.feedcache.FeedAnchor
 import net.kikin.nubecita.core.feedcache.FeedKey
 import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.data.models.AuthorUi
@@ -50,6 +51,29 @@ internal class FakeFeedRepository
 
         override suspend fun catchUp(feedKey: FeedKey): Result<CatchUpOutcome> = Result.success(CatchUpOutcome.NOT_POSSIBLE)
 
+        /** The place to restore to, as a stored anchor would have been resolved. */
+        @Volatile
+        var storedAnchor: FeedAnchor? = null
+
+        /** The last place recorded by the screen, for the record half of the round trip. */
+        @Volatile
+        var savedAnchor: Pair<String, Int>? = null
+
+        override suspend fun anchor(feedKey: FeedKey): FeedAnchor? = storedAnchor
+
+        override suspend fun saveAnchor(
+            feedKey: FeedKey,
+            itemKey: String,
+            offset: Int,
+        ) {
+            savedAnchor = itemKey to offset
+        }
+
+        override suspend fun clearAnchor(feedKey: FeedKey) {
+            storedAnchor = null
+            savedAnchor = null
+        }
+
         override suspend fun trimToCap(
             feedKey: FeedKey,
             cap: Int,
@@ -84,6 +108,18 @@ internal class FakeFeedRepository
                         text = "Three posts in this feed",
                     ),
                 )
+
+            /** [count] posts, enough rows to scroll through. */
+            fun posts(count: Int): List<FeedItemUi> =
+                (0 until count).map { index ->
+                    singlePost(
+                        id = "at://did:plc:scroll/app.bsky.feed.post/p$index",
+                        cid = "bafyreiscroll$index",
+                        authorHandle = "scroller.bsky.social",
+                        authorDisplayName = "Scroller",
+                        text = "scroll fixture post number $index",
+                    )
+                }
 
             private fun singlePost(
                 id: String,

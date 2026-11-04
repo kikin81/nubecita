@@ -53,6 +53,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.tooling.preview.Preview
@@ -84,6 +85,7 @@ import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCardShimmer
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.feature.feed.impl.ui.FeedAnchoring
 import net.kikin.nubecita.feature.feed.impl.ui.FeedChipRow
 import net.kikin.nubecita.feature.feed.impl.ui.FeedEmptyState
 import net.kikin.nubecita.feature.feed.impl.ui.FeedErrorState
@@ -261,9 +263,22 @@ internal fun FeedScreen(
         }
     val onRetry = remember(items) { { items.retry() } }
 
+    // The reader's place. Only this surface keeps one: a generator feed
+    // refreshes on open (D14), so an anchor written there would never be read.
+    val restoreTo by viewModel.restoreTarget.collectAsStateWithLifecycle()
+    val anchoring =
+        remember(viewModel, restoreTo) {
+            FeedAnchoring(
+                restoreTo = restoreTo,
+                onAnchorChanged = { key, offset -> viewModel.handleEvent(FeedEvent.AnchorChanged(key, offset)) },
+                onRestoreApplied = { viewModel.handleEvent(FeedEvent.RestoreConsumed) },
+            )
+        }
+
     FeedScreenContent(
         viewState = viewState,
         items = items,
+        anchoring = anchoring,
         listState = listState,
         snackbarHostState = snackbarHostState,
         callbacks = interactions.callbacks,
@@ -323,6 +338,8 @@ internal fun FeedScreenContent(
     onRetryFeeds: () -> Unit,
     onNavigateTo: (NavKey) -> Unit,
     modifier: Modifier = Modifier,
+    // Null on a surface that keeps no reading position — see PostFeedList.
+    anchoring: FeedAnchoring? = null,
     onComposeClick: () -> Unit = {},
     onRetryOutgoing: (localId: String) -> Unit = {},
     onDiscardOutgoing: (localId: String) -> Unit = {},
@@ -541,7 +558,7 @@ internal fun FeedScreenContent(
         when (viewState) {
             FeedScreenViewState.InitialLoading ->
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().testTag(FeedTestTags.SHIMMER),
                     contentPadding = effectivePadding,
                 ) {
                     items(count = SHIMMER_PREVIEW_COUNT, key = { "shimmer-$it" }) { index ->
@@ -574,6 +591,7 @@ internal fun FeedScreenContent(
                 PostFeedList(
                     onQuotedImageTap = onQuotedImageTap,
                     items = items,
+                    anchoring = anchoring,
                     outgoingPosts = viewState.outgoingPosts,
                     onRetryOutgoing = onRetryOutgoing,
                     onDiscardOutgoing = onDiscardOutgoing,

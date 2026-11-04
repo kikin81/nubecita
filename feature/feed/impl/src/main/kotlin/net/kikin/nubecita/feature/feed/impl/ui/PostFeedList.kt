@@ -12,6 +12,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,9 +33,11 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
+import net.kikin.nubecita.core.feedcache.FeedAnchor
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.OutgoingPostUi
@@ -108,6 +111,10 @@ internal fun PostFeedList(
     // A single header item above the posts — it never touches the tuned post-item
     // rendering below; null on non-Discover feeds.
     header: (@Composable () -> Unit)? = null,
+    // Persisting the reader's place, for the surfaces that do it. Null on a
+    // feed with no position to keep — a generator refreshes on open, so an
+    // anchor there would be written and never read.
+    anchoring: FeedAnchoring? = null,
     // Posts the user just submitted (Following only), above the timeline.
     outgoingPosts: ImmutableList<OutgoingPostUi> = persistentListOf(),
     onRetryOutgoing: (localId: String) -> Unit = {},
@@ -135,6 +142,14 @@ internal fun PostFeedList(
             listState.animateScrollToItem(0)
         }
     }
+    // How many rows sit above the paged items. The restore scrolls by index,
+    // and this is the one place that knows what this list puts in front of
+    // them — which is why the anchoring lives here rather than in the screen.
+    val leadingItems = (if (header != null) 1 else 0) + outgoingPosts.size
+    if (anchoring != null) {
+        RememberReadingPosition(listState = listState, items = items, leadingItems = leadingItems, anchoring = anchoring)
+    }
+
     NubecitaPullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
@@ -503,3 +518,84 @@ internal fun PostFeedList(
         }
     }
 }
+
+/**
+ * What a surface needs to keep a reader's place: where to restore to, a way to
+ * report a new one, and a way to say the restore has been applied.
+ *
+ * Grouped rather than passed as three parameters so the whole feature is one
+ * nullable argument — a surface that does not persist a position passes `null`
+ * and gets no collectors at all.
+ */
+@Immutable
+internal data class FeedAnchoring(
+    val restoreTo: FeedAnchor?,
+    val onAnchorChanged: (itemKey: String, offset: Int) -> Unit,
+    val onRestoreApplied: () -> Unit,
+)
+
+/**
+ * Records where the reader stopped, and puts them back there once.
+ *
+ * **Recording** reads the first visible row's LazyColumn key rather than its
+ * index: the key is the item's own identity, so no arithmetic over header and
+ * outgoing rows is needed and nothing drifts when their count changes. It is
+ * debounced, so a fling writes once when it settles instead of ~100 times on
+ * the way — this is a database write on the scroll path, and the reader's
+ * place only means anything once they stop. Rows that are not paged items
+ * (the header, an outgoing post, the append spinner) are skipped: they are not
+ * a place in the feed.
+ *
+ * **Restoring** waits for the anchored row to actually be in the loaded
+ * window. Seeding the `Pager` makes that the first page fetched, but "fetched"
+ * and "present in the snapshot" are different moments, so the effect re-runs
+ * as pages arrive and does nothing until the row is there.
+ *
+ * Both collectors live in the composition and die with it, which is why the
+ * ViewModel never sees `LazyListState` (D9).
+ */
+@Composable
+private fun RememberReadingPosition(
+    listState: LazyListState,
+    items: LazyPagingItems<FeedItemUi>,
+    leadingItems: Int,
+    anchoring: FeedAnchoring,
+) {
+    val onAnchorChanged by rememberUpdatedState(anchoring.onAnchorChanged)
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val first = listState.layoutInfo.visibleItemsInfo.firstOrNull()
+            (first?.key as? String) to listState.firstVisibleItemScrollOffset
+        }.debounce(ANCHOR_SETTLE_MS)
+            .distinctUntilChanged()
+            .collect { (key, offset) ->
+                if (key == null || key in NON_ITEM_KEYS || key.startsWith(OUTGOING_KEY_PREFIX)) return@collect
+                onAnchorChanged(key, offset)
+            }
+    }
+
+    val restoreTo = anchoring.restoreTo
+    val snapshot = items.itemSnapshotList
+    val onRestoreApplied by rememberUpdatedState(anchoring.onRestoreApplied)
+    LaunchedEffect(restoreTo, snapshot) {
+        if (restoreTo == null) return@LaunchedEffect
+        val index = snapshot.items.indexOfFirst { it.key == restoreTo.itemKey }
+        // Not loaded yet. The next snapshot re-runs this.
+        if (index < 0) return@LaunchedEffect
+        listState.scrollToItem(index + leadingItems, restoreTo.offset)
+        onRestoreApplied()
+    }
+}
+
+/** Rows that are not a place in the feed, so never an anchor. */
+private val NON_ITEM_KEYS = setOf("feed-header", "appending")
+private const val OUTGOING_KEY_PREFIX = "outgoing:"
+
+/**
+ * How long the list has to be still before the place is written.
+ *
+ * Long enough that a fling writes once rather than per settle-frame, short
+ * enough that a reader who stops and immediately backgrounds the app still
+ * has their place saved.
+ */
+private const val ANCHOR_SETTLE_MS = 400L
