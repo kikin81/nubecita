@@ -11,6 +11,7 @@ import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.model.FeedItemEntity
 import net.kikin.nubecita.core.database.model.FeedItemMemberEntity
 import net.kikin.nubecita.core.database.model.FeedPartitionStateEntity
+import net.kikin.nubecita.core.feedmapping.dedupeByLeafPost
 import net.kikin.nubecita.core.feedmapping.dedupeByThreadRoot
 import net.kikin.nubecita.core.feedmapping.dedupeClusterContext
 import net.kikin.nubecita.core.feedmapping.mergeChainBoundary
@@ -136,6 +137,11 @@ internal class FeedProjectionWriter
                     .toFeedItemsUi(prefs, viewerDid)
                     .dedupeByThreadRoot()
                     .dedupeClusterContext()
+                    // Nothing above a refresh to seed from — it rebuilt the
+                    // partition — but the pass still runs: two reposts of one
+                    // post arrive in a single page, and the thread-root pass
+                    // exempts reposts from its drop.
+                    .dedupeByLeafPost()
             write(feedKey, items, basePosition = 0)
             recordFingerprint(feedKey)
             return items.size
@@ -200,6 +206,7 @@ internal class FeedProjectionWriter
                 merged
                     .dedupeByThreadRoot(seenRoots = seenRoots, visibleFromAbove = visible)
                     .dedupeClusterContext()
+                    .dedupeByLeafPost(visibleFromAbove = renderedLeaves(feedKey))
 
             val base = (feedItemDao.maxPosition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri) ?: -1) + 1
             write(feedKey, items, basePosition = base)
@@ -246,6 +253,13 @@ internal class FeedProjectionWriter
                     .toFeedItemsUi(prefs, viewerDid)
                     .dedupeByThreadRoot()
                     .dedupeClusterContext()
+                    // Seeded even here, where the thread-root pass is not.
+                    // D7's prepend exemption is about a thread resurfacing with
+                    // a newer reply, not about the same post being drawn twice
+                    // — and a `since`-bounded catch-up overlaps the cached head
+                    // by design, so the overlap would render again and, where
+                    // the key matches too, throw (D29).
+                    .dedupeByLeafPost(visibleFromAbove = renderedLeaves(feedKey))
             if (items.isEmpty()) return 0
             write(feedKey, items, basePosition = basePosition)
             recordFingerprint(feedKey)
@@ -288,6 +302,9 @@ internal class FeedProjectionWriter
                     .toFeedItemsUi(prefs(), viewerDid)
                     .dedupeByThreadRoot()
                     .dedupeClusterContext()
+                    // Rebuilt from the whole partition at once, so there is
+                    // nothing above it to seed from.
+                    .dedupeByLeafPost()
 
             feedItemDao.clearPartition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
             write(feedKey, items, basePosition = envelopes.first().position)
@@ -313,6 +330,18 @@ internal class FeedProjectionWriter
                 ),
             )
         }
+
+        /**
+         * The leaf posts already rendered in this partition.
+         *
+         * Leaves, not every rendered post: a `Single` whose post appears above
+         * only as a cluster's context belongs to the cluster-context pass,
+         * which keeps it when it is a repost.
+         */
+        private suspend fun renderedLeaves(feedKey: FeedKey): Set<String> =
+            feedItemDao
+                .renderedLeafUris(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
+                .toSet()
 
         private data class Tail(
             val item: FeedItemUi,

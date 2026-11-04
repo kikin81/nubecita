@@ -130,6 +130,29 @@ interface FeedItemDao {
     ): List<String>
 
     /**
+     * The LEAF post of every item already rendered in this partition — the
+     * posts that occupy a timeline slot, as opposed to the ones drawn only as a
+     * cluster's context.
+     *
+     * Seeds the "one item per timeline post" pass across pagination. Distinct
+     * from [renderedPostUris], and the distinction is load-bearing: a `Single`
+     * whose post appears above only as some cluster's context is the
+     * cluster-context pass's business, which keeps it when it is a repost.
+     * Seeding this pass from every rendered post would drop it instead, and
+     * silently change what a reposted reply looks like in the feed.
+     */
+    @Query(
+        "SELECT leaf_uri FROM feed_item " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND leaf_uri IS NOT NULL",
+    )
+    suspend fun renderedLeafUris(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+    ): List<String>
+
+    /**
      * The partition's last item — the one a newly appended page may extend.
      *
      * A self-author chain can straddle a pagination cut, and the merge needs

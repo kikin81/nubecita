@@ -30,9 +30,21 @@ The Following timeline SHALL be read from `:core:feed-cache` as `Flow<PagingData
 
 The feed list MUST pass a stable, variant-namespaced `key` for every row, and a `contentType` so the view-type dispatch fast-path applies.
 
-Keys SHALL be: `Single` → the post URI; `ReplyCluster` → `"cluster:"` + the root's URI; `SelfThreadChain` → `"chain:"` + the **first** post's URI; `Blocked` → `"blocked:"` + URI; `NotFound` → `"notfound:"` + URI.
+Keys SHALL be: `Single` → the post URI; `ReplyCluster` → `"cluster:"` + the **leaf's** URI; `SelfThreadChain` → `"chain:"` + the **first** post's URI; `Blocked` → `"blocked:"` + URI; `NotFound` → `"notfound:"` + URI.
 
-Grouped variants anchor on the group's first post, not its leaf, because a chain can gain a post between sessions — changing its leaf, its key, and stranding a persisted anchor. The namespace is mandatory: a duplicate `LazyColumn` key is a crash.
+A chain anchors on its first post, not its leaf, because a chain can gain a post between sessions — changing its leaf, its key, and stranding a persisted anchor. A cluster is one reply with its ancestors as context, so its leaf does not move that way, and it SHALL NOT be keyed on its root: two replies into one thread are two clusters sharing a root, which this change's de-duplication scope explicitly allows to coexist across a prepend seam. The namespace is mandatory: a duplicate `LazyColumn` key is a crash.
+
+Every variant SHALL also expose the post it occupies a timeline slot for, separately from its key. Deletion-removal and the one-item-per-post pass SHALL read that, not the key: the two held the same value before namespacing, so a caller reading the key would keep compiling and silently stop matching.
+
+#### Scenario: Two replies into one thread do not collide
+
+- **WHEN** a catch-up prepends a newer reply into a thread whose older reply is still rendered below the seam
+- **THEN** the two items' keys differ, and the list renders without a duplicate-key failure
+
+#### Scenario: Deleting a grouped item's leaf removes it
+
+- **WHEN** the post a `SelfThreadChain` occupies a timeline slot for is deleted
+- **THEN** the item leaves the list, while deleting a post shown only as that item's context leaves it standing
 
 #### Scenario: Item key is the PostUi id
 

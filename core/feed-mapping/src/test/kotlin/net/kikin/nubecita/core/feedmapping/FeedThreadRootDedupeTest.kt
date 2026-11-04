@@ -287,7 +287,7 @@ internal class FeedThreadRootDedupeTest {
         val kept = page.dedupeByThreadRoot()
 
         assertEquals(1, kept.size)
-        assertEquals("leaf-3", kept.single().key)
+        assertEquals("leaf-3", kept.single().leafId)
     }
 
     @Test
@@ -319,7 +319,7 @@ internal class FeedThreadRootDedupeTest {
         val kept = page.dedupeByThreadRoot(seenRoots = setOf("root-other"))
 
         assertEquals(1, kept.size)
-        assertEquals("leaf-1", kept.single().key)
+        assertEquals("leaf-1", kept.single().leafId)
     }
 
     @Test

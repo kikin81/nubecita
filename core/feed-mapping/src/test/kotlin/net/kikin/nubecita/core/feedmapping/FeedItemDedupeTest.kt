@@ -106,51 +106,86 @@ internal class FeedItemDedupeTest {
     }
 
     @Test
-    fun `dedupeByKey drops duplicate Singles by post id`() {
+    fun `dedupeByLeafPost drops duplicate Singles by post id`() {
         // Reproduces nubecita-7p3: same post URI shows up twice in a page
         // because (a) viewer reposted it and (b) someone they follow also
         // reposted it. The LazyColumn's slot key would collide.
         val items = listOf(single("a"), single("b"), single("a"), single("c"))
-        val deduped = items.dedupeByKey()
+        val deduped = items.dedupeByLeafPost()
         assertEquals(3, deduped.size)
-        assertEquals(listOf("a", "b", "c"), deduped.map { it.key })
+        assertEquals(listOf("a", "b", "c"), deduped.map { it.leafId })
     }
 
     @Test
-    fun `dedupeByKey drops a Single whose URI matches a clusters leaf`() {
-        // ReplyCluster.key == leaf.id; a later Single(post=leaf) collides
-        // on the LazyColumn key and crashes the feed mid-scroll.
+    fun `dedupeByLeafPost drops a Single whose URI matches a clusters leaf`() {
+        // The cluster and the Single render the same post. They no longer
+        // collide on the LazyColumn key — the cluster's is namespaced — which
+        // is exactly why this pass keys on the LEAF: the duplication is real
+        // whether or not it also throws.
         val items =
             listOf(
                 cluster(rootId = "rootA", parentId = "parentA", leafId = "leafA"),
                 single("leafA"),
             )
-        val deduped = items.dedupeByKey()
+        val deduped = items.dedupeByLeafPost()
         assertEquals(1, deduped.size)
         assertTrue(deduped.single() is FeedItemUi.ReplyCluster)
     }
 
     @Test
-    fun `dedupeByKey is a no-op on lists with all-unique keys`() {
+    fun `dedupeByLeafPost is a no-op on lists with all-unique keys`() {
         val items = listOf(single("a"), single("b"), single("c"))
-        val deduped = items.dedupeByKey()
+        val deduped = items.dedupeByLeafPost()
         assertEquals(items, deduped)
     }
 
     @Test
-    fun `dedupeByKey is a no-op on empty and single-element lists`() {
-        assertEquals(emptyList<FeedItemUi>(), emptyList<FeedItemUi>().dedupeByKey())
+    fun `dedupeByLeafPost is a no-op on empty and single-element lists`() {
+        assertEquals(emptyList<FeedItemUi>(), emptyList<FeedItemUi>().dedupeByLeafPost())
         val one = listOf(single("only"))
-        assertSame(one, one.dedupeByKey())
+        assertSame(one, one.dedupeByLeafPost())
     }
 
     @Test
-    fun `dedupeByKey keeps the first occurrence`() {
+    fun `dedupeByLeafPost keeps the first occurrence`() {
         val first = single("dup")
         val second = single("dup")
-        val deduped = listOf(first, single("other"), second).dedupeByKey()
+        val deduped = listOf(first, single("other"), second).dedupeByLeafPost()
         assertEquals(2, deduped.size)
         assertSame(first, deduped[0])
+    }
+
+    @Test
+    fun `dedupeByLeafPost drops a page's overlap with what is already rendered`() {
+        // A `since`-bounded catch-up overlaps the cached head by design, so the
+        // boundary entries come back. Unseeded, the prepend would render them a
+        // second time (D29).
+        val items = listOf(single("new"), single("overlap"))
+
+        val deduped = items.dedupeByLeafPost(visibleFromAbove = setOf("overlap"))
+
+        assertEquals(listOf("new"), deduped.map { it.leafId })
+    }
+
+    @Test
+    fun `dedupeByLeafPost seeds even a single-item page`() {
+        // The size < 2 shortcut has to account for the seed, or a one-item
+        // catch-up page that is pure overlap would slip through.
+        val items = listOf(single("overlap"))
+
+        assertEquals(emptyList<FeedItemUi>(), items.dedupeByLeafPost(visibleFromAbove = setOf("overlap")))
+    }
+
+    @Test
+    fun `dedupeByLeafPost leaves a Single whose post is only a cluster's context`() {
+        // That case belongs to dedupeClusterContext, which keeps it when it is
+        // a repost. Keying this pass on every rendered post rather than on
+        // leaves would quietly take that decision away from it.
+        val items = listOf(single("rootA"))
+
+        val deduped = items.dedupeByLeafPost(visibleFromAbove = setOf("leafA"))
+
+        assertEquals(listOf("rootA"), deduped.map { it.leafId })
     }
 
     // ---------- D5: the disputed ordering (nubecita-w9of) ----------
@@ -240,7 +275,7 @@ internal class FeedItemDedupeTest {
         val orphan = FeedItemUi.Single(samplePost("L1"))
         val items = listOf(cluster1, cluster2, orphan)
 
-        val deduped = items.dedupeByThreadRoot().dedupeClusterContext().dedupeByKey()
+        val deduped = items.dedupeByThreadRoot().dedupeClusterContext().dedupeByLeafPost()
 
         val rendered = deduped.flatMap { it.renderedIds() }
         assertTrue("L1" in rendered, "L1 vanished from the feed: rendered=$rendered")

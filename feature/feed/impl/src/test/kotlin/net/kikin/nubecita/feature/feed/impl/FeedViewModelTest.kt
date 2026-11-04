@@ -68,6 +68,45 @@ internal class FeedViewModelTest {
     private val outgoingStore = FakeOutgoingPostStore()
 
     @Test
+    fun `deleting a chain's leaf removes the item, deleting its ancestor does not`() =
+        runTest(mainDispatcher.dispatcher) {
+            // The deletion check reads leafId, not key. It read `key` while the
+            // two were the same value; now a chain is keyed on its FIRST post,
+            // so a check on `key` would look "chain:…" up in a map of post URIs,
+            // never match, and silently leave deleted posts in the feed.
+            val cache = FakePostInteractionsCache()
+            val repo =
+                FakeFeedRepository(
+                    pages = listOf(Result.success(TimelinePage(feedItems = chainItem("at://first", "at://leaf"), nextCursor = null))),
+                )
+            val vm =
+                FeedViewModel(
+                    repo,
+                    cache,
+                    sharedVideoPlayer,
+                    analytics,
+                    noOpMuteRepo,
+                    FakePostInteractionHandler(),
+                    outgoingStore,
+                    autoplayPolicy(),
+                )
+            vm.handleEvent(FeedEvent.Load)
+            advanceUntilIdle()
+            assertEquals(1, vm.uiState.value.feedItems.size)
+
+            // An ancestor shown only as context: the reply still stands, which
+            // is what the reader wants to see.
+            cache.markDeleted("at://first")
+            advanceUntilIdle()
+            assertEquals(1, vm.uiState.value.feedItems.size)
+
+            // The timeline slot itself.
+            cache.markDeleted("at://leaf")
+            advanceUntilIdle()
+            assertEquals(emptyList<FeedItemUi>(), vm.uiState.value.feedItems)
+        }
+
+    @Test
     fun `state carries the resolved autoplay answer`() =
         runTest(mainDispatcher.dispatcher) {
             val vm =
@@ -2364,6 +2403,15 @@ private fun ChainEntrySpec.toJson(): String {
         }
         """.trimIndent()
 }
+
+/** A two-post self-thread chain, whose key and leaf are different posts. */
+private fun chainItem(
+    firstId: String,
+    leafId: String,
+): ImmutableList<FeedItemUi> =
+    persistentListOf(
+        FeedItemUi.SelfThreadChain(persistentListOf(samplePost(firstId), samplePost(leafId))),
+    )
 
 private fun feedItems(vararg ids: String): ImmutableList<FeedItemUi> = ids.map { FeedItemUi.Single(samplePost(it)) }.toImmutableList()
 

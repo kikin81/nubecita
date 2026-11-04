@@ -22,7 +22,7 @@ import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
-import net.kikin.nubecita.core.feedmapping.dedupeByKey
+import net.kikin.nubecita.core.feedmapping.dedupeByLeafPost
 import net.kikin.nubecita.core.feedmapping.dedupeByThreadRoot
 import net.kikin.nubecita.core.feedmapping.dedupeClusterContext
 import net.kikin.nubecita.core.feedmapping.mergeChainBoundary
@@ -355,7 +355,7 @@ class FeedViewModel
                                 page.feedItems
                                     .dedupeByThreadRoot()
                                     .dedupeClusterContext()
-                                    .dedupeByKey()
+                                    .dedupeByLeafPost()
                                     .toImmutableList()
                             postInteractionsCache.seed(refreshed.allPosts())
                             setState {
@@ -413,7 +413,7 @@ class FeedViewModel
                                 (merge.trimmedExisting + merge.pageWithAbsorbedHead.filter { seen.add(it.key) })
                                     .dedupeByThreadRoot()
                                     .dedupeClusterContext()
-                                    .dedupeByKey()
+                                    .dedupeByLeafPost()
                                     .toImmutableList()
                             postInteractionsCache.seed(page.feedItems.allPosts())
                             setState {
@@ -455,7 +455,7 @@ class FeedViewModel
                 page.feedItems
                     .dedupeByThreadRoot()
                     .dedupeClusterContext()
-                    .dedupeByKey()
+                    .dedupeByLeafPost()
                     .toImmutableList()
             postInteractionsCache.seed(deduped.allPosts())
             setState {
@@ -625,19 +625,18 @@ private fun List<FeedItemUi>.allPosts(): List<PostUi> =
 private fun ImmutableList<FeedItemUi>.applyInteractions(
     interactionMap: PersistentMap<String, PostInteractionState>,
 ): ImmutableList<FeedItemUi> =
-    // One pass. The deletion check keys off `key`, which is the post URI for
-    // Single and the LEAF's URI for ReplyCluster / SelfThreadChain — i.e. "the
-    // post in your timeline", with preceding posts being context (see
-    // FeedItemUi.key). Deleting the leaf removes the item; deleting an ancestor
+    // One pass. The deletion check reads `leafId` — the post this item occupies
+    // a timeline slot for. Deleting it removes the item; deleting an ancestor
     // shown only as context leaves the reply standing, which is what the reader
     // still wants to see. Such an ancestor disappears on the next fetch.
     //
-    // The per-post lookups below stay explicit rather than reusing this one.
-    // They are only equal because `key` IS the leaf's id, and making the merge
-    // depend on that identity would put a silent trap under any future change
-    // to what `key` means.
+    // This read `key` while `key` WAS the leaf's id. The grouped keys are
+    // namespaced now (D12), so `interactionMap[item.key]` would look up
+    // "cluster:at://…" against a map of post URIs, never match, and silently
+    // stop removing deleted posts from the feed — the trap the previous comment
+    // here predicted.
     mapNotNull { item ->
-        if (interactionMap[item.key]?.isDeleted == true) return@mapNotNull null
+        if (interactionMap[item.leafId]?.isDeleted == true) return@mapNotNull null
         when (item) {
             is FeedItemUi.Single -> {
                 val state = interactionMap[item.post.id] ?: return@mapNotNull item
