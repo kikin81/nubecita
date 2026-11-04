@@ -46,7 +46,9 @@ internal class FeedRefresher
          */
         suspend fun refresh(feedKey: FeedKey): Result<Boolean> {
             val result = networkSource.fetchPage(feedKey, cursor = null)
-            val (page, nextCursor) = result.getOrElse { return Result.failure(it) }
+            val fetched = result.getOrElse { return Result.failure(it) }
+            val page = fetched.posts
+            val nextCursor = fetched.nextCursor
 
             val entities = page.mapIndexed { index, post -> post.toFeedPostEntity(feedKey, position = index) }
             val posts = page.flatMap { it.toCachedPosts(feedKey) }
@@ -67,6 +69,14 @@ internal class FeedRefresher
                         feedType = feedKey.feedType.name,
                         feedUri = feedKey.feedUri,
                         nextCursor = nextCursor,
+                        // The boundary a later catch-up fetches from. A refresh
+                        // replaces the partition, so this page IS the newest
+                        // one ever written and its `startCursor` is the only
+                        // `since` a prepend could correctly pass. Writing the
+                        // whole row here also resets the in-flight fill
+                        // cursors, which a destructive refresh must: the range
+                        // they described no longer exists.
+                        boundarySince = fetched.startCursor,
                     ),
                 )
             }

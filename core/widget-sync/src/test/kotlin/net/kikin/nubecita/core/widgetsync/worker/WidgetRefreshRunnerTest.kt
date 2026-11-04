@@ -33,7 +33,7 @@ internal class WidgetRefreshRunnerTest {
 
             assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
             coVerify(exactly = 0) { repo.refresh(any()) }
-            coVerify(exactly = 0) { repo.trimToCap(any(), any()) }
+            coVerify(exactly = 0) { repo.trimToCap(any(), any(), any(), any()) }
             assertEquals(0, updater.calls)
         }
 
@@ -46,7 +46,7 @@ internal class WidgetRefreshRunnerTest {
 
             assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
             coVerify(exactly = 0) { repo.refresh(any()) }
-            coVerify(exactly = 0) { repo.trimToCap(any(), any()) }
+            coVerify(exactly = 0) { repo.trimToCap(any(), any(), any(), any()) }
             assertEquals(0, updater.calls)
         }
 
@@ -66,7 +66,7 @@ internal class WidgetRefreshRunnerTest {
 
             assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
             coVerify(exactly = 0) { repo.refresh(any()) }
-            coVerify(exactly = 0) { repo.trimToCap(any(), any()) }
+            coVerify(exactly = 0) { repo.trimToCap(any(), any(), any(), any()) }
             assertEquals(0, updater.calls)
             assertEquals(0, watch.feedKeyCalls, "the run never reached the watch sync")
             assertEquals(emptyList<String>(), watch.published, "no watch to publish to")
@@ -78,7 +78,7 @@ internal class WidgetRefreshRunnerTest {
             val cats = FeedKey(VIEWER, FeedType.CUSTOM, "at://cats")
             val repo = mockk<FeedRepository>()
             coEvery { repo.refresh(any()) } returns Result.success(false)
-            coEvery { repo.trimToCap(any(), any()) } just Runs
+            coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
             val updater = RecordingUpdater()
             val watch = RecordingWearFeedSync(extraFeeds = listOf(cats))
             val runner =
@@ -102,7 +102,7 @@ internal class WidgetRefreshRunnerTest {
         runTest {
             val repo = mockk<FeedRepository>()
             coEvery { repo.refresh(any()) } returns Result.success(false)
-            coEvery { repo.trimToCap(any(), any()) } just Runs
+            coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
             val runner =
                 runner(
                     repo,
@@ -138,7 +138,7 @@ internal class WidgetRefreshRunnerTest {
         runTest {
             val repo = mockk<FeedRepository>()
             coEvery { repo.refresh(any()) } returns Result.success(false)
-            coEvery { repo.trimToCap(any(), any()) } just Runs
+            coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
             val updater = RecordingUpdater()
             val prefetcher = RecordingPrefetcher()
             val runner = runner(repo, updater = updater, prefetcher = prefetcher)
@@ -165,7 +165,7 @@ internal class WidgetRefreshRunnerTest {
             val runner = runner(repo, updater = updater, prefetcher = prefetcher)
 
             assertEquals(WidgetRefreshRunner.Outcome.RETRY, runner.run())
-            coVerify(exactly = 0) { repo.trimToCap(any(), any()) }
+            coVerify(exactly = 0) { repo.trimToCap(any(), any(), any(), any()) }
             assertEquals(0, updater.calls)
             // No feed succeeded → nothing prefetched.
             assertEquals(emptyList<FeedKey>(), prefetcher.prefetched)
@@ -178,7 +178,7 @@ internal class WidgetRefreshRunnerTest {
             // Following succeeds, Discover fails.
             coEvery { repo.refresh(FeedKey.following(VIEWER)) } returns Result.success(false)
             coEvery { repo.refresh(match { it.feedType == FeedType.DISCOVER }) } returns Result.failure(IOException("down"))
-            coEvery { repo.trimToCap(any(), any()) } just Runs
+            coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
             val updater = RecordingUpdater()
             val prefetcher = RecordingPrefetcher()
             val runner = runner(repo, updater = updater, prefetcher = prefetcher)
@@ -202,7 +202,7 @@ internal class WidgetRefreshRunnerTest {
             // Discover still succeeds.
             coEvery { repo.refresh(FeedKey.following(VIEWER)) } throws IllegalStateException("db constraint")
             coEvery { repo.refresh(match { it.feedType == FeedType.DISCOVER }) } returns Result.success(false)
-            coEvery { repo.trimToCap(any(), any()) } just Runs
+            coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
             val updater = RecordingUpdater()
             val runner = runner(repo, updater = updater)
 
@@ -218,7 +218,7 @@ internal class WidgetRefreshRunnerTest {
         runTest {
             val repo = mockk<FeedRepository>()
             coEvery { repo.refresh(any()) } returns Result.success(false)
-            coEvery { repo.trimToCap(any(), any()) } just Runs
+            coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
             val updater =
                 object : WidgetUpdater {
                     override suspend fun updateFeedWidgets() = throw IllegalStateException("glance IPC")
@@ -264,7 +264,7 @@ internal class WidgetRefreshRunnerTest {
         runTest {
             val repo = mockk<FeedRepository>()
             coEvery { repo.refresh(any()) } returns Result.success(false)
-            coEvery { repo.trimToCap(any(), any()) } just Runs
+            coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
             val updater = RecordingUpdater()
             // Following's image prefetch throws; Discover's succeeds.
             val prefetcher =
@@ -293,7 +293,7 @@ internal class WidgetRefreshRunnerTest {
         runTest {
             val repo = mockk<FeedRepository>()
             coEvery { repo.refresh(any()) } returns Result.success(false)
-            coEvery { repo.trimToCap(any(), any()) } just Runs
+            coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
             val cats = FeedKey(VIEWER, FeedType.CUSTOM, "at://did:plc:x/app.bsky.feed.generator/cats")
             // Following is already refreshed for the widget, so it must not be fetched twice.
             val watch = RecordingWearFeedSync(extraFeeds = listOf(FeedKey.following(VIEWER), cats))
@@ -311,7 +311,7 @@ internal class WidgetRefreshRunnerTest {
         runTest {
             val repo = mockk<FeedRepository>()
             coEvery { repo.refresh(any()) } returns Result.success(false)
-            coEvery { repo.trimToCap(any(), any()) } just Runs
+            coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
             val updater = RecordingUpdater()
 
             val outcome = runner(repo, updater = updater, wearFeedSync = RecordingWearFeedSync(failPublish = true)).run()

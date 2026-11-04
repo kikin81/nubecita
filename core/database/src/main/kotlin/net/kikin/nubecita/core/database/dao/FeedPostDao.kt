@@ -95,26 +95,125 @@ interface FeedPostDao {
     )
 
     /**
-     * Keeps the newest [cap] rows of the partition and deletes the rest.
-     * **Lowest `position` is newest** (position 0 is the top of the newest
-     * page; older APPEND posts get higher positions), so this deletes every row
-     * whose `position` is at or above `MIN(position) + cap` — leaving exactly
-     * the newest [cap] positions. A no-op when the partition holds `<= cap` rows
-     * (the threshold is above the maximum `position`).
+     * The position of the row [offset] places down from the newest, or `null`
+     * when the partition holds fewer rows than that.
+     *
+     * The trim's cut-off, counted in **rows**. The arithmetic this replaced —
+     * `DELETE WHERE position >= MIN(position) + cap` — retained a range of
+     * `cap` position *values*, which is the same thing only while positions are
+     * dense. A prepend allocates inside a reserved window and leaves the unused
+     * end of it empty, so gaps are normal and that form kept far fewer entries
+     * than the cap (design D17).
      */
     @Query(
-        "DELETE FROM feed_post " +
+        "SELECT position FROM feed_post " +
             "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
-            "AND position >= (" +
-            "SELECT MIN(position) + :cap FROM feed_post " +
-            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri)",
+            "ORDER BY position LIMIT 1 OFFSET :offset",
     )
-    suspend fun trimToCap(
+    suspend fun positionAtOffsetFromTop(
         accountDid: String,
         feedType: String,
         feedUri: String,
-        cap: Int,
+        offset: Int,
+    ): Int?
+
+    /** Deletes everything older than [position], which itself survives. */
+    @Query(
+        "DELETE FROM feed_post " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND position > :position",
     )
+    suspend fun deleteOlderThan(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        position: Int,
+    )
+
+    /**
+     * The oldest position among the entries that the partition's surviving
+     * projection rows still reference.
+     *
+     * Entry positions and projection positions are different coordinate
+     * spaces: a self-thread chain folds several entries into one item, so the
+     * two cannot be trimmed to the same number and stay consistent. Tying them
+     * by **content** instead keeps every entry the surviving items were built
+     * from, which is what local re-projection needs to rebuild them (D27).
+     */
+    @Query(
+        "SELECT MAX(position) FROM feed_post " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND uri IN (" +
+            "SELECT uri FROM feed_item_member " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri)",
+    )
+    suspend fun oldestReferencedByProjection(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+    ): Int?
+
+    /**
+     * The partition's newest position — the lowest value, since position 0 is
+     * the top of the newest REFRESH page and a prepend goes negative.
+     *
+     * A prepend allocates its reserved window relative to this rather than
+     * assuming `-1`, so a catch-up into an already-prepended partition cannot
+     * collide with the batch above it (design D17).
+     */
+    @Query(
+        "SELECT MIN(position) FROM feed_post " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri",
+    )
+    suspend fun minPosition(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+    ): Int?
+
+    /**
+     * The bottom of the prepend block: the highest negative position in the
+     * partition, or `null` when nothing has been prepended.
+     *
+     * This is how an interrupted multi-page catch-up finds where to continue.
+     * The fill writes contiguously from the top of its window, so the position
+     * after this one is the next free slot — and deriving it from the rows
+     * means a fill that resumes after process death lands below the pages that
+     * already landed rather than on top of them.
+     */
+    @Query(
+        "SELECT MAX(position) FROM feed_post " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND position < 0",
+    )
+    suspend fun maxNegativePosition(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+    ): Int?
+
+    /**
+     * The lowest occupied position at or above [from], or `null` if nothing is
+     * stored there.
+     *
+     * The prepend's room check. The reserved window bounds one fill, but the
+     * round budget is per-`load()`, so a fill interrupted and resumed often
+     * enough could otherwise walk past its window — and because the write is
+     * an `@Upsert` keyed on `position`, that would silently overwrite stored
+     * entries instead of failing. Asking the database what is still free turns
+     * that into a stop condition.
+     */
+    @Query(
+        "SELECT MIN(position) FROM feed_post " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND position >= :from",
+    )
+    suspend fun firstPositionAtOrAbove(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        from: Int,
+    ): Int?
 
     @Query("DELETE FROM feed_post WHERE account_did = :accountDid")
     suspend fun clearAccount(accountDid: String)

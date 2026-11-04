@@ -191,12 +191,15 @@ internal class FeedPostScaleTest {
 
             val trimMs =
                 measureMillis {
-                    dao.trimToCap(sample.accountDid, sample.feedType, sample.feedUri, CAP / 2)
+                    // The row-count cut-off plus the delete — the two calls the
+                    // repository's trim makes per grain.
+                    val cut = dao.positionAtOffsetFromTop(sample.accountDid, sample.feedType, sample.feedUri, CAP / 2 - 1)
+                    if (cut != null) dao.deleteOlderThan(sample.accountDid, sample.feedType, sample.feedUri, cut)
                 }
-            Log.i(TAG, "trimToCap(cap=${CAP / 2}) took $trimMs ms")
+            Log.i(TAG, "trim(cap=${CAP / 2}) took $trimMs ms")
 
             assertTrue("REFRESH write pathological ($refreshMs ms)", refreshMs < WRITE_BOUND_MS)
-            assertTrue("trimToCap pathological ($trimMs ms)", trimMs < WRITE_BOUND_MS)
+            assertTrue("trim pathological ($trimMs ms)", trimMs < WRITE_BOUND_MS)
 
             // ---- D-A2 invariant 3: row count + DB file size recorded ----
             val rowCount = rowCount()

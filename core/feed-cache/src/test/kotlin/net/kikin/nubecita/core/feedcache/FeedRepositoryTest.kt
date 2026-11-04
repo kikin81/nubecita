@@ -187,10 +187,105 @@ internal class FeedRepositoryTest {
         }
 
     @Test
-    fun `trimToCap delegates to the dao`() =
+    fun `the trim bounds every grain, not just the entry table`() =
         runTest {
+            // The growth bug the scale measurement found: the old trim bounded
+            // feed_post alone while the projection, its members and the post
+            // store grew without limit.
+            coEvery { feedItemDao.positionAtOffsetFromTop("did:plc:me", "FOLLOWING", "", 99) } returns 120
+            coEvery { feedItemDao.positionAtOffsetFromTop("did:plc:me", "FOLLOWING", "", 1499) } returns null
+            coEvery { feedPostDao.positionAtOffsetFromTop("did:plc:me", "FOLLOWING", "", 99) } returns 140
+            coEvery { feedPostDao.positionAtOffsetFromTop("did:plc:me", "FOLLOWING", "", 1499) } returns null
+            coEvery { feedPostDao.oldestReferencedByProjection(any(), any(), any()) } returns null
+
             repository(emptyList()).trimToCap(key, cap = 100)
-            coVerify { feedPostDao.trimToCap("did:plc:me", "FOLLOWING", "", 100) }
+
+            coVerify { feedItemDao.deleteOlderThan("did:plc:me", "FOLLOWING", "", 120) }
+            coVerify { feedPostDao.deleteOlderThan("did:plc:me", "FOLLOWING", "", 140) }
+            // Reference-counted, and last: a context post holds no position, so
+            // nothing above could have evicted it.
+            coVerify { cachedPostDao.deleteUnreferenced("did:plc:me") }
+        }
+
+    @Test
+    fun `a partition under the cap is left alone`() =
+        runTest {
+            coEvery { feedItemDao.positionAtOffsetFromTop(any(), any(), any(), any()) } returns null
+            coEvery { feedPostDao.positionAtOffsetFromTop(any(), any(), any(), any()) } returns null
+            coEvery { feedPostDao.oldestReferencedByProjection(any(), any(), any()) } returns null
+
+            repository(emptyList()).trimToCap(key, cap = 100)
+
+            coVerify(exactly = 0) { feedItemDao.deleteOlderThan(any(), any(), any(), any()) }
+            coVerify(exactly = 0) { feedPostDao.deleteOlderThan(any(), any(), any(), any()) }
+            // Still run: a post can be unreferenced without any row being
+            // deleted here — a REFRESH replaced the partition it belonged to.
+            coVerify { cachedPostDao.deleteUnreferenced("did:plc:me") }
+        }
+
+    @Test
+    fun `the anchor's backlog survives a cap that would delete it`() =
+        runTest {
+            // A catch-up writes up to half the cap above the anchor, so the
+            // newest `cap` rows are the freshly fetched ones and the reader's
+            // unread backlog is everything below. Trimming to the cap here
+            // would delete the anchor and the backlog while the app was
+            // backgrounded, which is the window this feature exists to protect.
+            coEvery { feedItemDao.positionAtOffsetFromTop("did:plc:me", "FOLLOWING", "", 99) } returns 40
+            coEvery { feedItemDao.positionAtOffsetFromTop("did:plc:me", "FOLLOWING", "", 1499) } returns null
+            coEvery { feedPostDao.positionAtOffsetFromTop(any(), any(), any(), any()) } returns null
+            coEvery { feedPostDao.oldestReferencedByProjection(any(), any(), any()) } returns null
+
+            repository(emptyList()).trimToCap(key, cap = 100, anchorItemPosition = 310)
+
+            coVerify { feedItemDao.deleteOlderThan("did:plc:me", "FOLLOWING", "", 310) }
+        }
+
+    @Test
+    fun `an anchor above the cap boundary does not shrink the retention`() =
+        runTest {
+            // The anchor only ever EXTENDS what is kept. A reader sitting near
+            // the top must not cause a deeper trim than the cap asks for.
+            coEvery { feedItemDao.positionAtOffsetFromTop("did:plc:me", "FOLLOWING", "", 99) } returns 120
+            coEvery { feedItemDao.positionAtOffsetFromTop("did:plc:me", "FOLLOWING", "", 1499) } returns null
+            coEvery { feedPostDao.positionAtOffsetFromTop(any(), any(), any(), any()) } returns null
+            coEvery { feedPostDao.oldestReferencedByProjection(any(), any(), any()) } returns null
+
+            repository(emptyList()).trimToCap(key, cap = 100, anchorItemPosition = 5)
+
+            coVerify { feedItemDao.deleteOlderThan("did:plc:me", "FOLLOWING", "", 120) }
+        }
+
+    @Test
+    fun `the ceiling bounds the anchor exception`() =
+        runTest {
+            // Otherwise a reader who never comes back to a deep position keeps
+            // that partition alive forever.
+            coEvery { feedItemDao.positionAtOffsetFromTop("did:plc:me", "FOLLOWING", "", 99) } returns 120
+            coEvery { feedItemDao.positionAtOffsetFromTop("did:plc:me", "FOLLOWING", "", 299) } returns 400
+            coEvery { feedPostDao.positionAtOffsetFromTop(any(), any(), any(), any()) } returns null
+            coEvery { feedPostDao.oldestReferencedByProjection(any(), any(), any()) } returns null
+
+            repository(emptyList()).trimToCap(key, cap = 100, anchorItemPosition = 9_000, ceiling = 300)
+
+            coVerify { feedItemDao.deleteOlderThan("did:plc:me", "FOLLOWING", "", 400) }
+        }
+
+    @Test
+    fun `entries the surviving projection references are kept`() =
+        runTest {
+            // Entry positions and item positions are different coordinate
+            // spaces — a chain folds several entries into one item — so the
+            // two grains are tied by content. An entry trimmed out from under a
+            // surviving item would leave a re-projection unable to rebuild it.
+            coEvery { feedItemDao.positionAtOffsetFromTop(any(), any(), any(), any()) } returns null
+            coEvery { feedPostDao.positionAtOffsetFromTop("did:plc:me", "FOLLOWING", "", 99) } returns 100
+            coEvery { feedPostDao.positionAtOffsetFromTop("did:plc:me", "FOLLOWING", "", 1499) } returns null
+            coEvery { feedPostDao.oldestReferencedByProjection("did:plc:me", "FOLLOWING", "") } returns 175
+
+            repository(emptyList()).trimToCap(key, cap = 100)
+
+            coVerify { feedPostDao.deleteOlderThan("did:plc:me", "FOLLOWING", "", 175) }
         }
 
     @Test
@@ -213,7 +308,7 @@ internal class FeedRepositoryTest {
         runTest {
             // Empty page + null cursor -> endOfPaginationReached == true; the
             // delegated FeedRefresher fetches page 1 and writes through.
-            coEvery { networkSource.fetchPage(key, cursor = null) } returns Result.success(emptyList<FeedViewPost>() to null)
+            coEvery { networkSource.fetchPage(key, cursor = null) } returns Result.success(FeedNetworkPage(emptyList<FeedViewPost>(), null))
 
             val result = repository(emptyList()).refresh(key)
 

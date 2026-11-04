@@ -15,8 +15,27 @@ import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import timber.log.Timber
 import javax.inject.Inject
 
-/** A fetched feed page: the wire posts plus the cursor for the next page. */
-typealias FeedNetworkPage = Pair<List<FeedViewPost>, String?>
+/**
+ * A fetched feed page.
+ *
+ * A named type rather than a `Pair` because it carries three values, two of
+ * them nullable cursors pointing in opposite directions. Named access is the
+ * point: `page.startCursor` says which end of the feed it describes where a
+ * third tuple slot would not. (Destructuring still works positionally, so this
+ * is readability rather than a guarantee.)
+ */
+data class FeedNetworkPage(
+    val posts: List<FeedViewPost>,
+    /** Cursor for the next page *older* than this one, or null at the end. */
+    val nextCursor: String?,
+    /**
+     * Cursor identifying the **newest** item in this page, to pass as `since`
+     * on a later catch-up fetch. Null for a method that does not provide one —
+     * `app.bsky.feed.getFeed` has no `since`, so a generator feed cannot bound
+     * a catch-up range at all.
+     */
+    val startCursor: String? = null,
+)
 
 /**
  * Cursor-based feed fetch for `:core:feed-cache`, ported from
@@ -44,18 +63,41 @@ class FeedNetworkSource
         /**
          * Fetch one page of [feedKey]'s feed starting at [cursor] (null for the
          * first page).
+         *
+         * [since] bounds the fetch to items *newer* than that position, for the
+         * catch-up a prepend performs. Only `getTimeline` and `getListFeed`
+         * accept it; passing it for a generator feed is a caller error, and it
+         * is logged and dropped rather than silently ignored — a dropped `since`
+         * turns a bounded catch-up into an unbounded walk backwards through the
+         * whole feed.
          */
         suspend fun fetchPage(
             feedKey: FeedKey,
             cursor: String?,
+            since: String? = null,
             limit: Int = DEFAULT_LIMIT,
-        ): Result<FeedNetworkPage> =
-            when (feedKey.feedType) {
+        ): Result<FeedNetworkPage> {
+            val effectiveSince =
+                if (since != null && !feedKey.feedType.supportsSince) {
+                    Timber.tag(TAG).w(
+                        "since passed for %s, which has no `since` parameter — dropping it",
+                        feedKey.feedType,
+                    )
+                    null
+                } else {
+                    since
+                }
+            return when (feedKey.feedType) {
                 FeedType.FOLLOWING ->
                     fetch("getTimeline", cursor) { client ->
                         FeedService(client)
-                            .getTimeline(GetTimelineRequest(cursor = cursor, limit = limit.toLong()))
-                            .let { it.feed to it.cursor }
+                            .getTimeline(
+                                GetTimelineRequest(
+                                    cursor = cursor,
+                                    since = effectiveSince,
+                                    limit = limit.toLong(),
+                                ),
+                            ).let { FeedNetworkPage(it.feed, it.cursor, it.startCursor) }
                     }
 
                 FeedType.DISCOVER, FeedType.CUSTOM ->
@@ -67,7 +109,8 @@ class FeedNetworkSource
                                     cursor = cursor,
                                     limit = limit.toLong(),
                                 ),
-                            ).let { it.feed to it.cursor }
+                                // No `since`: getFeed does not accept one.
+                            ).let { FeedNetworkPage(it.feed, it.cursor) }
                     }
 
                 FeedType.LIST ->
@@ -77,11 +120,13 @@ class FeedNetworkSource
                                 GetListFeedRequest(
                                     list = AtUri(feedKey.feedUri),
                                     cursor = cursor,
+                                    since = effectiveSince,
                                     limit = limit.toLong(),
                                 ),
-                            ).let { it.feed to it.cursor }
+                            ).let { FeedNetworkPage(it.feed, it.cursor, it.startCursor) }
                     }
             }
+        }
 
         private suspend fun fetch(
             operation: String,
@@ -113,8 +158,15 @@ class FeedNetworkSource
                 }
             }
 
-        private companion object {
-            const val TAG = "FeedNetworkSource"
+        internal companion object {
+            private const val TAG = "FeedNetworkSource"
+
+            /**
+             * Entries one fetch asks for. Visible to the mediator because the
+             * catch-up budget is denominated in *fetched entries* (D19), so the
+             * window arithmetic has to be derived from this rather than from
+             * `PagingConfig.pageSize`, which is a different number.
+             */
             const val DEFAULT_LIMIT = 50
         }
     }
