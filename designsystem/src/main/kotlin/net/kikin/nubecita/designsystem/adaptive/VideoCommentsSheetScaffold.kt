@@ -180,12 +180,17 @@ fun VideoCommentsSheetScaffold(
                         // sheet to a sliver (measured: offset 1832, visible 13px).
                         CompositionLocalProvider(
                             LocalSheetHiddenHeightPx provides {
-                                runCatching { sheetState.requireOffset() }
-                                    .getOrNull()
-                                    ?.takeIf { it.isFinite() }
-                                    ?.roundToInt()
-                                    ?.coerceAtLeast(0)
-                                    ?: 0
+                                // `requireOffset` throws IllegalStateException until the
+                                // sheet has been laid out once, and that is the only
+                                // failure worth absorbing here — a broad catch would also
+                                // swallow cancellation and JVM errors.
+                                val offset =
+                                    try {
+                                        sheetState.requireOffset()
+                                    } catch (_: IllegalStateException) {
+                                        null
+                                    }
+                                offset?.takeIf { it.isFinite() }?.roundToInt()?.coerceAtLeast(0) ?: 0
                             },
                         ) {
                             movableComments()
