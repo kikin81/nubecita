@@ -254,6 +254,8 @@ private fun FeedScreenScreenshotHost(
             callbacks = PostCallbacks.None,
             onRefresh = {},
             onRetry = {},
+            onFillSeam = {},
+            onJumpToNewest = {},
             feedChips = persistentListOf(),
             pinnedLists = persistentListOf(),
             selectedFeedUri = null,

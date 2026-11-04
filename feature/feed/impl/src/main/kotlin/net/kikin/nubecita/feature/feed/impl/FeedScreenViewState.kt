@@ -54,6 +54,11 @@ sealed interface FeedScreenViewState {
         val videoAutoplayEnabled: Boolean = true,
         /** Posts the user just submitted, rendered above the paged items. */
         val outgoingPosts: ImmutableList<OutgoingPostUi> = persistentListOf(),
+        /**
+         * Mirrors `FeedState.isFillingSeam`. A seam fill is a prepend behind
+         * the projection, so Paging's load states say nothing about it.
+         */
+        val isFillingSeam: Boolean = false,
     ) : FeedScreenViewState
 }
 
@@ -71,9 +76,9 @@ sealed interface FeedScreenViewState {
  * because the local source answered instantly.
  *
  * `prepend` is deliberately unmapped: a `since`-bounded catch-up gets its own
- * affordance — the new-posts pill and the seam row — rather than the tail
- * shimmer or the pull indicator, and that surface lands with the pill work.
- * Mapping it to `Appending` here would show the wrong one in the meantime.
+ * affordances — the new-posts pill and the seam row — rather than the tail
+ * shimmer or the pull indicator. Mapping it to `Appending` would hang a tail
+ * shimmer off the bottom of the list for posts that arrive at the top.
  *
  * A pure function over Paging's own types, so the dispatch matrix is unit-
  * tested without a Compose host or a `Pager`.
@@ -129,5 +134,6 @@ fun FeedState.toViewState(
             lastRepostTapPostUri = lastRepostTapPostUri,
             videoAutoplayEnabled = videoAutoplayEnabled,
             outgoingPosts = outgoingPosts,
+            isFillingSeam = isFillingSeam,
         )
     }

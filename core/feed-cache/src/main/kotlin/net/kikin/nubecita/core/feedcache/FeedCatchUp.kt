@@ -1,8 +1,10 @@
 package net.kikin.nubecita.core.feedcache
 
 import net.kikin.nubecita.core.database.dao.CachedPostDao
+import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
+import net.kikin.nubecita.core.database.model.FeedItemEntity
 import javax.inject.Inject
 
 /**
@@ -44,6 +46,7 @@ internal class FeedCatchUp
     constructor(
         private val networkSource: FeedNetworkSource,
         private val feedPostDao: FeedPostDao,
+        private val feedItemDao: FeedItemDao,
         private val cachedPostDao: CachedPostDao,
         private val projectionWriter: FeedProjectionWriter,
         private val remoteKeyDao: FeedRemoteKeyDao,
@@ -127,7 +130,14 @@ internal class FeedCatchUp
                         nextFree,
                     )
                 val room = if (first == null) CATCH_UP_ENTRY_BUDGET else first - nextFree
-                if (room <= 0) return Result.success(CatchUpOutcome.CAUGHT_UP)
+                if (room <= 0) {
+                    // The window is full: this is as far as a catch-up may go
+                    // (D5). The seam stays, marked exhausted, so the reader is
+                    // offered a jump to the newest rather than a fill that
+                    // cannot complete.
+                    transactionRunner.run { writeSeam(feedKey, position = nextFree, exhausted = true) }
+                    return Result.success(CatchUpOutcome.CAUGHT_UP)
+                }
 
                 val fetched =
                     networkSource
@@ -159,6 +169,17 @@ internal class FeedCatchUp
                     // The projection shares the slice the entries took: a block
                     // of items is never longer than the entries it came from.
                     projected = projectionWriter.writePrepend(feedKey, entries, basePosition = base)
+                    // The boundary between what just arrived and what the
+                    // reader already read. A row, not an inferred gap: a
+                    // prepend leaves the unused end of its window empty, so
+                    // gaps are normal and arithmetic cannot tell one from a
+                    // seam (D23). Exhausted ranges have no boundary left to
+                    // mark, so the marker goes away instead.
+                    if (exhausted) {
+                        feedItemDao.clearSeam(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
+                    } else {
+                        writeSeam(feedKey, position = base + projected, exhausted = false)
+                    }
                     // Targeted: `next_cursor` belongs to the other direction,
                     // and a whole-row write from here would clear it and break
                     // forward pagination with every one-directional test still
@@ -182,6 +203,35 @@ internal class FeedCatchUp
                 }
                 cursor = fetched.nextCursor
             }
+        }
+
+        /**
+         * Moves the partition's seam marker to [position].
+         *
+         * Cleared first, because at most one seam exists and the boundary
+         * moves down as each fill page lands — leaving the old one would show
+         * the reader two breaks in a timeline that has one.
+         */
+        private suspend fun writeSeam(
+            feedKey: FeedKey,
+            position: Int,
+            exhausted: Boolean,
+        ) {
+            feedItemDao.clearSeam(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
+            feedItemDao.upsert(
+                listOf(
+                    FeedItemEntity(
+                        accountDid = feedKey.accountDid,
+                        feedType = feedKey.feedType.name,
+                        feedUri = feedKey.feedUri,
+                        position = position,
+                        rowType = FeedItemEntity.ROW_TYPE_SEAM,
+                        itemKey = "${CachedFeedRow.SEAM_KEY_PREFIX}$position",
+                        suppressedReplyCount = 0,
+                        seamExhausted = exhausted,
+                    ),
+                ),
+            )
         }
 
         internal companion object {

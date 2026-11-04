@@ -24,6 +24,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import net.kikin.nubecita.core.database.dao.CachedPostDao
+import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
@@ -33,7 +34,6 @@ import net.kikin.nubecita.core.database.model.FeedRemoteKeyEntity
 import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPrefs
-import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.FeedViewPrefs
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
@@ -45,6 +45,7 @@ internal class FeedRemoteMediatorTest {
     private val key = FeedKey.following("did:plc:me")
     private val feedPostDao = mockk<FeedPostDao>(relaxed = true)
     private val cachedPostDao = mockk<CachedPostDao>(relaxed = true)
+    private val feedItemDao = mockk<FeedItemDao>(relaxed = true)
     private val partitionStateDao =
         mockk<FeedPartitionStateDao>(relaxed = true).also {
             // Explicit: a relaxed mock answers a nullable return with a STUB,
@@ -110,6 +111,7 @@ internal class FeedRemoteMediatorTest {
                 FeedCatchUp(
                     networkSource = networkSource,
                     feedPostDao = feedPostDao,
+                    feedItemDao = feedItemDao,
                     cachedPostDao = cachedPostDao,
                     projectionWriter = projectionWriter,
                     remoteKeyDao = remoteKeyDao,
@@ -117,7 +119,7 @@ internal class FeedRemoteMediatorTest {
                 ),
         )
 
-    private fun emptyState(): PagingState<Int, FeedItemUi> =
+    private fun emptyState(): PagingState<Int, CachedFeedRow> =
         PagingState(
             pages = emptyList(),
             anchorPosition = null,

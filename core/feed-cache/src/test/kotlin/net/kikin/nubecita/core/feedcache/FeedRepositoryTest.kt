@@ -74,12 +74,12 @@ internal class FeedRepositoryTest {
     // No-op mediator so the Pager doesn't hit the network; the PagingSource
     // already returns the seeded rows.
     private val noopMediator =
-        object : RemoteMediator<Int, FeedItemUi>() {
+        object : RemoteMediator<Int, CachedFeedRow>() {
             override suspend fun initialize() = InitializeAction.SKIP_INITIAL_REFRESH
 
             override suspend fun load(
                 loadType: LoadType,
-                state: PagingState<Int, FeedItemUi>,
+                state: PagingState<Int, CachedFeedRow>,
             ) = MediatorResult.Success(endOfPaginationReached = true)
         }
 
@@ -115,6 +115,7 @@ internal class FeedRepositoryTest {
                 FeedCatchUp(
                     networkSource = networkSource,
                     feedPostDao = feedPostDao,
+                    feedItemDao = feedItemDao,
                     cachedPostDao = cachedPostDao,
                     projectionWriter = projectionWriter,
                     remoteKeyDao = remoteKeyDao,
@@ -133,7 +134,13 @@ internal class FeedRepositoryTest {
             val items = repo.pagedFeed(key).asSnapshot()
 
             assertEquals(1, items.size)
-            assertEquals("hello", (items.single() as FeedItemUi.Single).post.text)
+            assertEquals(
+                "hello",
+                items
+                    .single()
+                    .asSingle()
+                    .post.text,
+            )
         }
 
     @Test
@@ -147,7 +154,7 @@ internal class FeedRepositoryTest {
 
             val items = repo.pagedFeed(key).asSnapshot()
 
-            assertEquals(listOf("first", "second"), items.map { (it as FeedItemUi.Single).post.text })
+            assertEquals(listOf("first", "second"), items.map { it.asSingle().post.text })
         }
 
     @Test
@@ -386,6 +393,24 @@ internal class FeedRepositoryTest {
                 FeedPartitionStateEntity("did:plc:me", "FOLLOWING", "", prefsFingerprint = "replies=false")
 
             assertNull(repository(emptyList()).anchor(key))
+        }
+
+    @Test
+    fun `a generator feed keeps no place, and asks the database nothing about one`() =
+        runTest {
+            // D14. A generator refreshes on open, so the partition a place
+            // referred to is gone before anyone could be put back in it. The
+            // gate lives here rather than at each screen, and the `coVerify`
+            // is the point: reading or writing the row at all would mean a
+            // later caller could still get a place out of it.
+            val discover = FeedKey("did:plc:me", FeedType.DISCOVER, "at://feed/whats-hot")
+
+            val repo = repository(emptyList())
+            repo.saveAnchor(discover, itemKey = "single:at://post/a", offset = -8)
+
+            assertNull(repo.anchor(discover))
+            coVerify(exactly = 0) { partitionStateDao.saveAnchor(any(), any(), any(), any(), any(), any()) }
+            coVerify(exactly = 0) { partitionStateDao.state("did:plc:me", "DISCOVER", any()) }
         }
 
     @Test
@@ -629,6 +654,9 @@ internal class FeedRepositoryTest {
         )
     }
 
+    /** The rendered post inside a paged row — the shape every assertion here is about. */
+    private fun CachedFeedRow.asSingle(): FeedItemUi.Single = (this as CachedFeedRow.Item).item as FeedItemUi.Single
+
     /** A stored post whose blob carries [authorDid] — what the pill reads faces from. */
     private fun cachedPost(
         uri: String,
@@ -697,7 +725,7 @@ private class TestFeedRepository(
     transactionRunner: FeedCacheTransactionRunner,
     feedRefresher: FeedRefresher,
     feedCatchUp: FeedCatchUp,
-    private val testMediator: RemoteMediator<Int, FeedItemUi>,
+    private val testMediator: RemoteMediator<Int, CachedFeedRow>,
     private val testRows: List<FeedItemUi>,
 ) : DefaultFeedRepository(
         feedPostDao,
@@ -713,21 +741,21 @@ private class TestFeedRepository(
         feedRefresher,
         feedCatchUp,
     ) {
-    override fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, FeedItemUi> = testMediator
+    override fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, CachedFeedRow> = testMediator
 
     override fun pagingSourceFor(
         feedKey: FeedKey,
         initialPosition: Int?,
-    ): PagingSource<Int, FeedItemUi> = FakePagingSource(testRows)
+    ): PagingSource<Int, CachedFeedRow> = FakePagingSource(testRows)
 }
 
 /** In-memory single-page [PagingSource] over the seeded rows. */
 private class FakePagingSource(
     private val rows: List<FeedItemUi>,
-) : PagingSource<Int, FeedItemUi>() {
-    override fun getRefreshKey(state: PagingState<Int, FeedItemUi>): Int? = null
+) : PagingSource<Int, CachedFeedRow>() {
+    override fun getRefreshKey(state: PagingState<Int, CachedFeedRow>): Int? = null
 
-    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, FeedItemUi> = LoadResult.Page(data = rows, prevKey = null, nextKey = null)
+    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, CachedFeedRow> = LoadResult.Page(data = rows.map(CachedFeedRow::Item), prevKey = null, nextKey = null)
 }
 
 private val repoTestJson =

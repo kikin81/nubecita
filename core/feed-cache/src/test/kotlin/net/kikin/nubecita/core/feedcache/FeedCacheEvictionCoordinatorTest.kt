@@ -14,7 +14,6 @@ import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.data.models.AuthorUi
-import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostUi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -106,7 +105,7 @@ internal class FeedCacheEvictionCoordinatorTest {
         override fun pagedFeed(
             feedKey: FeedKey,
             initialPosition: Int?,
-        ): Flow<PagingData<FeedItemUi>> = emptyFlow()
+        ): Flow<PagingData<CachedFeedRow>> = emptyFlow()
 
         override fun head(
             feedKey: FeedKey,

@@ -105,4 +105,12 @@
     </plurals>
     <!-- Floating pill shown when posts arrived above the reader's place. Accessibility label; the pill itself shows only faces. -->
     <string name="feed_new_posts">New posts</string>
+    <!-- Tappable label on the seam row, where a catch-up could not bridge the whole gap. -->
+    <string name="feed_seam_load">Load the posts in between</string>
+    <!-- Shown on the seam row while the gap is being filled. -->
+    <string name="feed_seam_loading">Loading the posts you missed</string>
+    <!-- Shown on the seam row once the gap is wider than the feed keeps. -->
+    <string name="feed_seam_capped">There is more here than we keep</string>
+    <!-- Button on the seam row: discard the stored timeline and start again at the newest post. -->
+    <string name="feed_seam_jump_to_newest">Jump to newest</string>
 </resources>

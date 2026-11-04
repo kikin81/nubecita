@@ -76,7 +76,7 @@ internal class FakeFeedRepository
         override fun pagedFeed(
             feedKey: FeedKey,
             initialPosition: Int?,
-        ): Flow<PagingData<FeedItemUi>> = flow { emit(PagingData.from(itemsFor(feedKey))) }
+        ): Flow<PagingData<CachedFeedRow>> = flow { emit(PagingData.from(itemsFor(feedKey).map(CachedFeedRow::Item))) }
 
         override fun head(
             feedKey: FeedKey,

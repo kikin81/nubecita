@@ -13,7 +13,6 @@ import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
-import net.kikin.nubecita.data.models.FeedItemUi
 
 /**
  * Paging 3 [RemoteMediator] for one cached feed partition. Reverse-chronological:
@@ -44,7 +43,7 @@ internal class FeedRemoteMediator
         private val transactionRunner: FeedCacheTransactionRunner,
         private val feedRefresher: FeedRefresher,
         private val feedCatchUp: FeedCatchUp,
-    ) : RemoteMediator<Int, FeedItemUi>() {
+    ) : RemoteMediator<Int, CachedFeedRow>() {
         @AssistedFactory
         interface Factory {
             fun create(feedKey: FeedKey): FeedRemoteMediator
@@ -114,7 +113,7 @@ internal class FeedRemoteMediator
 
         override suspend fun load(
             loadType: LoadType,
-            state: PagingState<Int, FeedItemUi>,
+            state: PagingState<Int, CachedFeedRow>,
         ): MediatorResult =
             when (loadType) {
                 // PREPEND delegates to the shared FeedCatchUp — the same

@@ -59,6 +59,14 @@ data class FeedState(
      * Following timeline until a page includes them. Always empty on other feeds.
      */
     val outgoingPosts: ImmutableList<OutgoingPostUi> = persistentListOf(),
+    /**
+     * Whether a seam fill is in flight right now.
+     *
+     * On the state rather than derived from Paging because the fill is not a
+     * Paging load: it is a prepend the cache performs behind the projection,
+     * and `CombinedLoadStates` never sees it.
+     */
+    val isFillingSeam: Boolean = false,
 ) : UiState
 
 /**
@@ -190,6 +198,17 @@ sealed interface FeedEvent : UiEvent {
      * source of truth for the same fetches.
      */
     data object Refresh : FeedEvent
+
+    /**
+     * The reader came within range of the seam at [position], or tapped it.
+     *
+     * One event for both because they mean the same thing — fill this gap —
+     * and the VM drops a repeat while the previous fill is still in flight, so
+     * a tap during an automatic fill costs nothing.
+     */
+    data class FillSeam(
+        val position: Int,
+    ) : FeedEvent
 
     /**
      * The reader stopped here: the key of the item at the top of the viewport

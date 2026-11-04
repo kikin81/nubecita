@@ -74,4 +74,8 @@
     </plurals>
     <string name="feed_following">Seguindo</string>
     <string name="feed_new_posts">Novas publicações</string>
+    <string name="feed_seam_load">Carregar as publicações intermediárias</string>
+    <string name="feed_seam_loading">Carregando as publicações que você perdeu</string>
+    <string name="feed_seam_capped">Aqui há mais do que guardamos</string>
+    <string name="feed_seam_jump_to_newest">Ir para as mais recentes</string>
 </resources>

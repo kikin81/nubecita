@@ -41,6 +41,7 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.time.LocalClock
+import net.kikin.nubecita.core.feedcache.CachedFeedRow
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.FeedItemUi
@@ -196,7 +197,7 @@ internal fun FeedViewScreen(
 @Composable
 internal fun FeedViewScreenContent(
     viewState: FeedScreenViewState,
-    items: LazyPagingItems<FeedItemUi>,
+    items: LazyPagingItems<CachedFeedRow>,
     listState: LazyListState,
     snackbarHostState: SnackbarHostState,
     callbacks: PostCallbacks,

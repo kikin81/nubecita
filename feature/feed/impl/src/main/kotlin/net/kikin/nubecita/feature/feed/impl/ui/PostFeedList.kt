@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
+import net.kikin.nubecita.core.feedcache.CachedFeedRow
 import net.kikin.nubecita.core.feedcache.FeedAnchor
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.FeedItemUi
@@ -78,7 +79,7 @@ import net.kikin.nubecita.feature.feed.impl.video.mostVisibleVideoTarget
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun PostFeedList(
-    items: LazyPagingItems<FeedItemUi>,
+    items: LazyPagingItems<CachedFeedRow>,
     isAppending: Boolean,
     isRefreshing: Boolean,
     listState: LazyListState,
@@ -115,6 +116,12 @@ internal fun PostFeedList(
     // feed with no position to keep — a generator refreshes on open, so an
     // anchor there would be written and never read.
     anchoring: FeedAnchoring? = null,
+    // The seam's state and actions. Defaulted so the surfaces that cannot
+    // produce a seam — a generator feed never catches up (D14) — say nothing
+    // about it.
+    isFillingSeam: Boolean = false,
+    onFillSeam: (position: Int) -> Unit = {},
+    onJumpToNewest: () -> Unit = {},
     // Posts the user just submitted (Following only), above the timeline.
     outgoingPosts: ImmutableList<OutgoingPostUi> = persistentListOf(),
     onRetryOutgoing: (localId: String) -> Unit = {},
@@ -202,20 +209,40 @@ internal fun PostFeedList(
                 count = items.itemCount,
                 key = items.itemKey { it.key },
                 contentType =
-                    items.itemContentType {
-                        when (it) {
-                            is FeedItemUi.Single -> "single"
-                            is FeedItemUi.ReplyCluster -> "cluster"
-                            is FeedItemUi.SelfThreadChain -> "chain"
-                            is FeedItemUi.Blocked -> "blocked"
-                            is FeedItemUi.NotFound -> "notfound"
+                    items.itemContentType { row ->
+                        when (row) {
+                            is CachedFeedRow.Seam -> "seam"
+                            is CachedFeedRow.Item ->
+                                when (row.item) {
+                                    is FeedItemUi.Single -> "single"
+                                    is FeedItemUi.ReplyCluster -> "cluster"
+                                    is FeedItemUi.SelfThreadChain -> "chain"
+                                    is FeedItemUi.Blocked -> "blocked"
+                                    is FeedItemUi.NotFound -> "notfound"
+                                }
                         }
                     },
             ) { index ->
                 // Null only with placeholders enabled, which this Pager does
                 // not use. Skipping rather than rendering a blank keeps the
                 // smart-cast below narrow.
-                val item = items[index] ?: return@items
+                val row = items[index] ?: return@items
+                // The seam is a row of the projection like any other, so it
+                // arrives here rather than being drawn between items: its
+                // place in the list is the place the cache recorded it.
+                val item =
+                    when (row) {
+                        is CachedFeedRow.Seam -> {
+                            FeedSeamRow(
+                                exhausted = row.exhausted,
+                                isFilling = isFillingSeam,
+                                onFill = { onFillSeam(row.position) },
+                                onJumpToNewest = onJumpToNewest,
+                            )
+                            return@items
+                        }
+                        is CachedFeedRow.Item -> row.item
+                    }
                 // The video coordinator binds against the leaf URI for
                 // Single, ReplyCluster, AND SelfThreadChain — clusters
                 // and chains are leaf-only video targets (see
@@ -479,7 +506,9 @@ internal fun PostFeedList(
         val postsById =
             remember(snapshot) {
                 buildMap {
-                    snapshot.items.forEach { item ->
+                    snapshot.items.forEach { row ->
+                        // A seam carries no post, so it is not a video target.
+                        val item = (row as? CachedFeedRow.Item)?.item ?: return@forEach
                         when (item) {
                             is FeedItemUi.Single -> put(item.post.id, item.post)
                             is FeedItemUi.ReplyCluster -> put(item.leaf.id, item.leaf)
@@ -557,7 +586,7 @@ internal data class FeedAnchoring(
 @Composable
 private fun RememberReadingPosition(
     listState: LazyListState,
-    items: LazyPagingItems<FeedItemUi>,
+    items: LazyPagingItems<CachedFeedRow>,
     leadingItems: Int,
     anchoring: FeedAnchoring,
 ) {
@@ -570,6 +599,10 @@ private fun RememberReadingPosition(
             .distinctUntilChanged()
             .collect { (key, offset) ->
                 if (key == null || key in NON_ITEM_KEYS || key.startsWith(OUTGOING_KEY_PREFIX)) return@collect
+                // Nor is the seam: it is removed once its range is filled, so
+                // anchoring on it would leave the reader pointing at a row
+                // that is about to stop existing.
+                if (key.startsWith(CachedFeedRow.SEAM_KEY_PREFIX)) return@collect
                 onAnchorChanged(key, offset)
             }
     }

@@ -75,6 +75,7 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.core.common.time.LocalClock
+import net.kikin.nubecita.core.feedcache.CachedFeedRow
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.FeedItemUi
@@ -293,6 +294,20 @@ internal fun FeedScreen(
                 viewModel.handleEvent(FeedEvent.DismissNewPosts)
             }
         }
+    val onFillSeam =
+        remember(viewModel) { { position: Int -> viewModel.handleEvent(FeedEvent.FillSeam(position)) } }
+    // Jump-to-newest IS the destructive refresh (D8), plus the scroll that
+    // makes "newest" mean what it says: the partition is replaced from the
+    // top, and a reader left mid-list would be looking at the middle of a
+    // timeline they just asked to start over.
+    val onJumpToNewest =
+        remember(onRefresh, listState, scope) {
+            {
+                onRefresh()
+                scope.launch { listState.scrollToItem(0) }
+                Unit
+            }
+        }
 
     FeedScreenContent(
         viewState = viewState,
@@ -300,6 +315,8 @@ internal fun FeedScreen(
         anchoring = anchoring,
         newPosts = newPosts,
         onNewPostsClick = onNewPostsClick,
+        onFillSeam = onFillSeam,
+        onJumpToNewest = onJumpToNewest,
         listState = listState,
         snackbarHostState = snackbarHostState,
         callbacks = interactions.callbacks,
@@ -343,12 +360,14 @@ internal fun FeedScreen(
 @Composable
 internal fun FeedScreenContent(
     viewState: FeedScreenViewState,
-    items: LazyPagingItems<FeedItemUi>,
+    items: LazyPagingItems<CachedFeedRow>,
     listState: LazyListState,
     snackbarHostState: SnackbarHostState,
     callbacks: PostCallbacks,
     onRefresh: () -> Unit,
     onRetry: () -> Unit,
+    onFillSeam: (position: Int) -> Unit,
+    onJumpToNewest: () -> Unit,
     feedChips: ImmutableList<PinnedFeedUi>,
     pinnedLists: ImmutableList<PinnedFeedUi>,
     selectedFeedUri: String?,
@@ -636,6 +655,9 @@ internal fun FeedScreenContent(
                         videoAutoplayEnabled = viewState.videoAutoplayEnabled,
                         isPageActive = isPageActive,
                         header = header,
+                        isFillingSeam = viewState.isFillingSeam,
+                        onFillSeam = onFillSeam,
+                        onJumpToNewest = onJumpToNewest,
                     )
                     // Over the list, not in it: the pill has to stay put while
                     // the timeline scrolls underneath, and it must not take a
@@ -768,7 +790,7 @@ private fun FeedScreenLoadedAppendingPreview() {
  * fixtures plain lists.
  */
 @Composable
-internal fun rememberPreviewPagingItems(items: ImmutableList<FeedItemUi>): LazyPagingItems<FeedItemUi> = remember(items) { flowOf(PagingData.from(items)) }.collectAsLazyPagingItems()
+internal fun rememberPreviewPagingItems(items: ImmutableList<FeedItemUi>): LazyPagingItems<CachedFeedRow> = remember(items) { flowOf(PagingData.from(items.map<FeedItemUi, CachedFeedRow>(CachedFeedRow::Item))) }.collectAsLazyPagingItems()
 
 /**
  * Stateless preview/test host — wraps [FeedScreenContent] with a
@@ -792,6 +814,8 @@ private fun FeedScreenPreviewHost(
             snackbarHostState = snackbarHostState,
             callbacks = PostCallbacks.None,
             onRefresh = {},
+            onFillSeam = {},
+            onJumpToNewest = {},
             onRetry = {},
             feedChips = persistentListOf(),
             pinnedLists = persistentListOf(),

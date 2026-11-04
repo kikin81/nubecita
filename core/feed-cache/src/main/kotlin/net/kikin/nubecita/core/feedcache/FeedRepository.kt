@@ -24,7 +24,6 @@ import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.data.models.AuthorUi
-import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostUi
 import javax.inject.Inject
 
@@ -53,7 +52,7 @@ interface FeedRepository {
     fun pagedFeed(
         feedKey: FeedKey,
         initialPosition: Int? = null,
-    ): Flow<PagingData<FeedItemUi>>
+    ): Flow<PagingData<CachedFeedRow>>
 
     /**
      * Stream of the newest (≤) [n] cached [PostUi] for [feedKey], ordered by
@@ -93,6 +92,9 @@ interface FeedRepository {
      * Carries the resolved row's own key, not just a position, because the two
      * consumers need different things: the `Pager` opens at the position, and
      * the list scrolls to the key, which is the only identity it has for a row.
+     *
+     * Always `null` on a feed that cannot prepend what arrived since it was
+     * last read (D14) — see [saveAnchor], which declines to store one there.
      */
     suspend fun anchor(feedKey: FeedKey): FeedAnchor?
 
@@ -104,6 +106,10 @@ interface FeedRepository {
      * is on screen but not where those rows sit in the partition. Resolving
      * the key to a position is this layer's job, and storing both is what lets
      * a later restore fall back when the key is gone.
+     *
+     * A no-op on a feed that does not support `since` (D14): a generator
+     * refreshes on open, so the partition the place referred to is gone before
+     * anyone could be put back in it.
      */
     suspend fun saveAnchor(
         feedKey: FeedKey,
@@ -255,12 +261,12 @@ internal open class DefaultFeedRepository
          * JVM unit test can swap a no-op mediator (the assisted factory needs the
          * Hilt-generated impl, which a pure-JVM test can't construct).
          */
-        protected open fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, FeedItemUi> = mediatorFactory.create(feedKey)
+        protected open fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, CachedFeedRow> = mediatorFactory.create(feedKey)
 
         override fun pagedFeed(
             feedKey: FeedKey,
             initialPosition: Int?,
-        ): Flow<PagingData<FeedItemUi>> =
+        ): Flow<PagingData<CachedFeedRow>> =
             Pager(
                 config = PagingConfig(pageSize = FeedRepository.PAGE_SIZE),
                 initialKey = initialPosition,
@@ -276,7 +282,7 @@ internal open class DefaultFeedRepository
         protected open fun pagingSourceFor(
             feedKey: FeedKey,
             initialPosition: Int?,
-        ): PagingSource<Int, FeedItemUi> =
+        ): PagingSource<Int, CachedFeedRow> =
             // A hand-rolled source keyed on `position`, not Room's generated
             // one. The generated source's refresh key is an offset, so any
             // write that adds rows above the reader moves it — see
@@ -317,6 +323,7 @@ internal open class DefaultFeedRepository
         override suspend fun catchUp(feedKey: FeedKey): Result<CatchUpOutcome> = feedCatchUp.catchUp(feedKey)
 
         override suspend fun anchor(feedKey: FeedKey): FeedAnchor? {
+            if (!feedKey.feedType.supportsSince) return null
             val state =
                 partitionStateDao.state(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
                     ?: return null
@@ -343,6 +350,12 @@ internal open class DefaultFeedRepository
             itemKey: String,
             offset: Int,
         ) {
+            // Gated here rather than at each screen: keeping a place is only
+            // meaningful on a feed that can prepend what arrived since (D14).
+            // A generator refreshes on open, so an anchor written for one would
+            // point into a partition that no longer exists by the time anyone
+            // read it — and every caller would have to remember that.
+            if (!feedKey.feedType.supportsSince) return
             // No row for this key means the list moved under the write — a
             // refresh landed between the scroll settling and this call.
             // Storing a position the key does not have would make the
