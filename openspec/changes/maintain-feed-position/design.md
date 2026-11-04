@@ -286,3 +286,13 @@ A post must survive until nothing references it, so eviction has to ask *whether
 Membership is therefore a `feed_item_member` row per `(item, ordinal, uri)`, and the eviction check is an indexed `NOT EXISTS`. `ordinal` carries the render order, and the two ends carry meaning: the first member gives the stable list key (D12), the last is the leaf. The leaf is additionally denormalized onto the item row so the interaction overlay's deletion check does not need a subquery on a hot path.
 
 The cost is a second table and a join to read one item's members, against a reference check that actually works.
+
+### D26 — `FeedViewPrefs` moves down to `:data:models`
+
+Task 2.3 as planned had the reply filter land in `:core:feed-mapping` *and* `:core:feed-cache` take a dependency on `:core:feeds` for the preference type. Those two together do not work: the filter needs `FeedViewPrefs`, so `:core:feed-mapping` would need `:core:feeds`, which depends on `:core:auth`, `:core:common` and `:core:database`. A pure mapping module would transitively pull in Room, inverting the layering.
+
+`FeedViewPrefs` is four booleans. It was sitting in a service module only because that is where its wire parsing lives. The value type moves to `:data:models` — annotated `@Immutable`, as that module requires — while `parseFeedViewPrefs`, `mergeFeedViewPrefs` and the `ReplyVisibility` projection stay in `:core:feeds` with the atproto union types they need.
+
+`:core:feed-mapping` then needs no new dependency at all, because it already depends on `:data:models`. `:core:feed-cache` does gain `:core:feeds`, but for the preferences *repository* it reads at write time, which is a service-to-service edge rather than an inversion.
+
+27 import sites moved with the type, across `:core:feeds`, `:feature:feed:impl` and `:feature:settings:impl`.

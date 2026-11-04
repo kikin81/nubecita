@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.feed.impl.data
+package net.kikin.nubecita.core.feedmapping
 
 import io.github.kikin81.atproto.app.bsky.actor.ProfileViewBasic
 import io.github.kikin81.atproto.app.bsky.embed.RecordView
@@ -8,7 +8,7 @@ import io.github.kikin81.atproto.app.bsky.feed.FeedViewPost
 import io.github.kikin81.atproto.app.bsky.feed.PostView
 import io.github.kikin81.atproto.app.bsky.feed.ReasonRepost
 import io.github.kikin81.atproto.app.bsky.feed.ReplyRef
-import net.kikin.nubecita.core.feeds.FeedViewPrefs
+import net.kikin.nubecita.data.models.FeedViewPrefs
 
 /**
  * Whether this feed entry survives the viewer's [FeedViewPrefs] on a
@@ -24,7 +24,7 @@ import net.kikin.nubecita.core.feeds.FeedViewPrefs
  * [FeedViewPrefs.hideReposts]) — a repost is an explicit endorsement by
  * someone the viewer follows, so the reply-context rules don't apply.
  */
-internal fun FeedViewPost.shouldDisplayInFollowingFeed(
+fun FeedViewPost.shouldDisplayInFollowingFeed(
     prefs: FeedViewPrefs,
     viewerDid: String?,
 ): Boolean {

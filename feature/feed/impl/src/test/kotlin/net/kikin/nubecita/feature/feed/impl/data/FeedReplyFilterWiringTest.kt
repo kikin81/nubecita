@@ -14,7 +14,7 @@ import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
-import net.kikin.nubecita.core.feeds.FeedViewPrefs
+import net.kikin.nubecita.data.models.FeedViewPrefs
 import net.kikin.nubecita.core.feeds.ReplyVisibility
 import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
 import net.kikin.nubecita.core.moderation.ContentLabel
@@ -24,6 +24,7 @@ import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.data.models.FeedItemUi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import net.kikin.nubecita.core.feedmapping.shouldDisplayInFollowingFeed
 
 /**
  * Verifies the reply filter is actually WIRED into the repository, and wired to

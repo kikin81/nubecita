@@ -7,10 +7,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
-import net.kikin.nubecita.core.feeds.FeedViewPrefs
 import net.kikin.nubecita.core.feeds.ReplyVisibility
 import net.kikin.nubecita.core.feeds.withReplyVisibility
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.data.models.FeedViewPrefs
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test

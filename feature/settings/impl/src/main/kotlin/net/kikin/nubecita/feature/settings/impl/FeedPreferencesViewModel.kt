@@ -8,8 +8,8 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
-import net.kikin.nubecita.core.feeds.FeedViewPrefs
 import net.kikin.nubecita.core.feeds.replyVisibility
+import net.kikin.nubecita.data.models.FeedViewPrefs
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 

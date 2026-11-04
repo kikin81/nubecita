@@ -17,6 +17,7 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:database"))
     implementation(project(":core:feed-mapping"))
+    implementation(project(":core:feeds"))
     implementation(project(":core:moderation"))
     implementation(libs.androidx.paging.runtime)
     implementation(libs.atproto.models)

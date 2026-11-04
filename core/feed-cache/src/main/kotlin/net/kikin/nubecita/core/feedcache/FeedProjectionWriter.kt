@@ -11,8 +11,10 @@ import net.kikin.nubecita.core.database.model.FeedItemMemberEntity
 import net.kikin.nubecita.core.feedmapping.dedupeByThreadRoot
 import net.kikin.nubecita.core.feedmapping.dedupeClusterContext
 import net.kikin.nubecita.core.feedmapping.mergeChainBoundary
+import net.kikin.nubecita.core.feedmapping.shouldDisplayInFollowingFeed
 import net.kikin.nubecita.core.feedmapping.threadRootId
 import net.kikin.nubecita.core.feedmapping.toFeedItemsUi
+import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.data.models.FeedItemUi
@@ -55,6 +57,7 @@ internal class FeedProjectionWriter
         private val cachedPostDao: CachedPostDao,
         private val sessionStateProvider: SessionStateProvider,
         private val moderationPreferences: ModerationPreferencesRepository,
+        private val feedViewPreferences: FeedViewPreferencesRepository,
     ) {
         /**
          * The viewer and preferences the projection is computed with.
@@ -68,6 +71,29 @@ internal class FeedProjectionWriter
         private fun viewerDid(): String? = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
 
         private fun prefs(): ModerationPrefs = moderationPreferences.prefs.value
+
+        /**
+         * The page as the viewer's feed-view preferences leave it.
+         *
+         * Applied to the **wire entries, before projection**, because the
+         * predicate reads `reply.root` / `reply.parent` and the repost reason —
+         * context the projection consumes and does not carry forward. Filtering
+         * after projection would have nothing left to decide on.
+         *
+         * Follow-scoped feeds only. A generator already curates its own output,
+         * so applying reply tuners to Discover or a custom feed would strip out
+         * most of what the algorithm deliberately selected — which is what the
+         * official client does, and what [shouldDisplayInFollowingFeed]'s own
+         * documentation requires.
+         */
+        private fun List<FeedViewPost>.filteredForFeed(
+            feedKey: FeedKey,
+            viewerDid: String?,
+        ): List<FeedViewPost> {
+            if (!feedKey.feedType.isFollowScoped) return this
+            val viewPrefs = feedViewPreferences.prefs.value
+            return filter { it.shouldDisplayInFollowingFeed(viewPrefs, viewerDid) }
+        }
 
         /** [writeRefresh] with the current viewer and preferences. */
         suspend fun writeRefresh(
@@ -91,6 +117,7 @@ internal class FeedProjectionWriter
             feedItemDao.clearPartition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
             val items =
                 page
+                    .filteredForFeed(feedKey, viewerDid)
                     .toFeedItemsUi(prefs, viewerDid)
                     .dedupeByThreadRoot()
                     .dedupeClusterContext()
@@ -111,7 +138,7 @@ internal class FeedProjectionWriter
             viewerDid: String?,
             prefs: ModerationPrefs,
         ) {
-            val projected = page.toFeedItemsUi(prefs, viewerDid)
+            val projected = page.filteredForFeed(feedKey, viewerDid).toFeedItemsUi(prefs, viewerDid)
             if (projected.isEmpty()) return
 
             val tail = rehydrateTail(feedKey, viewerDid, prefs)
