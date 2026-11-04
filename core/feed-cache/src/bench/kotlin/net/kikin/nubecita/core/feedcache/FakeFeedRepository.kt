@@ -43,6 +43,10 @@ internal class FakeFeedRepository
 
         override suspend fun refresh(feedKey: FeedKey): Result<Boolean> = Result.success(true)
 
+        // Offline by construction: the bench fixture has no network and no
+        // boundary cursor, so there is nothing above the head to catch up on.
+        override suspend fun catchUp(feedKey: FeedKey): Result<CatchUpOutcome> = Result.success(CatchUpOutcome.NOT_POSSIBLE)
+
         override suspend fun trimToCap(
             feedKey: FeedKey,
             cap: Int,

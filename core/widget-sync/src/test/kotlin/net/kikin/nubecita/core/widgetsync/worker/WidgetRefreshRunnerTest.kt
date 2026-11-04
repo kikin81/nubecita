@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.feedcache.CatchUpOutcome
 import net.kikin.nubecita.core.feedcache.FeedKey
 import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.feedcache.FeedType
@@ -32,6 +33,7 @@ internal class WidgetRefreshRunnerTest {
             val runner = runner(repo, session = SessionState.SignedOut, updater = updater)
 
             assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
+            coVerify(exactly = 0) { repo.catchUp(any()) }
             coVerify(exactly = 0) { repo.refresh(any()) }
             coVerify(exactly = 0) { repo.trimToCap(any(), any(), any(), any()) }
             assertEquals(0, updater.calls)
@@ -45,6 +47,7 @@ internal class WidgetRefreshRunnerTest {
             val runner = runner(repo, foregrounded = true, updater = updater)
 
             assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
+            coVerify(exactly = 0) { repo.catchUp(any()) }
             coVerify(exactly = 0) { repo.refresh(any()) }
             coVerify(exactly = 0) { repo.trimToCap(any(), any(), any(), any()) }
             assertEquals(0, updater.calls)
@@ -77,6 +80,9 @@ internal class WidgetRefreshRunnerTest {
         runTest {
             val cats = FeedKey(VIEWER, FeedType.CUSTOM, "at://cats")
             val repo = mockk<FeedRepository>()
+            // These partitions cannot be caught up on — the worker's
+            // destructive fallback is what is under test here.
+            coEvery { repo.catchUp(any()) } returns Result.success(CatchUpOutcome.NOT_POSSIBLE)
             coEvery { repo.refresh(any()) } returns Result.success(false)
             coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
             val updater = RecordingUpdater()
@@ -101,6 +107,9 @@ internal class WidgetRefreshRunnerTest {
     fun `a failing placed-widget check refreshes rather than freezing a live widget`() =
         runTest {
             val repo = mockk<FeedRepository>()
+            // These partitions cannot be caught up on — the worker's
+            // destructive fallback is what is under test here.
+            coEvery { repo.catchUp(any()) } returns Result.success(CatchUpOutcome.NOT_POSSIBLE)
             coEvery { repo.refresh(any()) } returns Result.success(false)
             coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
             val runner =
@@ -137,6 +146,9 @@ internal class WidgetRefreshRunnerTest {
     fun `backgrounded signed-in refreshes both feeds, trims each, updates once`() =
         runTest {
             val repo = mockk<FeedRepository>()
+            // These partitions cannot be caught up on — the worker's
+            // destructive fallback is what is under test here.
+            coEvery { repo.catchUp(any()) } returns Result.success(CatchUpOutcome.NOT_POSSIBLE)
             coEvery { repo.refresh(any()) } returns Result.success(false)
             coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
             val updater = RecordingUpdater()
@@ -156,9 +168,131 @@ internal class WidgetRefreshRunnerTest {
         }
 
     @Test
+    fun `a warm partition is added to, never cleared`() =
+        runTest {
+            // The regression this epic exists to prevent (D10). refresh() is
+            // clearPartition + insert in one transaction, and the worker runs
+            // on a period while the app is backgrounded — the one window in
+            // which a reader's saved position matters and the foreground guard
+            // does not apply. A destructive write here deletes their scrollback
+            // and the row their anchor points at, between sittings.
+            val repo = mockk<FeedRepository>()
+            coEvery { repo.catchUp(any()) } returns Result.success(CatchUpOutcome.CAUGHT_UP)
+            coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
+            val updater = RecordingUpdater()
+            val prefetcher = RecordingPrefetcher()
+            val runner = runner(repo, updater = updater, prefetcher = prefetcher)
+
+            assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
+
+            coVerify(exactly = 0) { repo.refresh(any()) }
+            // Everything downstream of the write is unchanged: both feeds
+            // trimmed, both prefetched, one re-render.
+            coVerify(exactly = 1) { repo.trimToCap(FeedKey.following(VIEWER), any()) }
+            coVerify(exactly = 1) { repo.trimToCap(match { it.feedType == FeedType.DISCOVER }, any()) }
+            assertEquals(listOf(FeedType.FOLLOWING, FeedType.DISCOVER), prefetcher.prefetched.map { it.feedType })
+            assertEquals(1, updater.calls)
+        }
+
+    @Test
+    fun `a half-filled catch-up still counts as fresh`() =
+        runTest {
+            // The widget reads the partition's head, and the head is current as
+            // soon as the newest slice lands. The rest of the range is the
+            // app's to fill when the reader scrolls up to it.
+            val repo = mockk<FeedRepository>()
+            coEvery { repo.catchUp(any()) } returns Result.success(CatchUpOutcome.MORE_PENDING)
+            coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
+            val updater = RecordingUpdater()
+            val runner = runner(repo, updater = updater)
+
+            assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
+            coVerify(exactly = 0) { repo.refresh(any()) }
+            assertEquals(1, updater.calls)
+        }
+
+    @Test
+    fun `a cold partition still loads from the top`() =
+        runTest {
+            // Nothing to prepend above, so the destructive path is the only one
+            // that can populate it — and it is what records the boundary cursor
+            // every later catch-up needs.
+            val repo = mockk<FeedRepository>()
+            coEvery { repo.catchUp(any()) } returns Result.success(CatchUpOutcome.NOT_POSSIBLE)
+            coEvery { repo.refresh(any()) } returns Result.success(false)
+            coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
+            val runner = runner(repo)
+
+            assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
+            coVerify(exactly = 1) { repo.refresh(FeedKey.following(VIEWER)) }
+        }
+
+    @Test
+    fun `the two paths are decided per feed`() =
+        runTest {
+            // A generator feed's XRPC method takes no `since`, so no bounded
+            // prepend is possible there and no reader position is persisted for
+            // it. Following catches up; Discover is replaced. Both in one run.
+            val repo = mockk<FeedRepository>()
+            coEvery { repo.catchUp(FeedKey.following(VIEWER)) } returns Result.success(CatchUpOutcome.CAUGHT_UP)
+            coEvery {
+                repo.catchUp(match { it.feedType == FeedType.DISCOVER })
+            } returns Result.success(CatchUpOutcome.NOT_POSSIBLE)
+            coEvery { repo.refresh(any()) } returns Result.success(false)
+            coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
+            val runner = runner(repo)
+
+            assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
+
+            coVerify(exactly = 0) { repo.refresh(FeedKey.following(VIEWER)) }
+            coVerify(exactly = 1) { repo.refresh(match { it.feedType == FeedType.DISCOVER }) }
+            coVerify(exactly = 1) { repo.trimToCap(FeedKey.following(VIEWER), any()) }
+        }
+
+    @Test
+    fun `a failed catch-up does not fall back to a destructive clear`() =
+        runTest {
+            // The failure is a network failure, and the destructive path hits
+            // the same network. Retrying it here would double this run's
+            // requests on a flaky connection and, worse, clear a partition the
+            // reader is still in because a prepend happened to fail.
+            val repo = mockk<FeedRepository>()
+            coEvery { repo.catchUp(any()) } returns Result.failure(IOException("down"))
+            val updater = RecordingUpdater()
+            val runner = runner(repo, updater = updater)
+
+            // Every feed failed, so the run retries — unchanged from before.
+            assertEquals(WidgetRefreshRunner.Outcome.RETRY, runner.run())
+            coVerify(exactly = 0) { repo.refresh(any()) }
+            coVerify(exactly = 0) { repo.trimToCap(any(), any(), any(), any()) }
+            assertEquals(0, updater.calls)
+        }
+
+    @Test
+    fun `a watch feed is caught up on too`() =
+        runTest {
+            // A watch feed is a cached partition like any other, and the app's
+            // reader may be sitting in it.
+            val cats = FeedKey(VIEWER, FeedType.CUSTOM, "at://cats")
+            val repo = mockk<FeedRepository>()
+            coEvery { repo.catchUp(any()) } returns Result.success(CatchUpOutcome.CAUGHT_UP)
+            coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
+            val watch = RecordingWearFeedSync(extraFeeds = listOf(cats))
+            val runner = runner(repo, wearFeedSync = watch)
+
+            assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
+            coVerify(exactly = 1) { repo.catchUp(cats) }
+            coVerify(exactly = 0) { repo.refresh(any()) }
+            assertEquals(listOf(VIEWER), watch.published)
+        }
+
+    @Test
     fun `every feed failing retries and does not update`() =
         runTest {
             val repo = mockk<FeedRepository>()
+            // These partitions cannot be caught up on — the worker's
+            // destructive fallback is what is under test here.
+            coEvery { repo.catchUp(any()) } returns Result.success(CatchUpOutcome.NOT_POSSIBLE)
             coEvery { repo.refresh(any()) } returns Result.failure(IOException("down"))
             val updater = RecordingUpdater()
             val prefetcher = RecordingPrefetcher()
@@ -176,6 +310,9 @@ internal class WidgetRefreshRunnerTest {
         runTest {
             val repo = mockk<FeedRepository>()
             // Following succeeds, Discover fails.
+            // These partitions cannot be caught up on — the worker's
+            // destructive fallback is what is under test here.
+            coEvery { repo.catchUp(any()) } returns Result.success(CatchUpOutcome.NOT_POSSIBLE)
             coEvery { repo.refresh(FeedKey.following(VIEWER)) } returns Result.success(false)
             coEvery { repo.refresh(match { it.feedType == FeedType.DISCOVER }) } returns Result.failure(IOException("down"))
             coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
@@ -200,6 +337,9 @@ internal class WidgetRefreshRunnerTest {
             val repo = mockk<FeedRepository>()
             // Following throws an UNEXPECTED exception (not a Result.failure);
             // Discover still succeeds.
+            // These partitions cannot be caught up on — the worker's
+            // destructive fallback is what is under test here.
+            coEvery { repo.catchUp(any()) } returns Result.success(CatchUpOutcome.NOT_POSSIBLE)
             coEvery { repo.refresh(FeedKey.following(VIEWER)) } throws IllegalStateException("db constraint")
             coEvery { repo.refresh(match { it.feedType == FeedType.DISCOVER }) } returns Result.success(false)
             coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
@@ -217,6 +357,9 @@ internal class WidgetRefreshRunnerTest {
     fun `a widget-updater failure still returns SUCCESS (no network retry)`() =
         runTest {
             val repo = mockk<FeedRepository>()
+            // These partitions cannot be caught up on — the worker's
+            // destructive fallback is what is under test here.
+            coEvery { repo.catchUp(any()) } returns Result.success(CatchUpOutcome.NOT_POSSIBLE)
             coEvery { repo.refresh(any()) } returns Result.success(false)
             coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
             val updater =
@@ -263,6 +406,9 @@ internal class WidgetRefreshRunnerTest {
     fun `a prefetch failure is isolated and does not fail the refresh (D-C4)`() =
         runTest {
             val repo = mockk<FeedRepository>()
+            // These partitions cannot be caught up on — the worker's
+            // destructive fallback is what is under test here.
+            coEvery { repo.catchUp(any()) } returns Result.success(CatchUpOutcome.NOT_POSSIBLE)
             coEvery { repo.refresh(any()) } returns Result.success(false)
             coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
             val updater = RecordingUpdater()
@@ -292,6 +438,9 @@ internal class WidgetRefreshRunnerTest {
     fun `with a watch, its extra feeds are refreshed once and then published`() =
         runTest {
             val repo = mockk<FeedRepository>()
+            // These partitions cannot be caught up on — the worker's
+            // destructive fallback is what is under test here.
+            coEvery { repo.catchUp(any()) } returns Result.success(CatchUpOutcome.NOT_POSSIBLE)
             coEvery { repo.refresh(any()) } returns Result.success(false)
             coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
             val cats = FeedKey(VIEWER, FeedType.CUSTOM, "at://did:plc:x/app.bsky.feed.generator/cats")
@@ -310,6 +459,9 @@ internal class WidgetRefreshRunnerTest {
     fun `a watch publish failure does not change the outcome`() =
         runTest {
             val repo = mockk<FeedRepository>()
+            // These partitions cannot be caught up on — the worker's
+            // destructive fallback is what is under test here.
+            coEvery { repo.catchUp(any()) } returns Result.success(CatchUpOutcome.NOT_POSSIBLE)
             coEvery { repo.refresh(any()) } returns Result.success(false)
             coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
             val updater = RecordingUpdater()
@@ -324,6 +476,9 @@ internal class WidgetRefreshRunnerTest {
     fun `when every widget feed failed, the watch is not synced`() =
         runTest {
             val repo = mockk<FeedRepository>()
+            // These partitions cannot be caught up on — the worker's
+            // destructive fallback is what is under test here.
+            coEvery { repo.catchUp(any()) } returns Result.success(CatchUpOutcome.NOT_POSSIBLE)
             coEvery { repo.refresh(any()) } returns Result.failure(java.io.IOException("offline"))
             val watch = RecordingWearFeedSync()
 

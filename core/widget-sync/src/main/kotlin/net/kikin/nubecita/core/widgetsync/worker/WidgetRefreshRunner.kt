@@ -3,6 +3,7 @@ package net.kikin.nubecita.core.widgetsync.worker
 import kotlinx.coroutines.CancellationException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.feedcache.CatchUpOutcome
 import net.kikin.nubecita.core.feedcache.FeedKey
 import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.feedcache.FeedType
@@ -33,8 +34,10 @@ import javax.inject.Inject
  *    widget is placed AND no watch has the app: nothing would read the result,
  *    and skipping before any network means the run cannot rotate the OAuth
  *    refresh token.
- * 4. **Per-feed refresh (D-B6/D-B7)** — refresh the MVP feeds (Following +
- *    Discover) for the signed-in DID **independently**, and `trimToCap` each one
+ * 4. **Per-feed refresh (D-B6/D-B7/D10)** — refresh the MVP feeds (Following +
+ *    Discover) for the signed-in DID **independently** — additively where a
+ *    bounded prepend is possible, destructively where it is not — and
+ *    `trimToCap` each one
  *    that succeeds, then prefetch that feed's head thumbnails via
  *    [WidgetImagePrefetcher] (D-C4) off the scroll path — a prefetch failure is
  *    isolated to that feed's images and never changes the feed's outcome. Return
@@ -51,6 +54,13 @@ import javax.inject.Inject
  * Auth: all network goes through [FeedRepository], whose `:core:feed-cache`
  * refresh path uses the `:core:auth` refresh-mutex `XrpcClientProvider`, so a
  * background refresh can't race the foreground app into a logout.
+ *
+ * The write being additive is not an optimization (D10). This runs on a period
+ * while the app is backgrounded, which is exactly the window in which a
+ * reader's persisted scroll anchor matters and the only window the foreground
+ * guard does not cover. `FeedRefresher.refresh` is `clearPartition` + insert
+ * in one transaction, so left unchanged it would delete the reader's
+ * scrollback, and the row their anchor points at, between sittings.
  */
 internal class WidgetRefreshRunner
     @Inject
@@ -123,7 +133,7 @@ internal class WidgetRefreshRunner
                 // returns a Result for network failures) must fail only THIS feed,
                 // not abort the others. Rethrow CancellationException.
                 try {
-                    val refreshed = repository.refresh(feedKey).isSuccess
+                    val refreshed = writeFeed(feedKey)
                     if (refreshed) {
                         anySucceeded = true
                         allFailed = false
@@ -176,6 +186,38 @@ internal class WidgetRefreshRunner
         }
 
         /**
+         * Writes one feed's newer content, additively where that is possible.
+         *
+         * Returns whether the partition now holds fresh content — the same
+         * boolean the destructive path returned, so the caller's per-feed
+         * independence, retry-on-total-failure and trim/prefetch sequencing are
+         * untouched.
+         *
+         * The fallback is not optional. A catch-up reports
+         * [CatchUpOutcome.NOT_POSSIBLE] for a cold partition, for a partition
+         * written before a boundary cursor was recorded, and for a generator
+         * feed whose XRPC method accepts no `since` — and it decides that from
+         * local state, before any fetch, so the fallback costs no extra
+         * request. Without it those partitions would never be written again and
+         * the widget would freeze on whatever it last showed.
+         */
+        private suspend fun writeFeed(feedKey: FeedKey): Boolean {
+            val outcome = repository.catchUp(feedKey)
+            return when (outcome.getOrNull()) {
+                // A caught-up or partly-filled partition is fresh at its head,
+                // which is all the widget reads.
+                CatchUpOutcome.CAUGHT_UP, CatchUpOutcome.MORE_PENDING -> true
+                CatchUpOutcome.NOT_POSSIBLE -> repository.refresh(feedKey).isSuccess
+                // A failed catch-up is a network failure, and the destructive
+                // path would hit the same network. Retrying it here would
+                // double this run's requests on a flaky connection and, worse,
+                // clear a partition the reader is still in because a prepend
+                // happened to fail.
+                null -> false
+            }
+        }
+
+        /**
          * Whether any feed widget is placed. A failure answers `true`: this gate
          * exists to skip work nobody consumes, so when we cannot tell, keep the
          * old behaviour and refresh rather than silently freezing a live widget.
@@ -219,7 +261,10 @@ internal class WidgetRefreshRunner
             try {
                 for (feedKey in wearFeedSync.feedKeysToRefresh(viewerDid) - alreadyRefreshed.toSet()) {
                     try {
-                        if (repository.refresh(feedKey).isSuccess) repository.trimToCap(feedKey)
+                        // The same additive-first write: a watch feed is a
+                        // cached partition like any other, and the app's reader
+                        // may be sitting in it.
+                        if (writeFeed(feedKey)) repository.trimToCap(feedKey)
                     } catch (cancellation: CancellationException) {
                         throw cancellation
                     } catch (throwable: Throwable) {

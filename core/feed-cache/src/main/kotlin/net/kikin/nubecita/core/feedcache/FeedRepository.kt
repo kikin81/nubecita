@@ -73,6 +73,23 @@ interface FeedRepository {
     suspend fun refresh(feedKey: FeedKey): Result<Boolean>
 
     /**
+     * Catch [feedKey]'s partition up on what arrived above its head, WITHOUT a
+     * `Pager` and without clearing anything.
+     *
+     * The background worker's write path (D10). The worker runs on a period
+     * while the app is backgrounded — exactly the window in which a reader's
+     * saved position matters, and the one window the foreground guard does not
+     * cover — so a clear-and-replace there would delete the scrollback and the
+     * row the anchor points at between sittings.
+     *
+     * [CatchUpOutcome.NOT_POSSIBLE] is decided from local state, before any
+     * fetch, so a caller can fall back to [refresh] without having paid for a
+     * request. The worker must fall back: a partition it can neither catch up
+     * on nor refresh would leave the widget frozen on whatever it last showed.
+     */
+    suspend fun catchUp(feedKey: FeedKey): Result<CatchUpOutcome>
+
+    /**
      * Evict [feedKey]'s partition down to the newest [cap] rows, across every
      * grain the cache stores.
      *
@@ -149,6 +166,7 @@ internal open class DefaultFeedRepository
         private val moderationPreferences: ModerationPreferencesRepository,
         private val transactionRunner: FeedCacheTransactionRunner,
         private val feedRefresher: FeedRefresher,
+        private val feedCatchUp: FeedCatchUp,
     ) : FeedRepository {
         /**
          * The [RemoteMediator] for [feedKey]. Extracted as an `open` seam so a
@@ -213,6 +231,8 @@ internal open class DefaultFeedRepository
             }
 
         override suspend fun refresh(feedKey: FeedKey): Result<Boolean> = feedRefresher.refresh(feedKey)
+
+        override suspend fun catchUp(feedKey: FeedKey): Result<CatchUpOutcome> = feedCatchUp.catchUp(feedKey)
 
         override suspend fun trimToCap(
             feedKey: FeedKey,
