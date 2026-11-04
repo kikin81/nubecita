@@ -193,14 +193,17 @@ internal class FeedProjectionWriter
             // Seeded AFTER the possible tail deletion, so an absorbed tail's
             // root is not counted as "already rendered above" and used to drop
             // the very chain that absorbed it.
+            // toHashSet, not toSet: these are membership tests, and toSet
+            // builds a LinkedHashSet to preserve an insertion order nothing
+            // here reads.
             val seenRoots =
                 feedItemDao
                     .seenThreadRoots(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
-                    .toSet()
+                    .toHashSet()
             val visible =
                 feedItemDao
                     .renderedPostUris(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
-                    .toSet()
+                    .toHashSet()
 
             val items =
                 merged
@@ -341,7 +344,7 @@ internal class FeedProjectionWriter
         private suspend fun renderedLeaves(feedKey: FeedKey): Set<String> =
             feedItemDao
                 .renderedLeafUris(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
-                .toSet()
+                .toHashSet()
 
         private data class Tail(
             val item: FeedItemUi,
