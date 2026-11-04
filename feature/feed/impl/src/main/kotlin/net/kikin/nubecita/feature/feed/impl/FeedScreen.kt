@@ -185,9 +185,15 @@ internal fun FeedScreen(
     // back a new snapshot — so keying on the snapshot would seed again, with
     // posts the overlay had already been applied to. The URI list only changes
     // when the pages really change, which closes that loop.
-    val loadedPosts = remember(snapshot) { snapshot.items.allPosts() }
-    val loadedUris = remember(loadedPosts) { loadedPosts.map { it.id } }
-    LaunchedEffect(loadedUris) { viewModel.handleEvent(FeedEvent.ItemsLoaded(loadedPosts)) }
+    // The signature is O(1); the posts are materialized only when it moves.
+    // Flattening every loaded post per generation would allocate twice over
+    // the whole window on every like tap — a generation arrives on each
+    // interactions-cache emission, not only on a page load.
+    val pageSignature =
+        remember(snapshot) {
+            Triple(snapshot.size, snapshot.items.firstOrNull()?.key, snapshot.items.lastOrNull()?.key)
+        }
+    LaunchedEffect(pageSignature) { viewModel.handleEvent(FeedEvent.ItemsLoaded(snapshot.items.allPosts())) }
 
     // Discover-only Trending Videos carousel. The ViewModel is created
     // unconditionally (composition-safe across feed switches) but only loads
@@ -237,6 +243,24 @@ internal fun FeedScreen(
     // would race the mediator's own `initialize()` and, on a warm partition,
     // could refetch the very page the reader's position points into.
 
+    // Two actions, one gesture: Paging refetches, the VM drops the state it
+    // owns. Splitting them keeps the destructive path (D8) in one place rather
+    // than duplicating the fetch in the VM.
+    //
+    // Remembered because both capture `LazyPagingItems`, which is not @Stable:
+    // the compiler cannot auto-remember a lambda over an unstable capture, so
+    // an inline one would allocate on every recomposition of this scope — and
+    // this scope reads loadState, itemCount and itemSnapshotList, so it
+    // recomposes often.
+    val onRefresh =
+        remember(interactions, items) {
+            {
+                interactions.onRefresh()
+                items.refresh()
+            }
+        }
+    val onRetry = remember(items) { { items.retry() } }
+
     FeedScreenContent(
         viewState = viewState,
         items = items,
@@ -246,11 +270,8 @@ internal fun FeedScreen(
         // Two actions, one gesture: Paging refetches, the VM drops the state
         // it owns. Splitting them is what keeps the destructive path (D8) in
         // one place instead of duplicating the fetch in the VM.
-        onRefresh = {
-            interactions.onRefresh()
-            items.refresh()
-        },
-        onRetry = items::retry,
+        onRefresh = onRefresh,
+        onRetry = onRetry,
         onRetryOutgoing = interactions.onRetryOutgoing,
         onDiscardOutgoing = interactions.onDiscardOutgoing,
         feedChips = feedChips,
@@ -260,7 +281,7 @@ internal fun FeedScreen(
         status = status,
         onSelectFeed = onSelectFeed,
         onSelectList = onSelectList,
-        onRetryFeeds = items::retry,
+        onRetryFeeds = onRetry,
         onNavigateTo = onNavigateTo,
         onComposeClick = onComposeClick,
         onImageTap = interactions.onImageTap,

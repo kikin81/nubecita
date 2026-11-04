@@ -116,12 +116,15 @@ internal fun FeedViewScreen(
     val viewState = remember(state, loadStatus, snapshot) { state.toViewState(loadStatus, items.itemCount) }
     val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
 
-    // Same reason as `FeedScreen`, and keyed the same way: seeding makes the
-    // interactions cache emit, which produces a new snapshot, so the URI list
-    // is what keeps this from re-seeding its own output.
-    val loadedPosts = remember(snapshot) { snapshot.items.allPosts() }
-    val loadedUris = remember(loadedPosts) { loadedPosts.map { it.id } }
-    LaunchedEffect(loadedUris) { viewModel.handleEvent(FeedEvent.ItemsLoaded(loadedPosts)) }
+    // Same reason as `FeedScreen`: seeding makes the interactions cache emit,
+    // which produces a new snapshot, so the signature is what keeps this from
+    // re-seeding its own output — and it is O(1), so a generation that changes
+    // nothing costs nothing.
+    val pageSignature =
+        remember(snapshot) {
+            Triple(snapshot.size, snapshot.items.firstOrNull()?.key, snapshot.items.lastOrNull()?.key)
+        }
+    LaunchedEffect(pageSignature) { viewModel.handleEvent(FeedEvent.ItemsLoaded(snapshot.items.allPosts())) }
     val pinState by pinViewModel.uiState.collectAsStateWithLifecycle()
     val haptics = rememberPostHaptics()
     val interactions =
@@ -152,17 +155,24 @@ internal fun FeedViewScreen(
         }
     }
 
+    // Remembered over the unstable LazyPagingItems — see `FeedScreen`.
+    val onRefresh =
+        remember(interactions, items) {
+            {
+                interactions.onRefresh()
+                items.refresh()
+            }
+        }
+    val onRetry = remember(items) { { items.retry() } }
+
     FeedViewScreenContent(
         viewState = viewState,
         items = items,
         listState = listState,
         snackbarHostState = snackbarHostState,
         callbacks = interactions.callbacks,
-        onRefresh = {
-            interactions.onRefresh()
-            items.refresh()
-        },
-        onRetry = items::retry,
+        onRefresh = onRefresh,
+        onRetry = onRetry,
         displayName = displayName,
         isPinned = pinState.isPinned,
         onPinToggle = { pinViewModel.handleEvent(FeedPinEvent.TogglePin) },

@@ -70,6 +70,11 @@ sealed interface FeedScreenViewState {
  * normal case for this feature — reports here too, rather than looking idle
  * because the local source answered instantly.
  *
+ * `prepend` is deliberately unmapped: a `since`-bounded catch-up gets its own
+ * affordance — the new-posts pill and the seam row — rather than the tail
+ * shimmer or the pull indicator, and that surface lands with the pill work.
+ * Mapping it to `Appending` here would show the wrong one in the meantime.
+ *
  * A pure function over Paging's own types, so the dispatch matrix is unit-
  * tested without a Compose host or a `Pager`.
  */
