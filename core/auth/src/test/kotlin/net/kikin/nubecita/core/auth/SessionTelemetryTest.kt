@@ -73,6 +73,25 @@ class SessionTelemetryTest {
         }
 
     @Test
+    fun `onSessionClearAborted drops the marker so an uncommitted wipe is never reported`() =
+        runTest {
+            val telemetry = telemetry()
+            telemetry.onSessionClearing(
+                markerWithStack("io.github.kikin81.atproto.oauth.DpopAuthProvider", "failRefresh"),
+            )
+
+            telemetry.onSessionClearAborted()
+
+            assertNull(pendingStore.pendingReason(), "a wipe that never committed must not look like a logout")
+        }
+
+    @Test
+    fun `onSessionClearAborted survives an unwritable marker store`() =
+        runTest {
+            telemetry(clearPending = ThrowingSessionClearPendingStore).onSessionClearAborted()
+        }
+
+    @Test
     fun `reportLostClearTelemetry recovers a clear whose telemetry never ran`() =
         runTest {
             // The process died between the wipe and recordException: the session

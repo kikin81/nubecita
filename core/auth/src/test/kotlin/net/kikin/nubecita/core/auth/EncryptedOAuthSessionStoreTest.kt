@@ -116,6 +116,19 @@ class EncryptedOAuthSessionStoreTest {
         }
 
     @Test
+    fun `clear that fails to write drops the pending marker - no phantom loss at next launch`() =
+        runTest {
+            // The marker is written before the wipe, so a wipe that throws leaves
+            // the session on disk AND a marker claiming it was cleared. That
+            // would report a logout that never happened.
+            val store = store(ThrowingDataStore(IOException("simulated write failure")))
+
+            runCatching { store.clear() }
+
+            coVerify(exactly = 1) { telemetry.onSessionClearAborted() }
+        }
+
+    @Test
     fun `clear that fails to write records no telemetry`() =
         runTest {
             val store = store(ThrowingDataStore(IOException("simulated write failure")))

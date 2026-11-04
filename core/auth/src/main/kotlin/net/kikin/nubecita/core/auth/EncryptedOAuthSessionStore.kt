@@ -98,14 +98,27 @@ internal class EncryptedOAuthSessionStore
             // from a cancelled scope, but not from the process being killed
             // outright, and the marker lives only on this stack.
             telemetry.onSessionClearing(marker)
-            dataStore.updateData { null }
-            // NonCancellable: the wipe above is irreversible, so by this point the
-            // only question left is whether the loss gets recorded. onSessionCleared
+            // NonCancellable from here: once the marker is down, the wipe and its
+            // report must reach a definite outcome together. onSessionCleared
             // suspends (login-timestamp read, refresh forensics) and rethrows
             // CancellationException, so on a plain scope a background clear whose
-            // worker is stopped destroys the session and reports nothing — the
-            // marker lives only on this stack, so nothing reconstructs it later
-            // (nubecita-yv4p).
-            withContext(NonCancellable) { telemetry.onSessionCleared(marker) }
+            // worker is stopped destroyed the session and reported nothing — the
+            // marker lives only on this stack, so nothing reconstructed it later
+            // (nubecita-yv4p). Covering the write too removes the other half of
+            // that ambiguity: a cancelled-mid-write clear can no longer leave a
+            // marker behind for a session that is still on disk.
+            withContext(NonCancellable) {
+                try {
+                    dataStore.updateData { null }
+                } catch (e: Exception) {
+                    // The session survived, so the marker would report a logout
+                    // that never happened. A blanket catch is right here: inside
+                    // NonCancellable there is no cancellation to honour, so any
+                    // throw means the write genuinely did not commit.
+                    telemetry.onSessionClearAborted()
+                    throw e
+                }
+                telemetry.onSessionCleared(marker)
+            }
         }
     }

@@ -95,6 +95,23 @@ internal class SessionTelemetry
         }
 
         /**
+         * Drops the marker when the wipe it was written for never committed.
+         * Without this, a failed `updateData` leaves the session on disk next
+         * to a marker claiming it was cleared, and the next launch reports a
+         * logout that never happened — noise in the one metric this whole
+         * mechanism exists to make trustworthy.
+         */
+        suspend fun onSessionClearAborted() {
+            try {
+                clearPending.clearPending()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.tag(TAG).w(e, "could not drop the pending session clear after an aborted wipe")
+            }
+        }
+
+        /**
          * Converts a marker left behind by a clear that never reported itself
          * into a non-fatal, then consumes it so it fires exactly once. Called
          * once per app start; a no-op in the overwhelming majority of launches.
