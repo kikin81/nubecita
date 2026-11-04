@@ -739,6 +739,22 @@ internal class FeedRemoteMediatorTest {
         }
 
     @Test
+    fun `initialize refreshes a warm generator partition rather than showing it`() =
+        runTest {
+            // A generator feed cannot bound a catch-up, so a warm partition
+            // would be stale algorithmic content with no route to the newest
+            // entries (D14). These feeds keep the pre-cache behaviour: refresh
+            // on open, which is also the swap-and-discard readers expect there.
+            val discover = FeedKey("did:plc:me", FeedType.DISCOVER, "at://did:plc:gen/app.bsky.feed.generator/hot")
+            coEvery { feedPostDao.maxPosition("did:plc:me", "DISCOVER", discover.feedUri) } returns 12
+
+            assertEquals(
+                RemoteMediator.InitializeAction.LAUNCH_INITIAL_REFRESH,
+                mediatorFor(discover).initialize(),
+            )
+        }
+
+    @Test
     fun `initialize launches refresh when partition is empty`() =
         runTest {
             coEvery { feedPostDao.maxPosition("did:plc:me", "FOLLOWING", "") } returns null

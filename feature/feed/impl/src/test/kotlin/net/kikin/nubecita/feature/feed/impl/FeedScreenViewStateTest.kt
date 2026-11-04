@@ -1,114 +1,112 @@
 package net.kikin.nubecita.feature.feed.impl
 
-import kotlinx.collections.immutable.ImmutableList
+import androidx.paging.CombinedLoadStates
+import androidx.paging.LoadState
+import androidx.paging.LoadStates
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
-import net.kikin.nubecita.data.models.FeedItemUi
+import net.kikin.nubecita.data.models.OutgoingPostStatusUi
+import net.kikin.nubecita.data.models.OutgoingPostUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.IOException
 import kotlin.time.Instant
 
 /**
- * Total over the (loadStatus × feedItems.isEmpty()) matrix — 5 statuses × 2
- * emptiness = 10 cells. Each cell asserts the screen-private projection
- * picks the correct render branch, including the four cells the VM never
- * produces (kept here as defensive fallbacks per
- * `feature-feed`'s "render matrix is total over `FeedState`" requirement).
+ * Two pure mappings, tested without a Compose host or a `Pager`:
+ *
+ * - Paging's load states → the feed's own [FeedLoadStatus] vocabulary.
+ * - That status plus an item count → the screen's render branch, total over
+ *   both so a later change cannot introduce a silent unhandled state.
  */
 internal class FeedScreenViewStateTest {
-    // --- empty feedItems --------------------------------------------------
+    // --- load states -> status -------------------------------------------
 
     @Test
-    fun `empty + Idle maps to Empty`() {
-        // Idle is the SETTLED state — reached only after a load completes. An
-        // Idle empty feed therefore means "loaded, no posts" → the empty state.
-        val viewState = FeedState(loadStatus = FeedLoadStatus.Idle).toViewState()
-        assertEquals(FeedScreenViewState.Empty, viewState)
+    fun `refreshing with nothing on screen is the first load`() {
+        assertEquals(FeedLoadStatus.InitialLoading, loadStates(refresh = LoadState.Loading).toFeedLoadStatus(itemCount = 0))
     }
 
     @Test
-    fun `the default FeedState shows the loading shimmer, not the empty state`() {
-        // Cold-start regression guard (lq9t.3.6): the never-loaded default must
-        // render the shimmer, NOT the terminal "No posts" empty screen — the VM
-        // only settles to Idle after a fetch returns.
-        assertEquals(FeedScreenViewState.InitialLoading, FeedState().toViewState())
+    fun `refreshing with items on screen is a refresh`() {
+        // Same Paging state, different reader experience: the item count is
+        // what separates the shimmer from the pull indicator.
+        assertEquals(FeedLoadStatus.Refreshing, loadStates(refresh = LoadState.Loading).toFeedLoadStatus(itemCount = 12))
     }
 
     @Test
-    fun `empty + InitialLoading maps to InitialLoading`() {
-        val viewState = FeedState(loadStatus = FeedLoadStatus.InitialLoading).toViewState()
-        assertEquals(FeedScreenViewState.InitialLoading, viewState)
+    fun `a failed first load carries the mapped error`() {
+        val status = loadStates(refresh = LoadState.Error(IOException("down"))).toFeedLoadStatus(itemCount = 0)
+        assertEquals(FeedLoadStatus.InitialError(FeedError.Network), status)
     }
 
     @Test
-    fun `empty + InitialError carries the error variant`() {
-        val viewState =
-            FeedState(loadStatus = FeedLoadStatus.InitialError(FeedError.Network)).toViewState()
-        assertEquals(FeedScreenViewState.InitialError(FeedError.Network), viewState)
+    fun `a failed refresh with items on screen is not an initial error`() {
+        // The reader keeps their timeline; a refresh failure is a snackbar, not
+        // a full-screen retry.
+        assertEquals(FeedLoadStatus.Idle, loadStates(refresh = LoadState.Error(IOException("down"))).toFeedLoadStatus(itemCount = 5))
     }
 
     @Test
-    fun `empty + InitialError(Unauthenticated) carries the variant`() {
-        val viewState =
-            FeedState(loadStatus = FeedLoadStatus.InitialError(FeedError.Unauthenticated)).toViewState()
-        assertEquals(FeedScreenViewState.InitialError(FeedError.Unauthenticated), viewState)
+    fun `appending wins over refreshing`() {
+        // The tail shimmer and the pull indicator are different affordances and
+        // only one may show.
+        val status =
+            loadStates(refresh = LoadState.Loading, append = LoadState.Loading).toFeedLoadStatus(itemCount = 5)
+        assertEquals(FeedLoadStatus.Appending, status)
     }
 
     @Test
-    fun `empty + Refreshing falls back to Empty (VM-impossible)`() {
-        val viewState = FeedState(loadStatus = FeedLoadStatus.Refreshing).toViewState()
-        assertEquals(FeedScreenViewState.Empty, viewState)
+    fun `settled states are Idle`() {
+        assertEquals(FeedLoadStatus.Idle, loadStates().toFeedLoadStatus(itemCount = 5))
+        assertEquals(FeedLoadStatus.Idle, loadStates().toFeedLoadStatus(itemCount = 0))
+    }
+
+    // --- status x item count -> render branch -----------------------------
+
+    @Test
+    fun `nothing loaded while loading shows the shimmer, not the empty state`() {
+        // Cold-start regression guard (lq9t.3.6): a never-loaded feed must
+        // render the shimmer, NOT the terminal "No posts" screen.
+        assertEquals(
+            FeedScreenViewState.InitialLoading,
+            FeedState().toViewState(FeedLoadStatus.InitialLoading, itemCount = 0),
+        )
     }
 
     @Test
-    fun `empty + Appending falls back to Empty (VM-impossible)`() {
-        val viewState = FeedState(loadStatus = FeedLoadStatus.Appending).toViewState()
-        assertEquals(FeedScreenViewState.Empty, viewState)
-    }
-
-    // --- non-empty feedItems ----------------------------------------------
-
-    @Test
-    fun `non-empty + Idle maps to Loaded(false, false)`() {
-        val viewState =
-            FeedState(feedItems = feedItems("p1", "p2"), loadStatus = FeedLoadStatus.Idle).toViewState()
-        assertTrue(viewState is FeedScreenViewState.Loaded)
-        viewState as FeedScreenViewState.Loaded
-        assertEquals(2, viewState.feedItems.size)
-        assertEquals(false, viewState.isAppending)
-        assertEquals(false, viewState.isRefreshing)
+    fun `nothing loaded and settled is the empty state`() {
+        assertEquals(FeedScreenViewState.Empty, FeedState().toViewState(FeedLoadStatus.Idle, itemCount = 0))
     }
 
     @Test
-    fun `non-empty + Refreshing maps to Loaded(isRefreshing = true)`() {
-        val viewState =
-            FeedState(feedItems = feedItems("p1"), loadStatus = FeedLoadStatus.Refreshing).toViewState()
-        assertTrue(viewState is FeedScreenViewState.Loaded)
-        viewState as FeedScreenViewState.Loaded
-        assertEquals(false, viewState.isAppending)
-        assertEquals(true, viewState.isRefreshing)
+    fun `nothing loaded after a failure shows the error, carrying its variant`() {
+        assertEquals(
+            FeedScreenViewState.InitialError(FeedError.Unauthenticated),
+            FeedState().toViewState(FeedLoadStatus.InitialError(FeedError.Unauthenticated), itemCount = 0),
+        )
+        assertEquals(
+            FeedScreenViewState.InitialError(FeedError.FeedNotFound),
+            FeedState().toViewState(FeedLoadStatus.InitialError(FeedError.FeedNotFound), itemCount = 0),
+        )
     }
 
     @Test
-    fun `non-empty + Appending maps to Loaded(isAppending = true)`() {
-        val viewState =
-            FeedState(feedItems = feedItems("p1"), loadStatus = FeedLoadStatus.Appending).toViewState()
-        assertTrue(viewState is FeedScreenViewState.Loaded)
-        viewState as FeedScreenViewState.Loaded
-        assertEquals(true, viewState.isAppending)
-        assertEquals(false, viewState.isRefreshing)
+    fun `an empty feed mid-refresh falls back to the empty state`() {
+        // Not reachable from toFeedLoadStatus, which gates both loading
+        // branches on an empty list — handled so the matrix stays total.
+        assertEquals(FeedScreenViewState.Empty, FeedState().toViewState(FeedLoadStatus.Refreshing, itemCount = 0))
+        assertEquals(FeedScreenViewState.Empty, FeedState().toViewState(FeedLoadStatus.Appending, itemCount = 0))
     }
 
     @Test
-    fun `non-empty + InitialLoading maps to Loaded(false, false) (VM-impossible)`() {
-        val viewState =
-            FeedState(feedItems = feedItems("p1"), loadStatus = FeedLoadStatus.InitialLoading).toViewState()
+    fun `items loaded and settled is Loaded with neither indicator`() {
+        val viewState = FeedState().toViewState(FeedLoadStatus.Idle, itemCount = 3)
         assertTrue(viewState is FeedScreenViewState.Loaded)
         viewState as FeedScreenViewState.Loaded
         assertEquals(false, viewState.isAppending)
@@ -116,37 +114,73 @@ internal class FeedScreenViewStateTest {
     }
 
     @Test
-    fun `non-empty + InitialError maps to Loaded(false, false) (VM-impossible)`() {
-        val viewState =
+    fun `appending and refreshing drive one indicator each`() {
+        val appending = FeedState().toViewState(FeedLoadStatus.Appending, itemCount = 3) as FeedScreenViewState.Loaded
+        assertEquals(true, appending.isAppending)
+        assertEquals(false, appending.isRefreshing)
+
+        val refreshing = FeedState().toViewState(FeedLoadStatus.Refreshing, itemCount = 3) as FeedScreenViewState.Loaded
+        assertEquals(false, refreshing.isAppending)
+        assertEquals(true, refreshing.isRefreshing)
+    }
+
+    @Test
+    fun `Loaded carries the state Paging knows nothing about`() {
+        val state =
             FeedState(
-                feedItems = feedItems("p1"),
-                loadStatus = FeedLoadStatus.InitialError(FeedError.Network),
-            ).toViewState()
+                lastLikeTapPostUri = "at://liked",
+                lastRepostTapPostUri = "at://reposted",
+                videoAutoplayEnabled = false,
+                outgoingPosts = persistentListOf(outgoingPost()),
+            )
+
+        val loaded = state.toViewState(FeedLoadStatus.Idle, itemCount = 1) as FeedScreenViewState.Loaded
+
+        assertEquals("at://liked", loaded.lastLikeTapPostUri)
+        assertEquals("at://reposted", loaded.lastRepostTapPostUri)
+        assertEquals(false, loaded.videoAutoplayEnabled)
+        assertEquals(listOf("local-1"), loaded.outgoingPosts.map { it.localId })
+    }
+
+    @Test
+    fun `an initial error with items on screen still renders the items`() {
+        // Not reachable either, and the safe fallback is the one that keeps the
+        // reader's timeline rather than replacing it with a retry screen.
+        val viewState = FeedState().toViewState(FeedLoadStatus.InitialError(FeedError.Network), itemCount = 2)
         assertTrue(viewState is FeedScreenViewState.Loaded)
-        viewState as FeedScreenViewState.Loaded
-        assertEquals(false, viewState.isAppending)
-        assertEquals(false, viewState.isRefreshing)
     }
 }
 
-private fun feedItems(vararg ids: String): ImmutableList<FeedItemUi> = ids.map { FeedItemUi.Single(samplePost(it)) }.toImmutableList()
+private fun loadStates(
+    refresh: LoadState = LoadState.NotLoading(endOfPaginationReached = false),
+    append: LoadState = LoadState.NotLoading(endOfPaginationReached = false),
+    prepend: LoadState = LoadState.NotLoading(endOfPaginationReached = false),
+): CombinedLoadStates {
+    val states = LoadStates(refresh = refresh, prepend = prepend, append = append)
+    return CombinedLoadStates(
+        refresh = refresh,
+        prepend = prepend,
+        append = append,
+        source = states,
+        mediator = states,
+    )
+}
 
-private fun samplePost(id: String): PostUi =
-    PostUi(
-        id = id,
-        cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
-        author =
-            AuthorUi(
-                did = "did:plc:fake",
-                handle = "fake.bsky.social",
-                displayName = "Fake",
-                avatarUrl = null,
+private fun outgoingPost(): OutgoingPostUi =
+    OutgoingPostUi(
+        localId = "local-1",
+        post =
+            PostUi(
+                id = "at://sent",
+                cid = "bafyreifakefakefakefakefakefakefakefakefakefake",
+                author = AuthorUi(did = "did:plc:viewer", handle = "viewer.bsky.social", displayName = "Viewer", avatarUrl = null),
+                createdAt = Instant.parse("2026-04-25T12:00:00Z"),
+                text = "sent",
+                facets = persistentListOf(),
+                embed = EmbedUi.Empty,
+                stats = PostStatsUi(),
+                viewer = ViewerStateUi(),
+                repostedBy = null,
             ),
-        createdAt = Instant.parse("2026-04-25T12:00:00Z"),
-        text = "fake text $id",
-        facets = persistentListOf(),
-        embed = EmbedUi.Empty,
-        stats = PostStatsUi(),
-        viewer = ViewerStateUi(),
-        repostedBy = null,
+        status = OutgoingPostStatusUi.Sending,
     )

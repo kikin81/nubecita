@@ -54,7 +54,7 @@ class FeedScreenVideoTapInstrumentationTest {
     val composeTestRule = createAndroidComposeRule<HiltTestActivity>()
 
     @Inject
-    internal lateinit var feedRepository: net.kikin.nubecita.feature.feed.impl.data.FeedRepository
+    internal lateinit var feedRepository: net.kikin.nubecita.core.feedcache.FeedRepository
 
     private lateinit var navState: MainShellNavState
 
@@ -70,7 +70,7 @@ class FeedScreenVideoTapInstrumentationTest {
         // Swap the default three-text-post timeline for one with a
         // single video post so the video card is unambiguous in the
         // semantics tree.
-        (feedRepository as FakeFeedRepository).page =
+        (feedRepository as FakeFeedRepository).items =
             FakeFeedRepository.singleVideoPostTimeline(
                 postUri = VIDEO_POST_URI,
                 // RFC 6761 `.invalid` TLD — DNS resolution is guaranteed
@@ -98,7 +98,7 @@ class FeedScreenVideoTapInstrumentationTest {
             }
         }
 
-        // FeedScreen fires FeedEvent.Load on first composition; wait for
+        // The Pager loads itself on first composition; wait for
         // the timeline to render. The video poster (gradient-fallback
         // branch since posterUrl is null) carries the altText as its
         // `contentDescription`, so we key the wait on that label.

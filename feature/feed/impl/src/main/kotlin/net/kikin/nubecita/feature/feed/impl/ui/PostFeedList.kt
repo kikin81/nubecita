@@ -25,6 +25,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.testTag
+import androidx.paging.compose.LazyPagingItems
+import androidx.paging.compose.itemContentType
+import androidx.paging.compose.itemKey
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
@@ -50,8 +53,6 @@ import net.kikin.nubecita.feature.feed.impl.FeedTestTags
 import net.kikin.nubecita.feature.feed.impl.video.FeedVideoPlayerCoordinator
 import net.kikin.nubecita.feature.feed.impl.video.mostVisibleVideoTarget
 
-private const val PREFETCH_DISTANCE = 5
-
 /**
  * Reusable post-list composable for the home feed and (soon) the
  * co-located custom-feed view.
@@ -59,9 +60,13 @@ private const val PREFETCH_DISTANCE = 5
  * Renders a [NubecitaPullToRefreshBox] wrapping a [LazyColumn] of
  * [FeedItemUi] entries — singles, reply clusters, same-author thread
  * chains, and tombstone variants (blocked / not-found). Owns the
- * per-list NSFW reveal state ([rememberSaveable]), the pagination
- * [snapshotFlow] trigger, and the scroll-gated video-bind
- * [LaunchedEffect] when a [coordinator] is present.
+ * per-list NSFW reveal state ([rememberSaveable]) and the scroll-gated
+ * video-bind [LaunchedEffect] when a [coordinator] is present.
+ *
+ * Appending is Paging's job now: reading an index near the end of
+ * [items] is what asks for the next page, so the hand-rolled
+ * `snapshotFlow` threshold trigger this used to own is gone. Keeping it
+ * would have been a second, racing source of load requests.
  *
  * Call sites pass hoisted per-card Surface tokens ([cardColor] /
  * [cardShape]) so the [LazyColumn] items lambda never re-subscribes to
@@ -70,13 +75,12 @@ private const val PREFETCH_DISTANCE = 5
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun PostFeedList(
-    feedItems: ImmutableList<FeedItemUi>,
+    items: LazyPagingItems<FeedItemUi>,
     isAppending: Boolean,
     isRefreshing: Boolean,
     listState: LazyListState,
     callbacks: PostCallbacks,
     onRefresh: () -> Unit,
-    onLoadMore: () -> Unit,
     onImageTap: (post: PostUi, imageIndex: Int) -> Unit,
     onQuotedImageTap: (quotedPostUri: String, imageIndex: Int) -> Unit,
     // Per-card Surface tokens, hoisted at FeedScreenContent so the
@@ -180,18 +184,23 @@ internal fun PostFeedList(
                 }
             }
             items(
-                items = feedItems,
-                key = { it.key },
-                contentType = {
-                    when (it) {
-                        is FeedItemUi.Single -> "single"
-                        is FeedItemUi.ReplyCluster -> "cluster"
-                        is FeedItemUi.SelfThreadChain -> "chain"
-                        is FeedItemUi.Blocked -> "blocked"
-                        is FeedItemUi.NotFound -> "notfound"
-                    }
-                },
-            ) { item ->
+                count = items.itemCount,
+                key = items.itemKey { it.key },
+                contentType =
+                    items.itemContentType {
+                        when (it) {
+                            is FeedItemUi.Single -> "single"
+                            is FeedItemUi.ReplyCluster -> "cluster"
+                            is FeedItemUi.SelfThreadChain -> "chain"
+                            is FeedItemUi.Blocked -> "blocked"
+                            is FeedItemUi.NotFound -> "notfound"
+                        }
+                    },
+            ) { index ->
+                // Null only with placeholders enabled, which this Pager does
+                // not use. Skipping rather than rendering a blank keeps the
+                // smart-cast below narrow.
+                val item = items[index] ?: return@items
                 // The video coordinator binds against the leaf URI for
                 // Single, ReplyCluster, AND SelfThreadChain — clusters
                 // and chains are leaf-only video targets (see
@@ -434,30 +443,6 @@ internal fun PostFeedList(
         }
     }
 
-    // Pagination trigger — emit exactly once per crossing of the
-    // (lastVisibleIndex > feedItems.size - PREFETCH_DISTANCE) threshold.
-    // The threshold check lives INSIDE snapshotFlow's lambda so
-    // distinctUntilChanged() debounces the *boolean*, not the index;
-    // without that, every visible-index change past the threshold would
-    // re-fire onLoadMore (10–30/s during scroll). `rememberUpdatedState`
-    // lets the long-lived collector read the latest `feedItems` and
-    // `onLoadMore` without restarting the LaunchedEffect on every page
-    // append (snapshotFlow re-emits when the wrapped State changes).
-    val currentFeedItems by rememberUpdatedState(feedItems)
-    val currentOnLoadMore by rememberUpdatedState(onLoadMore)
-    LaunchedEffect(listState) {
-        snapshotFlow {
-            val lastVisible =
-                listState.layoutInfo.visibleItemsInfo
-                    .lastOrNull()
-                    ?.index ?: 0
-            lastVisible > currentFeedItems.size - PREFETCH_DISTANCE
-        }.distinctUntilChanged()
-            .collect { pastThreshold ->
-                if (pastThreshold) currentOnLoadMore()
-            }
-    }
-
     // Scroll-gated bind flow (per design.md Decision 1 + spec). The
     // outer `snapshotFlow` watches `isScrollInProgress` and only when
     // it flips to `false` (scroll has settled) do we run the
@@ -468,14 +453,18 @@ internal fun PostFeedList(
     if (coordinator != null) {
         // Memoize the leafId -> PostUi map across recompositions of
         // PostFeedList (refresh tick, append, like-toggle, etc.).
-        // Recomputed only when `feedItems` itself changes. For ReplyCluster
+        // Recomputed only when the loaded snapshot itself changes. For ReplyCluster
         // entries, only the leaf is registered — root + parent posts in a
         // cluster receive videoEmbedSlot = null and don't participate in
         // the coordinator (design D3).
+        // The loaded window, not a state copy of it: `itemSnapshotList` is a
+        // new instance per generation, so `remember` recomputes exactly when
+        // the pages change.
+        val snapshot = items.itemSnapshotList
         val postsById =
-            remember(feedItems) {
+            remember(snapshot) {
                 buildMap {
-                    feedItems.forEach { item ->
+                    snapshot.items.forEach { item ->
                         when (item) {
                             is FeedItemUi.Single -> put(item.post.id, item.post)
                             is FeedItemUi.ReplyCluster -> put(item.leaf.id, item.leaf)

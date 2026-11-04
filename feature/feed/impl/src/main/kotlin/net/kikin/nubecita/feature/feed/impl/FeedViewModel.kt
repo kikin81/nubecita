@@ -1,18 +1,25 @@
 package net.kikin.nubecita.feature.feed.impl
 
 import androidx.lifecycle.viewModelScope
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import androidx.paging.filter
+import androidx.paging.map
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.runtime.XrpcError
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.actors.MuteRepository
@@ -21,11 +28,11 @@ import net.kikin.nubecita.core.analytics.FeedType
 import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.core.auth.NoSessionException
+import net.kikin.nubecita.core.auth.SessionState
+import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.mvi.MviViewModel
-import net.kikin.nubecita.core.feedmapping.dedupeByLeafPost
-import net.kikin.nubecita.core.feedmapping.dedupeByThreadRoot
-import net.kikin.nubecita.core.feedmapping.dedupeClusterContext
-import net.kikin.nubecita.core.feedmapping.mergeChainBoundary
+import net.kikin.nubecita.core.feedcache.FeedKey
+import net.kikin.nubecita.core.feedcache.FeedRepository
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
 import net.kikin.nubecita.core.posting.OutgoingPost
 import net.kikin.nubecita.core.posting.OutgoingPostStore
@@ -42,17 +49,18 @@ import net.kikin.nubecita.data.models.OutgoingPostUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
-import net.kikin.nubecita.feature.feed.impl.data.FeedRepository
-import net.kikin.nubecita.feature.feed.impl.data.TimelinePage
 import net.kikin.nubecita.feature.search.api.Hashtag
 import java.io.IOException
 import javax.inject.Inject
+import net.kikin.nubecita.core.feedcache.FeedType as CacheFeedType
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class FeedViewModel
     @Inject
     constructor(
         private val feedRepository: FeedRepository,
+        private val sessionStateProvider: SessionStateProvider,
         private val postInteractionsCache: PostInteractionsCache,
         val sharedVideoPlayer: SharedVideoPlayer,
         private val analytics: AnalyticsClient,
@@ -63,32 +71,53 @@ class FeedViewModel
     ) : MviViewModel<FeedState, FeedEvent, FeedEffect>(FeedState()),
         PostInteractionHandler by handler {
         /**
-         * The feed this VM renders, bound once via [FeedEvent.Bind]
-         * before the first load. Defaults to the Following timeline so a
-         * pane that never receives an explicit bind (the pre-host
-         * `FeedScreen`) keeps working. [boundFeedUri] is unused while
-         * [boundKind] is [FeedKind.Following]; it carries the generator /
-         * list AT URI for the other two kinds.
+         * The feed this VM renders, bound via [FeedEvent.Bind]. Defaults to the
+         * Following timeline so a pane that never receives an explicit bind
+         * (the pre-host `FeedScreen`) keeps working.
          */
-        private var boundFeedUri: String = ""
-        private var boundKind: FeedKind = FeedKind.Following
-
-        /** [boundKind] as a flow, so the outgoing-post projection re-runs on a re-bind. */
-        private val boundKindFlow = MutableStateFlow(FeedKind.Following)
+        private val binding = MutableStateFlow(FeedBinding(FeedKind.Following, ""))
 
         /**
-         * The currently in-flight page fetch launched by [load] /
-         * [refresh] / [loadMore], or `null` when no fetch is running. A
-         * re-[bind] to a different feed cancels this before resetting the
-         * slice so a suspended fetch from the prior binding can't land its
-         * page into the new pane via [applyInitialPage] (and then have the
-         * `feedItems.isNotEmpty()` guard short-circuit the new feed's
-         * load). Cancellation only aborts the result-handling continuation;
-         * none of the fetch paths flip [FeedLoadStatus] in a `finally`, so a
-         * cancelled fetch leaves the status as [bind] resets it
-         * ([FeedLoadStatus.Idle]) rather than a stale loading state.
+         * Authors the viewer just muted, hidden from the list before the server
+         * has confirmed — and put back if it refuses.
+         *
+         * A set rather than an edited list because `PagingData` is immutable
+         * and re-derived on every load: there is nothing to edit in place, and
+         * a mutation applied to one generation would vanish on the next (D21).
          */
-        private var loadJob: Job? = null
+        private val optimisticMutes = MutableStateFlow(persistentSetOf<String>())
+
+        /** The mirror of [optimisticMutes] for an unmute, which flips a flag rather than hiding a row. */
+        private val optimisticUnmutes = MutableStateFlow(persistentSetOf<String>())
+
+        /** Which binding has already logged `view_feed`, so a re-bind to the same feed does not log twice. */
+        private var loggedViewFeedFor: FeedBinding? = null
+
+        /**
+         * The paged feed, read from `:core:feed-cache` (D1).
+         *
+         * `cachedIn` sits directly above the transforms and below the `Pager`:
+         * the pages are held for this scope, so a transform re-running — which
+         * it does on every emission of the three flows below — reshapes what is
+         * already loaded instead of refetching it.
+         *
+         * The three transforms are the optimistic mechanisms that used to edit
+         * a list in `UiState`. Each is now fed by its own flow, because
+         * `PagingData` is immutable: an in-place edit has nowhere to live and
+         * would be dropped by the next generation anyway (D21).
+         */
+        val feed: Flow<PagingData<FeedItemUi>> =
+            combine(sessionStateProvider.state, binding) { session, bound ->
+                (session as? SessionState.SignedIn)?.did?.let { bound.toFeedKey(it) }
+            }.filterNotNull()
+                .distinctUntilChanged()
+                .flatMapLatest { key -> feedRepository.pagedFeed(key) }
+                .cachedIn(viewModelScope)
+                .withOptimisticState(
+                    mutedAuthors = optimisticMutes,
+                    unmutedAuthors = optimisticUnmutes,
+                    interactions = postInteractionsCache.state,
+                )
 
         init {
             // Bind the handler to Feed surface and this VM's scope first.
@@ -115,34 +144,21 @@ class FeedViewModel
                 }
             }
 
-            // Top-level posts the user just submitted, above the Following
-            // timeline until a loaded page includes them. Recomputed when the
-            // store or the loaded slice changes (a re-bind resets the slice, so a
-            // switch away from Following clears them).
-            combine(
-                outgoingPostStore.posts,
-                uiState.map { it.feedItems }.distinctUntilChanged(),
-                boundKindFlow,
-            ) { outgoing, items, kind -> visibleOutgoing(outgoing, items, kind) }
+            // Top-level posts the user just submitted, rendered above the
+            // Following timeline. Whether a given one is still *needed* depends
+            // on what the loaded pages hold, which only the screen can see now
+            // — it filters against the snapshot (see `notYetInFeed`).
+            combine(outgoingPostStore.posts, binding) { outgoing, bound -> pendingOutgoing(outgoing, bound.kind) }
                 .distinctUntilChanged()
-                .onEach { visible -> setState { copy(outgoingPosts = visible) } }
+                .onEach { pending -> setState { copy(outgoingPosts = pending) } }
                 .launchIn(viewModelScope)
-
-            viewModelScope.launch {
-                postInteractionsCache.state
-                    .map { snapshot -> uiState.value.feedItems.applyInteractions(snapshot) }
-                    .distinctUntilChanged()
-                    .collect { merged -> setState { copy(feedItems = merged) } }
-            }
         }
 
         override fun handleEvent(event: FeedEvent) {
             when (event) {
                 is FeedEvent.Bind -> bind(event.feedUri, event.kind, event.surface)
-                FeedEvent.Load -> load()
                 FeedEvent.Refresh -> refresh()
-                FeedEvent.LoadMore -> loadMore()
-                FeedEvent.Retry -> load()
+                is FeedEvent.ItemsLoaded -> onItemsLoaded(event.posts)
                 FeedEvent.ClearError -> Unit
                 is FeedEvent.OnPostTapped -> sendEffect(FeedEffect.NavigateToPost(event.post.id))
                 is FeedEvent.OnAuthorTapped -> sendEffect(FeedEffect.NavigateToAuthor(event.authorDid))
@@ -161,10 +177,9 @@ class FeedViewModel
 
         /**
          * Feed-specific override: MuteAuthor / UnmuteAuthor carry optimistic
-         * feedItems mutations and a rollback on failure, which must stay in this
-         * VM rather than in the shared [PostInteractionHandler]. All other
-         * overflow actions are forwarded to the injected [handler] which emits the
-         * appropriate [InteractionEffect] onto the channel consumed by [init].
+         * list changes and a rollback on failure, which stay in this VM rather
+         * than in the shared [PostInteractionHandler]. All other overflow
+         * actions forward to the injected [handler].
          */
         override fun onOverflowAction(
             post: PostUi,
@@ -173,39 +188,27 @@ class FeedViewModel
             when (action) {
                 PostOverflowAction.MuteAuthor -> {
                     val authorDid = post.author.did
-                    val previousItems = uiState.value.feedItems
-                    setState { copy(feedItems = feedItems.removeItemsByAuthor(authorDid)) }
+                    optimisticMutes.value = optimisticMutes.value.add(authorDid)
                     viewModelScope.launch {
                         muteRepository
                             .muteActor(authorDid)
                             .onFailure {
-                                setState { copy(feedItems = previousItems) }
+                                // Rollback is removing the DID, not restoring a
+                                // saved list: the rows were never gone, only
+                                // filtered, so they come back where they were.
+                                optimisticMutes.value = optimisticMutes.value.remove(authorDid)
                                 sendEffect(FeedEffect.ShowError(it.toFeedError()))
                             }
                     }
                 }
                 PostOverflowAction.UnmuteAuthor -> {
                     val authorDid = post.author.did
-                    setState {
-                        copy(
-                            feedItems =
-                                feedItems.updateViewerStateByAuthor(authorDid) {
-                                    it.copy(isAuthorMutedByViewer = false)
-                                },
-                        )
-                    }
+                    optimisticUnmutes.value = optimisticUnmutes.value.add(authorDid)
                     viewModelScope.launch {
                         muteRepository
                             .unmuteActor(authorDid)
                             .onFailure {
-                                setState {
-                                    copy(
-                                        feedItems =
-                                            feedItems.updateViewerStateByAuthor(authorDid) {
-                                                it.copy(isAuthorMutedByViewer = true)
-                                            },
-                                    )
-                                }
+                                optimisticUnmutes.value = optimisticUnmutes.value.remove(authorDid)
                                 sendEffect(FeedEffect.ShowError(it.toFeedError()))
                             }
                     }
@@ -214,37 +217,17 @@ class FeedViewModel
             }
         }
 
-        private fun visibleOutgoing(
-            outgoing: List<OutgoingPost>,
-            items: List<FeedItemUi>,
-            kind: FeedKind,
-        ): ImmutableList<OutgoingPostUi> {
-            if (kind != FeedKind.Following || outgoing.isEmpty()) return persistentListOf()
-            // Every post the slice holds, not just each item's key: the user's
-            // post can sit inside a self-thread chain or a reply cluster.
-            val loaded = items.allPosts().mapTo(HashSet()) { it.id }
-            return outgoing
-                .filter { it.replyToUri == null && it.post.id !in loaded }
-                .map { it.toUi() }
-                .toImmutableList()
-        }
-
         /**
-         * Remember the `(feedUri, kind)` this VM renders. The host binds a
-         * per-`feedUri`-keyed VM once, before the first [Load]; re-binding
-         * to a *different* `(feedUri, kind)` cancels any in-flight page
-         * fetch from the prior binding and resets the loaded slice +
-         * pagination so the next [Load] fetches the new feed fresh.
-         * Re-binding to the same pair is a no-op (the host re-emits `Bind`
-         * on every recomposition of the pane's `LaunchedEffect(feedUri)`,
-         * so idempotence is required to avoid wiping a loaded feed on tab
-         * re-entry).
+         * Remember the `(feedUri, kind)` this VM renders.
          *
-         * Cancelling [loadJob] before the reset closes the race where a
-         * suspended fetch from the old binding resumes after the slice is
-         * cleared and writes its (now-stale) page into the new pane — the
-         * `feedItems.isNotEmpty()` guard in [load] would then short-circuit
-         * the new feed's load and leave the wrong content showing.
+         * Re-binding to the same pair must be a no-op: the host re-emits `Bind`
+         * from a `LaunchedEffect(feedUri)` on every recomposition of the pane,
+         * and re-emitting the binding would restart the `Pager` and throw away
+         * the reader's position — the opposite of this feature's point.
+         *
+         * Switching feeds drops the optimistic sets. They describe rows in the
+         * feed being left, and a DID muted in one feed is already muted
+         * server-side for the next one.
          */
         private fun bind(
             feedUri: String,
@@ -252,190 +235,65 @@ class FeedViewModel
             surface: PostSurface,
         ) {
             // surface always tracks the latest binding (cheap) even when the
-            // feedUri/kind pair is unchanged — re-binding drives analytics surface
-            // attribution for like/repost/share events via the handler.
+            // feedUri/kind pair is unchanged — re-binding drives analytics
+            // surface attribution for like/repost/share events via the handler.
             handler.bind(surface, viewModelScope)
-            if (boundFeedUri == feedUri && boundKind == kind) return
-            boundFeedUri = feedUri
-            boundKind = kind
-            boundKindFlow.value = kind
-            // Abort any fetch launched under the prior binding so its result
-            // continuation can't write a stale page after the reset below.
-            loadJob?.cancel()
-            loadJob = null
-            // Drop any slice from a previously-bound feed and open on the
-            // shimmer (InitialLoading), never the "No posts" empty screen, while
-            // the new feed loads.
-            setState {
-                copy(
-                    feedItems = persistentListOf(),
-                    nextCursor = null,
-                    endReached = false,
-                    loadStatus = FeedLoadStatus.InitialLoading,
-                )
-            }
-            // Drive the fetch from bind() itself. The screen ALSO dispatches a
-            // `Load` from a `LaunchedEffect`, but the two effects fire in an
-            // unspecified order at cold start; if `Load` ran first and bind()
-            // then cancelled it, nothing would restart the fetch and the feed
-            // would hang on an empty shimmer. Starting here makes bind the
-            // single source of truth for the initial fetch; the screen's `Load`
-            // no-ops (a job is already in flight).
-            startInitialFetch()
+            val next = FeedBinding(kind, feedUri)
+            if (binding.value == next) return
+            optimisticMutes.value = persistentSetOf()
+            optimisticUnmutes.value = persistentSetOf()
+            binding.value = next
         }
 
         /**
-         * Dispatch a page fetch on the bound [FeedKind]. All three kinds
-         * return the same [TimelinePage] shape, so every caller
-         * (`load` / `refresh` / `loadMore`) handles the result identically
-         * regardless of kind — the dispatch is the only kind-aware seam.
+         * The reader asked for a clean timeline (D8). Paging drives the fetch
+         * itself — the screen calls `refresh()` on the items — so what is left
+         * here is the state that is not Paging's: the optimistic sets, which
+         * the refetched rows already reflect server-side.
          */
-        private suspend fun fetchPage(cursor: String?): Result<TimelinePage> =
-            when (boundKind) {
-                FeedKind.Following -> feedRepository.getTimeline(cursor = cursor)
-                FeedKind.Generator -> feedRepository.getFeed(feedUri = boundFeedUri, cursor = cursor)
-                FeedKind.List -> feedRepository.getListFeed(listUri = boundFeedUri, cursor = cursor)
-            }
-
-        private fun load() {
-            // Don't re-fetch when a loaded slice is already present.
-            // `LaunchedEffect(Unit) { Load }` in FeedScreen re-fires every
-            // time the screen re-enters composition (composer route pops,
-            // tab switch back, etc.); without this guard each re-entry
-            // wholesale-replaces `feedItems` and erases scroll position,
-            // any optimistic mutations (like / repost / replyCount), and
-            // the cursor cluster-context dedupe state.
-            if (uiState.value.feedItems.isNotEmpty()) return
-            // A fetch is already in flight (the initial fetch started by bind(),
-            // a refresh, or a load-more all share loadJob) — second Load is a
-            // no-op so the UI can dispatch on every recomposition without N
-            // concurrent fetches racing on setState. This is the single "in
-            // flight" signal, independent of which status is showing. Retry from
-            // InitialError still proceeds because that job has already finished.
-            if (loadJob?.isActive == true) return
-            startInitialFetch()
-        }
-
-        /**
-         * Launch the initial-page fetch on the bound feed and project the
-         * outcome. Shared by [bind] (cold start / feed switch) and [load]
-         * (unbound pane + retry). Sets [FeedLoadStatus.InitialLoading] so the
-         * shimmer shows for the whole fetch, then settles to [Idle] on success
-         * or [FeedLoadStatus.InitialError] on failure.
-         */
-        private fun startInitialFetch() {
-            setState { copy(loadStatus = FeedLoadStatus.InitialLoading) }
-            loadJob =
-                viewModelScope.launch {
-                    fetchPage(cursor = null)
-                        .onSuccess { page -> applyInitialPage(page) }
-                        .onFailure { throwable ->
-                            setState {
-                                copy(loadStatus = FeedLoadStatus.InitialError(throwable.toFeedError()))
-                            }
-                        }
-                }
-        }
-
         private fun refresh() {
-            // Refresh and append/initial-load are mutually exclusive per the
-            // mvi-foundation spec: dispatching Refresh while another load is
-            // in flight is a no-op (drop the event rather than queue, so the
-            // back-pressure on a flapping pull-to-refresh gesture stays at the
-            // user's wrist).
-            if (uiState.value.loadStatus != FeedLoadStatus.Idle) return
-            setState { copy(loadStatus = FeedLoadStatus.Refreshing) }
-            loadJob =
-                viewModelScope.launch {
-                    fetchPage(cursor = null)
-                        .onSuccess { page ->
-                            // Replace head; cursor becomes the response cursor (may be null
-                            // when the entire feed fits in one page).
-                            val refreshed =
-                                page.feedItems
-                                    .dedupeByThreadRoot()
-                                    .dedupeClusterContext()
-                                    .dedupeByLeafPost()
-                                    .toImmutableList()
-                            postInteractionsCache.seed(refreshed.allPosts())
-                            setState {
-                                copy(
-                                    feedItems = refreshed,
-                                    nextCursor = page.nextCursor,
-                                    endReached = page.nextCursor == null,
-                                    loadStatus = FeedLoadStatus.Idle,
-                                )
-                            }
-                        }.onFailure { throwable ->
-                            // Preserve feedItems on refresh failure; surface as a snackbar.
-                            setState { copy(loadStatus = FeedLoadStatus.Idle) }
-                            sendEffect(FeedEffect.ShowError(throwable.toFeedError()))
-                        }
-                }
+            optimisticMutes.value = persistentSetOf()
+            optimisticUnmutes.value = persistentSetOf()
         }
 
-        private fun loadMore() {
-            val current = uiState.value
-            // End-of-feed: do nothing. Idempotent — repeat LoadMore once
-            // endReached has flipped is a no-op.
-            if (current.endReached) return
-            // Mutually exclusive with refresh / initial-load: if any fetch is
-            // already in flight, drop the LoadMore event. Prevents the
-            // overlapping-fetch race where two getTimeline calls both update
-            // feedItems + nextCursor and the last writer wins non-deterministically.
-            if (current.loadStatus != FeedLoadStatus.Idle) return
-            setState { copy(loadStatus = FeedLoadStatus.Appending) }
-            loadJob =
-                viewModelScope.launch {
-                    fetchPage(cursor = current.nextCursor)
-                        .onSuccess { page ->
-                            // Page-boundary chain merge: if the existing tail's
-                            // last chainable PostUi links (via the strict rule)
-                            // to the new page's first wire entry, absorb the
-                            // tail into the new page's first item before
-                            // appending. Per
-                            // `add-feed-same-author-thread-chain` design
-                            // Decision 3, arbitrary cursor cuts shouldn't
-                            // visually break a self-thread chain.
-                            val merge =
-                                mergeChainBoundary(
-                                    existing = uiState.value.feedItems,
-                                    newPageItems = page.feedItems,
-                                    newPageWirePosts = page.wirePosts,
-                                )
-                            // De-dupe by FeedItemUi.key so a server returning a page
-                            // that overlaps the current tail (rare but possible during
-                            // cursor resyncs) doesn't show the same item twice. The
-                            // key is the leaf URI for ReplyCluster / SelfThreadChain
-                            // and the post URI for Single — stable across paging.
-                            val seen = merge.trimmedExisting.mapTo(HashSet()) { it.key }
-                            val appended =
-                                (merge.trimmedExisting + merge.pageWithAbsorbedHead.filter { seen.add(it.key) })
-                                    .dedupeByThreadRoot()
-                                    .dedupeClusterContext()
-                                    .dedupeByLeafPost()
-                                    .toImmutableList()
-                            postInteractionsCache.seed(page.feedItems.allPosts())
-                            setState {
-                                copy(
-                                    feedItems = appended,
-                                    nextCursor = page.nextCursor,
-                                    endReached = page.nextCursor == null,
-                                    loadStatus = FeedLoadStatus.Idle,
-                                )
-                            }
-                        }.onFailure { throwable ->
-                            // Preserve feedItems AND cursor on append failure so the user
-                            // can retry from the same page boundary.
-                            setState { copy(loadStatus = FeedLoadStatus.Idle) }
-                            sendEffect(FeedEffect.ShowError(throwable.toFeedError()))
-                        }
-                }
+        /**
+         * Reconcile the interactions cache with a newly loaded set of posts,
+         * and log `view_feed` the first time a binding shows content.
+         *
+         * Dispatched by the screen, because the "pages changed" signal lives in
+         * `LazyPagingItems` and a `ViewModel` cannot see it. Seeding is not
+         * optional: it is how wire data that is NEWER than the cache (a like
+         * made on another device) replaces a cached overlay, and without it an
+         * overlay would pin a stale count for as long as the process lives.
+         */
+        private fun onItemsLoaded(posts: List<PostUi>) {
+            if (posts.isEmpty()) return
+            postInteractionsCache.seed(posts)
+            val bound = binding.value
+            if (loggedViewFeedFor != bound) {
+                loggedViewFeedFor = bound
+                // Once per successful first load of a feed surface — not on
+                // refresh, and not per appended page. feed_type is derived from
+                // the binding, so Discover / lists / custom generators report
+                // distinctly; no feed URI is ever attached.
+                analytics.log(ViewFeed(bound.kind.toAnalyticsFeedType(bound.feedUri)))
+            }
+        }
+
+        private fun pendingOutgoing(
+            outgoing: List<OutgoingPost>,
+            kind: FeedKind,
+        ): ImmutableList<OutgoingPostUi> {
+            if (kind != FeedKind.Following || outgoing.isEmpty()) return persistentListOf()
+            return outgoing
+                .filter { it.replyToUri == null }
+                .map { it.toUi() }
+                .toImmutableList()
         }
 
         // Maps the bound feed to its analytics bucket. Generators split on the
-        // default Discover feed vs any other (custom) generator; boundFeedUri
-        // is used only for this comparison and is never logged.
+        // default Discover feed vs any other (custom) generator; feedUri is
+        // used only for this comparison and is never logged.
         private fun FeedKind.toAnalyticsFeedType(uri: String): FeedType =
             when (this) {
                 FeedKind.Following -> FeedType.Following
@@ -443,237 +301,250 @@ class FeedViewModel
                 FeedKind.Generator ->
                     if (uri == PinnedFeedsRepository.DISCOVER_FEED_URI) FeedType.Discover else FeedType.Custom
             }
+    }
 
-        private fun applyInitialPage(page: TimelinePage) {
-            // view_feed fires once per successful initial load of the feed
-            // surface (not on refresh or pagination). feed_type is derived
-            // from the feed this VM is bound to, so Discover / lists / custom
-            // generators report distinctly now that the surface can switch
-            // feeds. No feed URI or other identifying value is ever attached.
-            analytics.log(ViewFeed(boundKind.toAnalyticsFeedType(boundFeedUri)))
-            val deduped =
-                page.feedItems
-                    .dedupeByThreadRoot()
-                    .dedupeClusterContext()
-                    .dedupeByLeafPost()
-                    .toImmutableList()
-            postInteractionsCache.seed(deduped.allPosts())
-            setState {
-                copy(
-                    feedItems = deduped,
-                    nextCursor = page.nextCursor,
-                    endReached = page.nextCursor == null || deduped.isEmpty(),
-                    loadStatus = FeedLoadStatus.Idle,
+/** What a [FeedViewModel] is bound to: one cached partition, once a DID is known. */
+internal data class FeedBinding(
+    val kind: FeedKind,
+    val feedUri: String,
+) {
+    /**
+     * The cache partition this binding reads.
+     *
+     * Discover is modelled distinctly from a custom generator so the refresh
+     * scheduler can treat the always-present feed specially — the same split
+     * the analytics bucket makes.
+     */
+    fun toFeedKey(accountDid: String): FeedKey =
+        when (kind) {
+            FeedKind.Following -> FeedKey.following(accountDid)
+            FeedKind.List -> FeedKey(accountDid, CacheFeedType.LIST, feedUri)
+            FeedKind.Generator ->
+                FeedKey(
+                    accountDid,
+                    if (feedUri == PinnedFeedsRepository.DISCOVER_FEED_URI) CacheFeedType.DISCOVER else CacheFeedType.CUSTOM,
+                    feedUri,
                 )
-            }
         }
+}
 
-        /**
-         * Collapse a repository throwable into the UI-resolvable category the
-         * error screen renders.
-         *
-         * The feed-generator cases discriminate on [XrpcError.errorName], the
-         * parsed `error` field of the XRPC error body — never on the rendered
-         * `message`, which is human-facing prose the appview is free to
-         * reword. Ordering matters: `XrpcError` is a `RuntimeException`, so it
-         * would otherwise fall through to [FeedError.Unknown].
-         *
-         * A blank upstream message normalises to null so the screen has one
-         * "nothing to quote" signal instead of two — otherwise a `"message":
-         * ""` body would render a dangling "Message from server:" label.
-         */
-        private fun Throwable.toFeedError(): FeedError =
-            when (this) {
-                is NoSessionException -> FeedError.Unauthenticated
-                is IOException -> FeedError.Network
-                is XrpcError ->
-                    when (errorName) {
-                        UPSTREAM_FAILURE, UPSTREAM_TIMEOUT ->
-                            FeedError.FeedOffline(serverMessage = errorMessage?.ifBlank { null })
-                        UNKNOWN_FEED -> FeedError.FeedNotFound
-                        else -> FeedError.Unknown(cause = message)
-                    }
+/**
+ * Collapse a load failure into the UI-resolvable category the error screen
+ * renders.
+ *
+ * The feed-generator cases discriminate on [XrpcError.errorName], the parsed
+ * `error` field of the XRPC error body — never on the rendered `message`, which
+ * is human-facing prose the appview is free to reword. Ordering matters:
+ * `XrpcError` is a `RuntimeException`, so it would otherwise fall through to
+ * [FeedError.Unknown].
+ *
+ * A blank upstream message normalises to null so the screen has one "nothing to
+ * quote" signal instead of two — otherwise a `"message": ""` body would render a
+ * dangling "Message from server:" label.
+ *
+ * Top-level because the screen reads it too now: a load failure arrives as
+ * Paging's `LoadState.Error`, not as an effect from the VM.
+ */
+internal fun Throwable.toFeedError(): FeedError =
+    when (this) {
+        is NoSessionException -> FeedError.Unauthenticated
+        is IOException -> FeedError.Network
+        is XrpcError ->
+            when (errorName) {
+                UPSTREAM_FAILURE, UPSTREAM_TIMEOUT ->
+                    FeedError.FeedOffline(serverMessage = errorMessage?.ifBlank { null })
+                UNKNOWN_FEED -> FeedError.FeedNotFound
                 else -> FeedError.Unknown(cause = message)
             }
+        else -> FeedError.Unknown(cause = message)
+    }
 
-        private companion object {
-            /** Appview could not reach the feed generator at all. */
-            const val UPSTREAM_FAILURE = "UpstreamFailure"
+/** Appview could not reach the feed generator at all. */
+private const val UPSTREAM_FAILURE = "UpstreamFailure"
 
-            /** Generator answered too slowly for the appview's budget. */
-            const val UPSTREAM_TIMEOUT = "UpstreamTimeout"
+/** Generator answered too slowly for the appview's budget. */
+private const val UPSTREAM_TIMEOUT = "UpstreamTimeout"
 
-            /** No generator record exists at the requested AT URI. */
-            const val UNKNOWN_FEED = "UnknownFeed"
+/** No generator record exists at the requested AT URI. */
+private const val UNKNOWN_FEED = "UnknownFeed"
+
+/**
+ * Applies the three optimistic mechanisms to a paged feed.
+ *
+ * Extracted from the ViewModel so the composition — which transform runs in
+ * which order — is testable on its own. A test can feed it a
+ * `PagingData.from(…)` and read the result with `asSnapshot`, which it cannot
+ * do through `FeedViewModel.feed`: that flow is `cachedIn(viewModelScope)`, and
+ * a scope the test cannot complete leaves `asSnapshot` waiting forever.
+ *
+ * Order matters. The deleted-post filter runs before the overlay, so a deleted
+ * post leaves the list rather than rendering with updated counters, and the
+ * mute filter runs first so hidden rows are not transformed at all.
+ *
+ * Each transform short-circuits on an empty input, which is the common case:
+ * nothing muted and nothing tapped means the pages pass straight through,
+ * preserving item identity so the list can skip recomposition.
+ */
+internal fun Flow<PagingData<FeedItemUi>>.withOptimisticState(
+    mutedAuthors: Flow<Set<String>>,
+    unmutedAuthors: Flow<Set<String>>,
+    interactions: Flow<PersistentMap<String, PostInteractionState>>,
+): Flow<PagingData<FeedItemUi>> =
+    combine(this, mutedAuthors, unmutedAuthors, interactions) { data, muted, unmuted, snapshot ->
+        var transformed = data
+        if (muted.isNotEmpty()) transformed = transformed.filter { item -> !item.isAuthoredBy(muted) }
+        if (unmuted.isNotEmpty()) transformed = transformed.map { item -> item.clearViewerMuteFor(unmuted) }
+        if (snapshot.isNotEmpty()) {
+            transformed =
+                transformed
+                    .filter { item -> snapshot[item.leafId]?.isDeleted != true }
+                    .map { item -> item.applyInteractions(snapshot) }
         }
+        transformed
     }
 
 /**
- * Remove every [FeedItemUi] from the list whose "primary" post is authored
- * by [did]. Used for the optimistic mute-hide in [FeedViewModel].
+ * Whether this item's "primary" post is authored by one of [dids] — the
+ * predicate behind the optimistic mute-hide.
  *
- * Removal semantics per variant:
- * - [FeedItemUi.Single] — removed when its post's `author.did` matches.
- * - [FeedItemUi.ReplyCluster] — removed when the **leaf** post's author
- *   matches. The leaf is the "followed" post; root/parent are context.
- *   Keeping a cluster where the leaf is by someone else (replying to the
- *   muted author) is intentional — the viewer follows that other person.
- *   Muting hides the muted author's own posts and threads, but a
- *   non-muted user's reply to (or quote of) a muted author is kept as
- *   conversation context, matching the server's next-fetch behavior where
- *   muted accounts appear only as thread context rather than top-level
- *   feed entries.
- * - [FeedItemUi.SelfThreadChain] — removed when any post's author matches
- *   (all posts in a chain share the same author by construction).
- * - Tombstone variants carry no author — always kept.
+ * Per variant:
+ * - [FeedItemUi.Single] — its post's author.
+ * - [FeedItemUi.ReplyCluster] — the **leaf's** author. The leaf is the
+ *   "followed" post; root and parent are context. Keeping a cluster whose leaf
+ *   is by someone else replying to the muted author is intentional — the viewer
+ *   follows that other person, and it matches the server's next fetch, where a
+ *   muted account appears only as thread context.
+ * - [FeedItemUi.SelfThreadChain] — any post's author (a chain is same-author by
+ *   construction).
+ * - Tombstones carry no author, so they are never hidden.
  */
-private fun ImmutableList<FeedItemUi>.removeItemsByAuthor(did: String): ImmutableList<FeedItemUi> =
-    filter { item ->
-        when (item) {
-            is FeedItemUi.Single -> item.post.author.did != did
-            is FeedItemUi.ReplyCluster -> item.leaf.author.did != did
-            is FeedItemUi.SelfThreadChain -> item.posts.none { it.author.did == did }
-            is FeedItemUi.Blocked, is FeedItemUi.NotFound -> true
-        }
-    }.toImmutableList()
+internal fun FeedItemUi.isAuthoredBy(dids: Set<String>): Boolean =
+    when (this) {
+        is FeedItemUi.Single -> post.author.did in dids
+        is FeedItemUi.ReplyCluster -> leaf.author.did in dids
+        is FeedItemUi.SelfThreadChain -> posts.any { it.author.did in dids }
+        is FeedItemUi.Blocked, is FeedItemUi.NotFound -> false
+    }
 
 /**
- * Apply [transform] to the [ViewerStateUi] of every post authored by [did]
- * across all [FeedItemUi] variants. Used for the optimistic unmute flip in
- * [FeedViewModel].
+ * Clear the viewer's muted-author flag on every post authored by one of [dids]
+ * — the optimistic unmute, which flips a flag rather than hiding a row.
  *
- * Returns the same instance for any item none of whose contained posts are
- * authored by [did], preserving reference equality so LazyColumn can skip
- * recomposition for unchanged items.
+ * Returns the same instance when nothing matched, so `LazyColumn` can skip
+ * recomposition for an unchanged item.
  */
-private fun ImmutableList<FeedItemUi>.updateViewerStateByAuthor(
-    did: String,
+internal fun FeedItemUi.clearViewerMuteFor(dids: Set<String>): FeedItemUi = updateViewerStateByAuthor(dids) { it.copy(isAuthorMutedByViewer = false) }
+
+private fun FeedItemUi.updateViewerStateByAuthor(
+    dids: Set<String>,
     transform: (ViewerStateUi) -> ViewerStateUi,
-): ImmutableList<FeedItemUi> =
-    map { item ->
-        when (item) {
-            is FeedItemUi.Single -> {
-                if (item.post.author.did != did) {
-                    item
-                } else {
-                    item.copy(post = item.post.copy(viewer = transform(item.post.viewer)))
-                }
+): FeedItemUi =
+    when (this) {
+        is FeedItemUi.Single ->
+            if (post.author.did !in dids) this else copy(post = post.copy(viewer = transform(post.viewer)))
+        is FeedItemUi.ReplyCluster -> {
+            val newRoot = if (root.author.did in dids) root.copy(viewer = transform(root.viewer)) else root
+            val newParent = if (parent.author.did in dids) parent.copy(viewer = transform(parent.viewer)) else parent
+            val newLeaf = if (leaf.author.did in dids) leaf.copy(viewer = transform(leaf.viewer)) else leaf
+            if (newRoot === root && newParent === parent && newLeaf === leaf) {
+                this
+            } else {
+                copy(root = newRoot, parent = newParent, leaf = newLeaf)
             }
-            is FeedItemUi.ReplyCluster -> {
-                val root =
-                    if (item.root.author.did == did) item.root.copy(viewer = transform(item.root.viewer)) else item.root
-                val parent =
-                    if (item.parent.author.did == did) item.parent.copy(viewer = transform(item.parent.viewer)) else item.parent
-                val leaf =
-                    if (item.leaf.author.did == did) item.leaf.copy(viewer = transform(item.leaf.viewer)) else item.leaf
-                if (root === item.root && parent === item.parent && leaf === item.leaf) {
-                    item
-                } else {
-                    item.copy(root = root, parent = parent, leaf = leaf)
-                }
-            }
-            is FeedItemUi.SelfThreadChain -> {
-                var changed = false
-                val updatedPosts =
-                    item.posts
-                        .map { p ->
-                            if (p.author.did == did) {
-                                changed = true
-                                p.copy(viewer = transform(p.viewer))
-                            } else {
-                                p
-                            }
-                        }.toImmutableList()
-                if (changed) item.copy(posts = updatedPosts) else item
-            }
-            // Tombstones carry no author state — pass through unchanged.
-            is FeedItemUi.Blocked, is FeedItemUi.NotFound -> item
         }
-    }.toImmutableList()
+        is FeedItemUi.SelfThreadChain -> {
+            var changed = false
+            val updated =
+                posts
+                    .map { p ->
+                        if (p.author.did in dids) {
+                            changed = true
+                            p.copy(viewer = transform(p.viewer))
+                        } else {
+                            p
+                        }
+                    }.toImmutableList()
+            if (changed) copy(posts = updated) else this
+        }
+        // Tombstones carry no author state — pass through unchanged.
+        is FeedItemUi.Blocked, is FeedItemUi.NotFound -> this
+    }
 
 /**
- * Flatten every [PostUi] out of every [FeedItemUi] variant in the list.
- * Used to seed the [PostInteractionsCache] with the full set of posts
- * visible after a page load, including posts inside [FeedItemUi.ReplyCluster]
- * and [FeedItemUi.SelfThreadChain].
+ * Overlay a [PostInteractionsCache] snapshot onto one item: like / repost
+ * counts and viewer flags for every contained [PostUi] that appears in [map].
+ *
+ * Returns the same instance when none of its posts are in the map, preserving
+ * reference equality so `LazyColumn` can skip recomposition.
+ *
+ * Removing a deleted item is NOT here — that is a `PagingData.filter` on
+ * [FeedItemUi.leafId], because dropping an item is a list operation and this is
+ * a per-item one.
  */
-private fun List<FeedItemUi>.allPosts(): List<PostUi> =
+internal fun FeedItemUi.applyInteractions(map: PersistentMap<String, PostInteractionState>): FeedItemUi =
+    when (this) {
+        is FeedItemUi.Single -> {
+            val state = map[post.id]
+            if (state == null) this else copy(post = post.mergeInteractionState(state))
+        }
+        is FeedItemUi.ReplyCluster -> {
+            val newRoot = map[root.id]?.let { root.mergeInteractionState(it) }
+            val newParent = map[parent.id]?.let { parent.mergeInteractionState(it) }
+            val newLeaf = map[leaf.id]?.let { leaf.mergeInteractionState(it) }
+            if (newRoot == null && newParent == null && newLeaf == null) {
+                this
+            } else {
+                copy(root = newRoot ?: root, parent = newParent ?: parent, leaf = newLeaf ?: leaf)
+            }
+        }
+        is FeedItemUi.SelfThreadChain -> {
+            var changed = false
+            val merged =
+                posts
+                    .map { p ->
+                        val state = map[p.id]
+                        if (state != null) {
+                            changed = true
+                            p.mergeInteractionState(state)
+                        } else {
+                            p
+                        }
+                    }.toImmutableList()
+            if (changed) copy(posts = merged) else this
+        }
+        // Tombstones carry no PostUi — no counters to merge.
+        is FeedItemUi.Blocked, is FeedItemUi.NotFound -> this
+    }
+
+/**
+ * Every [PostUi] inside this item, which is what the interactions cache is
+ * seeded with — a post inside a cluster or a chain needs reconciling too.
+ */
+internal fun List<FeedItemUi>.allPosts(): List<PostUi> =
     flatMap { item ->
         when (item) {
             is FeedItemUi.Single -> listOf(item.post)
             is FeedItemUi.ReplyCluster -> listOf(item.root, item.parent, item.leaf)
             is FeedItemUi.SelfThreadChain -> item.posts
-            // Tombstone variants carry no PostUi — nothing to seed into the
-            // interactions cache, and nothing to project for the video
-            // coordinator. The mapper doesn't emit these today; they will
-            // surface only via client-side optimism under oftc.4 (block).
             is FeedItemUi.Blocked, is FeedItemUi.NotFound -> emptyList()
         }
     }
 
 /**
- * Project a [PostInteractionsCache][net.kikin.nubecita.core.postinteractions.PostInteractionsCache]
- * snapshot onto the feed item list. Replaces interaction fields (like /
- * repost counts and viewer flags) on every [PostUi] whose id appears in
- * [map], across all variants — [FeedItemUi.Single], [FeedItemUi.ReplyCluster],
- * and [FeedItemUi.SelfThreadChain].
+ * The outgoing posts not yet present in the loaded pages.
  *
- * Returns the same instance for any item whose contained posts are all
- * absent from [map], preserving reference equality so LazyColumn can skip
- * recomposition for unchanged items.
+ * Filtered against every post the pages hold, not just each item's leaf: the
+ * user's own post can land inside a self-thread chain or as a cluster's leaf,
+ * and showing the optimistic row beside the real one would read as a double
+ * post.
+ *
+ * Evaluated by the screen rather than the VM because the loaded set lives in
+ * `LazyPagingItems`. Pure, so it is unit-tested rather than asserted through a
+ * Compose test.
  */
-private fun ImmutableList<FeedItemUi>.applyInteractions(
-    interactionMap: PersistentMap<String, PostInteractionState>,
-): ImmutableList<FeedItemUi> =
-    // One pass. The deletion check reads `leafId` — the post this item occupies
-    // a timeline slot for. Deleting it removes the item; deleting an ancestor
-    // shown only as context leaves the reply standing, which is what the reader
-    // still wants to see. Such an ancestor disappears on the next fetch.
-    //
-    // This read `key` while `key` WAS the leaf's id. The grouped keys are
-    // namespaced now (D12), so `interactionMap[item.key]` would look up
-    // "cluster:at://…" against a map of post URIs, never match, and silently
-    // stop removing deleted posts from the feed — the trap the previous comment
-    // here predicted.
-    mapNotNull { item ->
-        if (interactionMap[item.leafId]?.isDeleted == true) return@mapNotNull null
-        when (item) {
-            is FeedItemUi.Single -> {
-                val state = interactionMap[item.post.id] ?: return@mapNotNull item
-                item.copy(post = item.post.mergeInteractionState(state))
-            }
-            is FeedItemUi.ReplyCluster -> {
-                val newRoot = interactionMap[item.root.id]?.let { item.root.mergeInteractionState(it) }
-                val newParent = interactionMap[item.parent.id]?.let { item.parent.mergeInteractionState(it) }
-                val newLeaf = interactionMap[item.leaf.id]?.let { item.leaf.mergeInteractionState(it) }
-                if (newRoot == null && newParent == null && newLeaf == null) {
-                    item
-                } else {
-                    item.copy(
-                        root = newRoot ?: item.root,
-                        parent = newParent ?: item.parent,
-                        leaf = newLeaf ?: item.leaf,
-                    )
-                }
-            }
-            is FeedItemUi.SelfThreadChain -> {
-                var changed = false
-                val mergedPosts =
-                    item.posts
-                        .map { p ->
-                            val state = interactionMap[p.id]
-                            if (state != null) {
-                                changed = true
-                                p.mergeInteractionState(state)
-                            } else {
-                                p
-                            }
-                        }.toImmutableList()
-                if (changed) item.copy(posts = mergedPosts) else item
-            }
-            // Tombstones have no interaction state to merge — they carry no
-            // PostUi, no like/repost counters. Pass through unchanged so the
-            // map preserves referential equality for LazyColumn skip-recompose.
-            is FeedItemUi.Blocked, is FeedItemUi.NotFound -> item
-        }
-    }.toImmutableList()
+internal fun ImmutableList<OutgoingPostUi>.notYetInFeed(loaded: List<FeedItemUi>): ImmutableList<OutgoingPostUi> {
+    if (isEmpty()) return this
+    val present = loaded.allPosts().mapTo(HashSet()) { it.id }
+    if (present.isEmpty()) return this
+    return filterNot { it.post.id in present }.toImmutableList()
+}

@@ -97,9 +97,9 @@ private fun FeedScreenInitialErrorUnknownScreenshot() {
 private fun FeedScreenLoadedScreenshot() {
     NubecitaCanvasPreviewTheme {
         FeedScreenScreenshotHost(
+            items = fixtureFeedItems(count = 3),
             viewState =
                 FeedScreenViewState.Loaded(
-                    feedItems = fixtureFeedItems(count = 3),
                     isAppending = false,
                     isRefreshing = false,
                 ),
@@ -114,9 +114,9 @@ private fun FeedScreenLoadedScreenshot() {
 private fun FeedScreenLoadedRefreshingScreenshot() {
     NubecitaCanvasPreviewTheme {
         FeedScreenScreenshotHost(
+            items = fixtureFeedItems(count = 3),
             viewState =
                 FeedScreenViewState.Loaded(
-                    feedItems = fixtureFeedItems(count = 3),
                     isAppending = false,
                     isRefreshing = true,
                 ),
@@ -135,9 +135,9 @@ private fun FeedScreenLoadedWithClusterScreenshot() {
     // cluster integration end-to-end.
     NubecitaCanvasPreviewTheme {
         FeedScreenScreenshotHost(
+            items = fixtureFeedItemsWithCluster(),
             viewState =
                 FeedScreenViewState.Loaded(
-                    feedItems = fixtureFeedItemsWithCluster(),
                     isAppending = false,
                     isRefreshing = false,
                 ),
@@ -155,9 +155,9 @@ private fun FeedScreenLoadedWithSelfThreadChainScreenshot() {
     // continuous avatar-gutter connector line via Modifier.threadConnector.
     NubecitaCanvasPreviewTheme {
         FeedScreenScreenshotHost(
+            items = fixtureFeedItemsWithSelfThreadChain(),
             viewState =
                 FeedScreenViewState.Loaded(
-                    feedItems = fixtureFeedItemsWithSelfThreadChain(),
                     isAppending = false,
                     isRefreshing = false,
                 ),
@@ -177,9 +177,9 @@ private fun FeedScreenSelfThreadChainQuoteMiddleScreenshot() {
     // construction; this fixture is the regression contract.
     NubecitaCanvasPreviewTheme {
         FeedScreenScreenshotHost(
+            items = fixtureFeedItemsWithSelfThreadChainAndQuoteMiddle(),
             viewState =
                 FeedScreenViewState.Loaded(
-                    feedItems = fixtureFeedItemsWithSelfThreadChainAndQuoteMiddle(),
                     isAppending = false,
                     isRefreshing = false,
                 ),
@@ -194,9 +194,9 @@ private fun FeedScreenSelfThreadChainQuoteMiddleScreenshot() {
 private fun FeedScreenLoadedAppendingScreenshot() {
     NubecitaCanvasPreviewTheme {
         FeedScreenScreenshotHost(
+            items = fixtureFeedItems(count = 3),
             viewState =
                 FeedScreenViewState.Loaded(
-                    feedItems = fixtureFeedItems(count = 3),
                     isAppending = true,
                     isRefreshing = false,
                 ),
@@ -224,9 +224,9 @@ private fun FeedScreenLoadedWithComposeFabScreenshot() {
     // Light / Dark — six fixtures, one annotation.
     NubecitaCanvasPreviewTheme {
         FeedScreenScreenshotHost(
+            items = fixtureFeedItems(count = 6),
             viewState =
                 FeedScreenViewState.Loaded(
-                    feedItems = fixtureFeedItems(count = 6),
                     isAppending = false,
                     isRefreshing = false,
                 ),
@@ -237,6 +237,7 @@ private fun FeedScreenLoadedWithComposeFabScreenshot() {
 @Composable
 private fun FeedScreenScreenshotHost(
     viewState: FeedScreenViewState,
+    items: ImmutableList<FeedItemUi> = persistentListOf(),
     initialFirstVisibleItemIndex: Int = 0,
 ) {
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialFirstVisibleItemIndex)
@@ -247,12 +248,12 @@ private fun FeedScreenScreenshotHost(
     CompositionLocalProvider(LocalClock provides FixtureClock) {
         FeedScreenContent(
             viewState = viewState,
+            items = rememberPreviewPagingItems(items),
             listState = listState,
             snackbarHostState = snackbarHostState,
             callbacks = PostCallbacks.None,
             onRefresh = {},
             onRetry = {},
-            onLoadMore = {},
             feedChips = persistentListOf(),
             pinnedLists = persistentListOf(),
             selectedFeedUri = null,
@@ -319,9 +320,9 @@ private fun FeedScreenSuppressedRepliesScreenshot() {
     // them worth committing.
     NubecitaCanvasPreviewTheme {
         FeedScreenScreenshotHost(
+            items = fixtureFeedItemsWithSuppressedReplies(),
             viewState =
                 FeedScreenViewState.Loaded(
-                    feedItems = fixtureFeedItemsWithSuppressedReplies(),
                     isAppending = false,
                     isRefreshing = false,
                 ),

@@ -25,7 +25,7 @@ import org.junit.Test
 /**
  * First reference instrumentation test of epic `nubecita-9tw` Phase 1.
  * Verifies that [FeedScreen] renders the posts returned by its
- * [net.kikin.nubecita.feature.feed.impl.data.FeedRepository] dependency.
+ * [net.kikin.nubecita.core.feedcache.FeedRepository] dependency.
  *
  * The repository is faked via Hilt's `@TestInstallIn` replacement of
  * `FeedRepositoryModule` (see [net.kikin.nubecita.feature.feed.impl.testing.TestFeedRepositoryModule])
@@ -70,7 +70,7 @@ class FeedScreenInstrumentationTest {
             }
         }
 
-        // FeedScreen fires FeedEvent.Load on first composition; the load
+        // The Pager loads itself on first composition; the load
         // bounces through viewModelScope -> StateFlow -> recomposition.
         // waitUntil is the recommended replacement for IdlingResource on
         // StateFlow-driven UI (Android docs: "Alternatives to Idling

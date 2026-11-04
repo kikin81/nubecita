@@ -8,7 +8,6 @@ import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
-import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.FeedKind
 import net.kikin.nubecita.data.models.OutgoingPostUi
 import net.kikin.nubecita.data.models.PostUi
@@ -17,27 +16,19 @@ import net.kikin.nubecita.designsystem.component.PostOverflowAction
 /**
  * One frame's worth of UI state for the Following timeline screen.
  *
- * `feedItems`, `nextCursor`, and `endReached` are flat fields per the MVI
- * convention's "independent flags stay flat" rule. `loadStatus` is a
- * sealed sum (per the amended convention's "mutually-exclusive view
- * modes" carve-out) so the type system makes invalid combinations like
- * `isInitialLoading=true && isRefreshing=true` unrepresentable.
+ * The feed items are **not** here. They arrive as `PagingData<FeedItemUi>`
+ * from `FeedViewModel.feed`, because a durable cache and an immutable
+ * `UiState` list cannot both own the list: the cache windows what is loaded,
+ * and copying that window into state would reintroduce the unbounded
+ * in-memory list the cache exists to replace (D1). What is left here is state
+ * Paging has no opinion about.
  *
- * Each [FeedItemUi] is one logical feed entry — either a
- * [FeedItemUi.Single] standalone post or a [FeedItemUi.ReplyCluster]
- * carrying root + parent + leaf for cross-author reply rendering.
- * Pagination + scroll plumbing keys on the leaf's URI in either case.
+ * The load lifecycle is not here either — it is derived from the items'
+ * `CombinedLoadStates` by [toFeedLoadStatus], since Paging owns when a load is
+ * in flight. [FeedLoadStatus] survives as the vocabulary that mapping produces.
  */
 @Immutable
 data class FeedState(
-    val feedItems: ImmutableList<FeedItemUi> = persistentListOf(),
-    val nextCursor: String? = null,
-    val endReached: Boolean = false,
-    // Cold start opens on the shimmer, never the terminal "No posts" empty
-    // screen: the VM only settles to [FeedLoadStatus.Idle] after a fetch
-    // returns. An empty + Idle feed therefore unambiguously means "loaded, no
-    // posts" (lq9t.3.6).
-    val loadStatus: FeedLoadStatus = FeedLoadStatus.InitialLoading,
     /**
      * Whether an inline video may start on its own right now — the resolved
      * answer from `AutoplayPolicy`, folding the stored preference together with
@@ -185,17 +176,32 @@ sealed interface FeedEvent : UiEvent {
         val surface: PostSurface = PostSurface.Feed,
     ) : FeedEvent
 
-    /** First load on screen entry. Idempotent — repeated `Load` while loading is a no-op. */
-    data object Load : FeedEvent
-
-    /** Pull-to-refresh; resets the cursor and re-fetches the head of the timeline. */
+    /**
+     * Pull-to-refresh, the one destructive path (D8).
+     *
+     * Paging performs the fetch — the screen calls `refresh()` on the items,
+     * which drives the mediator's `REFRESH` and replaces the partition. This
+     * event carries what Paging does not know about: the reader asked for a
+     * clean timeline, so the optimistic sets are dropped.
+     *
+     * There is deliberately no `Load`, `LoadMore` or `Retry`. A `Pager`
+     * initializes itself, appends on scroll, and retries through
+     * `LazyPagingItems.retry()`; events for those would be a second, racing
+     * source of truth for the same fetches.
+     */
     data object Refresh : FeedEvent
 
-    /** Append-on-scroll; fetches the next page using the current cursor. */
-    data object LoadMore : FeedEvent
-
-    /** Re-run the initial load after an [FeedLoadStatus.InitialError]. */
-    data object Retry : FeedEvent
+    /**
+     * The loaded pages changed: every [PostUi] they now hold.
+     *
+     * Dispatched by the screen because the signal lives in `LazyPagingItems`.
+     * The VM reconciles the interactions cache with it — wire data that is
+     * newer than a cached overlay has to be able to replace it — and logs
+     * `view_feed` the first time a binding shows content.
+     */
+    data class ItemsLoaded(
+        val posts: List<PostUi>,
+    ) : FeedEvent
 
     /**
      * Dismiss any current error indicator. No-op today (errors flow

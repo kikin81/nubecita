@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.feed.impl.data
+package net.kikin.nubecita.core.feedcache
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

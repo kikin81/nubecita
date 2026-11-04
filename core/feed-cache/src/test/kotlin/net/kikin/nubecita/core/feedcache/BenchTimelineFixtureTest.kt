@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.feed.impl.data
+package net.kikin.nubecita.core.feedcache
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -58,7 +58,7 @@ class BenchTimelineFixtureTest {
         val fixture =
             listOf(
                 File("src/bench/assets/timeline.json"),
-                File("feature/feed/impl/src/bench/assets/timeline.json"),
+                File("core/feed-cache/src/bench/assets/timeline.json"),
             ).firstOrNull { it.exists() }
                 ?: error("bench timeline.json not found from ${File("").absolutePath}")
         return Json

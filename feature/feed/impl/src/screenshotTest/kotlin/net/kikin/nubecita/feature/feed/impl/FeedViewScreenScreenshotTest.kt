@@ -40,9 +40,9 @@ import kotlin.time.Instant
 private fun FeedViewScreenLoadedPinnedScreenshot() {
     NubecitaCanvasPreviewTheme {
         FeedViewScreenshotHost(
+            items = fixtureFeedViewItems(count = 3),
             viewState =
                 FeedScreenViewState.Loaded(
-                    feedItems = fixtureFeedViewItems(count = 3),
                     isAppending = false,
                     isRefreshing = false,
                 ),
@@ -58,9 +58,9 @@ private fun FeedViewScreenLoadedPinnedScreenshot() {
 private fun FeedViewScreenLoadedUnpinnedScreenshot() {
     NubecitaCanvasPreviewTheme {
         FeedViewScreenshotHost(
+            items = fixtureFeedViewItems(count = 3),
             viewState =
                 FeedScreenViewState.Loaded(
-                    feedItems = fixtureFeedViewItems(count = 3),
                     isAppending = false,
                     isRefreshing = false,
                 ),
@@ -138,6 +138,7 @@ private fun FeedViewScreenInitialErrorUnknownScreenshot() {
 private fun FeedViewScreenshotHost(
     viewState: FeedScreenViewState,
     isPinned: Boolean,
+    items: ImmutableList<FeedItemUi> = persistentListOf(),
     displayName: String = "Tech News",
 ) {
     val listState = rememberLazyListState()
@@ -145,12 +146,12 @@ private fun FeedViewScreenshotHost(
     CompositionLocalProvider(LocalClock provides FeedViewFixtureClock) {
         FeedViewScreenContent(
             viewState = viewState,
+            items = rememberPreviewPagingItems(items),
             listState = listState,
             snackbarHostState = snackbarHostState,
             callbacks = PostCallbacks.None,
             onRefresh = {},
             onRetry = {},
-            onLoadMore = {},
             displayName = displayName,
             isPinned = isPinned,
             onPinToggle = {},

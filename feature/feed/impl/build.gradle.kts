@@ -1,14 +1,5 @@
 plugins {
     alias(libs.plugins.nubecita.android.feature)
-    // `kotlin.serialization` runs the @Serializable compiler plugin that
-    // generates the `<Type>.serializer()` companions read by the bench
-    // flavor's `BenchTimelineDto` loader in `BenchFakeFeedRepository`. The
-    // `kotlinx-serialization-json` runtime is already on the
-    // implementation classpath (used by `DefaultFeedRepository` /
-    // `FeedRepository`'s wire integration in `:core:feed-mapping`),
-    // but without the plugin the codegen never runs and the bench DTOs
-    // fail to compile.
-    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.nubecita.android.flavors)
 }
 
@@ -31,18 +22,11 @@ android {
     // letting AudioAttributes calls no-op is safe.
     testOptions.unitTests.isReturnDefaultValues = true
 
-    // The `environment` flavor dimension splits the production
-    // FeedRepositoryModule (real `app.bsky.feed.getTimeline` XRPC call via
-    // `DefaultFeedRepository`) from a bench-flavor parallel that binds an
-    // asset-backed `BenchFakeFeedRepository`. The `:app` module's `bench` flavor
-    // consumes the matching variant via the missingDimensionStrategy plumbing
-    // in `AndroidLibraryConventionPlugin`; everything that imports
-    // `:feature:feed:impl` resolves the production variant by default. See
-    // `bd show nubecita-xh99` for the broader scope (crmi.6 Section A2) and
-    // `:core:auth/build.gradle.kts` for the precedent established in
-    // Section A1 (#330).
-    // The `environment` dimension + `production`/`bench` flavors are declared
-    // by the `nubecita.android.flavors` convention plugin (applied above).
+    // The `environment` dimension is still declared here because `:app`'s
+    // bench flavor resolves a matching variant of every feature module it
+    // consumes. This module no longer owns a repository to swap, though: the
+    // feed's offline fixtures moved to `:core:feed-cache`'s bench source set
+    // with the repository that now serves them (D1).
 }
 
 dependencies {
@@ -51,6 +35,9 @@ dependencies {
     implementation(project(":core:actors"))
     implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
+    // The feed reads its pages from the offline-first cache (D1) — this module
+    // no longer owns a repository or a network call of its own.
+    implementation(project(":core:feed-cache"))
     implementation(project(":core:feed-mapping"))
     implementation(project(":core:feeds"))
     // ModerationPreferencesRepository (cached prefs) + applyModeration, to
@@ -91,18 +78,13 @@ dependencies {
     implementation(project(":feature:videos:api"))
     implementation(libs.androidx.browser)
     implementation(libs.androidx.compose.material3.adaptive.navigation3)
+    implementation(libs.androidx.paging.compose)
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
-    implementation(libs.kotlinx.serialization.json)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.exoplayer.hls)
     implementation(libs.media3.ui.compose)
     implementation(libs.timber)
-
-    // Bench only: BenchFeedPostSource contributes the feed fixtures to the
-    // bench PostRepository.getPost (BenchPostSource lives in :core:posts' bench
-    // source set), so the media viewer resolves feed posts offline.
-    benchImplementation(project(":core:posts"))
 
     // Compose UI tests for FeedScreen — mirrors :app's setup. Declared inline rather
     // than promoted into AndroidFeatureConventionPlugin until a second feature module
@@ -110,6 +92,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     testImplementation(project(":core:testing"))
+    testImplementation(libs.androidx.paging.testing)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.mockk)

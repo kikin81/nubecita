@@ -1,6 +1,12 @@
 plugins {
     alias(libs.plugins.nubecita.android.library)
     alias(libs.plugins.nubecita.android.hilt)
+    // Runs the @Serializable compiler plugin for the bench flavor's
+    // BenchTimelineDto, which the offline fixture loader decodes. The
+    // kotlinx-serialization-json runtime is already on the implementation
+    // classpath for the cached blobs, but without the plugin the codegen for
+    // this module's own @Serializable types never runs.
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.nubecita.android.flavors)
 }
 
@@ -27,6 +33,11 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.room.ktx)
     implementation(libs.timber)
+
+    // Bench only: BenchFeedPostSource answers the bench PostRepository.getPost
+    // from the feed fixtures, so a media viewer opened from a feed image shows
+    // that post rather than the video fallback.
+    benchImplementation(project(":core:posts"))
 
     testImplementation(project(":core:testing"))
     testImplementation(libs.androidx.paging.testing)
