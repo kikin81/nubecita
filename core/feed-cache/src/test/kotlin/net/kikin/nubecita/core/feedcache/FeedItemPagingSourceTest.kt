@@ -65,9 +65,10 @@ internal class FeedItemPagingSourceTest {
             val limit = arg<Int>(4)
             rows.filter { it.position < before }.sortedByDescending { it.position }.take(limit)
         }
-        coEvery { feedItemDao.membersOf(any(), any(), any(), any()) } answers {
-            val position = arg<Int>(3)
-            listOf(FeedItemMemberEntity(ACCOUNT, "FOLLOWING", "", position, 0, "at://post/$position"))
+        coEvery { feedItemDao.membersOfAll(any(), any(), any(), any()) } answers {
+            arg<List<Int>>(3).map { position ->
+                FeedItemMemberEntity(ACCOUNT, "FOLLOWING", "", position, 0, "at://post/$position")
+            }
         }
         coEvery { cachedPostDao.byUris(any(), any()) } answers {
             arg<List<String>>(1).map { uri ->

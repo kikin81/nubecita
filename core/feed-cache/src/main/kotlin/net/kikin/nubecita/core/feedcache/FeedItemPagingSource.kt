@@ -96,8 +96,12 @@ internal class FeedItemPagingSource(
             }
         } catch (cancellation: CancellationException) {
             throw cancellation
-        } catch (throwable: Throwable) {
-            LoadResult.Error(throwable)
+        } catch (exception: Exception) {
+            // Exception, not Throwable: an OutOfMemoryError or a
+            // StackOverflowError is not something a feed page can recover from
+            // by showing a retry button, and swallowing it into LoadResult
+            // would hide it from Crashlytics.
+            LoadResult.Error(exception)
         }
 
     /** Refresh and append: `position` ascending from the key. */
@@ -149,10 +153,16 @@ internal class FeedItemPagingSource(
      */
     private suspend fun List<FeedItemEntity>.toUi(): List<FeedItemUi> {
         if (isEmpty()) return emptyList()
+        // One query for the whole page. Per-row lookups made this scale with
+        // page size — 26 queries to render 25 items — on the read path a
+        // 120 Hz scroll depends on.
         val members =
-            flatMap { row ->
-                feedItemDao.membersOf(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri, row.position)
-            }
+            feedItemDao.membersOfAll(
+                feedKey.accountDid,
+                feedKey.feedType.name,
+                feedKey.feedUri,
+                map { it.position },
+            )
         val postsByUri =
             cachedPostDao
                 .byUris(feedKey.accountDid, members.map { it.uri }.distinct())

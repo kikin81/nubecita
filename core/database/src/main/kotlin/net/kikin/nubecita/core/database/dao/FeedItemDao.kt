@@ -39,6 +39,27 @@ interface FeedItemDao {
         position: Int,
     ): List<FeedItemMemberEntity>
 
+    /**
+     * Every member of a whole page of items, in one query.
+     *
+     * The read path reads a page at a time, so asking per row made the member
+     * lookup scale with page size — `pageSize + 1` queries to render one page,
+     * on the path a 120 Hz scroll depends on. Ordered by position then ordinal
+     * so the caller can group without re-sorting, and render order inside each
+     * item is preserved.
+     */
+    @Query(
+        "SELECT * FROM feed_item_member " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND position IN (:positions) ORDER BY position, ordinal",
+    )
+    suspend fun membersOfAll(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        positions: List<Int>,
+    ): List<FeedItemMemberEntity>
+
     @Query(
         "SELECT * FROM feed_item " +
             "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +

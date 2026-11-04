@@ -113,6 +113,31 @@ internal class FeedItemDaoTest : DatabaseTest() {
         }
 
     @Test
+    fun membersOfAll_readsAWholePageInRenderOrder() =
+        runTest {
+            // The batched read the paging source uses. Grouping downstream
+            // relies on the ordering, so position-then-ordinal is part of the
+            // contract, not an incidental.
+            dao.upsert(listOf(item(position = 0, key = "single:at://post/a"), item(position = 1, key = "single:at://post/b")))
+            dao.upsertMembers(
+                listOf(
+                    member(1, 1, "at://post/b-parent"),
+                    member(0, 0, "at://post/a"),
+                    member(1, 0, "at://post/b"),
+                ),
+            )
+
+            val all = dao.membersOfAll(ACCOUNT, TYPE, FEED_URI, positions = listOf(0, 1))
+
+            assertEquals(
+                listOf("at://post/a", "at://post/b", "at://post/b-parent"),
+                all.map { it.uri },
+            )
+            // Positions not asked for are left out.
+            assertEquals(1, dao.membersOfAll(ACCOUNT, TYPE, FEED_URI, positions = listOf(0)).size)
+        }
+
+    @Test
     fun positionOf_resolvesAPersistedAnchorKey() =
         runTest {
             dao.upsert(listOf(item(position = 3, key = "chain:at://post/first")))
