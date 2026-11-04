@@ -28,6 +28,7 @@ import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldValue
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -166,7 +167,33 @@ fun VideoCommentsSheetScaffold(
                         // leg (nubecita-09n0).
                         modifier = Modifier.semantics { testTagsAsResourceId = true },
                     ) {
-                        movableComments()
+                        // The sheet measures this content at its FULL height and
+                        // slides it down, so at any partial expansion the bottom
+                        // of the content is off-screen by exactly the sheet's
+                        // offset. Content anchored to that bottom — the docked
+                        // comment pill — reads this and shifts itself back up.
+                        //
+                        // Deliberately NOT done by shrinking the content: the
+                        // content's height feeds the sheet's own anchors, so
+                        // sizing it from the offset is circular and collapses the
+                        // sheet to a sliver (measured: offset 1832, visible 13px).
+                        CompositionLocalProvider(
+                            LocalSheetHiddenHeightPx provides {
+                                // `requireOffset` throws IllegalStateException until the
+                                // sheet has been laid out once, and that is the only
+                                // failure worth absorbing here — a broad catch would also
+                                // swallow cancellation and JVM errors.
+                                hiddenSheetHeightPx(
+                                    try {
+                                        sheetState.requireOffset()
+                                    } catch (_: IllegalStateException) {
+                                        null
+                                    },
+                                )
+                            },
+                        ) {
+                            movableComments()
+                        }
                     }
                 }
             }
