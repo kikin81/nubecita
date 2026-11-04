@@ -96,7 +96,9 @@ Both flavored modules ship a `bench` source set, so the `bench` variant must com
 
   **One test moved rather than being kept passing.** `moderation-filtered entity is dropped from the paged stream` asserted a job this layer no longer has — moderation is applied where the projection is computed. It is replaced by a pass-through assertion, and the dropping behaviour is covered against the rehydration mapper, where it now lives.
 
-- [ ] 2.6 Keep `head(feedKey, n)` reading the raw `feed_post` rows, undeduplicated, so the widget and Wear surfaces are untouched by the projection (D15). **Tests:** a cache test asserting `head` output is byte-identical to today for a fixture page.
+- [x] 2.6 `head` keeps reading the raw entry rows, and two tests now hold it there.
+
+  It was already true after 1.4b, so the work here was the guarantee rather than the change. The valuable assertion is the structural one — `head` never touches `feedItemDao` — because routing it through the projection is the change someone is most likely to make later, and it would silently apply the reply tuners and de-duplication to the widget and the watch, which curate nothing and expect every entry. The second test pins the visible consequence: two entries sharing a thread root both survive `head`, where the projection would collapse them to one.
 
 ## 3. `since`-bounded PREPEND on the mediator (`nubecita-lgoo.5.3`, D4 + D5)
 

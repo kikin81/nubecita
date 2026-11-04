@@ -227,6 +227,49 @@ internal class FeedRepositoryTest {
             override suspend fun <T> run(block: suspend () -> T): T = block()
         }
 
+    @Test
+    fun `head is undeduplicated - two entries in one thread both survive`() =
+        runTest {
+            // The projection would collapse these to one item: they share a
+            // thread root, and thread-root de-duplication keeps the first. The
+            // widget and the watch render a flat list and want both, so head
+            // must not go through the projection.
+            val rows =
+                MutableStateFlow(
+                    listOf(
+                        entry("r1", text = "first reply", position = 0),
+                        entry("r2", text = "second reply", position = 1),
+                    ),
+                )
+            every { feedPostDao.head("did:plc:me", "FOLLOWING", "", 10) } returns rows
+            val repo = repository(emptyList())
+
+            repo.head(key, n = 10).test {
+                assertEquals(listOf("first reply", "second reply"), awaitItem().map { it.text })
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `head never reads the projection`() =
+        runTest {
+            // The structural guarantee behind D15, and the one a future change
+            // is most likely to break: routing head through feed_item would
+            // silently apply the reply tuners and de-duplication to the widget
+            // and the watch, which curate nothing and expect every entry.
+            val rows = MutableStateFlow(listOf(entry("a", text = "only", position = 0)))
+            every { feedPostDao.head("did:plc:me", "FOLLOWING", "", 3) } returns rows
+            val repo = repository(emptyList())
+
+            repo.head(key, n = 3).test {
+                awaitItem()
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            coVerify(exactly = 0) { feedItemDao.itemsIn(any(), any(), any()) }
+            coVerify(exactly = 0) { feedItemDao.itemsFrom(any(), any(), any(), any(), any()) }
+        }
+
     /**
      * One joined entry row, as `head` reads them — built from the two
      * production write mappers so a test cannot serve a pairing the write path
