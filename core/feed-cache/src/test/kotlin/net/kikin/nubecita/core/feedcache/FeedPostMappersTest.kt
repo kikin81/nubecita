@@ -38,13 +38,13 @@ private fun recordObject(text: String): JsonObject =
 /**
  * Build a wire [PostView] with optional images embed and optional labels.
  */
-private fun postView(
+private fun postViewJson(
     uri: String = "at://did:plc:abc/app.bsky.feed.post/3kpost",
     authorDid: String = "did:plc:abc",
     text: String = "hello world",
     withImages: Boolean = true,
     labels: List<Pair<String, String>> = emptyList(),
-): PostView {
+): JsonObject {
     val wire =
         buildJsonObject {
             put("\$type", "app.bsky.feed.defs#postView")
@@ -93,10 +93,87 @@ private fun postView(
                 }
             }
         }
-    return testJson.decodeFromJsonElement(PostView.serializer(), wire)
+    return wire
 }
 
+/**
+ * The decoded form of [postViewJson].
+ *
+ * The two are kept separate because a union slot (`reply.root`,
+ * `reply.parent`) is matched on its `$type` discriminator, and `$type` is not a
+ * declared property of `PostView` — so re-encoding an already-decoded
+ * `PostView` drops it and the slot deserializes to the open-union Unknown
+ * variant instead. Union slots must be given the raw JSON.
+ */
+private fun postView(
+    uri: String = "at://did:plc:abc/app.bsky.feed.post/3kpost",
+    authorDid: String = "did:plc:abc",
+    text: String = "hello world",
+    withImages: Boolean = true,
+    labels: List<Pair<String, String>> = emptyList(),
+): PostView =
+    testJson.decodeFromJsonElement(
+        PostView.serializer(),
+        postViewJson(uri, authorDid, text, withImages, labels),
+    )
+
 private fun feedViewPost(post: PostView): FeedViewPost = FeedViewPost(post = post)
+
+/**
+ * Build a wire [FeedViewPost] through real JSON so the per-entry `reason` and
+ * `reply` unions go through actual deserialization rather than being
+ * hand-constructed — the union variants are what the denormalized columns and
+ * the grouping projection read, so a fixture that skipped them would not
+ * exercise the thing under test.
+ *
+ * [repostedBy] adds a `reasonRepost`; [replyRoot]/[replyParent] add a
+ * `replyRef` whose slots are readable posts. [blockedParent] instead makes the
+ * parent a `blockedPost` tombstone, which has a URI but is not a readable post.
+ */
+private fun feedViewPostWire(
+    post: JsonObject = postViewJson(),
+    repostedBy: String? = null,
+    replyRoot: String? = null,
+    replyParent: String? = null,
+    blockedParent: String? = null,
+): FeedViewPost {
+    val wire =
+        buildJsonObject {
+            put("\$type", "app.bsky.feed.defs#feedViewPost")
+            put("post", post)
+            if (repostedBy != null) {
+                putJsonObject("reason") {
+                    put("\$type", "app.bsky.feed.defs#reasonRepost")
+                    putJsonObject("by") {
+                        put("did", repostedBy)
+                        put("handle", "reposter.bsky.social")
+                        put("displayName", "Reposter")
+                    }
+                    put("indexedAt", "2026-04-15T20:00:00.000Z")
+                }
+            }
+            if (replyRoot != null || replyParent != null || blockedParent != null) {
+                putJsonObject("reply") {
+                    if (replyRoot != null) {
+                        put("root", postViewJson(uri = replyRoot))
+                    }
+                    if (blockedParent != null) {
+                        putJsonObject("parent") {
+                            put("\$type", "app.bsky.feed.defs#blockedPost")
+                            put("uri", blockedParent)
+                            put("blocked", true)
+                            putJsonObject("author") {
+                                put("did", "did:plc:blocked")
+                            }
+                        }
+                    } else if (replyParent != null) {
+                        put("parent", postViewJson(uri = replyParent))
+                    }
+                }
+            }
+        }
+    return testJson.decodeFromJsonElement(FeedViewPost.serializer(), wire)
+}
 
 private val key = FeedKey.following("did:plc:me")
 
@@ -120,7 +197,80 @@ internal class FeedPostMappersTest {
             kotlin.time.Instant.parse("2026-04-15T19:51:13.000Z"),
             entity.indexedAt,
         )
-        assertNotNull(entity.postBlob)
+        assertNotNull(entity.entryBlob)
+    }
+
+    @Test
+    fun `plain entry leaves the per-entry columns null`() {
+        val entity = feedViewPostWire().toFeedPostEntity(key, position = 0)
+
+        assertNull(entity.repostedByDid)
+        assertNull(entity.replyRootUri)
+        assertNull(entity.replyParentUri)
+    }
+
+    @Test
+    fun `toFeedPostEntity denormalizes repost attribution`() {
+        val entity = feedViewPostWire(repostedBy = "did:plc:reposter").toFeedPostEntity(key, position = 0)
+
+        assertEquals("did:plc:reposter", entity.repostedByDid)
+    }
+
+    @Test
+    fun `toFeedPostEntity denormalizes reply root and parent`() {
+        val entity =
+            feedViewPostWire(
+                replyRoot = "at://did:plc:abc/app.bsky.feed.post/3kroot",
+                replyParent = "at://did:plc:abc/app.bsky.feed.post/3kparent",
+            ).toFeedPostEntity(key, position = 0)
+
+        assertEquals("at://did:plc:abc/app.bsky.feed.post/3kroot", entity.replyRootUri)
+        assertEquals("at://did:plc:abc/app.bsky.feed.post/3kparent", entity.replyParentUri)
+    }
+
+    @Test
+    fun `a blocked reply parent denormalizes to null but survives in the blob`() {
+        // The column points at readable posts only, so a tombstone parent is
+        // null there. The blob must still carry it, or the projection could not
+        // render the Blocked variant on read.
+        val entity =
+            feedViewPostWire(
+                replyRoot = "at://did:plc:abc/app.bsky.feed.post/3kroot",
+                blockedParent = "at://did:plc:blocked/app.bsky.feed.post/3kgone",
+            ).toFeedPostEntity(key, position = 0)
+
+        assertNull(entity.replyParentUri)
+        assertEquals("at://did:plc:abc/app.bsky.feed.post/3kroot", entity.replyRootUri)
+
+        val decoded = testJson.decodeFromString(FeedViewPost.serializer(), requireNotNull(entity.entryBlob))
+        assertNotNull(decoded.reply?.parent)
+    }
+
+    @Test
+    fun `entry blob round-trips the repost and reply context`() {
+        // The regression this widening exists to prevent: the mapper used to
+        // serialize the bare PostView, so reason and reply were discarded and a
+        // cached partition could not rebuild a ReplyCluster or a chain.
+        val entity =
+            feedViewPostWire(
+                repostedBy = "did:plc:reposter",
+                replyRoot = "at://did:plc:abc/app.bsky.feed.post/3kroot",
+                replyParent = "at://did:plc:abc/app.bsky.feed.post/3kparent",
+            ).toFeedPostEntity(key, position = 0)
+
+        val decoded = testJson.decodeFromString(FeedViewPost.serializer(), requireNotNull(entity.entryBlob))
+
+        assertNotNull(decoded.reason)
+        assertNotNull(decoded.reply)
+        assertEquals(
+            "at://did:plc:abc/app.bsky.feed.post/3kroot",
+            (decoded.reply?.root as? PostView)?.uri?.raw,
+        )
+        assertEquals(
+            "at://did:plc:abc/app.bsky.feed.post/3kparent",
+            (decoded.reply?.parent as? PostView)?.uri?.raw,
+        )
+        assertEquals("at://did:plc:abc/app.bsky.feed.post/3kpost", decoded.post.uri.raw)
     }
 
     @Test
@@ -147,14 +297,14 @@ internal class FeedPostMappersTest {
     @Test
     fun `malformed blob maps to null`() {
         val entity =
-            FeedViewPost(post = postView()).toFeedPostEntity(key, position = 0).copy(postBlob = "{ not valid json")
+            FeedViewPost(post = postView()).toFeedPostEntity(key, position = 0).copy(entryBlob = "{ not valid json")
         val postUi = entity.toPostUi(viewerDid = null, prefs = ModerationPrefs.DEFAULT)
         assertNull(postUi)
     }
 
     @Test
     fun `null blob maps to null`() {
-        val entity = FeedViewPost(post = postView()).toFeedPostEntity(key, position = 0).copy(postBlob = null)
+        val entity = FeedViewPost(post = postView()).toFeedPostEntity(key, position = 0).copy(entryBlob = null)
         val postUi = entity.toPostUi(viewerDid = null, prefs = ModerationPrefs.DEFAULT)
         assertNull(postUi)
     }

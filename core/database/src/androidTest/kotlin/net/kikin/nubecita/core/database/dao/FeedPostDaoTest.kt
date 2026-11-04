@@ -30,6 +30,10 @@ internal class FeedPostDaoTest : DatabaseTest() {
         position: Int,
         postUri: String = "at://post/$position",
         author: String = "did:author",
+        repostedBy: String? = null,
+        replyRoot: String? = null,
+        replyParent: String? = null,
+        blob: String? = null,
     ) = FeedPostEntity(
         accountDid = account,
         feedType = type,
@@ -40,8 +44,89 @@ internal class FeedPostDaoTest : DatabaseTest() {
         authorDid = author,
         indexedAt = Instant.fromEpochMilliseconds(position.toLong()),
         text = "post $position",
-        postBlob = null,
+        repostedByDid = repostedBy,
+        replyRootUri = replyRoot,
+        replyParentUri = replyParent,
+        entryBlob = blob,
     )
+
+    @Test
+    fun entryColumns_roundTripThroughRoom() =
+        runTest {
+            dao.upsert(
+                listOf(
+                    post(
+                        position = 0,
+                        repostedBy = "did:reposter",
+                        replyRoot = "at://post/root",
+                        replyParent = "at://post/parent",
+                        blob = "{\"post\":{}}",
+                    ),
+                ),
+            )
+            val row = dao.head(ACCOUNT, TYPE, FEED_URI, 1).first().single()
+            assertEquals("did:reposter", row.repostedByDid)
+            assertEquals("at://post/root", row.replyRootUri)
+            assertEquals("at://post/parent", row.replyParentUri)
+            assertEquals("{\"post\":{}}", row.entryBlob)
+        }
+
+    @Test
+    fun entryColumns_defaultToNull() =
+        runTest {
+            dao.upsert(listOf(post(position = 0)))
+            val row = dao.head(ACCOUNT, TYPE, FEED_URI, 1).first().single()
+            assertNull(row.repostedByDid)
+            assertNull(row.replyRootUri)
+            assertNull(row.replyParentUri)
+            assertNull(row.entryBlob)
+        }
+
+    @Test
+    fun entryColumns_scopedToPartition() =
+        runTest {
+            dao.upsert(
+                listOf(
+                    post(position = 0, repostedBy = "did:mine"),
+                    post(
+                        type = "DISCOVER",
+                        uri = "at://feed/x",
+                        position = 0,
+                        postUri = "at://other/0",
+                        repostedBy = "did:theirs",
+                    ),
+                ),
+            )
+            assertEquals(
+                "did:mine",
+                dao
+                    .head(ACCOUNT, TYPE, FEED_URI, 10)
+                    .first()
+                    .single()
+                    .repostedByDid,
+            )
+            assertEquals(
+                "did:theirs",
+                dao
+                    .head(ACCOUNT, "DISCOVER", "at://feed/x", 10)
+                    .first()
+                    .single()
+                    .repostedByDid,
+            )
+        }
+
+    @Test
+    fun negativePositions_sortNewestFirst() =
+        runTest {
+            // A prepend writes above the existing rows without renumbering them,
+            // so ascending position (newest-first) must still hold across zero.
+            dao.upsert(listOf(post(position = 1), post(position = -2), post(position = 0), post(position = -1)))
+            assertEquals(
+                listOf(-2, -1, 0, 1),
+                dao.head(ACCOUNT, TYPE, FEED_URI, 10).first().map { it.position },
+            )
+            assertEquals(1, dao.maxPosition(ACCOUNT, TYPE, FEED_URI))
+        }
 
     @Test
     fun head_ordersByPosition_andLimits() =

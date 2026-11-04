@@ -21,7 +21,13 @@ import net.kikin.nubecita.core.database.util.InstantConverter
  * entity ([RecentSearchEntity]) and drops the v1 `BootstrapEntity`
  * placeholder via the [BootstrapEntityDrop] `AutoMigrationSpec`. v5 adds the
  * offline feed cache ([FeedPostEntity] + [FeedRemoteKeyEntity]) — two new
- * tables, additive, via `@AutoMigration(4 → 5)`.
+ * tables, additive, via `@AutoMigration(4 → 5)`. v7 widens the cached unit
+ * from a bare `postView` to a whole feed **entry** (`feedViewPost`, carrying
+ * the per-entry repost and reply context) and renames `post_blob` to
+ * `entry_blob`. That diff is not additive and the dropped `reason`/`reply`
+ * data cannot be recovered locally, so v6 → v7 is a **manual** migration that
+ * drops the cached feed rows and lets the partition refill — a cold partition
+ * is a state [FeedPostDao] and the `RemoteMediator` already handle.
  *
  * Schema export is on; generated JSON is committed under
  * `core/database/schemas/`. Every schema bump must commit the new
@@ -37,7 +43,7 @@ import net.kikin.nubecita.core.database.util.InstantConverter
         FeedRemoteKeyEntity::class,
         SavedFeedEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = BootstrapEntityDrop::class),

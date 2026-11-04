@@ -197,7 +197,7 @@ internal class FeedPostScaleTest {
             authorDid = "did:plc:author${position % 200}",
             indexedAt = Instant.fromEpochMilliseconds(1_700_000_000_000L + position),
             text = "post $position in ${partition.feedType}/${partition.feedUri}",
-            postBlob = representativeBlob(postUri, position),
+            entryBlob = representativeBlob(postUri, position),
         )
 
     /** Run a raw `EXPLAIN QUERY PLAN` and concatenate the `detail` column rows. */
