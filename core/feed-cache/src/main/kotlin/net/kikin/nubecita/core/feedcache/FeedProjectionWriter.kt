@@ -131,6 +131,19 @@ internal class FeedProjectionWriter
             prefs: ModerationPrefs,
         ): Int {
             feedItemDao.clearPartition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
+            // The dismissal mark is a position, and this path restarts
+            // positions at 0 — so a mark left from before the rebuild points
+            // nowhere. Left in place it silently outranks every later prepend:
+            // a reader who dismissed a pill at -250 and then pulled to refresh
+            // would never see another, because nothing is written below -250
+            // again (nubecita-3zol). `reproject` keeps its mark on purpose: it
+            // rebuilds from the partition's existing lowest position.
+            partitionStateDao.updatePillDismissed(
+                accountDid = feedKey.accountDid,
+                feedType = feedKey.feedType.name,
+                feedUri = feedKey.feedUri,
+                position = null,
+            )
             val items =
                 page
                     .filteredForFeed(feedKey, viewerDid)

@@ -106,6 +106,34 @@ internal class FeedProjectionWriterTest {
     }
 
     @Test
+    fun `a destructive refresh forgets the pill's dismissal mark`() =
+        runTest {
+            // The mark is a position, and a refresh restarts positions at 0.
+            // Keeping a mark of, say, -250 would outrank every later prepend
+            // — nothing is written below -250 again — and the reader would
+            // never see another new-posts pill (nubecita-3zol).
+            prefs(hideReplies = false)
+            writer().writeRefresh(FeedKey.following("did:plc:me"), listOf(topLevelEntry("at://p/1")))
+
+            coVerify {
+                partitionStateDao.updatePillDismissed("did:plc:me", "FOLLOWING", "", position = null)
+            }
+        }
+
+    @Test
+    fun `a reproject keeps the dismissal mark`() =
+        runTest {
+            // Unlike a refresh, this rebuilds from the partition's existing
+            // lowest position, so the mark still points at a real place.
+            prefs(hideReplies = false)
+            writer().reproject(FeedKey.following("did:plc:me"))
+
+            coVerify(exactly = 0) {
+                partitionStateDao.updatePillDismissed(any(), any(), any(), any())
+            }
+        }
+
+    @Test
     fun `a follow-scoped feed applies the reply tuners`() =
         runTest {
             prefs(hideReplies = true)

@@ -378,12 +378,19 @@ internal open class DefaultFeedRepository
             partitionStateDao
                 .observe(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
                 .flatMapLatest { state ->
-                    // Dismissal wins over the anchor: once acknowledged, the
-                    // mark is the new waterline and only writes above IT count.
-                    // With neither, position 0 is the top of the last
-                    // destructive refresh, so a prepend's negative positions
-                    // are "above" and a reader at the top still sees the pill.
-                    val above = state?.pillDismissedPosition ?: state?.anchorPosition ?: 0
+                    // The waterline is NEVER the reader's anchor. The anchor is
+                    // where they are *now*, so using it means everything they
+                    // scrolled past counts as newly arrived: scroll down, and the
+                    // pill announces the posts just read. That was the bug —
+                    // visible on Following, which stores an anchor on every
+                    // scroll settle, and on generator feeds through anchor rows
+                    // left behind by builds predating the `supportsSince` gate.
+                    //
+                    // Position 0 is the top of the last destructive refresh, so
+                    // only a prepend's negative positions are above it. A
+                    // dismissal moves the mark up once the reader acknowledges
+                    // what arrived.
+                    val above = state?.pillDismissedPosition ?: 0
                     feedItemDao.leafPostsAbove(
                         feedKey.accountDid,
                         feedKey.feedType.name,
