@@ -205,9 +205,14 @@ private fun SuccessCardScreenshot() {
  */
 @Composable
 private fun UnfocusedWindow(content: @Composable () -> Unit) {
+    // Delegated, not reimplemented: `WindowInfo` also carries `containerSize`
+    // and `keyboardModifiers`, and a bare anonymous object silently swaps those
+    // for defaults — a zeroed container size would mislead anything that reads
+    // it. Only window focus is overridden; everything else stays real.
+    val current = LocalWindowInfo.current
     val unfocused =
-        remember {
-            object : WindowInfo {
+        remember(current) {
+            object : WindowInfo by current {
                 override val isWindowFocused: Boolean = false
             }
         }
