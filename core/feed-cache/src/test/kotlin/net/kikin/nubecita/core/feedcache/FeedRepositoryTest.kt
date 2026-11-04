@@ -102,6 +102,18 @@ internal class FeedRepositoryTest {
                     remoteKeyDao = remoteKeyDao,
                     transactionRunner = passthroughRunner,
                 ),
+            // PREPEND delegates to the shared FeedCatchUp for the same reason;
+            // a real one over the same mocks keeps these tests exercising the
+            // actual window allocation rather than a stub of it.
+            feedCatchUp =
+                FeedCatchUp(
+                    networkSource = networkSource,
+                    feedPostDao = feedPostDao,
+                    cachedPostDao = cachedPostDao,
+                    projectionWriter = projectionWriter,
+                    remoteKeyDao = remoteKeyDao,
+                    transactionRunner = passthroughRunner,
+                ),
             testMediator = noopMediator,
             testRows = seed,
         )
@@ -418,6 +430,7 @@ private class TestFeedRepository(
     moderationPreferences: ModerationPreferencesRepository,
     transactionRunner: FeedCacheTransactionRunner,
     feedRefresher: FeedRefresher,
+    feedCatchUp: FeedCatchUp,
     private val testMediator: RemoteMediator<Int, FeedItemUi>,
     private val testRows: List<FeedItemUi>,
 ) : DefaultFeedRepository(
@@ -432,6 +445,7 @@ private class TestFeedRepository(
         moderationPreferences,
         transactionRunner,
         feedRefresher,
+        feedCatchUp,
     ) {
     override fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, FeedItemUi> = testMediator
 

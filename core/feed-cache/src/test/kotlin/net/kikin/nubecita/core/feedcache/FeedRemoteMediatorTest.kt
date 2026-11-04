@@ -103,6 +103,18 @@ internal class FeedRemoteMediatorTest {
                     remoteKeyDao = remoteKeyDao,
                     transactionRunner = transactionRunner,
                 ),
+            // PREPEND delegates to the shared FeedCatchUp for the same reason;
+            // a real one over the same mocks keeps these tests exercising the
+            // actual window allocation rather than a stub of it.
+            feedCatchUp =
+                FeedCatchUp(
+                    networkSource = networkSource,
+                    feedPostDao = feedPostDao,
+                    cachedPostDao = cachedPostDao,
+                    projectionWriter = projectionWriter,
+                    remoteKeyDao = remoteKeyDao,
+                    transactionRunner = transactionRunner,
+                ),
         )
 
     private fun emptyState(): PagingState<Int, FeedItemUi> =
@@ -386,6 +398,21 @@ internal class FeedRemoteMediatorTest {
         }
 
     @Test
+    fun `a cold partition has nothing to catch up on`() =
+        runTest {
+            // There is no head to prepend above. The destructive refresh is
+            // what populates it, and it is also what records the boundary
+            // cursor every later catch-up needs.
+            coEvery { remoteKeyDao.remoteKey(any(), any(), any()) } returns keyWith()
+            coEvery { feedPostDao.maxPosition("did:plc:me", "FOLLOWING", "") } returns null
+
+            val result = mediator().load(LoadType.PREPEND, emptyState())
+
+            assertTrue((result as RemoteMediator.MediatorResult.Success).endOfPaginationReached)
+            coVerify(exactly = 0) { networkSource.fetchPage(any(), any(), any(), any()) }
+        }
+
+    @Test
     fun `a generator feed never prepends`() =
         runTest {
             // getFeed has no `since`, so a generator feed cannot bound a range
@@ -415,7 +442,7 @@ internal class FeedRemoteMediatorTest {
             val result = mediator().load(LoadType.PREPEND, emptyState())
 
             assertTrue(result is RemoteMediator.MediatorResult.Success)
-            val window = -FeedRemoteMediator.CATCH_UP_ENTRY_BUDGET
+            val window = -FeedCatchUp.CATCH_UP_ENTRY_BUDGET
             assertEquals(listOf(window, window + 1), inserted.captured.map { it.position })
             coVerify(exactly = 0) { feedPostDao.clearPartition(any(), any(), any()) }
             coVerify { projectionWriter.writePrepend(key, any(), window) }
@@ -437,7 +464,7 @@ internal class FeedRemoteMediatorTest {
 
             mediator().load(LoadType.PREPEND, emptyState())
 
-            assertEquals(listOf(-40 - FeedRemoteMediator.CATCH_UP_ENTRY_BUDGET), inserted.captured.map { it.position })
+            assertEquals(listOf(-40 - FeedCatchUp.CATCH_UP_ENTRY_BUDGET), inserted.captured.map { it.position })
         }
 
     @Test

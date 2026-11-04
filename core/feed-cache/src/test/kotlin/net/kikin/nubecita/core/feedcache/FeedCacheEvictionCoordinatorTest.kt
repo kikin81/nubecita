@@ -111,6 +111,8 @@ internal class FeedCacheEvictionCoordinatorTest {
 
         override suspend fun refresh(feedKey: FeedKey): Result<Boolean> = Result.success(true)
 
+        override suspend fun catchUp(feedKey: FeedKey): Result<CatchUpOutcome> = Result.success(CatchUpOutcome.NOT_POSSIBLE)
+
         override suspend fun trimToCap(
             feedKey: FeedKey,
             cap: Int,
