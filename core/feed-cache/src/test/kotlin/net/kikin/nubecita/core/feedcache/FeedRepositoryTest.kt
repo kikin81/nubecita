@@ -26,6 +26,7 @@ import kotlinx.serialization.json.putJsonObject
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.database.dao.CachedPostDao
+import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.model.CachedFeedEntry
@@ -39,6 +40,7 @@ internal class FeedRepositoryTest {
     private val key = FeedKey.following("did:plc:me")
     private val feedPostDao = mockk<FeedPostDao>(relaxed = true)
     private val cachedPostDao = mockk<CachedPostDao>(relaxed = true)
+    private val feedItemDao = mockk<FeedItemDao>(relaxed = true)
     private val remoteKeyDao = mockk<FeedRemoteKeyDao>(relaxed = true)
     private val networkSource = mockk<FeedNetworkSource>(relaxed = true)
 
@@ -77,6 +79,8 @@ internal class FeedRepositoryTest {
             }
         return TestFeedRepository(
             feedPostDao = feedPostDao,
+            cachedPostDao = cachedPostDao,
+            feedItemDao = feedItemDao,
             remoteKeyDao = remoteKeyDao,
             mediatorFactory = factory,
             sessionStateProvider = sessionProvider,
@@ -184,10 +188,16 @@ internal class FeedRepositoryTest {
         }
 
     @Test
-    fun `clearAccount clears posts and remote keys`() =
+    fun `clearAccount clears every grain, not just the entry table`() =
         runTest {
+            // Sign-out has to remove the content, and the content is in the post
+            // store and the projection — the entry table holds only references.
+            // Clearing envelopes and cursors alone would leave a signed-out
+            // account's posts readable on disk.
             repository(emptyList()).clearAccount("did:plc:me")
             coVerify { feedPostDao.clearAccount("did:plc:me") }
+            coVerify { feedItemDao.clearAccount("did:plc:me") }
+            coVerify { cachedPostDao.clearAccount("did:plc:me") }
             coVerify { remoteKeyDao.clearAccount("did:plc:me") }
         }
 
@@ -242,6 +252,8 @@ internal class FeedRepositoryTest {
 @OptIn(ExperimentalPagingApi::class)
 private class TestFeedRepository(
     feedPostDao: FeedPostDao,
+    cachedPostDao: CachedPostDao,
+    feedItemDao: FeedItemDao,
     remoteKeyDao: FeedRemoteKeyDao,
     mediatorFactory: FeedRemoteMediator.Factory,
     sessionStateProvider: SessionStateProvider,
@@ -251,6 +263,8 @@ private class TestFeedRepository(
     private val testMediator: RemoteMediator<Int, CachedFeedEntry>,
 ) : DefaultFeedRepository(
         feedPostDao,
+        cachedPostDao,
+        feedItemDao,
         remoteKeyDao,
         mediatorFactory,
         sessionStateProvider,

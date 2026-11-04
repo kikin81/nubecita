@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.database.dao.CachedPostDao
+import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.model.CachedFeedEntry
@@ -95,6 +97,8 @@ internal open class DefaultFeedRepository
     @Inject
     constructor(
         private val feedPostDao: FeedPostDao,
+        private val cachedPostDao: CachedPostDao,
+        private val feedItemDao: FeedItemDao,
         private val remoteKeyDao: FeedRemoteKeyDao,
         private val mediatorFactory: FeedRemoteMediator.Factory,
         private val sessionStateProvider: SessionStateProvider,
@@ -163,7 +167,14 @@ internal open class DefaultFeedRepository
 
         override suspend fun clearAccount(accountDid: String) {
             transactionRunner.run {
+                // All four grains, not just the entry table. The post store and
+                // the projection hold the actual cached content, so clearing
+                // only envelopes and cursors would leave a signed-out account's
+                // posts readable on disk — which the `core-feed-cache` spec
+                // forbids and which adding those tables silently introduced.
                 feedPostDao.clearAccount(accountDid)
+                feedItemDao.clearAccount(accountDid)
+                cachedPostDao.clearAccount(accountDid)
                 remoteKeyDao.clearAccount(accountDid)
             }
         }
