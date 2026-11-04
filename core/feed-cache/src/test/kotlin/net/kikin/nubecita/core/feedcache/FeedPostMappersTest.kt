@@ -133,6 +133,7 @@ private fun feedViewPost(post: PostView): FeedViewPost = FeedViewPost(post = pos
 private fun feedViewPostWire(
     post: JsonObject = postViewJson(),
     repostedBy: String? = null,
+    reposterDisplayName: String? = "Reposter",
     replyRoot: String? = null,
     replyParent: String? = null,
     blockedParent: String? = null,
@@ -147,15 +148,22 @@ private fun feedViewPostWire(
                     putJsonObject("by") {
                         put("did", repostedBy)
                         put("handle", "reposter.bsky.social")
-                        put("displayName", "Reposter")
+                        if (reposterDisplayName != null) put("displayName", reposterDisplayName)
                     }
                     put("indexedAt", "2026-04-15T20:00:00.000Z")
                 }
             }
             if (replyRoot != null || replyParent != null || blockedParent != null) {
+                // `replyRef.parent` is REQUIRED by the lexicon, so a reply entry
+                // always carries both slots — a root with no parent is not a
+                // shape the server can send, and emitting one here would only
+                // test the fixture. A root given alone becomes a direct reply to
+                // itself, which is what a top-level reply actually looks like.
                 putJsonObject("reply") {
-                    if (replyRoot != null) {
-                        put("root", postViewJson(uri = replyRoot))
+                    val root = replyRoot ?: replyParent ?: blockedParent
+                    put("root", postViewJson(uri = requireNotNull(root)))
+                    if (blockedParent == null && replyParent == null) {
+                        put("parent", postViewJson(uri = requireNotNull(root)))
                     }
                     if (blockedParent != null) {
                         putJsonObject("parent") {
@@ -271,6 +279,48 @@ internal class FeedPostMappersTest {
             (decoded.reply?.parent as? PostView)?.uri?.raw,
         )
         assertEquals("at://did:plc:abc/app.bsky.feed.post/3kpost", decoded.post.uri.raw)
+    }
+
+    @Test
+    fun `read surfaces repost attribution preferring display name`() {
+        val entity = feedViewPostWire(repostedBy = "did:plc:reposter").toFeedPostEntity(key, position = 0)
+
+        val postUi = entity.toPostUi(viewerDid = "did:plc:me", prefs = ModerationPrefs.DEFAULT)
+
+        assertEquals("Reposter", requireNotNull(postUi).repostedBy)
+    }
+
+    @Test
+    fun `read falls back to the handle when the reposter has no display name`() {
+        // displayName ?: handle must mirror the network path's derivation, or
+        // the same post would change its label when the feed refreshes.
+        val entity =
+            feedViewPostWire(repostedBy = "did:plc:reposter", reposterDisplayName = null)
+                .toFeedPostEntity(key, position = 0)
+
+        val postUi = entity.toPostUi(viewerDid = "did:plc:me", prefs = ModerationPrefs.DEFAULT)
+
+        assertEquals("reposter.bsky.social", requireNotNull(postUi).repostedBy)
+    }
+
+    @Test
+    fun `read leaves repost attribution null for a plain entry`() {
+        val entity = feedViewPostWire().toFeedPostEntity(key, position = 0)
+
+        val postUi = entity.toPostUi(viewerDid = "did:plc:me", prefs = ModerationPrefs.DEFAULT)
+
+        assertNull(requireNotNull(postUi).repostedBy)
+    }
+
+    @Test
+    fun `toFeedViewPostOrNull is the single decode seam and skips a bad row`() {
+        val good =
+            feedViewPostWire(replyRoot = "at://did:plc:abc/app.bsky.feed.post/3kroot")
+                .toFeedPostEntity(key, position = 0)
+        assertNotNull(good.toFeedViewPostOrNull())
+
+        assertNull(good.copy(entryBlob = null).toFeedViewPostOrNull())
+        assertNull(good.copy(entryBlob = "{ not valid json").toFeedViewPostOrNull())
     }
 
     @Test

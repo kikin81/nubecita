@@ -70,10 +70,16 @@ fun FeedViewPost.toFeedPostEntity(
  * [FeedViewPost], project its post to a UI [PostUi] via the shared
  * `:core:feed-mapping` mapper, then apply moderation.
  *
- * This returns the entry's **post** only, which is what the widget and Wear
- * `head` surfaces consume. Surfacing the entry-level repost attribution and the
- * reply context into the grouped `FeedItemUi` projection is the write-time
- * projection's job, not this mapper's.
+ * The returned [PostUi] carries the entry's repost attribution, which the bare
+ * `toPostUiCore` leaves null because `reason` lives on the entry rather than on
+ * the post. Before the blob widened there was nothing to read it from, so every
+ * cached repost rendered as though it were an original post — visible on the
+ * Wear surface, which maps `repostedBy` into its watch DTO. (The home-screen
+ * widget is unaffected: `WidgetPostItem` carries no repost field.)
+ *
+ * Reconstructing the *reply* context into a grouped `FeedItemUi` is the
+ * write-time projection's job, not this mapper's — this returns the entry's
+ * post, which is what the `head` surfaces consume.
  *
  * Returns `null` when:
  * - the blob is absent or malformed (can't decode as a [PostView]);
@@ -91,19 +97,45 @@ fun FeedPostEntity.toPostUi(
     viewerDid: String?,
     prefs: ModerationPrefs,
 ): PostUi? {
-    val blob = entryBlob ?: return null
-    val entry =
-        runCatching { CacheJson.decodeFromString(FeedViewPost.serializer(), blob) }
-            .getOrNull() ?: return null
+    val entry = toFeedViewPostOrNull() ?: return null
     val view = entry.post
     val postUi = view.toPostUiCore(viewerDid) ?: return null
-    return postUi.applyModeration(
-        labels = view.labels,
-        viewerDid = viewerDid,
-        prefs = prefs,
-        dropFiltered = true,
-    )
+    return postUi
+        .copy(repostedBy = entry.repostedByDisplay())
+        .applyModeration(
+            labels = view.labels,
+            viewerDid = viewerDid,
+            prefs = prefs,
+            dropFiltered = true,
+        )
 }
+
+/**
+ * Decode [FeedPostEntity.entryBlob] back to the wire [FeedViewPost], or `null`
+ * when the blob is absent or malformed.
+ *
+ * This is deliberately the **only** place the blob is deserialized. The
+ * write-time grouping projection needs the same wire entry that [toPostUi]
+ * needs, and two decode sites would be two places for the error handling — and
+ * the `CacheJson` configuration — to drift apart. A row that cannot be decoded
+ * is skipped rather than throwing: a single corrupt blob must not take down a
+ * whole page of an otherwise readable partition.
+ */
+fun FeedPostEntity.toFeedViewPostOrNull(): FeedViewPost? {
+    val blob = entryBlob ?: return null
+    return runCatching { CacheJson.decodeFromString(FeedViewPost.serializer(), blob) }.getOrNull()
+}
+
+/**
+ * The repost attribution to display for this entry, or `null` when it is not a
+ * repost.
+ *
+ * `displayName ?: handle` mirrors `:feature:feed:impl`'s `FeedViewPostMapper`
+ * exactly, and must keep mirroring it: the same post read from the network and
+ * read from the cache has to render the same attribution, or a cached repost
+ * would change its label the moment the feed refreshed.
+ */
+private fun FeedViewPost.repostedByDisplay(): String? = (reason as? ReasonRepost)?.by?.let { it.displayName ?: it.handle.raw }
 
 /**
  * Decode the post's `record` to its `text`, or `""` when it can't be decoded.

@@ -47,4 +47,6 @@ This change makes the Following feed read from that cache, remembers where you w
 - **A user-facing setting.** No "maintain my position" toggle — the behaviour is the default and the only mode.
 - **A count on the pill.** Decided against in brainstorming: the avatars convey "there is new stuff" without implying an inbox to clear.
 - **A time-based staleness cut-off.** The catch-up range is bounded by pages fetched, never by wall-clock hours (see **design.md** D5).
-- **Changing the widget or Wear surfaces.** They keep reading `head(feedKey, n)` with no signature change.
+- **Reworking the widget or Wear surfaces.** They keep reading `head(feedKey, n)` with no signature change, and the home-screen widget's rendering is unaffected — `WidgetPostItem` carries no repost field.
+
+  One **Wear-visible fix** does fall out of the widened unit, and it is in scope rather than a non-goal: `WearPostMapping` maps `repostedBy` into its watch DTO, but the cache had no `reason` to read, so every cached repost reached the watch with no attribution and rendered as though it were an original post. The read mapper now surfaces it, deriving `displayName ?: handle` identically to `:feature:feed:impl`'s `FeedViewPostMapper` so the same post reads the same whether it came from the cache or the network. The DTO shape is unchanged — a previously-always-null field now carries a value — so no `:core:wear-contract` version bump is needed.
