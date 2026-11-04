@@ -259,6 +259,107 @@ internal class FeedThreadRootDedupeTest {
 
     // ---------- helpers ----------
 
+    // --- cross-page scoping (design D7) -----------------------------------
+    //
+    // The seeded parameters are how the three load directions differ. These
+    // cases pin the asymmetry itself, because the two directions produce
+    // OPPOSITE outcomes from identical input and a single implementation that
+    // ignored the seed would still pass every unseeded test above.
+
+    @Test
+    fun `append drops a second reply into a thread already rendered above`() {
+        // What the accumulated list used to give for free: page 2's reply into a
+        // thread page 1 already shows is older than what is on screen.
+        val page = listOf(cluster("root-1", "parent-2", "leaf-3"))
+
+        val kept = page.dedupeByThreadRoot(seenRoots = setOf("root-1"))
+
+        assertTrue(kept.isEmpty(), "expected the page-2 duplicate to be dropped, got $kept")
+    }
+
+    @Test
+    fun `prepend keeps a newer reply into a thread rendered below the seam`() {
+        // The same input, the opposite outcome. A prepend seeds nothing, so the
+        // thread resurfaces with its newer reply instead of being suppressed by
+        // an occurrence the reader has already scrolled past.
+        val page = listOf(cluster("root-1", "parent-2", "leaf-3"))
+
+        val kept = page.dedupeByThreadRoot()
+
+        assertEquals(1, kept.size)
+        assertEquals("leaf-3", kept.single().key)
+    }
+
+    @Test
+    fun `a single item is still dropped when its root was seen above`() {
+        // size < 2 used to be a safe early return; with a seed it is not, and
+        // this is the case that would slip through if the shortcut stayed.
+        val page = listOf(single("root-1"))
+
+        assertTrue(page.dedupeByThreadRoot(seenRoots = setOf("root-1")).isEmpty())
+    }
+
+    @Test
+    fun `a repost is still exempt when its root was seen above`() {
+        // The repost exemption is not weakened by seeding: an endorsement by
+        // someone the viewer follows is its own event.
+        val page = listOf(repost("root-1"))
+
+        assertEquals(1, page.dedupeByThreadRoot(seenRoots = setOf("root-1")).size)
+    }
+
+    @Test
+    fun `duplicates within one written page are dropped regardless of the seed`() {
+        val page =
+            listOf(
+                cluster("root-9", "parent-1", "leaf-1"),
+                cluster("root-9", "parent-2", "leaf-2"),
+            )
+
+        val kept = page.dedupeByThreadRoot(seenRoots = setOf("root-other"))
+
+        assertEquals(1, kept.size)
+        assertEquals("leaf-1", kept.single().key)
+    }
+
+    @Test
+    fun `an empty seed reproduces the unseeded behaviour exactly`() {
+        // The compatibility guarantee the default arguments rest on.
+        val page =
+            listOf(
+                single("a"),
+                cluster("root-9", "parent-1", "leaf-1"),
+                cluster("root-9", "parent-2", "leaf-2"),
+            )
+
+        assertEquals(
+            page.dedupeByThreadRoot().map { it.key },
+            page.dedupeByThreadRoot(seenRoots = emptySet(), visibleFromAbove = emptySet()).map { it.key },
+        )
+    }
+
+    @Test
+    fun `a post already visible above is not counted as a suppressed reply`() {
+        // visibleFromAbove feeds the same rule the unseeded pass applies within
+        // a page: a post the reader can already see is not "more replies".
+        val page =
+            listOf(
+                cluster("root-5", "parent-5", "leaf-5"),
+                cluster("root-5", "parent-6", "leaf-6"),
+            )
+
+        val withoutContext = page.dedupeByThreadRoot().single()
+        val withContext =
+            page.dedupeByThreadRoot(visibleFromAbove = setOf("leaf-6", "parent-6")).single()
+
+        assertTrue(
+            withContext.suppressedReplyCount <= withoutContext.suppressedReplyCount,
+            "seeding visible posts must not increase the suppressed count",
+        )
+    }
+
+    private fun repost(id: String) = FeedItemUi.Single(samplePost(id).copy(repostedBy = "Reposter"))
+
     private fun single(id: String) = FeedItemUi.Single(samplePost(id))
 
     private fun cluster(
