@@ -3,6 +3,7 @@ package net.kikin.nubecita.core.auth
 import androidx.datastore.core.DataStore
 import io.github.kikin81.atproto.oauth.OAuthSession
 import io.github.kikin81.atproto.oauth.OAuthSessionStore
+import kotlinx.coroutines.delay
 import net.kikin.nubecita.core.analytics.SessionClearReason
 import timber.log.Timber
 import javax.inject.Inject
@@ -52,6 +53,12 @@ class AuthTestHarness
         enum class Scenario(
             val label: String,
             val expectation: String,
+            /**
+             * True when the scenario reports through the normal telemetry path
+             * before the process is halted, so the halt has to wait for that
+             * report to reach disk.
+             */
+            val recordsTelemetryInline: Boolean = false,
         ) {
             /**
              * The main event. Poisons both tokens: the bad access token makes the
@@ -93,6 +100,7 @@ class AuthTestHarness
             DirectClear(
                 label = "Direct clear (no refresh)",
                 expectation = "session_cleared with reason=unknown, no refresh breadcrumbs",
+                recordsTelemetryInline = true,
             ),
         }
 
@@ -111,6 +119,17 @@ class AuthTestHarness
                 Scenario.BadAccessToken -> poison(accessToken = POISON, refreshToken = null)
                 Scenario.ProcessDeathMidClear -> stageInterruptedClear()
                 Scenario.DirectClear -> sessionStore.clear()
+            }
+            // Crashlytics persists a recordException asynchronously, so halting
+            // the instant clear() returns kills the process before the report
+            // reaches disk — the harness destroys the very evidence it exists to
+            // capture. Only DirectClear records telemetry inline; the others
+            // halt before anything is reported, by design, and pay nothing for
+            // the wait. A real logout is never followed by an immediate kill,
+            // so this delay makes the scenario MORE faithful, not less.
+            if (scenario.recordsTelemetryInline) {
+                Timber.tag(TAG).i("staged %s — letting telemetry persist", scenario.name)
+                delay(TELEMETRY_PERSIST_DELAY_MILLIS)
             }
             Timber.tag(TAG).i("staged %s — halting", scenario.name)
             halt()
@@ -162,5 +181,11 @@ class AuthTestHarness
              * obvious in a capture that this was deliberate.
              */
             const val POISON = "nubecita-harness-deliberately-invalid-token"
+
+            /**
+             * Generous on purpose: this runs once, by hand, and a report lost to
+             * an impatient halt costs a whole re-run plus a fresh sign-in.
+             */
+            const val TELEMETRY_PERSIST_DELAY_MILLIS = 3_000L
         }
     }
