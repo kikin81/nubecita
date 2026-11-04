@@ -15,11 +15,11 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
-import net.kikin.nubecita.core.feeds.FeedViewPrefs
 import net.kikin.nubecita.core.feeds.ReplyVisibility
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.testing.android.MockEngineHandlerHolder
 import net.kikin.nubecita.data.models.FeedItemUi
+import net.kikin.nubecita.data.models.FeedViewPrefs
 import net.kikin.nubecita.feature.feed.impl.data.DefaultFeedRepository
 import org.junit.After
 import org.junit.Assert.assertEquals

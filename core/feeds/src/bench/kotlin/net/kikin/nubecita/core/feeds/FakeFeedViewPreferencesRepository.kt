@@ -3,6 +3,7 @@ package net.kikin.nubecita.core.feeds
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import net.kikin.nubecita.data.models.FeedViewPrefs
 import javax.inject.Inject
 import javax.inject.Singleton
 

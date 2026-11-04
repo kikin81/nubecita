@@ -25,13 +25,16 @@ import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.database.NubecitaDatabase
 import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedItemDao
+import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.model.CachedFeedEntry
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPrefs
+import net.kikin.nubecita.data.models.FeedItemUi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -40,7 +43,10 @@ internal class FeedRepositoryTest {
     private val key = FeedKey.following("did:plc:me")
     private val feedPostDao = mockk<FeedPostDao>(relaxed = true)
     private val cachedPostDao = mockk<CachedPostDao>(relaxed = true)
+    private val projectionWriter = mockk<FeedProjectionWriter>(relaxed = true)
     private val feedItemDao = mockk<FeedItemDao>(relaxed = true)
+    private val partitionStateDao = mockk<FeedPartitionStateDao>(relaxed = true)
+    private val database = mockk<NubecitaDatabase>(relaxed = true)
     private val remoteKeyDao = mockk<FeedRemoteKeyDao>(relaxed = true)
     private val networkSource = mockk<FeedNetworkSource>(relaxed = true)
 
@@ -62,17 +68,16 @@ internal class FeedRepositoryTest {
     // No-op mediator so the Pager doesn't hit the network; the PagingSource
     // already returns the seeded rows.
     private val noopMediator =
-        object : RemoteMediator<Int, CachedFeedEntry>() {
+        object : RemoteMediator<Int, FeedItemUi>() {
             override suspend fun initialize() = InitializeAction.SKIP_INITIAL_REFRESH
 
             override suspend fun load(
                 loadType: LoadType,
-                state: PagingState<Int, CachedFeedEntry>,
+                state: PagingState<Int, FeedItemUi>,
             ) = MediatorResult.Success(endOfPaginationReached = true)
         }
 
-    private fun repository(seed: List<CachedFeedEntry>): DefaultFeedRepository {
-        coEvery { feedPostDao.pagingSource(any(), any(), any()) } answers { FakePagingSource(seed) }
+    private fun repository(seed: List<FeedItemUi>): DefaultFeedRepository {
         val factory =
             object : FeedRemoteMediator.Factory {
                 override fun create(feedKey: FeedKey) = error("unused — repository wraps in a no-op for the test")
@@ -81,6 +86,8 @@ internal class FeedRepositoryTest {
             feedPostDao = feedPostDao,
             cachedPostDao = cachedPostDao,
             feedItemDao = feedItemDao,
+            partitionStateDao = partitionStateDao,
+            database = database,
             remoteKeyDao = remoteKeyDao,
             mediatorFactory = factory,
             sessionStateProvider = sessionProvider,
@@ -91,39 +98,38 @@ internal class FeedRepositoryTest {
                     networkSource = networkSource,
                     feedPostDao = feedPostDao,
                     cachedPostDao = cachedPostDao,
+                    projectionWriter = projectionWriter,
                     remoteKeyDao = remoteKeyDao,
                     transactionRunner = passthroughRunner,
                 ),
             testMediator = noopMediator,
+            testRows = seed,
         )
     }
 
     @Test
     fun `normal entity maps to PostUi in the paged stream`() =
         runTest {
-            val repo = repository(listOf(entity("good", text = "hello", position = 0)))
+            val repo = repository(listOf(item("good", text = "hello", position = 0)))
 
             val items = repo.pagedFeed(key).asSnapshot()
 
             assertEquals(1, items.size)
-            assertEquals("hello", items.single().text)
+            assertEquals("hello", (items.single() as FeedItemUi.Single).post.text)
         }
 
     @Test
-    fun `moderation-filtered entity is dropped from the paged stream`() =
+    fun `the paged stream serves the projection unchanged`() =
         runTest {
-            // adult content disabled (DEFAULT) -> a porn-labeled post is dropped.
-            val repo =
-                repository(
-                    listOf(
-                        entity("ok", text = "kept", position = 0),
-                        entity("nsfw", text = "dropped", position = 1, labels = listOf("did:plc:labeler" to "porn")),
-                    ),
-                )
+            // Moderation and the reply tuners are applied where the projection
+            // is computed, not here: this layer hands through whatever the
+            // source read. The dropping behaviour is covered against the
+            // rehydration mapper, which is where it now lives.
+            val repo = repository(listOf(item("a", text = "first", position = 0), item("b", text = "second", position = 1)))
 
             val items = repo.pagedFeed(key).asSnapshot()
 
-            assertEquals(listOf("kept"), items.map { it.text })
+            assertEquals(listOf("first", "second"), items.map { (it as FeedItemUi.Single).post.text })
         }
 
     @Test
@@ -132,8 +138,8 @@ internal class FeedRepositoryTest {
             val rows =
                 MutableStateFlow(
                     listOf(
-                        entity("a", text = "first", position = 0),
-                        entity("b", text = "second", position = 1),
+                        entry("a", text = "first", position = 0),
+                        entry("b", text = "second", position = 1),
                     ),
                 )
             every { feedPostDao.head("did:plc:me", "FOLLOWING", "", 5) } returns rows
@@ -152,8 +158,8 @@ internal class FeedRepositoryTest {
             val rows =
                 MutableStateFlow(
                     listOf(
-                        entity("ok", text = "kept", position = 0),
-                        entity("nsfw", text = "dropped", position = 1, labels = listOf("did:plc:labeler" to "porn")),
+                        entry("ok", text = "kept", position = 0),
+                        entry("nsfw", text = "dropped", position = 1, labels = listOf("did:plc:labeler" to "porn")),
                     ),
                 )
             every { feedPostDao.head("did:plc:me", "FOLLOWING", "", 10) } returns rows
@@ -168,13 +174,13 @@ internal class FeedRepositoryTest {
     @Test
     fun `head emits again on a cache change`() =
         runTest {
-            val rows = MutableStateFlow(listOf(entity("a", text = "first", position = 0)))
+            val rows = MutableStateFlow(listOf(entry("a", text = "first", position = 0)))
             every { feedPostDao.head("did:plc:me", "FOLLOWING", "", 5) } returns rows
             val repo = repository(emptyList())
 
             repo.head(key, n = 5).test {
                 assertEquals(listOf("first"), awaitItem().map { it.text })
-                rows.value = listOf(entity("a", text = "first", position = 0), entity("b", text = "second", position = 1))
+                rows.value = listOf(entry("a", text = "first", position = 0), entry("b", text = "second", position = 1))
                 assertEquals(listOf("first", "second"), awaitItem().map { it.text })
                 cancelAndIgnoreRemainingEvents()
             }
@@ -198,6 +204,7 @@ internal class FeedRepositoryTest {
             coVerify { feedPostDao.clearAccount("did:plc:me") }
             coVerify { feedItemDao.clearAccount("did:plc:me") }
             coVerify { cachedPostDao.clearAccount("did:plc:me") }
+            coVerify { partitionStateDao.clearAccount("did:plc:me") }
             coVerify { remoteKeyDao.clearAccount("did:plc:me") }
         }
 
@@ -220,12 +227,55 @@ internal class FeedRepositoryTest {
             override suspend fun <T> run(block: suspend () -> T): T = block()
         }
 
+    @Test
+    fun `head is undeduplicated - two entries in one thread both survive`() =
+        runTest {
+            // The projection would collapse these to one item: they share a
+            // thread root, and thread-root de-duplication keeps the first. The
+            // widget and the watch render a flat list and want both, so head
+            // must not go through the projection.
+            val rows =
+                MutableStateFlow(
+                    listOf(
+                        entry("r1", text = "first reply", position = 0),
+                        entry("r2", text = "second reply", position = 1),
+                    ),
+                )
+            every { feedPostDao.head("did:plc:me", "FOLLOWING", "", 10) } returns rows
+            val repo = repository(emptyList())
+
+            repo.head(key, n = 10).test {
+                assertEquals(listOf("first reply", "second reply"), awaitItem().map { it.text })
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `head never reads the projection`() =
+        runTest {
+            // The structural guarantee behind D15, and the one a future change
+            // is most likely to break: routing head through feed_item would
+            // silently apply the reply tuners and de-duplication to the widget
+            // and the watch, which curate nothing and expect every entry.
+            val rows = MutableStateFlow(listOf(entry("a", text = "only", position = 0)))
+            every { feedPostDao.head("did:plc:me", "FOLLOWING", "", 3) } returns rows
+            val repo = repository(emptyList())
+
+            repo.head(key, n = 3).test {
+                awaitItem()
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            coVerify(exactly = 0) { feedItemDao.itemsIn(any(), any(), any()) }
+            coVerify(exactly = 0) { feedItemDao.itemsFrom(any(), any(), any(), any(), any()) }
+        }
+
     /**
-     * One row of the joined read shape, built from the two production write
-     * mappers so the fake source cannot serve a pairing the write path would
-     * never produce.
+     * One joined entry row, as `head` reads them — built from the two
+     * production write mappers so a test cannot serve a pairing the write path
+     * would never produce.
      */
-    private fun entity(
+    private fun entry(
         tail: String,
         text: String,
         position: Int,
@@ -243,6 +293,17 @@ internal class FeedRepositoryTest {
             post = wire.toCachedPosts(key).first { it.uri == envelope.uri },
         )
     }
+
+    /** One rendered item, as the projection would have produced it. */
+    private fun item(
+        tail: String,
+        text: String,
+        position: Int,
+        labels: List<Pair<String, String>> = emptyList(),
+    ): FeedItemUi =
+        FeedItemUi.Single(
+            requireNotNull(entry(tail, text, position, labels).toPostUi("did:plc:me", ModerationPrefs.DEFAULT)),
+        )
 }
 
 /**
@@ -254,17 +315,22 @@ private class TestFeedRepository(
     feedPostDao: FeedPostDao,
     cachedPostDao: CachedPostDao,
     feedItemDao: FeedItemDao,
+    partitionStateDao: FeedPartitionStateDao,
+    database: NubecitaDatabase,
     remoteKeyDao: FeedRemoteKeyDao,
     mediatorFactory: FeedRemoteMediator.Factory,
     sessionStateProvider: SessionStateProvider,
     moderationPreferences: ModerationPreferencesRepository,
     transactionRunner: FeedCacheTransactionRunner,
     feedRefresher: FeedRefresher,
-    private val testMediator: RemoteMediator<Int, CachedFeedEntry>,
+    private val testMediator: RemoteMediator<Int, FeedItemUi>,
+    private val testRows: List<FeedItemUi>,
 ) : DefaultFeedRepository(
         feedPostDao,
         cachedPostDao,
         feedItemDao,
+        partitionStateDao,
+        database,
         remoteKeyDao,
         mediatorFactory,
         sessionStateProvider,
@@ -272,16 +338,21 @@ private class TestFeedRepository(
         transactionRunner,
         feedRefresher,
     ) {
-    override fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, CachedFeedEntry> = testMediator
+    override fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, FeedItemUi> = testMediator
+
+    override fun pagingSourceFor(
+        feedKey: FeedKey,
+        initialPosition: Int?,
+    ): PagingSource<Int, FeedItemUi> = FakePagingSource(testRows)
 }
 
 /** In-memory single-page [PagingSource] over the seeded rows. */
 private class FakePagingSource(
-    private val rows: List<CachedFeedEntry>,
-) : PagingSource<Int, CachedFeedEntry>() {
-    override fun getRefreshKey(state: PagingState<Int, CachedFeedEntry>): Int? = null
+    private val rows: List<FeedItemUi>,
+) : PagingSource<Int, FeedItemUi>() {
+    override fun getRefreshKey(state: PagingState<Int, FeedItemUi>): Int? = null
 
-    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, CachedFeedEntry> = LoadResult.Page(data = rows, prevKey = null, nextKey = null)
+    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, FeedItemUi> = LoadResult.Page(data = rows, prevKey = null, nextKey = null)
 }
 
 private val repoTestJson =

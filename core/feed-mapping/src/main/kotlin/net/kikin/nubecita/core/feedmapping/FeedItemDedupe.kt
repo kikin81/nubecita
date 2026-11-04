@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.feed.impl.data
+package net.kikin.nubecita.core.feedmapping
 
 import net.kikin.nubecita.data.models.FeedItemUi
 
@@ -148,9 +148,24 @@ fun List<FeedItemUi>.dedupeByKey(): List<FeedItemUi> {
  * official rule: a repost is an explicit endorsement by someone the viewer
  * follows and carries its own signal even when the thread has already been seen.
  *
- * Pure and O(n) — one pass with a `HashSet` of seen roots. Applied to the
- * ACCUMULATED list by the VM, which makes it span pagination without a stateful
- * tuner and reset naturally on refresh.
+ * Pure and O(n) — one pass with a `HashSet` of seen roots.
+ *
+ * [seenRoots] and [visibleFromAbove] carry the state of whatever is **already
+ * rendered above** this page, which is what makes the pass span pagination.
+ * With both empty it behaves exactly as it did when the VM handed it the
+ * accumulated list, so every existing call site and test is unaffected.
+ *
+ * Seeding them is how the three load directions differ, and the asymmetry is
+ * deliberate (design D7):
+ *
+ * - **APPEND** seeds both from the partition above, so a second reply into a
+ *   thread already on screen is still dropped — the behaviour the accumulated
+ *   list used to give for free.
+ * - **PREPEND** seeds **neither**. Entries arriving above the reader's position
+ *   are a new event, and the occurrence below the seam is one they already
+ *   scrolled past; suppressing the new one would mean a thread could never
+ *   resurface with newer replies.
+ * - **REFRESH** rebuilds the partition, so there is nothing above to seed from.
  *
  * **Runs BEFORE [dedupeClusterContext]** — see that function's KDoc for why the
  * reverse order silently loses posts.
@@ -158,14 +173,24 @@ fun List<FeedItemUi>.dedupeByKey(): List<FeedItemUi> {
  * Design: `openspec/changes/fix-feed-thread-root-dedupe`. Tracked as
  * `nubecita-w9of`.
  */
-fun List<FeedItemUi>.dedupeByThreadRoot(): List<FeedItemUi> {
-    if (size < 2) return this
+fun List<FeedItemUi>.dedupeByThreadRoot(
+    seenRoots: Set<String> = emptySet(),
+    visibleFromAbove: Set<String> = emptySet(),
+): List<FeedItemUi> {
+    // The early return has to account for the seed: a single item that reuses a
+    // root already rendered above must still be dropped, so `size < 2` alone is
+    // no longer a safe shortcut.
+    if (size < 2 && seenRoots.isEmpty()) return this
 
     val survivors = ArrayList<FeedItemUi>(size)
     // Which survivor owns each thread, so a count lands on exactly one item
     // even when a repost survives alongside the first entry for that root.
     val ownerIndexByRoot = HashMap<String, Int>(size)
     val droppedByRoot = HashMap<String, MutableList<FeedItemUi>>()
+    // Roots owned by an item above this page have no index in `survivors`, so
+    // they are tracked separately: their duplicates are dropped, but the
+    // suppressed-reply count cannot be attributed to an item this pass holds.
+    val rootsOwnedAbove = seenRoots
 
     for (item in this) {
         val root = item.threadRootId()
@@ -175,7 +200,7 @@ fun List<FeedItemUi>.dedupeByThreadRoot(): List<FeedItemUi> {
         }
         // Register the root either way; a repost must not let later plain
         // replies into the same thread stack on top of it.
-        val firstTimeSeen = !ownerIndexByRoot.containsKey(root)
+        val firstTimeSeen = !ownerIndexByRoot.containsKey(root) && root !in rootsOwnedAbove
         if (firstTimeSeen || item.isRepost()) {
             if (firstTimeSeen) ownerIndexByRoot[root] = survivors.size
             survivors += item
@@ -190,9 +215,12 @@ fun List<FeedItemUi>.dedupeByThreadRoot(): List<FeedItemUi> {
     // most often the thread root, which the surviving item renders as context,
     // and in the reported reproduction the dropped cluster's leaf, which is the
     // survivor's parent.
-    val visible = HashSet<String>(survivors.size * 3)
+    val visible = HashSet<String>(survivors.size * 3 + visibleFromAbove.size)
+    visible += visibleFromAbove
     for (survivor in survivors) survivor.addRenderedPostIdsTo(visible)
     droppedByRoot.forEach { (root, dropped) ->
+        // No index means the thread's surviving item is above this page, so
+        // there is nothing here to attach the count to. The drop still stands.
         val index = ownerIndexByRoot[root] ?: return@forEach
         val count = dropped.sumOf { d -> d.countSuppressedRepliesNotIn(visible) }
         if (count > 0) survivors[index] = survivors[index].withSuppressedReplyCount(count)
@@ -241,8 +269,16 @@ private fun FeedItemUi.withSuppressedReplyCount(count: Int): FeedItemUi =
         is FeedItemUi.Blocked, is FeedItemUi.NotFound -> this
     }
 
-/** The thread this item belongs to, or null for tombstones (see [dedupeByThreadRoot]). */
-private fun FeedItemUi.threadRootId(): String? =
+/**
+ * The thread this item occupies, or null for tombstones — as
+ * [dedupeByThreadRoot] defines it.
+ *
+ * Public because the persisted projection stores it as a column and the APPEND
+ * seed is a query over that column: if the writer derived the root differently
+ * from the pass that consumes it, the seed would silently miss and duplicates
+ * would reappear across page boundaries. One definition, both callers.
+ */
+fun FeedItemUi.threadRootId(): String? =
     when (this) {
         is FeedItemUi.ReplyCluster -> root.id
         is FeedItemUi.SelfThreadChain -> posts.first().id

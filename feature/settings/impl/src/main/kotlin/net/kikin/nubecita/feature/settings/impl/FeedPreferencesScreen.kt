@@ -33,8 +33,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
-import net.kikin.nubecita.core.feeds.FeedViewPrefs
 import net.kikin.nubecita.core.feeds.ReplyVisibility
+import net.kikin.nubecita.data.models.FeedViewPrefs
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaListGroup
 import net.kikin.nubecita.designsystem.component.NubecitaListItem

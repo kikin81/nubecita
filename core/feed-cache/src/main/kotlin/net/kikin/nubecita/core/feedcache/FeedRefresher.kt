@@ -30,6 +30,7 @@ internal class FeedRefresher
         private val networkSource: FeedNetworkSource,
         private val feedPostDao: FeedPostDao,
         private val cachedPostDao: CachedPostDao,
+        private val projectionWriter: FeedProjectionWriter,
         private val remoteKeyDao: FeedRemoteKeyDao,
         private val transactionRunner: FeedCacheTransactionRunner,
     ) {
@@ -57,6 +58,9 @@ internal class FeedRefresher
                 // the order keeps the invariant obvious rather than incidental.
                 cachedPostDao.upsert(posts)
                 feedPostDao.upsert(entities)
+                // Inside the same transaction: a reader must never see a
+                // partition whose projection disagrees with its entry rows.
+                projectionWriter.writeRefresh(feedKey, page)
                 remoteKeyDao.upsert(
                     FeedRemoteKeyEntity(
                         accountDid = feedKey.accountDid,

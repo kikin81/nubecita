@@ -30,6 +30,7 @@ internal class FeedRefresherTest {
     private val networkSource = mockk<FeedNetworkSource>()
     private val feedPostDao = mockk<FeedPostDao>(relaxed = true)
     private val cachedPostDao = mockk<CachedPostDao>(relaxed = true)
+    private val projectionWriter = mockk<FeedProjectionWriter>(relaxed = true)
     private val remoteKeyDao = mockk<FeedRemoteKeyDao>(relaxed = true)
 
     private val passthroughRunner =
@@ -42,6 +43,7 @@ internal class FeedRefresherTest {
             networkSource = networkSource,
             feedPostDao = feedPostDao,
             cachedPostDao = cachedPostDao,
+            projectionWriter = projectionWriter,
             remoteKeyDao = remoteKeyDao,
             transactionRunner = passthroughRunner,
         )
@@ -87,6 +89,24 @@ internal class FeedRefresherTest {
             coVerifyOrder {
                 cachedPostDao.upsert(any())
                 feedPostDao.upsert(any())
+            }
+        }
+
+    @Test
+    fun `the projection is written after the posts and envelopes`() =
+        runTest {
+            // projectionWriter is a relaxed mock, so without this the
+            // projection write could be deleted and every other test here
+            // would still pass while the feed rendered nothing.
+            coEvery { networkSource.fetchPage(key, cursor = null) } returns
+                Result.success(listOf(feedPost("a", "first")) to null)
+
+            refresher.refresh(key)
+
+            coVerifyOrder {
+                cachedPostDao.upsert(any())
+                feedPostDao.upsert(any())
+                projectionWriter.writeRefresh(key, any())
             }
         }
 

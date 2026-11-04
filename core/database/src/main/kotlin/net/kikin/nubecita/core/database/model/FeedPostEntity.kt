@@ -58,4 +58,21 @@ data class FeedPostEntity(
     @ColumnInfo(name = "reposted_by_label") val repostedByLabel: String? = null,
     @ColumnInfo(name = "reply_root_uri") val replyRootUri: String? = null,
     @ColumnInfo(name = "reply_parent_uri") val replyParentUri: String? = null,
+    /**
+     * The entry's own wire fields — `reason` and `reply` — as a JSON object,
+     * or null when it carries neither.
+     *
+     * This is not a duplicate of anything: the post lives once in
+     * [CachedPostEntity], and these two fields have no other home. The three
+     * columns above are *denormalizations* of this blob for querying, not
+     * replacements for it — they reduce `reason` to a DID and a label and
+     * `reply` to two URIs, which is enough to query and not enough to
+     * reconstruct.
+     *
+     * It exists so the grouping projection can be recomputed from disk. The
+     * projection's input is a whole wire entry with these as open unions, so
+     * without them a preference change could only be applied by refetching —
+     * which costs the reader the position this cache exists to keep.
+     */
+    @ColumnInfo(name = "entry_context_blob") val entryContextBlob: String? = null,
 )

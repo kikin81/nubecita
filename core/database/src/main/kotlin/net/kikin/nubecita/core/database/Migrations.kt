@@ -73,7 +73,7 @@ internal object Migration6To7 : Migration(6, 7) {
                 "`account_did` TEXT NOT NULL, `feed_type` TEXT NOT NULL, `feed_uri` TEXT NOT NULL, " +
                 "`position` INTEGER NOT NULL, `uri` TEXT NOT NULL, " +
                 "`reposted_by_did` TEXT, `reposted_by_label` TEXT, " +
-                "`reply_root_uri` TEXT, `reply_parent_uri` TEXT, " +
+                "`reply_root_uri` TEXT, `reply_parent_uri` TEXT, `entry_context_blob` TEXT, " +
                 "PRIMARY KEY(`account_did`, `feed_type`, `feed_uri`, `position`))",
         )
         connection.execSQL("CREATE INDEX IF NOT EXISTS `index_feed_post_uri` ON `feed_post` (`uri`)")
@@ -95,11 +95,15 @@ internal object Migration6To7 : Migration(6, 7) {
                 "`account_did` TEXT NOT NULL, `feed_type` TEXT NOT NULL, `feed_uri` TEXT NOT NULL, " +
                 "`position` INTEGER NOT NULL, `row_type` TEXT NOT NULL, `variant` TEXT, " +
                 "`item_key` TEXT NOT NULL, `leaf_uri` TEXT, " +
-                "`suppressed_reply_count` INTEGER NOT NULL, `seam_exhausted` INTEGER, " +
+                "`suppressed_reply_count` INTEGER NOT NULL, `thread_root_uri` TEXT, " +
+                "`has_ellipsis` INTEGER, `seam_exhausted` INTEGER, " +
                 "PRIMARY KEY(`account_did`, `feed_type`, `feed_uri`, `position`))",
         )
         connection.execSQL("CREATE INDEX IF NOT EXISTS `index_feed_item_item_key` ON `feed_item` (`item_key`)")
         connection.execSQL("CREATE INDEX IF NOT EXISTS `index_feed_item_leaf_uri` ON `feed_item` (`leaf_uri`)")
+        connection.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_feed_item_thread_root_uri` ON `feed_item` (`thread_root_uri`)",
+        )
         connection.execSQL(
             "CREATE TABLE IF NOT EXISTS `feed_item_member` (" +
                 "`account_did` TEXT NOT NULL, `feed_type` TEXT NOT NULL, `feed_uri` TEXT NOT NULL, " +
@@ -112,6 +116,14 @@ internal object Migration6To7 : Migration(6, 7) {
         // The prepend cursors. ALTER rather than a recreate: the table keeps its
         // shape and its rows were already emptied above, so there is nothing to
         // preserve and nothing to rewrite.
+        // Per-partition reader state. New at v7, and the future home of the
+        // scroll anchor as well as this fingerprint.
+        connection.execSQL(
+            "CREATE TABLE IF NOT EXISTS `feed_partition_state` (" +
+                "`account_did` TEXT NOT NULL, `feed_type` TEXT NOT NULL, `feed_uri` TEXT NOT NULL, " +
+                "`prefs_fingerprint` TEXT, " +
+                "PRIMARY KEY(`account_did`, `feed_type`, `feed_uri`))",
+        )
         connection.execSQL("ALTER TABLE `feed_remote_keys` ADD COLUMN `boundary_since` TEXT")
         connection.execSQL("ALTER TABLE `feed_remote_keys` ADD COLUMN `fill_cursor` TEXT")
         connection.execSQL("ALTER TABLE `feed_remote_keys` ADD COLUMN `pending_boundary` TEXT")

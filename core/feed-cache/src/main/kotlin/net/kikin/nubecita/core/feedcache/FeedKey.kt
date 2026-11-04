@@ -21,6 +21,28 @@ enum class FeedType {
     DISCOVER,
     CUSTOM,
     LIST,
+    ;
+
+    /**
+     * Whether the viewer's feed-view preferences — the reply, repost and quote
+     * tuners — apply to this feed.
+     *
+     * True for the feeds the viewer's own follow graph composes. A generator
+     * curates its own output, so applying reply tuners to it would strip out
+     * most of what the algorithm deliberately selected; the official client
+     * applies these to `following` and `list…` descriptors only, never to
+     * `feedgen…`.
+     *
+     * Written as an exhaustive `when` rather than a property on each constant
+     * so that adding a feed type is a compile error here. Guessing wrong in
+     * either direction silently changes what a feed shows.
+     */
+    val isFollowScoped: Boolean
+        get() =
+            when (this) {
+                FOLLOWING, LIST -> true
+                DISCOVER, CUSTOM -> false
+            }
 }
 
 /**

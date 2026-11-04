@@ -39,6 +39,27 @@ interface FeedItemDao {
         position: Int,
     ): List<FeedItemMemberEntity>
 
+    /**
+     * Every member of a whole page of items, in one query.
+     *
+     * The read path reads a page at a time, so asking per row made the member
+     * lookup scale with page size — `pageSize + 1` queries to render one page,
+     * on the path a 120 Hz scroll depends on. Ordered by position then ordinal
+     * so the caller can group without re-sorting, and render order inside each
+     * item is preserved.
+     */
+    @Query(
+        "SELECT * FROM feed_item_member " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND position IN (:positions) ORDER BY position, ordinal",
+    )
+    suspend fun membersOfAll(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        positions: List<Int>,
+    ): List<FeedItemMemberEntity>
+
     @Query(
         "SELECT * FROM feed_item " +
             "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
@@ -68,6 +89,82 @@ interface FeedItemDao {
         feedType: String,
         feedUri: String,
         fromPosition: Int,
+        limit: Int,
+    ): List<FeedItemEntity>
+
+    /**
+     * The thread roots already rendered in this partition — the de-duplication
+     * seed for an APPEND.
+     *
+     * An APPEND lands below everything here, so a page reusing one of these
+     * roots is older than what the reader can already see and is dropped. A
+     * PREPEND deliberately does **not** call this: entries above the reader's
+     * position are a new event (design D7).
+     */
+    @Query(
+        "SELECT DISTINCT thread_root_uri FROM feed_item " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND thread_root_uri IS NOT NULL",
+    )
+    suspend fun seenThreadRoots(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+    ): List<String>
+
+    /**
+     * Every post this partition already puts on screen.
+     *
+     * Feeds `visibleFromAbove`: a suppressed post the reader can already see is
+     * not "more replies", and without this the count would inflate across page
+     * boundaries.
+     */
+    @Query(
+        "SELECT DISTINCT uri FROM feed_item_member " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri",
+    )
+    suspend fun renderedPostUris(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+    ): List<String>
+
+    /**
+     * The partition's last item — the one a newly appended page may extend.
+     *
+     * A self-author chain can straddle a pagination cut, and the merge needs
+     * the existing tail to prepend to, so this is read before an append writes.
+     */
+    @Query(
+        "SELECT * FROM feed_item " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND row_type = 'item' ORDER BY position DESC LIMIT 1",
+    )
+    suspend fun tailItem(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+    ): FeedItemEntity?
+
+    /**
+     * The window immediately **above** [beforePosition], newest-last.
+     *
+     * The upward half of the keyset read. A reader restored at an anchor sits
+     * mid-partition and must be able to scroll back towards newer items, which
+     * a forward-only source cannot serve. Returned in descending order; the
+     * caller reverses it to display order.
+     */
+    @Query(
+        "SELECT * FROM feed_item " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND position < :beforePosition " +
+            "ORDER BY position DESC LIMIT :limit",
+    )
+    suspend fun itemsBefore(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        beforePosition: Int,
         limit: Int,
     ): List<FeedItemEntity>
 
@@ -136,6 +233,48 @@ interface FeedItemDao {
         feedType: String,
         feedUri: String,
     ): FeedItemEntity?
+
+    /**
+     * Removes one item and its members.
+     *
+     * Used when an appended page absorbs the partition's tail into a chain:
+     * the old row has to go, or the same posts render twice — once as the tail
+     * and once inside the chain that swallowed it.
+     */
+    @Transaction
+    suspend fun deleteItemAt(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        position: Int,
+    ) {
+        deleteItemRowAt(accountDid, feedType, feedUri, position)
+        deleteMembersAt(accountDid, feedType, feedUri, position)
+    }
+
+    @Query(
+        "DELETE FROM feed_item " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND position = :position",
+    )
+    suspend fun deleteItemRowAt(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        position: Int,
+    )
+
+    @Query(
+        "DELETE FROM feed_item_member " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND position = :position",
+    )
+    suspend fun deleteMembersAt(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        position: Int,
+    )
 
     @Query(
         "DELETE FROM feed_item " +

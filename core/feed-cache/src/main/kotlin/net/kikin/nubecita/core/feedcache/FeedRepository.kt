@@ -4,22 +4,22 @@ import androidx.paging.ExperimentalPagingApi
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import androidx.paging.PagingSource
 import androidx.paging.RemoteMediator
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.database.NubecitaDatabase
 import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedItemDao
+import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
-import net.kikin.nubecita.core.database.model.CachedFeedEntry
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
+import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostUi
 import javax.inject.Inject
-import androidx.paging.filter as pagingFilter
-import androidx.paging.map as pagingMap
 
 /**
  * Read + maintenance surface over the offline feed cache. Exposes a paged feed
@@ -31,11 +31,22 @@ import androidx.paging.map as pagingMap
  */
 interface FeedRepository {
     /**
-     * Stream of paged [PostUi] for [feedKey], re-mapped from the cached wire
-     * posts on each load with the *current* viewer DID and moderation prefs.
-     * Moderation-filtered posts (a resolved HIDE) are dropped from the stream.
+     * The partition's rendered feed items, paged.
+     *
+     * Items, not posts: the grouping projection is computed when a page is
+     * written, so this streams what the reader actually sees — singles,
+     * clusters and chains — rather than a flat post list the consumer would
+     * have to group again.
+     *
+     * [initialPosition] is the stored scroll anchor's position when there is
+     * one: passing it as the `Pager`'s initial key means the first frame is
+     * already where the reader left off, rather than being scrolled there once
+     * it has drawn somewhere else.
      */
-    fun pagedFeed(feedKey: FeedKey): Flow<PagingData<PostUi>>
+    fun pagedFeed(
+        feedKey: FeedKey,
+        initialPosition: Int? = null,
+    ): Flow<PagingData<FeedItemUi>>
 
     /**
      * Stream of the newest (≤) [n] cached [PostUi] for [feedKey], ordered by
@@ -99,6 +110,8 @@ internal open class DefaultFeedRepository
         private val feedPostDao: FeedPostDao,
         private val cachedPostDao: CachedPostDao,
         private val feedItemDao: FeedItemDao,
+        private val partitionStateDao: FeedPartitionStateDao,
+        private val database: NubecitaDatabase,
         private val remoteKeyDao: FeedRemoteKeyDao,
         private val mediatorFactory: FeedRemoteMediator.Factory,
         private val sessionStateProvider: SessionStateProvider,
@@ -111,32 +124,44 @@ internal open class DefaultFeedRepository
          * JVM unit test can swap a no-op mediator (the assisted factory needs the
          * Hilt-generated impl, which a pure-JVM test can't construct).
          */
-        protected open fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, CachedFeedEntry> = mediatorFactory.create(feedKey)
+        protected open fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, FeedItemUi> = mediatorFactory.create(feedKey)
 
-        override fun pagedFeed(feedKey: FeedKey): Flow<PagingData<PostUi>> =
+        override fun pagedFeed(
+            feedKey: FeedKey,
+            initialPosition: Int?,
+        ): Flow<PagingData<FeedItemUi>> =
             Pager(
                 config = PagingConfig(pageSize = FeedRepository.PAGE_SIZE),
+                initialKey = initialPosition,
                 remoteMediator = mediatorFor(feedKey),
-                pagingSourceFactory = {
-                    feedPostDao.pagingSource(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
-                },
+                pagingSourceFactory = { pagingSourceFor(feedKey, initialPosition) },
             ).flow
-                .map { pagingData ->
-                    // Read current viewer + prefs INSIDE the per-item map (not
-                    // once per PagingData emission): pagingMap is applied lazily
-                    // as pages load, so reading .value here means a later APPEND
-                    // page — or a prefs/account change between loads — reflects
-                    // the current state without rebuilding the Pager. PagingData
-                    // requires non-null T, so map each entity to a nullable
-                    // holder, drop the nulls, then unwrap.
-                    pagingData
-                        .pagingMap { entity ->
-                            val viewerDid = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
-                            val prefs = moderationPreferences.prefs.value
-                            PostUiOrNull(entity.toPostUi(viewerDid, prefs))
-                        }.pagingFilter { it.value != null }
-                        .pagingMap { requireNotNull(it.value) }
-                }
+
+        /**
+         * The partition's read source. An `open` seam for the same reason
+         * [mediatorFor] is one: a JVM test can serve fixed rows without a real
+         * database, and the source itself is covered by its own tests.
+         */
+        protected open fun pagingSourceFor(
+            feedKey: FeedKey,
+            initialPosition: Int?,
+        ): PagingSource<Int, FeedItemUi> =
+            // A hand-rolled source keyed on `position`, not Room's generated
+            // one. The generated source's refresh key is an offset, so any
+            // write that adds rows above the reader moves it — see
+            // FeedItemPagingSource.
+            FeedItemPagingSource(
+                feedKey = feedKey,
+                feedItemDao = feedItemDao,
+                cachedPostDao = cachedPostDao,
+                database = database,
+                initialPosition = initialPosition,
+                // Read per load, not captured once: a later page, or a
+                // preference change between pages, reflects the current state
+                // without rebuilding the Pager.
+                viewerDid = { (sessionStateProvider.state.value as? SessionState.SignedIn)?.did },
+                prefs = { moderationPreferences.prefs.value },
+            )
 
         override fun head(
             feedKey: FeedKey,
@@ -175,6 +200,7 @@ internal open class DefaultFeedRepository
                 feedPostDao.clearAccount(accountDid)
                 feedItemDao.clearAccount(accountDid)
                 cachedPostDao.clearAccount(accountDid)
+                partitionStateDao.clearAccount(accountDid)
                 remoteKeyDao.clearAccount(accountDid)
             }
         }

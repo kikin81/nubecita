@@ -1,8 +1,8 @@
-package net.kikin.nubecita.feature.feed.impl.data
+package net.kikin.nubecita.core.feedmapping
 
 import io.github.kikin81.atproto.app.bsky.feed.GetTimelineResponse
 import kotlinx.serialization.json.Json
-import net.kikin.nubecita.core.feeds.FeedViewPrefs
+import net.kikin.nubecita.data.models.FeedViewPrefs
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test

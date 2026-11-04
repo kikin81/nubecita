@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import net.kikin.nubecita.core.auth.XrpcClientProvider
+import net.kikin.nubecita.data.models.FeedViewPrefs
 import javax.inject.Inject
 import javax.inject.Singleton
 
