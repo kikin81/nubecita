@@ -40,6 +40,12 @@ internal val MANUAL_MIGRATIONS: Array<Migration> = arrayOf(Migration6To7)
  * `LAUNCH_INITIAL_REFRESH` when the partition has no rows — and the cost is one
  * cold start after upgrade, which is what every launch costs today.
  *
+ * v7 also adds `cached_post`, the by-URI post store: one row per post per
+ * account, which both the partition rows and the grouped projection reference
+ * instead of carrying their own serialized copy. It is new, so there is nothing
+ * to migrate into it — and nothing to migrate *from*, since the v6 blobs are
+ * being discarded anyway.
+ *
  * `feed_remote_keys` keeps its schema (unchanged at v7) but its **rows** go
  * too: a `next_cursor` describes a pagination position inside a partition that
  * no longer has any rows, so keeping it would point APPEND at a gap.
@@ -69,6 +75,16 @@ internal object Migration6To7 : Migration(6, 7) {
             "CREATE INDEX IF NOT EXISTS `index_feed_post_author_did` ON `feed_post` (`author_did`)",
         )
         connection.execSQL("DELETE FROM `feed_remote_keys`")
+        // The by-URI post store. New at v7, so there is nothing to carry over.
+        connection.execSQL(
+            "CREATE TABLE IF NOT EXISTS `cached_post` (" +
+                "`account_did` TEXT NOT NULL, `uri` TEXT NOT NULL, `cid` TEXT, `author_did` TEXT, " +
+                "`indexed_at` INTEGER, `text` TEXT, `post_blob` TEXT, `unavailable` TEXT, " +
+                "PRIMARY KEY(`account_did`, `uri`))",
+        )
+        connection.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_cached_post_author_did` ON `cached_post` (`author_did`)",
+        )
     }
 }
 

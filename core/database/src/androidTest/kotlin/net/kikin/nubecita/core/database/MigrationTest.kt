@@ -217,6 +217,29 @@ internal class MigrationTest {
                 // A prepend writes above existing rows, so negatives must persist.
                 assertEquals(-1, c.getInt(4))
             }
+        // v7 also adds the by-URI post store, which both the partition rows and
+        // the grouped projection reference instead of carrying their own copy.
+        db.execSQL(
+            "INSERT INTO cached_post (account_did, uri, cid, author_did, indexed_at, text, post_blob, unavailable) " +
+                "VALUES ('did:c', 'at://post/new', 'cidnew', 'did:e', 7300, 'fresh', '{}', NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO cached_post (account_did, uri, cid, author_did, indexed_at, text, post_blob, unavailable) " +
+                "VALUES ('did:c', 'at://post/gone', NULL, NULL, NULL, NULL, NULL, 'blocked')",
+        )
+        db.query("SELECT uri, unavailable FROM cached_post ORDER BY uri").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("at://post/gone", c.getString(0))
+            assertEquals("blocked", c.getString(1))
+            assertTrue(c.moveToNext())
+            assertEquals("at://post/new", c.getString(0))
+            assertEquals(null, c.getString(1))
+        }
+        db.query("SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND tbl_name = 'cached_post'").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getInt(0) >= 1)
+        }
+
         db.query("SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND tbl_name = 'feed_post'").use { c ->
             assertTrue(c.moveToFirst())
             // Both named indices were recreated after the table was dropped.

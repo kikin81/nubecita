@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 7,
-    "identityHash": "9f53c77e9f30b894819cbc5431ce13d2",
+    "identityHash": "b76fc325fd6595cf0fd773900de74737",
     "entities": [
       {
         "tableName": "recent_search",
@@ -185,6 +185,72 @@
         ]
       },
       {
+        "tableName": "cached_post",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_did` TEXT NOT NULL, `uri` TEXT NOT NULL, `cid` TEXT, `author_did` TEXT, `indexed_at` INTEGER, `text` TEXT, `post_blob` TEXT, `unavailable` TEXT, PRIMARY KEY(`account_did`, `uri`))",
+        "fields": [
+          {
+            "fieldPath": "accountDid",
+            "columnName": "account_did",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uri",
+            "columnName": "uri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cid",
+            "columnName": "cid",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "authorDid",
+            "columnName": "author_did",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "indexedAt",
+            "columnName": "indexed_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "text",
+            "columnName": "text",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "postBlob",
+            "columnName": "post_blob",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "unavailable",
+            "columnName": "unavailable",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "account_did",
+            "uri"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_cached_post_author_did",
+            "unique": false,
+            "columnNames": [
+              "author_did"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_cached_post_author_did` ON `${TABLE_NAME}` (`author_did`)"
+          }
+        ]
+      },
+      {
         "tableName": "feed_remote_keys",
         "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_did` TEXT NOT NULL, `feed_type` TEXT NOT NULL, `feed_uri` TEXT NOT NULL, `next_cursor` TEXT, PRIMARY KEY(`account_did`, `feed_type`, `feed_uri`))",
         "fields": [
@@ -270,7 +336,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9f53c77e9f30b894819cbc5431ce13d2')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'b76fc325fd6595cf0fd773900de74737')"
     ]
   }
 }

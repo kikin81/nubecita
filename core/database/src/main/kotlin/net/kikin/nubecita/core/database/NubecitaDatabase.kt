@@ -5,11 +5,13 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import net.kikin.nubecita.core.database.dao.ActorDao
+import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.dao.RecentSearchDao
 import net.kikin.nubecita.core.database.dao.SavedFeedDao
 import net.kikin.nubecita.core.database.model.ActorEntity
+import net.kikin.nubecita.core.database.model.CachedPostEntity
 import net.kikin.nubecita.core.database.model.FeedPostEntity
 import net.kikin.nubecita.core.database.model.FeedRemoteKeyEntity
 import net.kikin.nubecita.core.database.model.RecentSearchEntity
@@ -40,6 +42,7 @@ import net.kikin.nubecita.core.database.util.InstantConverter
         RecentSearchEntity::class,
         ActorEntity::class,
         FeedPostEntity::class,
+        CachedPostEntity::class,
         FeedRemoteKeyEntity::class,
         SavedFeedEntity::class,
     ],
@@ -60,6 +63,8 @@ abstract class NubecitaDatabase : RoomDatabase() {
     abstract fun actorDao(): ActorDao
 
     abstract fun feedPostDao(): FeedPostDao
+
+    abstract fun cachedPostDao(): CachedPostDao
 
     abstract fun feedRemoteKeyDao(): FeedRemoteKeyDao
 
