@@ -158,12 +158,15 @@ class BaselineProfileGenerator {
                     // but on device it does not render in this sheet at all —
                     // there is empty space where it should sit — so waiting on
                     // it skipped this whole leg every time (nubecita-09n0).
-                    // The drag handle is the real unconditional element and is
-                    // the fallback when a video has no comments to list.
-                    device.awaitRes(VIDEO_COMMENTS_LIST_RES_ID, FEED_WAIT_MS)
-                        ?: check(device.hasObject(By.desc(SHEET_DRAG_HANDLE_DESC))) {
-                            "comments sheet did not open"
-                        }
+                    //
+                    // Gate on the drag handle, which IS unconditional, and only
+                    // then give the list a short wait: a video with no comments
+                    // never composes the list, so waiting the full timeout on it
+                    // first would stall every such video for the whole 15s.
+                    check(device.wait(Until.hasObject(By.desc(SHEET_DRAG_HANDLE_DESC)), FEED_WAIT_MS)) {
+                        "comments sheet did not open"
+                    }
+                    device.awaitRes(VIDEO_COMMENTS_LIST_RES_ID, SHORT_WAIT_MS)
                     SystemClock.sleep(RESULTS_SETTLE_MS)
                     if (device.hasObject(By.res(VIDEO_COMMENTS_LIST_RES_ID))) {
                         device.flingList(VIDEO_COMMENTS_LIST_RES_ID)
@@ -254,6 +257,7 @@ private const val FEED_WAIT_MS: Long = 15_000
 private const val TRENDING_FIRST_LOAD_MS: Long = 5_000
 private const val PULL_REFRESH_START_PX: Int = 80
 private const val PULL_REFRESH_END_PX: Int = 1_000
+private const val PULL_REFRESH_BOTTOM_MARGIN_PX: Int = 10
 private const val PULL_REFRESH_STEPS: Int = 60
 private const val PULL_REFRESH_SETTLE_MS: Long = 3_000
 private const val RESULTS_SETTLE_MS: Long = 2_000
@@ -353,7 +357,13 @@ private fun UiDevice.pullToRefresh(resId: String) {
     val list = awaitRes(resId) ?: return
     val bounds = list.visibleBounds
     val x = bounds.centerX()
-    swipe(x, bounds.top + PULL_REFRESH_START_PX, x, bounds.top + PULL_REFRESH_END_PX, PULL_REFRESH_STEPS)
+    // Clamp inside the list: the nominal pull distance is taller than a short
+    // list, a landscape window or a split-screen pane, and a swipe that runs
+    // past the bottom edge is not a pull.
+    val startY = bounds.top + PULL_REFRESH_START_PX
+    val endY = minOf(bounds.top + PULL_REFRESH_END_PX, bounds.bottom - PULL_REFRESH_BOTTOM_MARGIN_PX)
+    if (endY <= startY) return
+    swipe(x, startY, x, endY, PULL_REFRESH_STEPS)
     waitForIdle()
     SystemClock.sleep(PULL_REFRESH_SETTLE_MS)
 }
