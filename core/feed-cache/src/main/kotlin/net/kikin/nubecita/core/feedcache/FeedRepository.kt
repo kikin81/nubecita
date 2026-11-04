@@ -6,8 +6,13 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.PagingSource
 import androidx.paging.RemoteMediator
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.database.NubecitaDatabase
@@ -16,7 +21,9 @@ import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
+import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostUi
 import javax.inject.Inject
@@ -105,6 +112,31 @@ interface FeedRepository {
     )
 
     /**
+     * The authors of entries sitting above the reader's place that they have
+     * not acknowledged — what the new-posts pill shows, and the signal for
+     * whether to show it at all (empty means no pill).
+     *
+     * Derived from the partition rather than raised by a prepend result
+     * (D20). It has to be: the writes that matter are the background worker's,
+     * made while the app is away, where there is no in-session event for the
+     * UI to have observed. A `Flow`, so returning to a feed the worker touched
+     * raises the pill without anything asking.
+     *
+     * Capped at [PILL_FACES]: the pill shows a few faces, not a count.
+     */
+    fun newPostAuthors(feedKey: FeedKey): Flow<ImmutableList<AuthorUi>>
+
+    /**
+     * Acknowledge everything currently above the reader — what tapping the
+     * pill, or scrolling up past the new entries, means.
+     *
+     * Recorded as a position rather than a flag so a later arrival raises the
+     * pill again: anything written above the mark is new, anything below it
+     * has been seen.
+     */
+    suspend fun dismissNewPosts(feedKey: FeedKey)
+
+    /**
      * Drop the reader's place — what pull-to-refresh does (D8).
      *
      * The gesture means "give me a clean timeline", so restoring into the old
@@ -183,6 +215,15 @@ interface FeedRepository {
 
         /** Paging page size for the app feed. */
         const val PAGE_SIZE = 25
+
+        /**
+         * How many faces the new-posts pill shows.
+         *
+         * Three overlapping avatars and no count: the number of new posts is
+         * not something a reader acts on, and a count invites the "inbox at
+         * zero" feeling this feature is meant to avoid.
+         */
+        const val PILL_FACES = 3
     }
 }
 
@@ -192,7 +233,7 @@ interface FeedRepository {
  * nulls that moderation / malformed-blob produce. Reads `viewerDid` / `prefs`
  * via `.value` per item so the projection always reflects current state.
  */
-@OptIn(ExperimentalPagingApi::class)
+@OptIn(ExperimentalPagingApi::class, ExperimentalCoroutinesApi::class)
 internal open class DefaultFeedRepository
     @Inject
     constructor(
@@ -317,6 +358,48 @@ internal open class DefaultFeedRepository
                 itemKey = itemKey,
                 position = position,
                 offset = offset,
+            )
+        }
+
+        override fun newPostAuthors(feedKey: FeedKey): Flow<ImmutableList<AuthorUi>> =
+            partitionStateDao
+                .observe(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
+                .flatMapLatest { state ->
+                    // Dismissal wins over the anchor: once acknowledged, the
+                    // mark is the new waterline and only writes above IT count.
+                    // With neither, position 0 is the top of the last
+                    // destructive refresh, so a prepend's negative positions
+                    // are "above" and a reader at the top still sees the pill.
+                    val above = state?.pillDismissedPosition ?: state?.anchorPosition ?: 0
+                    feedItemDao.leafPostsAbove(
+                        feedKey.accountDid,
+                        feedKey.feedType.name,
+                        feedKey.feedUri,
+                        position = above,
+                        limit = FeedRepository.PILL_FACES,
+                    )
+                }.map { posts ->
+                    // Distinct by author: three faces from three people says
+                    // more than the same person three times.
+                    posts
+                        .mapNotNull { post -> post.toPostViewOrNull()?.toPostUiCore(currentViewerDid())?.author }
+                        .distinctBy { author -> author.did }
+                        .toImmutableList()
+                }
+
+        private fun currentViewerDid(): String? = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
+
+        override suspend fun dismissNewPosts(feedKey: FeedKey) {
+            // The current top IS the waterline: everything above the reader
+            // right now is what they are acknowledging.
+            val top =
+                feedItemDao.minPosition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
+                    ?: return
+            partitionStateDao.dismissPillAbove(
+                accountDid = feedKey.accountDid,
+                feedType = feedKey.feedType.name,
+                feedUri = feedKey.feedUri,
+                position = top,
             )
         }
 

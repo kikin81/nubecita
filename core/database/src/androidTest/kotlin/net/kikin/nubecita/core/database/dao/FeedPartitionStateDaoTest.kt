@@ -85,6 +85,48 @@ internal class FeedPartitionStateDaoTest : DatabaseTest() {
         }
 
     @Test
+    fun pillDismissalRoundTripsAndOutlivesTheProcess() =
+        runTest {
+            // "Survives process death" is exactly "it is a column": the pill
+            // is derived from storage on every composition, so a dismissal
+            // held in memory would re-raise the pill on the next cold start
+            // with the same rows still above the reader.
+            dao.dismissPillAbove(ACCOUNT, TYPE, FEED_URI, position = -250)
+
+            assertEquals(-250, dao.state(ACCOUNT, TYPE, FEED_URI)?.pillDismissedPosition)
+        }
+
+    @Test
+    fun pillDismissalDoesNotDisturbTheAnchor() =
+        runTest {
+            // The row carries three independent concerns now. The pill's
+            // waterline falls back to the anchor when unset, so clobbering it
+            // would both lose the reader's place and make the feed look like
+            // it had new posts.
+            dao.saveAnchor(ACCOUNT, TYPE, FEED_URI, itemKey = "single:at://post/a", position = 12, offset = -8)
+
+            dao.dismissPillAbove(ACCOUNT, TYPE, FEED_URI, position = -250)
+
+            val state = dao.state(ACCOUNT, TYPE, FEED_URI)
+            assertEquals("single:at://post/a", state?.anchorItemKey)
+            assertEquals(12, state?.anchorPosition)
+            assertEquals(-250, state?.pillDismissedPosition)
+        }
+
+    @Test
+    fun dismissingOnAPartitionWithNoRowYet() =
+        runTest {
+            // A reader can dismiss on a partition whose fingerprint and anchor
+            // were never written — an UPDATE alone would silently no-op and
+            // the pill would come straight back.
+            assertNull(dao.state(ACCOUNT, TYPE, FEED_URI))
+
+            dao.dismissPillAbove(ACCOUNT, TYPE, FEED_URI, position = -100)
+
+            assertEquals(-100, dao.state(ACCOUNT, TYPE, FEED_URI)?.pillDismissedPosition)
+        }
+
+    @Test
     fun anchorIsScopedToItsPartition() =
         runTest {
             dao.saveAnchor(ACCOUNT, TYPE, FEED_URI, itemKey = "single:at://post/e", position = 1, offset = 0)

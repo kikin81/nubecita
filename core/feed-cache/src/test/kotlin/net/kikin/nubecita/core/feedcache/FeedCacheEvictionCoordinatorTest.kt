@@ -1,15 +1,19 @@
 package net.kikin.nubecita.core.feedcache
 
 import androidx.paging.PagingData
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostUi
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -122,6 +126,10 @@ internal class FeedCacheEvictionCoordinatorTest {
         ) = Unit
 
         override suspend fun clearAnchor(feedKey: FeedKey) = Unit
+
+        override fun newPostAuthors(feedKey: FeedKey): Flow<ImmutableList<AuthorUi>> = flowOf(persistentListOf())
+
+        override suspend fun dismissNewPosts(feedKey: FeedKey) = Unit
 
         override suspend fun trimToCap(
             feedKey: FeedKey,

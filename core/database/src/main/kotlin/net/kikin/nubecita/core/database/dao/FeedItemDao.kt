@@ -4,6 +4,8 @@ import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
+import kotlinx.coroutines.flow.Flow
+import net.kikin.nubecita.core.database.model.CachedPostEntity
 import net.kikin.nubecita.core.database.model.FeedItemEntity
 import net.kikin.nubecita.core.database.model.FeedItemMemberEntity
 
@@ -308,6 +310,34 @@ interface FeedItemDao {
         feedUri: String,
         position: Int,
     )
+
+    /**
+     * The leaf posts of the items sitting **above** [position], newest first.
+     *
+     * Backs the new-posts pill, which shows the authors of what arrived while
+     * the reader was away. A `Flow`, because the writes it reports happen in
+     * the background worker: the pill has to appear when the reader returns
+     * without anything in the UI having asked.
+     *
+     * Items only — a seam marker has no leaf and is not something that
+     * arrived. Limited at the query, since the pill shows at most a handful of
+     * faces and the window above the anchor can be hundreds of rows.
+     */
+    @Query(
+        "SELECT cp.* FROM feed_item AS fi " +
+            "INNER JOIN cached_post AS cp " +
+            "ON cp.account_did = fi.account_did AND cp.uri = fi.leaf_uri " +
+            "WHERE fi.account_did = :accountDid AND fi.feed_type = :feedType AND fi.feed_uri = :feedUri " +
+            "AND fi.row_type = 'item' AND fi.position < :position " +
+            "ORDER BY fi.position LIMIT :limit",
+    )
+    fun leafPostsAbove(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        position: Int,
+        limit: Int,
+    ): Flow<List<CachedPostEntity>>
 
     /** The partition's seam marker, if a catch-up left one. At most one exists. */
     @Query(

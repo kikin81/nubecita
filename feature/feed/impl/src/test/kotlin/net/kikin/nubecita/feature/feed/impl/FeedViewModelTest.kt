@@ -7,6 +7,7 @@ import app.cash.turbine.test
 import io.github.kikin81.atproto.runtime.XrpcError
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
@@ -877,6 +878,16 @@ private class FakeFeedRepository(
 
     override suspend fun clearAnchor(feedKey: FeedKey) {
         anchorCleared++
+    }
+
+    /** Faces the pill would show, and whether the reader dismissed them. */
+    val newPosts = MutableStateFlow<ImmutableList<AuthorUi>>(persistentListOf())
+    var dismissals = 0
+
+    override fun newPostAuthors(feedKey: FeedKey): Flow<ImmutableList<AuthorUi>> = newPosts
+
+    override suspend fun dismissNewPosts(feedKey: FeedKey) {
+        dismissals++
     }
 
     override suspend fun trimToCap(

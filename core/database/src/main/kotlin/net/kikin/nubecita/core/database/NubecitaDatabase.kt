@@ -57,7 +57,7 @@ import net.kikin.nubecita.core.database.util.InstantConverter
         FeedRemoteKeyEntity::class,
         SavedFeedEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = BootstrapEntityDrop::class),
@@ -66,6 +66,7 @@ import net.kikin.nubecita.core.database.util.InstantConverter
         AutoMigration(from = 4, to = 5),
         AutoMigration(from = 5, to = 6),
         AutoMigration(from = 7, to = 8),
+        AutoMigration(from = 8, to = 9),
     ],
 )
 @TypeConverters(InstantConverter::class)

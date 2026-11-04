@@ -15,6 +15,8 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.add
@@ -32,6 +34,7 @@ import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.model.CachedFeedEntry
+import net.kikin.nubecita.core.database.model.CachedPostEntity
 import net.kikin.nubecita.core.database.model.FeedItemEntity
 import net.kikin.nubecita.core.database.model.FeedPartitionStateEntity
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
@@ -427,6 +430,104 @@ internal class FeedRepositoryTest {
             coVerify(exactly = 0) { partitionStateDao.upsert(any()) }
         }
 
+    // ---------- the new-posts pill ----------
+
+    @Test
+    fun `entries written above the reader raise the pill`() =
+        runTest {
+            // The case the pill exists for: the background worker prepended
+            // while the app was away, so there is no in-session event to
+            // observe — only rows above where the reader stopped (D20).
+            coEvery { partitionStateDao.observe("did:plc:me", "FOLLOWING", "") } returns
+                flowOf(FeedPartitionStateEntity("did:plc:me", "FOLLOWING", "", anchorPosition = 12))
+            coEvery {
+                feedItemDao.leafPostsAbove("did:plc:me", "FOLLOWING", "", position = 12, limit = 3)
+            } returns flowOf(listOf(cachedPost("at://new/1", "did:plc:nova"), cachedPost("at://new/2", "did:plc:theo")))
+
+            val authors = repository(emptyList()).newPostAuthors(key).first()
+
+            assertEquals(listOf("did:plc:nova", "did:plc:theo"), authors.map { it.did })
+        }
+
+    @Test
+    fun `nothing above the reader means no pill`() =
+        runTest {
+            coEvery { partitionStateDao.observe(any(), any(), any()) } returns
+                flowOf(FeedPartitionStateEntity("did:plc:me", "FOLLOWING", "", anchorPosition = 12))
+            coEvery { feedItemDao.leafPostsAbove(any(), any(), any(), any(), any()) } returns flowOf(emptyList())
+
+            assertEquals(emptyList<String>(), repository(emptyList()).newPostAuthors(key).first().map { it.did })
+        }
+
+    @Test
+    fun `a dismissal, not the anchor, is the waterline once it exists`() =
+        runTest {
+            // Dismissing has to beat the anchor or the pill would come back on
+            // the next composition, since the rows are still above the reader.
+            coEvery { partitionStateDao.observe(any(), any(), any()) } returns
+                flowOf(
+                    FeedPartitionStateEntity(
+                        "did:plc:me",
+                        "FOLLOWING",
+                        "",
+                        anchorPosition = 12,
+                        pillDismissedPosition = -250,
+                    ),
+                )
+            coEvery { feedItemDao.leafPostsAbove(any(), any(), any(), any(), any()) } returns flowOf(emptyList())
+
+            repository(emptyList()).newPostAuthors(key).first()
+
+            // Queried above the dismissal, not above the anchor.
+            coVerify { feedItemDao.leafPostsAbove("did:plc:me", "FOLLOWING", "", position = -250, limit = 3) }
+        }
+
+    @Test
+    fun `with neither anchor nor dismissal the waterline is the top of the last refresh`() =
+        runTest {
+            // Position 0 is where a destructive refresh starts writing, so a
+            // prepend's negative positions are above it and a reader who never
+            // scrolled still gets told about new posts.
+            coEvery { partitionStateDao.observe(any(), any(), any()) } returns flowOf(null)
+            coEvery { feedItemDao.leafPostsAbove(any(), any(), any(), any(), any()) } returns flowOf(emptyList())
+
+            repository(emptyList()).newPostAuthors(key).first()
+
+            coVerify { feedItemDao.leafPostsAbove("did:plc:me", "FOLLOWING", "", position = 0, limit = 3) }
+        }
+
+    @Test
+    fun `the same author twice shows one face`() =
+        runTest {
+            coEvery { partitionStateDao.observe(any(), any(), any()) } returns flowOf(null)
+            coEvery { feedItemDao.leafPostsAbove(any(), any(), any(), any(), any()) } returns
+                flowOf(listOf(cachedPost("at://new/1", "did:plc:nova"), cachedPost("at://new/2", "did:plc:nova")))
+
+            assertEquals(1, repository(emptyList()).newPostAuthors(key).first().size)
+        }
+
+    @Test
+    fun `dismissing records the current top as the waterline`() =
+        runTest {
+            // Everything above the reader right now is what they acknowledged;
+            // a later arrival lands above that mark and raises the pill again.
+            coEvery { feedItemDao.minPosition("did:plc:me", "FOLLOWING", "") } returns -250
+
+            repository(emptyList()).dismissNewPosts(key)
+
+            coVerify { partitionStateDao.dismissPillAbove("did:plc:me", "FOLLOWING", "", -250) }
+        }
+
+    @Test
+    fun `dismissing an empty partition writes nothing`() =
+        runTest {
+            coEvery { feedItemDao.minPosition(any(), any(), any()) } returns null
+
+            repository(emptyList()).dismissNewPosts(key)
+
+            coVerify(exactly = 0) { partitionStateDao.dismissPillAbove(any(), any(), any(), any()) }
+        }
+
     @Test
     fun `clearAccount clears every grain, not just the entry table`() =
         runTest {
@@ -527,6 +628,28 @@ internal class FeedRepositoryTest {
             post = wire.toCachedPosts(key).first { it.uri == envelope.uri },
         )
     }
+
+    /** A stored post whose blob carries [authorDid] — what the pill reads faces from. */
+    private fun cachedPost(
+        uri: String,
+        authorDid: String,
+    ) = CachedPostEntity(
+        accountDid = "did:plc:me",
+        uri = uri,
+        cid = "bafyreipill000000000000000000000000000000000000",
+        authorDid = authorDid,
+        postBlob =
+            """
+            {
+              "${'$'}type": "app.bsky.feed.defs#postView",
+              "uri": "$uri",
+              "cid": "bafyreipill000000000000000000000000000000000000",
+              "author": { "did": "$authorDid", "handle": "${authorDid.substringAfterLast(':')}.bsky.social" },
+              "record": { "${'$'}type": "app.bsky.feed.post", "text": "new post", "createdAt": "2026-04-26T12:00:00Z" },
+              "indexedAt": "2026-04-26T12:00:00Z"
+            }
+            """.trimIndent(),
+    )
 
     /** A projection row as the DAO returns it — what the dead-anchor fallback resolves to. */
     private fun itemRow(

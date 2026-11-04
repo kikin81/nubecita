@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.feed.impl.testing
 
 import androidx.paging.PagingData
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -85,6 +86,10 @@ internal class FakeFeedRepository
             storedAnchor = null
             savedAnchor = null
         }
+
+        override fun newPostAuthors(feedKey: FeedKey): Flow<ImmutableList<AuthorUi>> = flowOf(persistentListOf())
+
+        override suspend fun dismissNewPosts(feedKey: FeedKey) = Unit
 
         override suspend fun trimToCap(
             feedKey: FeedKey,
