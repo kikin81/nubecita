@@ -2,6 +2,7 @@ package net.kikin.nubecita.core.database
 
 import android.util.Log
 import androidx.room.Room
+import androidx.room.withTransaction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.test.runTest
@@ -138,17 +139,37 @@ internal class FeedPostScaleTest {
 
             // ---- D-A2 invariant 2: per-partition writes stay cheap ----
             // REFRESH-shaped op: clear the partition + re-insert CAP rows.
+            // Row construction is hoisted OUT of the measured block on purpose.
+            // representativeBlob builds a 1-3 KB string per row via repeat(), so
+            // 500 of them inside measureMillis would charge blob construction to
+            // the database and report a write regression that is really a
+            // measurement artifact.
             val refreshRows = (0 until CAP).map { rowFor(sample, it, "at://refresh/$it") }
+            val refreshPosts = refreshRows.map { cachedPostRow(sample, it.position, it.uri) }
+            // Attributed separately so a future change can tell which grain got
+            // slower rather than reading one number for both.
+            var clearMs = 0L
+            var postsMs = 0L
+            var envelopesMs = 0L
+            // Mirror the mediator REFRESH shape: clear the partition, then insert
+            // the page's posts and envelopes — all inside ONE transaction, as
+            // FeedRefresher does. That is not cosmetic: three autocommit
+            // statements are three commits, and the per-commit cost dominates
+            // this measurement far more than the SQL does.
             val refreshMs =
                 measureMillis {
-                    // Mirror the mediator REFRESH shape: clear the partition, then
-                    // insert page rows. (The real mediator wraps these in one
-                    // withTransaction; the timing is dominated by the same SQL.)
-                    dao.clearPartition(sample.accountDid, sample.feedType, sample.feedUri)
-                    cachedDao.upsert(refreshRows.map { cachedPostRow(sample, it.position, it.uri) })
-                    dao.upsert(refreshRows)
+                    db.withTransaction {
+                        clearMs =
+                            measureMillis { dao.clearPartition(sample.accountDid, sample.feedType, sample.feedUri) }
+                        postsMs = measureMillis { cachedDao.upsert(refreshPosts) }
+                        envelopesMs = measureMillis { dao.upsert(refreshRows) }
+                    }
                 }
-            Log.i(TAG, "REFRESH (clearPartition + upsert $CAP rows) took $refreshMs ms")
+            Log.i(
+                TAG,
+                "REFRESH (clearPartition + upsert $CAP rows) took $refreshMs ms " +
+                    "(clear=$clearMs posts=$postsMs envelopes=$envelopesMs)",
+            )
 
             val trimMs =
                 measureMillis {
