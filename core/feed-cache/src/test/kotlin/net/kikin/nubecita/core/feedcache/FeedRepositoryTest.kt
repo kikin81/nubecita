@@ -462,16 +462,88 @@ internal class FeedRepositoryTest {
         runTest {
             // The case the pill exists for: the background worker prepended
             // while the app was away, so there is no in-session event to
-            // observe — only rows above where the reader stopped (D20).
+            // observe — only rows written ABOVE the last refresh's top, which
+            // a prepend gives negative positions (D20). Note the anchor is set
+            // and deliberately ignored: where the reader is sitting has no
+            // bearing on what arrived.
             coEvery { partitionStateDao.observe("did:plc:me", "FOLLOWING", "") } returns
                 flowOf(FeedPartitionStateEntity("did:plc:me", "FOLLOWING", "", anchorPosition = 12))
             coEvery {
-                feedItemDao.leafPostsAbove("did:plc:me", "FOLLOWING", "", position = 12, limit = 15)
+                feedItemDao.leafPostsAbove("did:plc:me", "FOLLOWING", "", position = 0, limit = 15)
             } returns flowOf(listOf(cachedPost("at://new/1", "did:plc:nova"), cachedPost("at://new/2", "did:plc:theo")))
 
             val authors = repository(emptyList()).newPostAuthors(key).first()
 
             assertEquals(listOf("did:plc:nova", "did:plc:theo"), authors.map { it.did })
+        }
+
+    @Test
+    fun `a generator feed shows no pill no matter how far the reader scrolled`() =
+        runTest {
+            // The phantom-pill report: open For You, scroll, and the pill
+            // appears even though nothing new arrived. A generator cannot
+            // prepend, so every row it has sits at position 0 or below the
+            // reader — there is never anything "above" to announce.
+            val forYou = FeedKey("did:plc:me", FeedType.CUSTOM, "at://did:plc:x/app.bsky.feed.generator/for-you")
+            coEvery { partitionStateDao.observe(any(), any(), any()) } returns flowOf(null)
+            coEvery { feedItemDao.leafPostsAbove(any(), any(), any(), any(), any()) } returns flowOf(emptyList())
+
+            val faces = repository(emptyList()).newPostAuthors(forYou).first()
+
+            assertEquals(emptyList<String>(), faces.map { it.did })
+            // Position 0 is the waterline for a partition with no state.
+            coVerify { feedItemDao.leafPostsAbove(any(), any(), any(), position = 0, limit = any()) }
+        }
+
+    @Test
+    fun `a stale anchor left by an older build no longer raises the pill`() =
+        runTest {
+            // Reproduces the reported bug. `saveAnchor` is gated on
+            // `supportsSince` since 1.366.0, but the gate only stops NEW
+            // writes — a row written by an older build keeps its
+            // anchorPosition forever, and the pill treats it as the waterline.
+            // Everything the reader scrolled past is then "above" them.
+            val forYou = FeedKey("did:plc:me", FeedType.CUSTOM, "at://did:plc:x/app.bsky.feed.generator/for-you")
+            coEvery { partitionStateDao.observe(any(), any(), any()) } returns
+                flowOf(
+                    FeedPartitionStateEntity(
+                        "did:plc:me",
+                        FeedType.CUSTOM.name,
+                        forYou.feedUri,
+                        anchorPosition = 12,
+                    ),
+                )
+            // Rows the reader already scrolled past, which the stale anchor
+            // used to turn into "new posts".
+            coEvery { feedItemDao.leafPostsAbove(any(), any(), any(), position = 12, limit = any()) } returns
+                flowOf(listOf(cachedPost("at://old/1", "did:plc:nova")))
+            coEvery { feedItemDao.leafPostsAbove(any(), any(), any(), position = 0, limit = any()) } returns
+                flowOf(emptyList())
+
+            val faces = repository(emptyList()).newPostAuthors(forYou).first()
+
+            assertEquals(emptyList<String>(), faces.map { it.did })
+            // The stale anchor is never consulted; the waterline stays at 0.
+            coVerify { feedItemDao.leafPostsAbove(any(), any(), any(), position = 0, limit = any()) }
+        }
+
+    @Test
+    fun `scrolling down Following must not announce the posts just scrolled past`() =
+        runTest {
+            // Following DOES store an anchor on every scroll settle, so if the
+            // anchor is the waterline then simply scrolling turns already-read
+            // posts into "new" ones. Nothing arrived here: the partition holds
+            // only what a refresh wrote at 0..n and the reader is at 12.
+            coEvery { partitionStateDao.observe(any(), any(), any()) } returns
+                flowOf(FeedPartitionStateEntity("did:plc:me", "FOLLOWING", "", anchorPosition = 12))
+            coEvery { feedItemDao.leafPostsAbove(any(), any(), any(), position = 0, limit = any()) } returns
+                flowOf(emptyList())
+            coEvery { feedItemDao.leafPostsAbove(any(), any(), any(), position = 12, limit = any()) } returns
+                flowOf(listOf(cachedPost("at://read/1", "did:plc:nova")))
+
+            val faces = repository(emptyList()).newPostAuthors(key).first()
+
+            assertEquals(emptyList<String>(), faces.map { it.did })
         }
 
     @Test
