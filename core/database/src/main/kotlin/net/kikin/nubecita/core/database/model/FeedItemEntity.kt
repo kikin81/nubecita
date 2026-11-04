@@ -44,7 +44,7 @@ import androidx.room.Index
 @Entity(
     tableName = "feed_item",
     primaryKeys = ["account_did", "feed_type", "feed_uri", "position"],
-    indices = [Index("item_key"), Index("leaf_uri")],
+    indices = [Index("item_key"), Index("leaf_uri"), Index("thread_root_uri")],
 )
 data class FeedItemEntity(
     @ColumnInfo(name = "account_did") val accountDid: String,
@@ -58,6 +58,17 @@ data class FeedItemEntity(
     @ColumnInfo(name = "item_key") val itemKey: String,
     @ColumnInfo(name = "leaf_uri") val leafUri: String? = null,
     @ColumnInfo(name = "suppressed_reply_count") val suppressedReplyCount: Int = 0,
+    /**
+     * The thread this item occupies, as `dedupeByThreadRoot` derives it: a
+     * cluster's root, a chain's first post, a single's own post. Stored rather
+     * than derived from [itemKey] because the de-duplication seed for an APPEND
+     * is a query over it, and recovering it by stripping a key prefix would be a
+     * stringly convention that breaks without anything noticing. Null for a seam
+     * and for tombstones, which occupy no thread.
+     */
+    @ColumnInfo(name = "thread_root_uri") val threadRootUri: String? = null,
+    /** `ReplyCluster` only: whether context between root and parent is elided. */
+    @ColumnInfo(name = "has_ellipsis") val hasEllipsis: Boolean? = null,
     /** Seam rows only: whether the catch-up range above this seam is exhausted. */
     @ColumnInfo(name = "seam_exhausted") val seamExhausted: Boolean? = null,
 ) {

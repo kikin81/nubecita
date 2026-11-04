@@ -71,6 +71,60 @@ interface FeedItemDao {
         limit: Int,
     ): List<FeedItemEntity>
 
+    /**
+     * The thread roots already rendered in this partition — the de-duplication
+     * seed for an APPEND.
+     *
+     * An APPEND lands below everything here, so a page reusing one of these
+     * roots is older than what the reader can already see and is dropped. A
+     * PREPEND deliberately does **not** call this: entries above the reader's
+     * position are a new event (design D7).
+     */
+    @Query(
+        "SELECT DISTINCT thread_root_uri FROM feed_item " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND thread_root_uri IS NOT NULL",
+    )
+    suspend fun seenThreadRoots(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+    ): List<String>
+
+    /**
+     * Every post this partition already puts on screen.
+     *
+     * Feeds `visibleFromAbove`: a suppressed post the reader can already see is
+     * not "more replies", and without this the count would inflate across page
+     * boundaries.
+     */
+    @Query(
+        "SELECT DISTINCT uri FROM feed_item_member " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri",
+    )
+    suspend fun renderedPostUris(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+    ): List<String>
+
+    /**
+     * The partition's last item — the one a newly appended page may extend.
+     *
+     * A self-author chain can straddle a pagination cut, and the merge needs
+     * the existing tail to prepend to, so this is read before an append writes.
+     */
+    @Query(
+        "SELECT * FROM feed_item " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND row_type = 'item' ORDER BY position DESC LIMIT 1",
+    )
+    suspend fun tailItem(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+    ): FeedItemEntity?
+
     /** Resolves a persisted scroll anchor: the position of the row with this key. */
     @Query(
         "SELECT position FROM feed_item " +

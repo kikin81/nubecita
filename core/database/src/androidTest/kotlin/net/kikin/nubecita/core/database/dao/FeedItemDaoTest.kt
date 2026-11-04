@@ -30,6 +30,7 @@ internal class FeedItemDaoTest : DatabaseTest() {
         variant: String? = "single",
         leaf: String? = "at://post/$position",
         suppressed: Int = 0,
+        root: String? = "at://post/$position",
         account: String = ACCOUNT,
         type: String = TYPE,
         feed: String = FEED_URI,
@@ -43,6 +44,7 @@ internal class FeedItemDaoTest : DatabaseTest() {
         itemKey = key,
         leafUri = leaf,
         suppressedReplyCount = suppressed,
+        threadRootUri = root,
     )
 
     private fun seam(
@@ -165,6 +167,59 @@ internal class FeedItemDaoTest : DatabaseTest() {
             dao.upsert(listOf(item(position = 0, variant = "cluster", suppressed = 4)))
 
             assertEquals(4, dao.itemsIn(ACCOUNT, TYPE, FEED_URI).single().suppressedReplyCount)
+        }
+
+    @Test
+    fun seenThreadRoots_returnsTheAppendSeed_distinctAndScoped() =
+        runTest {
+            dao.upsert(
+                listOf(
+                    item(position = 0, root = "at://thread/a"),
+                    item(position = 1, root = "at://thread/a"),
+                    item(position = 2, root = "at://thread/b"),
+                    // A seam occupies no thread and must not pollute the seed.
+                    seam(position = -1, exhausted = false),
+                    item(position = 0, type = "DISCOVER", feed = "at://feed/x", root = "at://thread/elsewhere"),
+                ),
+            )
+
+            val roots = dao.seenThreadRoots(ACCOUNT, TYPE, FEED_URI).sorted()
+
+            assertEquals(listOf("at://thread/a", "at://thread/b"), roots)
+        }
+
+    @Test
+    fun renderedPostUris_returnsEveryPostTheePartitionShows() =
+        runTest {
+            dao.upsert(listOf(item(position = 0, variant = "cluster")))
+            dao.upsertMembers(
+                listOf(
+                    member(0, 0, "at://post/root"),
+                    member(0, 1, "at://post/parent"),
+                    member(0, 2, "at://post/leaf"),
+                ),
+            )
+
+            assertEquals(
+                listOf("at://post/leaf", "at://post/parent", "at://post/root"),
+                dao.renderedPostUris(ACCOUNT, TYPE, FEED_URI).sorted(),
+            )
+        }
+
+    @Test
+    fun tailItem_isTheLastItem_ignoringSeams() =
+        runTest {
+            // The append merge prepends to this item, so picking the seam
+            // instead would try to extend a chain into a marker row.
+            dao.upsert(listOf(item(position = 0), item(position = 5), seam(position = 9, exhausted = true)))
+
+            assertEquals(5, dao.tailItem(ACCOUNT, TYPE, FEED_URI)?.position)
+        }
+
+    @Test
+    fun tailItem_isNullOnAnEmptyPartition() =
+        runTest {
+            assertNull(dao.tailItem(ACCOUNT, TYPE, FEED_URI))
         }
 
     @Test

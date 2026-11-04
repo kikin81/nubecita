@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 7,
-    "identityHash": "d03dad8a6cf46349c3fffbf21018c8a1",
+    "identityHash": "0cf381e954c76709d1785e22a762ab26",
     "entities": [
       {
         "tableName": "recent_search",
@@ -219,7 +219,7 @@
       },
       {
         "tableName": "feed_item",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_did` TEXT NOT NULL, `feed_type` TEXT NOT NULL, `feed_uri` TEXT NOT NULL, `position` INTEGER NOT NULL, `row_type` TEXT NOT NULL, `variant` TEXT, `item_key` TEXT NOT NULL, `leaf_uri` TEXT, `suppressed_reply_count` INTEGER NOT NULL, `seam_exhausted` INTEGER, PRIMARY KEY(`account_did`, `feed_type`, `feed_uri`, `position`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_did` TEXT NOT NULL, `feed_type` TEXT NOT NULL, `feed_uri` TEXT NOT NULL, `position` INTEGER NOT NULL, `row_type` TEXT NOT NULL, `variant` TEXT, `item_key` TEXT NOT NULL, `leaf_uri` TEXT, `suppressed_reply_count` INTEGER NOT NULL, `thread_root_uri` TEXT, `has_ellipsis` INTEGER, `seam_exhausted` INTEGER, PRIMARY KEY(`account_did`, `feed_type`, `feed_uri`, `position`))",
         "fields": [
           {
             "fieldPath": "accountDid",
@@ -274,6 +274,16 @@
             "notNull": true
           },
           {
+            "fieldPath": "threadRootUri",
+            "columnName": "thread_root_uri",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "hasEllipsis",
+            "columnName": "has_ellipsis",
+            "affinity": "INTEGER"
+          },
+          {
             "fieldPath": "seamExhausted",
             "columnName": "seam_exhausted",
             "affinity": "INTEGER"
@@ -306,6 +316,15 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_feed_item_leaf_uri` ON `${TABLE_NAME}` (`leaf_uri`)"
+          },
+          {
+            "name": "index_feed_item_thread_root_uri",
+            "unique": false,
+            "columnNames": [
+              "thread_root_uri"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_feed_item_thread_root_uri` ON `${TABLE_NAME}` (`thread_root_uri`)"
           }
         ]
       },
@@ -473,7 +492,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd03dad8a6cf46349c3fffbf21018c8a1')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0cf381e954c76709d1785e22a762ab26')"
     ]
   }
 }
