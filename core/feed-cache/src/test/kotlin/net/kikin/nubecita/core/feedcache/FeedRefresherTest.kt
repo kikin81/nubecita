@@ -4,6 +4,7 @@ import io.github.kikin81.atproto.app.bsky.feed.FeedViewPost
 import io.github.kikin81.atproto.app.bsky.feed.PostView
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.CancellationException
@@ -13,8 +14,10 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
+import net.kikin.nubecita.core.database.model.CachedPostEntity
 import net.kikin.nubecita.core.database.model.FeedPostEntity
 import net.kikin.nubecita.core.database.model.FeedRemoteKeyEntity
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -26,6 +29,7 @@ internal class FeedRefresherTest {
     private val key = FeedKey.following("did:plc:me")
     private val networkSource = mockk<FeedNetworkSource>()
     private val feedPostDao = mockk<FeedPostDao>(relaxed = true)
+    private val cachedPostDao = mockk<CachedPostDao>(relaxed = true)
     private val remoteKeyDao = mockk<FeedRemoteKeyDao>(relaxed = true)
 
     private val passthroughRunner =
@@ -37,6 +41,7 @@ internal class FeedRefresherTest {
         FeedRefresher(
             networkSource = networkSource,
             feedPostDao = feedPostDao,
+            cachedPostDao = cachedPostDao,
             remoteKeyDao = remoteKeyDao,
             transactionRunner = passthroughRunner,
         )
@@ -60,6 +65,29 @@ internal class FeedRefresherTest {
             // Page mapped to positions 0..n.
             assertEquals(listOf(0, 1), postsSlot.captured.map { it.position })
             assertEquals("next-cursor", keySlot.captured.nextCursor)
+        }
+
+    @Test
+    fun `the page's posts are written before its envelopes`() =
+        runTest {
+            // Without this the refresher can stop writing cached_post and every
+            // other test still passes: the dao is a relaxed mock, so a missing
+            // call is silent. In production the read path inner-joins, so
+            // envelopes without posts render an empty feed.
+            coEvery { networkSource.fetchPage(key, cursor = null) } returns
+                Result.success(listOf(feedPost("a", "first"), feedPost("b", "second")) to null)
+
+            val storedSlot = slot<List<CachedPostEntity>>()
+            coEvery { cachedPostDao.upsert(capture(storedSlot)) } returns Unit
+
+            refresher.refresh(key)
+
+            assertEquals(2, storedSlot.captured.size)
+            assertTrue(storedSlot.captured.all { it.postBlob != null })
+            coVerifyOrder {
+                cachedPostDao.upsert(any())
+                feedPostDao.upsert(any())
+            }
         }
 
     @Test

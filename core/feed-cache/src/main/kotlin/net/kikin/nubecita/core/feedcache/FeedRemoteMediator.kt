@@ -7,9 +7,10 @@ import androidx.paging.RemoteMediator
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
+import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
-import net.kikin.nubecita.core.database.model.FeedPostEntity
+import net.kikin.nubecita.core.database.model.CachedFeedEntry
 import net.kikin.nubecita.core.database.model.FeedRemoteKeyEntity
 
 /**
@@ -32,10 +33,11 @@ internal class FeedRemoteMediator
         @Assisted private val feedKey: FeedKey,
         private val networkSource: FeedNetworkSource,
         private val feedPostDao: FeedPostDao,
+        private val cachedPostDao: CachedPostDao,
         private val remoteKeyDao: FeedRemoteKeyDao,
         private val transactionRunner: FeedCacheTransactionRunner,
         private val feedRefresher: FeedRefresher,
-    ) : RemoteMediator<Int, FeedPostEntity>() {
+    ) : RemoteMediator<Int, CachedFeedEntry>() {
         @AssistedFactory
         interface Factory {
             fun create(feedKey: FeedKey): FeedRemoteMediator
@@ -59,7 +61,7 @@ internal class FeedRemoteMediator
 
         override suspend fun load(
             loadType: LoadType,
-            state: PagingState<Int, FeedPostEntity>,
+            state: PagingState<Int, CachedFeedEntry>,
         ): MediatorResult =
             when (loadType) {
                 // Reverse-chron: there is no "load newer" — a REFRESH replaces
@@ -91,6 +93,9 @@ internal class FeedRemoteMediator
                 // concurrent write can't race the position assignment.
                 val base = (feedPostDao.maxPosition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri) ?: -1) + 1
                 val entities = page.mapIndexed { index, post -> post.toFeedPostEntity(feedKey, position = base + index) }
+                // Posts first, for the same reason as the refresher: the read
+                // path inner-joins, so an envelope without its post is invisible.
+                cachedPostDao.upsert(page.flatMap { it.toCachedPosts(feedKey) })
                 feedPostDao.upsert(entities)
                 remoteKeyDao.upsert(
                     FeedRemoteKeyEntity(

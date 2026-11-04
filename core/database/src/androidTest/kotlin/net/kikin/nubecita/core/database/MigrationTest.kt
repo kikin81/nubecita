@@ -137,4 +137,165 @@ internal class MigrationTest {
 
         db.close()
     }
+
+    @Test
+    fun migrate6To7_dropsCachedFeed_andPreservesEverythingElse() {
+        // Seed v6 with a row in every table, including the feed cache that this
+        // migration deliberately discards.
+        helper.createDatabase(dbName, 6).use { db ->
+            db.execSQL("INSERT INTO recent_search (`query`, recorded_at) VALUES ('atproto', 7000)")
+            db.execSQL(
+                "INSERT INTO actors (did, handle, display_name, avatar_url, last_seen_at, can_message) " +
+                    "VALUES ('did:c', 'carol.bsky.social', 'Carol', NULL, 7100, 1)",
+            )
+            db.execSQL(
+                "INSERT INTO saved_feeds (uri, display_name, creator_handle, avatar_url, pinned, position) " +
+                    "VALUES ('at://feed/following', 'Following', NULL, NULL, 1, 0)",
+            )
+            db.execSQL(
+                "INSERT INTO feed_post " +
+                    "(account_did, feed_type, feed_uri, position, uri, cid, author_did, indexed_at, text, post_blob) " +
+                    "VALUES ('did:c', 'FOLLOWING', '', 0, 'at://post/old', 'cidold', 'did:d', 7200, 'stale', '{}')",
+            )
+            db.execSQL(
+                "INSERT INTO feed_remote_keys (account_did, feed_type, feed_uri, next_cursor) " +
+                    "VALUES ('did:c', 'FOLLOWING', '', 'cursor-stale')",
+            )
+        }
+
+        // Validates the migrated schema against 7.json.
+        val db = helper.runMigrationsAndValidate(dbName, 7, true, Migration6To7)
+
+        // Non-feed data is untouched.
+        db.query("SELECT `query` FROM recent_search").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("atproto", c.getString(0))
+        }
+        db.query("SELECT did FROM actors").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("did:c", c.getString(0))
+        }
+        db.query("SELECT display_name FROM saved_feeds").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("Following", c.getString(0))
+        }
+
+        // The cached feed is gone: the old blobs hold a bare postView whose
+        // per-entry reason/reply were never persisted and cannot be recovered
+        // locally, so carrying them over would leave a cache that looks
+        // populated and silently cannot build a cluster or a chain.
+        db.query("SELECT COUNT(*) FROM feed_post").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(0, c.getInt(0))
+        }
+
+        // The stale cursor goes with it — it points into a partition that no
+        // longer has rows, so APPEND would resume from a gap.
+        db.query("SELECT COUNT(*) FROM feed_remote_keys").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(0, c.getInt(0))
+        }
+
+        // The new envelope shape is usable: the per-entry columns accept writes,
+        // the post columns are gone, and the recreated index is in place.
+        db.execSQL(
+            "INSERT INTO feed_post " +
+                "(account_did, feed_type, feed_uri, position, uri, " +
+                "reposted_by_did, reposted_by_label, reply_root_uri, reply_parent_uri) " +
+                "VALUES ('did:c', 'FOLLOWING', '', -1, 'at://post/new', " +
+                "'did:reposter', 'Reposter', 'at://post/root', 'at://post/parent')",
+        )
+        db
+            .query(
+                "SELECT reposted_by_did, reposted_by_label, reply_root_uri, reply_parent_uri, position FROM feed_post",
+            ).use { c ->
+                assertTrue(c.moveToFirst())
+                assertEquals("did:reposter", c.getString(0))
+                assertEquals("Reposter", c.getString(1))
+                assertEquals("at://post/root", c.getString(2))
+                assertEquals("at://post/parent", c.getString(3))
+                // A prepend writes above existing rows, so negatives must persist.
+                assertEquals(-1, c.getInt(4))
+            }
+        // v7 also adds the by-URI post store, which both the partition rows and
+        // the grouped projection reference instead of carrying their own copy.
+        db.execSQL(
+            "INSERT INTO cached_post (account_did, uri, cid, author_did, indexed_at, text, post_blob, unavailable) " +
+                "VALUES ('did:c', 'at://post/new', 'cidnew', 'did:e', 7300, 'fresh', '{}', NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO cached_post (account_did, uri, cid, author_did, indexed_at, text, post_blob, unavailable) " +
+                "VALUES ('did:c', 'at://post/gone', NULL, NULL, NULL, NULL, NULL, 'blocked')",
+        )
+        db.query("SELECT uri, unavailable FROM cached_post ORDER BY uri").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("at://post/gone", c.getString(0))
+            assertEquals("blocked", c.getString(1))
+            assertTrue(c.moveToNext())
+            assertEquals("at://post/new", c.getString(0))
+            assertEquals(null, c.getString(1))
+        }
+        db.query("SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND tbl_name = 'cached_post'").use { c ->
+            assertTrue(c.moveToFirst())
+            assertTrue(c.getInt(0) >= 1)
+        }
+
+        // v7 also adds the persisted projection, its membership rows, and the
+        // three prepend cursors.
+        db.execSQL(
+            "INSERT INTO feed_item " +
+                "(account_did, feed_type, feed_uri, position, row_type, variant, item_key, leaf_uri, " +
+                "suppressed_reply_count, seam_exhausted) " +
+                "VALUES ('did:c', 'FOLLOWING', '', -2, 'item', 'cluster', 'cluster:at://post/root', " +
+                "'at://post/leaf', 3, NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO feed_item " +
+                "(account_did, feed_type, feed_uri, position, row_type, variant, item_key, leaf_uri, " +
+                "suppressed_reply_count, seam_exhausted) " +
+                "VALUES ('did:c', 'FOLLOWING', '', -1, 'seam', NULL, 'seam:-1', NULL, 0, 0)",
+        )
+        db.execSQL(
+            "INSERT INTO feed_item_member (account_did, feed_type, feed_uri, position, ordinal, uri) " +
+                "VALUES ('did:c', 'FOLLOWING', '', -2, 0, 'at://post/root')",
+        )
+        db
+            .query("SELECT position, row_type, item_key, suppressed_reply_count, seam_exhausted FROM feed_item ORDER BY position")
+            .use { c ->
+                assertTrue(c.moveToFirst())
+                assertEquals(-2, c.getInt(0))
+                assertEquals("item", c.getString(1))
+                assertEquals(3, c.getInt(3))
+                assertTrue(c.moveToNext())
+                // The seam is a row, not an inferred gap.
+                assertEquals("seam", c.getString(1))
+                assertEquals(0, c.getInt(4))
+            }
+        db.query("SELECT ordinal, uri FROM feed_item_member").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("at://post/root", c.getString(1))
+        }
+        db.execSQL(
+            "INSERT INTO feed_remote_keys " +
+                "(account_did, feed_type, feed_uri, next_cursor, boundary_since, fill_cursor, pending_boundary) " +
+                "VALUES ('did:c', 'FOLLOWING', '', 'append', 'boundary', 'fill', 'pending')",
+        )
+        db
+            .query("SELECT next_cursor, boundary_since, fill_cursor, pending_boundary FROM feed_remote_keys")
+            .use { c ->
+                assertTrue(c.moveToFirst())
+                assertEquals("append", c.getString(0))
+                assertEquals("boundary", c.getString(1))
+                assertEquals("fill", c.getString(2))
+                assertEquals("pending", c.getString(3))
+            }
+
+        db.query("SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND tbl_name = 'feed_post'").use { c ->
+            assertTrue(c.moveToFirst())
+            // Both named indices were recreated after the table was dropped.
+            assertTrue(c.getInt(0) >= 2)
+        }
+
+        db.close()
+    }
 }

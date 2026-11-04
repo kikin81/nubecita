@@ -2,17 +2,17 @@
 
 ### Requirement: Feed posts are cached in a DID-keyed offline store
 
-The system SHALL persist fetched feed entries in a `feed_post` table keyed by `(accountDid, feedType, feedUri, position)` with entry blobs and query columns, and paging cursors in a `feed_remote_keys` table keyed by `(accountDid, feedType, feedUri)`. `feedType` SHALL distinguish Following, Discover, custom, and list feeds. `feedUri` SHALL hold the feed-generator or list AT-URI (empty sentinel for Following). The store SHALL index `uri` and `authorDid`.
+The system SHALL persist fetched feed entries in a `feed_post` table keyed by `(accountDid, feedType, feedUri, position)`, and paging cursors in a `feed_remote_keys` table keyed by `(accountDid, feedType, feedUri)`. `feedType` SHALL distinguish Following, Discover, custom, and list feeds. `feedUri` SHALL hold the feed-generator or list AT-URI (empty sentinel for Following). `feed_post` SHALL index `uri`; the by-author index belongs to the post store, where the author is.
 
-The persisted blob SHALL be the whole wire `app.bsky.feed.defs#feedViewPost` — the post **together with** its per-entry `reason` (repost attribution) and `reply` (root / parent) context, which `FeedItemUi.ReplyCluster` and `FeedItemUi.SelfThreadChain` are projected from. This table SHALL keep its present grain: every fetched entry, undeduplicated, so `head`, by-uri overlays and deep links are unaffected by the grouping projection. `position` SHALL be signed.
+A `feed_post` row SHALL be an entry **envelope**: a position, a reference to the post it shows, and the per-entry `reason` and `reply` context that belongs to the timeline rather than to the post — the entire input to the `ReplyCluster` and `SelfThreadChain` projection. It SHALL carry no post content. This table SHALL keep its present grain: every fetched entry, undeduplicated, so `head`, by-uri overlays and deep links are unaffected by the grouping projection. `position` SHALL be signed.
 
 #### Scenario: Fetched posts are stored under the account partition
 - **WHEN** a feed page is fetched for the signed-in account
 - **THEN** its entries are written to `feed_post` under that account's DID, feed type, and feed URI, preserving server order via `position`
 
 #### Scenario: Lookups by uri and author do not full-scan
-- **WHEN** a post is looked up by `uri` (e.g. deep-link or interaction-state overlay) or by `authorDid`
-- **THEN** the query is served by an index, not a full table scan
+- **WHEN** an entry is looked up by `uri` (e.g. deep-link or interaction-state overlay), or a post by `authorDid`
+- **THEN** the query is served by an index, not a full table scan — `uri` on the entry table, `authorDid` on the post store
 
 #### Scenario: Repost attribution survives a cache round-trip
 - **WHEN** a timeline entry carrying a `reason` of `ReasonRepost` is written and read back
@@ -134,7 +134,7 @@ De-duplication SHALL apply within the page being written. An entry written by a 
 
 ### Requirement: The projection is persisted at its own grain
 
-The projection SHALL be stored as one row per rendered `FeedItemUi`, positioned in display order, holding the group's structural layout — variant, ordered member URIs, suppressed-reply count — and references to its posts. It SHALL NOT be expressed as grouping tags over `feed_post` rows.
+The projection SHALL be stored as one row per rendered `FeedItemUi`, positioned in display order, holding the group's structural layout — variant, suppressed-reply count, stable list key — with its member posts recorded as **rows** carrying a render ordinal, never a delimited column. It SHALL NOT be expressed as grouping tags over `feed_post` rows.
 
 #### Scenario: Cluster context with no partition position is retained
 - **WHEN** a `ReplyCluster` is projected whose root and parent are not themselves timeline entries
@@ -211,6 +211,10 @@ Eviction SHALL be reference-aware: a post SHALL survive until nothing live refer
 #### Scenario: Eviction keeps a post that is still referenced
 - **WHEN** the trim removes a partition row whose post is still referenced by a live projection row
 - **THEN** the post itself survives, and is removed only once nothing references it
+
+#### Scenario: A cluster's context post has no entry row and still survives
+- **WHEN** eviction runs while a projected cluster references a root that never arrived as a timeline entry
+- **THEN** that post survives, because the reference check consults membership as indexed rows rather than only the entry table — against a delimited column the question has no indexed answer, and the check would degrade into "delete anything with no entry row"
 
 ### Requirement: A seam is a persisted marker row
 

@@ -2,9 +2,13 @@ package net.kikin.nubecita.core.database
 
 import android.util.Log
 import androidx.room.Room
+import androidx.room.withTransaction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.database.model.CachedPostEntity
+import net.kikin.nubecita.core.database.model.FeedItemEntity
+import net.kikin.nubecita.core.database.model.FeedItemMemberEntity
 import net.kikin.nubecita.core.database.model.FeedPostEntity
 import org.junit.After
 import org.junit.Assert.assertTrue
@@ -70,6 +74,8 @@ internal class FeedPostScaleTest {
     fun scale_powerUserCache_readsStayFlat_writesStayCheap_sizeBounded() =
         runTest {
             val dao = db.feedPostDao()
+            val cachedDao = db.cachedPostDao()
+            val itemDao = db.feedItemDao()
 
             // ---- populate: >=PARTITIONS partitions x CAP posts, cross-feed overlap ----
             val partitions = buildPartitions()
@@ -77,21 +83,30 @@ internal class FeedPostScaleTest {
 
             var totalInserted = 0
             partitions.forEach { partition ->
-                val rows =
-                    (0 until CAP).map { position ->
-                        // Cross-feed overlap: the first OVERLAP positions reuse a
-                        // shared pool of post URIs so the same post `uri` recurs
-                        // across partitions (denormalization writes it per-partition).
-                        val postUri =
-                            if (position < OVERLAP) {
-                                SHARED_POST_URIS[position % SHARED_POST_URIS.size]
-                            } else {
-                                "at://did:plc:author$position/app.bsky.feed.post/${partition.feedUri}-$position"
-                            }
-                        rowFor(partition, position, postUri)
-                    }
-                dao.upsert(rows)
-                totalInserted += rows.size
+                val generated = (0 until CAP).map { entryAt(partition, it) }
+                // distinctBy mirrors the upsert: shared thread context arrives
+                // many times and collapses to one row, so counting it once here
+                // keeps the reported insert total honest.
+                cachedDao.upsert(generated.flatMap { it.posts }.distinctBy { it.accountDid to it.uri })
+                dao.upsert(generated.map { it.envelope })
+                itemDao.upsert(generated.map { it.item })
+                itemDao.upsertMembers(generated.flatMap { it.members })
+                // One seam per partition: a caught-up feed has one, and it is
+                // part of the shape being measured.
+                itemDao.upsert(
+                    listOf(
+                        FeedItemEntity(
+                            accountDid = partition.accountDid,
+                            feedType = partition.feedType,
+                            feedUri = partition.feedUri,
+                            position = -1,
+                            rowType = FeedItemEntity.ROW_TYPE_SEAM,
+                            itemKey = "seam:${partition.feedUri}",
+                            seamExhausted = false,
+                        ),
+                    ),
+                )
+                totalInserted += generated.size
             }
 
             // ---- D-A2 invariant 1: reads use an index, never a full SCAN ----
@@ -135,16 +150,44 @@ internal class FeedPostScaleTest {
 
             // ---- D-A2 invariant 2: per-partition writes stay cheap ----
             // REFRESH-shaped op: clear the partition + re-insert CAP rows.
-            val refreshRows = (0 until CAP).map { rowFor(sample, it, "at://refresh/$it") }
+            // Row construction is hoisted OUT of the measured block on purpose.
+            // representativeBlob builds a 1-3 KB string per row via repeat(), so
+            // 500 of them inside measureMillis would charge blob construction to
+            // the database and report a write regression that is really a
+            // measurement artifact.
+            val refreshEntries = (0 until CAP).map { entryAt(sample, it, salt = "refresh-") }
+            val refreshPosts = refreshEntries.flatMap { it.posts }.distinctBy { it.accountDid to it.uri }
+            val refreshRows = refreshEntries.map { it.envelope }
+            val refreshItems = refreshEntries.map { it.item }
+            val refreshMembers = refreshEntries.flatMap { it.members }
+            var clearMs = 0L
+            var postsMs = 0L
+            var envelopesMs = 0L
+            var projectionMs = 0L
             val refreshMs =
                 measureMillis {
-                    // Mirror the mediator REFRESH shape: clear the partition, then
-                    // insert page rows. (The real mediator wraps these in one
-                    // withTransaction; the timing is dominated by the same SQL.)
-                    dao.clearPartition(sample.accountDid, sample.feedType, sample.feedUri)
-                    dao.upsert(refreshRows)
+                    db.withTransaction {
+                        clearMs =
+                            measureMillis {
+                                dao.clearPartition(sample.accountDid, sample.feedType, sample.feedUri)
+                                itemDao.clearPartition(sample.accountDid, sample.feedType, sample.feedUri)
+                            }
+                        postsMs = measureMillis { cachedDao.upsert(refreshPosts) }
+                        envelopesMs = measureMillis { dao.upsert(refreshRows) }
+                        projectionMs =
+                            measureMillis {
+                                itemDao.upsert(refreshItems)
+                                itemDao.upsertMembers(refreshMembers)
+                            }
+                    }
                 }
-            Log.i(TAG, "REFRESH (clearPartition + upsert $CAP rows) took $refreshMs ms")
+            Log.i(
+                TAG,
+                "REFRESH (clear + upsert $CAP entries = ${refreshPosts.size} posts, " +
+                    "${refreshRows.size} envelopes, ${refreshItems.size} items, " +
+                    "${refreshMembers.size} members) took $refreshMs ms " +
+                    "(clear=$clearMs posts=$postsMs envelopes=$envelopesMs projection=$projectionMs)",
+            )
 
             val trimMs =
                 measureMillis {
@@ -157,13 +200,16 @@ internal class FeedPostScaleTest {
 
             // ---- D-A2 invariant 3: row count + DB file size recorded ----
             val rowCount = rowCount()
+            val perTable =
+                listOf("feed_post", "cached_post", "feed_item", "feed_item_member")
+                    .joinToString(", ") { "$it=${countOf(it)}" }
             db.openHelper.writableDatabase
                 .query("PRAGMA wal_checkpoint(FULL)")
                 .close()
             val sizeBytes = totalDbBytes()
             Log.i(
                 TAG,
-                "feed_post rows=$rowCount (inserted=$totalInserted across ${partitions.size} partitions); " +
+                "rows: $perTable (entries inserted=$totalInserted across ${partitions.size} partitions); " +
                     "DB file size=${sizeBytes / 1024} KB (${"%.2f".format(sizeBytes / 1024.0 / 1024.0)} MB)",
             )
             assertTrue("expected >= 5000 rows, got $rowCount", rowCount >= 5_000)
@@ -182,23 +228,171 @@ internal class FeedPostScaleTest {
         return list
     }
 
-    private fun rowFor(
+    /**
+     * Everything one feed entry contributes to the cache: its envelope, the
+     * posts it brings, its projected item, and that item's membership rows.
+     *
+     * Generating all four together is the point of this fixture. A per-entry
+     * row count of one understates the real shape badly: a reply entry carries
+     * its own post **plus** its thread root and parent, so it writes three
+     * posts, three membership rows and a cluster item. Measuring only
+     * envelopes-plus-one-post reports a database the app never has.
+     */
+    private data class GeneratedEntry(
+        val envelope: FeedPostEntity,
+        val posts: List<CachedPostEntity>,
+        val item: FeedItemEntity,
+        val members: List<FeedItemMemberEntity>,
+    )
+
+    /**
+     * One entry at [position], with its variant chosen by position so the mix
+     * is deterministic and reproducible across runs.
+     *
+     * The proportions — roughly 60% plain, 20% repost, 20% reply — are a stated
+     * assumption, not a measurement; a Following timeline's real mix varies per
+     * reader. What matters for the figure is that replies are a meaningful
+     * minority rather than absent, because they are the only variant that
+     * multiplies the post count.
+     *
+     * [salt] namespaces the generated URIs. The REFRESH measurement passes one
+     * so its page is genuinely **new** content, as a refresh after any elapsed
+     * time would be. Without it the batch regenerates the URIs the bulk seed
+     * already wrote, so every upsert becomes an UPDATE of an identical row —
+     * measurably cheaper than the inserts production does, and not the number
+     * anyone wants.
+     *
+     * Thread context is drawn from a small shared pool rather than generated
+     * fresh per reply. Real threads carry several replies, so their root and
+     * parent recur — and the by-URI store collapses the repeats to one row.
+     * Unique context per reply would inflate the size figure with rows
+     * production would have de-duplicated.
+     */
+    private fun entryAt(
+        partition: Partition,
+        position: Int,
+        salt: String = "",
+    ): GeneratedEntry {
+        val ownUri =
+            if (position < OVERLAP && salt.isEmpty()) {
+                SHARED_POST_URIS[position % SHARED_POST_URIS.size]
+            } else {
+                "at://did:plc:author$position/app.bsky.feed.post/$salt${partition.feedUri}-$position"
+            }
+        val own = cachedPostRow(partition, position, ownUri)
+
+        return when (position % 5) {
+            3 -> {
+                // Repost: one post, but the envelope carries the attribution.
+                GeneratedEntry(
+                    envelope =
+                        envelopeFor(partition, position, ownUri).copy(
+                            repostedByDid = "did:plc:reposter${position % 50}",
+                            repostedByLabel = "Reposter ${position % 50}",
+                        ),
+                    posts = listOf(own),
+                    item = itemFor(partition, position, variant = "single", key = "single:$ownUri", leaf = ownUri),
+                    members = listOf(memberFor(partition, position, 0, ownUri)),
+                )
+            }
+            4 -> {
+                // Reply: three posts and a cluster of three members.
+                val thread = position / THREAD_FANOUT
+                val rootUri = "at://did:plc:threadroot$salt$thread/app.bsky.feed.post/root"
+                val parentUri = "at://did:plc:threadroot$salt$thread/app.bsky.feed.post/parent"
+                GeneratedEntry(
+                    envelope =
+                        envelopeFor(partition, position, ownUri).copy(
+                            replyRootUri = rootUri,
+                            replyParentUri = parentUri,
+                        ),
+                    posts =
+                        listOf(
+                            own,
+                            cachedPostRow(partition, position, rootUri),
+                            cachedPostRow(partition, position, parentUri),
+                        ),
+                    item = itemFor(partition, position, variant = "cluster", key = "cluster:$rootUri", leaf = ownUri),
+                    members =
+                        listOf(
+                            memberFor(partition, position, 0, rootUri),
+                            memberFor(partition, position, 1, parentUri),
+                            memberFor(partition, position, 2, ownUri),
+                        ),
+                )
+            }
+            else ->
+                GeneratedEntry(
+                    envelope = envelopeFor(partition, position, ownUri),
+                    posts = listOf(own),
+                    item = itemFor(partition, position, variant = "single", key = "single:$ownUri", leaf = ownUri),
+                    members = listOf(memberFor(partition, position, 0, ownUri)),
+                )
+        }
+    }
+
+    private fun envelopeFor(
         partition: Partition,
         position: Int,
         postUri: String,
-    ): FeedPostEntity =
-        FeedPostEntity(
-            accountDid = partition.accountDid,
-            feedType = partition.feedType,
-            feedUri = partition.feedUri,
-            position = position,
-            uri = postUri,
-            cid = "bafyrei$position",
-            authorDid = "did:plc:author${position % 200}",
-            indexedAt = Instant.fromEpochMilliseconds(1_700_000_000_000L + position),
-            text = "post $position in ${partition.feedType}/${partition.feedUri}",
-            postBlob = representativeBlob(postUri, position),
-        )
+    ) = FeedPostEntity(
+        accountDid = partition.accountDid,
+        feedType = partition.feedType,
+        feedUri = partition.feedUri,
+        position = position,
+        uri = postUri,
+    )
+
+    private fun itemFor(
+        partition: Partition,
+        position: Int,
+        variant: String,
+        key: String,
+        leaf: String,
+    ) = FeedItemEntity(
+        accountDid = partition.accountDid,
+        feedType = partition.feedType,
+        feedUri = partition.feedUri,
+        position = position,
+        rowType = FeedItemEntity.ROW_TYPE_ITEM,
+        variant = variant,
+        itemKey = key,
+        leafUri = leaf,
+        suppressedReplyCount = if (variant == "cluster") position % 4 else 0,
+    )
+
+    private fun memberFor(
+        partition: Partition,
+        position: Int,
+        ordinal: Int,
+        uri: String,
+    ) = FeedItemMemberEntity(
+        accountDid = partition.accountDid,
+        feedType = partition.feedType,
+        feedUri = partition.feedUri,
+        position = position,
+        ordinal = ordinal,
+        uri = uri,
+    )
+
+    /**
+     * The stored post an entry references. The blob is a wire `postView`, which
+     * is the right shape: after the split, `cached_post` stores posts and the
+     * entry-level `reason` / `reply` live in the envelope's columns.
+     */
+    private fun cachedPostRow(
+        partition: Partition,
+        position: Int,
+        postUri: String,
+    ) = CachedPostEntity(
+        accountDid = partition.accountDid,
+        uri = postUri,
+        cid = "cid-$position",
+        authorDid = "did:plc:author${position % 200}",
+        indexedAt = Instant.fromEpochMilliseconds(1_700_000_000_000L + position),
+        text = "post $position in ${partition.feedType}/${partition.feedUri}",
+        postBlob = representativeBlob(postUri, position),
+    )
 
     /** Run a raw `EXPLAIN QUERY PLAN` and concatenate the `detail` column rows. */
     private fun queryPlan(
@@ -234,6 +428,12 @@ internal class FeedPostScaleTest {
         )
     }
 
+    private fun countOf(table: String): Int =
+        db.openHelper.writableDatabase.query("SELECT COUNT(*) FROM $table").use { c ->
+            c.moveToFirst()
+            c.getInt(0)
+        }
+
     private fun rowCount(): Int =
         db.openHelper.writableDatabase.query("SELECT COUNT(*) FROM feed_post").use { c ->
             c.moveToFirst()
@@ -268,6 +468,9 @@ internal class FeedPostScaleTest {
         const val DB_NAME = "feed-scale-test-db"
         const val CAP = 500
         const val OVERLAP = 50
+
+        /** Replies per synthetic thread, so root/parent recur as they really do. */
+        const val THREAD_FANOUT = 10
         const val WRITE_BOUND_MS = 1_000L
         const val DB_SIZE_BOUND_BYTES = 256L * 1024 * 1024
 

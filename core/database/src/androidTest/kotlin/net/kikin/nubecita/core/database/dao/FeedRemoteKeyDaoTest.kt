@@ -69,4 +69,82 @@ internal class FeedRemoteKeyDaoTest : DatabaseTest() {
         const val TYPE = "FOLLOWING"
         const val FEED_URI = ""
     }
+
+    @Test
+    fun prependCursors_roundTrip() =
+        runTest {
+            dao.upsert(key(cursor = "append-1"))
+
+            dao.updatePrependCursors(
+                ACCOUNT,
+                TYPE,
+                FEED_URI,
+                boundarySince = "boundary-1",
+                fillCursor = "fill-1",
+                pendingBoundary = "pending-1",
+            )
+
+            val row = dao.remoteKey(ACCOUNT, TYPE, FEED_URI)
+            assertEquals("boundary-1", row?.boundarySince)
+            assertEquals("fill-1", row?.fillCursor)
+            assertEquals("pending-1", row?.pendingBoundary)
+        }
+
+    @Test
+    fun aPrependWriteLeavesTheAppendCursorAlone() =
+        runTest {
+            // The whole reason these are targeted updates rather than a
+            // whole-row upsert. A prepend that wiped next_cursor would silently
+            // break forward pagination, and a test that only checked its own
+            // direction would never see it.
+            dao.upsert(key(cursor = "append-1"))
+
+            dao.updatePrependCursors(ACCOUNT, TYPE, FEED_URI, "boundary-1", "fill-1", "pending-1")
+
+            assertEquals("append-1", dao.remoteKey(ACCOUNT, TYPE, FEED_URI)?.nextCursor)
+        }
+
+    @Test
+    fun anAppendWriteLeavesThePrependCursorsAlone() =
+        runTest {
+            dao.upsert(key(cursor = "append-1"))
+            dao.updatePrependCursors(ACCOUNT, TYPE, FEED_URI, "boundary-1", "fill-1", "pending-1")
+
+            dao.updateAppendCursor(ACCOUNT, TYPE, FEED_URI, nextCursor = "append-2")
+
+            val row = dao.remoteKey(ACCOUNT, TYPE, FEED_URI)
+            assertEquals("append-2", row?.nextCursor)
+            assertEquals("boundary-1", row?.boundarySince)
+            assertEquals("fill-1", row?.fillCursor)
+            assertEquals("pending-1", row?.pendingBoundary)
+        }
+
+    @Test
+    fun aRefreshUpsertResetsEveryCursor() =
+        runTest {
+            // REFRESH legitimately starts over, so the whole-row write is right
+            // here: the partition it described no longer exists.
+            dao.upsert(key(cursor = "append-1"))
+            dao.updatePrependCursors(ACCOUNT, TYPE, FEED_URI, "boundary-1", "fill-1", "pending-1")
+
+            dao.upsert(key(cursor = "append-fresh"))
+
+            val row = dao.remoteKey(ACCOUNT, TYPE, FEED_URI)
+            assertEquals("append-fresh", row?.nextCursor)
+            assertNull(row?.boundarySince)
+            assertNull(row?.fillCursor)
+            assertNull(row?.pendingBoundary)
+        }
+
+    @Test
+    fun cursorUpdatesAreScopedToOnePartition() =
+        runTest {
+            dao.upsert(key(cursor = "a"))
+            dao.upsert(key(type = "DISCOVER", uri = "at://feed/x", cursor = "b"))
+
+            dao.updatePrependCursors(ACCOUNT, TYPE, FEED_URI, "boundary-1", null, null)
+
+            assertEquals("boundary-1", dao.remoteKey(ACCOUNT, TYPE, FEED_URI)?.boundarySince)
+            assertNull(dao.remoteKey(ACCOUNT, "DISCOVER", "at://feed/x")?.boundarySince)
+        }
 }

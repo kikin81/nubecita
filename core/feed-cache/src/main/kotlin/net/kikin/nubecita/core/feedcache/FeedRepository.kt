@@ -10,9 +10,11 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.database.dao.CachedPostDao
+import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
-import net.kikin.nubecita.core.database.model.FeedPostEntity
+import net.kikin.nubecita.core.database.model.CachedFeedEntry
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.data.models.PostUi
 import javax.inject.Inject
@@ -85,7 +87,7 @@ interface FeedRepository {
 }
 
 /**
- * Default [FeedRepository]. The read path maps `FeedPostEntity → PostUi?` at map
+ * Default [FeedRepository]. The read path maps `CachedFeedEntry → PostUi?` at map
  * time (so a later prefs/account change reflects on the next load), dropping the
  * nulls that moderation / malformed-blob produce. Reads `viewerDid` / `prefs`
  * via `.value` per item so the projection always reflects current state.
@@ -95,6 +97,8 @@ internal open class DefaultFeedRepository
     @Inject
     constructor(
         private val feedPostDao: FeedPostDao,
+        private val cachedPostDao: CachedPostDao,
+        private val feedItemDao: FeedItemDao,
         private val remoteKeyDao: FeedRemoteKeyDao,
         private val mediatorFactory: FeedRemoteMediator.Factory,
         private val sessionStateProvider: SessionStateProvider,
@@ -107,7 +111,7 @@ internal open class DefaultFeedRepository
          * JVM unit test can swap a no-op mediator (the assisted factory needs the
          * Hilt-generated impl, which a pure-JVM test can't construct).
          */
-        protected open fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, FeedPostEntity> = mediatorFactory.create(feedKey)
+        protected open fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, CachedFeedEntry> = mediatorFactory.create(feedKey)
 
         override fun pagedFeed(feedKey: FeedKey): Flow<PagingData<PostUi>> =
             Pager(
@@ -163,7 +167,14 @@ internal open class DefaultFeedRepository
 
         override suspend fun clearAccount(accountDid: String) {
             transactionRunner.run {
+                // All four grains, not just the entry table. The post store and
+                // the projection hold the actual cached content, so clearing
+                // only envelopes and cursors would leave a signed-out account's
+                // posts readable on disk — which the `core-feed-cache` spec
+                // forbids and which adding those tables silently introduced.
                 feedPostDao.clearAccount(accountDid)
+                feedItemDao.clearAccount(accountDid)
+                cachedPostDao.clearAccount(accountDid)
                 remoteKeyDao.clearAccount(accountDid)
             }
         }

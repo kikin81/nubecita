@@ -34,10 +34,19 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
 # Production Kotlin sources outside :designsystem and any build output.
+#
+# `.claude/` is excluded because agent worktrees are checkouts of this same
+# repo nested inside it, so `:designsystem`'s own sanctioned raw indicators
+# reappear at `./.claude/worktrees/<name>/designsystem/...` — a path the
+# `./designsystem/*` exclusion cannot match. That flags the brand component's
+# own implementation and blocks every commit in the repo. Nothing is hidden by
+# this: a worktree holds no source that is not already scanned at its real
+# top-level path.
 mapfile -t files < <(
   find . -type f -name '*.kt' \
     -path '*/src/main/*' \
     ! -path './designsystem/*' \
+    ! -path './.claude/*' \
     ! -path '*/build/*' \
     | sort
 )

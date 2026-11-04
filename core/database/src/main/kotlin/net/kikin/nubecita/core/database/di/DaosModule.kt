@@ -6,6 +6,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.core.database.NubecitaDatabase
 import net.kikin.nubecita.core.database.dao.ActorDao
+import net.kikin.nubecita.core.database.dao.CachedPostDao
+import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.dao.RecentSearchDao
@@ -27,6 +29,12 @@ internal object DaosModule {
 
     @Provides
     fun providesFeedPostDao(database: NubecitaDatabase): FeedPostDao = database.feedPostDao()
+
+    @Provides
+    fun providesCachedPostDao(database: NubecitaDatabase): CachedPostDao = database.cachedPostDao()
+
+    @Provides
+    fun providesFeedItemDao(database: NubecitaDatabase): FeedItemDao = database.feedItemDao()
 
     @Provides
     fun providesFeedRemoteKeyDao(database: NubecitaDatabase): FeedRemoteKeyDao = database.feedRemoteKeyDao()
