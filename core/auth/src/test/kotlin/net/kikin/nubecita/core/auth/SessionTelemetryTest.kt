@@ -10,11 +10,14 @@ import kotlinx.serialization.SerializationException
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.AuthKeysetRegenerated
 import net.kikin.nubecita.core.analytics.SessionClearReason
+import net.kikin.nubecita.core.analytics.SessionClearTelemetryLost
 import net.kikin.nubecita.core.analytics.SessionCleared
 import net.kikin.nubecita.core.analytics.SessionReadError
 import net.kikin.nubecita.core.analytics.SessionReadErrorCause
 import net.kikin.nubecita.core.analytics.SessionReadErrorTerminal
 import net.kikin.nubecita.core.logging.CrashReporter
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.IOException
@@ -32,16 +35,92 @@ class SessionTelemetryTest {
             override fun now(): Instant = Instant.fromEpochMilliseconds(nowMillis)
         }
 
+    private val pendingStore = FakeSessionClearPendingStore()
+
     private fun telemetry(
         lastLoginEpochMillis: Long? = null,
         forensics: RefreshForensics = FakeRefreshForensics(emptyMap()),
+        clearPending: SessionClearPendingStore = pendingStore,
     ) = SessionTelemetry(
         crashReporter = crashReporter,
         analytics = analytics,
         loginTimestamps = FakeLoginTimestampStore(lastLoginEpochMillis),
         clock = fixedClock,
         refreshForensics = forensics,
+        clearPending = clearPending,
     )
+
+    @Test
+    fun `onSessionClearing marks the clear as pending so process death still leaves a trace`() =
+        runTest {
+            val marker = markerWithStack("io.github.kikin81.atproto.oauth.DpopAuthProvider", "failRefresh")
+
+            telemetry().onSessionClearing(marker)
+
+            assertEquals(SessionClearReason.InvalidGrant, pendingStore.pendingReason())
+        }
+
+    @Test
+    fun `onSessionCleared drops the pending marker once the loss is recorded`() =
+        runTest {
+            val marker = markerWithStack("io.github.kikin81.atproto.oauth.DpopAuthProvider", "failRefresh")
+            val telemetry = telemetry()
+            telemetry.onSessionClearing(marker)
+
+            telemetry.onSessionCleared(marker)
+
+            assertNull(pendingStore.pendingReason(), "a recorded clear must not be re-reported on the next launch")
+        }
+
+    @Test
+    fun `reportLostClearTelemetry recovers a clear whose telemetry never ran`() =
+        runTest {
+            // The process died between the wipe and recordException: the session
+            // is gone and nothing was reported. The marker is the only evidence.
+            val telemetry = telemetry()
+            telemetry.onSessionClearing(
+                markerWithStack("io.github.kikin81.atproto.oauth.DpopAuthProvider", "failRefresh"),
+            )
+
+            telemetry.reportLostClearTelemetry()
+
+            verify { crashReporter.setCustomKey("session_clear_reason", "invalid_grant") }
+            verify { crashReporter.recordException(ofType(SessionClearTelemetryLostException::class)) }
+            verify { analytics.log(SessionClearTelemetryLost(reason = SessionClearReason.InvalidGrant)) }
+        }
+
+    @Test
+    fun `reportLostClearTelemetry consumes the marker so it reports exactly once`() =
+        runTest {
+            val telemetry = telemetry()
+            telemetry.onSessionClearing(
+                markerWithStack("io.github.kikin81.atproto.oauth.DpopAuthProvider", "failRefresh"),
+            )
+
+            telemetry.reportLostClearTelemetry()
+            telemetry.reportLostClearTelemetry()
+
+            verify(exactly = 1) { crashReporter.recordException(ofType(SessionClearTelemetryLostException::class)) }
+        }
+
+    @Test
+    fun `reportLostClearTelemetry reports nothing when no clear is pending`() =
+        runTest {
+            telemetry().reportLostClearTelemetry()
+
+            verify(exactly = 0) { crashReporter.recordException(any()) }
+            verify(exactly = 0) { analytics.log(any()) }
+        }
+
+    @Test
+    fun `reportLostClearTelemetry survives an unreadable marker store`() =
+        runTest {
+            val telemetry = telemetry(clearPending = ThrowingSessionClearPendingStore)
+
+            telemetry.reportLostClearTelemetry()
+
+            verify(exactly = 0) { crashReporter.recordException(any()) }
+        }
 
     @Test
     fun `clear from the SDK refresh path buckets as invalid_grant with days_since_login`() =
@@ -171,6 +250,7 @@ class SessionTelemetryTest {
                     loginTimestamps = ThrowingLoginTimestampStore,
                     clock = fixedClock,
                     refreshForensics = FakeRefreshForensics(emptyMap()),
+                    clearPending = pendingStore,
                 )
 
             telemetry.onSessionCleared(markerWithStack("com.example.X", "run"))
@@ -186,6 +266,7 @@ class SessionTelemetryTest {
                     loginTimestamps = CancellingLoginTimestampStore,
                     clock = fixedClock,
                     refreshForensics = FakeRefreshForensics(emptyMap()),
+                    clearPending = pendingStore,
                 )
 
             val thrown =
@@ -260,4 +341,26 @@ private class FakeRefreshForensics(
     private val keys: Map<String, String>,
 ) : RefreshForensics {
     override suspend fun clearKeys(): Map<String, String> = keys
+}
+
+private class FakeSessionClearPendingStore : SessionClearPendingStore {
+    private var pending: SessionClearReason? = null
+
+    override suspend fun markPending(reason: SessionClearReason) {
+        pending = reason
+    }
+
+    override suspend fun pendingReason(): SessionClearReason? = pending
+
+    override suspend fun clearPending() {
+        pending = null
+    }
+}
+
+private object ThrowingSessionClearPendingStore : SessionClearPendingStore {
+    override suspend fun markPending(reason: SessionClearReason) = throw IllegalStateException("prefs unwritable")
+
+    override suspend fun pendingReason(): SessionClearReason = throw IllegalStateException("prefs unreadable")
+
+    override suspend fun clearPending() = throw IllegalStateException("prefs unwritable")
 }

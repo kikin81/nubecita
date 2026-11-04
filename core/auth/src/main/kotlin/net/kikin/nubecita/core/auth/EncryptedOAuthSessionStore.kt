@@ -4,9 +4,11 @@ import androidx.datastore.core.DataStore
 import io.github.kikin81.atproto.oauth.OAuthSession
 import io.github.kikin81.atproto.oauth.OAuthSessionStore
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import java.io.IOException
 import java.security.GeneralSecurityException
@@ -89,9 +91,21 @@ internal class EncryptedOAuthSessionStore
             // The marker must be constructed before the suspending write: after a
             // suspension point the resumed JVM stack no longer carries the caller
             // frames (SDK failRefresh vs AtOAuth.logout) that clear-reason
-            // bucketing reads. Telemetry fires only after the wipe succeeds.
+            // bucketing reads. The full non-fatal still fires only after the
+            // wipe succeeds; only the bucketed reason is persisted ahead of it.
             val marker = SessionClearedException()
+            // Durable breadcrumb first: NonCancellable below saves the report
+            // from a cancelled scope, but not from the process being killed
+            // outright, and the marker lives only on this stack.
+            telemetry.onSessionClearing(marker)
             dataStore.updateData { null }
-            telemetry.onSessionCleared(marker)
+            // NonCancellable: the wipe above is irreversible, so by this point the
+            // only question left is whether the loss gets recorded. onSessionCleared
+            // suspends (login-timestamp read, refresh forensics) and rethrows
+            // CancellationException, so on a plain scope a background clear whose
+            // worker is stopped destroys the session and reports nothing — the
+            // marker lives only on this stack, so nothing reconstructs it later
+            // (nubecita-yv4p).
+            withContext(NonCancellable) { telemetry.onSessionCleared(marker) }
         }
     }

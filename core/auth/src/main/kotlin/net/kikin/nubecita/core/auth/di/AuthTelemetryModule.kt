@@ -14,10 +14,12 @@ import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.core.auth.ActivityManagerForegroundSignal
 import net.kikin.nubecita.core.auth.DataStoreLoginTimestampStore
 import net.kikin.nubecita.core.auth.DataStoreRefreshHistoryStore
+import net.kikin.nubecita.core.auth.DataStoreSessionClearPendingStore
 import net.kikin.nubecita.core.auth.LoginTimestampStore
 import net.kikin.nubecita.core.auth.ProcessForegroundSignal
 import net.kikin.nubecita.core.auth.RefreshForensics
 import net.kikin.nubecita.core.auth.RefreshHistoryStore
+import net.kikin.nubecita.core.auth.SessionClearPendingStore
 import net.kikin.nubecita.core.auth.TokenRefreshTelemetry
 import javax.inject.Qualifier
 import javax.inject.Singleton
@@ -39,6 +41,11 @@ internal abstract class AuthTelemetryModule {
 
     @Binds
     internal abstract fun bindRefreshHistoryStore(impl: DataStoreRefreshHistoryStore): RefreshHistoryStore
+
+    @Binds
+    internal abstract fun bindSessionClearPendingStore(
+        impl: DataStoreSessionClearPendingStore,
+    ): SessionClearPendingStore
 
     @Binds
     internal abstract fun bindProcessForegroundSignal(impl: ActivityManagerForegroundSignal): ProcessForegroundSignal

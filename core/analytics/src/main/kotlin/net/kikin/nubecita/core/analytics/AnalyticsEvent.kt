@@ -189,6 +189,23 @@ internal fun bucketDaysSinceLogin(days: Long): String =
         else -> "14_plus"
     }
 
+/**
+ * Fired at app start for a session clear that destroyed the session but never
+ * got to record itself — the process died between the wipe and the non-fatal
+ * (nubecita-yv4p). Recovered from a durable marker written before the wipe, so
+ * it carries only the bucketed [reason]; the per-clear forensics (refresh
+ * caller, session age) died with the process that was doing the clearing.
+ *
+ * A rising count here means session losses are being under-reported by
+ * [SessionCleared] — treat the two as one total, not as separate populations.
+ */
+data class SessionClearTelemetryLost(
+    val reason: SessionClearReason,
+) : AnalyticsEvent {
+    override val name: String = "session_clear_telemetry_lost"
+    override val params: Map<String, AnalyticsValue> = mapOf("reason" to Str(reason.wire))
+}
+
 /** Which storage layer failed while reading the persisted session. */
 enum class SessionReadErrorCause(
     val wire: String,
