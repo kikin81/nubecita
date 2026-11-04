@@ -128,15 +128,17 @@ class BaselineProfileGenerator {
                 step("trending_videos") {
                     device.returnToFeed()
                     check(device.tapText(FEED_DISCOVER_CHIP_TEXT)) { "Discover chip not found" }
-                    // The carousel heads the Discover list; scroll back to the top
-                    // if the list kept an offset.
+                    // The carousel heads the Discover list, so it is never
+                    // scrolled out of reach — when it is missing it simply has
+                    // no data. Selecting Discover asks the trending source to
+                    // load, but that first load regularly lands empty, and an
+                    // empty `thumbs` renders no header at all. A pull-to-refresh
+                    // re-issues the load, which is what actually populates it
+                    // (verified on device, nubecita-09n0).
                     val poster =
-                        device.awaitRes(TRENDING_VIDEO_THUMB_RES_ID, FEED_WAIT_MS)
+                        device.awaitRes(TRENDING_VIDEO_THUMB_RES_ID, TRENDING_FIRST_LOAD_MS)
                             ?: run {
-                                device.awaitRes(FEED_LIST_RES_ID)?.apply {
-                                    setGestureMargin(device.displayWidth / 5)
-                                    fling(Direction.UP)
-                                }
+                                device.pullToRefresh(FEED_LIST_RES_ID)
                                 device.requireRes(TRENDING_VIDEO_THUMB_RES_ID, FEED_WAIT_MS)
                             }
                     poster.click()
@@ -151,10 +153,20 @@ class BaselineProfileGenerator {
                         SystemClock.sleep(VIDEO_PLAY_MS)
                     }
                     device.requireRes(VIDEO_FEED_RAIL_REPLY_RES_ID).click()
-                    // The docked pill is the sheet's one unconditional element:
-                    // the comments list is only composed when the video has
-                    // comments (loading/empty/error states render without it).
-                    device.requireRes(DOCKED_COMMENT_PILL_RES_ID, FEED_WAIT_MS)
+                    // Wait on the comments list, NOT the docked pill. The pill
+                    // was picked as "the sheet's one unconditional element",
+                    // but on device it does not render in this sheet at all —
+                    // there is empty space where it should sit — so waiting on
+                    // it skipped this whole leg every time (nubecita-09n0).
+                    //
+                    // Gate on the drag handle, which IS unconditional, and only
+                    // then give the list a short wait: a video with no comments
+                    // never composes the list, so waiting the full timeout on it
+                    // first would stall every such video for the whole 15s.
+                    check(device.wait(Until.hasObject(By.desc(SHEET_DRAG_HANDLE_DESC)), FEED_WAIT_MS)) {
+                        "comments sheet did not open"
+                    }
+                    device.awaitRes(VIDEO_COMMENTS_LIST_RES_ID, SHORT_WAIT_MS)
                     SystemClock.sleep(RESULTS_SETTLE_MS)
                     if (device.hasObject(By.res(VIDEO_COMMENTS_LIST_RES_ID))) {
                         device.flingList(VIDEO_COMMENTS_LIST_RES_ID)
@@ -235,6 +247,19 @@ class BaselineProfileGenerator {
 private const val TAG: String = "BaselineJourney"
 private const val SHORT_WAIT_MS: Long = 5_000
 private const val FEED_WAIT_MS: Long = 15_000
+
+/**
+ * How long to wait for the carousel before forcing a refresh.
+ *
+ * Shorter than [FEED_WAIT_MS] on purpose: when the first load comes back empty
+ * there is nothing to wait for, and the refresh is what fixes it.
+ */
+private const val TRENDING_FIRST_LOAD_MS: Long = 5_000
+private const val PULL_REFRESH_START_PX: Int = 80
+private const val PULL_REFRESH_END_PX: Int = 1_000
+private const val PULL_REFRESH_BOTTOM_MARGIN_PX: Int = 10
+private const val PULL_REFRESH_STEPS: Int = 60
+private const val PULL_REFRESH_SETTLE_MS: Long = 3_000
 private const val RESULTS_SETTLE_MS: Long = 2_000
 private const val TRENDING_VIDEO_SWIPES: Int = 3
 private const val VIDEO_PLAY_MS: Long = 1_500
@@ -318,6 +343,29 @@ private fun UiDevice.tapText(text: String): Boolean {
     obj.click()
     waitForIdle()
     return true
+}
+
+/**
+ * Swipe down from the top of [resId] to trigger pull-to-refresh, then wait for
+ * the list to settle.
+ *
+ * Deliberately a raw swipe rather than `fling(Direction.UP)`: a fling is a
+ * scroll gesture, and on a list already at the top it is a no-op rather than a
+ * refresh.
+ */
+private fun UiDevice.pullToRefresh(resId: String) {
+    val list = awaitRes(resId) ?: return
+    val bounds = list.visibleBounds
+    val x = bounds.centerX()
+    // Clamp inside the list: the nominal pull distance is taller than a short
+    // list, a landscape window or a split-screen pane, and a swipe that runs
+    // past the bottom edge is not a pull.
+    val startY = bounds.top + PULL_REFRESH_START_PX
+    val endY = minOf(bounds.top + PULL_REFRESH_END_PX, bounds.bottom - PULL_REFRESH_BOTTOM_MARGIN_PX)
+    if (endY <= startY) return
+    swipe(x, startY, x, endY, PULL_REFRESH_STEPS)
+    waitForIdle()
+    SystemClock.sleep(PULL_REFRESH_SETTLE_MS)
 }
 
 /** Fling a list down then back up (re-finding the node between flings). */
