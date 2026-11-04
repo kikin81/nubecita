@@ -273,15 +273,38 @@ internal class FeedRemoteMediatorTest {
         }
 
     @Test
-    fun `initialize launches a refresh when the projection's preferences are stale`() =
+    fun `initialize re-projects locally when the projection's preferences are stale`() =
         runTest {
             // The reader changed a setting since this partition was projected,
             // so its stored rows would keep showing what they asked to hide.
+            // Re-projected from disk, NOT refetched: the preference applies and
+            // the reader keeps their place, which is the point of the cache.
             coEvery { feedPostDao.maxPosition("did:plc:me", "FOLLOWING", "") } returns 12
             coEvery { partitionStateDao.state("did:plc:me", "FOLLOWING", "") } returns
                 FeedPartitionStateEntity("did:plc:me", "FOLLOWING", "", prefsFingerprint = "stale-fingerprint")
 
-            assertEquals(RemoteMediator.InitializeAction.LAUNCH_INITIAL_REFRESH, mediator().initialize())
+            val action = mediator().initialize()
+
+            assertEquals(RemoteMediator.InitializeAction.SKIP_INITIAL_REFRESH, action)
+            coVerify { projectionWriter.reproject(key) }
+        }
+
+    @Test
+    fun `initialize does not re-project when the preferences still match`() =
+        runTest {
+            coEvery { feedPostDao.maxPosition("did:plc:me", "FOLLOWING", "") } returns 12
+            coEvery { partitionStateDao.state("did:plc:me", "FOLLOWING", "") } returns
+                FeedPartitionStateEntity(
+                    "did:plc:me",
+                    "FOLLOWING",
+                    "",
+                    prefsFingerprint =
+                        projectionPrefsFingerprint(ModerationPrefs.DEFAULT, FeedViewPrefs.DEFAULT),
+                )
+
+            mediator().initialize()
+
+            coVerify(exactly = 0) { projectionWriter.reproject(any()) }
         }
 
     @Test

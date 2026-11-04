@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 7,
-    "identityHash": "87941bad333ca55f5c92bc01c62e2ade",
+    "identityHash": "6798bb1b5e141dba0754eaeb3f5ab989",
     "entities": [
       {
         "tableName": "recent_search",
@@ -77,7 +77,7 @@
       },
       {
         "tableName": "feed_post",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_did` TEXT NOT NULL, `feed_type` TEXT NOT NULL, `feed_uri` TEXT NOT NULL, `position` INTEGER NOT NULL, `uri` TEXT NOT NULL, `reposted_by_did` TEXT, `reposted_by_label` TEXT, `reply_root_uri` TEXT, `reply_parent_uri` TEXT, PRIMARY KEY(`account_did`, `feed_type`, `feed_uri`, `position`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`account_did` TEXT NOT NULL, `feed_type` TEXT NOT NULL, `feed_uri` TEXT NOT NULL, `position` INTEGER NOT NULL, `uri` TEXT NOT NULL, `reposted_by_did` TEXT, `reposted_by_label` TEXT, `reply_root_uri` TEXT, `reply_parent_uri` TEXT, `entry_context_blob` TEXT, PRIMARY KEY(`account_did`, `feed_type`, `feed_uri`, `position`))",
         "fields": [
           {
             "fieldPath": "accountDid",
@@ -127,6 +127,11 @@
           {
             "fieldPath": "replyParentUri",
             "columnName": "reply_parent_uri",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "entryContextBlob",
+            "columnName": "entry_context_blob",
             "affinity": "TEXT"
           }
         ],
@@ -529,7 +534,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '87941bad333ca55f5c92bc01c62e2ade')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6798bb1b5e141dba0754eaeb3f5ab989')"
     ]
   }
 }

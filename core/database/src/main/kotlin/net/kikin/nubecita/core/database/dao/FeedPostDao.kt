@@ -55,6 +55,25 @@ interface FeedPostDao {
         limit: Int,
     ): Flow<List<CachedFeedEntry>>
 
+    /**
+     * Every envelope in the partition, in order — the input to a local
+     * re-projection, which rebuilds the grouping from stored rows rather than
+     * refetching and so keeps the reader's place.
+     *
+     * Envelopes only: the posts come from the by-URI store, keyed off these
+     * rows' `uri` and the reply URIs in their context blob.
+     */
+    @Query(
+        "SELECT * FROM feed_post " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "ORDER BY position",
+    )
+    suspend fun entriesIn(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+    ): List<FeedPostEntity>
+
     @Query(
         "SELECT MAX(position) FROM feed_post " +
             "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri",

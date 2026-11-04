@@ -73,7 +73,7 @@ internal object Migration6To7 : Migration(6, 7) {
                 "`account_did` TEXT NOT NULL, `feed_type` TEXT NOT NULL, `feed_uri` TEXT NOT NULL, " +
                 "`position` INTEGER NOT NULL, `uri` TEXT NOT NULL, " +
                 "`reposted_by_did` TEXT, `reposted_by_label` TEXT, " +
-                "`reply_root_uri` TEXT, `reply_parent_uri` TEXT, " +
+                "`reply_root_uri` TEXT, `reply_parent_uri` TEXT, `entry_context_blob` TEXT, " +
                 "PRIMARY KEY(`account_did`, `feed_type`, `feed_uri`, `position`))",
         )
         connection.execSQL("CREATE INDEX IF NOT EXISTS `index_feed_post_uri` ON `feed_post` (`uri`)")

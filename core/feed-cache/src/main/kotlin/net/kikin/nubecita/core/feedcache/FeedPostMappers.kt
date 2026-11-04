@@ -5,6 +5,10 @@ import io.github.kikin81.atproto.app.bsky.feed.FeedViewPost
 import io.github.kikin81.atproto.app.bsky.feed.NotFoundPost
 import io.github.kikin81.atproto.app.bsky.feed.PostView
 import io.github.kikin81.atproto.app.bsky.feed.ReasonRepost
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
 import net.kikin.nubecita.core.database.model.CachedFeedEntry
 import net.kikin.nubecita.core.database.model.CachedPostEntity
 import net.kikin.nubecita.core.database.model.FeedPostEntity
@@ -52,6 +56,7 @@ fun FeedViewPost.toFeedPostEntity(
         repostedByLabel = repostedByDisplay(),
         replyRootUri = (reply?.root as? PostView)?.uri?.raw,
         replyParentUri = (reply?.parent as? PostView)?.uri?.raw,
+        entryContextBlob = entryContextBlob(),
     )
 
 /**
@@ -139,6 +144,56 @@ fun CachedPostEntity.toPostViewOrNull(): PostView? {
  * change its label the moment the feed refreshed.
  */
 private fun FeedViewPost.repostedByDisplay(): String? = (reason as? ReasonRepost)?.by?.let { it.displayName ?: it.handle.raw }
+
+/**
+ * This entry's own wire fields — `reason` and `reply` — as a JSON object, or
+ * null when it carries neither.
+ *
+ * Taken by re-encoding the entry and keeping those two keys, rather than
+ * hand-building them: the values go out through the same serializers that read
+ * them back, so an open-union variant this client does not model still
+ * round-trips instead of being silently flattened.
+ *
+ * The post is deliberately excluded. It lives once in the by-URI store, and
+ * including it here would be the duplication the two-grain split removed.
+ */
+private fun FeedViewPost.entryContextBlob(): String? {
+    val encoded = CacheJson.encodeToJsonElement(FeedViewPost.serializer(), this).jsonObject
+    val context =
+        buildJsonObject {
+            encoded["reason"]?.let { put("reason", it) }
+            encoded["reply"]?.let { put("reply", it) }
+        }
+    return if (context.isEmpty()) null else CacheJson.encodeToString(JsonObject.serializer(), context)
+}
+
+/**
+ * Rebuilds the wire entry from its stored parts: the post from the by-URI
+ * store, its own `reason` / `reply` from [FeedPostEntity.entryContextBlob].
+ *
+ * This is what makes a local re-projection faithful. The denormalized columns
+ * could suggest an entry's shape, but they reduce `reason` to a DID and a label
+ * and `reply` to two URIs — feed that to the grouping rules and `linksTo`, the
+ * repost exemption and the cluster shape all decide on something subtly unlike
+ * what the server sent.
+ *
+ * Returns null when the post is missing or either blob is malformed; a single
+ * unreadable row is skipped rather than failing the whole re-projection.
+ */
+fun FeedPostEntity.toFeedViewPostOrNull(post: CachedPostEntity?): FeedViewPost? {
+    val postJson = post?.postBlob ?: return null
+    return runCatching {
+        val wire =
+            buildJsonObject {
+                put("\$type", JsonPrimitive("app.bsky.feed.defs#feedViewPost"))
+                put("post", CacheJson.parseToJsonElement(postJson))
+                entryContextBlob?.let { blob ->
+                    CacheJson.parseToJsonElement(blob).jsonObject.forEach { (key, value) -> put(key, value) }
+                }
+            }
+        CacheJson.decodeFromJsonElement(FeedViewPost.serializer(), wire)
+    }.getOrNull()
+}
 
 private fun PostView.toCachedPost(feedKey: FeedKey): CachedPostEntity =
     CachedPostEntity(

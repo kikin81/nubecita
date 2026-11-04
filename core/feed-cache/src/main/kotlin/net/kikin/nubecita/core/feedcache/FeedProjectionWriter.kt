@@ -7,6 +7,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
+import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.model.FeedItemEntity
 import net.kikin.nubecita.core.database.model.FeedItemMemberEntity
 import net.kikin.nubecita.core.database.model.FeedPartitionStateEntity
@@ -59,6 +60,7 @@ internal class FeedProjectionWriter
         private val feedItemDao: FeedItemDao,
         private val partitionStateDao: FeedPartitionStateDao,
         private val cachedPostDao: CachedPostDao,
+        private val feedPostDao: FeedPostDao,
         private val sessionStateProvider: SessionStateProvider,
         private val moderationPreferences: ModerationPreferencesRepository,
         private val feedViewPreferences: FeedViewPreferencesRepository,
@@ -193,6 +195,48 @@ internal class FeedProjectionWriter
 
             val base = (feedItemDao.maxPosition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri) ?: -1) + 1
             write(feedKey, items, basePosition = base)
+            recordFingerprint(feedKey)
+        }
+
+        /**
+         * Recomputes the whole partition's projection from stored rows, with no
+         * network.
+         *
+         * This is what a preference change costs: one local pass, and the
+         * reader keeps their place. The alternative — refetching — applies the
+         * preference just as correctly and throws away the position this cache
+         * exists to preserve, which is the opposite of the point.
+         *
+         * The wire entries are rebuilt from the envelope's context blob plus
+         * the stored posts, so the grouping rules see what the server actually
+         * sent rather than a reconstruction from denormalized columns.
+         *
+         * Positions restart from the partition's lowest existing position, so a
+         * prepend window above zero is preserved and ordering is unchanged.
+         * Items are keyed by content, so an anchor pointing at a surviving item
+         * still resolves even though its position may have shifted.
+         */
+        suspend fun reproject(feedKey: FeedKey) {
+            val envelopes = feedPostDao.entriesIn(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
+            if (envelopes.isEmpty()) return
+
+            val postsByUri =
+                cachedPostDao
+                    .byUris(feedKey.accountDid, envelopes.map { it.uri })
+                    .associateBy { it.uri }
+            val page = envelopes.mapNotNull { it.toFeedViewPostOrNull(postsByUri[it.uri]) }
+            if (page.isEmpty()) return
+
+            val viewerDid = viewerDid()
+            val items =
+                page
+                    .filteredForFeed(feedKey, viewerDid)
+                    .toFeedItemsUi(prefs(), viewerDid)
+                    .dedupeByThreadRoot()
+                    .dedupeClusterContext()
+
+            feedItemDao.clearPartition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
+            write(feedKey, items, basePosition = envelopes.first().position)
             recordFingerprint(feedKey)
         }
 

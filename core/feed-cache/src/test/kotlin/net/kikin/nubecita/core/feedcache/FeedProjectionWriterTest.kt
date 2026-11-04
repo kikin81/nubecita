@@ -17,6 +17,7 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
+import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.model.FeedItemEntity
 import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
@@ -67,6 +68,7 @@ internal class FeedProjectionWriterTest {
     private val feedItemDao = mockk<FeedItemDao>(relaxed = true)
     private val partitionStateDao = mockk<FeedPartitionStateDao>(relaxed = true)
     private val cachedPostDao = mockk<CachedPostDao>(relaxed = true)
+    private val feedPostDao = mockk<FeedPostDao>(relaxed = true)
     private val sessionStateProvider =
         mockk<SessionStateProvider>().also {
             coEvery { it.state } returns MutableStateFlow(SessionState.SignedIn(handle = "me.bsky.social", did = "did:plc:me"))
@@ -82,6 +84,7 @@ internal class FeedProjectionWriterTest {
             feedItemDao = feedItemDao,
             partitionStateDao = partitionStateDao,
             cachedPostDao = cachedPostDao,
+            feedPostDao = feedPostDao,
             sessionStateProvider = sessionStateProvider,
             moderationPreferences = moderationPreferences,
             feedViewPreferences = feedViewPreferences,
@@ -176,6 +179,85 @@ internal class FeedProjectionWriterTest {
 
             assertEquals(2, captured.size)
             assertTrue(captured[0] != captured[1], "fingerprints must differ: $captured")
+        }
+
+    @Test
+    fun `a stored entry round-trips its reason and reply through the context blob`() {
+        // The reconstruction the whole local re-projection rests on. Rebuilt
+        // from the blob the write path produced, not from hand-built JSON, so
+        // this fails if either side drifts.
+        val wire = replyEntry("at://p/1")
+        val key = FeedKey.following("did:plc:me")
+        val envelope = wire.toFeedPostEntity(key, position = 0)
+        val post = wire.toCachedPosts(key).first { it.uri == envelope.uri }
+
+        val rebuilt = envelope.toFeedViewPostOrNull(post)
+
+        assertTrue(rebuilt != null, "entry should reconstruct")
+        assertEquals("at://p/1", rebuilt?.post?.uri?.raw)
+        // reply is an open union; the slots must come back as real posts, not
+        // as the Unknown variant, or linksTo and the cluster shape misread them.
+        assertEquals(
+            "at://did:plc:other/app.bsky.feed.post/root",
+            (rebuilt?.reply?.root as? io.github.kikin81.atproto.app.bsky.feed.PostView)?.uri?.raw,
+        )
+        assertEquals(
+            "at://did:plc:other/app.bsky.feed.post/parent",
+            (rebuilt?.reply?.parent as? io.github.kikin81.atproto.app.bsky.feed.PostView)?.uri?.raw,
+        )
+    }
+
+    @Test
+    fun `an entry with no reason or reply stores no context blob`() {
+        // The column is for entries that have entry-level context; a plain
+        // single should not pay for an empty JSON object.
+        val plain =
+            writerJson.decodeFromJsonElement(
+                FeedViewPost.serializer(),
+                buildJsonObject {
+                    put("\$type", "app.bsky.feed.defs#feedViewPost")
+                    put("post", postJson("at://plain/1"))
+                },
+            )
+
+        assertEquals(null, plain.toFeedPostEntity(FeedKey.following("did:plc:me"), position = 0).entryContextBlob)
+    }
+
+    @Test
+    fun `reproject rebuilds the projection from stored rows with no fetch`() =
+        runTest {
+            prefs(hideReplies = false)
+            val key = FeedKey.following("did:plc:me")
+            val wire = replyEntry("at://p/1")
+            val envelope = wire.toFeedPostEntity(key, position = 0)
+            val posts = wire.toCachedPosts(key)
+            coEvery { feedPostDao.entriesIn(any(), any(), any()) } returns listOf(envelope)
+            coEvery { cachedPostDao.byUris(any(), any()) } returns posts
+            val rows = slot<List<FeedItemEntity>>()
+            coEvery { feedItemDao.upsert(capture(rows)) } returns Unit
+
+            writer().reproject(key)
+
+            assertTrue(rows.isCaptured, "re-projection must write items")
+            assertEquals(1, rows.captured.size)
+            coVerify { feedItemDao.clearPartition("did:plc:me", "FOLLOWING", "") }
+        }
+
+    @Test
+    fun `reproject applies the new preferences`() =
+        runTest {
+            // The point of the whole mechanism: the reader hid replies, and the
+            // stored partition reflects it without refetching anything.
+            prefs(hideReplies = true)
+            val key = FeedKey.following("did:plc:me")
+            val wire = replyEntry("at://p/1")
+            coEvery { feedPostDao.entriesIn(any(), any(), any()) } returns
+                listOf(wire.toFeedPostEntity(key, position = 0))
+            coEvery { cachedPostDao.byUris(any(), any()) } returns wire.toCachedPosts(key)
+
+            writer().reproject(key)
+
+            coVerify(exactly = 0) { feedItemDao.upsert(any()) }
         }
 
     @Test

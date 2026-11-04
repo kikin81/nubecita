@@ -66,11 +66,15 @@ internal class FeedRemoteMediator
             // moved since its projection was computed: the stored rows would
             // keep showing replies the reader has just asked to hide, and the
             // setting would appear to do nothing.
-            return if (projectionIsStale()) {
-                InitializeAction.LAUNCH_INITIAL_REFRESH
-            } else {
-                InitializeAction.SKIP_INITIAL_REFRESH
+            //
+            // Re-projected locally rather than refetched, which is the whole
+            // reason the envelope carries its wire context: the preference
+            // applies and the reader keeps their place. A refetch would apply
+            // it just as correctly and lose the position this cache exists for.
+            if (projectionIsStale()) {
+                transactionRunner.run { projectionWriter.reproject(feedKey) }
             }
+            return InitializeAction.SKIP_INITIAL_REFRESH
         }
 
         /**
@@ -82,11 +86,10 @@ internal class FeedRemoteMediator
          * that as a mismatch would refetch every partition once on upgrade for
          * no reader-visible benefit.
          *
-         * A mismatch currently triggers a refetch rather than the local
-         * re-projection D22 chose, and that is a deliberate interim — see D27.
-         * Re-projecting without a fetch needs the entry-level wire context on
-         * disk, which the two-grain split removed; a refetch applies the
-         * preference correctly today at the cost of the reader's position.
+         * A mismatch re-projects the partition locally (D22/D27). That is
+         * possible only because the envelope persists the entry's own `reason`
+         * and `reply`: the denormalized columns alone would feed the grouping
+         * rules a reconstruction unlike what the server sent.
          */
         private suspend fun projectionIsStale(): Boolean {
             val stored =
