@@ -2,6 +2,10 @@ package net.kikin.nubecita.feature.moderation.impl
 
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.WindowInfo
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
@@ -86,7 +90,9 @@ private fun SubReasonViolenceScreenshot() {
 @Composable
 private fun DetailsStepOtherScreenshot() {
     NubecitaCanvasPreviewTheme {
-        ReportDialogContent(state = previewDetailsStateOther(), onEvent = {})
+        UnfocusedWindow {
+            ReportDialogContent(state = previewDetailsStateOther(), onEvent = {})
+        }
     }
 }
 
@@ -100,7 +106,9 @@ private fun DetailsStepOtherScreenshot() {
 @Composable
 private fun DetailsStepNonOtherScreenshot() {
     NubecitaCanvasPreviewTheme {
-        ReportDialogContent(state = previewDetailsStateNonOther(), onEvent = {})
+        UnfocusedWindow {
+            ReportDialogContent(state = previewDetailsStateNonOther(), onEvent = {})
+        }
     }
 }
 
@@ -118,7 +126,9 @@ private fun DetailsStepNonOtherScreenshot() {
 @Composable
 private fun DetailsSpamFastpathScreenshot() {
     NubecitaCanvasPreviewTheme {
-        ReportDialogContent(state = previewDetailsStateNonOther(), onEvent = {})
+        UnfocusedWindow {
+            ReportDialogContent(state = previewDetailsStateNonOther(), onEvent = {})
+        }
     }
 }
 
@@ -132,10 +142,12 @@ private fun DetailsSpamFastpathScreenshot() {
 @Composable
 private fun DetailsSubmittingScreenshot() {
     NubecitaCanvasPreviewTheme {
-        ReportDialogContent(
-            state = previewDetailsStateNonOther().copy(submission = SubmissionStatus.Submitting),
-            onEvent = {},
-        )
+        UnfocusedWindow {
+            ReportDialogContent(
+                state = previewDetailsStateNonOther().copy(submission = SubmissionStatus.Submitting),
+                onEvent = {},
+            )
+        }
     }
 }
 
@@ -145,14 +157,16 @@ private fun DetailsSubmittingScreenshot() {
 @Composable
 private fun DetailsFailureScreenshot() {
     NubecitaCanvasPreviewTheme {
-        ReportDialogContent(
-            state =
-                previewDetailsStateNonOther().copy(
-                    submission =
-                        SubmissionStatus.Failed(message = "Couldn't submit report. Please try again."),
-                ),
-            onEvent = {},
-        )
+        UnfocusedWindow {
+            ReportDialogContent(
+                state =
+                    previewDetailsStateNonOther().copy(
+                        submission =
+                            SubmissionStatus.Failed(message = "Couldn't submit report. Please try again."),
+                    ),
+                onEvent = {},
+            )
+        }
     }
 }
 
@@ -176,4 +190,31 @@ private fun SuccessCardScreenshot() {
             onEvent = {},
         )
     }
+}
+
+/**
+ * Render [content] as if the window were not focused.
+ *
+ * The details field auto-focuses, and a focused field in a focused window
+ * blinks a caret — which the screenshot host captures in whichever phase it
+ * lands on, making these baselines a coin flip (nubecita-ubhd). A text cursor
+ * is only drawn while the window has focus, so dropping window focus removes
+ * the caret while KEEPING the field's focused styling: the baseline still
+ * documents the blue focused border users actually see, instead of an
+ * unfocused field they never do.
+ */
+@Composable
+private fun UnfocusedWindow(content: @Composable () -> Unit) {
+    // Delegated, not reimplemented: `WindowInfo` also carries `containerSize`
+    // and `keyboardModifiers`, and a bare anonymous object silently swaps those
+    // for defaults — a zeroed container size would mislead anything that reads
+    // it. Only window focus is overridden; everything else stays real.
+    val current = LocalWindowInfo.current
+    val unfocused =
+        remember(current) {
+            object : WindowInfo by current {
+                override val isWindowFocused: Boolean = false
+            }
+        }
+    CompositionLocalProvider(LocalWindowInfo provides unfocused, content = content)
 }
