@@ -438,6 +438,18 @@ class AnalyticsModelTest {
     }
 
     @Test
+    fun `session_clear_telemetry_lost carries the reason and no session age`() {
+        // Recovered at next launch from a durable marker, so the age the clear
+        // itself would have reported died with the process that was clearing.
+        // Deliberately absent rather than guessed: a bucket invented here would
+        // be indistinguishable from one a real clear measured.
+        val event = SessionClearTelemetryLost(reason = SessionClearReason.InvalidGrant)
+        assertEquals("session_clear_telemetry_lost", event.name)
+        assertEquals(mapOf("reason" to Str("invalid_grant")), event.params)
+        AnalyticsValidator.requireValid(event)
+    }
+
+    @Test
     fun `auth_keyset_regenerated has no params`() {
         assertEquals("auth_keyset_regenerated", AuthKeysetRegenerated.name)
         assertEquals(emptyMap<String, AnalyticsValue>(), AuthKeysetRegenerated.params)

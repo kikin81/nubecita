@@ -5,6 +5,7 @@ import kotlinx.serialization.SerializationException
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.AuthKeysetRegenerated
 import net.kikin.nubecita.core.analytics.SessionClearReason
+import net.kikin.nubecita.core.analytics.SessionClearTelemetryLost
 import net.kikin.nubecita.core.analytics.SessionCleared
 import net.kikin.nubecita.core.analytics.SessionReadError
 import net.kikin.nubecita.core.analytics.SessionReadErrorCause
@@ -51,6 +52,16 @@ internal class AuthKeysetRegeneratedException(
 ) : RuntimeException("Tink session keyset regenerated — persisted session lost", cause)
 
 /**
+ * Recovery non-fatal for a clear that wiped the session and then died before
+ * recording itself. Reconstructed at next launch from the durable marker, so
+ * it has no caller stack and no per-clear forensics — only the bucketed
+ * reason. Its existence is the point: without it this clear is invisible.
+ */
+internal class SessionClearTelemetryLostException(
+    reason: SessionClearReason,
+) : RuntimeException("OAuth session cleared — telemetry lost before it was recorded (reason: ${reason.wire})")
+
+/**
  * Session-loss telemetry (epic nubecita-09xt): every persisted-session wipe and
  * every read-path degradation becomes a Crashlytics non-fatal + a GA4 event, so
  * spurious-logout mechanisms are measurable in the wild. Purely observational —
@@ -64,7 +75,61 @@ internal class SessionTelemetry
         private val loginTimestamps: LoginTimestampStore,
         private val clock: Clock,
         private val refreshForensics: RefreshForensics,
+        private val clearPending: SessionClearPendingStore,
     ) {
+        /**
+         * Persists "a clear is in flight" BEFORE the session is destroyed, so a
+         * process death between the wipe and [onSessionCleared] still leaves
+         * evidence for [reportLostClearTelemetry] to find. Exception-isolated
+         * like every other method here: a telemetry store that won't write must
+         * never stop the user being signed out.
+         */
+        suspend fun onSessionClearing(marker: SessionClearedException) {
+            try {
+                clearPending.markPending(bucketClearReason(marker))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.tag(TAG).w(e, "could not mark the pending session clear")
+            }
+        }
+
+        /**
+         * Drops the marker when the wipe it was written for never committed.
+         * Without this, a failed `updateData` leaves the session on disk next
+         * to a marker claiming it was cleared, and the next launch reports a
+         * logout that never happened — noise in the one metric this whole
+         * mechanism exists to make trustworthy.
+         */
+        suspend fun onSessionClearAborted() {
+            try {
+                clearPending.clearPending()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.tag(TAG).w(e, "could not drop the pending session clear after an aborted wipe")
+            }
+        }
+
+        /**
+         * Converts a marker left behind by a clear that never reported itself
+         * into a non-fatal, then consumes it so it fires exactly once. Called
+         * once per app start; a no-op in the overwhelming majority of launches.
+         */
+        suspend fun reportLostClearTelemetry() {
+            try {
+                val reason = clearPending.pendingReason() ?: return
+                crashReporter.setCustomKey("session_clear_reason", reason.wire)
+                crashReporter.recordException(SessionClearTelemetryLostException(reason))
+                analytics.log(SessionClearTelemetryLost(reason = reason))
+                clearPending.clearPending()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.tag(TAG).w(e, "lost-clear telemetry recovery failed")
+            }
+        }
+
         // Each method is exception-isolated: a broken telemetry backend (or an
         // unreadable timestamp store) must never disrupt the auth path it
         // observes — load()'s degrade-to-null guarantee, clear()/sign-out, and
@@ -90,6 +155,9 @@ internal class SessionTelemetry
                 }
                 crashReporter.recordException(marker)
                 analytics.log(SessionCleared(reason = reason, daysSinceLogin = daysSinceLogin))
+                // The loss is on the record now, so the durable marker has done
+                // its job; leaving it would re-report this clear at next launch.
+                clearPending.clearPending()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

@@ -2,14 +2,18 @@ package net.kikin.nubecita.core.auth
 
 import androidx.datastore.core.DataStore
 import io.github.kikin81.atproto.oauth.OAuthSession
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import kotlinx.serialization.SerializationException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -62,6 +66,66 @@ class EncryptedOAuthSessionStoreTest {
             store.clear()
 
             coVerify(exactly = 1) { telemetry.onSessionCleared(any()) }
+        }
+
+    @Test
+    fun `clear records session-cleared telemetry even when the clearing scope is cancelled`() =
+        runTest {
+            // The wipe is irreversible, so losing the non-fatal loses the only
+            // evidence the session ever existed (nubecita-yv4p). A background
+            // refresh whose worker is stopped cancels the scope right here.
+            var recorded = false
+            val cancellingTelemetry = mockk<SessionTelemetry>(relaxed = true)
+            coEvery { cancellingTelemetry.onSessionCleared(any()) } coAnswers {
+                // The real implementation suspends (login-timestamp read, refresh
+                // forensics) before it ever reaches recordException.
+                yield()
+                recorded = true
+            }
+
+            val clearing =
+                launch {
+                    val scope = this
+                    EncryptedOAuthSessionStore(
+                        WriteHookDataStore { scope.cancel() },
+                        cancellingTelemetry,
+                    ).clear()
+                }
+            clearing.join()
+
+            assertTrue(recorded, "session-cleared telemetry was lost when the clearing scope was cancelled")
+        }
+
+    @Test
+    fun `clear marks the pending clear before the wipe, so process death still leaves evidence`() =
+        runTest {
+            // NonCancellable covers a cancelled scope, but not the process being
+            // killed outright. The durable marker has to be on disk BEFORE the
+            // session is destroyed, or the window reopens (nubecita-yv4p).
+            var marked = false
+            var markedBeforeWipe = false
+            val orderedTelemetry = mockk<SessionTelemetry>(relaxed = true)
+            coEvery { orderedTelemetry.onSessionClearing(any()) } coAnswers { marked = true }
+
+            EncryptedOAuthSessionStore(
+                WriteHookDataStore { markedBeforeWipe = marked },
+                orderedTelemetry,
+            ).clear()
+
+            assertTrue(markedBeforeWipe, "pending marker must be durable before the session is destroyed")
+        }
+
+    @Test
+    fun `clear that fails to write drops the pending marker - no phantom loss at next launch`() =
+        runTest {
+            // The marker is written before the wipe, so a wipe that throws leaves
+            // the session on disk AND a marker claiming it was cleared. That
+            // would report a logout that never happened.
+            val store = store(ThrowingDataStore(IOException("simulated write failure")))
+
+            runCatching { store.clear() }
+
+            coVerify(exactly = 1) { telemetry.onSessionClearAborted() }
         }
 
     @Test
@@ -199,6 +263,24 @@ class EncryptedOAuthSessionStoreTest {
             assertTrue(thrown is IllegalStateException, "expected IllegalStateException, got $thrown")
             verify(exactly = 0) { telemetry.onSessionReadError(any()) }
         }
+}
+
+/**
+ * Runs [onWrite] immediately after committing the write, so a test can observe
+ * the exact moment the session stops existing — either to assert what had
+ * already been persisted by then, or to cancel the caller's scope and model a
+ * background clear whose WorkManager job is stopped mid-flight.
+ */
+private class WriteHookDataStore(
+    private val onWrite: () -> Unit,
+) : DataStore<OAuthSession?> {
+    override val data: Flow<OAuthSession?> = MutableStateFlow(null)
+
+    override suspend fun updateData(transform: suspend (t: OAuthSession?) -> OAuthSession?): OAuthSession? {
+        val next = transform(null)
+        onWrite()
+        return next
+    }
 }
 
 private class FakeDataStore : DataStore<OAuthSession?> {

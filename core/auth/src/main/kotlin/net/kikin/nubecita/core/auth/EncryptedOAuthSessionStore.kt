@@ -4,9 +4,11 @@ import androidx.datastore.core.DataStore
 import io.github.kikin81.atproto.oauth.OAuthSession
 import io.github.kikin81.atproto.oauth.OAuthSessionStore
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import java.io.IOException
 import java.security.GeneralSecurityException
@@ -89,9 +91,34 @@ internal class EncryptedOAuthSessionStore
             // The marker must be constructed before the suspending write: after a
             // suspension point the resumed JVM stack no longer carries the caller
             // frames (SDK failRefresh vs AtOAuth.logout) that clear-reason
-            // bucketing reads. Telemetry fires only after the wipe succeeds.
+            // bucketing reads. The full non-fatal still fires only after the
+            // wipe succeeds; only the bucketed reason is persisted ahead of it.
             val marker = SessionClearedException()
-            dataStore.updateData { null }
-            telemetry.onSessionCleared(marker)
+            // Durable breadcrumb first: NonCancellable below saves the report
+            // from a cancelled scope, but not from the process being killed
+            // outright, and the marker lives only on this stack.
+            telemetry.onSessionClearing(marker)
+            // NonCancellable from here: once the marker is down, the wipe and its
+            // report must reach a definite outcome together. onSessionCleared
+            // suspends (login-timestamp read, refresh forensics) and rethrows
+            // CancellationException, so on a plain scope a background clear whose
+            // worker is stopped destroyed the session and reported nothing — the
+            // marker lives only on this stack, so nothing reconstructed it later
+            // (nubecita-yv4p). Covering the write too removes the other half of
+            // that ambiguity: a cancelled-mid-write clear can no longer leave a
+            // marker behind for a session that is still on disk.
+            withContext(NonCancellable) {
+                try {
+                    dataStore.updateData { null }
+                } catch (e: Exception) {
+                    // The session survived, so the marker would report a logout
+                    // that never happened. A blanket catch is right here: inside
+                    // NonCancellable there is no cancellation to honour, so any
+                    // throw means the write genuinely did not commit.
+                    telemetry.onSessionClearAborted()
+                    throw e
+                }
+                telemetry.onSessionCleared(marker)
+            }
         }
     }

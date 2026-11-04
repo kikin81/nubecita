@@ -10,6 +10,7 @@ import dagger.multibindings.IntoSet
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.BuildConfig
+import net.kikin.nubecita.core.auth.SessionClearTelemetryRecovery
 import net.kikin.nubecita.core.billing.RevenueCatInitializer
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.core.feeds.FeedViewPreferencesCoordinator
@@ -46,6 +47,16 @@ internal object ProductionBootstrapModule {
     fun provideAppLifecycleInitializer(
         observer: AppLifecycleObserver,
     ): AppInitializer = AppInitializer { observer.start() }
+
+    // Recovers a session clear that wiped the session and then died before it
+    // could report itself — the one silent-logout path that otherwise reaches
+    // no telemetry at all (nubecita-yv4p). Schedules only; reads off the
+    // initializer thread.
+    @Provides
+    @IntoSet
+    fun provideSessionClearTelemetryRecoveryInitializer(
+        recovery: SessionClearTelemetryRecovery,
+    ): AppInitializer = AppInitializer { recovery.start() }
 
     @Provides
     @IntoSet
