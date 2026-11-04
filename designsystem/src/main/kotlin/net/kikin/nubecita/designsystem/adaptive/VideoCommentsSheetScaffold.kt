@@ -41,7 +41,6 @@ import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
-import kotlin.math.roundToInt
 
 /**
  * Default dimensions and constants for [VideoCommentsSheetScaffold].
@@ -184,13 +183,13 @@ fun VideoCommentsSheetScaffold(
                                 // sheet has been laid out once, and that is the only
                                 // failure worth absorbing here — a broad catch would also
                                 // swallow cancellation and JVM errors.
-                                val offset =
+                                hiddenSheetHeightPx(
                                     try {
                                         sheetState.requireOffset()
                                     } catch (_: IllegalStateException) {
                                         null
-                                    }
-                                offset?.takeIf { it.isFinite() }?.roundToInt()?.coerceAtLeast(0) ?: 0
+                                    },
+                                )
                             },
                         ) {
                             movableComments()

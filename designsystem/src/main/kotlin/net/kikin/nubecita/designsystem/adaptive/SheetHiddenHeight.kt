@@ -1,6 +1,7 @@
 package net.kikin.nubecita.designsystem.adaptive
 
 import androidx.compose.runtime.staticCompositionLocalOf
+import kotlin.math.roundToInt
 
 /**
  * How many pixels of the current bottom sheet's content sit below the window.
@@ -18,3 +19,13 @@ import androidx.compose.runtime.staticCompositionLocalOf
  * Zero whenever there is no sheet, or the sheet is fully expanded.
  */
 val LocalSheetHiddenHeightPx = staticCompositionLocalOf<() -> Int> { { 0 } }
+
+/**
+ * Normalise a sheet offset into a usable hidden height.
+ *
+ * Pulled out of the provider so the edge cases are testable without a sheet:
+ * a `null` offset (the sheet has not been laid out yet), a non-finite one, and
+ * the negative values an over-drag produces — all of which must read as "no
+ * hidden height" rather than shoving content off in the wrong direction.
+ */
+internal fun hiddenSheetHeightPx(offset: Float?): Int = offset?.takeIf { it.isFinite() }?.roundToInt()?.coerceAtLeast(0) ?: 0
