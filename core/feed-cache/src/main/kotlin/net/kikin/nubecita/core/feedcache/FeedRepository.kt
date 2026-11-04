@@ -6,8 +6,13 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.PagingSource
 import androidx.paging.RemoteMediator
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.database.NubecitaDatabase
@@ -16,8 +21,9 @@ import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
+import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
-import net.kikin.nubecita.data.models.FeedItemUi
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.PostUi
 import javax.inject.Inject
 
@@ -46,7 +52,7 @@ interface FeedRepository {
     fun pagedFeed(
         feedKey: FeedKey,
         initialPosition: Int? = null,
-    ): Flow<PagingData<FeedItemUi>>
+    ): Flow<PagingData<CachedFeedRow>>
 
     /**
      * Stream of the newest (≤) [n] cached [PostUi] for [feedKey], ordered by
@@ -86,6 +92,9 @@ interface FeedRepository {
      * Carries the resolved row's own key, not just a position, because the two
      * consumers need different things: the `Pager` opens at the position, and
      * the list scrolls to the key, which is the only identity it has for a row.
+     *
+     * Always `null` on a feed that cannot prepend what arrived since it was
+     * last read (D14) — see [saveAnchor], which declines to store one there.
      */
     suspend fun anchor(feedKey: FeedKey): FeedAnchor?
 
@@ -97,12 +106,41 @@ interface FeedRepository {
      * is on screen but not where those rows sit in the partition. Resolving
      * the key to a position is this layer's job, and storing both is what lets
      * a later restore fall back when the key is gone.
+     *
+     * A no-op on a feed that does not support `since` (D14): a generator
+     * refreshes on open, so the partition the place referred to is gone before
+     * anyone could be put back in it.
      */
     suspend fun saveAnchor(
         feedKey: FeedKey,
         itemKey: String,
         offset: Int,
     )
+
+    /**
+     * The authors of entries sitting above the reader's place that they have
+     * not acknowledged — what the new-posts pill shows, and the signal for
+     * whether to show it at all (empty means no pill).
+     *
+     * Derived from the partition rather than raised by a prepend result
+     * (D20). It has to be: the writes that matter are the background worker's,
+     * made while the app is away, where there is no in-session event for the
+     * UI to have observed. A `Flow`, so returning to a feed the worker touched
+     * raises the pill without anything asking.
+     *
+     * Capped at [PILL_FACES]: the pill shows a few faces, not a count.
+     */
+    fun newPostAuthors(feedKey: FeedKey): Flow<ImmutableList<AuthorUi>>
+
+    /**
+     * Acknowledge everything currently above the reader — what tapping the
+     * pill, or scrolling up past the new entries, means.
+     *
+     * Recorded as a position rather than a flag so a later arrival raises the
+     * pill again: anything written above the mark is new, anything below it
+     * has been seen.
+     */
+    suspend fun dismissNewPosts(feedKey: FeedKey)
 
     /**
      * Drop the reader's place — what pull-to-refresh does (D8).
@@ -183,6 +221,15 @@ interface FeedRepository {
 
         /** Paging page size for the app feed. */
         const val PAGE_SIZE = 25
+
+        /**
+         * How many faces the new-posts pill shows.
+         *
+         * Three overlapping avatars and no count: the number of new posts is
+         * not something a reader acts on, and a count invites the "inbox at
+         * zero" feeling this feature is meant to avoid.
+         */
+        const val PILL_FACES = 3
     }
 }
 
@@ -192,7 +239,7 @@ interface FeedRepository {
  * nulls that moderation / malformed-blob produce. Reads `viewerDid` / `prefs`
  * via `.value` per item so the projection always reflects current state.
  */
-@OptIn(ExperimentalPagingApi::class)
+@OptIn(ExperimentalPagingApi::class, ExperimentalCoroutinesApi::class)
 internal open class DefaultFeedRepository
     @Inject
     constructor(
@@ -214,12 +261,12 @@ internal open class DefaultFeedRepository
          * JVM unit test can swap a no-op mediator (the assisted factory needs the
          * Hilt-generated impl, which a pure-JVM test can't construct).
          */
-        protected open fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, FeedItemUi> = mediatorFactory.create(feedKey)
+        protected open fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, CachedFeedRow> = mediatorFactory.create(feedKey)
 
         override fun pagedFeed(
             feedKey: FeedKey,
             initialPosition: Int?,
-        ): Flow<PagingData<FeedItemUi>> =
+        ): Flow<PagingData<CachedFeedRow>> =
             Pager(
                 config = PagingConfig(pageSize = FeedRepository.PAGE_SIZE),
                 initialKey = initialPosition,
@@ -235,7 +282,7 @@ internal open class DefaultFeedRepository
         protected open fun pagingSourceFor(
             feedKey: FeedKey,
             initialPosition: Int?,
-        ): PagingSource<Int, FeedItemUi> =
+        ): PagingSource<Int, CachedFeedRow> =
             // A hand-rolled source keyed on `position`, not Room's generated
             // one. The generated source's refresh key is an offset, so any
             // write that adds rows above the reader moves it — see
@@ -276,6 +323,7 @@ internal open class DefaultFeedRepository
         override suspend fun catchUp(feedKey: FeedKey): Result<CatchUpOutcome> = feedCatchUp.catchUp(feedKey)
 
         override suspend fun anchor(feedKey: FeedKey): FeedAnchor? {
+            if (!feedKey.feedType.supportsSince) return null
             val state =
                 partitionStateDao.state(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
                     ?: return null
@@ -302,6 +350,12 @@ internal open class DefaultFeedRepository
             itemKey: String,
             offset: Int,
         ) {
+            // Gated here rather than at each screen: keeping a place is only
+            // meaningful on a feed that can prepend what arrived since (D14).
+            // A generator refreshes on open, so an anchor written for one would
+            // point into a partition that no longer exists by the time anyone
+            // read it — and every caller would have to remember that.
+            if (!feedKey.feedType.supportsSince) return
             // No row for this key means the list moved under the write — a
             // refresh landed between the scroll settling and this call.
             // Storing a position the key does not have would make the
@@ -317,6 +371,54 @@ internal open class DefaultFeedRepository
                 itemKey = itemKey,
                 position = position,
                 offset = offset,
+            )
+        }
+
+        override fun newPostAuthors(feedKey: FeedKey): Flow<ImmutableList<AuthorUi>> =
+            partitionStateDao
+                .observe(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
+                .flatMapLatest { state ->
+                    // Dismissal wins over the anchor: once acknowledged, the
+                    // mark is the new waterline and only writes above IT count.
+                    // With neither, position 0 is the top of the last
+                    // destructive refresh, so a prepend's negative positions
+                    // are "above" and a reader at the top still sees the pill.
+                    val above = state?.pillDismissedPosition ?: state?.anchorPosition ?: 0
+                    feedItemDao.leafPostsAbove(
+                        feedKey.accountDid,
+                        feedKey.feedType.name,
+                        feedKey.feedUri,
+                        position = above,
+                        limit = PILL_FACE_CANDIDATES,
+                    )
+                }.map { posts ->
+                    // Distinct by author: three faces from three people says
+                    // more than the same person three times.
+                    //
+                    // Which is why the query asks for more rows than the pill
+                    // shows: one person on a burst owns the newest three
+                    // entries often enough that de-duplicating a LIMIT 3 would
+                    // routinely leave a single face. Over-fetch, then cut.
+                    posts
+                        .mapNotNull { post -> post.toPostViewOrNull()?.toPostUiCore(currentViewerDid())?.author }
+                        .distinctBy { author -> author.did }
+                        .take(FeedRepository.PILL_FACES)
+                        .toImmutableList()
+                }
+
+        private fun currentViewerDid(): String? = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
+
+        override suspend fun dismissNewPosts(feedKey: FeedKey) {
+            // The current top IS the waterline: everything above the reader
+            // right now is what they are acknowledging.
+            val top =
+                feedItemDao.minPosition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
+                    ?: return
+            partitionStateDao.dismissPillAbove(
+                accountDid = feedKey.accountDid,
+                feedType = feedKey.feedType.name,
+                feedUri = feedKey.feedUri,
+                position = top,
             )
         }
 
@@ -419,6 +521,17 @@ data class FeedAnchor(
     val itemKey: String,
     val offset: Int,
 )
+
+/**
+ * How many rows the pill's face query reads before de-duplicating by author.
+ *
+ * A multiple of [FeedRepository.PILL_FACES] rather than the count itself: the
+ * faces have to come from distinct people, and a burst from one account is the
+ * ordinary shape of what arrives while a reader is away. Bounded all the same —
+ * the window above the anchor can be hundreds of rows, and nothing here needs
+ * to read them.
+ */
+private const val PILL_FACE_CANDIDATES = FeedRepository.PILL_FACES * 5
 
 /**
  * Tiny non-null carrier so a nullable [PostUi] can flow through `PagingData`

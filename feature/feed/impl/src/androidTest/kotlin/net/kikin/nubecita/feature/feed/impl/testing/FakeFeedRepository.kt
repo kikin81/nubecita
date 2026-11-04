@@ -1,9 +1,13 @@
 package net.kikin.nubecita.feature.feed.impl.testing
 
 import androidx.paging.PagingData
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import net.kikin.nubecita.core.feedcache.CachedFeedRow
 import net.kikin.nubecita.core.feedcache.CatchUpOutcome
 import net.kikin.nubecita.core.feedcache.FeedAnchor
 import net.kikin.nubecita.core.feedcache.FeedKey
@@ -34,13 +38,31 @@ import kotlin.time.Instant
 internal class FakeFeedRepository
     @Inject
     constructor() : FeedRepository {
-        @Volatile
-        var items: List<FeedItemUi> = DEFAULT_ITEMS
+        /**
+         * What the projection holds, as a flow — a fill rewrites it, and the
+         * screen has to see the rewrite the way it would see the cache's own
+         * invalidation.
+         */
+        private val projection = MutableStateFlow<List<CachedFeedRow>>(DEFAULT_ITEMS.map(CachedFeedRow::Item))
+
+        /** The rendered items, for the tests that only care about posts. */
+        var items: List<FeedItemUi>
+            get() = projection.value.filterIsInstance<CachedFeedRow.Item>().map { it.item }
+            set(value) {
+                projection.value = value.map(CachedFeedRow::Item)
+            }
+
+        /** The projection including any seam, for the tests that place one. */
+        var rows: List<CachedFeedRow>
+            get() = projection.value
+            set(value) {
+                projection.value = value
+            }
 
         override fun pagedFeed(
             feedKey: FeedKey,
             initialPosition: Int?,
-        ): Flow<PagingData<FeedItemUi>> = flowOf(PagingData.from(items))
+        ): Flow<PagingData<CachedFeedRow>> = projection.map { PagingData.from(it) }
 
         override fun head(
             feedKey: FeedKey,
@@ -60,7 +82,18 @@ internal class FakeFeedRepository
             return Result.success(true)
         }
 
-        override suspend fun catchUp(feedKey: FeedKey): Result<CatchUpOutcome> = Result.success(CatchUpOutcome.NOT_POSSIBLE)
+        /** How many fills were asked for — one per crossing is the invariant. */
+        @Volatile
+        var catchUpCalls: Int = 0
+
+        /** What a fill does to the projection and what it answers. */
+        @Volatile
+        var onCatchUp: (() -> Result<CatchUpOutcome>)? = null
+
+        override suspend fun catchUp(feedKey: FeedKey): Result<CatchUpOutcome> {
+            catchUpCalls++
+            return onCatchUp?.invoke() ?: Result.success(CatchUpOutcome.NOT_POSSIBLE)
+        }
 
         /** The place to restore to, as a stored anchor would have been resolved. */
         @Volatile
@@ -84,6 +117,20 @@ internal class FakeFeedRepository
             anchorCleared = true
             storedAnchor = null
             savedAnchor = null
+        }
+
+        /** Faces the pill shows; tests set this before composing. */
+        val newPosts = MutableStateFlow<ImmutableList<AuthorUi>>(persistentListOf())
+
+        /** How many times the reader acknowledged them. */
+        @Volatile
+        var dismissals: Int = 0
+
+        override fun newPostAuthors(feedKey: FeedKey): Flow<ImmutableList<AuthorUi>> = newPosts
+
+        override suspend fun dismissNewPosts(feedKey: FeedKey) {
+            dismissals++
+            newPosts.value = persistentListOf()
         }
 
         override suspend fun trimToCap(

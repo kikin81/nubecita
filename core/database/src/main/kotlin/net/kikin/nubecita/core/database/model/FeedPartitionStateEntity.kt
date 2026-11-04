@@ -43,6 +43,14 @@ import androidx.room.Entity
  *   backlog (D19).
  * - [anchorOffset] is the pixel scroll offset within that row, so restore lands
  *   mid-row where the reader actually was rather than snapping to its top.
+ *
+ * [pillDismissedPosition] is how far up the reader has acknowledged new posts.
+ * The new-posts pill is **derived** from what is stored above their place
+ * rather than raised by an in-session event (D20) — it has to be, because the
+ * writes that matter happen while the app is backgrounded, where no in-session
+ * event exists to observe. Derivation alone would re-raise the pill on every
+ * composition after it was dismissed, so the dismissal is a position: anything
+ * written above it is new again, and anything below it has been seen.
  */
 @Entity(
     tableName = "feed_partition_state",
@@ -56,4 +64,5 @@ data class FeedPartitionStateEntity(
     @ColumnInfo(name = "anchor_item_key") val anchorItemKey: String? = null,
     @ColumnInfo(name = "anchor_position") val anchorPosition: Int? = null,
     @ColumnInfo(name = "anchor_offset") val anchorOffset: Int? = null,
+    @ColumnInfo(name = "pill_dismissed_position") val pillDismissedPosition: Int? = null,
 )

@@ -7,9 +7,11 @@ import app.cash.turbine.test
 import io.github.kikin81.atproto.runtime.XrpcError
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
@@ -25,6 +27,7 @@ import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.feedcache.CachedFeedRow
 import net.kikin.nubecita.core.feedcache.CatchUpOutcome
 import net.kikin.nubecita.core.feedcache.FeedAnchor
 import net.kikin.nubecita.core.feedcache.FeedKey
@@ -221,7 +224,7 @@ internal class FeedViewModelTest {
 
             val kept = paged(listOf(item)).withOptimisticState().asSnapshot()
 
-            assertSame(item, kept.single())
+            assertSame(item, kept.single().item)
         }
 
     @Test
@@ -278,7 +281,7 @@ internal class FeedViewModelTest {
 
             val kept = paged(items).withOptimisticState(unmutes = setOf(MUTED)).asSnapshot()
 
-            assertFalse((kept.single() as FeedItemUi.Single).post.viewer.isAuthorMutedByViewer)
+            assertFalse((kept.single().item as FeedItemUi.Single).post.viewer.isAuthorMutedByViewer)
         }
 
     @Test
@@ -288,7 +291,7 @@ internal class FeedViewModelTest {
 
             val kept = paged(listOf(original)).withOptimisticState(unmutes = setOf(MUTED)).asSnapshot()
 
-            val item = kept.single() as FeedItemUi.ReplyCluster
+            val item = kept.single().item as FeedItemUi.ReplyCluster
             assertFalse(item.root.viewer.isAuthorMutedByViewer)
             assertSame(original.leaf, item.leaf)
         }
@@ -305,7 +308,7 @@ internal class FeedViewModelTest {
                             ),
                     ).asSnapshot()
 
-            val item = kept.single() as FeedItemUi.Single
+            val item = kept.single().item as FeedItemUi.Single
             assertEquals(42, item.post.stats.likeCount)
             assertEquals("at://like", item.post.viewer.likeUri)
         }
@@ -329,10 +332,10 @@ internal class FeedViewModelTest {
                             ),
                     ).asSnapshot()
 
-            assertEquals(7, (kept[0] as FeedItemUi.ReplyCluster).leaf.stats.likeCount)
+            assertEquals(7, (kept[0].item as FeedItemUi.ReplyCluster).leaf.stats.likeCount)
             assertEquals(
                 9,
-                (kept[1] as FeedItemUi.SelfThreadChain)
+                (kept[1].item as FeedItemUi.SelfThreadChain)
                     .posts
                     .first()
                     .stats.likeCount,
@@ -633,6 +636,113 @@ internal class FeedViewModelTest {
             assertEquals(1, repo.anchorCleared)
         }
 
+    @Test
+    fun `a generator feed raises no pill, however many faces the cache offers`() =
+        feedTest {
+            // D14. A generator refreshes on open, so its reader is already at
+            // the newest content and "posts arrived above you" is not a thing
+            // that happens to them. The gate is the feed type rather than a
+            // list of kinds: a pill means entries were prepended, and only a
+            // feed that can ask for a `since` range has those.
+            val repo = FakeFeedRepository()
+            repo.newPosts.value =
+                persistentListOf(AuthorUi(did = "did:plc:nova", handle = "nova.astro", displayName = "Nova", avatarUrl = null))
+            val vm = viewModel(repo)
+
+            vm.handleEvent(FeedEvent.Bind("at://did:plc:gen/app.bsky.feed.generator/mine", FeedKind.Generator))
+            vm.feed.first()
+
+            // Collected, because the pill's flow is `WhileSubscribed`: the
+            // faces only reach it while something is listening, which on the
+            // screen is the composition.
+            vm.newPosts.test {
+                assertEquals(persistentListOf<AuthorUi>(), awaitItem())
+                advanceUntilIdle()
+                expectNoEvents()
+            }
+        }
+
+    @Test
+    fun `the Following feed does raise one, from the same cache`() =
+        feedTest {
+            // The other half of the gate, so a change that empties the pill
+            // everywhere cannot pass by satisfying the test above alone.
+            val repo = FakeFeedRepository()
+            val nova = AuthorUi(did = "did:plc:nova", handle = "nova.astro", displayName = "Nova", avatarUrl = null)
+            repo.newPosts.value = persistentListOf(nova)
+            val vm = viewModel(repo)
+
+            vm.feed.first()
+
+            vm.newPosts.test {
+                // The replayed empty initial value may or may not reach this
+                // collector before the query's first emission, so skip past it
+                // rather than assume which arrives.
+                var faces = awaitItem()
+                while (faces.isEmpty()) faces = awaitItem()
+                assertEquals(persistentListOf(nova), faces)
+            }
+        }
+
+    // ---------- the seam's fill ----------
+
+    @Test
+    fun `a second ask while a fill is in flight does not start a second fill`() =
+        feedTest {
+            // The row asks on every crossing and a reader can also tap it, so
+            // without the guard a fill that takes a moment would be started
+            // again by the next recomposition — N prepends for one gap.
+            val repo = FakeFeedRepository()
+            repo.catchUpGate = CompletableDeferred()
+            val vm = viewModel(repo)
+
+            vm.handleEvent(FeedEvent.FillSeam(-250))
+            vm.handleEvent(FeedEvent.FillSeam(-250))
+            advanceUntilIdle()
+
+            assertEquals(1, repo.catchUpCalls)
+            assertTrue(vm.uiState.value.isFillingSeam)
+
+            repo.catchUpGate?.complete(Unit)
+            advanceUntilIdle()
+
+            assertFalse(vm.uiState.value.isFillingSeam)
+        }
+
+    @Test
+    fun `the next crossing fills again once the previous one has finished`() =
+        feedTest {
+            // The guard is in-flight-only, not once-per-seam: a fill that
+            // narrowed the gap without closing it leaves the same seam in
+            // place, and the reader scrolling back to it means the same thing
+            // it meant the first time.
+            val repo = FakeFeedRepository()
+            val vm = viewModel(repo)
+
+            vm.handleEvent(FeedEvent.FillSeam(-250))
+            advanceUntilIdle()
+            vm.handleEvent(FeedEvent.FillSeam(-250))
+            advanceUntilIdle()
+
+            assertEquals(2, repo.catchUpCalls)
+        }
+
+    @Test
+    fun `a failed fill surfaces an error and leaves nothing in flight`() =
+        feedTest {
+            val repo = FakeFeedRepository()
+            repo.catchUpResult = Result.failure(IOException("offline"))
+            val vm = viewModel(repo)
+
+            vm.effects.test {
+                vm.handleEvent(FeedEvent.FillSeam(-250))
+                advanceUntilIdle()
+
+                assertEquals(FeedEffect.ShowError(FeedError.Network), awaitItem())
+            }
+            assertFalse(vm.uiState.value.isFillingSeam)
+        }
+
     // ---------- autoplay ----------
 
     @Test
@@ -722,15 +832,28 @@ internal class FeedViewModelTest {
 
 // ---------- fixtures ----------
 
+/**
+ * The leaf of a rendered row.
+ *
+ * The transforms now carry seams as well as items, so every assertion about
+ * what survived them unwraps first — and a seam reaching one of these is a
+ * failure worth the cast's exception, not something to silently skip.
+ */
+private val CachedFeedRow.item: FeedItemUi
+    get() = (this as CachedFeedRow.Item).item
+
+private val CachedFeedRow.leafId: String
+    get() = item.leafId
+
 /** One page of [items], the shape the transforms see. */
-private fun paged(items: List<FeedItemUi>): Flow<PagingData<FeedItemUi>> = flowOf(PagingData.from(items))
+private fun paged(items: List<FeedItemUi>): Flow<PagingData<CachedFeedRow>> = flowOf(PagingData.from(items.map<FeedItemUi, CachedFeedRow>(CachedFeedRow::Item)))
 
 /** The transform chain under test, with every input defaulting to "nothing optimistic". */
-private fun Flow<PagingData<FeedItemUi>>.withOptimisticState(
+private fun Flow<PagingData<CachedFeedRow>>.withOptimisticState(
     mutes: Set<String> = emptySet(),
     unmutes: Set<String> = emptySet(),
     interactions: PersistentMap<String, PostInteractionState> = persistentMapOf(),
-): Flow<PagingData<FeedItemUi>> =
+): Flow<PagingData<CachedFeedRow>> =
     withOptimisticState(
         mutedAuthors = flowOf(mutes),
         unmutedAuthors = flowOf(unmutes),
@@ -845,10 +968,10 @@ private class FakeFeedRepository(
     override fun pagedFeed(
         feedKey: FeedKey,
         initialPosition: Int?,
-    ): Flow<PagingData<FeedItemUi>> {
+    ): Flow<PagingData<CachedFeedRow>> {
         keys += feedKey
         initialPositions += initialPosition
-        return flowOf(PagingData.from(items))
+        return flowOf(PagingData.from(items.map<FeedItemUi, CachedFeedRow>(CachedFeedRow::Item)))
     }
 
     override fun head(
@@ -858,7 +981,16 @@ private class FakeFeedRepository(
 
     override suspend fun refresh(feedKey: FeedKey): Result<Boolean> = Result.success(true)
 
-    override suspend fun catchUp(feedKey: FeedKey): Result<CatchUpOutcome> = Result.success(CatchUpOutcome.CAUGHT_UP)
+    /** How many fills were asked for, and what each one answers. */
+    var catchUpCalls = 0
+    var catchUpResult: Result<CatchUpOutcome> = Result.success(CatchUpOutcome.CAUGHT_UP)
+    var catchUpGate: CompletableDeferred<Unit>? = null
+
+    override suspend fun catchUp(feedKey: FeedKey): Result<CatchUpOutcome> {
+        catchUpCalls++
+        catchUpGate?.await()
+        return catchUpResult
+    }
 
     /** The saved place, as the screen would have written it. */
     var storedAnchor: FeedAnchor? = null
@@ -877,6 +1009,16 @@ private class FakeFeedRepository(
 
     override suspend fun clearAnchor(feedKey: FeedKey) {
         anchorCleared++
+    }
+
+    /** Faces the pill would show, and whether the reader dismissed them. */
+    val newPosts = MutableStateFlow<ImmutableList<AuthorUi>>(persistentListOf())
+    var dismissals = 0
+
+    override fun newPostAuthors(feedKey: FeedKey): Flow<ImmutableList<AuthorUi>> = newPosts
+
+    override suspend fun dismissNewPosts(feedKey: FeedKey) {
+        dismissals++
     }
 
     override suspend fun trimToCap(

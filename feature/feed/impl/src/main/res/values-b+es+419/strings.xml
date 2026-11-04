@@ -73,4 +73,9 @@
         <item quantity="other">%1$d respuestas m\u00e1s en este hilo</item>
     </plurals>
     <string name="feed_following">Siguiendo</string>
+    <string name="feed_new_posts">Publicaciones nuevas</string>
+    <string name="feed_seam_load">Cargar las publicaciones intermedias</string>
+    <string name="feed_seam_loading">Cargando las publicaciones que te perdiste</string>
+    <string name="feed_seam_capped">Aquí hay más de lo que guardamos</string>
+    <string name="feed_seam_jump_to_newest">Ir a lo más reciente</string>
 </resources>

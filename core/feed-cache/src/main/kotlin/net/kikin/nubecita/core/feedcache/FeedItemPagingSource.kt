@@ -9,7 +9,6 @@ import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.model.FeedItemEntity
 import net.kikin.nubecita.core.moderation.ModerationPrefs
-import net.kikin.nubecita.data.models.FeedItemUi
 
 /**
  * Pages the persisted projection, keyed on `position`.
@@ -45,7 +44,7 @@ internal class FeedItemPagingSource(
     private val initialPosition: Int?,
     private val viewerDid: () -> String?,
     private val prefs: () -> ModerationPrefs,
-) : PagingSource<Int, FeedItemUi>() {
+) : PagingSource<Int, CachedFeedRow>() {
     private val observer =
         object : InvalidationTracker.Observer(
             arrayOf("feed_item", "feed_item_member", "cached_post"),
@@ -65,7 +64,7 @@ internal class FeedItemPagingSource(
      * taken from the loaded pages rather than from an index into them. An
      * offset would be the bug this class exists to avoid.
      */
-    override fun getRefreshKey(state: PagingState<Int, FeedItemUi>): Int? {
+    override fun getRefreshKey(state: PagingState<Int, CachedFeedRow>): Int? {
         val anchor = state.anchorPosition ?: return initialPosition
         val item = state.closestItemToPosition(anchor) ?: return initialPosition
         return positionCache[item.key] ?: initialPosition
@@ -88,7 +87,7 @@ internal class FeedItemPagingSource(
      * `runCatching` here would do exactly that, since it catches
      * cancellation like anything else.
      */
-    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, FeedItemUi> =
+    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, CachedFeedRow> =
         try {
             when (params) {
                 is LoadParams.Prepend -> loadUpwards(params.key, params.loadSize)
@@ -108,7 +107,7 @@ internal class FeedItemPagingSource(
     private suspend fun loadDownwards(
         key: Int?,
         loadSize: Int,
-    ): LoadResult<Int, FeedItemUi> {
+    ): LoadResult<Int, CachedFeedRow> {
         val from = key ?: initialPosition ?: minPosition() ?: return empty()
         // One extra row tells us whether another page exists without a second
         // query, and is dropped before mapping.
@@ -128,7 +127,7 @@ internal class FeedItemPagingSource(
     private suspend fun loadUpwards(
         key: Int,
         loadSize: Int,
-    ): LoadResult<Int, FeedItemUi> {
+    ): LoadResult<Int, CachedFeedRow> {
         val rows =
             feedItemDao
                 .itemsBefore(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri, key, loadSize)
@@ -145,13 +144,13 @@ internal class FeedItemPagingSource(
     private suspend fun minPosition(): Int? = feedItemDao.minPosition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
 
     /**
-     * Rehydrates rows into UI items, dropping any that cannot be rendered.
+     * Rehydrates rows for rendering, dropping any item that cannot be shown.
      *
-     * A seam row maps to null here and is therefore absent from the paged
-     * feed; the consuming feature reads it separately and renders its own
-     * item, because a seam has no place in the shared sealed type.
+     * A seam row passes through as [CachedFeedRow.Seam]: it is the one row
+     * with no post behind it, and the feature renders it as the boundary
+     * between what just arrived and what the reader already read.
      */
-    private suspend fun List<FeedItemEntity>.toUi(): List<FeedItemUi> {
+    private suspend fun List<FeedItemEntity>.toUi(): List<CachedFeedRow> {
         if (isEmpty()) return emptyList()
         // One query for the whole page. Per-row lookups made this scale with
         // page size — 26 queries to render 25 items — on the read path a
@@ -171,15 +170,21 @@ internal class FeedItemPagingSource(
         val viewer = viewerDid()
         val moderation = prefs()
         return mapNotNull { row ->
+            if (row.rowType == FeedItemEntity.ROW_TYPE_SEAM) {
+                return@mapNotNull CachedFeedRow
+                    .Seam(position = row.position, exhausted = row.seamExhausted == true)
+                    .also { positionCache[it.key] = row.position }
+            }
             row
                 .toFeedItemUi(
                     members = membersByPosition[row.position].orEmpty(),
                     postsByUri = postsByUri,
                     viewerDid = viewer,
                     prefs = moderation,
-                )?.also { positionCache[it.key] = row.position }
+                )?.let { CachedFeedRow.Item(it) }
+                ?.also { positionCache[it.key] = row.position }
         }
     }
 
-    private fun empty(): LoadResult<Int, FeedItemUi> = LoadResult.Page(data = emptyList(), prevKey = null, nextKey = null)
+    private fun empty(): LoadResult<Int, CachedFeedRow> = LoadResult.Page(data = emptyList(), prevKey = null, nextKey = null)
 }

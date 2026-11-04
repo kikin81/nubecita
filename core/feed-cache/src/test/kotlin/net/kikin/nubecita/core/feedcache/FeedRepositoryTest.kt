@@ -15,6 +15,8 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.add
@@ -32,6 +34,7 @@ import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.model.CachedFeedEntry
+import net.kikin.nubecita.core.database.model.CachedPostEntity
 import net.kikin.nubecita.core.database.model.FeedItemEntity
 import net.kikin.nubecita.core.database.model.FeedPartitionStateEntity
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
@@ -71,12 +74,12 @@ internal class FeedRepositoryTest {
     // No-op mediator so the Pager doesn't hit the network; the PagingSource
     // already returns the seeded rows.
     private val noopMediator =
-        object : RemoteMediator<Int, FeedItemUi>() {
+        object : RemoteMediator<Int, CachedFeedRow>() {
             override suspend fun initialize() = InitializeAction.SKIP_INITIAL_REFRESH
 
             override suspend fun load(
                 loadType: LoadType,
-                state: PagingState<Int, FeedItemUi>,
+                state: PagingState<Int, CachedFeedRow>,
             ) = MediatorResult.Success(endOfPaginationReached = true)
         }
 
@@ -112,6 +115,7 @@ internal class FeedRepositoryTest {
                 FeedCatchUp(
                     networkSource = networkSource,
                     feedPostDao = feedPostDao,
+                    feedItemDao = feedItemDao,
                     cachedPostDao = cachedPostDao,
                     projectionWriter = projectionWriter,
                     remoteKeyDao = remoteKeyDao,
@@ -130,7 +134,13 @@ internal class FeedRepositoryTest {
             val items = repo.pagedFeed(key).asSnapshot()
 
             assertEquals(1, items.size)
-            assertEquals("hello", (items.single() as FeedItemUi.Single).post.text)
+            assertEquals(
+                "hello",
+                items
+                    .single()
+                    .asSingle()
+                    .post.text,
+            )
         }
 
     @Test
@@ -144,7 +154,7 @@ internal class FeedRepositoryTest {
 
             val items = repo.pagedFeed(key).asSnapshot()
 
-            assertEquals(listOf("first", "second"), items.map { (it as FeedItemUi.Single).post.text })
+            assertEquals(listOf("first", "second"), items.map { it.asSingle().post.text })
         }
 
     @Test
@@ -386,6 +396,24 @@ internal class FeedRepositoryTest {
         }
 
     @Test
+    fun `a generator feed keeps no place, and asks the database nothing about one`() =
+        runTest {
+            // D14. A generator refreshes on open, so the partition a place
+            // referred to is gone before anyone could be put back in it. The
+            // gate lives here rather than at each screen, and the `coVerify`
+            // is the point: reading or writing the row at all would mean a
+            // later caller could still get a place out of it.
+            val discover = FeedKey("did:plc:me", FeedType.DISCOVER, "at://feed/whats-hot")
+
+            val repo = repository(emptyList())
+            repo.saveAnchor(discover, itemKey = "single:at://post/a", offset = -8)
+
+            assertNull(repo.anchor(discover))
+            coVerify(exactly = 0) { partitionStateDao.saveAnchor(any(), any(), any(), any(), any(), any()) }
+            coVerify(exactly = 0) { partitionStateDao.state("did:plc:me", "DISCOVER", any()) }
+        }
+
+    @Test
     fun `saving an anchor resolves its position first`() =
         runTest {
             coEvery { feedItemDao.positionOf("did:plc:me", "FOLLOWING", "", "single:at://post/a") } returns 12
@@ -425,6 +453,142 @@ internal class FeedRepositoryTest {
 
             coVerify { partitionStateDao.clearAnchor("did:plc:me", "FOLLOWING", "") }
             coVerify(exactly = 0) { partitionStateDao.upsert(any()) }
+        }
+
+    // ---------- the new-posts pill ----------
+
+    @Test
+    fun `entries written above the reader raise the pill`() =
+        runTest {
+            // The case the pill exists for: the background worker prepended
+            // while the app was away, so there is no in-session event to
+            // observe — only rows above where the reader stopped (D20).
+            coEvery { partitionStateDao.observe("did:plc:me", "FOLLOWING", "") } returns
+                flowOf(FeedPartitionStateEntity("did:plc:me", "FOLLOWING", "", anchorPosition = 12))
+            coEvery {
+                feedItemDao.leafPostsAbove("did:plc:me", "FOLLOWING", "", position = 12, limit = 15)
+            } returns flowOf(listOf(cachedPost("at://new/1", "did:plc:nova"), cachedPost("at://new/2", "did:plc:theo")))
+
+            val authors = repository(emptyList()).newPostAuthors(key).first()
+
+            assertEquals(listOf("did:plc:nova", "did:plc:theo"), authors.map { it.did })
+        }
+
+    @Test
+    fun `nothing above the reader means no pill`() =
+        runTest {
+            coEvery { partitionStateDao.observe(any(), any(), any()) } returns
+                flowOf(FeedPartitionStateEntity("did:plc:me", "FOLLOWING", "", anchorPosition = 12))
+            coEvery { feedItemDao.leafPostsAbove(any(), any(), any(), any(), any()) } returns flowOf(emptyList())
+
+            assertEquals(emptyList<String>(), repository(emptyList()).newPostAuthors(key).first().map { it.did })
+        }
+
+    @Test
+    fun `a dismissal, not the anchor, is the waterline once it exists`() =
+        runTest {
+            // Dismissing has to beat the anchor or the pill would come back on
+            // the next composition, since the rows are still above the reader.
+            coEvery { partitionStateDao.observe(any(), any(), any()) } returns
+                flowOf(
+                    FeedPartitionStateEntity(
+                        "did:plc:me",
+                        "FOLLOWING",
+                        "",
+                        anchorPosition = 12,
+                        pillDismissedPosition = -250,
+                    ),
+                )
+            coEvery { feedItemDao.leafPostsAbove(any(), any(), any(), any(), any()) } returns flowOf(emptyList())
+
+            repository(emptyList()).newPostAuthors(key).first()
+
+            // Queried above the dismissal, not above the anchor.
+            coVerify { feedItemDao.leafPostsAbove("did:plc:me", "FOLLOWING", "", position = -250, limit = 15) }
+        }
+
+    @Test
+    fun `with neither anchor nor dismissal the waterline is the top of the last refresh`() =
+        runTest {
+            // Position 0 is where a destructive refresh starts writing, so a
+            // prepend's negative positions are above it and a reader who never
+            // scrolled still gets told about new posts.
+            coEvery { partitionStateDao.observe(any(), any(), any()) } returns flowOf(null)
+            coEvery { feedItemDao.leafPostsAbove(any(), any(), any(), any(), any()) } returns flowOf(emptyList())
+
+            repository(emptyList()).newPostAuthors(key).first()
+
+            coVerify { feedItemDao.leafPostsAbove("did:plc:me", "FOLLOWING", "", position = 0, limit = 15) }
+        }
+
+    @Test
+    fun `a burst from one account does not crowd out the people behind it`() =
+        runTest {
+            // The ordinary shape of an absence: one account posts a thread,
+            // and two other people post once each behind it. De-duplicating a
+            // query that stopped at three rows would show nova alone, so the
+            // query reads further than the pill shows.
+            coEvery { partitionStateDao.observe(any(), any(), any()) } returns flowOf(null)
+            coEvery { feedItemDao.leafPostsAbove(any(), any(), any(), any(), any()) } returns
+                flowOf(
+                    listOf(
+                        cachedPost("at://new/1", "did:plc:nova"),
+                        cachedPost("at://new/2", "did:plc:nova"),
+                        cachedPost("at://new/3", "did:plc:nova"),
+                        cachedPost("at://new/4", "did:plc:theo"),
+                        cachedPost("at://new/5", "did:plc:wren"),
+                    ),
+                )
+
+            val authors = repository(emptyList()).newPostAuthors(key).first()
+
+            assertEquals(listOf("did:plc:nova", "did:plc:theo", "did:plc:wren"), authors.map { it.did })
+            // The mocked DAO hands back five rows whatever the limit, so the
+            // over-fetch itself is pinned here rather than inferred from them.
+            coVerify { feedItemDao.leafPostsAbove(any(), any(), any(), any(), limit = 15) }
+        }
+
+    @Test
+    fun `more distinct people than the pill holds are cut to its width`() =
+        runTest {
+            // Over-fetching is for de-duplication, not for a wider pill.
+            coEvery { partitionStateDao.observe(any(), any(), any()) } returns flowOf(null)
+            coEvery { feedItemDao.leafPostsAbove(any(), any(), any(), any(), any()) } returns
+                flowOf((1..6).map { cachedPost("at://new/$it", "did:plc:p$it") })
+
+            assertEquals(3, repository(emptyList()).newPostAuthors(key).first().size)
+        }
+
+    @Test
+    fun `the same author twice shows one face`() =
+        runTest {
+            coEvery { partitionStateDao.observe(any(), any(), any()) } returns flowOf(null)
+            coEvery { feedItemDao.leafPostsAbove(any(), any(), any(), any(), any()) } returns
+                flowOf(listOf(cachedPost("at://new/1", "did:plc:nova"), cachedPost("at://new/2", "did:plc:nova")))
+
+            assertEquals(1, repository(emptyList()).newPostAuthors(key).first().size)
+        }
+
+    @Test
+    fun `dismissing records the current top as the waterline`() =
+        runTest {
+            // Everything above the reader right now is what they acknowledged;
+            // a later arrival lands above that mark and raises the pill again.
+            coEvery { feedItemDao.minPosition("did:plc:me", "FOLLOWING", "") } returns -250
+
+            repository(emptyList()).dismissNewPosts(key)
+
+            coVerify { partitionStateDao.dismissPillAbove("did:plc:me", "FOLLOWING", "", -250) }
+        }
+
+    @Test
+    fun `dismissing an empty partition writes nothing`() =
+        runTest {
+            coEvery { feedItemDao.minPosition(any(), any(), any()) } returns null
+
+            repository(emptyList()).dismissNewPosts(key)
+
+            coVerify(exactly = 0) { partitionStateDao.dismissPillAbove(any(), any(), any(), any()) }
         }
 
     @Test
@@ -528,6 +692,31 @@ internal class FeedRepositoryTest {
         )
     }
 
+    /** The rendered post inside a paged row — the shape every assertion here is about. */
+    private fun CachedFeedRow.asSingle(): FeedItemUi.Single = (this as CachedFeedRow.Item).item as FeedItemUi.Single
+
+    /** A stored post whose blob carries [authorDid] — what the pill reads faces from. */
+    private fun cachedPost(
+        uri: String,
+        authorDid: String,
+    ) = CachedPostEntity(
+        accountDid = "did:plc:me",
+        uri = uri,
+        cid = "bafyreipill000000000000000000000000000000000000",
+        authorDid = authorDid,
+        postBlob =
+            """
+            {
+              "${'$'}type": "app.bsky.feed.defs#postView",
+              "uri": "$uri",
+              "cid": "bafyreipill000000000000000000000000000000000000",
+              "author": { "did": "$authorDid", "handle": "${authorDid.substringAfterLast(':')}.bsky.social" },
+              "record": { "${'$'}type": "app.bsky.feed.post", "text": "new post", "createdAt": "2026-04-26T12:00:00Z" },
+              "indexedAt": "2026-04-26T12:00:00Z"
+            }
+            """.trimIndent(),
+    )
+
     /** A projection row as the DAO returns it — what the dead-anchor fallback resolves to. */
     private fun itemRow(
         position: Int,
@@ -574,7 +763,7 @@ private class TestFeedRepository(
     transactionRunner: FeedCacheTransactionRunner,
     feedRefresher: FeedRefresher,
     feedCatchUp: FeedCatchUp,
-    private val testMediator: RemoteMediator<Int, FeedItemUi>,
+    private val testMediator: RemoteMediator<Int, CachedFeedRow>,
     private val testRows: List<FeedItemUi>,
 ) : DefaultFeedRepository(
         feedPostDao,
@@ -590,21 +779,21 @@ private class TestFeedRepository(
         feedRefresher,
         feedCatchUp,
     ) {
-    override fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, FeedItemUi> = testMediator
+    override fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, CachedFeedRow> = testMediator
 
     override fun pagingSourceFor(
         feedKey: FeedKey,
         initialPosition: Int?,
-    ): PagingSource<Int, FeedItemUi> = FakePagingSource(testRows)
+    ): PagingSource<Int, CachedFeedRow> = FakePagingSource(testRows)
 }
 
 /** In-memory single-page [PagingSource] over the seeded rows. */
 private class FakePagingSource(
     private val rows: List<FeedItemUi>,
-) : PagingSource<Int, FeedItemUi>() {
-    override fun getRefreshKey(state: PagingState<Int, FeedItemUi>): Int? = null
+) : PagingSource<Int, CachedFeedRow>() {
+    override fun getRefreshKey(state: PagingState<Int, CachedFeedRow>): Int? = null
 
-    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, FeedItemUi> = LoadResult.Page(data = rows, prevKey = null, nextKey = null)
+    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, CachedFeedRow> = LoadResult.Page(data = rows.map(CachedFeedRow::Item), prevKey = null, nextKey = null)
 }
 
 private val repoTestJson =

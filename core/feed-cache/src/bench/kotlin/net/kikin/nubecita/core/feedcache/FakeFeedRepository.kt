@@ -3,10 +3,12 @@ package net.kikin.nubecita.core.feedcache
 import android.content.Context
 import androidx.paging.PagingData
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -74,7 +76,7 @@ internal class FakeFeedRepository
         override fun pagedFeed(
             feedKey: FeedKey,
             initialPosition: Int?,
-        ): Flow<PagingData<FeedItemUi>> = flow { emit(PagingData.from(itemsFor(feedKey))) }
+        ): Flow<PagingData<CachedFeedRow>> = flow { emit(PagingData.from(itemsFor(feedKey).map(CachedFeedRow::Item))) }
 
         override fun head(
             feedKey: FeedKey,
@@ -99,6 +101,10 @@ internal class FakeFeedRepository
         ) = Unit
 
         override suspend fun clearAnchor(feedKey: FeedKey) = Unit
+
+        override fun newPostAuthors(feedKey: FeedKey): Flow<ImmutableList<AuthorUi>> = flowOf(persistentListOf())
+
+        override suspend fun dismissNewPosts(feedKey: FeedKey) = Unit
 
         override suspend fun trimToCap(
             feedKey: FeedKey,

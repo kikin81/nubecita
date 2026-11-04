@@ -160,15 +160,82 @@ Both flavored modules ship a `bench` source set, so the `bench` variant must com
 
 ## 6. Pill, seam, and jump-to-newest (`nubecita-lgoo.5.6`, D5 + D14)
 
-- [ ] 6.1 Derive pill visibility from undismissed projected entries above the anchor, and persist the dismissal marker on the anchor row (D20) — not from an in-session prepend result, or the background worker's writes raise no pill. **Tests:** unit tests — a background prepend raises the pill on the next composition; a dismissal survives process death; no entries above the anchor means no pill.
-- [ ] 6.2 Build the pill: up to three overlapping author avatars from the prepended batch plus an upward affordance, no count, floating over the feed; tap scrolls to top and dismisses. Localize any content description into `es-419` and `pt-BR` in the same commit and run the module's own lint. **Tests:** a screenshot test for the pill at 1/2/3 avatars in light + dark, and a UI test for tap → scroll-to-top → dismissed.
-- [ ] 6.3 Map the cache's seam marker row to a feed-local UI item in the paging transform and render it between prepended entries and previously-read content, filling on scroll proximity within the `since` range (D23). The marker is a projection row, not a `FeedItemUi` variant — do not touch the shared sealed type, which `:feature:search:impl` also exhausts. **Tests:** UI test — the seam renders from a marker row and is never inferred from a position gap; scrolling within the threshold triggers exactly one fill per crossing; the seam is removed when the range is exhausted; an interrupted fill still shows a seam after process death.
-- [ ] 6.4 At the page cap, swap the seam's affordance for jump-to-newest, routed through the destructive refresh. **Tests:** UI test — reaching the cap renders the jump affordance, and tapping it clears the partition and lands at the top. Assert no seam state renders a bare visual break.
-- [ ] 6.5 Confirm no pill, seam, or anchor appears on Discover or custom feeds (D14). **Tests:** a UI test per surface asserting the Following-only gating.
+- [x] 6.1 Derive pill visibility from undismissed projected entries above the anchor, and persist the dismissal marker on the anchor row (D20) — not from an in-session prepend result, or the background worker's writes raise no pill. **Tests:** unit tests — a background prepend raises the pill on the next composition; a dismissal survives process death; no entries above the anchor means no pill.
+
+  **As built:** the dismissal is a **position**, not a flag — `pill_dismissed_position` on `feed_partition_state` (schema v9, AutoMigration). A flag would be wrong in both directions: left set, a later arrival above the mark would never raise the pill again; cleared on each write, dismissing would not stick. As a position it reads naturally — anything above the mark is new, anything below has been seen. The waterline is the dismissal, else the anchor, else position 0, which is where a destructive refresh starts writing, so a prepend's negative positions are "above" and a reader who never scrolled still gets told. "Survives process death" is exactly "it is a column", which the DAO round-trip and the 8 → 9 migration test pin. Faces come from a `Flow` query joining the projection rows above the waterline to their leaf posts, capped at three and distinct by author — three faces from three people says more than one person three times.
+- [x] 6.2 Build the pill: up to three overlapping author avatars from the prepended batch plus an upward affordance, no count, floating over the feed; tap scrolls to top and dismisses. Localize any content description into `es-419` and `pt-BR` in the same commit and run the module's own lint. **Tests:** a screenshot test for the pill at 1/2/3 avatars in light + dark, and a UI test for tap → scroll-to-top → dismissed.
+
+  **As built:** the upward affordance is `ExpandMore` rotated half a turn. The icon subset has no upward chevron, and half a turn of this one is exactly the shape the design asks for — cheaper than regenerating the icon font for a single codepoint, and the rotation is visual only, with the pill's content description carrying the meaning. The pill renders over the list in a `Box` rather than as a list item, so it stays put while the timeline scrolls under it and takes no slot that the anchor's index arithmetic would have to account for. Its visibility is `authors.isNotEmpty()` and nothing else: the pill owns no state, because what raises it is rows in the database above the reader (D20). Baselines are **not** committed — the screenshot tests were rendered locally only to confirm the facepile geometry, and the images come from the `update-baselines` bot on CI's Linux host, per the project rule.
+- [x] 6.3 Map the cache's seam marker row to a feed-local UI item in the paging transform and render it between prepended entries and previously-read content, filling on scroll proximity within the `since` range (D23). The marker is a projection row, not a `FeedItemUi` variant — do not touch the shared sealed type, which `:feature:search:impl` also exhausts. **Tests:** UI test — the seam renders from a marker row and is never inferred from a position gap; scrolling within the threshold triggers exactly one fill per crossing; the seam is removed when the range is exhausted; an interrupted fill still shows a seam after process death.
+
+  **As built:** the cache's paging element widened from `FeedItemUi` to a sealed `CachedFeedRow` — `Item(item)` or `Seam(position, exhausted)` — rather than the marker being mapped to a feed-local type in the screen's transform. The transform shape could not carry it: a `PagingData` transform cannot emit a row the element type has no case for, so a feed-local item would have meant a second parallel list and index arithmetic between the two. The sealed row keeps `:feature:search:impl`'s exhaustive `when (FeedItemUi)` untouched, which was the actual constraint, and gives the `LazyColumn` one key space (`CachedFeedRow.key`, with the seam's `"seam:<position>"` prefix) so Paging's `itemKey` still handles both. The VM's optimistic transforms pass a seam through untouched — mute-filtering it would leave exactly the bare break the row exists to prevent.
+
+  **Proximity is composition.** A `LazyColumn` composes ahead of the viewport, so the row entering the composition *is* the reader coming within the threshold; the fill is a `LaunchedEffect` in the row, which restarts only when the row leaves and re-enters — exactly one fill per crossing, with no scroll-position threshold of our own to race Paging's. The repeat guard in the VM is in-flight-only, keyed by seam position: the row may ask again (and a tap means the same thing), but a fill that narrowed the gap without closing it leaves the same seam to be filled on the next crossing. The mutation check confirms the wiring discriminates — deleting the `LaunchedEffect` fails `reachingTheSeam_fillsItExactlyOnce` and `anExhaustedRange_leavesNoSeamBehind` and nothing else.
+- [x] 6.4 At the page cap, swap the seam's affordance for jump-to-newest, routed through the destructive refresh. **Tests:** UI test — reaching the cap renders the jump affordance, and tapping it clears the partition and lands at the top. Assert no seam state renders a bare visual break.
+
+  **As built:** one row composable with two shapes, chosen by the marker's own `exhausted` flag, which `FeedCatchUp` writes when the window filled before the range closed. Exhausted renders the capped copy plus jump-to-newest; jump-to-newest is literally the pull-to-refresh path (`items.refresh()` + the VM dropping its own state, D8) plus `scrollToItem(0)`, because "newest" has to mean the top of the replaced partition and a reader left mid-list would be looking at the middle of a timeline they just asked to start over. Both states carry text, so neither renders a bare break.
+- [x] 6.5 Confirm no pill, seam, or anchor appears on Discover or custom feeds (D14). **Tests:** a UI test per surface asserting the Following-only gating.
+
+  **As built — and it found a real gap.** The pill was already gated (the VM only subscribes to `newPostAuthors` when `feedType.supportsSince`) and the seam is gated structurally, since only `FeedCatchUp` writes one and it never runs for a feed without `since`. The **anchor was not**: `FeedScreen` hosts Discover through its chip row and passes `FeedAnchoring` at every feed, so a generator partition was storing a place and seeking the `Pager` to it. Gated in `DefaultFeedRepository.anchor` / `saveAnchor` rather than per screen — D14 is a property of the feed type, not of a surface, and every future caller would otherwise have to remember it. The repository test asserts the row is never even read for a generator key, since reading it would mean a later caller could still get a place out of it. The surface test (`FeedViewScreenFollowingOnlyInstrumentationTest`) supplies both faces and a stored anchor on purpose: a surface that wired either up would pass with them absent and fail here.
 
 ## 7. Top-of-stack gate
 
-- [ ] 7.1 `./gradlew :app:assembleDebug`, plus lint for every touched module using the correct flavored/plain task names.
-- [ ] 7.2 Run the compose-expert skill against the **cumulative** stack diff (`git diff origin/main...HEAD` from the top branch), not the top PR's own diff.
-- [ ] 7.3 Device pass on the plugged-in foldable, bench flavor: background/foreground several times mid-partition and confirm the position holds; drive 5+ cycles with LeakCanary for the scroll-state collector (D9 — LeakCanary does **not** watch Compose state holders, so inspect the collector's cancellation directly).
+- [x] 7.1 `./gradlew :app:assembleDebug`, plus lint for every touched module using the correct flavored/plain task names.
+
+  As built: eight touched modules, three of them flavored (`:core:feed-cache`,
+  `:core:feeds`, `:feature:feed:impl` — checked with `git grep -l
+  nubecita.android.flavors`, not inferred from the path). All clean.
+
+- [x] 7.2 Run the compose-expert skill against the **cumulative** stack diff (`git diff origin/main...HEAD` from the top branch), not the top PR's own diff.
+
+  As built: nine added `@Composable` lines across six files, so the gate fired.
+  One critical finding, now fixed: the seam's self-fill was keyed on
+  composition, and a `LazyColumn` prefetch precomposes rows the reader never
+  reaches — `precompose` runs `setContent` on an *active* subcomposition, which
+  is where a `LaunchedEffect` launches — so an off-screen row fired a network
+  catch-up, repeatedly, every time a scroll reversal discarded and rebuilt the
+  composition. Gated on placement instead; premeasure does not place.
+
+  A second finding, that the pill's 40dp `Surface` had no reserved touch
+  target, was **wrong** and withdrawn: Material3's clickable `Surface` overload
+  calls `minimumInteractiveComponentSize()` itself, confirmed both in
+  `Surface.kt` and by a tap probe on device (hits land through 46dp, stop at
+  50dp, pill drawn 4–44dp). Nothing changed for it.
+
+- [x] 7.3 Device pass on the plugged-in foldable, bench flavor: background/foreground several times mid-partition and confirm the position holds; drive 5+ cycles with LeakCanary for the scroll-state collector (D9 — LeakCanary does **not** watch Compose state holders, so inspect the collector's cancellation directly).
+
+  As built, and **deliberately not as written** — neither the flavor nor the
+  device in the task could exercise this feature:
+
+  - *Not bench.* `:core:feed-cache`'s bench `FakeFeedRepository` returns `null`
+    from `anchor`, an empty flow from `newPostAuthors`, and `NOT_POSSIBLE` from
+    `catchUp`. A bench pass cannot see a restore, a pill, or a seam — it would
+    have been a pass that measures nothing.
+  - *Not the foldable.* `:app` sets no `applicationIdSuffix` (deliberately —
+    `google-services.json` is keyed to the one id), so every variant shares
+    `net.kikin.nubecita`. The foldable carries the owner's real signed-in
+    release build; any test install replaces it and destroys that session.
+
+  Run instead on the emulator's existing debuggable install, production flavor,
+  signed in against a real timeline — which also exercised the schema migration
+  over a populated database. Verified: the Room migration ran clean; the
+  new-posts pill rendered with **three distinct faces**; a full `am force-stop`
+  and relaunch restored the same anchor row at the same offset; tapping the
+  pill scrolled to top and dismissed it; a second kill/relaunch confirmed the
+  dismissal was persisted as a waterline rather than cleared in-session; six
+  background/foreground cycles mid-partition left the viewport pixel-identical;
+  five rotation round-trips (ten Activity recreations) showed no stale scene and
+  no retained instances under LeakCanary. No crashes in logcat throughout.
+
+  Not reachable on device: the **seam** and **jump-to-newest**, which need a gap
+  wider than one catch-up page and a partition at the page cap. Both stay covered
+  by `FeedScreenSeamInstrumentationTest` (7 tests) and
+  `FeedSeamRowInstrumentationTest` (3), the latter reproducing the prefetch shape
+  with a `Layout` that measures its child and places none of it.
+
 - [ ] 7.4 Confirm the stack's atomic merge lands as **one** `Release` run (`gh run list --workflow=release.yaml --limit 5`).
+
+  Pre-flight for this is ready: the stack's release type is **minor** — three
+  `feat:`-titled children (#1082, #1084, #1085), and the maximum across the stack
+  wins — so the epic reaches Play without relabelling. Runs after
+  `gh stack merge`.

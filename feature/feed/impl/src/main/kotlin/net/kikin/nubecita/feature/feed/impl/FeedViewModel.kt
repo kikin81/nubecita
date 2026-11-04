@@ -15,12 +15,16 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.actors.MuteRepository
 import net.kikin.nubecita.core.analytics.AnalyticsClient
@@ -31,6 +35,7 @@ import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.feedcache.CachedFeedRow
 import net.kikin.nubecita.core.feedcache.FeedAnchor
 import net.kikin.nubecita.core.feedcache.FeedKey
 import net.kikin.nubecita.core.feedcache.FeedRepository
@@ -44,6 +49,7 @@ import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
 import net.kikin.nubecita.core.preferences.AutoplayPolicy
 import net.kikin.nubecita.core.video.SharedVideoPlayer
+import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.FeedKind
 import net.kikin.nubecita.data.models.OutgoingPostUi
@@ -95,6 +101,13 @@ class FeedViewModel
         private var loggedViewFeedFor: FeedBinding? = null
 
         /**
+         * Seam positions whose fill is in flight. A plain set because every
+         * touch happens on the main dispatcher, where `handleEvent` and the
+         * launched continuation both run.
+         */
+        private val seamFillsInFlight = mutableSetOf<Int>()
+
+        /**
          * The place the screen should scroll to once the first page is on
          * screen, or `null` when there is nothing to restore.
          *
@@ -105,6 +118,13 @@ class FeedViewModel
          * this — and the ViewModel never touches `LazyListState` (D9).
          */
         val restoreTarget = MutableStateFlow<FeedAnchor?>(null)
+
+        /** The partition this VM reads, once an account is known. */
+        private val feedKey: Flow<FeedKey> =
+            combine(sessionStateProvider.state, binding) { session, bound ->
+                (session as? SessionState.SignedIn)?.did?.let { bound.toFeedKey(it) }
+            }.filterNotNull()
+                .distinctUntilChanged()
 
         /**
          * The paged feed, read from `:core:feed-cache` (D1).
@@ -119,11 +139,8 @@ class FeedViewModel
          * `PagingData` is immutable: an in-place edit has nowhere to live and
          * would be dropped by the next generation anyway (D21).
          */
-        val feed: Flow<PagingData<FeedItemUi>> =
-            combine(sessionStateProvider.state, binding) { session, bound ->
-                (session as? SessionState.SignedIn)?.did?.let { bound.toFeedKey(it) }
-            }.filterNotNull()
-                .distinctUntilChanged()
+        val feed: Flow<PagingData<CachedFeedRow>> =
+            feedKey
                 .flatMapLatest { key ->
                     // Read before the Pager is built, so the first page loaded
                     // is the one the reader was in rather than the top. A
@@ -138,6 +155,21 @@ class FeedViewModel
                     unmutedAuthors = optimisticUnmutes,
                     interactions = postInteractionsCache.state,
                 )
+
+        /**
+         * The faces on the new-posts pill, or empty when there is nothing to
+         * tell the reader about.
+         *
+         * Gated on the feed supporting a bounded catch-up rather than on a
+         * hardcoded list of kinds: a pill means "entries arrived above you",
+         * and only a feed that can prepend has those. A generator refreshes on
+         * open instead (D14), so its reader is already at the newest content.
+         */
+        val newPosts: StateFlow<ImmutableList<AuthorUi>> =
+            feedKey
+                .flatMapLatest { key ->
+                    if (key.feedType.supportsSince) feedRepository.newPostAuthors(key) else flowOf(persistentListOf())
+                }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), persistentListOf())
 
         init {
             // Bind the handler to Feed surface and this VM's scope first.
@@ -178,8 +210,10 @@ class FeedViewModel
             when (event) {
                 is FeedEvent.Bind -> bind(event.feedUri, event.kind, event.surface)
                 FeedEvent.Refresh -> refresh()
+                is FeedEvent.FillSeam -> fillSeam(event.position)
                 is FeedEvent.ItemsLoaded -> onItemsLoaded(event.posts)
                 is FeedEvent.AnchorChanged -> saveAnchor(event.itemKey, event.offset)
+                FeedEvent.DismissNewPosts -> dismissNewPosts()
                 FeedEvent.RestoreConsumed -> restoreTarget.value = null
                 FeedEvent.ClearError -> Unit
                 is FeedEvent.OnPostTapped -> sendEffect(FeedEffect.NavigateToPost(event.post.id))
@@ -325,6 +359,37 @@ class FeedViewModel
             viewModelScope.launch { feedRepository.saveAnchor(key, itemKey, offset) }
         }
 
+        /**
+         * Fill the gap the seam marks.
+         *
+         * The same bounded catch-up the background worker runs (D5), so a fill
+         * can neither run away nor produce a different timeline than an
+         * unattended prepend would. [position] guards the repeat: the row
+         * re-composes freely and may ask again, but only one fill per seam is
+         * ever in flight, and a failure clears the guard so the next crossing
+         * can retry.
+         */
+        private fun fillSeam(position: Int) {
+            val key = currentFeedKey() ?: return
+            if (!seamFillsInFlight.add(position)) return
+            setState { copy(isFillingSeam = true) }
+            viewModelScope.launch {
+                val outcome = feedRepository.catchUp(key)
+                seamFillsInFlight.remove(position)
+                setState { copy(isFillingSeam = seamFillsInFlight.isNotEmpty()) }
+                outcome.onFailure { sendEffect(FeedEffect.ShowError(it.toFeedError())) }
+            }
+        }
+
+        /**
+         * The reader has seen what arrived — they tapped the pill, or scrolled
+         * up past it. Everything currently above them stops being new.
+         */
+        private fun dismissNewPosts() {
+            val key = currentFeedKey() ?: return
+            viewModelScope.launch { feedRepository.dismissNewPosts(key) }
+        }
+
         private fun currentFeedKey(): FeedKey? =
             (sessionStateProvider.state.value as? SessionState.SignedIn)
                 ?.did
@@ -352,6 +417,12 @@ class FeedViewModel
                     if (uri == PinnedFeedsRepository.DISCOVER_FEED_URI) FeedType.Discover else FeedType.Custom
             }
     }
+
+/**
+ * How long the pill's query stays warm after the screen stops collecting, so a
+ * tab switch and back does not re-query Room.
+ */
+private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
 
 /** What a [FeedViewModel] is bound to: one cached partition, once a DID is known. */
 internal data class FeedBinding(
@@ -435,22 +506,40 @@ private const val UNKNOWN_FEED = "UnknownFeed"
  * nothing muted and nothing tapped means the pages pass straight through,
  * preserving item identity so the list can skip recomposition.
  */
-internal fun Flow<PagingData<FeedItemUi>>.withOptimisticState(
+internal fun Flow<PagingData<CachedFeedRow>>.withOptimisticState(
     mutedAuthors: Flow<Set<String>>,
     unmutedAuthors: Flow<Set<String>>,
     interactions: Flow<PersistentMap<String, PostInteractionState>>,
-): Flow<PagingData<FeedItemUi>> =
+): Flow<PagingData<CachedFeedRow>> =
     combine(this, mutedAuthors, unmutedAuthors, interactions) { data, muted, unmuted, snapshot ->
         var transformed = data
-        if (muted.isNotEmpty()) transformed = transformed.filter { item -> !item.isAuthoredBy(muted) }
-        if (unmuted.isNotEmpty()) transformed = transformed.map { item -> item.clearViewerMuteFor(unmuted) }
+        // A seam is not authored by anyone and carries no counters, so every
+        // transform below passes it through untouched. Hiding it along with a
+        // muted author's posts would leave the timeline with the bare visual
+        // break the seam exists to prevent.
+        if (muted.isNotEmpty()) {
+            transformed = transformed.filter { row -> row !is CachedFeedRow.Item || !row.item.isAuthoredBy(muted) }
+        }
+        if (unmuted.isNotEmpty()) {
+            transformed = transformed.map { row -> row.mapItem { it.clearViewerMuteFor(unmuted) } }
+        }
         if (snapshot.isNotEmpty()) {
             transformed =
                 transformed
-                    .filter { item -> snapshot[item.leafId]?.isDeleted != true }
-                    .map { item -> item.applyInteractions(snapshot) }
+                    .filter { row -> row !is CachedFeedRow.Item || snapshot[row.item.leafId]?.isDeleted != true }
+                    .map { row -> row.mapItem { it.applyInteractions(snapshot) } }
         }
         transformed
+    }
+
+/** Applies [transform] to a rendered item, leaving a seam alone. */
+private inline fun CachedFeedRow.mapItem(transform: (FeedItemUi) -> FeedItemUi): CachedFeedRow =
+    when (this) {
+        is CachedFeedRow.Item -> {
+            val mapped = transform(item)
+            if (mapped === item) this else CachedFeedRow.Item(mapped)
+        }
+        is CachedFeedRow.Seam -> this
     }
 
 /**
@@ -570,8 +659,8 @@ internal fun FeedItemUi.applyInteractions(map: PersistentMap<String, PostInterac
  * Every [PostUi] inside this item, which is what the interactions cache is
  * seeded with — a post inside a cluster or a chain needs reconciling too.
  */
-internal fun List<FeedItemUi>.allPosts(): List<PostUi> =
-    flatMap { item ->
+internal fun List<CachedFeedRow>.allPosts(): List<PostUi> =
+    filterIsInstance<CachedFeedRow.Item>().map { it.item }.flatMap { item ->
         when (item) {
             is FeedItemUi.Single -> listOf(item.post)
             is FeedItemUi.ReplyCluster -> listOf(item.root, item.parent, item.leaf)
@@ -592,7 +681,7 @@ internal fun List<FeedItemUi>.allPosts(): List<PostUi> =
  * `LazyPagingItems`. Pure, so it is unit-tested rather than asserted through a
  * Compose test.
  */
-internal fun ImmutableList<OutgoingPostUi>.notYetInFeed(loaded: List<FeedItemUi>): ImmutableList<OutgoingPostUi> {
+internal fun ImmutableList<OutgoingPostUi>.notYetInFeed(loaded: List<CachedFeedRow>): ImmutableList<OutgoingPostUi> {
     if (isEmpty()) return this
     val present = loaded.allPosts().mapTo(HashSet()) { it.id }
     if (present.isEmpty()) return this

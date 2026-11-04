@@ -368,4 +368,45 @@ internal class MigrationTest {
 
         db.close()
     }
+
+    @Test
+    fun migrate8To9_addsThePillDismissal_andKeepsTheAnchor() {
+        // One more nullable column on the same row. The anchor written under
+        // v8 has to come through untouched: the pill's waterline falls back to
+        // it, so losing it would both lose the reader's place and make every
+        // partition look like it had new posts.
+        helper.createDatabase(dbName, 8).use { db ->
+            db.execSQL(
+                "INSERT INTO feed_partition_state " +
+                    "(account_did, feed_type, feed_uri, prefs_fingerprint, anchor_item_key, anchor_position, anchor_offset) " +
+                    "VALUES ('did:plc:e', 'FOLLOWING', '', 'replies=false', 'single:at://post/k', 12, -8)",
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 9, true)
+
+        db
+            .query(
+                "SELECT anchor_item_key, anchor_position, anchor_offset, pill_dismissed_position FROM feed_partition_state",
+            ).use { c ->
+                assertTrue(c.moveToFirst())
+                assertEquals("single:at://post/k", c.getString(0))
+                assertEquals(12, c.getInt(1))
+                assertEquals(-8, c.getInt(2))
+                // Never dismissed reads as null, not as 0 — which would mean
+                // "acknowledged everything above the top of the feed".
+                assertTrue(c.isNull(3))
+            }
+
+        db.execSQL(
+            "UPDATE feed_partition_state SET pill_dismissed_position = -250 " +
+                "WHERE account_did = 'did:plc:e'",
+        )
+        db.query("SELECT pill_dismissed_position FROM feed_partition_state").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(-250, c.getInt(0))
+        }
+
+        db.close()
+    }
 }

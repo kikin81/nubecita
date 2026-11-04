@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
+import kotlinx.coroutines.flow.Flow
 import net.kikin.nubecita.core.database.model.FeedPartitionStateEntity
 
 /** DAO for `feed_partition_state` — one row per cached feed partition. */
@@ -94,6 +95,52 @@ interface FeedPartitionStateDao {
         feedType: String,
         feedUri: String,
     ) = updateAnchor(accountDid, feedType, feedUri, itemKey = null, position = null, offset = null)
+
+    /**
+     * The partition's state as it changes.
+     *
+     * The pill is derived from this plus the rows above the reader's place, so
+     * it has to re-evaluate when either moves — including when the background
+     * worker writes while the app is away, which is the case the pill exists
+     * for.
+     */
+    @Query(
+        "SELECT * FROM feed_partition_state " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri",
+    )
+    fun observe(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+    ): Flow<FeedPartitionStateEntity?>
+
+    /**
+     * Records that the reader has acknowledged everything above [position].
+     *
+     * Insert-if-absent first, like [saveAnchor] and for the same reason: a
+     * reader can dismiss the pill on a partition whose row was never written.
+     */
+    @Transaction
+    suspend fun dismissPillAbove(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        position: Int,
+    ) {
+        insertIfAbsent(FeedPartitionStateEntity(accountDid, feedType, feedUri))
+        updatePillDismissed(accountDid, feedType, feedUri, position)
+    }
+
+    @Query(
+        "UPDATE feed_partition_state SET pill_dismissed_position = :position " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri",
+    )
+    suspend fun updatePillDismissed(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        position: Int?,
+    )
 
     @Query("DELETE FROM feed_partition_state WHERE account_did = :accountDid")
     suspend fun clearAccount(accountDid: String)
