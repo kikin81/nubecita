@@ -6,17 +6,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -25,7 +24,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -39,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.collections.immutable.ImmutableList
@@ -214,7 +213,7 @@ internal fun TranslationContent(
                     PickerTarget.Auto -> state.autoTranslate
                     PickerTarget.Never -> state.neverTranslate
                 }
-            LanguagePickerSheet(
+            LanguagePickerDialog(
                 available = state.availableLanguages,
                 // Only the list being added to is excluded. A language in the
                 // other list is still offered, because picking it is a
@@ -270,15 +269,13 @@ private fun SectionHeader(
  * translating an entire language from then on, and a reader who wants that
  * should be able to say so without first finding a post in it.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LanguagePickerSheet(
+private fun LanguagePickerDialog(
     available: ImmutableList<String>,
     excluded: Set<String>,
     title: String,
     onPick: (String) -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     var query by remember { mutableStateOf("") }
     val configuration = LocalConfiguration.current
@@ -303,50 +300,51 @@ private fun LanguagePickerSheet(
             }
         }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
-        Column(
-            // imePadding, because this sheet exists to be typed into: without
-            // it the soft keyboard covers the very results the search field is
-            // filtering, which is the whole surface. Found on device.
-            modifier =
-                modifier
-                    .imePadding()
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.translation_picker_search)) },
-            )
-            if (visible.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.translation_picker_no_match),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                return@Column
-            }
-            // Bounded so the sheet cannot grow past roughly half the screen on
-            // a tall device; the list scrolls inside it.
-            LazyColumn(
-                modifier = Modifier.heightIn(max = 360.dp),
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+    // A Dialog, not a ModalBottomSheet, for the same reason EmojiPickerDialog
+    // is one: a sheet's drag-to-dismiss fights the list's vertical scroll. It
+    // also fixes what a sheet broke here on device — a sheet renders in its own
+    // window that does not resize for the IME, so `imePadding` reported nothing
+    // and the keyboard covered the very results the search field filters. A
+    // dialog window resizes, so the list stays visible while typing.
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surface) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                // Lazy, and shapes derived per index rather than going through
-                // NubecitaListGroup: that group renders every row eagerly,
-                // which for the engine's full language set is a lot of
-                // composition for a sheet showing a dozen rows at a time.
-                itemsIndexed(visible, key = { _, (tag, _) -> tag }) { index, (tag, name) ->
-                    NubecitaListItem(
-                        shapes = ListItemDefaults.segmentedShapes(index = index, count = visible.size),
-                        headlineContent = { Text(name) },
-                        onClick = { onPick(tag) },
+                Text(text = title, style = MaterialTheme.typography.titleMedium)
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.translation_picker_search)) },
+                )
+                if (visible.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.translation_picker_no_match),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    return@Column
+                }
+                // Bounded so the dialog cannot grow to the full screen on a
+                // tall device; the list scrolls inside it.
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 360.dp),
+                    verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                ) {
+                    // Lazy, and shapes derived per index rather than going
+                    // through NubecitaListGroup: that group renders every row
+                    // eagerly, which for the engine's full language set is a
+                    // lot of composition for a dozen visible rows.
+                    itemsIndexed(visible, key = { _, (tag, _) -> tag }) { index, (tag, name) ->
+                        NubecitaListItem(
+                            shapes = ListItemDefaults.segmentedShapes(index = index, count = visible.size),
+                            headlineContent = { Text(name) },
+                            onClick = { onPick(tag) },
+                        )
+                    }
                 }
             }
         }
