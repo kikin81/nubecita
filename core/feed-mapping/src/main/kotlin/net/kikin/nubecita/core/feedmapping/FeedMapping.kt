@@ -23,6 +23,7 @@ import io.github.kikin81.atproto.runtime.AtField
 import io.github.kikin81.atproto.runtime.Language
 import io.github.kikin81.atproto.runtime.UnknownOpenUnionMember
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.serialization.json.Json
 import net.kikin.nubecita.data.models.AuthorUi
@@ -114,7 +115,15 @@ fun PostView.toPostUiCore(viewerDid: String? = null): PostUi? {
  * treats that as unknown rather than as the reader's language. Keeping them
  * distinct would buy a difference no caller can act on.
  */
-private fun AtField<List<Language>>.toLanguageTags(): ImmutableList<String> = valueOrEmpty().map { it.raw }.toImmutableList()
+private fun AtField<List<Language>>.toLanguageTags(): ImmutableList<String> {
+    // Early return rather than map-then-convert: `langs` is optional and
+    // absent on most posts, and this runs once per post on the feed-mapping
+    // path, where the empty case would otherwise allocate both an ArrayList
+    // and a persistent-list wrapper to hold nothing.
+    val raw = valueOrEmpty()
+    if (raw.isEmpty()) return persistentListOf()
+    return raw.map { it.raw }.toImmutableList()
+}
 
 /**
  * Project a single [PostView] to [FeedItemUi.Single], or `null` when
