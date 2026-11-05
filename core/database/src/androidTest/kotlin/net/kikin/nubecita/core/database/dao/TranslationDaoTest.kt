@@ -7,6 +7,7 @@ import net.kikin.nubecita.core.database.model.TranslationEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -101,7 +102,11 @@ internal class TranslationDaoTest : DatabaseTest() {
                     ),
                     capacity = 4,
                 )
-                assert(dao.count() <= 4) { "cache exceeded capacity after insert $index" }
+                // assertTrue, not Kotlin's `assert`: that intrinsic is gated
+                // on desiredAssertionStatus(), which ART reports false unless
+                // the runtime is started with -ea. The check never ran, so the
+                // one assertion proving the cache stays bounded was dead.
+                assertTrue("cache exceeded capacity after insert $index", dao.count() <= 4)
             }
         }
 
