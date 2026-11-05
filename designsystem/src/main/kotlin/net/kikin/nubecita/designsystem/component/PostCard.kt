@@ -1,5 +1,6 @@
 package net.kikin.nubecita.designsystem.component
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,6 +10,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -21,6 +24,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -49,6 +53,7 @@ import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.data.models.ImageUi
 import net.kikin.nubecita.data.models.MediaContentWarning
 import net.kikin.nubecita.data.models.PostStatsUi
+import net.kikin.nubecita.data.models.PostTranslationUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.QuotedPostUi
@@ -59,6 +64,7 @@ import net.kikin.nubecita.designsystem.R
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.semanticColors
+import java.util.Locale
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 
@@ -118,6 +124,18 @@ fun PostCard(
     bodyMatch: String? = null,
     isMediaRevealed: Boolean = false,
     onRevealMedia: () -> Unit = {},
+    /**
+     * Translation state for this post, or null to say nothing about it.
+     *
+     * Null by default so every surface that does not translate — post detail,
+     * profile, notifications, bookmarks, search, widgets, Wear — renders
+     * exactly as before and its screenshot baselines do not churn.
+     */
+    translation: PostTranslationUi? = null,
+    /** Tapped the translate chip. */
+    onTranslate: () -> Unit = {},
+    /** Tapped "Show original" or "Show translation". */
+    onToggleTranslation: () -> Unit = {},
 ) {
     // PostCard uses NubecitaAvatar (40dp) with 20dp horizontal + 14dp vertical
     // padding, so the avatar center is at x = 20 + 20 = 40dp, NOT the
@@ -170,13 +188,26 @@ fun PostCard(
                         modifier = Modifier.clickable { callbacks.onAuthorTap(post.author) },
                     )
                     Spacer(Modifier.height(4.dp))
+                    // The original renders first and stays until a
+                    // translation actually arrives; a card is never blank
+                    // while something is in flight.
+                    val shown = translation as? PostTranslationUi.Shown
                     BodyText(
-                        text = post.text,
-                        facets = post.facets,
+                        text = shown?.text ?: post.text,
+                        facets = shown?.facets ?: post.facets,
                         authorHandle = post.author.handle,
                         onFacetTap = callbacks.onFacetTap,
                         bodyMatch = bodyMatch,
+                        shimmering = translation is PostTranslationUi.InProgress,
                     )
+                    if (translation != null) {
+                        Spacer(Modifier.height(6.dp))
+                        TranslationFooter(
+                            translation = translation,
+                            onTranslate = onTranslate,
+                            onToggle = onToggleTranslation,
+                        )
+                    }
                     EmbedSlot(
                         embed = post.embed,
                         postUri = post.id,
@@ -301,6 +332,7 @@ private fun BodyText(
     authorHandle: String,
     onFacetTap: (FacetTarget) -> Unit,
     bodyMatch: String? = null,
+    shimmering: Boolean = false,
 ) {
     val annotated =
         rememberTappableBlueskyAnnotatedString(
@@ -321,8 +353,128 @@ private fun BodyText(
     Text(
         text = withHighlight,
         style = MaterialTheme.typography.bodyLarge,
-        modifier = Modifier.testTag(PostCardTestTags.BODY),
+        modifier =
+            Modifier
+                .testTag(PostCardTestTags.BODY)
+                // Shimmer OVER the original rather than replacing it with
+                // placeholder bars: the body keeps its real height, so the
+                // swap when the translation lands does not reflow the list
+                // under the reader's thumb.
+                .then(if (shimmering) Modifier.shimmer() else Modifier),
     )
+}
+
+/**
+ * The line under a translated — or translatable — post body.
+ *
+ * Attribution is not decoration. ML Kit's terms require visible credit, and
+ * on-device `ja→en` is materially rougher than the cloud translator a reader
+ * may be comparing it against, so naming the engine and keeping the original
+ * one tap away is part of being honest about what they are reading.
+ */
+@Composable
+private fun TranslationFooter(
+    translation: PostTranslationUi,
+    onTranslate: () -> Unit,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val language =
+        remember(translation.sourceLanguage) {
+            Locale
+                .forLanguageTag(translation.sourceLanguage)
+                .getDisplayLanguage(Locale.getDefault())
+                .ifBlank { translation.sourceLanguage }
+        }
+    when (translation) {
+        is PostTranslationUi.Offered, is PostTranslationUi.OriginalShown ->
+            TranslateChip(
+                label =
+                    if (translation is PostTranslationUi.OriginalShown) {
+                        stringResource(R.string.post_show_translation)
+                    } else {
+                        stringResource(R.string.post_translate_from, language)
+                    },
+                onClick = if (translation is PostTranslationUi.OriginalShown) onToggle else onTranslate,
+                modifier = modifier,
+            )
+
+        is PostTranslationUi.WaitingForWifi ->
+            // Says why nothing is happening. A chip that silently does nothing
+            // when tapped reads as a broken feature, and the download really is
+            // deferred rather than failed.
+            TranslateChip(
+                label = stringResource(R.string.post_translation_waiting_wifi),
+                onClick = null,
+                modifier = modifier,
+            )
+
+        is PostTranslationUi.InProgress -> Unit
+
+        is PostTranslationUi.Shown ->
+            Row(
+                modifier = modifier,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.post_translated_from, language),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = stringResource(R.string.post_show_original),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable(onClick = onToggle),
+                )
+            }
+    }
+}
+
+/**
+ * The translate affordance: a chip on the card, not a row in the overflow
+ * sheet.
+ *
+ * On the card because a reader has to be able to see that a post *can* be
+ * translated without opening a menu — the discovery path for the whole feature
+ * runs through this chip.
+ */
+@Composable
+private fun TranslateChip(
+    label: String,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    val shape = RoundedCornerShape(percent = 50)
+    Row(
+        modifier =
+            modifier
+                .clip(shape)
+                .border(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant, shape = shape)
+                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+                .padding(horizontal = 10.dp, vertical = 4.dp)
+                .testTag(PostCardTestTags.TRANSLATE_CHIP),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        NubecitaIcon(
+            name = NubecitaIconName.Language,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color =
+                if (onClick != null) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+        )
+    }
 }
 
 /**

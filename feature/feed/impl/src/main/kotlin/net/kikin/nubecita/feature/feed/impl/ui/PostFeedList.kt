@@ -54,6 +54,7 @@ import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
 import net.kikin.nubecita.designsystem.component.ThreadCluster
 import net.kikin.nubecita.feature.feed.impl.FeedTestTags
+import net.kikin.nubecita.feature.feed.impl.translation.FeedTranslationState
 import net.kikin.nubecita.feature.feed.impl.video.FeedVideoPlayerCoordinator
 import net.kikin.nubecita.feature.feed.impl.video.mostVisibleVideoTarget
 
@@ -126,6 +127,11 @@ internal fun PostFeedList(
     outgoingPosts: ImmutableList<OutgoingPostUi> = persistentListOf(),
     onRetryOutgoing: (localId: String) -> Unit = {},
     onDiscardOutgoing: (localId: String) -> Unit = {},
+    /**
+     * Per-post translation state, or null on a surface that does not
+     * translate (and in previews / screenshot fixtures, which pass nothing).
+     */
+    translations: FeedTranslationState? = null,
 ) {
     // Per-list reveal state: ids of posts whose covered (NSFW-labelled) media the
     // viewer chose to "Show anyway". Terminates at the screen — the VM never sees
@@ -388,6 +394,9 @@ internal fun PostFeedList(
                                     animateRepostTap = item.post.id == lastRepostTapPostUri,
                                     isMediaRevealed = item.post.id in revealedMedia,
                                     onRevealMedia = { revealedMedia = revealedMedia.adding(item.post.id) },
+                                    translation = translations?.forPost(item.post),
+                                    onTranslate = { translations?.translate(item.post) },
+                                    onToggleTranslation = { translations?.toggleOriginal(item.post.id) },
                                 )
                                 SuppressedRepliesRow(
                                     count = item.suppressedReplyCount,

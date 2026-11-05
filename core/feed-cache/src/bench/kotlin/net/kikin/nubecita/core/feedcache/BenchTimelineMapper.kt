@@ -141,6 +141,7 @@ internal object BenchTimelineMapper {
             viewer = viewer.toViewerStateUi(),
             repostedBy = repostedBy,
             threadRootUri = threadRootUri,
+            langs = langs.toImmutableList(),
         )
 
     private fun BenchAuthorDto.toAuthorUi(): AuthorUi =

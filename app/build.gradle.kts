@@ -300,6 +300,7 @@ dependencies {
     implementation(project(":core:push"))
     implementation(project(":core:review"))
     implementation(project(":core:update"))
+    implementation(project(":core:translation"))
     implementation(project(":core:video"))
     // Aggregated here so Hilt validates the video-upload graph now rather than
     // when :feature:composer first injects VideoUploadRepository (uu6c.5).

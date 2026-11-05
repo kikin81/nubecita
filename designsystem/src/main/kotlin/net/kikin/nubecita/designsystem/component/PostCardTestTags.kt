@@ -17,4 +17,7 @@ object PostCardTestTags {
      * can land on the action row and like or repost on a real account.
      */
     const val BODY: String = "post_card_body"
+
+    /** The translate chip / waiting-for-Wi-Fi pill under the body. */
+    const val TRANSLATE_CHIP: String = "post_card_translate_chip"
 }
