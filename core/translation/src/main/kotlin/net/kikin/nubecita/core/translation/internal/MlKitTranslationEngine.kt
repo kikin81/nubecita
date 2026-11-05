@@ -48,6 +48,13 @@ internal class MlKitTranslationEngine
             targetLanguage: String,
         ): Boolean = mlKitTag(sourceLanguage) != null && mlKitTag(targetLanguage) != null
 
+        override fun supportedLanguages(): List<String> =
+            // ML Kit hands back its own tag spellings; normalizing them keeps
+            // the rest of the app on one representation, and drops any the
+            // shared normalizer does not recognize rather than letting a tag
+            // through that `supports` would then reject.
+            TranslateLanguage.getAllLanguages().mapNotNull(LanguageTags::normalize).distinct()
+
         override suspend fun translate(
             text: String,
             sourceLanguage: String,

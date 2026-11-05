@@ -27,6 +27,8 @@ internal class FakeTranslationEngine(
 
     var failWith: Throwable? = null
 
+    override fun supportedLanguages(): List<String> = supported.toList()
+
     override suspend fun translate(
         text: String,
         sourceLanguage: String,

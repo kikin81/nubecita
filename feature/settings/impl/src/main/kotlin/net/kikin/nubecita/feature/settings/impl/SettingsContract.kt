@@ -250,6 +250,13 @@ sealed interface SettingsEvent : UiEvent {
      */
     data object MediaAndAnimationsTapped : SettingsEvent
 
+    /**
+     * The "Translation" row was tapped. The ViewModel answers with
+     * [SettingsEffect.OpenTranslation]; the screen pushes the `Translation`
+     * NavKey.
+     */
+    data object TranslationTapped : SettingsEvent
+
     /** User tapped the Watch row. The VM answers with [SettingsEffect.OpenWatchSettings]. */
     data object WatchTapped : SettingsEvent
 }
@@ -354,6 +361,9 @@ sealed interface SettingsEffect : UiEffect {
 
     /** Push the Media and animations sub-route. */
     data object OpenMediaAndAnimations : SettingsEffect
+
+    /** Push the Translation sub-route. */
+    data object OpenTranslation : SettingsEffect
 
     /** Push the Settings → Watch sub-route. */
     data object OpenWatchSettings : SettingsEffect

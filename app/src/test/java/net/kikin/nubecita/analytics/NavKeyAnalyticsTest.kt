@@ -44,6 +44,7 @@ import net.kikin.nubecita.feature.settings.api.FeedPreferences
 import net.kikin.nubecita.feature.settings.api.MediaAndAnimations
 import net.kikin.nubecita.feature.settings.api.Moderation
 import net.kikin.nubecita.feature.settings.api.Settings
+import net.kikin.nubecita.feature.settings.api.Translation
 import net.kikin.nubecita.feature.settings.api.WatchSettings
 import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
 import net.kikin.nubecita.feature.videos.api.VideoFeed
@@ -101,6 +102,7 @@ class NavKeyAnalyticsTest {
             FeedPreferences to AnalyticsScreen.SettingsFeedPreferences,
             MediaAndAnimations to AnalyticsScreen.SettingsMediaAndAnimations,
             Moderation to AnalyticsScreen.SettingsModeration,
+            Translation to AnalyticsScreen.SettingsTranslation,
             WatchSettings to AnalyticsScreen.SettingsWatch,
             About to AnalyticsScreen.About,
             AboutLicenses to AnalyticsScreen.AboutLicenses,

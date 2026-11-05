@@ -46,6 +46,7 @@ import net.kikin.nubecita.feature.settings.api.FeedPreferences
 import net.kikin.nubecita.feature.settings.api.MediaAndAnimations
 import net.kikin.nubecita.feature.settings.api.Moderation
 import net.kikin.nubecita.feature.settings.api.Settings
+import net.kikin.nubecita.feature.settings.api.Translation
 import net.kikin.nubecita.feature.settings.api.WatchSettings
 import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
 import net.kikin.nubecita.feature.videos.api.VideoFeed
@@ -118,6 +119,7 @@ internal fun NavKey.toAnalyticsScreenOrNull(): AnalyticsScreen? =
         FeedPreferences -> AnalyticsScreen.SettingsFeedPreferences
         MediaAndAnimations -> AnalyticsScreen.SettingsMediaAndAnimations
         Moderation -> AnalyticsScreen.SettingsModeration
+        Translation -> AnalyticsScreen.SettingsTranslation
         WatchSettings -> AnalyticsScreen.SettingsWatch
         About -> AnalyticsScreen.About
         AboutLicenses -> AnalyticsScreen.AboutLicenses

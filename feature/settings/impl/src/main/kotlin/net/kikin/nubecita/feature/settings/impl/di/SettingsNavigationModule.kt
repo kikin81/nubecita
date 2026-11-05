@@ -17,6 +17,7 @@ import net.kikin.nubecita.feature.settings.api.FeedPreferences
 import net.kikin.nubecita.feature.settings.api.MediaAndAnimations
 import net.kikin.nubecita.feature.settings.api.Moderation
 import net.kikin.nubecita.feature.settings.api.Settings
+import net.kikin.nubecita.feature.settings.api.Translation
 import net.kikin.nubecita.feature.settings.api.WatchSettings
 import net.kikin.nubecita.feature.settings.impl.AboutLicensesScreen
 import net.kikin.nubecita.feature.settings.impl.AboutScreen
@@ -26,6 +27,7 @@ import net.kikin.nubecita.feature.settings.impl.FeedPreferencesScreen
 import net.kikin.nubecita.feature.settings.impl.MediaAndAnimationsScreen
 import net.kikin.nubecita.feature.settings.impl.ModerationScreen
 import net.kikin.nubecita.feature.settings.impl.SettingsScreen
+import net.kikin.nubecita.feature.settings.impl.TranslationScreen
 import net.kikin.nubecita.feature.settings.impl.WatchSettingsScreen
 
 /**
@@ -102,6 +104,14 @@ internal object SettingsNavigationModule {
             entry<MediaAndAnimations>(metadata = adaptiveDialog()) {
                 val navState = LocalMainShellNavState.current
                 MediaAndAnimationsScreen(onBack = { navState.removeLast() })
+            }
+            // Translation — on-device post translation and the language packs
+            // it downloads. Its own route rather than a section of Content
+            // filters: those decide what a reader sees at all, this decides
+            // what language they see it in, and it carries a storage surface.
+            entry<Translation>(metadata = adaptiveDialog()) {
+                val navState = LocalMainShellNavState.current
+                TranslationScreen(onBack = { navState.removeLast() })
             }
             entry<WatchSettings>(metadata = adaptiveDialog()) {
                 val navState = LocalMainShellNavState.current
