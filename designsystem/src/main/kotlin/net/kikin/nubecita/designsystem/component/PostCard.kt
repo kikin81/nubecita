@@ -16,6 +16,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -422,11 +424,15 @@ private fun TranslationFooter(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                val showOriginal = stringResource(R.string.post_show_original)
                 Text(
-                    text = stringResource(R.string.post_show_original),
+                    text = showOriginal,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable(onClick = onToggle),
+                    modifier =
+                        Modifier
+                            .minimumInteractiveComponentSize()
+                            .clickable(role = Role.Button, onClickLabel = showOriginal, onClick = onToggle),
                 )
             }
     }
@@ -450,10 +456,24 @@ private fun TranslateChip(
     Row(
         modifier =
             modifier
+                // The chip's own ink is ~24dp tall. Without this it would be a
+                // 24dp touch target, half the 48dp minimum — the same reason
+                // NubecitaLinkChip carries it. It expands the touch area only;
+                // the drawn pill keeps its size.
+                .minimumInteractiveComponentSize()
                 .clip(shape)
                 .border(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant, shape = shape)
-                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-                .padding(horizontal = 10.dp, vertical = 4.dp)
+                .then(
+                    if (onClick != null) {
+                        // Role + label so TalkBack announces "Translate from
+                        // Japanese, button" rather than reading the row's text
+                        // with no indication it does anything, matching
+                        // PostStat's contract.
+                        Modifier.clickable(role = Role.Button, onClickLabel = label, onClick = onClick)
+                    } else {
+                        Modifier
+                    },
+                ).padding(horizontal = 10.dp, vertical = 4.dp)
                 .testTag(PostCardTestTags.TRANSLATE_CHIP),
         horizontalArrangement = Arrangement.spacedBy(5.dp),
         verticalAlignment = Alignment.CenterVertically,
