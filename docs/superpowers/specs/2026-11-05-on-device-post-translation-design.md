@@ -200,8 +200,22 @@ apply to state the protocol does not model.
 So: resolve as an ordered set of **device `LocaleListCompat`** union **the reader's
 never-translate list**. That list does double duty — it *is* "languages I read", so
 there is no fourth list in Settings. BCP-47 matched on the language subtag (`es`
-matches `es-419`). The target language is the first `LocaleListCompat` entry,
-overridable in Settings.
+matches `es-419`). The target language is the first `LocaleListCompat` entry.
+
+**It is not overridable in v1** — an earlier draft of this decision said it was,
+and nothing implements that. A reader whose primary device language is not the
+one they want translations *into* is not served by v1; a target selector on the
+Translation page is the obvious follow-up. Stated rather than quietly dropped,
+because the two are easy to confuse: the never-translate list changes what is
+left alone, not what the output language is.
+
+The union is re-evaluated on every read and is **one-way**: a reader can add a
+language to their read-set but cannot remove a device locale from it. The
+alternative — seeding the list from the device once and letting it drift
+independently — was considered and rejected, because it trades a rare annoyance
+(a device locale the reader does not actually read) for a silent one (a language
+added to the device later never joins the set, so its posts start being offered
+with no setting that explains why).
 
 Reuse the legacy-alias normalisation already in
 `:core:post-interactions/TranslationUrl.kt` (`iw`→`he`, `in`→`id`, `ji`→`yi`).
@@ -223,7 +237,13 @@ Given the mangling above:
      spike documented (`@ ` and `# ` with an inserted space, `https: //`);
    - if the candidate count equals the original count **for that kind**, replace
      each candidate's text with the **original** span text and attach the
-     **original** facet feature, in order;
+     **original** facet feature, in order. The output is **built by appending
+     segments**, not patched in place, and each facet's byte slice is computed
+     against the string being built — so restoring a span longer than the
+     candidate it replaces cannot shift the spans after it. (Patching in place
+     left-to-right *would* invalidate later offsets; reversing the order instead
+     would reverse the emitted facet list. Both are wrong, and tests pin against
+     both.)
    - if the counts disagree, that kind renders as **plain text** for this post.
 3. Original byte offsets are never remapped onto translated text.
 
@@ -281,6 +301,14 @@ Off Wi-Fi, accepting is still recorded: the chip shows **"Waiting for Wi-Fi"** a
 the download runs when Wi-Fi arrives. It does not silently fail and it does not
 bounce the reader to the Google Translate deep link — replacing that experience is
 the point of the epic.
+
+## Known gaps
+
+- **No target-language selector.** The output language is the reader's primary
+  device locale, full stop (D3).
+- **A device locale cannot be un-read** (D3).
+
+Both are follow-ups, not blockers.
 
 ## Left to the builder
 

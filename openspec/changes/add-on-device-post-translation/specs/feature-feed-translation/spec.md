@@ -42,6 +42,10 @@ Facet targets SHALL come from the original record, and original byte offsets SHA
 - **WHEN** a translated post is reconciled against the original facet set
 - **THEN** for each kind (link, mention, tag) separately, candidate spans are located in the output tolerating the artifacts translation introduces (`@ `, `# `, `https: //`), and if the candidate count equals the original count for that kind, each candidate's text is replaced with the original span's text and the original facet feature attached, in order
 
+#### Scenario: Restoring a longer span does not shift the spans after it
+- **WHEN** a restored span is longer than the candidate it replaces
+- **THEN** every later facet still indexes its own span, because the output is built by appending segments and each byte slice is computed against the string being built, never patched in place
+
 #### Scenario: Hashtag renders and resolves as authored
 - **WHEN** a post containing `#PalacesandGardens` is translated and the engine emits `#palaceandGarden`
 - **THEN** the reader sees `#PalacesandGardens` and tapping it opens the tag the author wrote
