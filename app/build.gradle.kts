@@ -299,6 +299,7 @@ dependencies {
     implementation(project(":core:preferences"))
     implementation(project(":core:push"))
     implementation(project(":core:review"))
+    implementation(project(":core:translation"))
     implementation(project(":core:update"))
     implementation(project(":core:video"))
     // Aggregated here so Hilt validates the video-upload graph now rather than

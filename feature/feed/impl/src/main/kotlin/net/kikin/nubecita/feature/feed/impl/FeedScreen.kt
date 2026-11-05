@@ -88,6 +88,8 @@ import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCardShimmer
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.feature.feed.impl.translation.FeedTranslationState
+import net.kikin.nubecita.feature.feed.impl.translation.rememberFeedTranslations
 import net.kikin.nubecita.feature.feed.impl.ui.FeedAnchoring
 import net.kikin.nubecita.feature.feed.impl.ui.FeedChipRow
 import net.kikin.nubecita.feature.feed.impl.ui.FeedEmptyState
@@ -309,6 +311,36 @@ internal fun FeedScreen(
             }
         }
 
+    // Per-post translation, dispatched only when the list settles. The gate is
+    // the whole feature: measured on a 120Hz device, translating on scroll-idle
+    // costs nothing detectable (2.01% janky off vs 1.77% / 1.65% on, p50 5ms
+    // throughout) because nothing runs during a fling.
+    //
+    // `visiblePosts` reads the layout at settle time rather than closing over a
+    // snapshot: the posts that matter are the ones still on screen when the
+    // scroll stops, not the ones that were when it started.
+    val translationScope = rememberCoroutineScope()
+    val translations =
+        rememberFeedTranslations(
+            listState = listState,
+            visiblePosts = {
+                val loaded = snapshot.items
+                // visibleItemsInfo indexes the LazyColumn, which puts the
+                // optional header and the optimistic outgoing rows ahead of
+                // the paged ones. Subtracting them is not cosmetic: off by the
+                // header alone and every settle translates its neighbour.
+                // PostFeedList computes the same offset for the scroll anchor.
+                val leading =
+                    (if (trendingHeader != null) 1 else 0) +
+                        ((viewState as? FeedScreenViewState.Loaded)?.outgoingPosts?.size ?: 0)
+                listState.layoutInfo.visibleItemsInfo
+                    .mapNotNull { info -> loaded.getOrNull(info.index - leading) }
+                    .allPosts()
+            },
+            coordinator = viewModel.translationCoordinator,
+            scope = translationScope,
+        )
+
     FeedScreenContent(
         viewState = viewState,
         items = items,
@@ -341,6 +373,7 @@ internal fun FeedScreen(
         onQuotedImageTap = interactions.onQuotedImageTap,
         onVideoTap = interactions.onVideoTap,
         coordinator = interactions.coordinator,
+        translations = translations,
         header = trendingHeader,
         showChipRow = showChipRow,
         showSnackbarHost = showSnackbarHost,
@@ -400,6 +433,8 @@ internal fun FeedScreenContent(
      * `null` renders no header slot at all, avoiding a phantom spacing gap.
      */
     header: (@Composable () -> Unit)? = null,
+    /** Per-post translation state, or null on a surface that does not translate. */
+    translations: FeedTranslationState? = null,
 ) {
     var showPinnedListsSheet by rememberSaveable { mutableStateOf(false) }
 
@@ -658,6 +693,7 @@ internal fun FeedScreenContent(
                         isFillingSeam = viewState.isFillingSeam,
                         onFillSeam = onFillSeam,
                         onJumpToNewest = onJumpToNewest,
+                        translations = translations,
                     )
                     // Over the list, not in it: the pill has to stay put while
                     // the timeline scrolls underneath, and it must not take a

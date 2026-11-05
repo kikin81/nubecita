@@ -165,4 +165,11 @@
     <string name="outgoing_post_failed">Couldn\'t send</string>
     <string name="outgoing_post_retry">Retry</string>
     <string name="outgoing_post_discard">Discard</string>
+
+    <!-- Post translation (epic nubecita-s6xk) -->
+    <string name="post_translate_from">Translate from %1$s</string>
+    <string name="post_translated_from">Translated from %1$s · Google</string>
+    <string name="post_show_original">Show original</string>
+    <string name="post_show_translation">Show translation</string>
+    <string name="post_translation_waiting_wifi">Waiting for Wi-Fi</string>
 </resources>

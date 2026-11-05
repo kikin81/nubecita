@@ -19,6 +19,7 @@ import net.kikin.nubecita.core.moderation.PostAudienceDefaultCoordinator
 import net.kikin.nubecita.core.posting.SharedMediaStore
 import net.kikin.nubecita.core.push.AppLifecycleObserver
 import net.kikin.nubecita.core.push.PushRegistrationCoordinator
+import net.kikin.nubecita.core.translation.TranslationLifecycle
 import net.kikin.nubecita.core.wearsync.WearSessionPublisher
 import net.kikin.nubecita.core.widgetsync.worker.WidgetRefreshScheduler
 import net.kikin.nubecita.feature.chats.impl.store.ChatsUnreadPollingObserver
@@ -52,6 +53,18 @@ internal object ProductionBootstrapModule {
     // could report itself — the one silent-logout path that otherwise reaches
     // no telemetry at all (nubecita-yv4p). Schedules only; reads off the
     // initializer thread.
+    // Releases the on-device translation models when the app backgrounds.
+    // With five translators resident the process measured ~400MB RSS, which
+    // makes it an appealing low-memory-kill target while it sits in the
+    // background doing nothing. Registering the observer builds nothing: the
+    // engine and identifier are Lazy behind it, so a reader who never
+    // translates never constructs either.
+    @Provides
+    @IntoSet
+    fun provideTranslationLifecycleInitializer(
+        lifecycle: TranslationLifecycle,
+    ): AppInitializer = AppInitializer { lifecycle.start() }
+
     @Provides
     @IntoSet
     fun provideSessionClearTelemetryRecoveryInitializer(

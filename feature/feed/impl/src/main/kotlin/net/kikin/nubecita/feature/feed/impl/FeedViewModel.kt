@@ -56,6 +56,7 @@ import net.kikin.nubecita.data.models.OutgoingPostUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
+import net.kikin.nubecita.feature.feed.impl.translation.FeedTranslationCoordinator
 import net.kikin.nubecita.feature.search.api.Hashtag
 import java.io.IOException
 import javax.inject.Inject
@@ -74,6 +75,15 @@ class FeedViewModel
         private val muteRepository: MuteRepository,
         private val handler: PostInteractionHandler,
         private val outgoingPostStore: OutgoingPostStore,
+        /**
+         * Resolves per-post translation for the screen's Compose layer.
+         *
+         * Exposed rather than consumed, like [sharedVideoPlayer] above: the
+         * state it drives is scroll-scoped and snapshot-backed, so it belongs
+         * to the composition, not to `UiState`. The ViewModel is only the
+         * injection point — it never reads or writes translation state.
+         */
+        val translationCoordinator: FeedTranslationCoordinator,
         autoplayPolicy: AutoplayPolicy,
     ) : MviViewModel<FeedState, FeedEvent, FeedEffect>(FeedState()),
         PostInteractionHandler by handler {

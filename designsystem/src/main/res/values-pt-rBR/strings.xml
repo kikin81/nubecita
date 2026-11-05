@@ -81,4 +81,11 @@
     <string name="outgoing_post_failed">Não foi possível enviar</string>
     <string name="outgoing_post_retry">Tentar de novo</string>
     <string name="outgoing_post_discard">Descartar</string>
+
+    <!-- Post translation (epic nubecita-s6xk) -->
+    <string name="post_translate_from">Traduzir do %1$s</string>
+    <string name="post_translated_from">Traduzido do %1$s · Google</string>
+    <string name="post_show_original">Ver original</string>
+    <string name="post_show_translation">Ver tradução</string>
+    <string name="post_translation_waiting_wifi">Aguardando Wi-Fi</string>
 </resources>

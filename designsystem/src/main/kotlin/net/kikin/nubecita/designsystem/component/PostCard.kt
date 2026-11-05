@@ -1,5 +1,6 @@
 package net.kikin.nubecita.designsystem.component
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,11 +10,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,8 +26,11 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -31,6 +39,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.kikin81.atproto.app.bsky.richtext.Facet
 import io.github.kikin81.atproto.app.bsky.richtext.FacetByteSlice
@@ -49,6 +58,7 @@ import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.data.models.ImageUi
 import net.kikin.nubecita.data.models.MediaContentWarning
 import net.kikin.nubecita.data.models.PostStatsUi
+import net.kikin.nubecita.data.models.PostTranslationUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.QuotedPostUi
@@ -59,6 +69,7 @@ import net.kikin.nubecita.designsystem.R
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.semanticColors
+import java.util.Locale
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 
@@ -118,6 +129,18 @@ fun PostCard(
     bodyMatch: String? = null,
     isMediaRevealed: Boolean = false,
     onRevealMedia: () -> Unit = {},
+    /**
+     * Translation state for this post, or null to say nothing about it.
+     *
+     * Null by default so every surface that does not translate — post detail,
+     * profile, notifications, bookmarks, search, widgets, Wear — renders
+     * exactly as before and its screenshot baselines do not churn.
+     */
+    translation: PostTranslationUi? = null,
+    /** Tapped the translate chip. */
+    onTranslate: () -> Unit = {},
+    /** Tapped "Show original" or "Show translation". */
+    onToggleTranslation: () -> Unit = {},
 ) {
     // PostCard uses NubecitaAvatar (40dp) with 20dp horizontal + 14dp vertical
     // padding, so the avatar center is at x = 20 + 20 = 40dp, NOT the
@@ -170,13 +193,40 @@ fun PostCard(
                         modifier = Modifier.clickable { callbacks.onAuthorTap(post.author) },
                     )
                     Spacer(Modifier.height(4.dp))
+                    // The original renders first and stays until a
+                    // translation actually arrives; a card is never blank
+                    // while something is in flight.
+                    val shown = translation as? PostTranslationUi.Shown
                     BodyText(
-                        text = post.text,
-                        facets = post.facets,
+                        text = shown?.text ?: post.text,
+                        facets = shown?.facets ?: post.facets,
                         authorHandle = post.author.handle,
                         onFacetTap = callbacks.onFacetTap,
                         bodyMatch = bodyMatch,
+                        shimmering = translation is PostTranslationUi.InProgress,
                     )
+                    if (translation != null) {
+                        Spacer(Modifier.height(8.dp))
+                        // The footer opts out of the 48dp minimum touch
+                        // target. Inside a text column that minimum is not
+                        // free: it reserved ~12dp of blank card above and
+                        // below a 24dp pill, which measured 23dp / 30dp of
+                        // air against the card's own 18dp body-to-actions
+                        // rhythm. Opting out shrinks the target to the drawn
+                        // pill — ~165x24dp, which clears WCAG 2.2 AA's 24x24
+                        // minimum but not Material's 48dp recommendation.
+                        // Scoped to this subtree, so PostStat and the rest of
+                        // the action row keep theirs.
+                        CompositionLocalProvider(
+                            LocalMinimumInteractiveComponentSize provides Dp.Unspecified,
+                        ) {
+                            TranslationFooter(
+                                translation = translation,
+                                onTranslate = onTranslate,
+                                onToggle = onToggleTranslation,
+                            )
+                        }
+                    }
                     EmbedSlot(
                         embed = post.embed,
                         postUri = post.id,
@@ -215,7 +265,7 @@ private fun RepostedByLine(
             name = NubecitaIconName.Repeat,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            opticalSize = 14.dp,
+            opticalSize = TranslateChipIconSize,
         )
         Text(
             text = stringResource(R.string.postcard_reposted_by, name),
@@ -301,6 +351,7 @@ private fun BodyText(
     authorHandle: String,
     onFacetTap: (FacetTarget) -> Unit,
     bodyMatch: String? = null,
+    shimmering: Boolean = false,
 ) {
     val annotated =
         rememberTappableBlueskyAnnotatedString(
@@ -321,8 +372,175 @@ private fun BodyText(
     Text(
         text = withHighlight,
         style = MaterialTheme.typography.bodyLarge,
-        modifier = Modifier.testTag(PostCardTestTags.BODY),
+        modifier =
+            Modifier
+                .testTag(PostCardTestTags.BODY)
+                // Shimmer OVER the original rather than replacing it with
+                // placeholder bars: the body keeps its real height, so the
+                // swap when the translation lands does not reflow the list
+                // under the reader's thumb.
+                .then(if (shimmering) Modifier.shimmer() else Modifier),
     )
+}
+
+/**
+ * The line under a translated — or translatable — post body.
+ *
+ * Attribution is not decoration. ML Kit's terms require visible credit, and
+ * on-device `ja→en` is materially rougher than the cloud translator a reader
+ * may be comparing it against, so naming the engine and keeping the original
+ * one tap away is part of being honest about what they are reading.
+ */
+@Composable
+private fun TranslationFooter(
+    translation: PostTranslationUi,
+    onTranslate: () -> Unit,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Keyed on the Compose-propagated locale, not captured from
+    // Locale.getDefault() once: the same rule rememberCompactCount and
+    // VerificationSheet follow. A post's source language never changes, so
+    // keying on it alone would cache the first locale's name forever — and it
+    // would make this card's screenshot depend on the host JVM's default
+    // rather than the locale the test renders in.
+    val locale = LocalLocale.current.platformLocale
+    val language =
+        remember(translation.sourceLanguage, locale) {
+            Locale
+                .forLanguageTag(translation.sourceLanguage)
+                .getDisplayLanguage(locale)
+                .ifBlank { translation.sourceLanguage }
+        }
+    when (translation) {
+        is PostTranslationUi.Offered, is PostTranslationUi.OriginalShown ->
+            TranslateChip(
+                label =
+                    if (translation is PostTranslationUi.OriginalShown) {
+                        stringResource(R.string.post_show_translation)
+                    } else {
+                        stringResource(R.string.post_translate_from, language)
+                    },
+                onClick = if (translation is PostTranslationUi.OriginalShown) onToggle else onTranslate,
+                modifier = modifier,
+            )
+
+        is PostTranslationUi.WaitingForWifi ->
+            // Says why nothing is happening. A chip that silently does nothing
+            // when tapped reads as a broken feature, and the download really is
+            // deferred rather than failed.
+            TranslateChip(
+                label = stringResource(R.string.post_translation_waiting_wifi),
+                onClick = null,
+                modifier = modifier,
+            )
+
+        is PostTranslationUi.InProgress -> Unit
+
+        is PostTranslationUi.Shown ->
+            Row(
+                modifier = modifier,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.post_translated_from, language),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                val showOriginal = stringResource(R.string.post_show_original)
+                Text(
+                    text = showOriginal,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier =
+                        Modifier
+                            // The footer opts out of the 48dp minimum, so this
+                            // bare text link would otherwise be a 16dp-tall
+                            // target. The padding is inside the clickable, so
+                            // it is target area, and brings it to 24dp — WCAG
+                            // 2.2 AA's floor.
+                            .clickable(role = Role.Button, onClickLabel = showOriginal, onClick = onToggle)
+                            .padding(vertical = 4.dp),
+                )
+            }
+    }
+}
+
+// Named like NubecitaLinkChip's ChipMinHeight / ChipIconSize, so the two chip
+// shapes in the design system read the same way. The values differ on purpose:
+// this chip sits inside a text column rather than beside an embed, so it is
+// deliberately tighter than the link chip.
+private val TranslateChipShape = RoundedCornerShape(percent = 50)
+private val TranslateChipBorderWidth = 1.dp
+private val TranslateChipIconSize = 14.dp
+private val TranslateChipHorizontalPadding = 10.dp
+private val TranslateChipVerticalPadding = 4.dp
+private val TranslateChipGap = 5.dp
+
+/**
+ * The translate affordance: a chip on the card, not a row in the overflow
+ * sheet.
+ *
+ * On the card because a reader has to be able to see that a post *can* be
+ * translated without opening a menu — the discovery path for the whole feature
+ * runs through this chip.
+ */
+@Composable
+private fun TranslateChip(
+    label: String,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier =
+            modifier
+                // Kept so the chip still honours the minimum wherever a
+                // caller has not opted out; PostCard's footer scopes
+                // LocalMinimumInteractiveComponentSize to Unspecified because
+                // the reserved space reads as a hole in a text column.
+                .minimumInteractiveComponentSize()
+                .clip(TranslateChipShape)
+                .border(
+                    width = TranslateChipBorderWidth,
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    shape = TranslateChipShape,
+                ).then(
+                    if (onClick != null) {
+                        // Role + label so TalkBack announces "Translate from
+                        // Japanese, button" rather than reading the row's text
+                        // with no indication it does anything, matching
+                        // PostStat's contract.
+                        Modifier.clickable(role = Role.Button, onClickLabel = label, onClick = onClick)
+                    } else {
+                        Modifier
+                    },
+                ).padding(horizontal = TranslateChipHorizontalPadding, vertical = TranslateChipVerticalPadding)
+                .testTag(PostCardTestTags.TRANSLATE_CHIP),
+        horizontalArrangement = Arrangement.spacedBy(TranslateChipGap),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        NubecitaIcon(
+            name = NubecitaIconName.Language,
+            contentDescription = null,
+            // opticalSize, not Modifier.size: the glyph renders through `Text`,
+            // so its drawn size follows the font size this parameter sets.
+            // A modifier only clamps the Box around it — the glyph kept its
+            // 24dp default and overflowed the pill's padding onto the border.
+            opticalSize = TranslateChipIconSize,
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color =
+                if (onClick != null) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+        )
+    }
 }
 
 /**

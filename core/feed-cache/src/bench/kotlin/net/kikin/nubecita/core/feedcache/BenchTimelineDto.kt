@@ -129,6 +129,12 @@ internal data class BenchPostDto(
     val viewer: BenchViewerDto = BenchViewerDto(),
     val repostedBy: String? = null,
     val threadRootUri: String? = null,
+    /**
+     * Declared BCP-47 tags, defaulted empty so the fixtures that predate
+     * translation stay untouched — and so a post can deliberately declare
+     * nothing, which is the case only language identification reaches.
+     */
+    val langs: List<String> = emptyList(),
 )
 
 @Serializable
