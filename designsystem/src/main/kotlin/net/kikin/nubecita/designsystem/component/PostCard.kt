@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -481,7 +480,11 @@ private fun TranslateChip(
         NubecitaIcon(
             name = NubecitaIconName.Language,
             contentDescription = null,
-            modifier = Modifier.size(14.dp),
+            // opticalSize, not Modifier.size: the glyph renders through `Text`,
+            // so its drawn size follows the font size this parameter sets.
+            // A modifier only clamps the Box around it — the glyph kept its
+            // 24dp default and overflowed the pill's padding onto the border.
+            opticalSize = 14.dp,
             tint = MaterialTheme.colorScheme.primary,
         )
         Text(
