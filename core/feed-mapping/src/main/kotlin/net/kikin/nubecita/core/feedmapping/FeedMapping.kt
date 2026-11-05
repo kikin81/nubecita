@@ -20,6 +20,7 @@ import io.github.kikin81.atproto.app.bsky.feed.PostView
 import io.github.kikin81.atproto.app.bsky.feed.PostViewEmbedUnion
 import io.github.kikin81.atproto.app.bsky.feed.ViewerState
 import io.github.kikin81.atproto.runtime.AtField
+import io.github.kikin81.atproto.runtime.Language
 import io.github.kikin81.atproto.runtime.UnknownOpenUnionMember
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -101,8 +102,19 @@ fun PostView.toPostUiCore(viewerDid: String? = null): PostUi? {
                 ?.root
                 ?.uri
                 ?.raw,
+        langs = postRecord.langs.toLanguageTags(),
     )
 }
+
+/**
+ * The record's declared language tags, or empty when the field was absent.
+ *
+ * Absent and empty collapse to the same thing deliberately: both mean "this
+ * post does not tell us what language it is in", and the translation layer
+ * treats that as unknown rather than as the reader's language. Keeping them
+ * distinct would buy a difference no caller can act on.
+ */
+private fun AtField<List<Language>>.toLanguageTags(): ImmutableList<String> = valueOrEmpty().map { it.raw }.toImmutableList()
 
 /**
  * Project a single [PostView] to [FeedItemUi.Single], or `null` when
