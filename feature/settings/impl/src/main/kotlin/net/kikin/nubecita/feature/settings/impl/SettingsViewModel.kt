@@ -184,6 +184,8 @@ internal class SettingsViewModel
                 SettingsEvent.AppearanceTapped -> sendEffect(SettingsEffect.OpenAppearance)
                 SettingsEvent.MediaAndAnimationsTapped ->
                     sendEffect(SettingsEffect.OpenMediaAndAnimations)
+                SettingsEvent.TranslationTapped ->
+                    sendEffect(SettingsEffect.OpenTranslation)
                 SettingsEvent.WatchTapped -> sendEffect(SettingsEffect.OpenWatchSettings)
             }
         }

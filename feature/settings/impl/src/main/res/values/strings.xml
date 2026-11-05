@@ -184,4 +184,24 @@
     </plurals>
     <string name="watch_feed_following">Following</string>
     <string name="watch_save_error">Couldn\'t save your change. Try again.</string>
+
+    <!-- Translation settings (epic nubecita-s6xk) -->
+    <string name="translation_row_label">Translation</string>
+    <string name="translation_title">Translation</string>
+    <string name="translation_back_content_desc">Back</string>
+    <string name="translation_description">Translate posts on your device. Nothing you read is sent anywhere.</string>
+    <string name="translation_auto_header">Automatic translation</string>
+    <string name="translation_auto_label">Translate posts automatically</string>
+    <string name="translation_auto_supporting">Posts in a language you don\'t read are translated when you stop scrolling. Off, you can still translate a post by tapping it.</string>
+    <string name="translation_auto_languages_header">Translate these languages</string>
+    <string name="translation_auto_languages_empty">No languages yet. Tap Translate on a post to add one.</string>
+    <string name="translation_never_header">Languages you read</string>
+    <string name="translation_never_supporting">Never offered for translation. Your device languages are always included.</string>
+    <string name="translation_never_empty">Only your device languages.</string>
+    <string name="translation_storage_header">Downloaded languages</string>
+    <string name="translation_storage_empty">No languages downloaded.</string>
+    <string name="translation_storage_total">%1$s used in total</string>
+    <string name="translation_storage_wifi_note">Language packs download over Wi-Fi only.</string>
+    <string name="translation_delete_content_desc">Delete %1$s</string>
+    <string name="translation_save_error">Couldn\'t save that. Try again.</string>
 </resources>

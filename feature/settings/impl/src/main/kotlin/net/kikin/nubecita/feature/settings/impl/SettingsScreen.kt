@@ -70,6 +70,7 @@ import net.kikin.nubecita.feature.settings.api.Appearance
 import net.kikin.nubecita.feature.settings.api.FeedPreferences
 import net.kikin.nubecita.feature.settings.api.MediaAndAnimations
 import net.kikin.nubecita.feature.settings.api.Moderation
+import net.kikin.nubecita.feature.settings.api.Translation
 import net.kikin.nubecita.feature.settings.api.WatchSettings
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsHeader
 import net.kikin.nubecita.feature.settings.impl.ui.SettingsRow
@@ -205,6 +206,8 @@ internal fun SettingsScreen(
                     // Push the Appearance sub-route (screen owns the NavKey).
                     currentOnNavigateTo(Appearance)
 
+                SettingsEffect.OpenTranslation ->
+                    currentOnNavigateTo(Translation)
                 SettingsEffect.OpenMediaAndAnimations ->
                     // Push the Media and animations sub-route.
                     currentOnNavigateTo(MediaAndAnimations)
@@ -600,8 +603,9 @@ internal fun SettingsContent(
     // the data-cost setting people come here to change, and a two-value caption
     // would not fit the row.
     val mediaValue = stringResource(R.string.media_row_value, stringResource(state.autoplay.labelRes()))
+    val translationLabel = stringResource(R.string.translation_row_label)
     val displayRows =
-        remember(appearanceLabel, appearanceValue, mediaLabel, mediaValue) {
+        remember(appearanceLabel, appearanceValue, mediaLabel, mediaValue, translationLabel) {
             persistentListOf(
                 SettingsRow.Action(
                     icon = NubecitaIconName.Palette,
@@ -614,6 +618,14 @@ internal fun SettingsContent(
                     label = mediaLabel,
                     supportingText = mediaValue,
                     onClick = { currentOnEvent(SettingsEvent.MediaAndAnimationsTapped) },
+                ),
+                SettingsRow.Action(
+                    icon = NubecitaIconName.Language,
+                    label = translationLabel,
+                    // Uncaptioned: the setting's value is three lists and a
+                    // switch, and any one-line summary of that would be a
+                    // half-truth. The sub-page is one tap away.
+                    onClick = { currentOnEvent(SettingsEvent.TranslationTapped) },
                 ),
             )
         }

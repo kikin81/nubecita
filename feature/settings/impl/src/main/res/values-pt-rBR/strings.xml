@@ -140,4 +140,24 @@
     </plurals>
     <string name="watch_feed_following">Seguindo</string>
     <string name="watch_save_error">Não foi possível salvar a alteração. Tente novamente.</string>
+
+    <!-- Translation settings (epic nubecita-s6xk) -->
+    <string name="translation_row_label">Tradução</string>
+    <string name="translation_title">Tradução</string>
+    <string name="translation_back_content_desc">Voltar</string>
+    <string name="translation_description">Traduza posts no seu dispositivo. Nada do que você lê é enviado para lugar nenhum.</string>
+    <string name="translation_auto_header">Tradução automática</string>
+    <string name="translation_auto_label">Traduzir posts automaticamente</string>
+    <string name="translation_auto_supporting">Posts em um idioma que você não lê são traduzidos quando você para de rolar. Desativado, você ainda pode traduzir um post tocando nele.</string>
+    <string name="translation_auto_languages_header">Traduzir estes idiomas</string>
+    <string name="translation_auto_languages_empty">Nenhum idioma ainda. Toque em Traduzir em um post para adicionar.</string>
+    <string name="translation_never_header">Idiomas que você lê</string>
+    <string name="translation_never_supporting">Nunca oferecidos para tradução. Os idiomas do seu dispositivo sempre entram aqui.</string>
+    <string name="translation_never_empty">Apenas os idiomas do seu dispositivo.</string>
+    <string name="translation_storage_header">Idiomas baixados</string>
+    <string name="translation_storage_empty">Nenhum idioma baixado.</string>
+    <string name="translation_storage_total">%1$s no total</string>
+    <string name="translation_storage_wifi_note">Os pacotes de idioma são baixados somente via Wi-Fi.</string>
+    <string name="translation_delete_content_desc">Excluir %1$s</string>
+    <string name="translation_save_error">Não foi possível salvar. Tente novamente.</string>
 </resources>
