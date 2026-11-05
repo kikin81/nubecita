@@ -32,8 +32,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -278,17 +278,18 @@ private fun LanguagePickerDialog(
     onDismiss: () -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
-    val configuration = LocalConfiguration.current
-    // Sorted by display name in the reader's own locale, not by subtag:
-    // alphabetical order in English is meaningless to a Spanish reader, and
-    // keyed on the configuration so a language change re-collates.
+    // Named, sorted and lower-cased against the Compose-propagated locale, so
+    // the whole list agrees with itself: alphabetical order in English is
+    // meaningless to a Spanish reader, and collating with one locale while
+    // naming with another produces an order that looks arbitrary.
+    val locale = LocalLocale.current.platformLocale
     val options =
-        remember(available, excluded, configuration) {
+        remember(available, excluded, locale) {
             available
                 .asSequence()
                 .filterNot { it in excluded }
-                .map { tag -> tag to Locale.forLanguageTag(tag).getDisplayLanguage().ifBlank { tag } }
-                .sortedBy { (_, name) -> name.lowercase(Locale.getDefault()) }
+                .map { tag -> tag to Locale.forLanguageTag(tag).getDisplayLanguage(locale).ifBlank { tag } }
+                .sortedBy { (_, name) -> name.lowercase(locale) }
                 .toList()
         }
     val visible =
@@ -479,10 +480,13 @@ private fun StorageSection(
  */
 @Composable
 private fun displayName(tag: String): String {
-    val configuration = LocalConfiguration.current
-    return remember(tag, configuration) {
-        val locale = Locale.forLanguageTag(tag)
-        locale.getDisplayLanguage(Locale.getDefault()).ifBlank { tag }
+    // Resolved against the Compose-propagated locale, not Locale.getDefault().
+    // Those differ whenever the reader has set a per-app language, which is
+    // exactly the reader most likely to be looking at this screen — the names
+    // would come back in the system language rather than the app's.
+    val locale = LocalLocale.current.platformLocale
+    return remember(tag, locale) {
+        Locale.forLanguageTag(tag).getDisplayLanguage(locale).ifBlank { tag }
     }
 }
 
