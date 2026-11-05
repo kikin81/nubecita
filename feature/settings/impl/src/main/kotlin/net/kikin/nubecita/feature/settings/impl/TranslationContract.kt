@@ -28,6 +28,13 @@ internal data class TranslationState(
     val autoTranslate: ImmutableList<String> = persistentListOf(),
     /** Languages the reader reads and never wants translated. */
     val neverTranslate: ImmutableList<String> = persistentListOf(),
+    /**
+     * Every language the engine can translate, for the add-language picker.
+     *
+     * Read from the engine rather than hard-coded so the picker cannot drift
+     * from what `supports` will actually accept.
+     */
+    val availableLanguages: ImmutableList<String> = persistentListOf(),
     /** Downloaded packs with their measured on-disk sizes. */
     val downloaded: ImmutableList<DownloadedLanguage> = persistentListOf(),
 ) : UiState {

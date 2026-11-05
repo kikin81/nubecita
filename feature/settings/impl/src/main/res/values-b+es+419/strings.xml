@@ -150,7 +150,11 @@
     <string name="translation_auto_label">Traducir publicaciones automáticamente</string>
     <string name="translation_auto_supporting">Las publicaciones en un idioma que no lees se traducen cuando dejas de desplazarte. Si está desactivado, aún puedes traducir una publicación tocándola.</string>
     <string name="translation_auto_languages_header">Traducir estos idiomas</string>
-    <string name="translation_auto_languages_empty">Aún no hay idiomas. Toca Traducir en una publicación para agregar uno.</string>
+    <string name="translation_auto_languages_empty">Aún no hay idiomas.</string>
+    <string name="translation_add_auto_language">Agregar un idioma</string>
+    <string name="translation_add_never_language">Agregar un idioma que lees</string>
+    <string name="translation_picker_search">Buscar idiomas</string>
+    <string name="translation_picker_no_match">Ningún idioma coincide.</string>
     <string name="translation_never_header">Idiomas que lees</string>
     <string name="translation_never_supporting">Nunca se ofrecen para traducir. Los idiomas de tu dispositivo siempre se incluyen.</string>
     <string name="translation_never_empty">Solo los idiomas de tu dispositivo.</string>

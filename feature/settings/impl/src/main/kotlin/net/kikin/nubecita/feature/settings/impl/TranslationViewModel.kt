@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.preferences.TranslationPreferences
+import net.kikin.nubecita.core.translation.TranslationEngine
 import net.kikin.nubecita.core.translation.TranslationModelRepository
 import timber.log.Timber
 import javax.inject.Inject
@@ -26,8 +27,15 @@ internal class TranslationViewModel
     constructor(
         private val preferences: TranslationPreferences,
         private val models: TranslationModelRepository,
+        engine: TranslationEngine,
     ) : MviViewModel<TranslationState, TranslationEvent, TranslationEffect>(TranslationState()) {
         init {
+            // Not a flow: the engine's language set is fixed for the process,
+            // so one read at construction is the whole story. Sorting is left
+            // to the UI, which is the only layer that knows the reader's
+            // locale and therefore how the names actually collate.
+            setState { copy(availableLanguages = engine.supportedLanguages().toImmutableList()) }
+
             preferences.autoTranslateEnabled
                 .onEach { enabled -> setState { copy(autoTranslateEnabled = enabled) } }
                 .launchIn(viewModelScope)

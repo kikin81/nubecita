@@ -9,6 +9,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.preferences.TranslationPreferences
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
+import net.kikin.nubecita.core.translation.TranslationEngine
 import net.kikin.nubecita.core.translation.TranslationModelRepository
 import net.kikin.nubecita.data.models.DownloadedLanguage
 import net.kikin.nubecita.data.models.TranslationModelState
@@ -71,6 +72,35 @@ internal class TranslationViewModelTest {
             runCurrent()
 
             assertEquals(0, prefs.writes)
+        }
+
+    @Test
+    fun `the picker offers every language the engine supports`() =
+        runTest {
+            val vm = viewModel(supported = listOf("ja", "de", "es"))
+            runCurrent()
+
+            // Read from the engine, not a hand-kept list: a picker that offers
+            // a language `supports` would reject is a dead end the reader only
+            // discovers after choosing it.
+            assertEquals(listOf("ja", "de", "es"), vm.uiState.value.availableLanguages)
+        }
+
+    @Test
+    fun `a language picked for auto-translate is persisted`() =
+        runTest {
+            // The regression this screen shipped with: the auto list could only
+            // ever shrink, so automatic translation could never be switched on
+            // at all. Nothing added a language, and the feed gates on this set
+            // being non-empty.
+            val prefs = FakePrefs()
+            val vm = viewModel(prefs)
+            runCurrent()
+
+            vm.handleEvent(TranslationEvent.AutoTranslateLanguagesChanged(setOf("de")))
+            runCurrent()
+
+            assertEquals(setOf("de"), prefs.auto.value)
         }
 
     @Test
@@ -148,7 +178,31 @@ internal class TranslationViewModelTest {
     private fun viewModel(
         prefs: TranslationPreferences = FakePrefs(),
         models: TranslationModelRepository = FakeModels(),
-    ) = TranslationViewModel(prefs, models)
+        supported: List<String> = listOf("ja", "de", "es"),
+    ) = TranslationViewModel(prefs, models, FakeEngine(supported))
+
+    /**
+     * Only [TranslationEngine.supportedLanguages] matters here — the Translation
+     * screen never translates anything, it only lists what could be.
+     */
+    private class FakeEngine(
+        private val supported: List<String>,
+    ) : TranslationEngine {
+        override fun supportedLanguages(): List<String> = supported
+
+        override suspend fun translate(
+            text: String,
+            sourceLanguage: String,
+            targetLanguage: String,
+        ): Result<String> = Result.success(text)
+
+        override fun supports(
+            sourceLanguage: String,
+            targetLanguage: String,
+        ): Boolean = sourceLanguage in supported && targetLanguage in supported
+
+        override fun release() = Unit
+    }
 
     private class FakePrefs(
         initialEnabled: Boolean = false,

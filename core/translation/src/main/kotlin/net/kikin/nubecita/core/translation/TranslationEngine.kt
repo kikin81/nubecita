@@ -42,6 +42,20 @@ interface TranslationEngine {
     ): Boolean
 
     /**
+     * Every language this engine can translate, as bare BCP-47 subtags.
+     *
+     * Exists so a settings surface can offer a reader the real set rather
+     * than a hand-kept list that drifts from what the engine actually
+     * supports — offering a language that cannot be translated is a dead end
+     * the reader only discovers after choosing it.
+     *
+     * Returned unsorted: order is a presentation concern, and the only
+     * sensible ordering is by display name in the reader's own locale, which
+     * this module has no business knowing.
+     */
+    fun supportedLanguages(): List<String>
+
+    /**
      * Drop any loaded model and free its memory.
      *
      * Called when the app backgrounds, by `TranslationLifecycle`. With five

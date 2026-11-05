@@ -5,12 +5,19 @@ import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -18,11 +25,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -97,6 +107,12 @@ internal fun TranslationContent(
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
+    // Which picker is open, if any. Screen-local rather than `UiState`: an
+    // open sheet is a Compose runtime concern the same way scroll position is,
+    // and routing it through the reducer would make a stored preference and a
+    // transient sheet share a lifetime they do not share.
+    var picker by remember { mutableStateOf<PickerTarget?>(null) }
+
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surface,
@@ -155,9 +171,11 @@ internal fun TranslationContent(
             LanguageList(
                 languages = state.autoTranslate,
                 emptyText = stringResource(R.string.translation_auto_languages_empty),
+                addLabel = stringResource(R.string.translation_add_auto_language),
                 onRemove = { tag ->
                     onEvent(TranslationEvent.AutoTranslateLanguagesChanged(state.autoTranslate.toSet() - tag))
                 },
+                onAdd = { picker = PickerTarget.Auto },
             )
 
             SectionHeader(
@@ -172,9 +190,11 @@ internal fun TranslationContent(
             LanguageList(
                 languages = state.neverTranslate,
                 emptyText = stringResource(R.string.translation_never_empty),
+                addLabel = stringResource(R.string.translation_add_never_language),
                 onRemove = { tag ->
                     onEvent(TranslationEvent.NeverTranslateLanguagesChanged(state.neverTranslate.toSet() - tag))
                 },
+                onAdd = { picker = PickerTarget.Never },
             )
 
             SectionHeader(
@@ -187,7 +207,45 @@ internal fun TranslationContent(
                 onDelete = { tag -> onEvent(TranslationEvent.LanguageDeleted(tag)) },
             )
         }
+
+        picker?.let { target ->
+            val chosen =
+                when (target) {
+                    PickerTarget.Auto -> state.autoTranslate
+                    PickerTarget.Never -> state.neverTranslate
+                }
+            LanguagePickerSheet(
+                available = state.availableLanguages,
+                // Only the list being added to is excluded. A language in the
+                // other list is still offered, because picking it is a
+                // deliberate move between the two and the ViewModel already
+                // drops it from the one it left — the lists are contradictory
+                // and cannot both hold the same tag.
+                excluded = chosen.toSet(),
+                title =
+                    when (target) {
+                        PickerTarget.Auto -> stringResource(R.string.translation_add_auto_language)
+                        PickerTarget.Never -> stringResource(R.string.translation_add_never_language)
+                    },
+                onPick = { tag ->
+                    when (target) {
+                        PickerTarget.Auto ->
+                            onEvent(TranslationEvent.AutoTranslateLanguagesChanged(chosen.toSet() + tag))
+                        PickerTarget.Never ->
+                            onEvent(TranslationEvent.NeverTranslateLanguagesChanged(chosen.toSet() + tag))
+                    }
+                    picker = null
+                },
+                onDismiss = { picker = null },
+            )
+        }
     }
+}
+
+/** Which of the two language lists an open picker is adding to. */
+private enum class PickerTarget {
+    Auto,
+    Never,
 }
 
 @Composable
@@ -204,22 +262,149 @@ private fun SectionHeader(
     )
 }
 
+/**
+ * A searchable list of every language the engine supports.
+ *
+ * A picker rather than "tap Translate on a post and we remember the
+ * language": one tap on one post is a weak signal for opting a reader into
+ * translating an entire language from then on, and a reader who wants that
+ * should be able to say so without first finding a post in it.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LanguagePickerSheet(
+    available: ImmutableList<String>,
+    excluded: Set<String>,
+    title: String,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var query by remember { mutableStateOf("") }
+    val configuration = LocalConfiguration.current
+    // Sorted by display name in the reader's own locale, not by subtag:
+    // alphabetical order in English is meaningless to a Spanish reader, and
+    // keyed on the configuration so a language change re-collates.
+    val options =
+        remember(available, excluded, configuration) {
+            available
+                .asSequence()
+                .filterNot { it in excluded }
+                .map { tag -> tag to Locale.forLanguageTag(tag).getDisplayLanguage().ifBlank { tag } }
+                .sortedBy { (_, name) -> name.lowercase(Locale.getDefault()) }
+                .toList()
+        }
+    val visible =
+        remember(options, query) {
+            if (query.isBlank()) {
+                options
+            } else {
+                options.filter { (_, name) -> name.contains(query.trim(), ignoreCase = true) }
+            }
+        }
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        Column(
+            // imePadding, because this sheet exists to be typed into: without
+            // it the soft keyboard covers the very results the search field is
+            // filtering, which is the whole surface. Found on device.
+            modifier =
+                modifier
+                    .imePadding()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(text = title, style = MaterialTheme.typography.titleMedium)
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.translation_picker_search)) },
+            )
+            if (visible.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.translation_picker_no_match),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                return@Column
+            }
+            // Bounded so the sheet cannot grow past roughly half the screen on
+            // a tall device; the list scrolls inside it.
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 360.dp),
+                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+            ) {
+                // Lazy, and shapes derived per index rather than going through
+                // NubecitaListGroup: that group renders every row eagerly,
+                // which for the engine's full language set is a lot of
+                // composition for a sheet showing a dozen rows at a time.
+                itemsIndexed(visible, key = { _, (tag, _) -> tag }) { index, (tag, name) ->
+                    NubecitaListItem(
+                        shapes = ListItemDefaults.segmentedShapes(index = index, count = visible.size),
+                        headlineContent = { Text(name) },
+                        onClick = { onPick(tag) },
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun LanguageList(
     languages: ImmutableList<String>,
     emptyText: String,
+    addLabel: String,
     onRemove: (String) -> Unit,
+    onAdd: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (languages.isEmpty()) {
-        Text(
-            text = emptyText,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = modifier.padding(vertical = 4.dp),
-        )
+        Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = emptyText,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
+            AddLanguageRow(label = addLabel, onClick = onAdd)
+        }
         return
     }
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LanguageRows(languages = languages, onRemove = onRemove)
+        AddLanguageRow(label = addLabel, onClick = onAdd)
+    }
+}
+
+/** The add affordance, in its own single-row group so the shapes match. */
+@Composable
+private fun AddLanguageRow(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    NubecitaListGroup(items = ADD_ROW, modifier = modifier) { _, shapes ->
+        NubecitaListItem(
+            shapes = shapes,
+            headlineContent = { Text(label) },
+            onClick = onClick,
+            leadingContent = {
+                NubecitaIcon(name = NubecitaIconName.Add, contentDescription = null)
+            },
+        )
+    }
+}
+
+@Composable
+private fun LanguageRows(
+    languages: ImmutableList<String>,
+    onRemove: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     NubecitaListGroup(items = languages, modifier = modifier) { tag, shapes ->
         NubecitaListItem(
             shapes = shapes,
@@ -305,6 +490,8 @@ private fun displayName(tag: String): String {
 
 /** Single-row groups still go through [NubecitaListGroup] so shapes match. */
 private val AUTO_ROW = persistentListOf(Unit)
+
+private val ADD_ROW = persistentListOf(Unit)
 
 @Preview(name = "translation-empty", showBackground = true)
 @Preview(name = "translation-empty-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
