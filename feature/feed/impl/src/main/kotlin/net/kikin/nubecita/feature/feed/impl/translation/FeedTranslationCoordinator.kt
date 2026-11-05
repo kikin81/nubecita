@@ -2,6 +2,14 @@ package net.kikin.nubecita.feature.feed.impl.translation
 
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.first
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.TranslateBatch
+import net.kikin.nubecita.core.analytics.TranslateError
+import net.kikin.nubecita.core.analytics.TranslatePost
+import net.kikin.nubecita.core.analytics.TranslationDownloadOutcome
+import net.kikin.nubecita.core.analytics.TranslationErrorReason
+import net.kikin.nubecita.core.analytics.TranslationModelDownload
+import net.kikin.nubecita.core.analytics.TranslationModelReadiness
 import net.kikin.nubecita.core.common.language.LanguageTags
 import net.kikin.nubecita.core.preferences.ReaderLanguages
 import net.kikin.nubecita.core.preferences.TranslationPreferences
@@ -32,6 +40,7 @@ class FeedTranslationCoordinator
         private val models: TranslationModelRepository,
         private val preferences: TranslationPreferences,
         private val readerLanguages: ReaderLanguages,
+        private val analytics: AnalyticsClient,
     ) {
         /**
          * Resolve [post] and report each state it passes through via [emit].
@@ -59,6 +68,7 @@ class FeedTranslationCoordinator
                 return
             }
 
+            var readiness = TranslationModelReadiness.Ready
             if (!models.isDownloaded(source)) {
                 models.request(source)
                 val state = models.states.first()[source]
@@ -66,14 +76,26 @@ class FeedTranslationCoordinator
                     // Not an error and not silence. A 62MB download is not ours
                     // to start on someone's cellular plan, and a chip that does
                     // nothing when tapped reads as a broken feature.
+                    logTap(userInitiated, source, TranslationModelReadiness.WaitingForWifi)
+                    analytics.log(TranslationModelDownload(TranslationDownloadOutcome.DeferredWifi, source))
                     emit(PostTranslationUi.WaitingForWifi(source))
                     return
                 }
+                // The download outcome is read here rather than inside the
+                // repository so that :core:translation stays free of an
+                // analytics dependency — the seam the design doc asks for.
+                // Everything needed is already observable from this side.
                 if (!models.isDownloaded(source)) {
+                    logTap(userInitiated, source, TranslationModelReadiness.Downloading)
+                    analytics.log(TranslationModelDownload(TranslationDownloadOutcome.Failed, source))
+                    analytics.log(TranslateError(TranslationErrorReason.ModelUnavailable, source))
                     emit(PostTranslationUi.Offered(source))
                     return
                 }
+                analytics.log(TranslationModelDownload(TranslationDownloadOutcome.Completed, source))
+                readiness = TranslationModelReadiness.Downloading
             }
+            logTap(userInitiated, source, readiness)
 
             emit(PostTranslationUi.InProgress(source))
             val translated =
@@ -84,9 +106,18 @@ class FeedTranslationCoordinator
                         // Showing the original is always a correct thing to
                         // show, so a failure falls back to the offer rather
                         // than to an error state.
+                        analytics.log(TranslateError(TranslationErrorReason.TranslateFailed, source))
                         emit(PostTranslationUi.Offered(source))
                         return
                     }
+            if (translated.isBlank() && post.text.isNotBlank()) {
+                // The engine returned, so nothing threw, but there is nothing
+                // to show. Indistinguishable from success on device: the body
+                // would simply go empty.
+                analytics.log(TranslateError(TranslationErrorReason.EmptyResult, source))
+                emit(PostTranslationUi.Offered(source))
+                return
+            }
 
             val restored = restoreFacets(post.text, translated, post.facets)
             emit(
@@ -96,6 +127,38 @@ class FeedTranslationCoordinator
                     facets = restored.facets.toImmutableList(),
                 ),
             )
+        }
+
+        /**
+         * Report a chip tap, and only a chip tap.
+         *
+         * The automatic pass is excluded deliberately: it is reported in
+         * aggregate by [logBatch]. One reader with auto-translate on would
+         * otherwise out-count a hundred readers who tapped, and the headline
+         * number this event exists to answer — how many people want this —
+         * would stop meaning anything.
+         */
+        private fun logTap(
+            userInitiated: Boolean,
+            source: String,
+            readiness: TranslationModelReadiness,
+        ) {
+            if (userInitiated) analytics.log(TranslatePost(source, readiness))
+        }
+
+        /**
+         * Report one settle's worth of automatic translations.
+         *
+         * Called by [FeedTranslationState], which is the only thing that knows
+         * where a settle begins and ends. [sourceLanguage] is the first of the
+         * batch: a settle is a single screenful, so a mixed-language one is
+         * rare enough that a representative beats inventing a param for it.
+         */
+        fun logBatch(
+            translatedCount: Int,
+            sourceLanguage: String,
+        ) {
+            analytics.log(TranslateBatch(translatedCount, sourceLanguage))
         }
 
         /**

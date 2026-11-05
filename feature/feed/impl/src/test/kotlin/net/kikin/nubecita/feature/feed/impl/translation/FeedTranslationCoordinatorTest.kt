@@ -7,6 +7,16 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.AnalyticsEvent
+import net.kikin.nubecita.core.analytics.AnalyticsScreen
+import net.kikin.nubecita.core.analytics.TranslateError
+import net.kikin.nubecita.core.analytics.TranslatePost
+import net.kikin.nubecita.core.analytics.TranslationDownloadOutcome
+import net.kikin.nubecita.core.analytics.TranslationErrorReason
+import net.kikin.nubecita.core.analytics.TranslationModelDownload
+import net.kikin.nubecita.core.analytics.TranslationModelReadiness
+import net.kikin.nubecita.core.analytics.UserProperty
 import net.kikin.nubecita.core.preferences.ReaderLanguages
 import net.kikin.nubecita.core.preferences.TranslationPreferences
 import net.kikin.nubecita.core.translation.LanguageIdentifier
@@ -174,6 +184,117 @@ internal class FeedTranslationCoordinatorTest {
             assertTrue(states.isEmpty())
         }
 
+    @Test
+    fun `a chip tap is logged, and the automatic pass is not`() =
+        runTest {
+            // The whole point of the split: one reader with auto-translate on
+            // must not be able to out-count a hundred readers who tapped.
+            val tapped = RecordingAnalyticsClient()
+            resolve(post(langs = listOf("ja")), downloaded = setOf("ja"), userInitiated = true, analytics = tapped)
+
+            val automatic = RecordingAnalyticsClient()
+            resolve(post(langs = listOf("ja")), auto = setOf("ja"), downloaded = setOf("ja"), analytics = automatic)
+
+            assertEquals(
+                listOf(TranslatePost("ja", TranslationModelReadiness.Ready)),
+                tapped.events.filterIsInstance<TranslatePost>(),
+            )
+            assertTrue(automatic.events.filterIsInstance<TranslatePost>().isEmpty())
+        }
+
+    @Test
+    fun `a tap that lands on a metered connection is logged as waiting, with the deferred download`() =
+        runTest {
+            val analytics = RecordingAnalyticsClient()
+            resolve(post(langs = listOf("ja")), metered = true, userInitiated = true, analytics = analytics)
+
+            assertEquals(
+                listOf(
+                    TranslatePost("ja", TranslationModelReadiness.WaitingForWifi),
+                    TranslationModelDownload(TranslationDownloadOutcome.DeferredWifi, "ja"),
+                ),
+                analytics.events,
+            )
+        }
+
+    @Test
+    fun `a download that never lands is both a failed download and an error`() =
+        runTest {
+            // `downloaded` stays empty, so the pack is still absent after the
+            // request. On device this is silent — the chip just stops doing
+            // anything — which is the whole reason the event exists.
+            val analytics = RecordingAnalyticsClient()
+            resolve(post(langs = listOf("ja")), userInitiated = true, analytics = analytics)
+
+            assertEquals(
+                listOf(
+                    TranslatePost("ja", TranslationModelReadiness.Downloading),
+                    TranslationModelDownload(TranslationDownloadOutcome.Failed, "ja"),
+                    TranslateError(TranslationErrorReason.ModelUnavailable, "ja"),
+                ),
+                analytics.events,
+            )
+        }
+
+    @Test
+    fun `an engine failure is logged as a translate failure`() =
+        runTest {
+            val analytics = RecordingAnalyticsClient()
+            resolve(
+                post(langs = listOf("ja")),
+                downloaded = setOf("ja"),
+                userInitiated = true,
+                analytics = analytics,
+                engine =
+                    mockk {
+                        every { supports(any(), any()) } returns true
+                        coEvery { translate(any(), any(), any()) } returns Result.failure(IllegalStateException("boom"))
+                    },
+            )
+
+            assertEquals(
+                listOf(TranslateError(TranslationErrorReason.TranslateFailed, "ja")),
+                analytics.events.filterIsInstance<TranslateError>(),
+            )
+        }
+
+    @Test
+    fun `an empty translation of a non-empty post is an error, not a success`() =
+        runTest {
+            // Nothing throws here. Without this branch the body would simply
+            // go blank and the telemetry would call it a success.
+            val analytics = RecordingAnalyticsClient()
+            val states =
+                resolve(
+                    post(langs = listOf("ja")),
+                    downloaded = setOf("ja"),
+                    userInitiated = true,
+                    analytics = analytics,
+                    engine =
+                        mockk {
+                            every { supports(any(), any()) } returns true
+                            coEvery { translate(any(), any(), any()) } returns Result.success("   ")
+                        },
+                )
+
+            assertEquals(
+                listOf(TranslateError(TranslationErrorReason.EmptyResult, "ja")),
+                analytics.events.filterIsInstance<TranslateError>(),
+            )
+            assertEquals(PostTranslationUi.Offered("ja"), states.last())
+        }
+
+    @Test
+    fun `a post left alone logs nothing at all`() =
+        runTest {
+            // A reader scrolling their own language past the detection pass
+            // must not generate one event per post.
+            val analytics = RecordingAnalyticsClient()
+            resolve(post(langs = listOf("en")), analytics = analytics)
+
+            assertTrue(analytics.events.isEmpty())
+        }
+
     private suspend fun resolve(
         post: PostUi,
         reader: List<String> = listOf("en"),
@@ -183,6 +304,7 @@ internal class FeedTranslationCoordinatorTest {
         downloaded: Set<String> = emptySet(),
         metered: Boolean = false,
         userInitiated: Boolean = false,
+        analytics: RecordingAnalyticsClient = RecordingAnalyticsClient(),
         identifier: LanguageIdentifier = mockk { coEvery { identify(any()) } returns null },
         engine: TranslationEngine =
             mockk {
@@ -215,7 +337,7 @@ internal class FeedTranslationCoordinatorTest {
                 every { this@mockk.languages } returns flowOf(reader)
                 every { targetLanguage } returns flowOf(target)
             }
-        val subject = FeedTranslationCoordinator(engine, identifier, models, prefs, languages)
+        val subject = FeedTranslationCoordinator(engine, identifier, models, prefs, languages, analytics)
 
         val seen = mutableListOf<PostTranslationUi>()
         subject.resolve(post, userInitiated) { seen += it }
@@ -236,4 +358,24 @@ internal class FeedTranslationCoordinatorTest {
             repostedBy = null,
             langs = langs.toImmutableList(),
         )
+
+    /**
+     * Records what was logged, in order.
+     *
+     * A fake rather than a MockK relaxed mock because these assertions are
+     * about the *sequence* a single resolve produces — a tap followed by a
+     * download outcome followed by an error — and a verify-per-call reads far
+     * worse than comparing one list.
+     */
+    private class RecordingAnalyticsClient : AnalyticsClient {
+        val events = mutableListOf<AnalyticsEvent>()
+
+        override fun log(event: AnalyticsEvent) {
+            events += event
+        }
+
+        override fun setUserProperty(property: UserProperty) = Unit
+
+        override fun logScreen(screen: AnalyticsScreen) = Unit
+    }
 }

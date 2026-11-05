@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
@@ -72,30 +73,43 @@ class FeedTranslationState(
      * Called only when the list has settled — see [FeedTranslationEffect].
      */
     fun onSettled(posts: List<PostUi>) {
-        posts.forEach { post ->
-            // Only posts we have said nothing about yet.
-            //
-            // Re-resolving a post that already has a state is not merely
-            // wasted work — it actively destroys the reader's: a post the
-            // reader translated by tapping the chip is, to the automatic pass,
-            // still a language that is not on the auto list, so the next
-            // settle would emit `Offered` straight over the `Shown` and the
-            // translation would silently revert. Found on device, where the
-            // model loaded, the translation ran, and the body stayed Japanese.
-            //
-            // Nothing is lost by skipping: a post's declared language and the
-            // reader's preferences do not change while it sits on screen, so
-            // a second resolution of the same post can only reach the same
-            // answer or undo a better one.
-            if (entries.containsKey(post.id)) return@forEach
-            request(post, userInitiated = false)
+        // Only posts we have said nothing about yet.
+        //
+        // Re-resolving a post that already has a state is not merely wasted
+        // work — it actively destroys the reader's: a post the reader
+        // translated by tapping the chip is, to the automatic pass, still a
+        // language that is not on the auto list, so the next settle would emit
+        // `Offered` straight over the `Shown` and the translation would
+        // silently revert. Found on device, where the model loaded, the
+        // translation ran, and the body stayed Japanese.
+        //
+        // Nothing is lost by skipping: a post's declared language and the
+        // reader's preferences do not change while it sits on screen, so a
+        // second resolution of the same post can only reach the same answer or
+        // undo a better one.
+        val pending = posts.filterNot { post -> entries.containsKey(post.id) }
+        if (pending.isEmpty()) return
+
+        scope.launch {
+            // Each post still gets its own launch, so the concurrency the
+            // 120hz measurement was taken against is unchanged; this
+            // coroutine only waits for them and reports the total.
+            val jobs = pending.map { post -> post to request(post, userInitiated = false) }
+            jobs.forEach { (_, job) -> job.join() }
+            val translated =
+                jobs.mapNotNull { (post, _) ->
+                    (entries[post.id] as? PostTranslationUi.Shown)?.sourceLanguage
+                }
+            if (translated.isNotEmpty()) {
+                coordinator.logBatch(translated.size, translated.first())
+            }
         }
     }
 
     private fun request(
         post: PostUi,
         userInitiated: Boolean,
-    ) {
+    ): Job =
         scope.launch {
             lock.withLock {
                 if (!inFlight.add(post.id)) return@launch
@@ -106,7 +120,6 @@ class FeedTranslationState(
                 lock.withLock { inFlight.remove(post.id) }
             }
         }
-    }
 }
 
 /**
