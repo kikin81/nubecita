@@ -10,7 +10,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
@@ -104,29 +106,52 @@ class FeedTranslationState(
         if (pending.isEmpty()) return
 
         scope.launch {
-            // Each post still gets its own launch, so the concurrency the
-            // 120hz measurement was taken against is unchanged; this
-            // coroutine only waits for them and reports the total.
-            val jobs = pending.map { post -> post to request(post, userInitiated = false) }
-            jobs.forEach { (_, job) -> job.join() }
-            val translated =
-                jobs.mapNotNull { (post, _) ->
-                    (entries[post.id] as? PostTranslationUi.Shown)?.sourceLanguage
-                }
+            // Each post still gets its own coroutine, so the concurrency the
+            // 120hz measurement was taken against is unchanged; this one only
+            // waits for them and reports the total.
+            //
+            // The count comes from what each request reports it did, not from
+            // re-reading `entries` afterwards. Two settles can overlap — a page
+            // load under a stationary reader — and the second one's duplicate
+            // request returns at once through the `inFlight` guard, before the
+            // first has emitted anything. Reading the map then counted that
+            // post as untranslated and under-reported the batch, which for a
+            // bucketed count is enough to cross a boundary. Reported this way
+            // each translation is counted exactly once, by the settle that
+            // actually performed it.
+            val translated = pending.map { post -> request(post, userInitiated = false) }.awaitAll().filterNotNull()
             if (translated.isNotEmpty()) {
                 coordinator.logBatch(translated.size, translated.first())
             }
         }
     }
 
+    /**
+     * Resolve [post], reporting the source language if this call translated it.
+     *
+     * Null covers every other outcome — already in flight, not offered, failed
+     * — so a caller counting a batch counts only work this call actually did.
+     */
     private fun request(
         post: PostUi,
         userInitiated: Boolean,
-    ): Job =
-        scope.launch {
+    ): Deferred<String?> =
+        scope.async {
             lock.withLock {
-                if (!inFlight.add(post.id)) return@launch
+                // Re-checked here, not just in `onSettled`'s filter. That
+                // filter runs when the settle is dispatched, and two settles
+                // can both be dispatched before either coroutine runs — so by
+                // now another may have resolved this post and left `inFlight`
+                // again. Without this the post is resolved a second time,
+                // which both double-counts the batch and re-runs the work the
+                // surrounding comment explains must not be repeated.
+                //
+                // A chip tap is exempt: the reader is asking for this post
+                // specifically, and it already has an `Offered` entry.
+                if (!userInitiated && entries.containsKey(post.id)) return@async null
+                if (!inFlight.add(post.id)) return@async null
             }
+            var translated: String? = null
             try {
                 // Contained per post, not per screen. `scope` here is a
                 // `rememberCoroutineScope`, whose job is a plain `Job` rather
@@ -136,15 +161,20 @@ class FeedTranslationState(
                 // Only the engine call is guarded inside `resolve`; the
                 // preferences reads and the ML Kit model queries are not.
                 runCatchingCancellable {
-                    coordinator.resolve(post, userInitiated) { state -> entries[post.id] = state }
+                    coordinator.resolve(post, userInitiated) { state ->
+                        entries[post.id] = state
+                        if (state is PostTranslationUi.Shown) translated = state.sourceLanguage
+                    }
                 }.onFailure { error ->
                     Timber.w(error, "Translation resolution failed for ${post.id}")
                     failed += post.id
                     coordinator.logUnexpectedFailure()
+                    translated = null
                 }
             } finally {
                 lock.withLock { inFlight.remove(post.id) }
             }
+            translated
         }
 }
 

@@ -15,6 +15,7 @@ import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.AnalyticsEvent
 import net.kikin.nubecita.core.analytics.AnalyticsScreen
+import net.kikin.nubecita.core.analytics.TranslateBatch
 import net.kikin.nubecita.core.analytics.TranslateError
 import net.kikin.nubecita.core.analytics.TranslationErrorReason
 import net.kikin.nubecita.core.analytics.UserProperty
@@ -67,6 +68,30 @@ class FeedTranslationStateTest {
                 "the second post should still translate after the first threw",
             )
             assertTrue(scope.isActive, "the screen's translation scope should survive one failure")
+        }
+
+    @Test
+    fun `a settle counts only the translations it performed`() =
+        runTest {
+            val analytics = RecordingAnalyticsClient()
+            val scope = CoroutineScope(Job() + StandardTestDispatcher(testScheduler))
+            val state = FeedTranslationState(coordinator(analytics), scope)
+
+            // Two settles over the same post, the second dispatched before the
+            // first has run — a page load under a stationary reader. The
+            // second's duplicate request returns at once through the inFlight
+            // guard and must contribute nothing.
+            state.onSettled(listOf(japanesePost()))
+            state.onSettled(listOf(japanesePost()))
+            advanceUntilIdle()
+
+            // Exactly one batch, of one. Counting by re-reading the state map
+            // after joining instead reported this post twice, because by then
+            // the first settle had stored its result for the second to find.
+            assertEquals(
+                listOf(TranslateBatch(translatedCount = 1, sourceLanguage = "ja")),
+                analytics.events.filterIsInstance<TranslateBatch>(),
+            )
         }
 
     @Test
