@@ -202,7 +202,10 @@ fun PostCard(
                         shimmering = translation is PostTranslationUi.InProgress,
                     )
                     if (translation != null) {
-                        Spacer(Modifier.height(6.dp))
+                        // No spacer: the chip's 48dp touch target already
+                        // reserves ~12dp of air above its 24dp pill, and a
+                        // declared gap on top of that reads as a hole in the
+                        // card.
                         TranslationFooter(
                             translation = translation,
                             onTranslate = onTranslate,
