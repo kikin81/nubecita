@@ -14,6 +14,9 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
  */
 internal fun Project.configureKotlinAndroid(commonExtension: CommonExtension) {
     commonExtension.compileSdk = 37
+    // Wear Compose 1.8.0-alpha03 drags in androidx.compose 1.13.0-beta01, whose AAR
+    // metadata requires compiling against API 37.1 or later; 37 alone resolves to 37.0.
+    commonExtension.compileSdkMinor = 2
     // Bumped 26 -> 28 to consume io.github.kikin81.atproto:compose-material3:5.1.0,
     // which targets minSdk 28. nubecita is pre-launch so no installed-base impact;
     // Android 8.0/8.1 (API 26-27) market share is < 2% as of 2026.
