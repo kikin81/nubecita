@@ -13,10 +13,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +38,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.kikin81.atproto.app.bsky.richtext.Facet
 import io.github.kikin81.atproto.app.bsky.richtext.FacetByteSlice
@@ -202,15 +205,26 @@ fun PostCard(
                         shimmering = translation is PostTranslationUi.InProgress,
                     )
                     if (translation != null) {
-                        // No spacer: the chip's 48dp touch target already
-                        // reserves ~12dp of air above its 24dp pill, and a
-                        // declared gap on top of that reads as a hole in the
-                        // card.
-                        TranslationFooter(
-                            translation = translation,
-                            onTranslate = onTranslate,
-                            onToggle = onToggleTranslation,
-                        )
+                        Spacer(Modifier.height(8.dp))
+                        // The footer opts out of the 48dp minimum touch
+                        // target. Inside a text column that minimum is not
+                        // free: it reserved ~12dp of blank card above and
+                        // below a 24dp pill, which measured 23dp / 30dp of
+                        // air against the card's own 18dp body-to-actions
+                        // rhythm. Opting out shrinks the target to the drawn
+                        // pill — ~165x24dp, which clears WCAG 2.2 AA's 24x24
+                        // minimum but not Material's 48dp recommendation.
+                        // Scoped to this subtree, so PostStat and the rest of
+                        // the action row keep theirs.
+                        CompositionLocalProvider(
+                            LocalMinimumInteractiveComponentSize provides Dp.Unspecified,
+                        ) {
+                            TranslationFooter(
+                                translation = translation,
+                                onTranslate = onTranslate,
+                                onToggle = onToggleTranslation,
+                            )
+                        }
                     }
                     EmbedSlot(
                         embed = post.embed,
@@ -433,8 +447,13 @@ private fun TranslationFooter(
                     color = MaterialTheme.colorScheme.primary,
                     modifier =
                         Modifier
-                            .minimumInteractiveComponentSize()
-                            .clickable(role = Role.Button, onClickLabel = showOriginal, onClick = onToggle),
+                            // The footer opts out of the 48dp minimum, so this
+                            // bare text link would otherwise be a 16dp-tall
+                            // target. The padding is inside the clickable, so
+                            // it is target area, and brings it to 24dp — WCAG
+                            // 2.2 AA's floor.
+                            .clickable(role = Role.Button, onClickLabel = showOriginal, onClick = onToggle)
+                            .padding(vertical = 4.dp),
                 )
             }
     }
@@ -458,10 +477,10 @@ private fun TranslateChip(
     Row(
         modifier =
             modifier
-                // The chip's own ink is ~24dp tall. Without this it would be a
-                // 24dp touch target, half the 48dp minimum — the same reason
-                // NubecitaLinkChip carries it. It expands the touch area only;
-                // the drawn pill keeps its size.
+                // Kept so the chip still honours the minimum wherever a
+                // caller has not opted out; PostCard's footer scopes
+                // LocalMinimumInteractiveComponentSize to Unspecified because
+                // the reserved space reads as a hole in a text column.
                 .minimumInteractiveComponentSize()
                 .clip(shape)
                 .border(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant, shape = shape)
