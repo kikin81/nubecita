@@ -1,5 +1,6 @@
 package net.kikin.nubecita.core.postinteractions
 
+import net.kikin.nubecita.core.common.language.LanguageTags
 import java.net.URLEncoder
 import java.util.Locale
 
@@ -28,27 +29,11 @@ fun googleTranslateUrl(
 /**
  * A language tag Google Translate will accept.
  *
- * Lower-cased via [Locale.ROOT] so a caller passing `EN` cannot produce a
- * locale-folded tag (the Turkish dotless-i problem `LoginIdentifier` documents).
- *
- * The alias map is the interesting part: Android's `Locale` reports the
- * superseded ISO 639-1 codes for Hebrew, Indonesian and Yiddish — `iw`, `in`
- * and `ji` — where Google Translate expects `he`, `id` and `yi`. Passing the
- * legacy tag straight through would quietly translate into the wrong language,
- * or none, for those readers. Harmless if a platform already reports the
- * modern code.
+ * The normalization itself — ROOT-locale lower-casing and the legacy
+ * `iw`/`in`/`ji` aliases Android still reports — lives in
+ * [net.kikin.nubecita.core.common.language.LanguageTags] so that this deep
+ * link and the on-device translation path cannot drift apart on what a tag
+ * means. Only the fallback is local: a URL must name *some* target, and `en`
+ * is the least-bad guess when the platform gives us nothing usable.
  */
-private fun normalizeTargetLanguage(raw: String): String {
-    val tag = raw.trim().lowercase(Locale.ROOT).substringBefore('-')
-    return when {
-        tag.isEmpty() -> "en"
-        else -> LEGACY_LANGUAGE_ALIASES[tag] ?: tag
-    }
-}
-
-private val LEGACY_LANGUAGE_ALIASES =
-    mapOf(
-        "iw" to "he",
-        "in" to "id",
-        "ji" to "yi",
-    )
+private fun normalizeTargetLanguage(raw: String): String = LanguageTags.normalize(raw) ?: "en"
