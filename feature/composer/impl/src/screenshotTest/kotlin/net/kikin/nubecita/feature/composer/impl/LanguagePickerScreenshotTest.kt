@@ -4,15 +4,15 @@ import androidx.compose.runtime.Composable
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.posting.BLUESKY_LANGUAGE_TAGS
+import net.kikin.nubecita.designsystem.component.NubecitaLanguagePicker
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 import net.kikin.nubecita.designsystem.preview.PreviewNubecitaScreenPreviews
-import net.kikin.nubecita.feature.composer.impl.internal.LanguagePickerContent
 
 /**
  * Visual baselines for the picker's content composable across all
  * width classes. The adaptive wrapper [LanguagePicker] is NOT rendered
  * directly because Layoutlib doesn't render `ModalBottomSheet` /
- * `Popup` reliably; the same `LanguagePickerContent` is rendered
+ * `Popup` reliably; the same `NubecitaLanguagePicker` is rendered
  * inside both wrappers in production, so locking the content's visual
  * treatment is sufficient.
  *
@@ -25,13 +25,14 @@ import net.kikin.nubecita.feature.composer.impl.internal.LanguagePickerContent
 @Composable
 private fun LanguagePickerInitialPreviews() {
     NubecitaCanvasPreviewTheme {
-        LanguagePickerContent(
+        NubecitaLanguagePicker(
             allTags = BLUESKY_LANGUAGE_TAGS,
             draftSelection = persistentListOf("en"),
             deviceLocaleTag = "en-US",
             onToggle = {},
             onConfirm = {},
             onDismiss = {},
+            maxSelection = ComposerViewModel.MAX_LANGS,
         )
     }
 }
@@ -41,13 +42,14 @@ private fun LanguagePickerInitialPreviews() {
 @Composable
 private fun LanguagePickerCapReachedPreviews() {
     NubecitaCanvasPreviewTheme {
-        LanguagePickerContent(
+        NubecitaLanguagePicker(
             allTags = BLUESKY_LANGUAGE_TAGS,
             draftSelection = persistentListOf("en", "ja", "es"),
             deviceLocaleTag = "en-US",
             onToggle = {},
             onConfirm = {},
             onDismiss = {},
+            maxSelection = ComposerViewModel.MAX_LANGS,
         )
     }
 }

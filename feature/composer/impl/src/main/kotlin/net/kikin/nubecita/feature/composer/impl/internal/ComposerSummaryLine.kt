@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import net.kikin.nubecita.core.posting.PostAudience
+import net.kikin.nubecita.designsystem.component.languageDisplayName
 import net.kikin.nubecita.feature.composer.impl.R
 
 /**

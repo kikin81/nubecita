@@ -11,20 +11,23 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import kotlinx.collections.immutable.persistentListOf
+import net.kikin.nubecita.designsystem.component.NubecitaLanguagePicker
+import net.kikin.nubecita.designsystem.component.SEARCH_FIELD_TEST_TAG
+import net.kikin.nubecita.feature.composer.impl.ComposerViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
 /**
- * Compose UI coverage for [LanguagePickerContent] — search filtering,
+ * Compose UI coverage for [NubecitaLanguagePicker] — search filtering,
  * cap-of-3 disabled-checkbox state, Done/Cancel dispatching.
  *
  * Display-name assertions assume an English-locale runner (matching
  * `:feature:composer:impl`'s pre-existing test pattern); see
  * `ComposerLanguageChipInstrumentationTest` for the same caveat.
  */
-class LanguagePickerContentInstrumentationTest {
+class NubecitaLanguagePickerInstrumentationTest {
     @get:Rule
     val composeTestRule = createAndroidComposeRule<ComponentActivity>()
 
@@ -33,13 +36,14 @@ class LanguagePickerContentInstrumentationTest {
     @Test
     fun search_filtersByDisplayName() {
         composeTestRule.setContent {
-            LanguagePickerContent(
+            NubecitaLanguagePicker(
                 allTags = tags,
                 draftSelection = persistentListOf(),
                 deviceLocaleTag = "en-US",
                 onToggle = {},
                 onConfirm = {},
                 onDismiss = {},
+                maxSelection = ComposerViewModel.MAX_LANGS,
             )
         }
         composeTestRule
@@ -53,13 +57,14 @@ class LanguagePickerContentInstrumentationTest {
     @Test
     fun atCapOfThree_uncheckedRowsAreDisabled() {
         composeTestRule.setContent {
-            LanguagePickerContent(
+            NubecitaLanguagePicker(
                 allTags = tags,
                 draftSelection = persistentListOf("en", "ja", "es"),
                 deviceLocaleTag = "en-US",
                 onToggle = {},
                 onConfirm = {},
                 onDismiss = {},
+                maxSelection = ComposerViewModel.MAX_LANGS,
             )
         }
         // The unchecked row (French) should be disabled.
@@ -70,13 +75,14 @@ class LanguagePickerContentInstrumentationTest {
     fun done_dispatchesCurrentDraftSelection() {
         var captured: List<String>? = null
         composeTestRule.setContent {
-            LanguagePickerContent(
+            NubecitaLanguagePicker(
                 allTags = tags,
                 draftSelection = persistentListOf("ja"),
                 deviceLocaleTag = "en-US",
                 onToggle = {},
                 onConfirm = { captured = it },
                 onDismiss = {},
+                maxSelection = ComposerViewModel.MAX_LANGS,
             )
         }
         composeTestRule.onNodeWithText("Done").performClick()
@@ -88,13 +94,14 @@ class LanguagePickerContentInstrumentationTest {
         var confirmed = 0
         var dismissed = 0
         composeTestRule.setContent {
-            LanguagePickerContent(
+            NubecitaLanguagePicker(
                 allTags = tags,
                 draftSelection = persistentListOf("ja"),
                 deviceLocaleTag = "en-US",
                 onToggle = {},
                 onConfirm = { confirmed++ },
                 onDismiss = { dismissed++ },
+                maxSelection = ComposerViewModel.MAX_LANGS,
             )
         }
         composeTestRule.onNodeWithText("Cancel").performClick()

@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.composer.impl.internal
+package net.kikin.nubecita.designsystem.component
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -30,8 +30,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
-import net.kikin.nubecita.feature.composer.impl.ComposerViewModel
-import net.kikin.nubecita.feature.composer.impl.R
+import net.kikin.nubecita.designsystem.R
 
 /**
  * Stateless picker content — the `LazyColumn` of language rows + a
@@ -51,13 +50,14 @@ import net.kikin.nubecita.feature.composer.impl.R
  * 2. The device-locale tag, if not selected.
  * 3. Everything else, alphabetical by display name in the JVM locale.
  *
- * Selection-pinning makes re-opens predictable. The cap of 3 is
- * enforced by rendering unchecked rows with `enabled = false` once
- * `draftSelection.size == ComposerViewModel.MAX_LANGS` — the M3
- * disabled-tonal idiom.
+ * Selection-pinning makes re-opens predictable. [maxSelection] caps
+ * the draft: once it is reached, unchecked rows render with
+ * `enabled = false` — the M3 disabled-tonal idiom. It defaults to
+ * unbounded, which is what a surface with no cap (the translation
+ * settings lists) wants; the composer passes its own limit.
  */
 @Composable
-internal fun LanguagePickerContent(
+fun NubecitaLanguagePicker(
     allTags: ImmutableList<String>,
     draftSelection: ImmutableList<String>,
     deviceLocaleTag: String,
@@ -65,6 +65,7 @@ internal fun LanguagePickerContent(
     onConfirm: (List<String>) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    maxSelection: Int = Int.MAX_VALUE,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     // The configuration's locale list is part of the cache key so the
@@ -82,7 +83,7 @@ internal fun LanguagePickerContent(
                 sorted.filter { matchesPickerQuery(tag = it, query = query) }.toImmutableList()
             }
         }
-    val capReached = draftSelection.size >= ComposerViewModel.MAX_LANGS
+    val capReached = draftSelection.size >= maxSelection
 
     Column(modifier = modifier.padding(16.dp)) {
         OutlinedTextField(
@@ -98,7 +99,7 @@ internal fun LanguagePickerContent(
                     .testTag(SEARCH_FIELD_TEST_TAG),
             singleLine = true,
             label = {
-                Text(text = stringResource(R.string.composer_language_search_label))
+                Text(text = stringResource(R.string.language_picker_search_label))
             },
             placeholder = {
                 // Empty placeholder reserved for the future where the
@@ -130,11 +131,11 @@ internal fun LanguagePickerContent(
             horizontalArrangement = Arrangement.End,
         ) {
             TextButton(onClick = onDismiss) {
-                Text(text = stringResource(R.string.composer_language_picker_cancel))
+                Text(text = stringResource(R.string.language_picker_cancel))
             }
             Spacer(Modifier.padding(horizontal = 4.dp))
             Button(onClick = { onConfirm(draftSelection.toList()) }) {
-                Text(text = stringResource(R.string.composer_language_picker_done))
+                Text(text = stringResource(R.string.language_picker_done))
             }
         }
     }
@@ -145,7 +146,7 @@ internal fun LanguagePickerContent(
  * tests find the field via this tag rather than the localized
  * contentDescription so assertions stay locale-stable.
  */
-internal const val SEARCH_FIELD_TEST_TAG: String = "language_picker_search_field"
+const val SEARCH_FIELD_TEST_TAG: String = "language_picker_search_field"
 
 @Composable
 private fun LanguageRow(

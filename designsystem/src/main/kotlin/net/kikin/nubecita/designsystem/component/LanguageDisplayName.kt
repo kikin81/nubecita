@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.composer.impl.internal
+package net.kikin.nubecita.designsystem.component
 
 import java.util.Locale
 
@@ -16,7 +16,7 @@ import java.util.Locale
  * some Java locales (e.g. older builds for German / French) return
  * the lowercased name, which looks wrong as a button label.
  */
-internal fun languageDisplayName(tag: String): String =
+fun languageDisplayName(tag: String): String =
     Locale
         .forLanguageTag(tag)
         .getDisplayLanguage(Locale.getDefault())
