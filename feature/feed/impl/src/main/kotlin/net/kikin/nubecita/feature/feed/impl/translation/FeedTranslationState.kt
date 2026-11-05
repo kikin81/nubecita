@@ -16,8 +16,10 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.data.models.PostTranslationUi
 import net.kikin.nubecita.data.models.PostUi
+import timber.log.Timber
 
 /**
  * Per-post translation state for one feed, held at screen scope.
@@ -39,6 +41,17 @@ class FeedTranslationState(
     private val entries = mutableStateMapOf<String, PostTranslationUi>()
     private val showOriginal = mutableStateMapOf<String, Boolean>()
     private val inFlight = mutableSetOf<String>()
+
+    /**
+     * Posts whose resolution threw.
+     *
+     * Not a retry list — the opposite. Without it a post that fails for a
+     * persistent reason (an unreadable preference, say) is still absent from
+     * [entries], so every settle would pick it up again and log another
+     * failure. One entry per post per screen caps that, and the post simply
+     * reads untranslated.
+     */
+    private val failed = mutableSetOf<String>()
     private val lock = Mutex()
 
     /**
@@ -87,7 +100,7 @@ class FeedTranslationState(
         // reader's preferences do not change while it sits on screen, so a
         // second resolution of the same post can only reach the same answer or
         // undo a better one.
-        val pending = posts.filterNot { post -> entries.containsKey(post.id) }
+        val pending = posts.filterNot { post -> entries.containsKey(post.id) || post.id in failed }
         if (pending.isEmpty()) return
 
         scope.launch {
@@ -115,7 +128,20 @@ class FeedTranslationState(
                 if (!inFlight.add(post.id)) return@launch
             }
             try {
-                coordinator.resolve(post, userInitiated) { state -> entries[post.id] = state }
+                // Contained per post, not per screen. `scope` here is a
+                // `rememberCoroutineScope`, whose job is a plain `Job` rather
+                // than a `SupervisorJob`, so an escaping throw cancelled the
+                // scope and killed every later translation on the screen —
+                // chip taps included — with nothing shown to the reader.
+                // Only the engine call is guarded inside `resolve`; the
+                // preferences reads and the ML Kit model queries are not.
+                runCatchingCancellable {
+                    coordinator.resolve(post, userInitiated) { state -> entries[post.id] = state }
+                }.onFailure { error ->
+                    Timber.w(error, "Translation resolution failed for ${post.id}")
+                    failed += post.id
+                    coordinator.logUnexpectedFailure()
+                }
             } finally {
                 lock.withLock { inFlight.remove(post.id) }
             }

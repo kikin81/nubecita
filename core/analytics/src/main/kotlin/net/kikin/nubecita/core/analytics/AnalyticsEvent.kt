@@ -1081,6 +1081,14 @@ enum class TranslationErrorReason(
 
     /** The engine returned, but with nothing in it. */
     EmptyResult("empty_result"),
+
+    /**
+     * Something outside the engine threw — a preferences read, an ML Kit model
+     * query. Distinct from the branches above because those are decisions the
+     * coordinator made on purpose; this one is a path nobody designed. A
+     * non-zero rate here is a bug report, not a translation-quality signal.
+     */
+    Unexpected("unexpected"),
 }
 
 /**

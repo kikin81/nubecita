@@ -147,6 +147,26 @@ class FeedTranslationCoordinator
         }
 
         /**
+         * Report a failure that came from outside the engine.
+         *
+         * [resolve] guards the engine call itself, but a preferences read or an
+         * ML Kit model query can throw, and those used to escape into the
+         * screen's coroutine scope. `rememberCoroutineScope` builds a plain
+         * `Job`, not a `SupervisorJob`, so one such throw cancelled the scope
+         * and every later translation on the screen — including chip taps —
+         * silently did nothing. [FeedTranslationState] now contains the throw
+         * per post and reports it here, so the dashboard shows a failure
+         * instead of an absence of taps.
+         *
+         * The language is unknown by design: the throw can land before the
+         * source is detected, and a bucketed `"unknown"` reads better in GA4
+         * than an absent parameter.
+         */
+        fun logUnexpectedFailure() {
+            analytics.log(TranslateError(TranslationErrorReason.Unexpected, "unknown"))
+        }
+
+        /**
          * Report one settle's worth of automatic translations.
          *
          * Called by [FeedTranslationState], which is the only thing that knows
