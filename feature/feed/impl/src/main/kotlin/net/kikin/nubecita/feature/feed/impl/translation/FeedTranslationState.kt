@@ -10,13 +10,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.data.models.PostTranslationUi
 import net.kikin.nubecita.data.models.PostUi
+import timber.log.Timber
 
 /**
  * Per-post translation state for one feed, held at screen scope.
@@ -38,6 +43,17 @@ class FeedTranslationState(
     private val entries = mutableStateMapOf<String, PostTranslationUi>()
     private val showOriginal = mutableStateMapOf<String, Boolean>()
     private val inFlight = mutableSetOf<String>()
+
+    /**
+     * Posts whose resolution threw.
+     *
+     * Not a retry list — the opposite. Without it a post that fails for a
+     * persistent reason (an unreadable preference, say) is still absent from
+     * [entries], so every settle would pick it up again and log another
+     * failure. One entry per post per screen caps that, and the post simply
+     * reads untranslated.
+     */
+    private val failed = mutableSetOf<String>()
     private val lock = Mutex()
 
     /**
@@ -72,41 +88,94 @@ class FeedTranslationState(
      * Called only when the list has settled — see [FeedTranslationEffect].
      */
     fun onSettled(posts: List<PostUi>) {
-        posts.forEach { post ->
-            // Only posts we have said nothing about yet.
+        // Only posts we have said nothing about yet.
+        //
+        // Re-resolving a post that already has a state is not merely wasted
+        // work — it actively destroys the reader's: a post the reader
+        // translated by tapping the chip is, to the automatic pass, still a
+        // language that is not on the auto list, so the next settle would emit
+        // `Offered` straight over the `Shown` and the translation would
+        // silently revert. Found on device, where the model loaded, the
+        // translation ran, and the body stayed Japanese.
+        //
+        // Nothing is lost by skipping: a post's declared language and the
+        // reader's preferences do not change while it sits on screen, so a
+        // second resolution of the same post can only reach the same answer or
+        // undo a better one.
+        val pending = posts.filterNot { post -> entries.containsKey(post.id) || post.id in failed }
+        if (pending.isEmpty()) return
+
+        scope.launch {
+            // Each post still gets its own coroutine, so the concurrency the
+            // 120hz measurement was taken against is unchanged; this one only
+            // waits for them and reports the total.
             //
-            // Re-resolving a post that already has a state is not merely
-            // wasted work — it actively destroys the reader's: a post the
-            // reader translated by tapping the chip is, to the automatic pass,
-            // still a language that is not on the auto list, so the next
-            // settle would emit `Offered` straight over the `Shown` and the
-            // translation would silently revert. Found on device, where the
-            // model loaded, the translation ran, and the body stayed Japanese.
-            //
-            // Nothing is lost by skipping: a post's declared language and the
-            // reader's preferences do not change while it sits on screen, so
-            // a second resolution of the same post can only reach the same
-            // answer or undo a better one.
-            if (entries.containsKey(post.id)) return@forEach
-            request(post, userInitiated = false)
+            // The count comes from what each request reports it did, not from
+            // re-reading `entries` afterwards. Two settles can overlap — a page
+            // load under a stationary reader — and the second one's duplicate
+            // request returns at once through the `inFlight` guard, before the
+            // first has emitted anything. Reading the map then counted that
+            // post as untranslated and under-reported the batch, which for a
+            // bucketed count is enough to cross a boundary. Reported this way
+            // each translation is counted exactly once, by the settle that
+            // actually performed it.
+            val translated = pending.map { post -> request(post, userInitiated = false) }.awaitAll().filterNotNull()
+            if (translated.isNotEmpty()) {
+                coordinator.logBatch(translated.size, translated.first())
+            }
         }
     }
 
+    /**
+     * Resolve [post], reporting the source language if this call translated it.
+     *
+     * Null covers every other outcome — already in flight, not offered, failed
+     * — so a caller counting a batch counts only work this call actually did.
+     */
     private fun request(
         post: PostUi,
         userInitiated: Boolean,
-    ) {
-        scope.launch {
+    ): Deferred<String?> =
+        scope.async {
             lock.withLock {
-                if (!inFlight.add(post.id)) return@launch
+                // Re-checked here, not just in `onSettled`'s filter. That
+                // filter runs when the settle is dispatched, and two settles
+                // can both be dispatched before either coroutine runs — so by
+                // now another may have resolved this post and left `inFlight`
+                // again. Without this the post is resolved a second time,
+                // which both double-counts the batch and re-runs the work the
+                // surrounding comment explains must not be repeated.
+                //
+                // A chip tap is exempt: the reader is asking for this post
+                // specifically, and it already has an `Offered` entry.
+                if (!userInitiated && entries.containsKey(post.id)) return@async null
+                if (!inFlight.add(post.id)) return@async null
             }
+            var translated: String? = null
             try {
-                coordinator.resolve(post, userInitiated) { state -> entries[post.id] = state }
+                // Contained per post, not per screen. `scope` here is a
+                // `rememberCoroutineScope`, whose job is a plain `Job` rather
+                // than a `SupervisorJob`, so an escaping throw cancelled the
+                // scope and killed every later translation on the screen —
+                // chip taps included — with nothing shown to the reader.
+                // Only the engine call is guarded inside `resolve`; the
+                // preferences reads and the ML Kit model queries are not.
+                runCatchingCancellable {
+                    coordinator.resolve(post, userInitiated) { state ->
+                        entries[post.id] = state
+                        if (state is PostTranslationUi.Shown) translated = state.sourceLanguage
+                    }
+                }.onFailure { error ->
+                    Timber.w(error, "Translation resolution failed for ${post.id}")
+                    failed += post.id
+                    coordinator.logUnexpectedFailure()
+                    translated = null
+                }
             } finally {
                 lock.withLock { inFlight.remove(post.id) }
             }
+            translated
         }
-    }
 }
 
 /**

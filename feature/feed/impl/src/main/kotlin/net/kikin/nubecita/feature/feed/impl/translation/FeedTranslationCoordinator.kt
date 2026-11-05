@@ -2,6 +2,14 @@ package net.kikin.nubecita.feature.feed.impl.translation
 
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.first
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.TranslateBatch
+import net.kikin.nubecita.core.analytics.TranslateError
+import net.kikin.nubecita.core.analytics.TranslatePost
+import net.kikin.nubecita.core.analytics.TranslationDownloadOutcome
+import net.kikin.nubecita.core.analytics.TranslationErrorReason
+import net.kikin.nubecita.core.analytics.TranslationModelDownload
+import net.kikin.nubecita.core.analytics.TranslationModelReadiness
 import net.kikin.nubecita.core.common.language.LanguageTags
 import net.kikin.nubecita.core.preferences.ReaderLanguages
 import net.kikin.nubecita.core.preferences.TranslationPreferences
@@ -32,6 +40,7 @@ class FeedTranslationCoordinator
         private val models: TranslationModelRepository,
         private val preferences: TranslationPreferences,
         private val readerLanguages: ReaderLanguages,
+        private val analytics: AnalyticsClient,
     ) {
         /**
          * Resolve [post] and report each state it passes through via [emit].
@@ -59,20 +68,41 @@ class FeedTranslationCoordinator
                 return
             }
 
-            if (!models.isDownloaded(source)) {
+            val ready = models.isDownloaded(source)
+            // Logged here, before any pack is fetched. `request` suspends for
+            // the whole transfer — minutes for a 62MB pack — so logging after
+            // it lost the tap entirely for a reader who backed out while the
+            // download ran, under-reporting the one number this event exists
+            // to answer. Whether the pack then arrived, was deferred to Wi-Fi
+            // or failed is `translation_model_download`'s job, which is why
+            // nothing below logs a tap.
+            logTap(
+                userInitiated,
+                source,
+                if (ready) TranslationModelReadiness.Ready else TranslationModelReadiness.NeedsDownload,
+            )
+            if (!ready) {
                 models.request(source)
                 val state = models.states.first()[source]
                 if (state is TranslationModelState.WaitingForUnmeteredNetwork) {
                     // Not an error and not silence. A 62MB download is not ours
                     // to start on someone's cellular plan, and a chip that does
                     // nothing when tapped reads as a broken feature.
+                    analytics.log(TranslationModelDownload(TranslationDownloadOutcome.DeferredWifi, source))
                     emit(PostTranslationUi.WaitingForWifi(source))
                     return
                 }
+                // The download outcome is read here rather than inside the
+                // repository so that :core:translation stays free of an
+                // analytics dependency — the seam the design doc asks for.
+                // Everything needed is already observable from this side.
                 if (!models.isDownloaded(source)) {
+                    analytics.log(TranslationModelDownload(TranslationDownloadOutcome.Failed, source))
+                    analytics.log(TranslateError(TranslationErrorReason.ModelUnavailable, source))
                     emit(PostTranslationUi.Offered(source))
                     return
                 }
+                analytics.log(TranslationModelDownload(TranslationDownloadOutcome.Completed, source))
             }
 
             emit(PostTranslationUi.InProgress(source))
@@ -84,9 +114,18 @@ class FeedTranslationCoordinator
                         // Showing the original is always a correct thing to
                         // show, so a failure falls back to the offer rather
                         // than to an error state.
+                        analytics.log(TranslateError(TranslationErrorReason.TranslateFailed, source))
                         emit(PostTranslationUi.Offered(source))
                         return
                     }
+            if (translated.isBlank() && post.text.isNotBlank()) {
+                // The engine returned, so nothing threw, but there is nothing
+                // to show. Indistinguishable from success on device: the body
+                // would simply go empty.
+                analytics.log(TranslateError(TranslationErrorReason.EmptyResult, source))
+                emit(PostTranslationUi.Offered(source))
+                return
+            }
 
             val restored = restoreFacets(post.text, translated, post.facets)
             emit(
@@ -96,6 +135,58 @@ class FeedTranslationCoordinator
                     facets = restored.facets.toImmutableList(),
                 ),
             )
+        }
+
+        /**
+         * Report a chip tap, and only a chip tap.
+         *
+         * The automatic pass is excluded deliberately: it is reported in
+         * aggregate by [logBatch]. One reader with auto-translate on would
+         * otherwise out-count a hundred readers who tapped, and the headline
+         * number this event exists to answer — how many people want this —
+         * would stop meaning anything.
+         */
+        private fun logTap(
+            userInitiated: Boolean,
+            source: String,
+            readiness: TranslationModelReadiness,
+        ) {
+            if (userInitiated) analytics.log(TranslatePost(source, readiness))
+        }
+
+        /**
+         * Report a failure that came from outside the engine.
+         *
+         * [resolve] guards the engine call itself, but a preferences read or an
+         * ML Kit model query can throw, and those used to escape into the
+         * screen's coroutine scope. `rememberCoroutineScope` builds a plain
+         * `Job`, not a `SupervisorJob`, so one such throw cancelled the scope
+         * and every later translation on the screen — including chip taps —
+         * silently did nothing. [FeedTranslationState] now contains the throw
+         * per post and reports it here, so the dashboard shows a failure
+         * instead of an absence of taps.
+         *
+         * The language is unknown by design: the throw can land before the
+         * source is detected, and a bucketed `"unknown"` reads better in GA4
+         * than an absent parameter.
+         */
+        fun logUnexpectedFailure() {
+            analytics.log(TranslateError(TranslationErrorReason.Unexpected, "unknown"))
+        }
+
+        /**
+         * Report one settle's worth of automatic translations.
+         *
+         * Called by [FeedTranslationState], which is the only thing that knows
+         * where a settle begins and ends. [sourceLanguage] is the first of the
+         * batch: a settle is a single screenful, so a mixed-language one is
+         * rare enough that a representative beats inventing a param for it.
+         */
+        fun logBatch(
+            translatedCount: Int,
+            sourceLanguage: String,
+        ) {
+            analytics.log(TranslateBatch(translatedCount, sourceLanguage))
         }
 
         /**

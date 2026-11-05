@@ -471,4 +471,81 @@ class AnalyticsModelTest {
         val names = AnalyticsScreen.entries.map { it.screenName }
         assertEquals(names.size, names.toSet().size, "duplicate screenName in $names")
     }
+
+    @Test
+    fun `translate_post carries the language and the model readiness`() {
+        val event = TranslatePost("ja", TranslationModelReadiness.NeedsDownload)
+        assertEquals("translate_post", event.name)
+        assertEquals(
+            mapOf("source_language" to Str("ja"), "model_state" to Str("needs_download")),
+            event.params,
+        )
+        AnalyticsValidator.requireValid(event)
+    }
+
+    @Test
+    fun `translate_error carries a bucketed reason, never a message`() {
+        val event = TranslateError(TranslationErrorReason.TranslateFailed, "de")
+        assertEquals("translate_error", event.name)
+        assertEquals(
+            mapOf("reason" to Str("translate_failed"), "source_language" to Str("de")),
+            event.params,
+        )
+        AnalyticsValidator.requireValid(event)
+    }
+
+    @Test
+    fun `translation_model_download carries the outcome`() {
+        val event = TranslationModelDownload(TranslationDownloadOutcome.DeferredWifi, "ja")
+        assertEquals("translation_model_download", event.name)
+        assertEquals(
+            mapOf("outcome" to Str("deferred_wifi"), "source_language" to Str("ja")),
+            event.params,
+        )
+        AnalyticsValidator.requireValid(event)
+    }
+
+    @Test
+    fun `translate_batch sends its count as a STRING bucket`() {
+        // Not a LongVal. GA4 custom dimensions are text-only, so a numeric
+        // param reports `(not set)` on every event — which is exactly how
+        // days_since_login shipped once (nubecita-z2z6) and reported nothing
+        // at all. A regression to LongVal here would be invisible in GA4 and
+        // green in any test that only checked the value.
+        val event = TranslateBatch(4, "ja")
+        assertEquals("translate_batch", event.name)
+        assertEquals(
+            mapOf("translated_count" to Str("3_5"), "source_language" to Str("ja")),
+            event.params,
+        )
+        AnalyticsValidator.requireValid(event)
+    }
+
+    @Test
+    fun `translated counts bucket at the boundaries`() {
+        assertEquals("1", bucketTranslatedCount(1))
+        assertEquals("2", bucketTranslatedCount(2))
+        assertEquals("3_5", bucketTranslatedCount(3))
+        assertEquals("3_5", bucketTranslatedCount(5))
+        assertEquals("6_plus", bucketTranslatedCount(6))
+        assertEquals("6_plus", bucketTranslatedCount(99))
+    }
+
+    @Test
+    fun `a zero or negative count cannot mint a junk bucket`() {
+        assertEquals("1", bucketTranslatedCount(0))
+        assertEquals("1", bucketTranslatedCount(-3))
+    }
+
+    @Test
+    fun `no two translation events share a wire name`() {
+        val names =
+            listOf(
+                TranslatePost("ja", TranslationModelReadiness.Ready).name,
+                TranslateError(TranslationErrorReason.EmptyResult, "ja").name,
+                TranslateBatch(1, "ja").name,
+                TranslationModelDownload(TranslationDownloadOutcome.Completed, "ja").name,
+            )
+        assertEquals(names.size, names.toSet().size, "duplicate wire name in $names")
+    }
 }

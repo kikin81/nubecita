@@ -1023,3 +1023,166 @@ data class WatchAction(
             "outcome" to Str(outcome.wire),
         )
 }
+
+/**
+ * Whether a language pack was ready when the reader asked for a translation.
+ *
+ * The distinction is what separates "nobody wants this" from "everybody wanted
+ * it and gave up waiting": a tap that lands on [WaitingForWifi] produces
+ * no visible translation at all, and a reader who sees that once may never
+ * tap again.
+ */
+enum class TranslationModelReadiness(
+    val wire: String,
+) {
+    /** The pack was already on disk, so the translation starts immediately. */
+    Ready("ready"),
+
+    /**
+     * No pack yet, so one had to be fetched before anything could happen.
+     *
+     * Deliberately not split into "downloading" and "waiting for Wi-Fi": this
+     * is logged the moment the reader taps, before the outcome is knowable,
+     * and `translation_model_download` already reports which way it went.
+     */
+    NeedsDownload("needs_download"),
+}
+
+/**
+ * Fired when the reader taps the translate chip — a deliberate, user-initiated
+ * translation.
+ *
+ * Deliberately NOT fired by the automatic scroll-idle pass, which is reported
+ * in aggregate by [TranslateBatch]. Mixing the two would make the headline
+ * number ("how many readers want this") unreadable, because one reader with
+ * auto-translate on would out-count a hundred who tap.
+ */
+data class TranslatePost(
+    val sourceLanguage: String,
+    val modelState: TranslationModelReadiness,
+) : AnalyticsEvent {
+    override val name: String = "translate_post"
+    override val params: Map<String, AnalyticsValue> =
+        mapOf(
+            "source_language" to Str(sourceLanguage),
+            "model_state" to Str(modelState.wire),
+        )
+}
+
+/** Why a translation produced nothing the reader could read. */
+enum class TranslationErrorReason(
+    val wire: String,
+) {
+    /** The post declared no language and on-device identification gave up. */
+    IdentifyFailed("identify_failed"),
+
+    /** No pack on disk and none could be fetched. */
+    ModelUnavailable("model_unavailable"),
+
+    /** The engine itself failed or was cancelled mid-flight. */
+    TranslateFailed("translate_failed"),
+
+    /** The engine returned, but with nothing in it. */
+    EmptyResult("empty_result"),
+
+    /**
+     * Something outside the engine threw — a preferences read, an ML Kit model
+     * query. Distinct from the branches above because those are decisions the
+     * coordinator made on purpose; this one is a path nobody designed. A
+     * non-zero rate here is a bug report, not a translation-quality signal.
+     */
+    Unexpected("unexpected"),
+}
+
+/**
+ * Fired on every failed translation, whether the reader asked for it or the
+ * automatic pass did.
+ *
+ * This is the design doc's D13 branch. Every one of these failures is silent
+ * on the device — the chip simply stops doing anything — so without this event
+ * a feature that is broken for one language looks exactly like a feature
+ * nobody uses. Treat a rising rate here as a correctness signal, not an
+ * engagement one.
+ */
+data class TranslateError(
+    val reason: TranslationErrorReason,
+    val sourceLanguage: String,
+) : AnalyticsEvent {
+    override val name: String = "translate_error"
+    override val params: Map<String, AnalyticsValue> =
+        mapOf(
+            "reason" to Str(reason.wire),
+            "source_language" to Str(sourceLanguage),
+        )
+}
+
+/**
+ * Fired once per feed settle that translated at least one post automatically,
+ * carrying a bucketed count rather than one event per post.
+ *
+ * The automatic pass can translate every visible post on a single settle, so a
+ * per-post event would run to hundreds per session and buy nothing: the
+ * question these answer is how much work the pass is doing and whether it
+ * succeeds, not which post was which.
+ */
+data class TranslateBatch(
+    val translatedCount: Int,
+    val sourceLanguage: String,
+) : AnalyticsEvent {
+    override val name: String = "translate_batch"
+    override val params: Map<String, AnalyticsValue> =
+        mapOf(
+            "translated_count" to Str(bucketTranslatedCount(translatedCount)),
+            "source_language" to Str(sourceLanguage),
+        )
+}
+
+/**
+ * Buckets a per-settle translation count for the `translated_count` dimension.
+ *
+ * Sent as a string for the same reason [bucketDaysSinceLogin] is: GA4 custom
+ * dimensions are text-only, and a numeric param reads as `(not set)` on every
+ * event — which is how `days_since_login` shipped once already (nubecita-z2z6)
+ * and reported nothing at all.
+ *
+ * The boundaries sit where the cost does. One or two is a reader pausing on a
+ * foreign post; `6_plus` means the pass is translating a whole screenful at
+ * once, which is the case worth watching for battery.
+ */
+internal fun bucketTranslatedCount(count: Int): String =
+    when {
+        count <= 1 -> "1"
+        count == 2 -> "2"
+        count <= 5 -> "3_5"
+        else -> "6_plus"
+    }
+
+/** How a language-pack download ended. */
+enum class TranslationDownloadOutcome(
+    val wire: String,
+) {
+    /** Metered connection — queued, not started. */
+    DeferredWifi("deferred_wifi"),
+    Completed("completed"),
+    Failed("failed"),
+}
+
+/**
+ * Fired once per language-pack download attempt.
+ *
+ * A pack is ~45MB (62MB for Japanese) and only downloads on an unmetered
+ * connection, so the gap between [TranslationDownloadOutcome.DeferredWifi] and
+ * [TranslationDownloadOutcome.Completed] is the share of readers who asked for
+ * a translation, were told to wait for Wi-Fi, and never came back.
+ */
+data class TranslationModelDownload(
+    val outcome: TranslationDownloadOutcome,
+    val sourceLanguage: String,
+) : AnalyticsEvent {
+    override val name: String = "translation_model_download"
+    override val params: Map<String, AnalyticsValue> =
+        mapOf(
+            "outcome" to Str(outcome.wire),
+            "source_language" to Str(sourceLanguage),
+        )
+}
