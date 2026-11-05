@@ -103,6 +103,12 @@ internal class MlKitTranslationModelRepository
             val tag = LanguageTags.normalize(languageTag) ?: return
             val model = model(tag) ?: return
             lock.withLock { pending.remove(tag) }
+            // Drop the entry outright. `refreshDownloaded` rebuilds only the
+            // Downloaded half of the map and deliberately preserves everything
+            // else, so a tag deleted while Downloading or waiting for Wi-Fi
+            // would otherwise keep that state for the life of the process with
+            // nothing left to carry it.
+            stateMap.value = stateMap.value - tag
             runCatchingCancellable { modelManager.deleteDownloadedModel(model).await() }
                 .onFailure { Timber.w(it, "Failed to delete translation model for $tag") }
             refreshDownloaded()
