@@ -12,6 +12,7 @@ import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.dao.RecentSearchDao
 import net.kikin.nubecita.core.database.dao.SavedFeedDao
+import net.kikin.nubecita.core.database.dao.TranslationDao
 import net.kikin.nubecita.core.database.model.ActorEntity
 import net.kikin.nubecita.core.database.model.CachedPostEntity
 import net.kikin.nubecita.core.database.model.FeedItemEntity
@@ -21,6 +22,7 @@ import net.kikin.nubecita.core.database.model.FeedPostEntity
 import net.kikin.nubecita.core.database.model.FeedRemoteKeyEntity
 import net.kikin.nubecita.core.database.model.RecentSearchEntity
 import net.kikin.nubecita.core.database.model.SavedFeedEntity
+import net.kikin.nubecita.core.database.model.TranslationEntity
 import net.kikin.nubecita.core.database.util.InstantConverter
 
 /**
@@ -56,8 +58,9 @@ import net.kikin.nubecita.core.database.util.InstantConverter
         FeedPartitionStateEntity::class,
         FeedRemoteKeyEntity::class,
         SavedFeedEntity::class,
+        TranslationEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = BootstrapEntityDrop::class),
@@ -67,6 +70,7 @@ import net.kikin.nubecita.core.database.util.InstantConverter
         AutoMigration(from = 5, to = 6),
         AutoMigration(from = 7, to = 8),
         AutoMigration(from = 8, to = 9),
+        AutoMigration(from = 9, to = 10),
     ],
 )
 @TypeConverters(InstantConverter::class)
@@ -86,4 +90,6 @@ abstract class NubecitaDatabase : RoomDatabase() {
     abstract fun feedRemoteKeyDao(): FeedRemoteKeyDao
 
     abstract fun savedFeedDao(): SavedFeedDao
+
+    abstract fun translationDao(): TranslationDao
 }

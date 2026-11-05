@@ -409,4 +409,47 @@ internal class MigrationTest {
 
         db.close()
     }
+
+    @Test
+    fun migrate9To10_addsTheTranslationCache_andPreservesTheFeed() {
+        // A brand-new table, so the risk is not the new rows but the old ones:
+        // an AutoMigration that Room cannot express silently becomes a
+        // destructive fallback, and the reader loses their cached feed and
+        // their place in it. This asserts the existing row is still there on
+        // the far side.
+        helper.createDatabase(dbName, 9).use { db ->
+            db.execSQL(
+                "INSERT INTO feed_partition_state " +
+                    "(account_did, feed_type, feed_uri, prefs_fingerprint, anchor_item_key, anchor_position, anchor_offset) " +
+                    "VALUES ('did:plc:t', 'FOLLOWING', '', 'replies=false', 'single:at://post/keep', 7, -3)",
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 10, true)
+
+        db.query("SELECT anchor_item_key, anchor_position FROM feed_partition_state").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("single:at://post/keep", c.getString(0))
+            assertEquals(7, c.getInt(1))
+        }
+
+        // The cache is usable immediately, and keyed on (post, target language)
+        // — the same post in two languages is two rows, not a collision.
+        db.execSQL(
+            "INSERT INTO post_translation " +
+                "(post_uri, target_language, source_language, translated_text, facets_json, created_at) " +
+                "VALUES ('at://post/1', 'en', 'ja', 'Good morning', '[]', 1000)",
+        )
+        db.execSQL(
+            "INSERT INTO post_translation " +
+                "(post_uri, target_language, source_language, translated_text, facets_json, created_at) " +
+                "VALUES ('at://post/1', 'es', 'ja', 'Buenos dias', '[]', 1000)",
+        )
+        db.query("SELECT COUNT(*) FROM post_translation WHERE post_uri = 'at://post/1'").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(2, c.getInt(0))
+        }
+
+        db.close()
+    }
 }
