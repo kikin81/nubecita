@@ -68,15 +68,26 @@ class FeedTranslationCoordinator
                 return
             }
 
-            var readiness = TranslationModelReadiness.Ready
-            if (!models.isDownloaded(source)) {
+            val ready = models.isDownloaded(source)
+            // Logged here, before any pack is fetched. `request` suspends for
+            // the whole transfer — minutes for a 62MB pack — so logging after
+            // it lost the tap entirely for a reader who backed out while the
+            // download ran, under-reporting the one number this event exists
+            // to answer. Whether the pack then arrived, was deferred to Wi-Fi
+            // or failed is `translation_model_download`'s job, which is why
+            // nothing below logs a tap.
+            logTap(
+                userInitiated,
+                source,
+                if (ready) TranslationModelReadiness.Ready else TranslationModelReadiness.NeedsDownload,
+            )
+            if (!ready) {
                 models.request(source)
                 val state = models.states.first()[source]
                 if (state is TranslationModelState.WaitingForUnmeteredNetwork) {
                     // Not an error and not silence. A 62MB download is not ours
                     // to start on someone's cellular plan, and a chip that does
                     // nothing when tapped reads as a broken feature.
-                    logTap(userInitiated, source, TranslationModelReadiness.WaitingForWifi)
                     analytics.log(TranslationModelDownload(TranslationDownloadOutcome.DeferredWifi, source))
                     emit(PostTranslationUi.WaitingForWifi(source))
                     return
@@ -86,16 +97,13 @@ class FeedTranslationCoordinator
                 // analytics dependency — the seam the design doc asks for.
                 // Everything needed is already observable from this side.
                 if (!models.isDownloaded(source)) {
-                    logTap(userInitiated, source, TranslationModelReadiness.Downloading)
                     analytics.log(TranslationModelDownload(TranslationDownloadOutcome.Failed, source))
                     analytics.log(TranslateError(TranslationErrorReason.ModelUnavailable, source))
                     emit(PostTranslationUi.Offered(source))
                     return
                 }
                 analytics.log(TranslationModelDownload(TranslationDownloadOutcome.Completed, source))
-                readiness = TranslationModelReadiness.Downloading
             }
-            logTap(userInitiated, source, readiness)
 
             emit(PostTranslationUi.InProgress(source))
             val translated =

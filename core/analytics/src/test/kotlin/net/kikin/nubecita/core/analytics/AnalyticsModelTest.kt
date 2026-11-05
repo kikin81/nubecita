@@ -474,10 +474,10 @@ class AnalyticsModelTest {
 
     @Test
     fun `translate_post carries the language and the model readiness`() {
-        val event = TranslatePost("ja", TranslationModelReadiness.WaitingForWifi)
+        val event = TranslatePost("ja", TranslationModelReadiness.NeedsDownload)
         assertEquals("translate_post", event.name)
         assertEquals(
-            mapOf("source_language" to Str("ja"), "model_state" to Str("waiting_wifi")),
+            mapOf("source_language" to Str("ja"), "model_state" to Str("needs_download")),
             event.params,
         )
         AnalyticsValidator.requireValid(event)

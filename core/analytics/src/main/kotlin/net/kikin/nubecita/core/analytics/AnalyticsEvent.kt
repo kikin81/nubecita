@@ -1035,14 +1035,17 @@ data class WatchAction(
 enum class TranslationModelReadiness(
     val wire: String,
 ) {
-    /** The pack was already on disk — the translation is near-instant. */
+    /** The pack was already on disk, so the translation starts immediately. */
     Ready("ready"),
 
-    /** The pack is being fetched now; the chip shows progress. */
-    Downloading("downloading"),
-
-    /** Metered connection: the download is deferred until Wi-Fi appears. */
-    WaitingForWifi("waiting_wifi"),
+    /**
+     * No pack yet, so one had to be fetched before anything could happen.
+     *
+     * Deliberately not split into "downloading" and "waiting for Wi-Fi": this
+     * is logged the moment the reader taps, before the outcome is knowable,
+     * and `translation_model_download` already reports which way it went.
+     */
+    NeedsDownload("needs_download"),
 }
 
 /**

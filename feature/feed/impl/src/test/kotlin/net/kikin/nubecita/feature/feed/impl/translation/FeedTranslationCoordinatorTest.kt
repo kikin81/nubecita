@@ -5,7 +5,10 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.AnalyticsEvent
@@ -203,18 +206,68 @@ internal class FeedTranslationCoordinatorTest {
         }
 
     @Test
-    fun `a tap that lands on a metered connection is logged as waiting, with the deferred download`() =
+    fun `a tap on a metered connection is logged at once, with the deferred download`() =
         runTest {
             val analytics = RecordingAnalyticsClient()
             resolve(post(langs = listOf("ja")), metered = true, userInitiated = true, analytics = analytics)
 
             assertEquals(
                 listOf(
-                    TranslatePost("ja", TranslationModelReadiness.WaitingForWifi),
+                    TranslatePost("ja", TranslationModelReadiness.NeedsDownload),
                     TranslationModelDownload(TranslationDownloadOutcome.DeferredWifi, "ja"),
                 ),
                 analytics.events,
             )
+        }
+
+    @Test
+    fun `the tap is logged while the pack is still downloading`() =
+        runTest {
+            val analytics = RecordingAnalyticsClient()
+            val downloadStarted = CompletableDeferred<Unit>()
+            val models =
+                mockk<TranslationModelRepository>(relaxed = true) {
+                    coEvery { isDownloaded(any()) } returns false
+                    // Stands in for a 62MB transfer: `request` suspends and
+                    // never returns while the test looks at what was logged.
+                    coEvery { request(any()) } coAnswers {
+                        downloadStarted.complete(Unit)
+                        awaitCancellation()
+                    }
+                    every { states } returns flowOf(emptyMap())
+                    every { this@mockk.downloaded } returns flowOf(emptyList())
+                }
+            val subject =
+                FeedTranslationCoordinator(
+                    engine =
+                        mockk {
+                            every { supports(any(), any()) } returns true
+                            coEvery { translate(any(), any(), any()) } returns Result.success("translated")
+                        },
+                    identifier = mockk { coEvery { identify(any()) } returns null },
+                    models = models,
+                    preferences =
+                        mockk {
+                            every { autoTranslateEnabled } returns flowOf(true)
+                            every { autoTranslateLanguages } returns flowOf(emptySet())
+                            every { neverTranslateLanguages } returns flowOf(emptySet())
+                        },
+                    readerLanguages =
+                        mockk {
+                            every { languages } returns flowOf(listOf("en"))
+                            every { targetLanguage } returns flowOf("en")
+                        },
+                    analytics = analytics,
+                )
+
+            val job = launch { subject.resolve(post(langs = listOf("ja")), userInitiated = true) {} }
+            downloadStarted.await()
+
+            // The reader has tapped and the pack is mid-transfer. Logging the
+            // tap after `request` returned lost this entirely whenever they
+            // backed out before it finished.
+            assertEquals(listOf(TranslatePost("ja", TranslationModelReadiness.NeedsDownload)), analytics.events)
+            job.cancel()
         }
 
     @Test
@@ -228,7 +281,7 @@ internal class FeedTranslationCoordinatorTest {
 
             assertEquals(
                 listOf(
-                    TranslatePost("ja", TranslationModelReadiness.Downloading),
+                    TranslatePost("ja", TranslationModelReadiness.NeedsDownload),
                     TranslationModelDownload(TranslationDownloadOutcome.Failed, "ja"),
                     TranslateError(TranslationErrorReason.ModelUnavailable, "ja"),
                 ),
