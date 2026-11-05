@@ -33,7 +33,23 @@ internal object PostUiFixtures {
         stats: PostStatsUi = PostStatsUi(),
         viewer: ViewerStateUi = ViewerStateUi(),
         repostedBy: String? = null,
-    ): PostUi = PostUi(id, cid, author, createdAt, text, facets, embed, stats, viewer, repostedBy)
+        threadRootUri: String? = null,
+        langs: ImmutableList<String> = persistentListOf(),
+    ): PostUi =
+        PostUi(
+            id = id,
+            cid = cid,
+            author = author,
+            createdAt = createdAt,
+            text = text,
+            facets = facets,
+            embed = embed,
+            stats = stats,
+            viewer = viewer,
+            repostedBy = repostedBy,
+            threadRootUri = threadRootUri,
+            langs = langs,
+        )
 
     /** A single [ImageUi] with both CDN variants and an aspect ratio. */
     fun fakeImageUi(

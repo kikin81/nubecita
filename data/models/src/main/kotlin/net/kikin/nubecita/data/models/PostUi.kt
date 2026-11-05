@@ -3,6 +3,7 @@ package net.kikin.nubecita.data.models
 import androidx.compose.runtime.Stable
 import io.github.kikin81.atproto.app.bsky.richtext.Facet
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlin.time.Instant
 
 /**
@@ -53,4 +54,23 @@ public data class PostUi(
      * keyed by `threadRootUri ?: id`; thread mute targets that key.
      */
     val threadRootUri: String? = null,
+    /**
+     * The BCP-47 language tags the author's client declared on the record
+     * (`app.bsky.feed.post.langs`), or empty when the field was absent.
+     *
+     * A HINT, never a gate. The field is optional on the wire and frequently
+     * missing, so an empty list means "unknown", never "the reader's
+     * language" — anything that gated on `langs.isNotEmpty()` would skip
+     * exactly the unlabelled foreign post a reader most needs help with.
+     *
+     * It earns its place because the other source is worse on its own:
+     * on-device language identification reads a German greeting followed by
+     * English hashtags as English. Declared tags and identification each miss
+     * a different case, so translation consults the declaration first and
+     * falls back to identification (epic `nubecita-s6xk`).
+     *
+     * Defaulted so the ~40 existing fixture and test construction sites —
+     * none of which care about language — stay untouched.
+     */
+    val langs: ImmutableList<String> = persistentListOf(),
 )

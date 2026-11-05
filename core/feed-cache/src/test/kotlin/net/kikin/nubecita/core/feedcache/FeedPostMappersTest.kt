@@ -28,12 +28,20 @@ private val testJson =
         explicitNulls = false
     }
 
-private fun recordObject(text: String): JsonObject =
+private fun recordObject(
+    text: String,
+    langs: List<String>? = listOf("en"),
+): JsonObject =
     buildJsonObject {
         put("\$type", "app.bsky.feed.post")
         put("text", text)
         put("createdAt", "2026-04-15T19:51:12.861Z")
-        putJsonArray("langs") { add("en") }
+        // `null` omits the key entirely, which is the shape a post that never
+        // declared a language actually arrives in — distinct from an empty
+        // array, and the more common of the two.
+        if (langs != null) {
+            putJsonArray("langs") { langs.forEach { add(it) } }
+        }
     }
 
 /**
@@ -45,6 +53,7 @@ private fun postViewJson(
     text: String = "hello world",
     withImages: Boolean = true,
     labels: List<Pair<String, String>> = emptyList(),
+    langs: List<String>? = listOf("en"),
 ): JsonObject {
     val wire =
         buildJsonObject {
@@ -56,7 +65,7 @@ private fun postViewJson(
                 put("handle", "alice.bsky.social")
                 put("displayName", "Alice")
             }
-            put("record", recordObject(text))
+            put("record", recordObject(text, langs))
             if (withImages) {
                 putJsonObject("embed") {
                     put("\$type", "app.bsky.embed.images#view")
@@ -316,6 +325,33 @@ internal class FeedPostMappersTest {
         assertNull(entry.toFeedPostEntity(key, position = 0).replyParentUri)
         // The row exists regardless, so the tombstone is still renderable.
         assertNotNull(entry.toCachedPosts(key).singleOrNull { it.unavailable == "blocked" })
+    }
+
+    @Test
+    fun `write-then-read round-trip preserves declared langs`() {
+        // The cache stores the raw PostView blob and re-projects it on read,
+        // so langs needs no column of its own — but "needs no column" is only
+        // true while the blob really is re-projected, and that is what this
+        // pins. If the projection is ever denormalized into columns, this
+        // fails rather than silently dropping the translation hint.
+        val postUi =
+            feedViewPostWire(post = postViewJson(langs = listOf("ja")))
+                .asCachedEntry()
+                .toPostUi("did:plc:me", ModerationPrefs.DEFAULT)
+
+        assertNotNull(postUi)
+        assertEquals(listOf("ja"), postUi!!.langs)
+    }
+
+    @Test
+    fun `write-then-read round-trip preserves an undeclared langs as empty`() {
+        val postUi =
+            feedViewPostWire(post = postViewJson(langs = null))
+                .asCachedEntry()
+                .toPostUi("did:plc:me", ModerationPrefs.DEFAULT)
+
+        assertNotNull(postUi)
+        assertEquals(emptyList<String>(), postUi!!.langs)
     }
 
     @Test
