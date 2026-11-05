@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -264,7 +265,7 @@ private fun RepostedByLine(
             name = NubecitaIconName.Repeat,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            opticalSize = 14.dp,
+            opticalSize = TranslateChipIconSize,
         )
         Text(
             text = stringResource(R.string.postcard_reposted_by, name),
@@ -397,11 +398,18 @@ private fun TranslationFooter(
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Keyed on the Compose-propagated locale, not captured from
+    // Locale.getDefault() once: the same rule rememberCompactCount and
+    // VerificationSheet follow. A post's source language never changes, so
+    // keying on it alone would cache the first locale's name forever — and it
+    // would make this card's screenshot depend on the host JVM's default
+    // rather than the locale the test renders in.
+    val locale = LocalLocale.current.platformLocale
     val language =
-        remember(translation.sourceLanguage) {
+        remember(translation.sourceLanguage, locale) {
             Locale
                 .forLanguageTag(translation.sourceLanguage)
-                .getDisplayLanguage(Locale.getDefault())
+                .getDisplayLanguage(locale)
                 .ifBlank { translation.sourceLanguage }
         }
     when (translation) {
@@ -459,6 +467,17 @@ private fun TranslationFooter(
     }
 }
 
+// Named like NubecitaLinkChip's ChipMinHeight / ChipIconSize, so the two chip
+// shapes in the design system read the same way. The values differ on purpose:
+// this chip sits inside a text column rather than beside an embed, so it is
+// deliberately tighter than the link chip.
+private val TranslateChipShape = RoundedCornerShape(percent = 50)
+private val TranslateChipBorderWidth = 1.dp
+private val TranslateChipIconSize = 14.dp
+private val TranslateChipHorizontalPadding = 10.dp
+private val TranslateChipVerticalPadding = 4.dp
+private val TranslateChipGap = 5.dp
+
 /**
  * The translate affordance: a chip on the card, not a row in the overflow
  * sheet.
@@ -473,7 +492,6 @@ private fun TranslateChip(
     onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(percent = 50)
     Row(
         modifier =
             modifier
@@ -482,9 +500,12 @@ private fun TranslateChip(
                 // LocalMinimumInteractiveComponentSize to Unspecified because
                 // the reserved space reads as a hole in a text column.
                 .minimumInteractiveComponentSize()
-                .clip(shape)
-                .border(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant, shape = shape)
-                .then(
+                .clip(TranslateChipShape)
+                .border(
+                    width = TranslateChipBorderWidth,
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    shape = TranslateChipShape,
+                ).then(
                     if (onClick != null) {
                         // Role + label so TalkBack announces "Translate from
                         // Japanese, button" rather than reading the row's text
@@ -494,9 +515,9 @@ private fun TranslateChip(
                     } else {
                         Modifier
                     },
-                ).padding(horizontal = 10.dp, vertical = 4.dp)
+                ).padding(horizontal = TranslateChipHorizontalPadding, vertical = TranslateChipVerticalPadding)
                 .testTag(PostCardTestTags.TRANSLATE_CHIP),
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        horizontalArrangement = Arrangement.spacedBy(TranslateChipGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         NubecitaIcon(
@@ -506,7 +527,7 @@ private fun TranslateChip(
             // so its drawn size follows the font size this parameter sets.
             // A modifier only clamps the Box around it — the glyph kept its
             // 24dp default and overflowed the pill's padding onto the border.
-            opticalSize = 14.dp,
+            opticalSize = TranslateChipIconSize,
             tint = MaterialTheme.colorScheme.primary,
         )
         Text(
