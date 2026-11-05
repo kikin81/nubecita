@@ -205,6 +205,70 @@ internal class FacetRestorationTest {
         assertEquals(listOf("alpha", "beta"), result.facets.map { (it.features[0] as FacetTag).tag })
     }
 
+    @Test
+    fun `three facets whose restored text is longer than the candidates all land correctly`() {
+        // The offset-shifting case. Each original is much longer than what the
+        // engine produced, so if the splice indexed the translated string with
+        // offsets computed before earlier replacements, the second and third
+        // spans would land in the wrong place or overlap. The implementation
+        // builds the output by appending segments, so earlier replacements
+        // cannot move later candidates.
+        val original = "#AlphaBravoCharlie and #DeltaEchoFoxtrot and #GolfHotelIndia"
+        val translated = "#a and #d and #g"
+
+        val result =
+            restoreFacets(
+                original,
+                translated,
+                listOf(
+                    tagFacet(original, "#AlphaBravoCharlie", "AlphaBravoCharlie"),
+                    tagFacet(original, "#DeltaEchoFoxtrot", "DeltaEchoFoxtrot"),
+                    tagFacet(original, "#GolfHotelIndia", "GolfHotelIndia"),
+                ),
+            )
+
+        assertEquals("#AlphaBravoCharlie and #DeltaEchoFoxtrot and #GolfHotelIndia", result.text)
+        assertEquals(
+            listOf("AlphaBravoCharlie", "DeltaEchoFoxtrot", "GolfHotelIndia"),
+            result.facets.map { (it.features[0] as FacetTag).tag },
+        )
+        // And every facet's byte slice really spans its own tag in the OUTPUT.
+        val bytes = result.text.toByteArray(Charsets.UTF_8)
+        result.facets.forEach { facet ->
+            val spanned =
+                bytes
+                    .copyOfRange(facet.index.byteStart.toInt(), facet.index.byteEnd.toInt())
+                    .toString(Charsets.UTF_8)
+            assertEquals("#${(facet.features[0] as FacetTag).tag}", spanned)
+        }
+    }
+
+    @Test
+    fun `a multi-byte restoration does not shift the facet after it`() {
+        // Same shape, but the restored text is CJK, so char count and byte
+        // count diverge. A splice that conflated the two would put the second
+        // facet's byte slice in the middle of a character.
+        val original = "#おはようございます and #さようなら"
+        val translated = "#a and #b"
+
+        val result =
+            restoreFacets(
+                original,
+                translated,
+                listOf(
+                    tagFacet(original, "#おはようございます", "おはようございます"),
+                    tagFacet(original, "#さようなら", "さようなら"),
+                ),
+            )
+
+        val bytes = result.text.toByteArray(Charsets.UTF_8)
+        val second = result.facets[1].index
+        assertEquals(
+            "#さようなら",
+            bytes.copyOfRange(second.byteStart.toInt(), second.byteEnd.toInt()).toString(Charsets.UTF_8),
+        )
+    }
+
     // ---- defensive cases --------------------------------------------------
 
     @Test
