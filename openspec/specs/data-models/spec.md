@@ -63,17 +63,31 @@ The `@Stable` annotation requires the module to declare `api(libs.androidx.compo
 
 ### Requirement: PostUi captures everything needed to render a single post
 
-The module MUST define `@Stable data class PostUi` with fields: `id: String`, `author: AuthorUi`, `createdAt: Instant`, `text: String`, `facets: ImmutableList<Facet>`, `embed: EmbedUi`, `stats: PostStatsUi`, `viewer: ViewerStateUi`, and `repostedBy: String?`. Supporting types `AuthorUi`, `EmbedUi`, `ImageUi`, `PostStatsUi`, and `ViewerStateUi` MUST reside in `:data:models`.
+The module MUST define `@Stable data class PostUi` with fields: `id: String`, `cid: String`, `author: AuthorUi`, `createdAt: Instant`, `text: String`, `facets: ImmutableList<Facet>`, `embed: EmbedUi`, `stats: PostStatsUi`, `viewer: ViewerStateUi`, `repostedBy: String?`, `threadRootUri: String?`, and `langs: ImmutableList<String>`. Supporting types `AuthorUi`, `EmbedUi`, `ImageUi`, `PostStatsUi`, and `ViewerStateUi` MUST reside in `:data:models`.
 
 #### Scenario: Constructing a minimal PostUi for a preview
 
-- **WHEN** test code calls `PostUi(id = "p1", author = AuthorUi(...), createdAt = Clock.System.now(), text = "hello", facets = persistentListOf(), embed = EmbedUi.Empty, stats = PostStatsUi(), viewer = ViewerStateUi(), repostedBy = null)`
-- **THEN** the construction compiles, no field is missing a default that would force the test to provide irrelevant data, and PostCard renders it cleanly.
+- **WHEN** test code calls `PostUi(id = "p1", cid = "bafy…", author = AuthorUi(...), createdAt = Clock.System.now(), text = "hello", facets = persistentListOf(), embed = EmbedUi.Empty, stats = PostStatsUi(), viewer = ViewerStateUi(), repostedBy = null)`
+- **THEN** the construction compiles without supplying `langs`, which defaults to empty
 
 #### Scenario: The embed slot dispatches on a sealed type
 
 - **WHEN** PostCard's body executes `when (post.embed)`
 - **THEN** the compiler enforces exhaustiveness across `EmbedUi.Empty`, `EmbedUi.Images`, `EmbedUi.Unsupported`. Adding a new variant in a future change (e.g. `EmbedUi.External`) surfaces as a compile error at every dispatch site, naming the work needed.
+
+### Requirement: `PostUi.langs` is a hint, never a gate
+
+`langs` carries the record's declared BCP-47 tags from `app.bsky.feed.post` and MUST default to empty, the field being optional on the wire and frequently absent. Consumers MUST treat it as a hint: an absent `langs` means "unknown", never "the reader's language".
+
+#### Scenario: A post that declares its language carries it through
+
+- **WHEN** a wire record carries `"langs": ["ja"]`
+- **THEN** the mapped `PostUi.langs` is `["ja"]`, and it survives the feed cache round-trip
+
+#### Scenario: An absent langs does not suppress the translate affordance
+
+- **WHEN** a post declares no language at all
+- **THEN** it is not treated as being in the reader's language, and identification may still be consulted
 
 ### Requirement: `EmbedUi` exposes a `Video` variant for `app.bsky.embed.video#view`
 
