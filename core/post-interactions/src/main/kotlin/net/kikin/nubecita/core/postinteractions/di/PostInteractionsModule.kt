@@ -5,7 +5,9 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
+import dagger.multibindings.Multibinds
 import net.kikin.nubecita.core.common.session.SessionClearable
+import net.kikin.nubecita.core.postinteractions.PostDeletionListener
 import net.kikin.nubecita.core.postinteractions.PostDeletionRepository
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
@@ -59,6 +61,13 @@ abstract class PostInteractionsModule {
      */
     @Binds
     internal abstract fun bindPostDeletionRepository(impl: DefaultPostDeletionRepository): PostDeletionRepository
+
+    /**
+     * Declared here so the set exists, and is empty, in a variant nothing
+     * contributes to: the bench flavor has no persisted feed to purge.
+     */
+    @Multibinds
+    internal abstract fun postDeletionListeners(): Set<PostDeletionListener>
 
     @Binds
     internal abstract fun bindPostInteractionHandler(

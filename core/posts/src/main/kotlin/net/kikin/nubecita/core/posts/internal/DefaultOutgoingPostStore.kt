@@ -8,6 +8,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
@@ -18,6 +19,7 @@ import net.kikin.nubecita.core.posting.OutgoingPostStore
 import net.kikin.nubecita.core.posting.PostDraft
 import net.kikin.nubecita.core.posting.PostingRepository
 import net.kikin.nubecita.core.posting.SharedMediaStore
+import net.kikin.nubecita.core.postinteractions.PostDeletionListener
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.core.profile.CurrentAccount
@@ -31,8 +33,13 @@ import net.kikin.nubecita.data.models.ViewerStateUi
 import timber.log.Timber
 import java.util.UUID
 import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.time.Clock
 
+// @Singleton on the class, not only on the OutgoingPostStore binding: the
+// deletion-listener set binds this type directly, and without it that set would
+// hold a second, empty store.
+@Singleton
 internal class DefaultOutgoingPostStore
     @Inject
     constructor(
@@ -43,7 +50,8 @@ internal class DefaultOutgoingPostStore
         private val postInteractionsCache: PostInteractionsCache,
         @param:ApplicationScope private val scope: CoroutineScope,
         private val clock: Clock,
-    ) : OutgoingPostStore {
+    ) : OutgoingPostStore,
+        PostDeletionListener {
         private val _posts = MutableStateFlow<ImmutableList<OutgoingPost>>(persistentListOf())
         override val posts: StateFlow<ImmutableList<OutgoingPost>> = _posts.asStateFlow()
 
@@ -77,6 +85,19 @@ internal class DefaultOutgoingPostStore
             _posts.update { list -> list.filterNot { it.localId == localId }.toImmutableList() }
             entry.replyToUri?.let(postInteractionsCache::noteReplyDiscarded)
             deleteOwnedCopies(entry.draft)
+        }
+
+        /**
+         * Forgets a sent post that has since been deleted.
+         *
+         * Surfaces hide a sent entry only while their loaded list holds the same
+         * URI, so deleting the real row is exactly what would put this copy back
+         * on screen. It also stops counting on its parent, for the same reason a
+         * discarded reply does.
+         */
+        override suspend fun onPostDeleted(postUri: String) {
+            val before = _posts.getAndUpdate { list -> list.filterNot { it.post.id == postUri }.toImmutableList() }
+            before.firstOrNull { it.post.id == postUri }?.replyToUri?.let(postInteractionsCache::noteReplyDiscarded)
         }
 
         private fun send(localId: String) {

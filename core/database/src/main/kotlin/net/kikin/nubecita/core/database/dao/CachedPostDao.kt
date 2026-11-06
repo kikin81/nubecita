@@ -62,6 +62,26 @@ interface CachedPostDao {
     )
     suspend fun deleteUnreferenced(accountDid: String)
 
+    /**
+     * Turns a stored post into a tombstone, keeping the row and nothing else.
+     *
+     * The row stays because other items can still name it as context, and that
+     * is how they learn it is gone. The content goes because it was deleted: it
+     * should not stay readable on disk. A post that was never stored is a
+     * no-op, since nothing refers to it.
+     */
+    @Query(
+        "UPDATE cached_post " +
+            "SET cid = NULL, author_did = NULL, indexed_at = NULL, text = NULL, " +
+            "post_blob = NULL, unavailable = :reason " +
+            "WHERE account_did = :accountDid AND uri = :uri",
+    )
+    suspend fun markUnavailable(
+        accountDid: String,
+        uri: String,
+        reason: String,
+    )
+
     @Query("DELETE FROM cached_post WHERE account_did = :accountDid")
     suspend fun clearAccount(accountDid: String)
 }

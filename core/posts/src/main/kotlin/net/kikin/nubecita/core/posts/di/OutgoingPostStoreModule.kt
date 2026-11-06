@@ -4,7 +4,9 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.posting.OutgoingPostStore
+import net.kikin.nubecita.core.postinteractions.PostDeletionListener
 import net.kikin.nubecita.core.posts.internal.DefaultOutgoingPostStore
 import javax.inject.Singleton
 
@@ -19,4 +21,8 @@ internal abstract class OutgoingPostStoreModule {
     @Binds
     @Singleton
     abstract fun bindOutgoingPostStore(impl: DefaultOutgoingPostStore): OutgoingPostStore
+
+    @Binds
+    @IntoSet
+    abstract fun bindOutgoingPostStoreAsDeletionListener(impl: DefaultOutgoingPostStore): PostDeletionListener
 }

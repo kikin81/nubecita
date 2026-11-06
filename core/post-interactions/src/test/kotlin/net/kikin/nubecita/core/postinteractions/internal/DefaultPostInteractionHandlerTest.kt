@@ -19,6 +19,7 @@ import net.kikin.nubecita.core.analytics.Share
 import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.postinteractions.InteractionEffect
 import net.kikin.nubecita.core.postinteractions.InteractionNotice
+import net.kikin.nubecita.core.postinteractions.PostDeletionListener
 import net.kikin.nubecita.core.postinteractions.PostDeletionRepository
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
@@ -46,12 +47,14 @@ internal class DefaultPostInteractionHandlerTest {
     private val fakeCache = FakePostInteractionsCacheForHandler()
     private val fakeMuteRepo = FakeMuteRepositoryForHandler()
     private val fakeDeletionRepo = FakePostDeletionRepository()
+    private val deletionListener = RecordingPostDeletionListener()
 
     private fun makeHandler(): DefaultPostInteractionHandler =
         DefaultPostInteractionHandler(
             cache = fakeCache,
             muteRepository = fakeMuteRepo,
             postDeletionRepository = fakeDeletionRepo,
+            postDeletionListeners = setOf(deletionListener),
             analytics = analytics,
         )
 
@@ -742,6 +745,107 @@ internal class DefaultPostInteractionHandlerTest {
         }
 
     /**
+     * The in-memory deletion flag dies with the process, so a persisted store
+     * that is not told keeps the post, and it comes back on the next launch.
+     */
+    @Test
+    fun `a confirmed delete tells the listeners`() =
+        runTest {
+            val handler = makeHandler().also { it.bind(PostSurface.Feed, backgroundScope) }
+            val post = unlikedPost()
+
+            handler.interactionEffects.test {
+                handler.onConfirmDeletePost(post)
+
+                awaitItem()
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(listOf(post.id), deletionListener.deleted)
+        }
+
+    /**
+     * The surface may leave as soon as it hears about the deletion, which
+     * cancels the scope this runs in. Telling it first would race the purge
+     * against that cancellation.
+     */
+    @Test
+    fun `listeners run before the surface hears about the deletion`() =
+        runTest {
+            val gate = CompletableDeferred<Unit>()
+            deletionListener.gate = gate
+            val handler = makeHandler().also { it.bind(PostSurface.Feed, backgroundScope) }
+            val post = unlikedPost()
+
+            handler.interactionEffects.test {
+                handler.onConfirmDeletePost(post)
+                runCurrent()
+                expectNoEvents()
+
+                gate.complete(Unit)
+                assertEquals(InteractionEffect.PostDeleted(post), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    /**
+     * A surface hides a sent post's local copy only while its row is loaded.
+     * Marking the post first would drop the row while the store still held the
+     * copy, flashing the deleted post back on screen.
+     */
+    @Test
+    fun `listeners run before the post is marked deleted`() =
+        runTest {
+            val handler = makeHandler().also { it.bind(PostSurface.Feed, backgroundScope) }
+            val post = unlikedPost()
+            var markedWhenTold: Boolean? = null
+            deletionListener.onDeleted = { markedWhenTold = fakeCache.state.value[post.id]?.isDeleted == true }
+
+            handler.interactionEffects.test {
+                handler.onConfirmDeletePost(post)
+
+                awaitItem()
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(false, markedWhenTold)
+            assertEquals(true, fakeCache.state.value[post.id]?.isDeleted)
+        }
+
+    @Test
+    fun `a failed delete tells no listener`() =
+        runTest {
+            fakeDeletionRepo.result = Result.failure(RuntimeException("boom"))
+            val handler = makeHandler().also { it.bind(PostSurface.Feed, backgroundScope) }
+
+            handler.interactionEffects.test {
+                handler.onConfirmDeletePost(unlikedPost())
+
+                awaitItem()
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertTrue(deletionListener.deleted.isEmpty(), "the post is still live, so nothing may forget it")
+        }
+
+    /**
+     * The record is gone either way. Reporting the local failure as an error
+     * would invite a retry that the PDS answers with record-not-found.
+     */
+    @Test
+    fun `a failing listener does not undo the deletion`() =
+        runTest {
+            deletionListener.failure = RuntimeException("disk full")
+            val handler = makeHandler().also { it.bind(PostSurface.Feed, backgroundScope) }
+            val post = unlikedPost()
+
+            handler.interactionEffects.test {
+                handler.onConfirmDeletePost(post)
+
+                assertEquals(InteractionEffect.PostDeleted(post), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(true, fakeCache.state.value[post.id]?.isDeleted, "every surface must still drop it")
+        }
+
+    /**
      * Until 8vsx.3 removes the post from the list, a deleted post stays on
      * screen and a second confirmation is easy to reach. The second call would
      * get a record-not-found from the PDS and surface an error for a post that
@@ -799,5 +903,19 @@ private class FakePostDeletionRepository : PostDeletionRepository {
         deleted += postUri.raw
         gate?.await()
         return result
+    }
+}
+
+private class RecordingPostDeletionListener : PostDeletionListener {
+    val deleted = mutableListOf<String>()
+    var gate: CompletableDeferred<Unit>? = null
+    var failure: Throwable? = null
+    var onDeleted: () -> Unit = {}
+
+    override suspend fun onPostDeleted(postUri: String) {
+        gate?.await()
+        onDeleted()
+        failure?.let { throw it }
+        deleted += postUri
     }
 }

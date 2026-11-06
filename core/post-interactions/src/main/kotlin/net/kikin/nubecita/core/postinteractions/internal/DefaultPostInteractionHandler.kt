@@ -22,9 +22,11 @@ import net.kikin.nubecita.core.analytics.PostTextTarget
 import net.kikin.nubecita.core.analytics.Share
 import net.kikin.nubecita.core.analytics.ShareMethod
 import net.kikin.nubecita.core.auth.NoSessionException
+import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.postinteractions.InteractionEffect
 import net.kikin.nubecita.core.postinteractions.InteractionError
 import net.kikin.nubecita.core.postinteractions.InteractionNotice
+import net.kikin.nubecita.core.postinteractions.PostDeletionListener
 import net.kikin.nubecita.core.postinteractions.PostDeletionRepository
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
@@ -34,6 +36,7 @@ import net.kikin.nubecita.core.postinteractions.sharing.toShareIntent
 import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
+import timber.log.Timber
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -76,6 +79,7 @@ internal class DefaultPostInteractionHandler
         private val muteRepository: MuteRepository,
         private val analytics: AnalyticsClient,
         private val postDeletionRepository: PostDeletionRepository,
+        private val postDeletionListeners: Set<@JvmSuppressWildcards PostDeletionListener>,
     ) : PostInteractionHandler {
         // ──────────────────────────────────────────────────────────────────────
         // Binding state — set once per VM lifecycle via bind()
@@ -207,10 +211,17 @@ internal class DefaultPostInteractionHandler
                     postDeletionRepository
                         .deletePost(AtUri(post.id))
                         .onSuccess {
-                            // Mark before emitting: the cache is what every
-                            // surface filters on, so a surface reacting to the
-                            // effect must not observe a stale snapshot.
-                            cache.markDeleted(post.id)
+                            // Listeners first: a surface hides a sent post's
+                            // local copy only while its row is loaded, so marking
+                            // first would flash that copy back on screen.
+                            try {
+                                notifyPostDeleted(post.id)
+                            } finally {
+                                // Before the effect, and even if cancelled: the
+                                // cache is what every surface filters on, so none
+                                // may observe a stale snapshot.
+                                cache.markDeleted(post.id)
+                            }
                             emit(InteractionEffect.PostDeleted(post))
                         }
                         // No optimistic removal to roll back: the post is removed
@@ -222,6 +233,20 @@ internal class DefaultPostInteractionHandler
             // Two-arg remove: a completing older job must not evict a newer one
             // stored under the same URI.
             job.invokeOnCompletion { activeDeleteJobs.remove(post.id, job) }
+        }
+
+        /**
+         * The record is already gone, so a listener failing is logged rather
+         * than reported: an error here would invite a retry that the PDS
+         * answers with record-not-found.
+         */
+        private suspend fun notifyPostDeleted(postUri: String) {
+            postDeletionListeners.forEach { listener ->
+                runCatchingCancellable { listener.onPostDeleted(postUri) }
+                    .onFailure { throwable ->
+                        Timber.tag(TAG).w(throwable, "post deletion listener failed: %s", throwable.javaClass.name)
+                    }
+            }
         }
 
         override fun recordOverflowAction(action: PostOverflowAction) {
@@ -395,6 +420,10 @@ internal class DefaultPostInteractionHandler
                     else -> InteractionError.Unknown
                 }
             emit(InteractionEffect.ShowError(error))
+        }
+
+        private companion object {
+            const val TAG = "PostInteractionHandler"
         }
     }
 

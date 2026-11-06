@@ -294,6 +294,25 @@ internal class FeedItemDaoTest : DatabaseTest() {
             assertNull(cachedDao.byUri(ACCOUNT, "at://post/orphan"))
         }
 
+    @Test
+    fun itemsWithLeaf_findsTheItemInEveryPartitionOfTheAccountOnly() =
+        runTest {
+            dao.upsert(
+                listOf(
+                    item(position = 0, leaf = "at://post/gone"),
+                    item(position = 1, leaf = "at://post/kept"),
+                    item(position = 0, leaf = "at://post/gone", feed = "at://feed/other"),
+                    item(position = 0, leaf = "at://post/gone", account = "did:other"),
+                    seam(position = 2, exhausted = false),
+                ),
+            )
+
+            val found = dao.itemsWithLeaf(ACCOUNT, "at://post/gone")
+
+            assertEquals(setOf(FEED_URI, "at://feed/other"), found.map { it.feedUri }.toSet())
+            assertEquals(2, found.size)
+        }
+
     private companion object {
         const val ACCOUNT = "did:me"
         const val TYPE = "FOLLOWING"

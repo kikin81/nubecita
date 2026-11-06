@@ -34,8 +34,10 @@ import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import javax.inject.Singleton
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -270,6 +272,66 @@ internal class DefaultOutgoingPostStoreTest {
             assertEquals("content://media/1", embed.items.single().fullsizeUrl)
             assertEquals("a cat", embed.items.single().altText)
         }
+
+    /**
+     * Surfaces hide a sent entry only while their list holds the same URI, so a
+     * deleted post left in here reappears the moment its real row goes.
+     */
+    @Test
+    fun `a deleted post leaves the store`() =
+        runTest {
+            createSucceeds()
+            noProfile()
+            noServerCopy()
+            val store = store()
+            store.submit(draft("hello"))
+            advanceUntilIdle()
+
+            store.onPostDeleted(POST_URI)
+
+            assertTrue(store.posts.value.isEmpty())
+        }
+
+    @Test
+    fun `a deleted reply stops counting on its parent`() =
+        runTest {
+            createSucceeds()
+            noProfile()
+            noServerCopy()
+            val store = store()
+            store.submit(draft("reply").copy(replyToUri = PARENT_URI))
+            advanceUntilIdle()
+
+            store.onPostDeleted(POST_URI)
+
+            verify(exactly = 1) { postInteractionsCache.noteReplyDiscarded(PARENT_URI) }
+        }
+
+    @Test
+    fun `deleting a post the store never held changes nothing`() =
+        runTest {
+            createSucceeds()
+            noProfile()
+            noServerCopy()
+            val store = store()
+            store.submit(draft("reply").copy(replyToUri = PARENT_URI))
+            advanceUntilIdle()
+
+            store.onPostDeleted("at://did:plc:me/app.bsky.feed.post/other")
+
+            assertEquals(POST_URI, store.only().post.id)
+            verify(exactly = 0) { postInteractionsCache.noteReplyDiscarded(any()) }
+        }
+
+    /**
+     * Hilt builds a separate instance for the deletion-listener set unless the
+     * class itself is scoped, and that instance would hold no posts. Nothing
+     * else fails if the annotation goes: the fix would just silently stop working.
+     */
+    @Test
+    fun `the store is one instance for every binding`() {
+        assertNotNull(DefaultOutgoingPostStore::class.java.getAnnotation(Singleton::class.java))
+    }
 
     @Test
     fun `only the newest sent posts are kept`() =
