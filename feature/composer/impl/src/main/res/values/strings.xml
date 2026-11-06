@@ -90,10 +90,7 @@
 
     <!-- Language picker — search field label, a11y description, and
          confirm/dismiss footer affordances. -->
-    <string name="composer_language_search_label">Search</string>
     <string name="composer_language_search_content_description">Search languages</string>
-    <string name="composer_language_picker_done">Done</string>
-    <string name="composer_language_picker_cancel">Cancel</string>
 
     <!-- Audience picker — who can reply / quote a new post, plus the
          save-as-default and reset affordances and the confirm/dismiss footer. -->

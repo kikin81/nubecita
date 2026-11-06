@@ -1,10 +1,15 @@
-package net.kikin.nubecita.feature.composer.impl.internal
+package net.kikin.nubecita.designsystem.component
 
 import java.util.Locale
 
 /**
- * Localized display name for a BCP-47 language [tag], rendered in the
- * JVM's default locale. Region-qualified tags (`"en-US"`, `"ja-JP"`)
+ * Localized display name for a BCP-47 language [tag], rendered in
+ * [locale].
+ *
+ * [locale] defaults to the JVM's for non-Compose callers, but every
+ * composable passes `LocalLocale.current.platformLocale`: the two differ
+ * whenever the reader has set a per-app language, and that reader is
+ * precisely the one reading language names. Region-qualified tags (`"en-US"`, `"ja-JP"`)
  * collapse to the bare language name (`"English"`, `"Japanese"`) —
  * we use [Locale.getDisplayLanguage] rather than
  * [Locale.getDisplayName] so the chip + picker stay consistent with
@@ -16,8 +21,11 @@ import java.util.Locale
  * some Java locales (e.g. older builds for German / French) return
  * the lowercased name, which looks wrong as a button label.
  */
-internal fun languageDisplayName(tag: String): String =
+fun languageDisplayName(
+    tag: String,
+    locale: Locale = Locale.getDefault(),
+): String =
     Locale
         .forLanguageTag(tag)
-        .getDisplayLanguage(Locale.getDefault())
-        .replaceFirstChar { it.titlecase(Locale.getDefault()) }
+        .getDisplayLanguage(locale)
+        .replaceFirstChar { it.titlecase(locale) }

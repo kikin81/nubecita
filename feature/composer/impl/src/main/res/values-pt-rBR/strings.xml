@@ -30,10 +30,7 @@
     <string name="composer_discard_title">Descartar rascunho?</string>
     <string name="composer_discard_cancel">Cancelar</string>
     <string name="composer_discard_confirm">Descartar</string>
-    <string name="composer_language_search_label">Buscar</string>
     <string name="composer_language_search_content_description">Buscar idiomas</string>
-    <string name="composer_language_picker_done">Concluído</string>
-    <string name="composer_language_picker_cancel">Cancelar</string>
     <string name="composer_audience_title">Quem pode interagir?</string>
     <string name="composer_audience_reply_section">Quem pode responder</string>
     <string name="composer_audience_anyone">Qualquer pessoa</string>

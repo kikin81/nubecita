@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.composer.impl.internal
+package net.kikin.nubecita.designsystem.component
 
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.jupiter.api.Assertions.assertEquals

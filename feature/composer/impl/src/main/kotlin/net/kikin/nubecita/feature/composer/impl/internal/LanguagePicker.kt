@@ -24,9 +24,11 @@ import androidx.compose.ui.window.PopupProperties
 import androidx.window.core.layout.WindowSizeClass
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import net.kikin.nubecita.designsystem.component.NubecitaLanguagePicker
+import net.kikin.nubecita.feature.composer.impl.ComposerViewModel
 
 /**
- * Adaptive wrapper around [LanguagePickerContent]. At Compact width
+ * Adaptive wrapper around [NubecitaLanguagePicker]. At Compact width
  * uses [ModalBottomSheet]; at Medium / Expanded uses [Popup] over an
  * M3 [Surface] card — same width-class branching pattern as
  * [ComposerDiscardDialog], sidestepping the double-scrim issue when
@@ -69,13 +71,14 @@ internal fun LanguagePicker(
             sheetState = sheetState,
             modifier = modifier,
         ) {
-            LanguagePickerContent(
+            NubecitaLanguagePicker(
                 allTags = allTags,
                 draftSelection = draft.toImmutableList(),
                 deviceLocaleTag = deviceLocaleTag,
                 onToggle = toggle,
                 onConfirm = onConfirm,
                 onDismiss = onDismiss,
+                maxSelection = ComposerViewModel.MAX_LANGS,
             )
         }
     } else {
@@ -99,13 +102,14 @@ internal fun LanguagePicker(
                     color = AlertDialogDefaults.containerColor,
                     tonalElevation = AlertDialogDefaults.TonalElevation,
                 ) {
-                    LanguagePickerContent(
+                    NubecitaLanguagePicker(
                         allTags = allTags,
                         draftSelection = draft.toImmutableList(),
                         deviceLocaleTag = deviceLocaleTag,
                         onToggle = toggle,
                         onConfirm = onConfirm,
                         onDismiss = onDismiss,
+                        maxSelection = ComposerViewModel.MAX_LANGS,
                     )
                 }
             }

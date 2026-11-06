@@ -1,11 +1,11 @@
-package net.kikin.nubecita.feature.composer.impl.internal
+package net.kikin.nubecita.designsystem.component
 
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import java.util.Locale
 
 /**
- * Pure ordering rule for [LanguagePickerContent]'s `LazyColumn`.
+ * Pure ordering rule for [NubecitaLanguagePicker]'s `LazyColumn`.
  * Exposed `internal` so the JVM unit test can pin the contract
  * without booting the Compose runtime.
  *
@@ -21,21 +21,22 @@ import java.util.Locale
  * Selection-pinning is what makes re-opens predictable: tags the
  * user just confirmed stay at the top of the next open's list.
  */
-internal fun sortPickerTags(
+fun sortPickerTags(
     allTags: ImmutableList<String>,
     draftSelection: ImmutableList<String>,
     deviceLocaleTag: String,
+    locale: Locale = Locale.getDefault(),
 ): ImmutableList<String> {
     val deviceLang = Locale.forLanguageTag(deviceLocaleTag).language
     val selectedSet = draftSelection.toSet()
-    val sorted = allTags.sortedBy { languageDisplayName(it) }
+    val sorted = allTags.sortedBy { languageDisplayName(it, locale) }
     val (selected, rest) = sorted.partition { it in selectedSet }
     val (deviceFirst, others) = rest.partition { it == deviceLang }
     return (selected + deviceFirst + others).toImmutableList()
 }
 
 /**
- * Pure search-match predicate for [LanguagePickerContent]. A [tag]
+ * Pure search-match predicate for [NubecitaLanguagePicker]. A [tag]
  * matches a non-blank [query] when either:
  *
  * - The bare BCP-47 [tag] (lowercased) contains the [query]
@@ -48,12 +49,13 @@ internal fun sortPickerTags(
  * to short-circuit and return the unfiltered list, but defending the
  * predicate against blank input keeps it composable in folds.
  */
-internal fun matchesPickerQuery(
+fun matchesPickerQuery(
     tag: String,
     query: String,
+    locale: Locale = Locale.getDefault(),
 ): Boolean {
-    val normalized = query.trim().lowercase(Locale.getDefault())
+    val normalized = query.trim().lowercase(locale)
     if (normalized.isEmpty()) return true
-    return tag.lowercase(Locale.getDefault()).contains(normalized) ||
-        languageDisplayName(tag).lowercase(Locale.getDefault()).contains(normalized)
+    return tag.lowercase(locale).contains(normalized) ||
+        languageDisplayName(tag, locale).lowercase(locale).contains(normalized)
 }
