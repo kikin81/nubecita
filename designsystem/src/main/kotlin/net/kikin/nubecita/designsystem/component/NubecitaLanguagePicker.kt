@@ -113,6 +113,14 @@ fun NubecitaLanguagePicker(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    // weight(fill = false): the list yields space to the
+                    // footer instead of consuming the column. Without it a
+                    // host that does not bound the height — a Dialog, as the
+                    // translation settings page uses — lets the rows grow past
+                    // the bottom edge and push Done/Cancel off-screen
+                    // entirely. `fill = false` keeps a short list its natural
+                    // height rather than stretching it.
+                    .weight(1f, fill = false)
                     .padding(vertical = 4.dp),
         ) {
             items(items = visibleTags, key = { it }) { tag ->

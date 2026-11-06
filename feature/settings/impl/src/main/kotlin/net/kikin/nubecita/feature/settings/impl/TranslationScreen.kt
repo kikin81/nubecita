@@ -5,18 +5,13 @@ import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -46,6 +41,7 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.data.models.DownloadedLanguage
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.component.NubecitaLanguagePicker
 import net.kikin.nubecita.designsystem.component.NubecitaListGroup
 import net.kikin.nubecita.designsystem.component.NubecitaListItem
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -170,7 +166,7 @@ internal fun TranslationContent(
             LanguageList(
                 languages = state.autoTranslate,
                 emptyText = stringResource(R.string.translation_auto_languages_empty),
-                addLabel = stringResource(R.string.translation_add_auto_language),
+                chooseLabel = stringResource(R.string.translation_choose_auto_languages),
                 onRemove = { tag ->
                     onEvent(TranslationEvent.AutoTranslateLanguagesChanged(state.autoTranslate.toSet() - tag))
                 },
@@ -189,7 +185,7 @@ internal fun TranslationContent(
             LanguageList(
                 languages = state.neverTranslate,
                 emptyText = stringResource(R.string.translation_never_empty),
-                addLabel = stringResource(R.string.translation_add_never_language),
+                chooseLabel = stringResource(R.string.translation_choose_never_languages),
                 onRemove = { tag ->
                     onEvent(TranslationEvent.NeverTranslateLanguagesChanged(state.neverTranslate.toSet() - tag))
                 },
@@ -213,25 +209,24 @@ internal fun TranslationContent(
                     PickerTarget.Auto -> state.autoTranslate
                     PickerTarget.Never -> state.neverTranslate
                 }
-            LanguagePickerDialog(
+            LanguageSelectionDialog(
                 available = state.availableLanguages,
-                // Only the list being added to is excluded. A language in the
-                // other list is still offered, because picking it is a
-                // deliberate move between the two and the ViewModel already
-                // drops it from the one it left — the lists are contradictory
-                // and cannot both hold the same tag.
-                excluded = chosen.toSet(),
+                initialSelection = chosen,
                 title =
                     when (target) {
-                        PickerTarget.Auto -> stringResource(R.string.translation_add_auto_language)
-                        PickerTarget.Never -> stringResource(R.string.translation_add_never_language)
+                        PickerTarget.Auto -> stringResource(R.string.translation_choose_auto_languages)
+                        PickerTarget.Never -> stringResource(R.string.translation_choose_never_languages)
                     },
-                onPick = { tag ->
+                // The confirmed set replaces the list outright. A language in
+                // the *other* list is still offered, because moving it is a
+                // deliberate act and the ViewModel already drops it from the
+                // one it left — the two lists are contradictory by definition.
+                onConfirm = { tags ->
                     when (target) {
                         PickerTarget.Auto ->
-                            onEvent(TranslationEvent.AutoTranslateLanguagesChanged(chosen.toSet() + tag))
+                            onEvent(TranslationEvent.AutoTranslateLanguagesChanged(tags.toSet()))
                         PickerTarget.Never ->
-                            onEvent(TranslationEvent.NeverTranslateLanguagesChanged(chosen.toSet() + tag))
+                            onEvent(TranslationEvent.NeverTranslateLanguagesChanged(tags.toSet()))
                     }
                     picker = null
                 },
@@ -262,91 +257,55 @@ private fun SectionHeader(
 }
 
 /**
- * A searchable list of every language the engine supports.
+ * Hosts the shared [NubecitaLanguagePicker] for one of the two language lists.
  *
- * A picker rather than "tap Translate on a post and we remember the
- * language": one tap on one post is a weak signal for opting a reader into
- * translating an entire language from then on, and a reader who wants that
- * should be able to say so without first finding a post in it.
+ * A Dialog rather than a ModalBottomSheet: a sheet renders in its own window
+ * that does not resize for the IME, so the keyboard covered the very results
+ * the picker's search field filters (seen on a Fold 8). A dialog window
+ * resizes. It also avoids a sheet's drag-to-dismiss fighting the list's
+ * scroll, which is why EmojiPickerDialog made the same call.
+ *
+ * The draft is seeded with what the list already holds, so the picker opens
+ * showing the current selection pinned at the top and Done commits the whole
+ * set — the same editing model the composer uses, rather than an add-only
+ * flow that would leave removal to a separate control.
  */
 @Composable
-private fun LanguagePickerDialog(
+private fun LanguageSelectionDialog(
     available: ImmutableList<String>,
-    excluded: Set<String>,
+    initialSelection: ImmutableList<String>,
     title: String,
-    onPick: (String) -> Unit,
+    onConfirm: (List<String>) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var query by remember { mutableStateOf("") }
-    // Named, sorted and lower-cased against the Compose-propagated locale, so
-    // the whole list agrees with itself: alphabetical order in English is
-    // meaningless to a Spanish reader, and collating with one locale while
-    // naming with another produces an order that looks arbitrary.
-    val locale = LocalLocale.current.platformLocale
-    val options =
-        remember(available, excluded, locale) {
-            available
-                .asSequence()
-                .filterNot { it in excluded }
-                .map { tag -> tag to Locale.forLanguageTag(tag).getDisplayLanguage(locale).ifBlank { tag } }
-                .sortedBy { (_, name) -> name.lowercase(locale) }
-                .toList()
-        }
-    val visible =
-        remember(options, query) {
-            if (query.isBlank()) {
-                options
-            } else {
-                options.filter { (_, name) -> name.contains(query.trim(), ignoreCase = true) }
-            }
-        }
-
-    // A Dialog, not a ModalBottomSheet, for the same reason EmojiPickerDialog
-    // is one: a sheet's drag-to-dismiss fights the list's vertical scroll. It
-    // also fixes what a sheet broke here on device — a sheet renders in its own
-    // window that does not resize for the IME, so `imePadding` reported nothing
-    // and the keyboard covered the very results the search field filters. A
-    // dialog window resizes, so the list stays visible while typing.
+    // Held as the ImmutableList the picker wants, not a List converted on each
+    // pass: the picker recomposes on every keystroke in its search field, and
+    // converting there allocated a fresh persistent list per keystroke to say
+    // the same thing. Toggling is the only time the selection actually
+    // changes, so that is the only time it needs rebuilding.
+    var draft by remember(initialSelection) { mutableStateOf(initialSelection) }
+    val deviceLocaleTag = LocalLocale.current.platformLocale.toLanguageTag()
     Dialog(onDismissRequest = onDismiss) {
         Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surface) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(text = title, style = MaterialTheme.typography.titleMedium)
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.translation_picker_search)) },
+            Column(modifier = Modifier.padding(top = 16.dp)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp),
                 )
-                if (visible.isEmpty()) {
-                    Text(
-                        text = stringResource(R.string.translation_picker_no_match),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    return@Column
-                }
-                // Bounded so the dialog cannot grow to the full screen on a
-                // tall device; the list scrolls inside it.
-                LazyColumn(
-                    modifier = Modifier.heightIn(max = 360.dp),
-                    verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
-                ) {
-                    // Lazy, and shapes derived per index rather than going
-                    // through NubecitaListGroup: that group renders every row
-                    // eagerly, which for the engine's full language set is a
-                    // lot of composition for a dozen visible rows.
-                    itemsIndexed(visible, key = { _, (tag, _) -> tag }) { index, (tag, name) ->
-                        NubecitaListItem(
-                            shapes = ListItemDefaults.segmentedShapes(index = index, count = visible.size),
-                            headlineContent = { Text(name) },
-                            onClick = { onPick(tag) },
-                        )
-                    }
-                }
+                NubecitaLanguagePicker(
+                    allTags = available,
+                    draftSelection = draft,
+                    deviceLocaleTag = deviceLocaleTag,
+                    onToggle = { tag ->
+                        draft = (if (tag in draft) draft - tag else draft + tag).toImmutableList()
+                    },
+                    onConfirm = onConfirm,
+                    onDismiss = onDismiss,
+                    // No cap here: a reader may translate as many languages as
+                    // they read. The composer's limit is a post-record
+                    // constraint, not a picker one.
+                )
             }
         }
     }
@@ -356,7 +315,7 @@ private fun LanguagePickerDialog(
 private fun LanguageList(
     languages: ImmutableList<String>,
     emptyText: String,
-    addLabel: String,
+    chooseLabel: String,
     onRemove: (String) -> Unit,
     onAdd: () -> Unit,
     modifier: Modifier = Modifier,
@@ -369,15 +328,37 @@ private fun LanguageList(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(vertical = 4.dp),
             )
-            AddLanguageRow(label = addLabel, onClick = onAdd)
+            AddLanguageRow(label = chooseLabel, onClick = onAdd)
         }
         return
     }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        LanguageRows(languages = languages, onRemove = onRemove)
-        AddLanguageRow(label = addLabel, onClick = onAdd)
+        LanguageRows(languages = displayOrdered(languages), onRemove = onRemove)
+        AddLanguageRow(label = chooseLabel, onClick = onAdd)
     }
 }
+
+/**
+ * [languages] ordered the way the reader reads them.
+ *
+ * The ViewModel sorts by bare subtag, which is stable and fine for state but
+ * meaningless on screen: `af, ar, bn, de, sq` renders as Afrikaans, Arabic,
+ * Bangla, German, **Albanian** — alphabetical in a spelling the reader never
+ * sees. Ordering belongs here, where the locale that names them is available.
+ */
+@Composable
+private fun displayOrdered(languages: ImmutableList<String>): ImmutableList<String> {
+    val locale = LocalLocale.current.platformLocale
+    return remember(languages, locale) {
+        languages.sortedBy { tag -> displayNameIn(tag, locale).lowercase(locale) }.toImmutableList()
+    }
+}
+
+/** Non-composable twin of [displayName], for sorting off the composition. */
+private fun displayNameIn(
+    tag: String,
+    locale: Locale,
+): String = Locale.forLanguageTag(tag).getDisplayLanguage(locale).ifBlank { tag }
 
 /** The add affordance, in its own single-row group so the shapes match. */
 @Composable

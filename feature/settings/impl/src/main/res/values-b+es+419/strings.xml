@@ -151,10 +151,6 @@
     <string name="translation_auto_supporting">Las publicaciones en un idioma que no lees se traducen cuando dejas de desplazarte. Si está desactivado, aún puedes traducir una publicación tocándola.</string>
     <string name="translation_auto_languages_header">Traducir estos idiomas</string>
     <string name="translation_auto_languages_empty">Aún no hay idiomas.</string>
-    <string name="translation_add_auto_language">Agregar un idioma</string>
-    <string name="translation_add_never_language">Agregar un idioma que lees</string>
-    <string name="translation_picker_search">Buscar idiomas</string>
-    <string name="translation_picker_no_match">Ningún idioma coincide.</string>
     <string name="translation_never_header">Idiomas que lees</string>
     <string name="translation_never_supporting">Nunca se ofrecen para traducir. Los idiomas de tu dispositivo siempre se incluyen.</string>
     <string name="translation_never_empty">Solo los idiomas de tu dispositivo.</string>
@@ -164,4 +160,6 @@
     <string name="translation_storage_wifi_note">Los paquetes de idiomas se descargan solo por Wi-Fi.</string>
     <string name="translation_delete_content_desc">Eliminar %1$s</string>
     <string name="translation_save_error">No se pudo guardar. Inténtalo de nuevo.</string>
+    <string name="translation_choose_auto_languages">Elegir idiomas</string>
+    <string name="translation_choose_never_languages">Elegir idiomas que lees</string>
 </resources>
