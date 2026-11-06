@@ -333,10 +333,32 @@ private fun LanguageList(
         return
     }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        LanguageRows(languages = languages, onRemove = onRemove)
+        LanguageRows(languages = displayOrdered(languages), onRemove = onRemove)
         AddLanguageRow(label = chooseLabel, onClick = onAdd)
     }
 }
+
+/**
+ * [languages] ordered the way the reader reads them.
+ *
+ * The ViewModel sorts by bare subtag, which is stable and fine for state but
+ * meaningless on screen: `af, ar, bn, de, sq` renders as Afrikaans, Arabic,
+ * Bangla, German, **Albanian** — alphabetical in a spelling the reader never
+ * sees. Ordering belongs here, where the locale that names them is available.
+ */
+@Composable
+private fun displayOrdered(languages: ImmutableList<String>): ImmutableList<String> {
+    val locale = LocalLocale.current.platformLocale
+    return remember(languages, locale) {
+        languages.sortedBy { tag -> displayNameIn(tag, locale).lowercase(locale) }.toImmutableList()
+    }
+}
+
+/** Non-composable twin of [displayName], for sorting off the composition. */
+private fun displayNameIn(
+    tag: String,
+    locale: Locale,
+): String = Locale.forLanguageTag(tag).getDisplayLanguage(locale).ifBlank { tag }
 
 /** The add affordance, in its own single-row group so the shapes match. */
 @Composable
