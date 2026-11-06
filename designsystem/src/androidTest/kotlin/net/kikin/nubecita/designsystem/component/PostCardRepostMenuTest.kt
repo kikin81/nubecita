@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -29,9 +30,9 @@ import kotlin.time.Duration.Companion.minutes
  * - **Unwired / non-quotable** — when `onQuote` is null OR the post has quoting
  *   disabled, the cell keeps the plain tap-to-toggle behavior and offers no menu
  *   (no "Quote post" item exists).
- * - **Wired + quotable** — a single tap opens a Repost/Quote menu; the menu's
- *   items invoke `onRepost` / `onQuote`; a long-press performs the repost toggle
- *   directly; the first item reads "Undo repost" once the viewer has reposted.
+ * - **Wired + quotable** — a single tap opens a Repost/Quote bottom sheet; its
+ *   rows invoke `onRepost` / `onQuote`; a long-press performs the repost toggle
+ *   directly; the first row reads "Undo repost" once the viewer has reposted.
  */
 class PostCardRepostMenuTest {
     @get:Rule
@@ -97,6 +98,8 @@ class PostCardRepostMenuTest {
 
         composeTestRule.onNode(hasClickLabel(repostOptionsLabel), useUnmergedTree = true).performClick()
         composeTestRule.onNodeWithText(quoteLabel).performClick()
+        // The sheet dispatches once it has finished hiding.
+        composeTestRule.waitForIdle()
 
         assertSame("Quote item should pass the rendered post", target, quoted)
     }
@@ -115,6 +118,8 @@ class PostCardRepostMenuTest {
 
         composeTestRule.onNode(hasClickLabel(repostOptionsLabel), useUnmergedTree = true).performClick()
         composeTestRule.onNodeWithText(repostLabel).performClick()
+        // The sheet dispatches once it has finished hiding.
+        composeTestRule.waitForIdle()
 
         assertEquals(1, reposts)
     }
@@ -170,6 +175,48 @@ class PostCardRepostMenuTest {
 
         assertEquals(1, reposts)
         composeTestRule.onNodeWithText(quoteLabel).assertDoesNotExist()
+    }
+
+    /** Every card has this cell, so a closed one must add nothing to the scroll path. */
+    @Test
+    fun wiredQuote_closedCellComposesNoSheet() {
+        composeTestRule.setContent {
+            NubecitaTheme {
+                PostCard(post = post(), callbacks = PostCallbacks(onRepost = {}, onQuote = {}))
+            }
+        }
+
+        composeTestRule.onNodeWithTag(POST_REPOST_SHEET_TAG).assertDoesNotExist()
+        composeTestRule.onNodeWithText(quoteLabel).assertDoesNotExist()
+    }
+
+    @Test
+    fun wiredQuote_tapOpensTheBottomSheet() {
+        composeTestRule.setContent {
+            NubecitaTheme {
+                PostCard(post = post(), callbacks = PostCallbacks(onRepost = {}, onQuote = {}))
+            }
+        }
+
+        composeTestRule.onNode(hasClickLabel(repostOptionsLabel), useUnmergedTree = true).performClick()
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithTag(POST_REPOST_SHEET_TAG).assertExists()
+    }
+
+    @Test
+    fun wiredQuote_sheetClosesAfterAChoice() {
+        composeTestRule.setContent {
+            NubecitaTheme {
+                PostCard(post = post(), callbacks = PostCallbacks(onRepost = {}, onQuote = {}))
+            }
+        }
+
+        composeTestRule.onNode(hasClickLabel(repostOptionsLabel), useUnmergedTree = true).performClick()
+        composeTestRule.onNodeWithText(repostLabel).performClick()
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithTag(POST_REPOST_SHEET_TAG).assertDoesNotExist()
     }
 
     private companion object {
