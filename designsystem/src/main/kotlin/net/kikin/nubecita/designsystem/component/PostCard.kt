@@ -3,7 +3,6 @@ package net.kikin.nubecita.designsystem.component
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,8 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -907,10 +904,10 @@ private fun ActionRow(
  *   post has quoting disabled (`viewer.canViewerQuote == false`). A single tap
  *   toggles repost via [PostCallbacks.onRepost]. Identical to the pre-quote
  *   behavior, including the `Role.Switch` on/off a11y semantics.
- * - **Menu** — when quoting is wired AND permitted. A single tap opens a
- *   [DropdownMenu] offering "Repost"/"Undo repost" + "Quote post"; a long-press
+ * - **Sheet** — when quoting is wired AND permitted. A single tap opens a
+ *   [PostRepostSheet] offering "Repost"/"Undo repost" + "Quote post"; a long-press
  *   performs the repost toggle directly (the power-user shortcut). Every action
- *   stays reachable via the menu, so long-press is purely additive.
+ *   stays reachable via the sheet, so long-press is purely additive.
  *
  * The icon tints to `tertiary` while [PostUi.viewer]`.isRepostedByViewer` in both
  * modes, and spins on activate.
@@ -927,11 +924,11 @@ private fun RepostAction(
             if (isReposted) R.string.postcard_action_undo_repost else R.string.postcard_action_repost,
         )
     val onQuote = callbacks.onQuote
-    // Menu only when there's actually a Quote option to offer — wired AND the
-    // post permits quoting (read-side postgate). Otherwise a single-item menu
+    // Sheet only when there's actually a Quote option to offer — wired AND the
+    // post permits quoting (read-side postgate). Otherwise a single-row sheet
     // would be pointless, so fall back to the direct toggle.
-    val showMenu = onQuote != null && post.viewer.canViewerQuote
-    if (!showMenu) {
+    val showSheet = onQuote != null && post.viewer.canViewerQuote
+    if (!showSheet) {
         PostStat(
             name = NubecitaIconName.Repeat,
             count = post.stats.repostCount.toLong(),
@@ -946,39 +943,33 @@ private fun RepostAction(
         return
     }
     // Keyed by post.id so a recycled cell rebound to a different post resets the
-    // menu to closed rather than leaking the prior post's open state.
-    var expanded by remember(post.id) { mutableStateOf(false) }
-    Box {
-        PostStat(
-            name = NubecitaIconName.Repeat,
-            count = post.stats.repostCount.toLong(),
-            // Tap opens the menu (an "options" button); long-press is the
-            // instant toggle. Not toggleable — the primary tap action is "open".
-            accessibilityLabel = stringResource(R.string.postcard_action_repost_options),
-            active = isReposted,
-            activeColor = MaterialTheme.semanticColors.repostAccent,
-            onClick = { expanded = true },
-            onLongClick = { callbacks.onRepost(post) },
-            onLongClickLabel = repostLabel,
-            iconAnimation = PostStatIconAnimation.Spin,
-            animateUserDelta = animateRepostTap,
+    // sheet to closed rather than leaking the prior post's open state.
+    var open by remember(post.id) { mutableStateOf(false) }
+    PostStat(
+        name = NubecitaIconName.Repeat,
+        count = post.stats.repostCount.toLong(),
+        // Tap opens the sheet (an "options" button); long-press is the
+        // instant toggle. Not toggleable — the primary tap action is "open".
+        accessibilityLabel = stringResource(R.string.postcard_action_repost_options),
+        active = isReposted,
+        activeColor = MaterialTheme.semanticColors.repostAccent,
+        onClick = { open = true },
+        onLongClick = { callbacks.onRepost(post) },
+        onLongClickLabel = repostLabel,
+        iconAnimation = PostStatIconAnimation.Spin,
+        animateUserDelta = animateRepostTap,
+    )
+    if (open) {
+        PostRepostSheet(
+            isReposted = isReposted,
+            onDismiss = { open = false },
+            onAction = { action ->
+                when (action) {
+                    PostRepostAction.Repost -> callbacks.onRepost(post)
+                    PostRepostAction.Quote -> onQuote(post)
+                }
+            },
         )
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text(repostLabel) },
-                onClick = {
-                    expanded = false
-                    callbacks.onRepost(post)
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.postcard_action_quote)) },
-                onClick = {
-                    expanded = false
-                    onQuote(post)
-                },
-            )
-        }
     }
 }
 
