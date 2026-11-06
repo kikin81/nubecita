@@ -11,6 +11,7 @@ import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.chats.impl.ConvoRowUi
+import net.kikin.nubecita.feature.chats.impl.data.DELETED_ACCOUNT_HANDLE
 import net.kikin.nubecita.feature.chats.impl.data.DELETED_MESSAGE_SNIPPET
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
@@ -64,6 +65,15 @@ private val SAMPLE_DELETED =
         lastMessageSnippet = DELETED_MESSAGE_SNIPPET,
         lastMessageFromViewer = false,
         sentAt = FIXTURE_NOW - 2.days, // 2026-05-11 = Monday → renders "Mon"
+    )
+
+private val SAMPLE_DELETED_ACCOUNT =
+    SAMPLE_WITH_AVATAR.copy(
+        otherUserHandle = DELETED_ACCOUNT_HANDLE,
+        displayName = null,
+        avatarUrl = null,
+        lastMessageSnippet = DELETED_MESSAGE_SNIPPET,
+        sentAt = FIXTURE_NOW - 2.days,
     )
 
 private val SAMPLE_LONG_SNIPPET =
@@ -147,6 +157,18 @@ private fun ConvoListItemFallbackLetterScreenshot() {
     CompositionLocalProvider(LocalClock provides FixtureClock) {
         NubecitaTheme(dynamicColor = false) {
             Surface { ConvoListItem(item = SAMPLE_FALLBACK_LETTER, index = 0, count = 1, onClick = {}, onLongClick = {}) }
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "convo-deleted-account-light", showBackground = true)
+@Preview(name = "convo-deleted-account-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ConvoListItemDeletedAccountScreenshot() {
+    CompositionLocalProvider(LocalClock provides FixtureClock) {
+        NubecitaTheme(dynamicColor = false) {
+            Surface { ConvoListItem(item = SAMPLE_DELETED_ACCOUNT, index = 0, count = 1, onClick = {}, onLongClick = {}) }
         }
     }
 }

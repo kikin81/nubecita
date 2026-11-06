@@ -180,6 +180,51 @@ internal class ConvoMapperTest {
         assertEquals("Alice", row.displayName)
     }
 
+    // --- deleted accounts (nubecita-ma8p) ---
+
+    @Test
+    fun `a member reported as missing_invalid is a deleted account, on the row and the header`() {
+        val view =
+            sampleConvoView(
+                members = listOf(sampleMember(VIEWER_DID, "me.bsky.social", null), sampleMember("did:plc:gone", DELETED_ACCOUNT_HANDLE, null)),
+            )
+
+        val row = assertInstanceOf(ConvoRowUi.Direct::class.java, view.toConvoRowUi(viewerDid = VIEWER_DID))
+        val header = assertInstanceOf(ChatHeader.Direct::class.java, view.toChatHeader(viewerDid = VIEWER_DID))
+
+        assertTrue(row.isDeletedAccount)
+        assertTrue(header.isDeletedAccount)
+    }
+
+    @Test
+    fun `an ordinary member is not a deleted account`() {
+        val view =
+            sampleConvoView(
+                members = listOf(sampleMember(VIEWER_DID, "me.bsky.social", null), sampleMember("did:plc:alice", "alice.bsky.social", null)),
+            )
+
+        val row = assertInstanceOf(ConvoRowUi.Direct::class.java, view.toConvoRowUi(viewerDid = VIEWER_DID))
+        val header = assertInstanceOf(ChatHeader.Direct::class.java, view.toChatHeader(viewerDid = VIEWER_DID))
+
+        assertFalse(row.isDeletedAccount)
+        assertFalse(header.isDeletedAccount)
+    }
+
+    /**
+     * The account being gone does not take the conversation with it. Dropping
+     * the row would hide history that the official client keeps listing.
+     */
+    @Test
+    fun `a deleted account's conversation still maps to a row with its deleted last message`() {
+        val view =
+            sampleConvoView(
+                members = listOf(sampleMember(VIEWER_DID, "me.bsky.social", null), sampleMember("did:plc:gone", DELETED_ACCOUNT_HANDLE, null)),
+                lastMessage = sampleDeleted(senderDid = "did:plc:gone"),
+            )
+
+        assertEquals(DELETED_MESSAGE_SNIPPET, view.toConvoRowUi(viewerDid = VIEWER_DID).lastMessageSnippet)
+    }
+
     // --- toChatHeader / canViewerPost / toAuthorUi (group-chat Phase 1) ---
 
     @Test
