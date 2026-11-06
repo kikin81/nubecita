@@ -131,4 +131,15 @@
     <string name="profile_compose_new_post">Escrever novo post</string>
     <string name="profile_compose_fab_label">Escrever</string>
     <string name="profile_pinned_post_label">Fixado</string>
+    <plurals name="profile_connections_followers_tab">
+        <item quantity="one">%1$s seguidor</item>
+        <item quantity="other">%1$s seguidores</item>
+    </plurals>
+    <string name="profile_connections_following_tab">%1$s seguindo</string>
+    <string name="profile_connections_empty_followers">Ainda sem seguidores</string>
+    <string name="profile_connections_empty_following">Ainda não segue ninguém</string>
+    <string name="profile_connections_load_error">Não foi possível carregar esta lista</string>
+    <string name="profile_connections_follow_error">Não foi possível atualizar. Tente de novo.</string>
+    <string name="profile_connections_follow_label">Seguir %1$s</string>
+    <string name="profile_connections_unfollow_label">Deixar de seguir %1$s</string>
 </resources>

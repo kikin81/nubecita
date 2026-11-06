@@ -156,4 +156,15 @@
     <string name="profile_compose_fab_label">Compose</string>
     <!-- Label above the pinned post at the top of a profile's Posts tab. -->
     <string name="profile_pinned_post_label">Pinned</string>
+    <plurals name="profile_connections_followers_tab">
+        <item quantity="one">%1$s Follower</item>
+        <item quantity="other">%1$s Followers</item>
+    </plurals>
+    <string name="profile_connections_following_tab">%1$s Following</string>
+    <string name="profile_connections_empty_followers">No followers yet</string>
+    <string name="profile_connections_empty_following">Not following anyone yet</string>
+    <string name="profile_connections_load_error">Couldn\'t load this list</string>
+    <string name="profile_connections_follow_error">Couldn\'t update that. Try again.</string>
+    <string name="profile_connections_follow_label">Follow %1$s</string>
+    <string name="profile_connections_unfollow_label">Unfollow %1$s</string>
 </resources>
