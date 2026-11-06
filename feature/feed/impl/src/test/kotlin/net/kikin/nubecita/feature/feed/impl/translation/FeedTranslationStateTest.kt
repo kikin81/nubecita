@@ -95,6 +95,32 @@ class FeedTranslationStateTest {
         }
 
     @Test
+    fun `a failed preference write does not take the screen down`() =
+        runTest {
+            val analytics = RecordingAnalyticsClient()
+            val scope = CoroutineScope(Job() + StandardTestDispatcher(testScheduler))
+            // `ja` is absent from the auto list and unoffered, so a tap raises
+            // the offer; the write that records the answer then throws.
+            val state =
+                FeedTranslationState(
+                    coordinator(analytics, auto = emptySet(), offeredWriteFails = true),
+                    scope,
+                )
+
+            state.translate(japanesePost())
+            advanceUntilIdle()
+            assertEquals("ja", state.autoOffer, "the tap should have raised the offer")
+
+            state.declineAutoOffer()
+            advanceUntilIdle()
+
+            // A DataStore write can fail. On a plain-Job scope an escaping
+            // throw cancels every later translation on the screen, so the
+            // reader would lose translation entirely for declining an offer.
+            assertTrue(scope.isActive, "a failed preference write must not cancel the screen's scope")
+        }
+
+    @Test
     fun `a throw is reported rather than swallowed`() =
         runTest {
             val analytics = RecordingAnalyticsClient()
@@ -130,7 +156,11 @@ class FeedTranslationStateTest {
         }
 
     /** Resolves `ja` happily; throws on the post with no declared language. */
-    private fun coordinator(analytics: RecordingAnalyticsClient): FeedTranslationCoordinator {
+    private fun coordinator(
+        analytics: RecordingAnalyticsClient,
+        auto: Set<String> = setOf("ja"),
+        offeredWriteFails: Boolean = false,
+    ): FeedTranslationCoordinator {
         val identifier =
             mockk<LanguageIdentifier> {
                 // Generic stub first: MockK resolves to the LAST matching
@@ -152,10 +182,14 @@ class FeedTranslationStateTest {
                 every { downloaded } returns flowOf(listOf(DownloadedLanguage("ja", 1)))
             }
         val prefs =
-            mockk<TranslationPreferences> {
+            mockk<TranslationPreferences>(relaxed = true) {
                 every { autoTranslateEnabled } returns flowOf(true)
-                every { autoTranslateLanguages } returns flowOf(setOf("ja"))
+                every { autoTranslateLanguages } returns flowOf(auto)
                 every { neverTranslateLanguages } returns flowOf(emptySet())
+                every { autoTranslateOffered } returns flowOf(emptySet())
+                if (offeredWriteFails) {
+                    coEvery { setAutoTranslateOffered(any()) } throws IllegalStateException("datastore down")
+                }
             }
         val languages =
             mockk<ReaderLanguages> {

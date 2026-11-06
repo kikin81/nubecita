@@ -105,14 +105,32 @@ class FeedTranslationState(
     fun acceptAutoOffer() {
         val source = autoOffer ?: return
         autoOffer = null
-        scope.launch { coordinator.acceptAuto(source) }
+        scope.launch { guarded("accepting automatic translation for $source") { coordinator.acceptAuto(source) } }
     }
 
     /** The reader dismissed the offer. */
     fun declineAutoOffer() {
         val source = autoOffer ?: return
         autoOffer = null
-        scope.launch { coordinator.declineAuto(source) }
+        scope.launch { guarded("declining automatic translation for $source") { coordinator.declineAuto(source) } }
+    }
+
+    /**
+     * Run a preference write without letting a failure take the screen down.
+     *
+     * These are DataStore writes on `scope`, a `rememberCoroutineScope` whose
+     * job is a plain `Job` rather than a `SupervisorJob`. An escaping throw
+     * cancels the scope and with it every later translation on the screen —
+     * chip taps included — for the same reason the resolve path is guarded.
+     * A failed write means the reader's choice did not stick, which is worth a
+     * log; it is not worth disabling translation until they navigate away.
+     */
+    private suspend fun guarded(
+        what: String,
+        block: suspend () -> Unit,
+    ) {
+        runCatchingCancellable { block() }
+            .onFailure { error -> Timber.w(error, "Translation preference write failed: %s", what) }
     }
 
     /**
