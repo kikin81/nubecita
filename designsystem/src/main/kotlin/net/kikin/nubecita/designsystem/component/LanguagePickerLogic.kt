@@ -25,10 +25,11 @@ fun sortPickerTags(
     allTags: ImmutableList<String>,
     draftSelection: ImmutableList<String>,
     deviceLocaleTag: String,
+    locale: Locale = Locale.getDefault(),
 ): ImmutableList<String> {
     val deviceLang = Locale.forLanguageTag(deviceLocaleTag).language
     val selectedSet = draftSelection.toSet()
-    val sorted = allTags.sortedBy { languageDisplayName(it) }
+    val sorted = allTags.sortedBy { languageDisplayName(it, locale) }
     val (selected, rest) = sorted.partition { it in selectedSet }
     val (deviceFirst, others) = rest.partition { it == deviceLang }
     return (selected + deviceFirst + others).toImmutableList()
@@ -51,9 +52,10 @@ fun sortPickerTags(
 fun matchesPickerQuery(
     tag: String,
     query: String,
+    locale: Locale = Locale.getDefault(),
 ): Boolean {
-    val normalized = query.trim().lowercase(Locale.getDefault())
+    val normalized = query.trim().lowercase(locale)
     if (normalized.isEmpty()) return true
-    return tag.lowercase(Locale.getDefault()).contains(normalized) ||
-        languageDisplayName(tag).lowercase(Locale.getDefault()).contains(normalized)
+    return tag.lowercase(locale).contains(normalized) ||
+        languageDisplayName(tag, locale).lowercase(locale).contains(normalized)
 }

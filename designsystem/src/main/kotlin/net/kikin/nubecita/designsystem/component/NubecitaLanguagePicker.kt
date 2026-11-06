@@ -23,7 +23,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.designsystem.R
+import java.util.Locale
 
 /**
  * Stateless picker content — the `LazyColumn` of language rows + a
@@ -68,19 +69,18 @@ fun NubecitaLanguagePicker(
     maxSelection: Int = Int.MAX_VALUE,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
-    // The configuration's locale list is part of the cache key so the
-    // sort order + filter matching refresh on a runtime locale change
-    // (display names come from `Locale.getDefault()`, which tracks the
-    // configuration). Without it the cache could stay stuck on the
-    // pre-change ordering until another input key happens to change.
-    val locales = LocalConfiguration.current.locales
+    // The Compose-propagated locale, not Locale.getDefault(): the two differ
+    // whenever the reader has set a per-app language, and it is also the cache
+    // key, so a language change re-collates instead of leaving the list stuck
+    // on the pre-change ordering until another input happens to change.
+    val locale = LocalLocale.current.platformLocale
     val visibleTags =
-        remember(allTags, draftSelection, deviceLocaleTag, query, locales) {
-            val sorted = sortPickerTags(allTags, draftSelection, deviceLocaleTag)
+        remember(allTags, draftSelection, deviceLocaleTag, query, locale) {
+            val sorted = sortPickerTags(allTags, draftSelection, deviceLocaleTag, locale)
             if (query.isBlank()) {
                 sorted
             } else {
-                sorted.filter { matchesPickerQuery(tag = it, query = query) }.toImmutableList()
+                sorted.filter { matchesPickerQuery(tag = it, query = query, locale = locale) }.toImmutableList()
             }
         }
     val capReached = draftSelection.size >= maxSelection
@@ -121,6 +121,7 @@ fun NubecitaLanguagePicker(
                     tag = tag,
                     selected = selected,
                     enabled = selected || !capReached,
+                    locale = locale,
                     onToggle = { onToggle(tag) },
                 )
             }
@@ -153,6 +154,7 @@ private fun LanguageRow(
     tag: String,
     selected: Boolean,
     enabled: Boolean,
+    locale: Locale,
     onToggle: () -> Unit,
 ) {
     // The whole row carries the toggleable interaction (and the
@@ -181,6 +183,6 @@ private fun LanguageRow(
             enabled = enabled,
         )
         Spacer(Modifier.padding(horizontal = 4.dp))
-        Text(text = languageDisplayName(tag))
+        Text(text = languageDisplayName(tag, locale))
     }
 }
