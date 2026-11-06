@@ -64,6 +64,46 @@ internal class ConvoCachePatchTest {
     }
 
     @Test
+    fun `an accepted direct request moves to the front and stops being a request`() {
+        val request = (convo("bob") as ConvoRowUi.Direct).copy(isRequest = true)
+
+        val (accepted, requests) =
+            patchConvosOnAccept(
+                accepted = persistentListOf(convo("alice")),
+                requests = persistentListOf(request),
+                convoId = "bob",
+            )
+
+        assertEquals(listOf("bob", "alice"), accepted?.map { it.convoId })
+        assertEquals(false, accepted?.first()?.isRequest)
+        assertEquals(emptyList<ConvoRowUi>(), requests)
+    }
+
+    @Test
+    fun `an accepted group request stops being a request too`() {
+        val request =
+            ConvoRowUi.Group(
+                convoId = "group",
+                name = "Testers",
+                members = persistentListOf(),
+                lastMessageSnippet = null,
+                lastMessageFromViewer = false,
+                lastMessageIsAttachment = false,
+                sentAt = null,
+                isRequest = true,
+            )
+
+        val (accepted, _) =
+            patchConvosOnAccept(
+                accepted = persistentListOf(),
+                requests = persistentListOf(request),
+                convoId = "group",
+            )
+
+        assertEquals(false, accepted?.single()?.isRequest)
+    }
+
+    @Test
     fun `patches the matching convo and moves it to the top`() {
         val now = Instant.parse("2026-05-01T12:30:00Z")
         val before = persistentListOf(convo("alice"), convo("bob"), convo("carol"))

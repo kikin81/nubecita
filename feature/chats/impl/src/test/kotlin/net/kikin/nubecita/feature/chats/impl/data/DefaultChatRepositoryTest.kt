@@ -172,6 +172,52 @@ internal class DefaultChatRepositoryTest {
         assertThrows(CancellationException::class.java) { runBlocking { repo.leaveConvo("c1") } }
     }
 
+    /**
+     * The row moves caches, but it has to stop being a request too: the list
+     * draws the Accept and Decline actions off this flag alone, so a row that
+     * keeps it offers them until the next `listConvos`.
+     */
+    @Test
+    fun acceptConvo_movesTheRowOutOfRequestsAndClearsItsRequestFlag() =
+        runTest {
+            val (_, repo) =
+                newRepo(signedIn = true) { request ->
+                    when {
+                        !request.url.encodedPath.endsWith("listConvos") -> okJson("{}")
+                        request.url.parameters["status"] == "request" ->
+                            okJson(
+                                listConvosJson(
+                                    directConvoJson(id = "r1", otherDid = "did:plc:bob", otherHandle = "bob.test")
+                                        .replace("\"muted\"", "\"status\":\"request\",\"muted\""),
+                                ),
+                            )
+                        else -> okJson(listConvosJson())
+                    }
+                }
+            repo.refreshConvos()
+            repo.refreshRequestConvos()
+            assertEquals(
+                true,
+                repo
+                    .observeRequestConvos()
+                    .value
+                    ?.single()
+                    ?.isRequest,
+            )
+
+            repo.acceptConvo("r1")
+
+            assertEquals(emptyList<ConvoRowUi>(), repo.observeRequestConvos().value)
+            assertEquals(
+                false,
+                repo
+                    .observeConvos()
+                    .value
+                    ?.single()
+                    ?.isRequest,
+            )
+        }
+
     @Test
     fun acceptConvo_success_returnsSuccess() =
         runTest {

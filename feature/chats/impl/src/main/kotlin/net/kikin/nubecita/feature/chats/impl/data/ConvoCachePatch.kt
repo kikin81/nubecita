@@ -140,9 +140,24 @@ internal fun patchConvosOnAccept(
     val moved = requests?.firstOrNull { it.convoId == convoId } ?: return accepted to requests
     val newRequests = requests.filterNot { it.convoId == convoId }.toImmutableList()
     val newAccepted =
-        if (accepted == null) null else (listOf(moved) + accepted.filterNot { it.convoId == convoId }).toImmutableList()
+        if (accepted == null) {
+            null
+        } else {
+            (listOf(moved.asAccepted()) + accepted.filterNot { it.convoId == convoId }).toImmutableList()
+        }
     return newAccepted to newRequests
 }
+
+/**
+ * This row once the viewer has accepted it. A move between caches alone is not
+ * enough: the list draws the Accept and Decline actions off [ConvoRowUi.isRequest],
+ * so a row that keeps the flag goes on offering them until the next `listConvos`.
+ */
+internal fun ConvoRowUi.asAccepted(): ConvoRowUi =
+    when (this) {
+        is ConvoRowUi.Direct -> copy(isRequest = false)
+        is ConvoRowUi.Group -> copy(isRequest = false)
+    }
 
 /**
  * Reflect "the viewer opened this convo" in the cached list: zero the matching
