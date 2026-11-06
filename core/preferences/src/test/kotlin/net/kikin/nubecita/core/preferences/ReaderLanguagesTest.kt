@@ -151,5 +151,9 @@ internal class ReaderLanguagesTest {
         override suspend fun setNeverTranslateLanguages(languages: Set<String>) {
             never.value = languages
         }
+
+        override val autoTranslateOffered: Flow<Set<String>> = MutableStateFlow(emptySet<String>()).asStateFlow()
+
+        override suspend fun setAutoTranslateOffered(languages: Set<String>) = Unit
     }
 }

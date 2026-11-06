@@ -62,4 +62,23 @@ interface TranslationPreferences {
 
     /** Replace the set of languages that are never translated. */
     suspend fun setNeverTranslateLanguages(languages: Set<String>)
+
+    /**
+     * Languages the reader has already been offered as automatic, as bare
+     * BCP-47 subtags.
+     *
+     * Recorded whether they accepted or declined, which is the point: the
+     * offer appears after a translate tap, and a reader who reads one Japanese
+     * post a week would otherwise be asked the same question every time. One
+     * ask per language is enough to make the feature discoverable; a second is
+     * nagging.
+     *
+     * Deliberately not cleared when a language leaves the auto list. Removing
+     * it in Settings is an answer, and re-asking would read as the app
+     * second-guessing a decision the reader just made.
+     */
+    val autoTranslateOffered: Flow<Set<String>>
+
+    /** Remember that [languages] have been offered as automatic. */
+    suspend fun setAutoTranslateOffered(languages: Set<String>)
 }

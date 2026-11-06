@@ -1095,6 +1095,27 @@ enum class TranslationErrorReason(
 }
 
 /**
+ * The reader accepted the offer to translate a language automatically.
+ *
+ * Its own event rather than a parameter on [TranslatePost], because that one
+ * is logged the moment the chip is tapped — before the offer has been made,
+ * let alone answered. The two measure different things: how many people want
+ * one post translated, and how many want a whole language translated from
+ * then on.
+ *
+ * Only acceptance is reported. A decline is the overwhelmingly likely answer
+ * and recording it would cost an event per reader per language to learn
+ * almost nothing; the acceptance rate against [TranslatePost] already says
+ * how the offer is landing.
+ */
+data class TranslateAutoOptIn(
+    val sourceLanguage: String,
+) : AnalyticsEvent {
+    override val name: String = "translate_auto_opt_in"
+    override val params = mapOf("source_language" to Str(sourceLanguage))
+}
+
+/**
  * Fired on every failed translation, whether the reader asked for it or the
  * automatic pass did.
  *
