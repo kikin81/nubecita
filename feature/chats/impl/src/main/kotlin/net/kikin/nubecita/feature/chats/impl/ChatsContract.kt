@@ -11,6 +11,7 @@ import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
 import net.kikin.nubecita.data.models.AuthorUi
+import net.kikin.nubecita.feature.chats.impl.data.DELETED_ACCOUNT_HANDLE
 import kotlin.time.Instant
 
 /**
@@ -161,7 +162,10 @@ sealed interface ConvoRowUi {
         override val unreadCount: Int = 0,
         override val muted: Boolean = false,
         override val isRequest: Boolean = false,
-    ) : ConvoRowUi
+    ) : ConvoRowUi {
+        /** Whether the other user's account no longer exists. See [DELETED_ACCOUNT_HANDLE]. */
+        val isDeletedAccount: Boolean get() = otherUserHandle == DELETED_ACCOUNT_HANDLE
+    }
 
     /** A group conversation: rendered as its name + a member facepile. */
     @Immutable

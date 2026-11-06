@@ -25,6 +25,14 @@ import kotlin.time.Instant
 internal const val DELETED_MESSAGE_SNIPPET: String = "__deleted__"
 
 /**
+ * The handle the server reports for a member whose account was deleted or
+ * deactivated. Not an address to show anyone: it is the protocol saying there is
+ * no identity left, so a conversation with one reads as "Deleted Account", which
+ * is also what the official client does. The conversation itself stays listed.
+ */
+internal const val DELETED_ACCOUNT_HANDLE: String = "missing.invalid"
+
+/**
  * Maps a wire [ConvoView] to the UI-ready, kind-aware [ConvoRowUi]: a
  * [GroupConvo] becomes a [ConvoRowUi.Group] (name + all members for the
  * facepile), anything else becomes a [ConvoRowUi.Direct] keyed on the

@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -163,12 +164,18 @@ private fun Avatar(
                 contentDescription = null,
                 modifier = modifier,
                 size = 48.dp,
+                // The neutral placeholder: a coloured initial would be drawn from
+                // the "missing.invalid" handle, which identifies nobody.
                 fallback =
-                    avatarFallbackFor(
-                        did = item.otherUserDid,
-                        handle = item.otherUserHandle,
-                        displayName = item.displayName,
-                    ),
+                    if (item.isDeletedAccount) {
+                        null
+                    } else {
+                        avatarFallbackFor(
+                            did = item.otherUserDid,
+                            handle = item.otherUserHandle,
+                            displayName = item.displayName,
+                        )
+                    },
             )
         is ConvoRowUi.Group ->
             // GroupAvatarTile, not AvatarGroup: the facepile's width grows with
@@ -197,19 +204,31 @@ private fun HeadlineText(item: ConvoRowUi) {
     // Unread rows bump to Bold (700) — the standard chat-inbox "unread = bold"
     // affordance. Muted convos are NOT excluded here: the in-row treatment still
     // reflects unread; only the bottom-nav badge aggregate excludes muted.
-    val title =
-        when (item) {
-            is ConvoRowUi.Direct -> item.displayName ?: item.otherUserHandle
-            is ConvoRowUi.Group -> item.name
-        }
     Text(
-        text = title,
+        text = convoTitle(item),
         style = MaterialTheme.typography.titleMedium,
         fontWeight = if (item.unreadCount > 0) FontWeight.Bold else null,
+        // Dimmed with onSurfaceVariant rather than `outline`, which fails AA for text.
+        color = if (item.isDeletedAccountRow()) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
     )
 }
+
+/** The name a conversation goes by, for both the headline and its accessibility labels. */
+@Composable
+private fun convoTitle(item: ConvoRowUi): String =
+    when (item) {
+        is ConvoRowUi.Direct ->
+            if (item.isDeletedAccount) {
+                stringResource(R.string.chats_deleted_account)
+            } else {
+                item.displayName ?: item.otherUserHandle
+            }
+        is ConvoRowUi.Group -> item.name
+    }
+
+private fun ConvoRowUi.isDeletedAccountRow(): Boolean = this is ConvoRowUi.Direct && isDeletedAccount
 
 @Composable
 private fun SubtitleText(item: ConvoRowUi) {
@@ -217,6 +236,8 @@ private fun SubtitleText(item: ConvoRowUi) {
     val (text, italic) =
         when {
             snippet == null -> "—" to false
+            snippet == DELETED_MESSAGE_SNIPPET && item.isDeletedAccountRow() ->
+                stringResource(R.string.chats_row_conversation_deleted) to true
             snippet == DELETED_MESSAGE_SNIPPET -> stringResource(R.string.chats_row_deleted_placeholder) to true
             item.lastMessageIsAttachment -> stringResource(R.string.chats_row_attachment_placeholder) to true
             item.lastMessageFromViewer -> stringResource(R.string.chats_row_you_prefix, snippet) to false
@@ -305,11 +326,7 @@ private fun RequestRowActions(
     // Name the conversation in each action's label: a screen reader moving
     // through the list would otherwise hear "Accept, Decline" repeated with no
     // way to tell which request is which.
-    val who =
-        when (item) {
-            is ConvoRowUi.Direct -> item.displayName ?: item.otherUserHandle
-            is ConvoRowUi.Group -> item.name
-        }
+    val who = convoTitle(item)
     Row(
         modifier = modifier.padding(top = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),

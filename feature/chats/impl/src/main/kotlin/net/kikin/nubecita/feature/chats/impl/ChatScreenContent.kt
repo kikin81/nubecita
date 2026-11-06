@@ -121,7 +121,12 @@ internal fun ChatScreenContent(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 ChatTopBarAvatar(header)
                                 Text(
-                                    text = header.displayName ?: header.handle,
+                                    text =
+                                        if (header.isDeletedAccount) {
+                                            stringResource(R.string.chats_deleted_account)
+                                        } else {
+                                            header.displayName ?: header.handle
+                                        },
                                     style = MaterialTheme.typography.titleMedium,
                                     modifier = Modifier.padding(start = 12.dp),
                                     maxLines = 1,
@@ -519,11 +524,15 @@ private fun ChatTopBarAvatar(header: ChatHeader.Direct) {
         contentDescription = null,
         size = 40.dp,
         fallback =
-            avatarFallbackFor(
-                did = header.did,
-                handle = header.handle,
-                displayName = header.displayName,
-            ),
+            if (header.isDeletedAccount) {
+                null
+            } else {
+                avatarFallbackFor(
+                    did = header.did,
+                    handle = header.handle,
+                    displayName = header.displayName,
+                )
+            },
     )
 }
 

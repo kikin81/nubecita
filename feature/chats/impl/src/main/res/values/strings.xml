@@ -7,6 +7,8 @@
     <string name="chats_row_you_prefix">You: %1$s</string>
     <string name="chats_row_attachment_placeholder">Sent an attachment</string>
     <string name="chats_row_deleted_placeholder">Message deleted</string>
+    <string name="chats_row_conversation_deleted">Conversation deleted</string>
+    <string name="chats_deleted_account">Deleted Account</string>
 
     <!-- Background DM notifications -->
     <string name="chats_messages_channel_name">Messages</string>

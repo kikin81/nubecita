@@ -9,6 +9,7 @@ import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.feature.chats.impl.data.DELETED_ACCOUNT_HANDLE
 import kotlin.time.Instant
 
 /**
@@ -24,7 +25,10 @@ sealed interface ChatHeader {
         val handle: String,
         val displayName: String?,
         val avatarUrl: String?,
-    ) : ChatHeader
+    ) : ChatHeader {
+        /** Whether the other user's account no longer exists. See [DELETED_ACCOUNT_HANDLE]. */
+        val isDeletedAccount: Boolean get() = handle == DELETED_ACCOUNT_HANDLE
+    }
 
     @Immutable
     data class Group(
