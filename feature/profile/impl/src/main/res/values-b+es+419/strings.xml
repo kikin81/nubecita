@@ -31,9 +31,6 @@
     <string name="profile_snackbar_link_copied">Enlace copiado al portapapeles</string>
     <string name="profile_clipboard_label_post_link">Enlace de la publicación de Bluesky</string>
 
-    <string name="profile_stats_posts_label">Publicaciones</string>
-    <string name="profile_stats_followers_label">Seguidores</string>
-    <string name="profile_stats_follows_label">Siguiendo</string>
 
     <string name="profile_meta_link_content_description">Sitio web</string>
     <string name="profile_meta_location_content_description">Ubicación</string>
@@ -132,14 +129,25 @@
     <string name="profile_compose_fab_label">Redactar</string>
     <string name="profile_pinned_post_label">Fijado</string>
     <plurals name="profile_connections_followers_tab">
-        <item quantity="one">%1$s seguidor</item>
-        <item quantity="other">%1$s seguidores</item>
+        <item quantity="one">%1$s Seguidor</item>
+        <item quantity="other">%1$s Seguidores</item>
     </plurals>
-    <string name="profile_connections_following_tab">%1$s siguiendo</string>
+    <string name="profile_connections_following_tab">%1$s Siguiendo</string>
     <string name="profile_connections_empty_followers">Todavía no hay seguidores</string>
     <string name="profile_connections_empty_following">Todavía no sigue a nadie</string>
     <string name="profile_connections_load_error">No se pudo cargar esta lista</string>
     <string name="profile_connections_follow_error">No se pudo actualizar. Inténtalo de nuevo.</string>
     <string name="profile_connections_follow_label">Seguir a %1$s</string>
     <string name="profile_connections_unfollow_label">Dejar de seguir a %1$s</string>
+    <plurals name="profile_stats_posts">
+        <item quantity="one">%1$s Publicación</item>
+        <item quantity="other">%1$s Publicaciones</item>
+    </plurals>
+    <plurals name="profile_stats_followers">
+        <item quantity="one">%1$s Seguidor</item>
+        <item quantity="other">%1$s Seguidores</item>
+    </plurals>
+    <string name="profile_stats_following">%1$s Siguiendo</string>
+    <string name="profile_stats_followers_click_label">Ver seguidores</string>
+    <string name="profile_stats_following_click_label">Ver a quién sigue</string>
 </resources>

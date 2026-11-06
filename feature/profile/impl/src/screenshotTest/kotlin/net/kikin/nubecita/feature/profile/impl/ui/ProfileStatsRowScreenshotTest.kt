@@ -32,3 +32,13 @@ private fun ProfileStatsRowLargeScreenshot() {
         ProfileStatsRow(postsCount = 1_412, followersCount = 1_400_000, followsCount = 12_345)
     }
 }
+
+@PreviewTest
+@Preview(name = "stats-singular-light", showBackground = true)
+@Preview(name = "stats-singular-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ProfileStatsRowSingularScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        ProfileStatsRow(postsCount = 1, followersCount = 1, followsCount = 1)
+    }
+}

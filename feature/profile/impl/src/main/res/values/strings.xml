@@ -44,9 +44,6 @@
     <string name="profile_clipboard_label_post_link">Bluesky post link</string>
 
     <!-- Stats row labels -->
-    <string name="profile_stats_posts_label">Posts</string>
-    <string name="profile_stats_followers_label">Followers</string>
-    <string name="profile_stats_follows_label">Following</string>
 
     <!-- Meta row content descriptions -->
     <string name="profile_meta_link_content_description">Website</string>
@@ -167,4 +164,15 @@
     <string name="profile_connections_follow_error">Couldn\'t update that. Try again.</string>
     <string name="profile_connections_follow_label">Follow %1$s</string>
     <string name="profile_connections_unfollow_label">Unfollow %1$s</string>
+    <plurals name="profile_stats_posts">
+        <item quantity="one">%1$s Post</item>
+        <item quantity="other">%1$s Posts</item>
+    </plurals>
+    <plurals name="profile_stats_followers">
+        <item quantity="one">%1$s Follower</item>
+        <item quantity="other">%1$s Followers</item>
+    </plurals>
+    <string name="profile_stats_following">%1$s Following</string>
+    <string name="profile_stats_followers_click_label">See followers</string>
+    <string name="profile_stats_following_click_label">See who they follow</string>
 </resources>

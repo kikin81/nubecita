@@ -12,6 +12,7 @@ import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.VerifiedBadge
 import net.kikin.nubecita.data.models.VerifierUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
+import net.kikin.nubecita.feature.profile.api.ProfileConnectionsTab
 import kotlin.time.Instant
 
 /**
@@ -606,6 +607,11 @@ sealed interface ProfileEvent : UiEvent {
      * report dialog.
      */
     data object OnReportAccountRequested : ProfileEvent
+
+    /** User tapped the follower or following count on the stats row. */
+    data class ConnectionsTapped(
+        val tab: ProfileConnectionsTab,
+    ) : ProfileEvent
 
     /** User tapped an overflow-menu entry that pushes the Settings sub-route. */
     data object SettingsTapped : ProfileEvent

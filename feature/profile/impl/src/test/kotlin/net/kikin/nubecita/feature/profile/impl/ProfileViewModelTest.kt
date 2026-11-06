@@ -43,6 +43,9 @@ import net.kikin.nubecita.data.models.VerifierUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.profile.api.ProfileConnections
+import net.kikin.nubecita.feature.profile.api.ProfileConnectionsTab
+import net.kikin.nubecita.feature.profile.impl.data.ConnectionFollowStore
 import net.kikin.nubecita.feature.profile.impl.data.ProfileHeaderWithViewer
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
@@ -306,6 +309,136 @@ internal class ProfileViewModelTest {
                 val effect = awaitItem()
                 assertEquals(ProfileEffect.NavigateToProfile("bob.bsky.social"), effect)
                 cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    private fun connectionsRepo(header: ProfileHeaderUi = SAMPLE_HEADER) =
+        FakeProfileRepository(
+            headerWithViewerResult = Result.success(ProfileHeaderWithViewer(header, ViewerRelationship.NotFollowing())),
+            tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+        )
+
+    @Test
+    fun `following from the profile reaches the shared store`() =
+        runTest(mainDispatcher.dispatcher) {
+            val store = ConnectionFollowStore()
+            val header = SAMPLE_HEADER.copy(did = "did:plc:bob")
+            val vm = newVm(repo = connectionsRepo(header), route = Profile(handle = "bob.bsky.social"), followStore = store)
+            advanceUntilIdle()
+
+            vm.handleEvent(ProfileEvent.FollowTapped)
+            advanceUntilIdle()
+
+            assertTrue(store.committed.value["did:plc:bob"] != null)
+        }
+
+    @Test
+    fun `a failed follow doesn't reach the shared store`() =
+        runTest(mainDispatcher.dispatcher) {
+            val store = ConnectionFollowStore()
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.NotFollowing())),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                    followResult = Result.failure(IOException("net down")),
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"), followStore = store)
+            advanceUntilIdle()
+
+            vm.handleEvent(ProfileEvent.FollowTapped)
+            advanceUntilIdle()
+
+            assertTrue(store.committed.value.isEmpty())
+        }
+
+    @Test
+    fun `unfollowing from the profile reaches the shared store`() =
+        runTest(mainDispatcher.dispatcher) {
+            val store = ConnectionFollowStore()
+            val header = SAMPLE_HEADER.copy(did = "did:plc:bob")
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(header, ViewerRelationship.Following(followUri = "at://follow"))),
+                    tabResults = ProfileTab.entries.associateWith { Result.success(EMPTY_PAGE) },
+                )
+            val vm = newVm(repo = repo, route = Profile(handle = "bob.bsky.social"), followStore = store)
+            advanceUntilIdle()
+
+            vm.handleEvent(ProfileEvent.FollowTapped)
+            advanceUntilIdle()
+
+            assertTrue(store.committed.value.containsKey("did:plc:bob"))
+            assertEquals(null, store.committed.value["did:plc:bob"])
+        }
+
+    @Test
+    fun `tapping followers emits a route with the header's did, name and counts`() =
+        runTest(mainDispatcher.dispatcher) {
+            val header = SAMPLE_HEADER.copy(did = "did:plc:bob", displayName = "Bob", followersCount = 12, followsCount = 7)
+            val vm = newVm(repo = connectionsRepo(header), route = Profile(handle = "bob.bsky.social"))
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.ConnectionsTapped(ProfileConnectionsTab.Followers))
+
+                assertEquals(
+                    ProfileEffect.NavigateTo(
+                        ProfileConnections(
+                            actor = "did:plc:bob",
+                            initialTab = ProfileConnectionsTab.Followers,
+                            title = "Bob",
+                            followersCount = 12,
+                            followsCount = 7,
+                        ),
+                    ),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `tapping following opens that tab`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(repo = connectionsRepo(), route = Profile(handle = "bob.bsky.social"))
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.ConnectionsTapped(ProfileConnectionsTab.Following))
+
+                val effect = awaitItem() as ProfileEffect.NavigateTo
+                assertEquals(ProfileConnectionsTab.Following, (effect.key as ProfileConnections).initialTab)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `the connections title falls back to the handle without a display name`() =
+        runTest(mainDispatcher.dispatcher) {
+            val header = SAMPLE_HEADER.copy(handle = "bob.bsky.social", displayName = " ")
+            val vm = newVm(repo = connectionsRepo(header), route = Profile(handle = "bob.bsky.social"))
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.ConnectionsTapped(ProfileConnectionsTab.Followers))
+
+                val effect = awaitItem() as ProfileEffect.NavigateTo
+                assertEquals("bob.bsky.social", (effect.key as ProfileConnections).title)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `nothing is emitted before the header loads`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(repo = connectionsRepo(), route = Profile(handle = "bob.bsky.social"))
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.ConnectionsTapped(ProfileConnectionsTab.Followers))
+
+                expectNoEvents()
             }
         }
 
@@ -2129,6 +2262,7 @@ internal class ProfileViewModelTest {
         handler: PostInteractionHandler = FakePostInteractionHandler(),
         postRepository: PostRepository = mockk(relaxed = true),
         outgoingPostStore: OutgoingPostStore = FakeOutgoingPostStore(),
+        followStore: ConnectionFollowStore = ConnectionFollowStore(),
     ): ProfileViewModel {
         val sessionProvider =
             mockk<SessionStateProvider>(relaxed = true).also {
@@ -2149,6 +2283,7 @@ internal class ProfileViewModelTest {
             handler = handler,
             postRepository = postRepository,
             outgoingPostStore = outgoingPostStore,
+            followStore = followStore,
         )
     }
 
