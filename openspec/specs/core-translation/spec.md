@@ -19,7 +19,7 @@ with RevenueCat.
 - **THEN** it sees only `:data:models` types and the three interfaces, and the engine could be swapped by rewriting one module
 
 ### Requirement: Model downloads are Wi-Fi gated and consented per language
-`TranslationModelRepository.download(language)` SHALL require an unmetered connection and SHALL NOT start on a metered one. The repository SHALL expose a state per language distinguishing `NotDownloaded`, `WaitingForUnmeteredNetwork`, `Downloading`, and `Downloaded(sizeBytes)`. A requested download on a metered connection SHALL be recorded and SHALL start automatically when an unmetered connection becomes available.
+`TranslationModelRepository.request(languageTag)` SHALL require an unmetered connection and SHALL NOT start on a metered one. The repository SHALL expose a state per language distinguishing `NotDownloaded`, `WaitingForUnmeteredNetwork`, `Downloading`, and `Downloaded(sizeBytes)`. A requested download on a metered connection SHALL be recorded and SHALL start automatically when an unmetered connection becomes available.
 
 #### Scenario: Download deferred off Wi-Fi
 - **WHEN** a reader accepts a language while on cellular
