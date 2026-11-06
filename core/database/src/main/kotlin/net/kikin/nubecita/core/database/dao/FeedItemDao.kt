@@ -155,6 +155,21 @@ interface FeedItemDao {
     ): List<String>
 
     /**
+     * Every item, in any partition of the account, whose leaf is [uri].
+     *
+     * Items only: a seam has no leaf. Returned whole so the caller can tell a
+     * chain, which outlives one of its posts, from the variants that do not.
+     */
+    @Query(
+        "SELECT * FROM feed_item " +
+            "WHERE account_did = :accountDid AND leaf_uri = :uri AND row_type = 'item'",
+    )
+    suspend fun itemsWithLeaf(
+        accountDid: String,
+        uri: String,
+    ): List<FeedItemEntity>
+
+    /**
      * The partition's last item — the one a newly appended page may extend.
      *
      * A self-author chain can straddle a pagination cut, and the merge needs

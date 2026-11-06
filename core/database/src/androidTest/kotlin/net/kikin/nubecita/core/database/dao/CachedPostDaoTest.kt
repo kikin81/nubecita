@@ -151,6 +151,68 @@ internal class CachedPostDaoTest : DatabaseTest() {
             assertEquals(1, dao.countForAccount("did:other"))
         }
 
+    @Test
+    fun markUnavailable_keepsTheRowButNotItsContent() =
+        runTest {
+            dao.upsert(listOf(cached("at://post/gone")))
+
+            dao.markUnavailable(ACCOUNT, "at://post/gone", "notfound")
+
+            val row = dao.byUri(ACCOUNT, "at://post/gone")
+            assertEquals("notfound", row?.unavailable)
+            assertNull(row?.postBlob)
+            assertNull(row?.text)
+            assertNull(row?.cid)
+        }
+
+    @Test
+    fun markUnavailable_touchesOnlyThatPostOfThatAccount() =
+        runTest {
+            dao.upsert(
+                listOf(
+                    cached("at://post/gone"),
+                    cached("at://post/kept"),
+                    cached("at://post/gone", account = "did:other"),
+                ),
+            )
+
+            dao.markUnavailable(ACCOUNT, "at://post/gone", "notfound")
+
+            assertNull(dao.byUri(ACCOUNT, "at://post/kept")?.unavailable)
+            assertNull(dao.byUri("did:other", "at://post/gone")?.unavailable)
+        }
+
+    @Test
+    fun markUnavailable_onAnUnknownPostStoresNothing() =
+        runTest {
+            dao.markUnavailable(ACCOUNT, "at://post/never-seen", "notfound")
+
+            assertEquals(0, dao.countForAccount(ACCOUNT))
+        }
+
+    @Test
+    fun deleteEntriesFor_removesEveryEntryOfThePostInEveryPartition() =
+        runTest {
+            dao.upsert(listOf(cached("at://post/gone"), cached("at://post/kept")))
+            val otherFeed = "at://feed/other"
+            feedDao.upsert(
+                listOf(
+                    entry(position = 0, postUri = "at://post/gone"),
+                    // A repost is a second entry for the same post.
+                    entry(position = 1, postUri = "at://post/gone"),
+                    entry(position = 2, postUri = "at://post/kept"),
+                    entry(position = 0, postUri = "at://post/gone").copy(feedUri = otherFeed),
+                    entry(position = 0, postUri = "at://post/gone", account = "did:other"),
+                ),
+            )
+
+            feedDao.deleteEntriesFor(ACCOUNT, "at://post/gone")
+
+            assertEquals(listOf("at://post/kept"), feedDao.entriesIn(ACCOUNT, TYPE, FEED_URI).map { it.uri })
+            assertEquals(emptyList<String>(), feedDao.entriesIn(ACCOUNT, TYPE, otherFeed).map { it.uri })
+            assertEquals(1, feedDao.entriesIn("did:other", TYPE, FEED_URI).size)
+        }
+
     private companion object {
         const val ACCOUNT = "did:me"
         const val TYPE = "FOLLOWING"

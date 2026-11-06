@@ -159,6 +159,21 @@ internal class FeedProjectionMappersTest {
     }
 
     @Test
+    fun `a chain drops a post deleted out of its middle`() {
+        // A deleted post stays in the store as a tombstone, so the member row
+        // still resolves — to something unreadable, which must not render.
+        val uris = listOf("at://c1", "at://c2", "at://c3")
+        val result =
+            rehydrate(
+                item("chain", "at://c3", uris),
+                listOf(storedPost("at://c1"), tombstone("at://c2", UNAVAILABLE_NOT_FOUND, author = null), storedPost("at://c3")),
+            )
+
+        val chain = assertInstanceOf(FeedItemUi.SelfThreadChain::class.java, result)
+        assertEquals(listOf("at://c1", "at://c3"), chain.posts.map { it.id })
+    }
+
+    @Test
     fun `a chain reduced to one readable post becomes a Single`() {
         // Moderation or a missing row can thin a chain. A one-link chain is not
         // a chain, and rendering it as one would draw thread connectors around

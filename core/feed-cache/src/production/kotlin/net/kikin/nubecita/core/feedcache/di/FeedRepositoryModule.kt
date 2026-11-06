@@ -4,8 +4,11 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.feedcache.DefaultFeedRepository
+import net.kikin.nubecita.core.feedcache.FeedCachePostRemover
 import net.kikin.nubecita.core.feedcache.FeedRepository
+import net.kikin.nubecita.core.postinteractions.PostDeletionListener
 import javax.inject.Singleton
 
 /**
@@ -25,4 +28,8 @@ abstract class FeedRepositoryModule {
     @Binds
     @Singleton
     internal abstract fun bindFeedRepository(impl: DefaultFeedRepository): FeedRepository
+
+    @Binds
+    @IntoSet
+    internal abstract fun bindFeedCachePostRemover(impl: FeedCachePostRemover): PostDeletionListener
 }

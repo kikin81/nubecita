@@ -215,6 +215,18 @@ interface FeedPostDao {
         from: Int,
     ): Int?
 
+    /**
+     * Removes every entry showing [uri], in every partition of the account.
+     *
+     * Every partition, because a post can sit in several feeds at once, and
+     * every entry within one, because each repost of a post is its own entry.
+     */
+    @Query("DELETE FROM feed_post WHERE account_did = :accountDid AND uri = :uri")
+    suspend fun deleteEntriesFor(
+        accountDid: String,
+        uri: String,
+    )
+
     @Query("DELETE FROM feed_post WHERE account_did = :accountDid")
     suspend fun clearAccount(accountDid: String)
 }
