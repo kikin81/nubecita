@@ -133,7 +133,7 @@ internal class DefaultChatRepository
                     moved = current?.firstOrNull { it.convoId == convoId }
                     patchConvosOnLeave(current, convoId)
                 }
-                moved?.let { convo -> convosCache.update { patchConvosPrepend(it, convo) } }
+                moved?.let { convo -> convosCache.update { patchConvosPrepend(it, convo.asAccepted()) } }
             }
 
         override suspend fun setMuted(
