@@ -36,6 +36,7 @@ import net.kikin.nubecita.feature.postdetail.api.PostDeepLinkKey
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.EditProfile
 import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.profile.api.ProfileConnections
 import net.kikin.nubecita.feature.search.api.Hashtag
 import net.kikin.nubecita.feature.search.api.Search
 import net.kikin.nubecita.feature.settings.api.About
@@ -101,6 +102,7 @@ internal fun NavKey.toAnalyticsScreenOrNull(): AnalyticsScreen? =
         is PostDetailRoute -> AnalyticsScreen.PostDetail
         is ComposerRoute -> AnalyticsScreen.Composer
         is EditProfile -> AnalyticsScreen.EditProfile
+        is ProfileConnections -> AnalyticsScreen.ProfileConnections
         Settings -> AnalyticsScreen.Settings
         Bookmarks -> AnalyticsScreen.Bookmarks
         is Chat -> AnalyticsScreen.ChatThread

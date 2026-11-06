@@ -34,6 +34,8 @@ import net.kikin.nubecita.feature.postdetail.api.PostDeepLinkKey
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.EditProfile
 import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.profile.api.ProfileConnections
+import net.kikin.nubecita.feature.profile.api.ProfileConnectionsTab
 import net.kikin.nubecita.feature.search.api.Hashtag
 import net.kikin.nubecita.feature.search.api.Search
 import net.kikin.nubecita.feature.settings.api.About
@@ -85,6 +87,13 @@ class NavKeyAnalyticsTest {
             PostDetailRoute(postUri = "at://x") to AnalyticsScreen.PostDetail,
             ComposerRoute() to AnalyticsScreen.Composer,
             EditProfile() to AnalyticsScreen.EditProfile,
+            ProfileConnections(
+                actor = "did:plc:x",
+                initialTab = ProfileConnectionsTab.Followers,
+                title = "Alice",
+                followersCount = 1,
+                followsCount = 2,
+            ) to AnalyticsScreen.ProfileConnections,
             Settings to AnalyticsScreen.Settings,
             Bookmarks to AnalyticsScreen.Bookmarks,
             Chat(otherUserDid = "did:plc:x") to AnalyticsScreen.ChatThread,
