@@ -278,7 +278,12 @@ private fun LanguageSelectionDialog(
     onConfirm: (List<String>) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var draft by remember(initialSelection) { mutableStateOf(initialSelection.toList()) }
+    // Held as the ImmutableList the picker wants, not a List converted on each
+    // pass: the picker recomposes on every keystroke in its search field, and
+    // converting there allocated a fresh persistent list per keystroke to say
+    // the same thing. Toggling is the only time the selection actually
+    // changes, so that is the only time it needs rebuilding.
+    var draft by remember(initialSelection) { mutableStateOf(initialSelection) }
     val deviceLocaleTag = LocalLocale.current.platformLocale.toLanguageTag()
     Dialog(onDismissRequest = onDismiss) {
         Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surface) {
@@ -290,9 +295,11 @@ private fun LanguageSelectionDialog(
                 )
                 NubecitaLanguagePicker(
                     allTags = available,
-                    draftSelection = draft.toImmutableList(),
+                    draftSelection = draft,
                     deviceLocaleTag = deviceLocaleTag,
-                    onToggle = { tag -> draft = if (tag in draft) draft - tag else draft + tag },
+                    onToggle = { tag ->
+                        draft = (if (tag in draft) draft - tag else draft + tag).toImmutableList()
+                    },
                     onConfirm = onConfirm,
                     onDismiss = onDismiss,
                     // No cap here: a reader may translate as many languages as
