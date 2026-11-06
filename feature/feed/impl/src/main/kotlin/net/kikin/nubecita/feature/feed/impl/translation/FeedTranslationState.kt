@@ -6,8 +6,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -45,6 +47,16 @@ class FeedTranslationState(
     private val inFlight = mutableSetOf<String>()
 
     /**
+     * The language the reader is currently being offered as automatic, if any.
+     *
+     * Snapshot state rather than a field on `PostUi`: the offer belongs to the
+     * screen, not to the post that happened to trigger it, and it outlives
+     * that post scrolling away.
+     */
+    var autoOffer: String? by mutableStateOf(null)
+        private set
+
+    /**
      * Posts whose resolution threw.
      *
      * Not a retry list — the opposite. Without it a post that fails for a
@@ -79,7 +91,28 @@ class FeedTranslationState(
     /** The reader tapped the chip on [post]. */
     fun translate(post: PostUi) {
         showOriginal[post.id] = false
-        request(post, userInitiated = true)
+        scope.launch {
+            val source = request(post, userInitiated = true).await() ?: return@launch
+            // Only after the translation actually landed. Offering to do this
+            // automatically for every post in a language, before the reader
+            // has seen what one translation looks like, asks them to commit
+            // to something they cannot yet judge.
+            if (coordinator.shouldOfferAuto(source)) autoOffer = source
+        }
+    }
+
+    /** The reader accepted the automatic-translation offer. */
+    fun acceptAutoOffer() {
+        val source = autoOffer ?: return
+        autoOffer = null
+        scope.launch { coordinator.acceptAuto(source) }
+    }
+
+    /** The reader dismissed the offer. */
+    fun declineAutoOffer() {
+        val source = autoOffer ?: return
+        autoOffer = null
+        scope.launch { coordinator.declineAuto(source) }
     }
 
     /**

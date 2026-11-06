@@ -113,4 +113,8 @@
     <string name="feed_seam_capped">There is more here than we keep</string>
     <!-- Button on the seam row: discard the stored timeline and start again at the newest post. -->
     <string name="feed_seam_jump_to_newest">Jump to newest</string>
+    <string name="feed_auto_translate_offer_title">Translate %1$s automatically?</string>
+    <string name="feed_auto_translate_offer_body">New posts in %1$s will be translated when you stop scrolling. The language pack downloads over Wi-Fi only.</string>
+    <string name="feed_auto_translate_offer_accept">Translate automatically</string>
+    <string name="feed_auto_translate_offer_decline">Not now</string>
 </resources>

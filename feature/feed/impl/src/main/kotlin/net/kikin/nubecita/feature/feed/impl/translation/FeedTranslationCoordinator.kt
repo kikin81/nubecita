@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.feed.impl.translation
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.first
 import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.TranslateAutoOptIn
 import net.kikin.nubecita.core.analytics.TranslateBatch
 import net.kikin.nubecita.core.analytics.TranslateError
 import net.kikin.nubecita.core.analytics.TranslatePost
@@ -135,6 +136,46 @@ class FeedTranslationCoordinator
                     facets = restored.facets.toImmutableList(),
                 ),
             )
+        }
+
+        /**
+         * Whether to offer [source] as an automatic language after a tap.
+         *
+         * Offered once per language and never again, accepted or not: the
+         * prompt follows a translate tap, so a reader who reads one Japanese
+         * post a week would otherwise face the same question every week.
+         *
+         * Deliberately not gated on the master switch being on. The offer is
+         * how a reader discovers automatic translation exists, and accepting
+         * turns the switch on — gating it would mean only readers who already
+         * found the setting could ever be told about it.
+         */
+        suspend fun shouldOfferAuto(source: String): Boolean {
+            if (source in preferences.autoTranslateLanguages.first()) return false
+            return source !in preferences.autoTranslateOffered.first()
+        }
+
+        /**
+         * The reader accepted automatic translation for [source].
+         *
+         * Enables the master switch alongside adding the language, because
+         * the switch is what the automatic pass actually gates on and a
+         * reader who just said yes would otherwise see nothing change.
+         */
+        suspend fun acceptAuto(source: String) {
+            preferences.setAutoTranslateLanguages(preferences.autoTranslateLanguages.first() + source)
+            preferences.setAutoTranslateEnabled(true)
+            rememberOffered(source)
+            analytics.log(TranslateAutoOptIn(source))
+        }
+
+        /** The reader declined; remember so the offer is not repeated. */
+        suspend fun declineAuto(source: String) {
+            rememberOffered(source)
+        }
+
+        private suspend fun rememberOffered(source: String) {
+            preferences.setAutoTranslateOffered(preferences.autoTranslateOffered.first() + source)
         }
 
         /**

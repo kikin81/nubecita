@@ -72,12 +72,32 @@ Wherever translated text is displayed, the UI SHALL show the source language and
 - **WHEN** the reader taps "Show original", scrolls away and scrolls back
 - **THEN** that post still shows the original
 
-### Requirement: Accepting a language states its cost and needs one prompt
-Tapping the chip SHALL translate that post and offer the language as automatic in a single prompt that states the download size. Accepting SHALL add the language to the auto-translate list and enable the master toggle.
+### Requirement: Accepting a language needs one prompt
+Tapping the chip SHALL translate that post and offer the language as automatic in a single prompt. Accepting SHALL add the language to the auto-translate list and enable the master toggle.
 
-#### Scenario: Size is stated before any download
+#### Scenario: One tap translates and offers
+- **WHEN** the reader taps the translate chip on a post in a language not yet automatic
+- **THEN** the post is translated and a single prompt offers the language as automatic
+
+#### Scenario: Accepting enables automatic translation outright
+- **WHEN** the reader accepts
+- **THEN** the language joins the auto-translate list and the master toggle turns on
+
+### Requirement: The prompt states how the pack downloads, not its size
+The prompt SHALL name the Wi-Fi requirement and SHALL NOT quote a download size.
+
+No size exists to quote: the pack is absent when the offer is made, sizes are measured by reading the downloaded model directory, and the SDK exposes none beforehand. A hardcoded figure would drift as the packs change.
+
+#### Scenario: How the pack downloads is stated before any download
 - **WHEN** the reader is offered automatic translation for a language that is not downloaded
-- **THEN** the prompt names the size and the Wi-Fi requirement before anything is downloaded
+- **THEN** the prompt names the Wi-Fi requirement and no size
+
+### Requirement: A language is offered at most once
+The offer SHALL be made once per language, whether it was accepted or declined. It follows a translate tap, so repeating it would ask the same question every time that language is translated.
+
+#### Scenario: A declined language is not offered again
+- **WHEN** the reader declines the offer for a language and later translates another post in it
+- **THEN** no prompt appears
 
 #### Scenario: Accepting on cellular is not silently dropped
 - **WHEN** the reader accepts while on a metered connection

@@ -213,6 +213,7 @@ internal class TranslationViewModelTest {
         val enabled = MutableStateFlow(initialEnabled)
         val auto = MutableStateFlow(initialAuto)
         val never = MutableStateFlow(initialNever)
+        val offered = MutableStateFlow(emptySet<String>())
         var writes: Int = 0
             private set
 
@@ -235,6 +236,12 @@ internal class TranslationViewModelTest {
         override suspend fun setNeverTranslateLanguages(languages: Set<String>) {
             record()
             this.never.value = languages
+        }
+
+        override val autoTranslateOffered: Flow<Set<String>> = offered.asStateFlow()
+
+        override suspend fun setAutoTranslateOffered(languages: Set<String>) {
+            offered.value = languages
         }
 
         private fun record() {

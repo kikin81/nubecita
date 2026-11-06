@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -35,6 +36,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
@@ -55,6 +57,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -103,6 +106,7 @@ import net.kikin.nubecita.feature.feed.impl.ui.rememberFeedInteractions
 import net.kikin.nubecita.feature.feed.impl.video.FeedVideoPlayerCoordinator
 import net.kikin.nubecita.feature.feeds.api.Feeds
 import net.kikin.nubecita.feature.videos.api.VideoFeed
+import java.util.Locale
 import kotlin.math.roundToInt
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -340,6 +344,17 @@ internal fun FeedScreen(
             coordinator = viewModel.translationCoordinator,
             scope = translationScope,
         )
+
+    // Hosted here rather than inside the list: the offer belongs to the
+    // screen, and a dialog anchored to a post would vanish the moment that
+    // post scrolled out of the composition.
+    translations?.autoOffer?.let { source ->
+        AutoTranslateOfferDialog(
+            sourceLanguage = source,
+            onAccept = translations::acceptAutoOffer,
+            onDecline = translations::declineAutoOffer,
+        )
+    }
 
     FeedScreenContent(
         viewState = viewState,
@@ -920,3 +935,40 @@ private fun previewFeedItems(): ImmutableList<FeedItemUi> =
         FeedItemUi.Single(post = previewPost("4", text = "Preview post 4 — back to a standalone entry.")),
         FeedItemUi.Single(post = previewPost("5", text = "Preview post 5 — closing out the fixture.")),
     )
+
+/**
+ * Offers to translate a whole language automatically, after the reader has
+ * translated one post in it by hand.
+ *
+ * No download size. The pack is not on disk when this is asked — that is the
+ * point of asking — and nothing can measure one that is not there, so the
+ * copy says how it downloads rather than quoting a number that would have to
+ * be invented and would drift as the packs change.
+ */
+@Composable
+private fun AutoTranslateOfferDialog(
+    sourceLanguage: String,
+    onAccept: () -> Unit,
+    onDecline: () -> Unit,
+) {
+    val locale = LocalLocale.current.platformLocale
+    val language =
+        remember(sourceLanguage, locale) {
+            Locale.forLanguageTag(sourceLanguage).getDisplayLanguage(locale).ifBlank { sourceLanguage }
+        }
+    AlertDialog(
+        onDismissRequest = onDecline,
+        title = { Text(stringResource(R.string.feed_auto_translate_offer_title, language)) },
+        text = { Text(stringResource(R.string.feed_auto_translate_offer_body, language)) },
+        confirmButton = {
+            TextButton(onClick = onAccept) {
+                Text(stringResource(R.string.feed_auto_translate_offer_accept))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDecline) {
+                Text(stringResource(R.string.feed_auto_translate_offer_decline))
+            }
+        },
+    )
+}

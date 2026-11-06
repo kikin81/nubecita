@@ -48,6 +48,13 @@ internal class DefaultTranslationPreferences
             setLanguageSet(Keys.NEVER_TRANSLATE_LANGUAGES, languages)
         }
 
+        override val autoTranslateOffered: Flow<Set<String>> =
+            languageSet(Keys.AUTO_TRANSLATE_OFFERED, label = "autoTranslateOffered")
+
+        override suspend fun setAutoTranslateOffered(languages: Set<String>) {
+            setLanguageSet(Keys.AUTO_TRANSLATE_OFFERED, languages)
+        }
+
         /**
          * A stored language set, normalized on the way out.
          *
@@ -83,5 +90,6 @@ internal class DefaultTranslationPreferences
             val AUTO_TRANSLATE_ENABLED = booleanPreferencesKey("auto_translate_enabled")
             val AUTO_TRANSLATE_LANGUAGES = stringSetPreferencesKey("auto_translate_languages")
             val NEVER_TRANSLATE_LANGUAGES = stringSetPreferencesKey("never_translate_languages")
+            val AUTO_TRANSLATE_OFFERED = stringSetPreferencesKey("auto_translate_offered")
         }
     }
