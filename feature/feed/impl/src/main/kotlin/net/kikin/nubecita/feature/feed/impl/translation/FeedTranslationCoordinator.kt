@@ -69,7 +69,19 @@ class FeedTranslationCoordinator
                 return
             }
 
-            val ready = models.isDownloaded(source)
+            // Both ends need a pack, except English: ML Kit pivots every pair
+            // through it, so it has none of its own and reads as present once
+            // any pack is. Checking only the post's language passed that check
+            // for a Spanish reader and then failed with "model files not
+            // found", for every reader whose language isn't English.
+            // Normalized because identification can return a region or script
+            // ("ja-JP"), while packs and their states are keyed on the bare tag.
+            val packs =
+                listOf(source, target)
+                    .mapNotNull(LanguageTags::normalize)
+                    .distinct()
+                    .filterNot { it == PIVOT_LANGUAGE }
+            val ready = packs.all { models.isDownloaded(it) }
             // Logged here, before any pack is fetched. `request` suspends for
             // the whole transfer — minutes for a 62MB pack — so logging after
             // it lost the tap entirely for a reader who backed out while the
@@ -80,16 +92,17 @@ class FeedTranslationCoordinator
             logTap(
                 userInitiated,
                 source,
+                target,
                 if (ready) TranslationModelReadiness.Ready else TranslationModelReadiness.NeedsDownload,
             )
             if (!ready) {
-                models.request(source)
-                val state = models.states.first()[source]
-                if (state is TranslationModelState.WaitingForUnmeteredNetwork) {
+                packs.forEach { models.request(it) }
+                val states = models.states.first()
+                if (packs.any { states[it] is TranslationModelState.WaitingForUnmeteredNetwork }) {
                     // Not an error and not silence. A 62MB download is not ours
                     // to start on someone's cellular plan, and a chip that does
                     // nothing when tapped reads as a broken feature.
-                    analytics.log(TranslationModelDownload(TranslationDownloadOutcome.DeferredWifi, source))
+                    analytics.log(TranslationModelDownload(TranslationDownloadOutcome.DeferredWifi, source, target))
                     emit(PostTranslationUi.WaitingForWifi(source))
                     return
                 }
@@ -97,13 +110,13 @@ class FeedTranslationCoordinator
                 // repository so that :core:translation stays free of an
                 // analytics dependency — the seam the design doc asks for.
                 // Everything needed is already observable from this side.
-                if (!models.isDownloaded(source)) {
-                    analytics.log(TranslationModelDownload(TranslationDownloadOutcome.Failed, source))
-                    analytics.log(TranslateError(TranslationErrorReason.ModelUnavailable, source))
+                if (!packs.all { models.isDownloaded(it) }) {
+                    analytics.log(TranslationModelDownload(TranslationDownloadOutcome.Failed, source, target))
+                    analytics.log(TranslateError(TranslationErrorReason.ModelUnavailable, source, target))
                     emit(PostTranslationUi.Offered(source))
                     return
                 }
-                analytics.log(TranslationModelDownload(TranslationDownloadOutcome.Completed, source))
+                analytics.log(TranslationModelDownload(TranslationDownloadOutcome.Completed, source, target))
             }
 
             emit(PostTranslationUi.InProgress(source))
@@ -115,7 +128,7 @@ class FeedTranslationCoordinator
                         // Showing the original is always a correct thing to
                         // show, so a failure falls back to the offer rather
                         // than to an error state.
-                        analytics.log(TranslateError(TranslationErrorReason.TranslateFailed, source))
+                        analytics.log(TranslateError(TranslationErrorReason.TranslateFailed, source, target))
                         emit(PostTranslationUi.Offered(source))
                         return
                     }
@@ -123,7 +136,7 @@ class FeedTranslationCoordinator
                 // The engine returned, so nothing threw, but there is nothing
                 // to show. Indistinguishable from success on device: the body
                 // would simply go empty.
-                analytics.log(TranslateError(TranslationErrorReason.EmptyResult, source))
+                analytics.log(TranslateError(TranslationErrorReason.EmptyResult, source, target))
                 emit(PostTranslationUi.Offered(source))
                 return
             }
@@ -190,9 +203,10 @@ class FeedTranslationCoordinator
         private fun logTap(
             userInitiated: Boolean,
             source: String,
+            target: String,
             readiness: TranslationModelReadiness,
         ) {
-            if (userInitiated) analytics.log(TranslatePost(source, readiness))
+            if (userInitiated) analytics.log(TranslatePost(source, readiness, target))
         }
 
         /**
@@ -212,7 +226,7 @@ class FeedTranslationCoordinator
          * than an absent parameter.
          */
         fun logUnexpectedFailure() {
-            analytics.log(TranslateError(TranslationErrorReason.Unexpected, "unknown"))
+            analytics.log(TranslateError(TranslationErrorReason.Unexpected, "unknown", "unknown"))
         }
 
         /**
@@ -261,5 +275,10 @@ class FeedTranslationCoordinator
             val identified = identifier.identify(post.text) ?: return null
             if (LanguageTags.matchesAny(identified, readerLanguages)) return null
             return identified
+        }
+
+        private companion object {
+            /** The language ML Kit translates every pair through. */
+            const val PIVOT_LANGUAGE = "en"
         }
     }

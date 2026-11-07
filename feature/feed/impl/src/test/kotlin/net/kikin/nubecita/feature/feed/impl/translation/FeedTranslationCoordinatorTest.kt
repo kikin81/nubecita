@@ -199,7 +199,7 @@ internal class FeedTranslationCoordinatorTest {
             resolve(post(langs = listOf("ja")), auto = setOf("ja"), downloaded = setOf("ja"), analytics = automatic)
 
             assertEquals(
-                listOf(TranslatePost("ja", TranslationModelReadiness.Ready)),
+                listOf(TranslatePost("ja", TranslationModelReadiness.Ready, "en")),
                 tapped.events.filterIsInstance<TranslatePost>(),
             )
             assertTrue(automatic.events.filterIsInstance<TranslatePost>().isEmpty())
@@ -213,8 +213,8 @@ internal class FeedTranslationCoordinatorTest {
 
             assertEquals(
                 listOf(
-                    TranslatePost("ja", TranslationModelReadiness.NeedsDownload),
-                    TranslationModelDownload(TranslationDownloadOutcome.DeferredWifi, "ja"),
+                    TranslatePost("ja", TranslationModelReadiness.NeedsDownload, "en"),
+                    TranslationModelDownload(TranslationDownloadOutcome.DeferredWifi, "ja", "en"),
                 ),
                 analytics.events,
             )
@@ -266,7 +266,7 @@ internal class FeedTranslationCoordinatorTest {
             // The reader has tapped and the pack is mid-transfer. Logging the
             // tap after `request` returned lost this entirely whenever they
             // backed out before it finished.
-            assertEquals(listOf(TranslatePost("ja", TranslationModelReadiness.NeedsDownload)), analytics.events)
+            assertEquals(listOf(TranslatePost("ja", TranslationModelReadiness.NeedsDownload, "en")), analytics.events)
             job.cancel()
         }
 
@@ -281,9 +281,9 @@ internal class FeedTranslationCoordinatorTest {
 
             assertEquals(
                 listOf(
-                    TranslatePost("ja", TranslationModelReadiness.NeedsDownload),
-                    TranslationModelDownload(TranslationDownloadOutcome.Failed, "ja"),
-                    TranslateError(TranslationErrorReason.ModelUnavailable, "ja"),
+                    TranslatePost("ja", TranslationModelReadiness.NeedsDownload, "en"),
+                    TranslationModelDownload(TranslationDownloadOutcome.Failed, "ja", "en"),
+                    TranslateError(TranslationErrorReason.ModelUnavailable, "ja", "en"),
                 ),
                 analytics.events,
             )
@@ -306,7 +306,7 @@ internal class FeedTranslationCoordinatorTest {
             )
 
             assertEquals(
-                listOf(TranslateError(TranslationErrorReason.TranslateFailed, "ja")),
+                listOf(TranslateError(TranslationErrorReason.TranslateFailed, "ja", "en")),
                 analytics.events.filterIsInstance<TranslateError>(),
             )
         }
@@ -331,10 +331,132 @@ internal class FeedTranslationCoordinatorTest {
                 )
 
             assertEquals(
-                listOf(TranslateError(TranslationErrorReason.EmptyResult, "ja")),
+                listOf(TranslateError(TranslationErrorReason.EmptyResult, "ja", "en")),
                 analytics.events.filterIsInstance<TranslateError>(),
             )
             assertEquals(PostTranslationUi.Offered("ja"), states.last())
+        }
+
+    /**
+     * Miguel's bug: English is ML Kit's pivot, so it reads as present the moment
+     * any pack is, and the tap went ahead without the reader's own pack.
+     */
+    @Test
+    fun `a Spanish reader's pack is fetched for an English post`() =
+        runTest {
+            val requested = mutableListOf<String>()
+            val states =
+                resolve(
+                    post(langs = listOf("en")),
+                    reader = listOf("es"),
+                    target = "es",
+                    userInitiated = true,
+                    downloadsLand = true,
+                    requested = requested,
+                )
+
+            assertEquals(listOf("es"), requested)
+            assertTrue(states.last() is PostTranslationUi.Shown)
+        }
+
+    @Test
+    fun `a pack for the post alone isn't ready for a reader of another language`() =
+        runTest {
+            val analytics = RecordingAnalyticsClient()
+            resolve(
+                post(langs = listOf("ja")),
+                reader = listOf("es"),
+                target = "es",
+                downloaded = setOf("ja"),
+                userInitiated = true,
+                analytics = analytics,
+            )
+
+            val tap = analytics.events.filterIsInstance<TranslatePost>().single()
+            assertEquals(TranslationModelReadiness.NeedsDownload, tap.modelState)
+        }
+
+    @Test
+    fun `English needs no pack of its own`() =
+        runTest {
+            val requested = mutableListOf<String>()
+            val states =
+                resolve(
+                    post(langs = listOf("ja")),
+                    downloaded = setOf("ja"),
+                    userInitiated = true,
+                    requested = requested,
+                )
+
+            assertTrue(requested.isEmpty())
+            assertTrue(states.last() is PostTranslationUi.Shown)
+        }
+
+    @Test
+    fun `a reader's pack waiting for Wi-Fi parks the post there`() =
+        runTest {
+            val states =
+                resolve(
+                    post(langs = listOf("ja")),
+                    reader = listOf("es"),
+                    target = "es",
+                    downloaded = setOf("ja"),
+                    metered = true,
+                    userInitiated = true,
+                )
+
+            assertTrue(states.last() is PostTranslationUi.WaitingForWifi)
+        }
+
+    /** Identification can return a region or script; packs and their states are keyed on the bare language. */
+    @Test
+    fun `an identified tag with a region asks for the bare language's pack`() =
+        runTest {
+            val requested = mutableListOf<String>()
+            resolve(
+                post(langs = emptyList()),
+                identifier = mockk { coEvery { identify(any()) } returns "ja-JP" },
+                userInitiated = true,
+                requested = requested,
+            )
+
+            assertEquals(listOf("ja"), requested)
+        }
+
+    /** Without it, a failure for one reader's language looks like everyone's. */
+    @Test
+    fun `the events carry the reader's language`() =
+        runTest {
+            val analytics = RecordingAnalyticsClient()
+            resolve(
+                post(langs = listOf("en")),
+                reader = listOf("es"),
+                target = "es",
+                userInitiated = true,
+                analytics = analytics,
+            )
+
+            assertEquals(
+                "es",
+                analytics.events
+                    .filterIsInstance<TranslatePost>()
+                    .single()
+                    .targetLanguage,
+            )
+            assertEquals(
+                "es",
+                analytics.events
+                    .filterIsInstance<TranslationModelDownload>()
+                    .single()
+                    .targetLanguage,
+            )
+            assertEquals(
+                "es",
+                analytics.events
+                    .filterIsInstance<TranslateError>()
+                    .single()
+                    .targetLanguage,
+            )
         }
 
     @Test
@@ -357,6 +479,8 @@ internal class FeedTranslationCoordinatorTest {
         downloaded: Set<String> = emptySet(),
         metered: Boolean = false,
         userInitiated: Boolean = false,
+        downloadsLand: Boolean = false,
+        requested: MutableList<String> = mutableListOf(),
         analytics: RecordingAnalyticsClient = RecordingAnalyticsClient(),
         identifier: LanguageIdentifier = mockk { coEvery { identify(any()) } returns null },
         engine: TranslationEngine =
@@ -367,11 +491,16 @@ internal class FeedTranslationCoordinatorTest {
     ): List<PostTranslationUi> {
         val models =
             mockk<TranslationModelRepository>(relaxed = true) {
-                coEvery { isDownloaded(any()) } answers { firstArg<String>() in downloaded }
+                val onDisk = downloaded.toMutableSet()
+                coEvery { isDownloaded(any()) } answers { firstArg<String>() in onDisk }
+                coEvery { request(any()) } answers {
+                    requested += firstArg<String>()
+                    if (downloadsLand) onDisk += firstArg<String>()
+                }
                 every { states } returns
                     flowOf(
                         if (metered) {
-                            mapOf("ja" to TranslationModelState.WaitingForUnmeteredNetwork)
+                            listOf("ja", target).associateWith { TranslationModelState.WaitingForUnmeteredNetwork }
                         } else {
                             emptyMap()
                         },

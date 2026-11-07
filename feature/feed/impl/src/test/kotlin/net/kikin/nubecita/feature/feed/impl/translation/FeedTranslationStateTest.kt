@@ -133,7 +133,7 @@ class FeedTranslationStateTest {
             // device says so, and translate_post never fires either — so the
             // dashboard reads a broken feature as an unused one.
             assertEquals(
-                listOf(TranslateError(TranslationErrorReason.Unexpected, "unknown")),
+                listOf(TranslateError(TranslationErrorReason.Unexpected, "unknown", "unknown")),
                 analytics.events,
             )
         }
