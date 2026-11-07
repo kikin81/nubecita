@@ -16,6 +16,7 @@ dependencies {
     // Single-post read surface (full PostUi: video embed + author/stats/viewer);
     // replaces the module-local getPosts resolver (nubecita-6rdb.2).
     implementation(project(":core:posts"))
+    implementation(project(":core:review"))
     implementation(project(":core:video"))
     implementation(project(":data:models"))
     implementation(project(":designsystem"))

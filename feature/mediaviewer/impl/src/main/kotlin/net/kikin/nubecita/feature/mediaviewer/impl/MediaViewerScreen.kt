@@ -3,6 +3,7 @@
 package net.kikin.nubecita.feature.mediaviewer.impl
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -62,6 +63,7 @@ import kotlinx.coroutines.launch
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import me.saket.telephoto.zoomable.rememberZoomableState
+import net.kikin.nubecita.core.analytics.ReviewTrigger
 import net.kikin.nubecita.core.common.navigation.LocalGalleryStateSync
 import net.kikin.nubecita.core.common.navigation.SharedImageCorners
 import net.kikin.nubecita.core.common.navigation.SharedImageSurfaces
@@ -71,6 +73,7 @@ import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsEffect
 import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsEvent
 import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsSheetContent
 import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsViewModel
+import net.kikin.nubecita.core.review.requestReviewIfEligible
 import net.kikin.nubecita.designsystem.adaptive.PostCommentsSheetScaffold
 import net.kikin.nubecita.designsystem.component.NubecitaOverlayIconButton
 import net.kikin.nubecita.designsystem.component.NubecitaOverlayPill
@@ -105,6 +108,8 @@ internal fun MediaViewerScreen(
     val currentOnNavigate by rememberUpdatedState(onNavigate)
     val currentOnDismiss by rememberUpdatedState(onDismiss)
     val currentOnOpenInMainShell by rememberUpdatedState(onOpenInMainShell)
+    val reviewActivity = LocalActivity.current
+    val currentState by rememberUpdatedState(state)
 
     val onRetry = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.Retry) } }
     val onDismissRequest = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnDismissRequest) } }
@@ -133,7 +138,14 @@ internal fun MediaViewerScreen(
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {
-                MediaViewerEffect.Dismiss -> currentOnDismiss()
+                MediaViewerEffect.Dismiss -> {
+                    // Closing after looking at a post's images is a natural
+                    // pause; closing an error or a still-loading viewer isn't.
+                    if (currentState.loadStatus is MediaViewerLoadStatus.Loaded) {
+                        reviewActivity?.requestReviewIfEligible(ReviewTrigger.MediaExit)
+                    }
+                    currentOnDismiss()
+                }
                 is MediaViewerEffect.OpenInMainShell -> currentOnOpenInMainShell(effect.route)
                 is MediaViewerEffect.ShowSaveOutcome ->
                     launch {

@@ -5,7 +5,14 @@ import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.AnalyticsEvent
+import net.kikin.nubecita.core.analytics.AnalyticsScreen
+import net.kikin.nubecita.core.analytics.ReviewRequested
+import net.kikin.nubecita.core.analytics.ReviewTrigger
+import net.kikin.nubecita.core.analytics.UserProperty
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
@@ -15,6 +22,79 @@ import kotlin.time.Instant
 internal class DefaultReviewManagerTest {
     private val now = Instant.parse("2026-06-23T12:00:00Z")
     private val activity = mockk<Activity>(relaxed = true)
+    private val analytics = RecordingAnalyticsClient()
+
+    private val reader =
+        ReviewState(
+            successfulPostCount = 0,
+            requestCount = 0,
+            lastRequestedAt = null,
+            activeDayCount = 5,
+            likeCount = 3,
+        )
+
+    @Test
+    fun `an eligible reader is asked at a positive moment`() =
+        runTest {
+            val prefs = FakeReviewPreferences(reader)
+            val client = FakeReviewClient()
+
+            manager(prefs, client).onPositiveMoment(activity, ReviewTrigger.Follow)
+
+            assertEquals(1, client.launchCalls)
+            assertEquals(1, prefs.recordCalls)
+        }
+
+    @Test
+    fun `a positive moment does nothing for someone not yet eligible`() =
+        runTest {
+            val prefs = FakeReviewPreferences(reader.copy(activeDayCount = 1))
+            val client = FakeReviewClient()
+
+            manager(prefs, client).onPositiveMoment(activity, ReviewTrigger.Share)
+
+            assertEquals(0, client.requestCalls)
+        }
+
+    /** The trigger is the whole point of the event: it says which moment earns reviews. */
+    @Test
+    fun `a request is logged with the moment that triggered it`() =
+        runTest {
+            manager(FakeReviewPreferences(reader), FakeReviewClient())
+                .onPositiveMoment(activity, ReviewTrigger.MediaExit)
+
+            assertEquals(listOf<AnalyticsEvent>(ReviewRequested(ReviewTrigger.MediaExit)), analytics.events)
+        }
+
+    @Test
+    fun `a post that earns a request is logged as the post trigger`() =
+        runTest {
+            manager(FakeReviewPreferences(eligible), FakeReviewClient()).onPostPublished(activity)
+
+            assertEquals(listOf<AnalyticsEvent>(ReviewRequested(ReviewTrigger.Post)), analytics.events)
+        }
+
+    @Test
+    fun `a failed request logs nothing`() =
+        runTest {
+            manager(FakeReviewPreferences(reader), FakeReviewClient(requestThrows = true))
+                .onPositiveMoment(activity, ReviewTrigger.Follow)
+
+            assertTrue(analytics.events.isEmpty())
+        }
+
+    @Test
+    fun `likes and active days reach the counters`() =
+        runTest {
+            val prefs = FakeReviewPreferences(reader.copy(activeDayCount = 0, likeCount = 0))
+            val manager = manager(prefs, FakeReviewClient())
+
+            manager.recordLike()
+            manager.recordActiveDay()
+
+            assertEquals(1, prefs.currentState().likeCount)
+            assertEquals(1, prefs.currentState().activeDayCount)
+        }
 
     private val eligible =
         ReviewState(
@@ -97,6 +177,7 @@ internal class DefaultReviewManagerTest {
         InstallTimeProvider { now - 10.days },
         fixedClock(now),
         UnconfinedTestDispatcher(),
+        analytics,
     )
 
     private fun fixedClock(instant: Instant) =
@@ -116,6 +197,14 @@ internal class DefaultReviewManagerTest {
         override suspend fun incrementPostCount() {
             incrementCalls++
             state = state.copy(successfulPostCount = state.successfulPostCount + 1)
+        }
+
+        override suspend fun recordActiveDay(epochDay: Long) {
+            state = state.copy(activeDayCount = state.activeDayCount + 1)
+        }
+
+        override suspend fun recordLike() {
+            state = state.copy(likeCount = state.likeCount + 1)
         }
 
         override suspend fun recordReviewRequested(now: Instant) {
@@ -145,5 +234,17 @@ internal class DefaultReviewManagerTest {
             launchCalls++
             if (launchThrows) error("launch failed")
         }
+    }
+
+    private class RecordingAnalyticsClient : AnalyticsClient {
+        val events = mutableListOf<AnalyticsEvent>()
+
+        override fun log(event: AnalyticsEvent) {
+            events += event
+        }
+
+        override fun setUserProperty(property: UserProperty) = Unit
+
+        override fun logScreen(screen: AnalyticsScreen) = Unit
     }
 }

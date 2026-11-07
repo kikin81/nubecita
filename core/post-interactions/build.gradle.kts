@@ -28,6 +28,7 @@ dependencies {
     implementation(project(":core:bookmarks"))
     implementation(project(":core:common"))
     implementation(project(":core:profile"))
+    implementation(project(":core:review"))
     implementation(project(":designsystem"))
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)

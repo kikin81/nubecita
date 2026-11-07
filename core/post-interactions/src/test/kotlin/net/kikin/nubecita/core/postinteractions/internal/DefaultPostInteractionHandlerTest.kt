@@ -2,6 +2,8 @@ package net.kikin.nubecita.core.postinteractions.internal
 
 import app.cash.turbine.test
 import io.github.kikin81.atproto.runtime.AtUri
+import io.mockk.coVerify
+import io.mockk.mockk
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -21,6 +23,7 @@ import net.kikin.nubecita.core.postinteractions.InteractionEffect
 import net.kikin.nubecita.core.postinteractions.InteractionNotice
 import net.kikin.nubecita.core.postinteractions.PostDeletionListener
 import net.kikin.nubecita.core.postinteractions.PostDeletionRepository
+import net.kikin.nubecita.core.review.ReviewManager
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.data.models.AuthorUi
@@ -48,6 +51,7 @@ internal class DefaultPostInteractionHandlerTest {
     private val fakeMuteRepo = FakeMuteRepositoryForHandler()
     private val fakeDeletionRepo = FakePostDeletionRepository()
     private val deletionListener = RecordingPostDeletionListener()
+    private val reviewManager = mockk<ReviewManager>(relaxed = true)
 
     private fun makeHandler(): DefaultPostInteractionHandler =
         DefaultPostInteractionHandler(
@@ -56,7 +60,23 @@ internal class DefaultPostInteractionHandlerTest {
             postDeletionRepository = fakeDeletionRepo,
             postDeletionListeners = setOf(deletionListener),
             analytics = analytics,
+            reviewManager = reviewManager,
         )
+
+    /** Likes are the reader path's proof of real use; an unlike must not count. */
+    @Test
+    fun `a like counts toward a review, an unlike doesn't`() =
+        runTest(mainDispatcher.dispatcher) {
+            val handler = makeHandler()
+            handler.bind(PostSurface.Feed, this)
+
+            handler.onLike(unlikedPost())
+            advanceUntilIdle()
+            handler.onLike(likedPost())
+            advanceUntilIdle()
+
+            coVerify(exactly = 1) { reviewManager.recordLike() }
+        }
 
     private fun unlikedPost(
         id: String = "at://did:plc:author/app.bsky.feed.post/post-1",

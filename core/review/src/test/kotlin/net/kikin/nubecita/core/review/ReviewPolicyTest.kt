@@ -54,4 +54,39 @@ class ReviewPolicyTest {
     fun `eligible once the cooldown has fully elapsed`() {
         assertTrue(isEligible(state = eligibleState().copy(requestCount = 1, lastRequestedAt = now - 90.days)))
     }
+
+    /** A reader who has never posted: the path that didn't exist before. */
+    private fun readerState() =
+        ReviewState(
+            successfulPostCount = 0,
+            requestCount = 0,
+            lastRequestedAt = null,
+            activeDayCount = 5,
+            likeCount = 3,
+        )
+
+    @Test
+    fun `a reader with enough active days and likes is eligible`() {
+        assertTrue(isEligible(state = readerState()))
+    }
+
+    @Test
+    fun `a reader below the active-day threshold is not eligible`() {
+        assertFalse(isEligible(state = readerState().copy(activeDayCount = 4)))
+    }
+
+    @Test
+    fun `a reader below the like threshold is not eligible`() {
+        assertFalse(isEligible(state = readerState().copy(likeCount = 2)))
+    }
+
+    @Test
+    fun `a reader still waits out the cooldown`() {
+        assertFalse(isEligible(state = readerState().copy(requestCount = 1, lastRequestedAt = now - 89.days)))
+    }
+
+    @Test
+    fun `a reader is still not asked in the new-user window`() {
+        assertFalse(isEligible(state = readerState(), firstInstallTime = now - 3.days + 1.seconds))
+    }
 }

@@ -43,11 +43,27 @@ internal class DefaultReviewPreferences
                 successfulPostCount = prefs[Keys.POST_COUNT] ?: 0,
                 requestCount = prefs[Keys.REQUEST_COUNT] ?: 0,
                 lastRequestedAt = prefs[Keys.LAST_REQUESTED_AT]?.let { Instant.fromEpochMilliseconds(it) },
+                activeDayCount = prefs[Keys.ACTIVE_DAY_COUNT] ?: 0,
+                lastActiveDay = prefs[Keys.LAST_ACTIVE_DAY],
+                likeCount = prefs[Keys.LIKE_COUNT] ?: 0,
             )
         }
 
         override suspend fun incrementPostCount() {
             dataStore.edit { prefs -> prefs[Keys.POST_COUNT] = (prefs[Keys.POST_COUNT] ?: 0) + 1 }
+        }
+
+        override suspend fun recordActiveDay(epochDay: Long) {
+            dataStore.edit { prefs ->
+                if (prefs[Keys.LAST_ACTIVE_DAY] != epochDay) {
+                    prefs[Keys.ACTIVE_DAY_COUNT] = (prefs[Keys.ACTIVE_DAY_COUNT] ?: 0) + 1
+                    prefs[Keys.LAST_ACTIVE_DAY] = epochDay
+                }
+            }
+        }
+
+        override suspend fun recordLike() {
+            dataStore.edit { prefs -> prefs[Keys.LIKE_COUNT] = (prefs[Keys.LIKE_COUNT] ?: 0) + 1 }
         }
 
         override suspend fun recordReviewRequested(now: Instant) {
@@ -61,5 +77,8 @@ internal class DefaultReviewPreferences
             val POST_COUNT = intPreferencesKey("review_successful_post_count")
             val REQUEST_COUNT = intPreferencesKey("review_request_count")
             val LAST_REQUESTED_AT = longPreferencesKey("review_last_requested_at")
+            val ACTIVE_DAY_COUNT = intPreferencesKey("review_active_day_count")
+            val LAST_ACTIVE_DAY = longPreferencesKey("review_last_active_day")
+            val LIKE_COUNT = intPreferencesKey("review_like_count")
         }
     }

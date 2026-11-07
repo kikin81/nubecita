@@ -262,6 +262,30 @@ internal class ProfileConnectionsViewModelTest {
         }
 
     @Test
+    fun `a committed follow here is a positive moment`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = vm()
+
+            vm.effects.test {
+                vm.handleEvent(ProfileConnectionsEvent.FollowTapped(row()))
+                advanceUntilIdle()
+                assertEquals(ProfileConnectionsEffect.FollowCommitted, awaitItem())
+            }
+        }
+
+    @Test
+    fun `an unfollow here is not a positive moment`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = vm()
+
+            vm.effects.test {
+                vm.handleEvent(ProfileConnectionsEvent.FollowTapped(row(followUri = URI)))
+                advanceUntilIdle()
+                expectNoEvents()
+            }
+        }
+
+    @Test
     fun `a follow made here reaches the shared store`() =
         runTest(mainDispatcher.dispatcher) {
             val vm = vm()

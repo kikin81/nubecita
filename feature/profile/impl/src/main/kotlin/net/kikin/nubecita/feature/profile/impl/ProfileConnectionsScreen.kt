@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.profile.impl
 
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,7 +46,9 @@ import androidx.paging.compose.itemKey
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.analytics.ReviewTrigger
 import net.kikin.nubecita.core.common.text.rememberCompactCount
+import net.kikin.nubecita.core.review.requestReviewIfEligible
 import net.kikin.nubecita.designsystem.component.NubecitaActorRow
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -70,6 +73,7 @@ internal fun ProfileConnectionsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val errorMessage = stringResource(R.string.profile_connections_follow_error)
     val currentOnNavigateToProfile by rememberUpdatedState(onNavigateToProfile)
+    val reviewActivity = LocalActivity.current
     LaunchedEffect(viewModel) {
         // showSnackbar suspends until dismissed, so awaiting it here would hold
         // a row tap queued behind the error for the snackbar's full duration.
@@ -77,6 +81,7 @@ internal fun ProfileConnectionsScreen(
         viewModel.effects.collect { effect ->
             when (effect) {
                 is ProfileConnectionsEffect.NavigateToProfile -> currentOnNavigateToProfile(effect.handle)
+                ProfileConnectionsEffect.FollowCommitted -> reviewActivity?.requestReviewIfEligible(ReviewTrigger.Follow)
                 ProfileConnectionsEffect.ShowError ->
                     effectScope.launch {
                         snackbarHostState.currentSnackbarData?.dismiss()

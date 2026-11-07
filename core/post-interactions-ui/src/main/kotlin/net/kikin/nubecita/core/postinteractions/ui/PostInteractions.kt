@@ -5,6 +5,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Build
+import androidx.activity.compose.LocalActivity
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -21,8 +22,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.net.toUri
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
+import net.kikin.nubecita.core.analytics.ReviewTrigger
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.postinteractions.InteractionEffect
 import net.kikin.nubecita.core.postinteractions.InteractionError
@@ -30,6 +33,7 @@ import net.kikin.nubecita.core.postinteractions.InteractionNotice
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostTapMarkers
 import net.kikin.nubecita.core.postinteractions.sharing.launchPostShare
+import net.kikin.nubecita.core.review.requestReviewIfEligible
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
@@ -198,6 +202,18 @@ fun rememberPostInteractions(
     // restarting the collector — same rationale as currentStrings above.
     val currentOnNavigate by rememberUpdatedState(onNavigate)
     val currentContext by rememberUpdatedState(context)
+
+    // Sharing is the strongest positive signal we have. Ask on the way back
+    // from the share sheet, a natural pause, never while it is open.
+    val reviewActivity = LocalActivity.current
+    var returningFromShare by remember { mutableStateOf(false) }
+    LifecycleResumeEffect(Unit) {
+        if (returningFromShare) {
+            returningFromShare = false
+            reviewActivity?.requestReviewIfEligible(ReviewTrigger.Share)
+        }
+        onPauseOrDispose { }
+    }
     val currentClipboardManager by rememberUpdatedState(clipboardManager)
 
     LaunchedEffect(handler, snackbarHostState) {
@@ -223,7 +239,10 @@ fun rememberPostInteractions(
                     snackbarHostState.showSnackbar(message = message)
                 }
 
-                is InteractionEffect.SharePost -> currentContext.launchPostShare(effect.intent)
+                is InteractionEffect.SharePost -> {
+                    returningFromShare = true
+                    currentContext.launchPostShare(effect.intent)
+                }
 
                 is InteractionEffect.CopyPermalink -> {
                     currentClipboardManager.setPrimaryClip(

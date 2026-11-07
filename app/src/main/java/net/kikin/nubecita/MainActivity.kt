@@ -54,6 +54,7 @@ import net.kikin.nubecita.core.preferences.UserPreferencesRepository
 import net.kikin.nubecita.core.push.PushNotificationBuilder
 import net.kikin.nubecita.core.push.PushPayload
 import net.kikin.nubecita.core.push.toNotificationType
+import net.kikin.nubecita.core.review.ReviewManager
 import net.kikin.nubecita.core.update.InAppUpdateController
 import net.kikin.nubecita.core.video.PipController
 import net.kikin.nubecita.core.video.SharedVideoPlayer
@@ -78,6 +79,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var sessionStateProvider: SessionStateProvider
+
+    @Inject
+    lateinit var reviewManager: ReviewManager
 
     @Inject
     lateinit var navigator: Navigator
@@ -312,6 +316,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        // One active day per local day, for the review prompt's reader path.
+        lifecycleScope.launch { reviewManager.recordActiveDay() }
         // In-app-update catch-up: resume an interrupted IMMEDIATE flow or surface a
         // FLEXIBLE update that finished downloading in the background.
         lifecycleScope.launch {

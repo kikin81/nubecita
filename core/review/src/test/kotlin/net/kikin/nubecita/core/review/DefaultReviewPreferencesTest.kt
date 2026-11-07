@@ -52,6 +52,29 @@ internal class DefaultReviewPreferencesTest {
             assertEquals(now, state.lastRequestedAt)
         }
 
+    @Test
+    fun `an active day counts once, however often the app opens`() =
+        runTest {
+            val prefs = DefaultReviewPreferences(newDataStore(this))
+
+            prefs.recordActiveDay(epochDay = 100)
+            prefs.recordActiveDay(epochDay = 100)
+            prefs.recordActiveDay(epochDay = 101)
+
+            assertEquals(2, prefs.currentState().activeDayCount)
+        }
+
+    @Test
+    fun `recordLike accumulates`() =
+        runTest {
+            val prefs = DefaultReviewPreferences(newDataStore(this))
+
+            prefs.recordLike()
+            prefs.recordLike()
+
+            assertEquals(2, prefs.currentState().likeCount)
+        }
+
     @JvmField
     @TempDir
     var tempDir: File = File("")

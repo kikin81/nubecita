@@ -33,6 +33,7 @@ import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.PostTapMarkers
 import net.kikin.nubecita.core.postinteractions.googleTranslateUrl
 import net.kikin.nubecita.core.postinteractions.sharing.toShareIntent
+import net.kikin.nubecita.core.review.ReviewManager
 import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
@@ -80,6 +81,7 @@ internal class DefaultPostInteractionHandler
         private val analytics: AnalyticsClient,
         private val postDeletionRepository: PostDeletionRepository,
         private val postDeletionListeners: Set<@JvmSuppressWildcards PostDeletionListener>,
+        private val reviewManager: ReviewManager,
     ) : PostInteractionHandler {
         // ──────────────────────────────────────────────────────────────────────
         // Binding state — set once per VM lifecycle via bind()
@@ -136,6 +138,9 @@ internal class DefaultPostInteractionHandler
                 requireScope().launch {
                     cache
                         .toggleLike(post.id, post.cid)
+                        // A like is the reader path's proof of real use for the
+                        // review prompt; an unlike isn't.
+                        .onSuccess { if (action == PostAction.Like) reviewManager.recordLike() }
                         .onFailure { emitError(it) }
                 }
             activeLikeJobs[post.id] = job

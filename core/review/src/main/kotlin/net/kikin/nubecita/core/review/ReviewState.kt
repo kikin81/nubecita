@@ -15,9 +15,15 @@ import kotlin.time.Instant
  * @property successfulPostCount lifetime count of successful post publishes.
  * @property requestCount lifetime count of review requests we have launched.
  * @property lastRequestedAt when we last launched a review request, or `null`.
+ * @property activeDayCount distinct local days the app was opened on.
+ * @property lastActiveDay the epoch day of the last one, so a day counts once.
+ * @property likeCount lifetime likes, the reader's proof of real use.
  */
 internal data class ReviewState(
     val successfulPostCount: Int,
     val requestCount: Int,
     val lastRequestedAt: Instant?,
+    val activeDayCount: Int = 0,
+    val lastActiveDay: Long? = null,
+    val likeCount: Int = 0,
 )

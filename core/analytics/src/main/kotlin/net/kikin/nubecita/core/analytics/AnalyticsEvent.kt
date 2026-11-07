@@ -1215,3 +1215,36 @@ data class TranslationModelDownload(
             "target_language" to Str(targetLanguage),
         )
 }
+
+/** The positive moment that prompted an in-app review request. */
+enum class ReviewTrigger(
+    val wire: String,
+) {
+    /** A post published; the original trigger, for people who write. */
+    Post("post"),
+
+    /** The reader followed an account. */
+    Follow("follow"),
+
+    /** The reader closed the gallery or the fullscreen video player. */
+    MediaExit("media_exit"),
+
+    /** The reader came back from sharing a post. */
+    Share("share"),
+}
+
+/**
+ * Fired when an in-app review request goes through, which is the attempt Play
+ * counts against its quota.
+ *
+ * Play reports nothing about whether a review was then written, or even
+ * whether the card appeared, so this is the most we can know. Read against the
+ * review count in Play Console, the [trigger] split says which moment is worth
+ * keeping.
+ */
+data class ReviewRequested(
+    val trigger: ReviewTrigger,
+) : AnalyticsEvent {
+    override val name: String = "review_requested"
+    override val params: Map<String, AnalyticsValue> = mapOf("trigger" to Str(trigger.wire))
+}
