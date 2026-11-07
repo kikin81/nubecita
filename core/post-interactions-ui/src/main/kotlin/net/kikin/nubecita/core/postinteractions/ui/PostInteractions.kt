@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -206,7 +207,8 @@ fun rememberPostInteractions(
     // Sharing is the strongest positive signal we have. Ask on the way back
     // from the share sheet, a natural pause, never while it is open.
     val reviewActivity = LocalActivity.current
-    var returningFromShare by remember { mutableStateOf(false) }
+    // Saveable: the Activity can be recreated while the share sheet is up.
+    var returningFromShare by rememberSaveable { mutableStateOf(false) }
     LifecycleResumeEffect(Unit) {
         if (returningFromShare) {
             returningFromShare = false
