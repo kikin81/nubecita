@@ -203,7 +203,7 @@ internal class MediaViewerViewModelTest {
 
             vm.effects.test {
                 vm.handleEvent(MediaViewerEvent.OnAuthorClick)
-                assertEquals(MediaViewerEffect.OpenInMainShell(Profile(handle = post.author.handle)), awaitItem())
+                assertEquals(MediaViewerEffect.OpenInMainShell(Profile(handle = post.author.did)), awaitItem())
             }
         }
 
@@ -220,17 +220,99 @@ internal class MediaViewerViewModelTest {
             }
         }
 
+    /**
+     * A quoted post's image opens with the POST_DETAIL context too, so the
+     * surface can't mean "this post is underneath". MainShell's single-top add
+     * is what stops a second copy of the same post.
+     */
     @Test
-    fun `tapping the caption from the post's own detail just closes the viewer`() =
+    fun `tapping the caption opens the post even from post detail`() =
         runTest(mainDispatcher.dispatcher) {
-            val vm = newVm(FakeRepo(Result.success(samplePostWithImages(1))), contextKey = SharedImageSurfaces.POST_DETAIL)
+            val vm =
+                newVm(
+                    FakeRepo(Result.success(samplePostWithImages(1))),
+                    postUri = "at://quoted",
+                    contextKey = SharedImageSurfaces.POST_DETAIL,
+                )
             vm.handleEvent(MediaViewerEvent.Load)
             advanceUntilIdle()
 
             vm.effects.test {
                 vm.handleEvent(MediaViewerEvent.OnCaptionClick)
-                assertEquals(MediaViewerEffect.Dismiss, awaitItem())
+                assertEquals(MediaViewerEffect.OpenInMainShell(PostDetailRoute(postUri = "at://quoted")), awaitItem())
             }
+        }
+
+    @Test
+    fun `the controls don't auto-fade under the repost sheet`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = loaded()
+            vm.handleEvent(MediaViewerEvent.OnRepostClick)
+
+            vm.handleEvent(MediaViewerEvent.OnChromeAutoFadeTimeout)
+
+            assertTrue(vm.status.isChromeVisible)
+            assertTrue(vm.status.isRepostSheetOpen)
+        }
+
+    @Test
+    fun `dismissing the repost sheet closes it`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = loaded()
+            vm.handleEvent(MediaViewerEvent.OnRepostClick)
+
+            vm.handleEvent(MediaViewerEvent.OnRepostDismiss)
+
+            assertFalse(vm.status.isRepostSheetOpen)
+        }
+
+    /** The screen keys its fade timer on this, so an action restarts the wait. */
+    @Test
+    fun `an action counts as activity for the auto-fade`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = loaded()
+            val before = vm.status.chromeInteractions
+
+            vm.handleEvent(MediaViewerEvent.OnChromeInteraction)
+
+            assertEquals(before + 1, vm.status.chromeInteractions)
+        }
+
+    /** The shared image would otherwise shrink across the incoming screen. */
+    @Test
+    fun `leaving for another route gives up the shared transition first`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = loaded()
+
+            vm.handleEvent(MediaViewerEvent.OnCaptionClick)
+
+            assertTrue(vm.status.isLeavingForRoute)
+        }
+
+    @Test
+    fun `a comment's route goes through the same exit`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = loaded()
+            val route = Profile(handle = "did:plc:commenter")
+
+            vm.effects.test {
+                vm.handleEvent(MediaViewerEvent.OnOpenInMainShell(route))
+                assertEquals(MediaViewerEffect.OpenInMainShell(route), awaitItem())
+            }
+            assertTrue(vm.status.isLeavingForRoute)
+        }
+
+    /** A lagging appview still reports a like just removed; seeding would bring it back. */
+    @Test
+    fun `state the app already holds isn't overwritten by the fetch`() =
+        runTest(mainDispatcher.dispatcher) {
+            val post = samplePostWithImages(1)
+            interactions.value = persistentMapOf(post.id to PostInteractionState())
+            val vm = newVm(FakeRepo(Result.success(post)))
+            vm.handleEvent(MediaViewerEvent.Load)
+            advanceUntilIdle()
+
+            verify(exactly = 0) { cache.seed(any()) }
         }
 
     @Test

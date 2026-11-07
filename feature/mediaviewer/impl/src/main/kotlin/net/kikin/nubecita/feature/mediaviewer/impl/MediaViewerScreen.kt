@@ -76,6 +76,8 @@ import net.kikin.nubecita.designsystem.component.NubecitaOverlayIconButton
 import net.kikin.nubecita.designsystem.component.NubecitaOverlayPill
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.component.PostCallbacks
+import net.kikin.nubecita.designsystem.component.PostRepostAction
+import net.kikin.nubecita.designsystem.component.PostRepostSheet
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.spacing
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
@@ -116,6 +118,9 @@ internal fun MediaViewerScreen(
     val onCaptionClick = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnCaptionClick) } }
     val onCommentsClick = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnCommentsClick) } }
     val onCommentsDismiss = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnCommentsDismiss) } }
+    val onRepostClick = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnRepostClick) } }
+    val onRepostDismiss = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnRepostDismiss) } }
+    val onInteraction = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnChromeInteraction) } }
 
     LaunchedEffect(Unit) { viewModel.handleEvent(MediaViewerEvent.Load) }
 
@@ -183,8 +188,12 @@ internal fun MediaViewerScreen(
                 onRetryClick = { commentsViewModel.handleEvent(PostCommentsEvent.RetryLoad) },
                 onRefresh = { commentsViewModel.handleEvent(PostCommentsEvent.Refresh) },
                 onOpenComposer = { commentsViewModel.handleEvent(PostCommentsEvent.OpenComposer) },
-                onAuthorClick = { author -> onOpenInMainShell(Profile(handle = author.did)) },
-                onCommentClick = { comment -> onOpenInMainShell(PostDetailRoute(postUri = comment.id)) },
+                onAuthorClick = { author ->
+                    viewModel.handleEvent(MediaViewerEvent.OnOpenInMainShell(Profile(handle = author.did)))
+                },
+                onCommentClick = { comment ->
+                    viewModel.handleEvent(MediaViewerEvent.OnOpenInMainShell(PostDetailRoute(postUri = comment.id)))
+                },
             )
         },
     ) {
@@ -206,6 +215,9 @@ internal fun MediaViewerScreen(
             onAuthorClick = onAuthorClick,
             onCaptionClick = onCaptionClick,
             onCommentsClick = onCommentsClick,
+            onRepostClick = onRepostClick,
+            onRepostDismiss = onRepostDismiss,
+            onInteraction = onInteraction,
         )
     }
 }
@@ -229,6 +241,9 @@ internal fun MediaViewerScreenContent(
     onAuthorClick: () -> Unit = {},
     onCaptionClick: () -> Unit = {},
     onCommentsClick: () -> Unit = {},
+    onRepostClick: () -> Unit = {},
+    onRepostDismiss: () -> Unit = {},
+    onInteraction: () -> Unit = {},
 ) {
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -259,6 +274,9 @@ internal fun MediaViewerScreenContent(
                         onAuthorClick = onAuthorClick,
                         onCaptionClick = onCaptionClick,
                         onCommentsClick = onCommentsClick,
+                        onRepostClick = onRepostClick,
+                        onRepostDismiss = onRepostDismiss,
+                        onInteraction = onInteraction,
                     )
             }
             SnackbarHost(
@@ -329,6 +347,9 @@ private fun LoadedState(
     onAuthorClick: () -> Unit,
     onCaptionClick: () -> Unit,
     onCommentsClick: () -> Unit,
+    onRepostClick: () -> Unit,
+    onRepostDismiss: () -> Unit,
+    onInteraction: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val pagerState =
@@ -362,8 +383,15 @@ private fun LoadedState(
             }
     }
 
-    LaunchedEffect(status.isChromeVisible, status.currentIndex, status.isSaving, status.isCommentsOpen) {
-        if (status.isChromeVisible && !status.isSaving && !status.isCommentsOpen) {
+    LaunchedEffect(
+        status.isChromeVisible,
+        status.currentIndex,
+        status.isSaving,
+        status.isCommentsOpen,
+        status.isRepostSheetOpen,
+        status.chromeInteractions,
+    ) {
+        if (status.isChromeVisible && !status.isSaving && !status.isCommentsOpen && !status.isRepostSheetOpen) {
             kotlinx.coroutines.delay(CHROME_AUTO_FADE_DELAY)
             currentOnChromeAutoFadeTimeout()
         }
@@ -430,7 +458,7 @@ private fun LoadedState(
                 sharedImageModifier(
                     postUri = postUri,
                     index = page,
-                    enabled = isActivePage,
+                    enabled = isActivePage && !status.isLeavingForRoute,
                     surface = contextKey,
                     // Inverted relative to the card: the viewer rests square
                     // and rounds off toward the card's radius as it shrinks.
@@ -462,6 +490,8 @@ private fun LoadedState(
                 onAuthorClick = onAuthorClick,
                 onCaptionClick = onCaptionClick,
                 onCommentsClick = onCommentsClick,
+                onRepostClick = onRepostClick,
+                onInteraction = onInteraction,
             )
         }
 
@@ -480,6 +510,20 @@ private fun LoadedState(
                 onClose = onDismissRequest,
                 onAltBadgeClick = onAltBadgeClick,
                 onSaveClick = onSaveClick,
+            )
+        }
+
+        // Outside the fading block, or the auto-fade would take it down mid-choice.
+        if (status.isRepostSheetOpen) {
+            PostRepostSheet(
+                isReposted = status.post.viewer.isRepostedByViewer,
+                onDismiss = onRepostDismiss,
+                onAction = { action ->
+                    when (action) {
+                        PostRepostAction.Repost -> postCallbacks.onRepost(status.post)
+                        PostRepostAction.Quote -> postCallbacks.onQuote?.invoke(status.post)
+                    }
+                },
             )
         }
 

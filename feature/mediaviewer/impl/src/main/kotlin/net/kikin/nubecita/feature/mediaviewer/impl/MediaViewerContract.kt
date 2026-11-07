@@ -46,6 +46,13 @@ internal sealed interface MediaViewerLoadStatus {
      *   like, repost and bookmark state.
      * - [isCommentsOpen] is the comments sheet's visibility. The controls stay
      *   up under it: the auto-fade and tap-to-toggle are suspended.
+     * - [isRepostSheetOpen] lives here rather than in the overlay because the
+     *   overlay fades: a sheet inside it would be torn down by the auto-fade,
+     *   losing the choice the reader was making.
+     * - [chromeInteractions] counts actions taken in the overlay. The screen
+     *   keys its auto-fade timer on it, so acting restarts the wait.
+     * - [isLeavingForRoute] means the viewer is closing to open another route,
+     *   so the image must not fly back to a card that is about to be covered.
      * - [isSaving] guards a double-tap from starting a second write and
      *   drives the in-flight indicator. While it is true the chrome auto-fade
      *   is suspended: the indicator lives in the chrome, so fading on
@@ -61,6 +68,9 @@ internal sealed interface MediaViewerLoadStatus {
         val canSave: Boolean = false,
         val isSaving: Boolean = false,
         val isCommentsOpen: Boolean = false,
+        val isRepostSheetOpen: Boolean = false,
+        val chromeInteractions: Int = 0,
+        val isLeavingForRoute: Boolean = false,
     ) : MediaViewerLoadStatus
 
     /**
@@ -145,6 +155,20 @@ internal sealed interface MediaViewerEvent : UiEvent {
 
     /** The comments sheet was dragged or tapped away. */
     data object OnCommentsDismiss : MediaViewerEvent
+
+    /** Tap on the repost action; opens the repost sheet. */
+    data object OnRepostClick : MediaViewerEvent
+
+    /** The repost sheet closed. */
+    data object OnRepostDismiss : MediaViewerEvent
+
+    /** An action in the overlay was used; restarts the auto-fade wait. */
+    data object OnChromeInteraction : MediaViewerEvent
+
+    /** A row in the comments sheet asked for a route inside `MainShell`. */
+    data class OnOpenInMainShell(
+        val route: NavKey,
+    ) : MediaViewerEvent
 
     /** Tap on the author in the post details overlay. */
     data object OnAuthorClick : MediaViewerEvent

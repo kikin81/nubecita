@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.mediaviewer.impl
 
 import androidx.lifecycle.viewModelScope
+import androidx.navigation3.runtime.NavKey
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -11,7 +12,6 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
-import net.kikin.nubecita.core.common.navigation.SharedImageSurfaces
 import net.kikin.nubecita.core.image.ImageRetrievalException
 import net.kikin.nubecita.core.image.ImageSaver
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
@@ -103,6 +103,10 @@ internal class MediaViewerViewModel
                 MediaViewerEvent.OnSaveClick -> onSaveClick()
                 MediaViewerEvent.OnCommentsClick -> setCommentsOpen(true)
                 MediaViewerEvent.OnCommentsDismiss -> setCommentsOpen(false)
+                MediaViewerEvent.OnRepostClick -> updateLoaded { copy(isRepostSheetOpen = true, isChromeVisible = true) }
+                MediaViewerEvent.OnRepostDismiss -> updateLoaded { copy(isRepostSheetOpen = false) }
+                MediaViewerEvent.OnChromeInteraction -> updateLoaded { copy(chromeInteractions = chromeInteractions + 1) }
+                is MediaViewerEvent.OnOpenInMainShell -> openInMainShell(event.route)
                 MediaViewerEvent.OnAuthorClick -> onAuthorClick()
                 MediaViewerEvent.OnCaptionClick -> onCaptionClick()
             }
@@ -110,7 +114,7 @@ internal class MediaViewerViewModel
 
         private fun onChromeAutoFadeTimeout() {
             val status = uiState.value.loadStatus
-            if (status is MediaViewerLoadStatus.Loaded && status.isCommentsOpen) return
+            if (status is MediaViewerLoadStatus.Loaded && status.holdsChrome) return
             setChromeVisible(false)
         }
 
@@ -125,30 +129,40 @@ internal class MediaViewerViewModel
         }
 
         private fun setCommentsOpen(open: Boolean) {
+            updateLoaded { copy(isCommentsOpen = open, isChromeVisible = true) }
+        }
+
+        private val MediaViewerLoadStatus.Loaded.holdsChrome: Boolean
+            get() = isCommentsOpen || isRepostSheetOpen
+
+        /** Reads inside the reducer, so a concurrent merge isn't reverted by a captured copy. */
+        private fun updateLoaded(transform: MediaViewerLoadStatus.Loaded.() -> MediaViewerLoadStatus.Loaded) {
             setState {
                 val latest = loadStatus
-                if (latest is MediaViewerLoadStatus.Loaded) {
-                    copy(loadStatus = latest.copy(isCommentsOpen = open, isChromeVisible = true))
-                } else {
-                    this
-                }
+                if (latest is MediaViewerLoadStatus.Loaded) copy(loadStatus = latest.transform()) else this
             }
+        }
+
+        private fun openInMainShell(route: NavKey) {
+            updateLoaded { copy(isLeavingForRoute = true) }
+            sendEffect(MediaViewerEffect.OpenInMainShell(route))
         }
 
         private fun onAuthorClick() {
             val status = uiState.value.loadStatus
             if (status !is MediaViewerLoadStatus.Loaded) return
-            sendEffect(MediaViewerEffect.OpenInMainShell(Profile(handle = status.post.author.handle)))
+            // By DID, as every other surface does: it still resolves for an
+            // invalid handle, and it matches the key MainShell's single-top sees.
+            openInMainShell(Profile(handle = status.post.author.did))
         }
 
+        /**
+         * No check for "opened from this post": the surface can't say, since a
+         * quoted post's image opens from post detail too. If the post is already
+         * on top, MainShell's single-top add drops the route.
+         */
         private fun onCaptionClick() {
-            // Opened from post detail, the thread is already underneath, so
-            // pushing the route would stack a second copy of it.
-            if (route.contextKey == SharedImageSurfaces.POST_DETAIL) {
-                sendEffect(MediaViewerEffect.Dismiss)
-            } else {
-                sendEffect(MediaViewerEffect.OpenInMainShell(PostDetailRoute(postUri = route.postUri)))
-            }
+            openInMainShell(PostDetailRoute(postUri = route.postUri))
         }
 
         private fun onSaveClick() {
@@ -235,7 +249,11 @@ internal class MediaViewerViewModel
                                 copy(loadStatus = MediaViewerLoadStatus.Error(MediaViewerError.NoImages))
                             }
                         } else {
-                            postInteractionsCache.seed(listOf(post))
+                            // Only when the app holds nothing for it: seed() would let a
+                            // lagging appview bring back a like the reader just removed.
+                            if (post.id !in postInteractionsCache.state.value) {
+                                postInteractionsCache.seed(listOf(post))
+                            }
                             val currentPost = post.withInteraction(postInteractionsCache.state.value)
                             setState {
                                 copy(
@@ -287,7 +305,7 @@ internal class MediaViewerViewModel
             if (status !is MediaViewerLoadStatus.Loaded) return
             // Tapping while the alt sheet is open is a no-op — the sheet's
             // scrim already absorbed the tap before it reached the image.
-            if (status.isAltSheetOpen || status.isCommentsOpen) return
+            if (status.isAltSheetOpen || status.holdsChrome) return
             setState { copy(loadStatus = status.copy(isChromeVisible = !status.isChromeVisible)) }
         }
 
