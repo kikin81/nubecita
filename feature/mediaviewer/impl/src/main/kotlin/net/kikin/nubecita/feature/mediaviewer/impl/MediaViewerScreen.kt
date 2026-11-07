@@ -181,6 +181,7 @@ internal fun MediaViewerScreen(
     PostCommentsSheetScaffold(
         isCommentsOpen = isCommentsOpen,
         onDismiss = onCommentsDismiss,
+        modifier = modifier,
         commentsContent = {
             PostCommentsSheetContent(
                 state = commentsState,
@@ -207,7 +208,6 @@ internal fun MediaViewerScreen(
             onAltSheetDismiss = onAltSheetDismiss,
             onChromeAutoFadeTimeout = onChromeAutoFadeTimeout,
             onSaveClick = onSaveClick,
-            modifier = modifier,
             postUri = viewModel.postUri,
             contextKey = viewModel.contextKey,
             snackbarHostState = snackbarHostState,
