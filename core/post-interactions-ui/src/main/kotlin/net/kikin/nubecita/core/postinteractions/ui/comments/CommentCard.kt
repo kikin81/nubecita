@@ -49,7 +49,7 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.semanticColors
 
 /**
- * Renders an individual comment card within the video comments sheet.
+ * Renders an individual comment card within the post comments sheet.
  *
  * Displays author avatar, display name, handle, relative timestamp, body text
  * (with interactive Bluesky link/mention facets), and an animated heart like toggle
@@ -126,7 +126,7 @@ fun CommentCard(
                     VerificationBadge(badge = comment.author.verifiedBadge)
                 }
                 Text(
-                    text = stringResource(R.string.video_comments_author_handle, comment.author.handle),
+                    text = stringResource(R.string.post_comments_author_handle, comment.author.handle),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -134,7 +134,7 @@ fun CommentCard(
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 Text(
-                    text = stringResource(R.string.video_comments_relative_time, timestamp),
+                    text = stringResource(R.string.post_comments_relative_time, timestamp),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -215,7 +215,7 @@ fun CommentLikeButton(
         onClick()
     }
 
-    val accessibilityLabel = stringResource(R.string.video_comments_like_action)
+    val accessibilityLabel = stringResource(R.string.post_comments_like_action)
 
     Column(
         modifier =

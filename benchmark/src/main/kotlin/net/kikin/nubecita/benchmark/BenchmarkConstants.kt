@@ -120,21 +120,21 @@ internal const val VIDEO_FEED_RAIL_LIKE_RES_ID: String = "video_feed_like"
 /**
  * The vertical feed's right-rail reply/comment cell — pinned to
  * `VideoFeedTestTags.RAIL_REPLY` by `:feature:videos:impl/VideoFeedTestTagsTest`.
- * Tapped in `setupBlock` of `VideoCommentsSheetBenchmark` to present the sheet.
+ * Tapped in `setupBlock` of `PostCommentsSheetBenchmark` to present the sheet.
  */
 internal const val VIDEO_FEED_RAIL_REPLY_RES_ID: String = "video_feed_reply"
 
 /**
  * The comments sheet's scrollable `LazyColumn` — pinned to
- * `VideoCommentsTestTags.COMMENTS_LIST` by
- * `:core:post-interactions-ui/VideoCommentsTestTagsTest`.
+ * `PostCommentsTestTags.COMMENTS_LIST` by
+ * `:core:post-interactions-ui/PostCommentsTestTagsTest`.
  */
-internal const val VIDEO_COMMENTS_LIST_RES_ID: String = "video_comments_list"
+internal const val POST_COMMENTS_LIST_RES_ID: String = "post_comments_list"
 
 /**
  * The docked comment pill at the bottom of the sheet — pinned to
- * `VideoCommentsTestTags.DOCKED_PILL` by
- * `:core:post-interactions-ui/VideoCommentsTestTagsTest`.
+ * `PostCommentsTestTags.DOCKED_PILL` by
+ * `:core:post-interactions-ui/PostCommentsTestTagsTest`.
  */
 internal const val DOCKED_COMMENT_PILL_RES_ID: String = "docked_comment_pill"
 

@@ -41,11 +41,11 @@ import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 
 /**
- * Top header row for the video comments sheet displaying comment count and
+ * Top header row for the post comments sheet displaying comment count and
  * an indeterminate progress indicator during active background revalidation.
  */
 @Composable
-fun VideoCommentsHeader(
+fun PostCommentsHeader(
     commentCount: Int,
     isLoading: Boolean,
     modifier: Modifier = Modifier,
@@ -61,9 +61,9 @@ fun VideoCommentsHeader(
         Text(
             text =
                 if (commentCount > 0) {
-                    stringResource(R.string.video_comments_header_with_count, commentCount)
+                    stringResource(R.string.post_comments_header_with_count, commentCount)
                 } else {
-                    stringResource(R.string.video_comments_header_title)
+                    stringResource(R.string.post_comments_header_title)
                 },
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
@@ -81,7 +81,7 @@ fun VideoCommentsHeader(
  * Centered empty-state banner shown when a video has zero replies.
  */
 @Composable
-fun VideoCommentsEmptyState(modifier: Modifier = Modifier) {
+fun PostCommentsEmptyState(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier.padding(24.dp),
         contentAlignment = Alignment.Center,
@@ -107,14 +107,14 @@ fun VideoCommentsEmptyState(modifier: Modifier = Modifier) {
             }
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = stringResource(R.string.video_comments_empty_title),
+                text = stringResource(R.string.post_comments_empty_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = stringResource(R.string.video_comments_empty_subtitle),
+                text = stringResource(R.string.post_comments_empty_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -127,7 +127,7 @@ fun VideoCommentsEmptyState(modifier: Modifier = Modifier) {
  * Centered error banner with retry button shown when initial thread fetching fails.
  */
 @Composable
-fun VideoCommentsErrorState(
+fun PostCommentsErrorState(
     message: String?,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
@@ -157,7 +157,7 @@ fun VideoCommentsErrorState(
             }
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = stringResource(R.string.video_comments_error_title),
+                text = stringResource(R.string.post_comments_error_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -174,7 +174,7 @@ fun VideoCommentsErrorState(
             Spacer(modifier = Modifier.height(16.dp))
             NubecitaPrimaryButton(
                 onClick = onRetry,
-                text = stringResource(R.string.video_comments_retry),
+                text = stringResource(R.string.post_comments_retry),
             )
         }
     }
@@ -184,7 +184,7 @@ fun VideoCommentsErrorState(
  * Loading state spinner displayed during the initial comments fetch.
  */
 @Composable
-fun VideoCommentsLoadingState(modifier: Modifier = Modifier) {
+fun PostCommentsLoadingState(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier.padding(24.dp),
         contentAlignment = Alignment.Center,
@@ -198,7 +198,7 @@ fun VideoCommentsLoadingState(modifier: Modifier = Modifier) {
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = stringResource(R.string.video_comments_loading),
+                text = stringResource(R.string.post_comments_loading),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -212,8 +212,8 @@ fun VideoCommentsLoadingState(modifier: Modifier = Modifier) {
  * Handles loaded (with SWR pull-to-refresh), empty, error, and loading states.
  */
 @Composable
-fun VideoCommentsList(
-    state: VideoCommentsState,
+fun PostCommentsList(
+    state: PostCommentsState,
     onLikeClick: (CommentItemUi) -> Unit,
     onRetryClick: () -> Unit,
     onRefresh: () -> Unit,
@@ -226,7 +226,7 @@ fun VideoCommentsList(
     haptics: PostHaptics = rememberPostHaptics(),
 ) {
     Column(modifier = modifier.fillMaxSize()) {
-        VideoCommentsHeader(
+        PostCommentsHeader(
             commentCount = state.comments.size,
             isLoading = state.isRefreshing,
         )
@@ -236,14 +236,14 @@ fun VideoCommentsList(
 
         when {
             state.isLoading && state.comments.isEmpty() -> {
-                VideoCommentsLoadingState(
+                PostCommentsLoadingState(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                 )
             }
 
             state.isError && state.comments.isEmpty() -> {
-                val errorMessage = (state.status as? VideoCommentsStatus.Error)?.message
-                VideoCommentsErrorState(
+                val errorMessage = (state.status as? PostCommentsStatus.Error)?.message
+                PostCommentsErrorState(
                     message = errorMessage,
                     onRetry = onRetryClick,
                     modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -251,7 +251,7 @@ fun VideoCommentsList(
             }
 
             state.isEmpty -> {
-                VideoCommentsEmptyState(
+                PostCommentsEmptyState(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                 )
             }
@@ -265,7 +265,7 @@ fun VideoCommentsList(
                     LazyColumn(
                         state = lazyListState,
                         contentPadding = contentPadding,
-                        modifier = Modifier.fillMaxSize().testTag(VideoCommentsTestTags.COMMENTS_LIST),
+                        modifier = Modifier.fillMaxSize().testTag(PostCommentsTestTags.COMMENTS_LIST),
                     ) {
                         items(
                             items = state.comments,

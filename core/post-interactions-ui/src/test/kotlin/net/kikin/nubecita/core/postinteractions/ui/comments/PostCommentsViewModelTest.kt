@@ -34,7 +34,7 @@ import java.io.IOException
 import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class VideoCommentsViewModelTest {
+class PostCommentsViewModelTest {
     private val outgoingStore = FakeOutgoingPostStore()
 
     @RegisterExtension
@@ -45,12 +45,12 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
+            val viewModel = PostCommentsViewModel(repo, cache, outgoingStore)
 
             val state = viewModel.uiState.value
             assertNull(state.postUri)
-            assertEquals(VideoCommentsDetent.Hidden, state.detent)
-            assertEquals(VideoCommentsStatus.Idle, state.status)
+            assertEquals(PostCommentsDetent.Hidden, state.detent)
+            assertEquals(PostCommentsStatus.Idle, state.status)
             assertTrue(state.comments.isEmpty())
             assertFalse(state.isVisible)
         }
@@ -60,7 +60,7 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
+            val viewModel = PostCommentsViewModel(repo, cache, outgoingStore)
 
             val focusPost = samplePost("at://focus", text = "Video Post")
             val reply1 = samplePost("at://reply1", text = "First reply!", likeCount = 5)
@@ -75,16 +75,16 @@ class VideoCommentsViewModelTest {
             repo.nextResult = Result.success(threadItems)
 
             viewModel.handleEvent(
-                VideoCommentsEvent.OpenComments(
+                PostCommentsEvent.OpenComments(
                     postUri = "at://focus",
-                    initialDetent = VideoCommentsDetent.PartiallyExpanded,
+                    initialDetent = PostCommentsDetent.PartiallyExpanded,
                 ),
             )
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
             assertEquals("at://focus", state.postUri)
-            assertEquals(VideoCommentsDetent.PartiallyExpanded, state.detent)
+            assertEquals(PostCommentsDetent.PartiallyExpanded, state.detent)
             assertTrue(state.isVisible)
             assertFalse(state.isRefreshing)
             assertEquals(2, state.comments.size)
@@ -101,7 +101,7 @@ class VideoCommentsViewModelTest {
             assertEquals(10L, secondComment.likeCount)
             assertEquals(2, secondComment.depth)
 
-            assertTrue(state.status is VideoCommentsStatus.Loaded)
+            assertTrue(state.status is PostCommentsStatus.Loaded)
             assertEquals(listOf("at://focus"), repo.requestedUris)
             assertEquals(listOf(listOf(reply1, reply2)), cache.seededPosts)
         }
@@ -111,18 +111,18 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
+            val viewModel = PostCommentsViewModel(repo, cache, outgoingStore)
 
             val focusPost = samplePost("at://focus", text = "Video with no replies")
             repo.nextResult = Result.success(persistentListOf(ThreadItem.Focus(focusPost)))
 
-            viewModel.handleEvent(VideoCommentsEvent.OpenComments("at://focus"))
+            viewModel.handleEvent(PostCommentsEvent.OpenComments("at://focus"))
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
             assertTrue(state.comments.isEmpty())
             assertTrue(state.isEmpty)
-            assertEquals(VideoCommentsStatus.Empty, state.status)
+            assertEquals(PostCommentsStatus.Empty, state.status)
         }
 
     @Test
@@ -130,16 +130,16 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
+            val viewModel = PostCommentsViewModel(repo, cache, outgoingStore)
 
             repo.nextResult = Result.failure(IOException("Server error"))
 
-            viewModel.handleEvent(VideoCommentsEvent.OpenComments("at://focus"))
+            viewModel.handleEvent(PostCommentsEvent.OpenComments("at://focus"))
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
             assertTrue(state.isError)
-            val error = state.status as VideoCommentsStatus.Error
+            val error = state.status as PostCommentsStatus.Error
             assertEquals("Server error", error.message)
             assertTrue(state.comments.isEmpty())
         }
@@ -149,7 +149,7 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
+            val viewModel = PostCommentsViewModel(repo, cache, outgoingStore)
 
             val reply1 = samplePost("at://reply1", text = "Initial comment", likeCount = 1)
             repo.nextResult =
@@ -160,7 +160,7 @@ class VideoCommentsViewModelTest {
                     ),
                 )
 
-            viewModel.handleEvent(VideoCommentsEvent.OpenComments("at://focus"))
+            viewModel.handleEvent(PostCommentsEvent.OpenComments("at://focus"))
             advanceUntilIdle()
 
             assertEquals(1, viewModel.uiState.value.comments.size)
@@ -178,9 +178,9 @@ class VideoCommentsViewModelTest {
 
             // Re-open/refresh the same post
             viewModel.handleEvent(
-                VideoCommentsEvent.OpenComments(
+                PostCommentsEvent.OpenComments(
                     postUri = "at://focus",
-                    initialDetent = VideoCommentsDetent.Expanded,
+                    initialDetent = PostCommentsDetent.Expanded,
                 ),
             )
 
@@ -193,8 +193,8 @@ class VideoCommentsViewModelTest {
             val refreshedState = viewModel.uiState.value
             assertFalse(refreshedState.isRefreshing)
             assertEquals(2, refreshedState.comments.size)
-            assertEquals(VideoCommentsDetent.Expanded, refreshedState.detent)
-            assertTrue(refreshedState.status is VideoCommentsStatus.Loaded)
+            assertEquals(PostCommentsDetent.Expanded, refreshedState.detent)
+            assertTrue(refreshedState.status is PostCommentsStatus.Loaded)
         }
 
     @Test
@@ -202,7 +202,7 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
+            val viewModel = PostCommentsViewModel(repo, cache, outgoingStore)
 
             val reply = samplePost("at://reply1", text = "Existing comment")
             repo.nextResult =
@@ -210,7 +210,7 @@ class VideoCommentsViewModelTest {
                     persistentListOf(ThreadItem.Reply(post = reply, depth = 1)),
                 )
 
-            viewModel.handleEvent(VideoCommentsEvent.OpenComments("at://focus"))
+            viewModel.handleEvent(PostCommentsEvent.OpenComments("at://focus"))
             advanceUntilIdle()
             assertEquals(1, viewModel.uiState.value.comments.size)
 
@@ -218,12 +218,12 @@ class VideoCommentsViewModelTest {
             repo.nextResult = Result.failure(IOException("Network dropped"))
 
             viewModel.effects.test {
-                viewModel.handleEvent(VideoCommentsEvent.Refresh)
+                viewModel.handleEvent(PostCommentsEvent.Refresh)
                 advanceUntilIdle()
 
                 val effect = awaitItem()
-                assertTrue(effect is VideoCommentsEffect.ShowError)
-                assertEquals("Network dropped", (effect as VideoCommentsEffect.ShowError).message)
+                assertTrue(effect is PostCommentsEffect.ShowError)
+                assertEquals("Network dropped", (effect as PostCommentsEffect.ShowError).message)
 
                 // Existing comments are still preserved
                 val state = viewModel.uiState.value
@@ -238,21 +238,21 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
+            val viewModel = PostCommentsViewModel(repo, cache, outgoingStore)
 
             viewModel.handleEvent(
-                VideoCommentsEvent.OpenComments(
+                PostCommentsEvent.OpenComments(
                     postUri = "at://focus",
-                    initialDetent = VideoCommentsDetent.PartiallyExpanded,
+                    initialDetent = PostCommentsDetent.PartiallyExpanded,
                 ),
             )
-            assertEquals(VideoCommentsDetent.PartiallyExpanded, viewModel.uiState.value.detent)
+            assertEquals(PostCommentsDetent.PartiallyExpanded, viewModel.uiState.value.detent)
 
-            viewModel.handleEvent(VideoCommentsEvent.SetDetent(VideoCommentsDetent.Expanded))
-            assertEquals(VideoCommentsDetent.Expanded, viewModel.uiState.value.detent)
+            viewModel.handleEvent(PostCommentsEvent.SetDetent(PostCommentsDetent.Expanded))
+            assertEquals(PostCommentsDetent.Expanded, viewModel.uiState.value.detent)
 
-            viewModel.handleEvent(VideoCommentsEvent.DismissComments)
-            assertEquals(VideoCommentsDetent.Hidden, viewModel.uiState.value.detent)
+            viewModel.handleEvent(PostCommentsEvent.DismissComments)
+            assertEquals(PostCommentsDetent.Hidden, viewModel.uiState.value.detent)
             assertFalse(viewModel.uiState.value.isVisible)
         }
 
@@ -261,17 +261,17 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
+            val viewModel = PostCommentsViewModel(repo, cache, outgoingStore)
 
             val reply = samplePost("at://reply1", cid = "cid1", text = "Like me")
             repo.nextResult =
                 Result.success(
                     persistentListOf(ThreadItem.Reply(post = reply, depth = 1)),
                 )
-            viewModel.handleEvent(VideoCommentsEvent.OpenComments("at://focus"))
+            viewModel.handleEvent(PostCommentsEvent.OpenComments("at://focus"))
             advanceUntilIdle()
 
-            viewModel.handleEvent(VideoCommentsEvent.LikeComment("at://reply1"))
+            viewModel.handleEvent(PostCommentsEvent.LikeComment("at://reply1"))
             advanceUntilIdle()
 
             assertEquals(listOf("at://reply1" to "cid1"), cache.toggleLikeCalls)
@@ -279,12 +279,12 @@ class VideoCommentsViewModelTest {
             // Failure test
             cache.nextToggleLikeResult = Result.failure(IOException("Like failed"))
             viewModel.effects.test {
-                viewModel.handleEvent(VideoCommentsEvent.LikeComment("at://reply1"))
+                viewModel.handleEvent(PostCommentsEvent.LikeComment("at://reply1"))
                 advanceUntilIdle()
 
                 val effect = awaitItem()
-                assertTrue(effect is VideoCommentsEffect.ShowError)
-                assertEquals("Like failed", (effect as VideoCommentsEffect.ShowError).message)
+                assertTrue(effect is PostCommentsEffect.ShowError)
+                assertEquals("Like failed", (effect as PostCommentsEffect.ShowError).message)
             }
         }
 
@@ -293,14 +293,14 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
+            val viewModel = PostCommentsViewModel(repo, cache, outgoingStore)
 
             val reply = samplePost("at://reply1", cid = "cid1", text = "Check like")
             repo.nextResult =
                 Result.success(
                     persistentListOf(ThreadItem.Reply(post = reply, depth = 1)),
                 )
-            viewModel.handleEvent(VideoCommentsEvent.OpenComments("at://focus"))
+            viewModel.handleEvent(PostCommentsEvent.OpenComments("at://focus"))
             advanceUntilIdle()
 
             assertFalse(
@@ -335,14 +335,14 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
+            val viewModel = PostCommentsViewModel(repo, cache, outgoingStore)
 
             val reply = samplePost("at://reply1", cid = "cid1", text = "Toggle and undo like", likeCount = 3, isLiked = false)
             repo.nextResult =
                 Result.success(
                     persistentListOf(ThreadItem.Reply(post = reply, depth = 1)),
                 )
-            viewModel.handleEvent(VideoCommentsEvent.OpenComments("at://focus"))
+            viewModel.handleEvent(PostCommentsEvent.OpenComments("at://focus"))
             advanceUntilIdle()
 
             // 1. Initial state
@@ -357,7 +357,7 @@ class VideoCommentsViewModelTest {
             )
 
             // 2. Viewer taps like
-            viewModel.handleEvent(VideoCommentsEvent.LikeComment("at://reply1"))
+            viewModel.handleEvent(PostCommentsEvent.LikeComment("at://reply1"))
             advanceUntilIdle()
             assertEquals(listOf("at://reply1" to "cid1"), cache.toggleLikeCalls)
 
@@ -378,7 +378,7 @@ class VideoCommentsViewModelTest {
             assertEquals(4L, likedComment.likeCount)
 
             // 3. Viewer taps unlike (undo)
-            viewModel.handleEvent(VideoCommentsEvent.LikeComment("at://reply1"))
+            viewModel.handleEvent(PostCommentsEvent.LikeComment("at://reply1"))
             advanceUntilIdle()
             assertEquals(listOf("at://reply1" to "cid1", "at://reply1" to "cid1"), cache.toggleLikeCalls)
 
@@ -404,10 +404,10 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
+            val viewModel = PostCommentsViewModel(repo, cache, outgoingStore)
 
             repo.nextResult = Result.failure(IOException("Initial failure"))
-            viewModel.handleEvent(VideoCommentsEvent.OpenComments("at://focus"))
+            viewModel.handleEvent(PostCommentsEvent.OpenComments("at://focus"))
             advanceUntilIdle()
             assertTrue(viewModel.uiState.value.isError)
 
@@ -417,7 +417,7 @@ class VideoCommentsViewModelTest {
                     persistentListOf(ThreadItem.Reply(post = reply, depth = 1)),
                 )
 
-            viewModel.handleEvent(VideoCommentsEvent.RetryLoad)
+            viewModel.handleEvent(PostCommentsEvent.RetryLoad)
             advanceUntilIdle()
 
             assertFalse(viewModel.uiState.value.isError)
@@ -430,18 +430,18 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
+            val viewModel = PostCommentsViewModel(repo, cache, outgoingStore)
 
-            viewModel.handleEvent(VideoCommentsEvent.OpenComments("at://focus"))
+            viewModel.handleEvent(PostCommentsEvent.OpenComments("at://focus"))
             advanceUntilIdle()
 
             viewModel.effects.test {
-                viewModel.handleEvent(VideoCommentsEvent.OpenComposer)
+                viewModel.handleEvent(PostCommentsEvent.OpenComposer)
                 advanceUntilIdle()
 
                 val effect = awaitItem()
-                assertTrue(effect is VideoCommentsEffect.NavigateToComposer)
-                assertEquals("at://focus", (effect as VideoCommentsEffect.NavigateToComposer).parentPostUri)
+                assertTrue(effect is PostCommentsEffect.NavigateToComposer)
+                assertEquals("at://focus", (effect as PostCommentsEffect.NavigateToComposer).parentPostUri)
             }
         }
 
@@ -450,7 +450,7 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
+            val viewModel = PostCommentsViewModel(repo, cache, outgoingStore)
 
             val initialReply = samplePost("at://reply1", text = "First comment")
             repo.nextResult =
@@ -461,7 +461,7 @@ class VideoCommentsViewModelTest {
                     ),
                 )
 
-            viewModel.handleEvent(VideoCommentsEvent.OpenComments("at://focus"))
+            viewModel.handleEvent(PostCommentsEvent.OpenComments("at://focus"))
             advanceUntilIdle()
             assertEquals(1, viewModel.uiState.value.comments.size)
 
@@ -492,7 +492,7 @@ class VideoCommentsViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val repo = FakePostThreadRepository()
             val cache = FakePostInteractionsCache()
-            val viewModel = VideoCommentsViewModel(repo, cache, outgoingStore)
+            val viewModel = PostCommentsViewModel(repo, cache, outgoingStore)
 
             val initialReply = samplePost("at://reply1", text = "First comment")
             repo.nextResult =
@@ -503,7 +503,7 @@ class VideoCommentsViewModelTest {
                     ),
                 )
 
-            viewModel.handleEvent(VideoCommentsEvent.OpenComments("at://focus"))
+            viewModel.handleEvent(PostCommentsEvent.OpenComments("at://focus"))
             advanceUntilIdle()
             assertEquals(1, viewModel.uiState.value.comments.size)
 

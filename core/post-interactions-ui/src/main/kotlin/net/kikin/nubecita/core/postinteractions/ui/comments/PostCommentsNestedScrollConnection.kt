@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.Velocity
  *   list has scrolled completely to the top (`isAtTop() == true`, i.e.
  *   `firstVisibleItemIndex == 0 && firstVisibleItemScrollOffset == 0`).
  */
-class VideoCommentsNestedScrollConnection(
+class PostCommentsNestedScrollConnection(
     private val isPartiallyExpanded: () -> Boolean,
     private val isAtTop: () -> Boolean,
     private val onExpand: () -> Unit,
@@ -81,17 +81,17 @@ class VideoCommentsNestedScrollConnection(
 }
 
 /**
- * Remembers a [VideoCommentsNestedScrollConnection] scoped to the provided state queries and callbacks.
+ * Remembers a [PostCommentsNestedScrollConnection] scoped to the provided state queries and callbacks.
  */
 @Composable
-fun rememberVideoCommentsNestedScrollConnection(
+fun rememberPostCommentsNestedScrollConnection(
     isPartiallyExpanded: () -> Boolean,
     isAtTop: () -> Boolean,
     onExpand: () -> Unit,
     onCollapse: () -> Unit,
-): VideoCommentsNestedScrollConnection =
+): PostCommentsNestedScrollConnection =
     remember(isPartiallyExpanded, isAtTop, onExpand, onCollapse) {
-        VideoCommentsNestedScrollConnection(
+        PostCommentsNestedScrollConnection(
             isPartiallyExpanded = isPartiallyExpanded,
             isAtTop = isAtTop,
             onExpand = onExpand,

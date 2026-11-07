@@ -16,12 +16,12 @@ import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.designsystem.adaptive.LocalSheetHiddenHeightPx
 
 /**
- * Top-level content for the video comments sheet: [VideoCommentsList] with a pinned
+ * Top-level content for the post comments sheet: [PostCommentsList] with a pinned
  * [DockedCommentPill] at the bottom.
  */
 @Composable
-fun VideoCommentsSheetContent(
-    state: VideoCommentsState,
+fun PostCommentsSheetContent(
+    state: PostCommentsState,
     onLikeClick: (CommentItemUi) -> Unit,
     onRetryClick: () -> Unit,
     onRefresh: () -> Unit,
@@ -34,7 +34,7 @@ fun VideoCommentsSheetContent(
     lazyListState: LazyListState = rememberLazyListState(),
 ) {
     Box(modifier = modifier.fillMaxSize()) {
-        VideoCommentsList(
+        PostCommentsList(
             state = state,
             onLikeClick = onLikeClick,
             onRetryClick = onRetryClick,

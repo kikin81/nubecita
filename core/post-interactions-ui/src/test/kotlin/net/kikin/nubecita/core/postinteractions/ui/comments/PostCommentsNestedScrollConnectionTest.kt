@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-class VideoCommentsNestedScrollConnectionTest {
+class PostCommentsNestedScrollConnectionTest {
     @Test
     fun `upward drag when partially expanded expands sheet and consumes delta`() {
         var expandCalled = false
@@ -17,7 +17,7 @@ class VideoCommentsNestedScrollConnectionTest {
         var isAtTop = true
 
         val connection =
-            VideoCommentsNestedScrollConnection(
+            PostCommentsNestedScrollConnection(
                 isPartiallyExpanded = { isPartiallyExpanded },
                 isAtTop = { isAtTop },
                 onExpand = { expandCalled = true },
@@ -41,7 +41,7 @@ class VideoCommentsNestedScrollConnectionTest {
         var isAtTop = true
 
         val connection =
-            VideoCommentsNestedScrollConnection(
+            PostCommentsNestedScrollConnection(
                 isPartiallyExpanded = { isPartiallyExpanded },
                 isAtTop = { isAtTop },
                 onExpand = { expandCalled = true },
@@ -65,7 +65,7 @@ class VideoCommentsNestedScrollConnectionTest {
         var isAtTop = false
 
         val connection =
-            VideoCommentsNestedScrollConnection(
+            PostCommentsNestedScrollConnection(
                 isPartiallyExpanded = { isPartiallyExpanded },
                 isAtTop = { isAtTop },
                 onExpand = {},
@@ -89,7 +89,7 @@ class VideoCommentsNestedScrollConnectionTest {
         var isAtTop = true
 
         val connection =
-            VideoCommentsNestedScrollConnection(
+            PostCommentsNestedScrollConnection(
                 isPartiallyExpanded = { isPartiallyExpanded },
                 isAtTop = { isAtTop },
                 onExpand = {},
@@ -114,7 +114,7 @@ class VideoCommentsNestedScrollConnectionTest {
         var isAtTop = false
 
         val connection =
-            VideoCommentsNestedScrollConnection(
+            PostCommentsNestedScrollConnection(
                 isPartiallyExpanded = { isPartiallyExpanded },
                 isAtTop = { isAtTop },
                 onExpand = {},
@@ -139,7 +139,7 @@ class VideoCommentsNestedScrollConnectionTest {
             var isPartiallyExpanded = true
 
             val connection =
-                VideoCommentsNestedScrollConnection(
+                PostCommentsNestedScrollConnection(
                     isPartiallyExpanded = { isPartiallyExpanded },
                     isAtTop = { true },
                     onExpand = { expandCalled = true },
@@ -162,7 +162,7 @@ class VideoCommentsNestedScrollConnectionTest {
             var isAtTop = true
 
             val connection =
-                VideoCommentsNestedScrollConnection(
+                PostCommentsNestedScrollConnection(
                     isPartiallyExpanded = { false },
                     isAtTop = { isAtTop },
                     onExpand = {},

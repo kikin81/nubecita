@@ -54,13 +54,13 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.screen.KeepScreenOnWhile
-import net.kikin.nubecita.core.postinteractions.ui.comments.VideoCommentsEffect
-import net.kikin.nubecita.core.postinteractions.ui.comments.VideoCommentsEvent
-import net.kikin.nubecita.core.postinteractions.ui.comments.VideoCommentsSheetContent
-import net.kikin.nubecita.core.postinteractions.ui.comments.VideoCommentsViewModel
+import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsEffect
+import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsEvent
+import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsSheetContent
+import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsViewModel
 import net.kikin.nubecita.core.video.playback.PlaylistPlaybackState
 import net.kikin.nubecita.data.models.PostUi
-import net.kikin.nubecita.designsystem.adaptive.VideoCommentsSheetScaffold
+import net.kikin.nubecita.designsystem.adaptive.PostCommentsSheetScaffold
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
@@ -90,7 +90,7 @@ internal fun VideoFeedScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: VideoFeedViewModel = hiltViewModel(),
-    commentsViewModel: VideoCommentsViewModel = hiltViewModel(),
+    commentsViewModel: PostCommentsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val commentsState by commentsViewModel.uiState.collectAsStateWithLifecycle()
@@ -163,11 +163,11 @@ internal fun VideoFeedScreen(
     LaunchedEffect(commentsViewModel) {
         commentsViewModel.effects.collect { effect ->
             when (effect) {
-                is VideoCommentsEffect.NavigateToComposer -> {
+                is PostCommentsEffect.NavigateToComposer -> {
                     navState.add(ComposerRoute(replyToUri = effect.parentPostUri))
                 }
 
-                is VideoCommentsEffect.ShowError -> {
+                is PostCommentsEffect.ShowError -> {
                     launch {
                         snackbarHostState.showSnackbar(effect.message)
                     }
@@ -181,7 +181,7 @@ internal fun VideoFeedScreen(
         try {
             progress.collect { /* progress updates */ }
             viewModel.handleEvent(VideoFeedEvent.DismissComments)
-            commentsViewModel.handleEvent(VideoCommentsEvent.DismissComments)
+            commentsViewModel.handleEvent(PostCommentsEvent.DismissComments)
         } catch (_: CancellationException) {
             // Back gesture cancelled
         }
@@ -189,27 +189,27 @@ internal fun VideoFeedScreen(
 
     val onDismissComments = {
         viewModel.handleEvent(VideoFeedEvent.DismissComments)
-        commentsViewModel.handleEvent(VideoCommentsEvent.DismissComments)
+        commentsViewModel.handleEvent(PostCommentsEvent.DismissComments)
     }
 
-    VideoCommentsSheetScaffold(
+    PostCommentsSheetScaffold(
         isCommentsOpen = state.isCommentsOpen,
         onDismiss = onDismissComments,
         sheetState = sheetState,
         commentsContent = {
-            VideoCommentsSheetContent(
+            PostCommentsSheetContent(
                 state = commentsState,
                 onLikeClick = { comment ->
-                    commentsViewModel.handleEvent(VideoCommentsEvent.LikeComment(comment.id))
+                    commentsViewModel.handleEvent(PostCommentsEvent.LikeComment(comment.id))
                 },
                 onRetryClick = {
-                    commentsViewModel.handleEvent(VideoCommentsEvent.RetryLoad)
+                    commentsViewModel.handleEvent(PostCommentsEvent.RetryLoad)
                 },
                 onRefresh = {
-                    commentsViewModel.handleEvent(VideoCommentsEvent.Refresh)
+                    commentsViewModel.handleEvent(PostCommentsEvent.Refresh)
                 },
                 onOpenComposer = {
-                    commentsViewModel.handleEvent(VideoCommentsEvent.OpenComposer)
+                    commentsViewModel.handleEvent(PostCommentsEvent.OpenComposer)
                 },
                 onAuthorClick = { author ->
                     navState.add(Profile(handle = author.did))
@@ -263,7 +263,7 @@ internal fun VideoFeedScreen(
                             },
                             onReply = { post ->
                                 viewModel.handleEvent(VideoFeedEvent.OpenComments(post))
-                                commentsViewModel.handleEvent(VideoCommentsEvent.OpenComments(post.id))
+                                commentsViewModel.handleEvent(PostCommentsEvent.OpenComments(post.id))
                             },
                             onShare = { post -> callbacks.onShare(post) },
                             onBookmark = { post ->

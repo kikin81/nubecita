@@ -30,7 +30,7 @@ import org.junit.runner.RunWith
  * sheet gestures.
  */
 @RunWith(AndroidJUnit4::class)
-class VideoCommentsSheetBenchmark {
+class PostCommentsSheetBenchmark {
     @get:Rule
     val benchmarkRule = MacrobenchmarkRule()
 
@@ -82,9 +82,9 @@ class VideoCommentsSheetBenchmark {
 
                 // Wait for the comments list to be composed and on-screen before timing begins.
                 val commentsList =
-                    device.wait(Until.findObject(By.res(VIDEO_COMMENTS_LIST_RES_ID)), NAV_WAIT_MS)
+                    device.wait(Until.findObject(By.res(POST_COMMENTS_LIST_RES_ID)), NAV_WAIT_MS)
                         ?: throw AssertionError(
-                            "Comments list ('$VIDEO_COMMENTS_LIST_RES_ID') did not appear after tapping reply CTA.",
+                            "Comments list ('$POST_COMMENTS_LIST_RES_ID') did not appear after tapping reply CTA.",
                         )
 
                 // Assert the docked comment pill is present so we never benchmark a broken layout.
