@@ -32,6 +32,16 @@ interface Navigator {
      */
     fun goBack()
 
+    /**
+     * Close the screen on top and open [key] inside `MainShell`.
+     *
+     * For an `@OuterShell` screen reaching a route that only exists on the
+     * inner stack, which pushing with [goTo] would crash on: the outer
+     * `NavDisplay` has no entry for it. `MainShell` may not be composed under
+     * the outer screen, so the route waits in [DeepLinkRouter] until it is.
+     */
+    fun closeAndOpenInMainShell(key: NavKey)
+
     /** Clear the stack and push [key] as the sole entry. */
     fun replaceTo(key: NavKey)
 }

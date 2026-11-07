@@ -37,4 +37,7 @@ interface DeepLinkRouter {
      * practice deep links arrive one at a time per Activity intent).
      */
     suspend fun publish(target: NavKey)
+
+    /** [publish] without suspending, for a caller on a tap. Drops [target] only if the buffer is full. */
+    fun tryPublish(target: NavKey)
 }

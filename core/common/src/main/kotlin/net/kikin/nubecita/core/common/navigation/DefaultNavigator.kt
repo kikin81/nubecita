@@ -9,6 +9,7 @@ internal class DefaultNavigator
     @Inject
     constructor(
         @StartDestination start: NavKey,
+        private val deepLinkRouter: DeepLinkRouter,
     ) : Navigator {
         override val backStack: SnapshotStateList<NavKey> = mutableStateListOf(start)
 
@@ -26,6 +27,11 @@ internal class DefaultNavigator
             if (backStack.size > 1) {
                 backStack.removeLastOrNull()
             }
+        }
+
+        override fun closeAndOpenInMainShell(key: NavKey) {
+            deepLinkRouter.tryPublish(key)
+            goBack()
         }
 
         override fun replaceTo(key: NavKey) {

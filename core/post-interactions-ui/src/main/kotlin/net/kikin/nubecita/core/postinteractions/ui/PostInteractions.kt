@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation3.runtime.NavKey
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.postinteractions.InteractionEffect
 import net.kikin.nubecita.core.postinteractions.InteractionError
@@ -138,6 +139,9 @@ data class PostInteractions(
  *   may pass `{ haptics.rejected() }` here to restore the deliberate
  *   "toggle-was-rejected" haptic cue without coupling this helper to
  *   [net.kikin.nubecita.core.common.haptic.PostHaptics] directly.
+ * @param onNavigate Where composer, report and block routes go. Defaults to
+ *   the `MainShell` stack; an `@OuterShell` screen must pass its own, because
+ *   [LocalMainShellNavState] throws there.
  */
 @Composable
 fun rememberPostInteractions(
@@ -145,9 +149,9 @@ fun rememberPostInteractions(
     snackbarHostState: SnackbarHostState,
     strings: InteractionStrings,
     onInteractionError: () -> Unit = {},
+    onNavigate: (NavKey) -> Unit = LocalMainShellNavState.current::add,
 ): PostInteractions {
     val context = LocalContext.current
-    val navState = LocalMainShellNavState.current
 
     // Stable wrapper so the long-lived LaunchedEffect below always calls the
     // most recent lambda the caller passed without restarting the collector
@@ -192,7 +196,7 @@ fun rememberPostInteractions(
     // Wrap the composition-scoped captures the long-lived collector reads so a
     // config/context change (or a re-provided nav state) is reflected without
     // restarting the collector — same rationale as currentStrings above.
-    val currentNavState by rememberUpdatedState(navState)
+    val currentOnNavigate by rememberUpdatedState(onNavigate)
     val currentContext by rememberUpdatedState(context)
     val currentClipboardManager by rememberUpdatedState(clipboardManager)
 
@@ -289,7 +293,7 @@ fun rememberPostInteractions(
                 }
 
                 is InteractionEffect.NavigateToComposer ->
-                    currentNavState.add(
+                    currentOnNavigate(
                         ComposerRoute(
                             replyToUri = effect.replyToUri,
                             quotePostUri = effect.quoteUri,
@@ -297,13 +301,13 @@ fun rememberPostInteractions(
                     )
 
                 is InteractionEffect.NavigateToReport ->
-                    currentNavState.add(Report.forPost(effect.post))
+                    currentOnNavigate(Report.forPost(effect.post))
 
                 is InteractionEffect.NavigateToReportAccount ->
-                    currentNavState.add(Report.forAccount(effect.did))
+                    currentOnNavigate(Report.forAccount(effect.did))
 
                 is InteractionEffect.NavigateToBlock ->
-                    currentNavState.add(Block.forAccount(did = effect.did, handle = effect.handle))
+                    currentOnNavigate(Block.forAccount(did = effect.did, handle = effect.handle))
 
                 is InteractionEffect.ConfirmDeletePost -> pendingDelete = effect.post
 

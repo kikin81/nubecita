@@ -186,10 +186,10 @@ internal fun VideoPlayerScreen(
                     commentsViewModel.handleEvent(PostCommentsEvent.OpenComposer)
                 },
                 onAuthorClick = { author ->
-                    currentNavigator.goTo(Profile(handle = author.did))
+                    currentNavigator.closeAndOpenInMainShell(Profile(handle = author.did))
                 },
                 onCommentClick = { comment ->
-                    currentNavigator.goTo(PostDetailRoute(postUri = comment.id))
+                    currentNavigator.closeAndOpenInMainShell(PostDetailRoute(postUri = comment.id))
                 },
             )
         },

@@ -16,4 +16,8 @@ internal class DefaultDeepLinkRouter
         override suspend fun publish(target: NavKey) {
             channel.send(target)
         }
+
+        override fun tryPublish(target: NavKey) {
+            channel.trySend(target)
+        }
     }
