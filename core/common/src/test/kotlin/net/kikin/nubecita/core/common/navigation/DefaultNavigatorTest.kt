@@ -1,14 +1,53 @@
 package net.kikin.nubecita.core.common.navigation
 
 import androidx.navigation3.runtime.NavKey
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 
 class DefaultNavigatorTest {
+    private val router = DefaultDeepLinkRouter()
+
+    @Test
+    fun `closeAndOpenInMainShell pops the outer screen`() {
+        val navigator = DefaultNavigator(start = TestStart, deepLinkRouter = router)
+        navigator.goTo(TestProfile)
+
+        navigator.closeAndOpenInMainShell(TestStart)
+
+        assertEquals(listOf<NavKey>(TestStart), navigator.backStack.toList())
+    }
+
+    /** With nothing above Main, or after replaceTo(Login), MainShell won't appear: the route would outlive the session. */
+    @Test
+    fun `closeAndOpenInMainShell at the root holds nothing`() =
+        runTest {
+            val navigator = DefaultNavigator(start = TestStart, deepLinkRouter = router)
+
+            navigator.closeAndOpenInMainShell(TestProfile)
+
+            assertNull(withTimeoutOrNull(1) { router.pendingDeepLinks.first() })
+        }
+
+    /** MainShell may not be composed while an outer screen covers it, so the route has to wait. */
+    @Test
+    fun `closeAndOpenInMainShell holds the route for the shell`() =
+        runTest {
+            val navigator = DefaultNavigator(start = TestStart, deepLinkRouter = router)
+            navigator.goTo(TestProfile)
+
+            navigator.closeAndOpenInMainShell(TestProfile)
+
+            assertSame(TestProfile, router.pendingDeepLinks.first())
+        }
+
     @Test
     fun `back stack starts with the injected start destination`() {
-        val navigator = DefaultNavigator(start = TestStart)
+        val navigator = DefaultNavigator(start = TestStart, deepLinkRouter = router)
 
         assertEquals(1, navigator.backStack.size)
         assertSame(TestStart, navigator.backStack.first())
@@ -16,7 +55,7 @@ class DefaultNavigatorTest {
 
     @Test
     fun `goTo appends to the top of the stack`() {
-        val navigator = DefaultNavigator(start = TestStart)
+        val navigator = DefaultNavigator(start = TestStart, deepLinkRouter = router)
 
         navigator.goTo(TestProfile)
 
@@ -25,7 +64,7 @@ class DefaultNavigatorTest {
 
     @Test
     fun `goBack pops the top of the stack`() {
-        val navigator = DefaultNavigator(start = TestStart)
+        val navigator = DefaultNavigator(start = TestStart, deepLinkRouter = router)
         navigator.goTo(TestProfile)
 
         navigator.goBack()
@@ -35,7 +74,7 @@ class DefaultNavigatorTest {
 
     @Test
     fun `goBack never empties the stack`() {
-        val navigator = DefaultNavigator(start = TestStart)
+        val navigator = DefaultNavigator(start = TestStart, deepLinkRouter = router)
 
         // Single-entry stack: goBack must NOT pop the last entry. The outer
         // NavDisplay requires >= 1 entry, and a double-pop (an effect-driven
@@ -52,7 +91,7 @@ class DefaultNavigatorTest {
 
     @Test
     fun `replaceTo clears the stack and pushes the key`() {
-        val navigator = DefaultNavigator(start = TestStart)
+        val navigator = DefaultNavigator(start = TestStart, deepLinkRouter = router)
         navigator.goTo(TestProfile)
         navigator.goTo(TestSettings)
 
@@ -63,7 +102,7 @@ class DefaultNavigatorTest {
 
     @Test
     fun `replaceTo is idempotent when the same key is already the sole entry`() {
-        val navigator = DefaultNavigator(start = TestStart)
+        val navigator = DefaultNavigator(start = TestStart, deepLinkRouter = router)
         navigator.replaceTo(TestProfile)
         val firstReference = navigator.backStack.toList()
 
@@ -76,7 +115,7 @@ class DefaultNavigatorTest {
 
     @Test
     fun `replaceTo with a different key still clears even if the previous top matches`() {
-        val navigator = DefaultNavigator(start = TestStart)
+        val navigator = DefaultNavigator(start = TestStart, deepLinkRouter = router)
         navigator.goTo(TestProfile) // stack: [TestStart, TestProfile]
 
         navigator.replaceTo(TestStart)

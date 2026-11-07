@@ -33,6 +33,8 @@ internal class RecordingNavigator(
         backStack.removeLastOrNull()
     }
 
+    override fun closeAndOpenInMainShell(key: NavKey) = goBack()
+
     override fun replaceTo(key: NavKey) {
         replaceToCalls.add(key)
         backStack.clear()

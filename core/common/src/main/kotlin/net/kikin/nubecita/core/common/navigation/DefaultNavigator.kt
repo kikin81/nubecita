@@ -9,6 +9,7 @@ internal class DefaultNavigator
     @Inject
     constructor(
         @StartDestination start: NavKey,
+        private val deepLinkRouter: DeepLinkRouter,
     ) : Navigator {
         override val backStack: SnapshotStateList<NavKey> = mutableStateListOf(start)
 
@@ -26,6 +27,15 @@ internal class DefaultNavigator
             if (backStack.size > 1) {
                 backStack.removeLastOrNull()
             }
+        }
+
+        override fun closeAndOpenInMainShell(key: NavKey) {
+            // At the root there is no outer screen to close, and MainShell may
+            // never collect: after replaceTo(Login) the route would wait for
+            // the next session.
+            if (backStack.size <= 1) return
+            deepLinkRouter.tryPublish(key)
+            goBack()
         }
 
         override fun replaceTo(key: NavKey) {
