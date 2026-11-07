@@ -42,6 +42,7 @@ dependencies {
     implementation(project(":core:posting"))
     implementation(project(":core:posts"))
     implementation(project(":core:profile"))
+    implementation(project(":core:review"))
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
     // Bookmarks NavKey — pushed onto MainShell's inner back stack from the

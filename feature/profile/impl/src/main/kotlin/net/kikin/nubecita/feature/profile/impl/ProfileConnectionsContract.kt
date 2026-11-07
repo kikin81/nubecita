@@ -69,6 +69,9 @@ internal sealed interface ProfileConnectionsEvent : UiEvent {
 }
 
 internal sealed interface ProfileConnectionsEffect : UiEffect {
+    /** A follow went through: a positive moment the screen may ask a review at. */
+    data object FollowCommitted : ProfileConnectionsEffect
+
     data class NavigateToProfile(
         val handle: String,
     ) : ProfileConnectionsEffect

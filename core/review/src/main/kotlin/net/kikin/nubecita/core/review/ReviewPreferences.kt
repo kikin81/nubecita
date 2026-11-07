@@ -15,6 +15,12 @@ internal interface ReviewPreferences {
     /** Increments the lifetime successful-post counter by one. */
     suspend fun incrementPostCount()
 
+    /** Counts [epochDay] as an active day, once, however often it's recorded. */
+    suspend fun recordActiveDay(epochDay: Long)
+
+    /** Increments the lifetime like counter by one. */
+    suspend fun recordLike()
+
     /** Records that a review request was launched at [now] (count + timestamp). */
     suspend fun recordReviewRequested(now: Instant)
 }

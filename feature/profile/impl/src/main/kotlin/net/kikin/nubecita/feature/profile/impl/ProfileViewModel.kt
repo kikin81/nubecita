@@ -880,6 +880,7 @@ internal class ProfileViewModel
                             copy(viewerRelationship = ViewerRelationship.Following(followUri = uri, isPending = false))
                         }
                         followStore.record(targetDid, uri)
+                        sendEffect(ProfileEffect.FollowCommitted)
                     }.onFailure { throwable ->
                         setState { copy(viewerRelationship = previous) }
                         sendEffect(ProfileEffect.ShowError(throwable.toProfileError()))

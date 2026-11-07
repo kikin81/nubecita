@@ -122,6 +122,7 @@ internal class ProfileConnectionsViewModel
                     .onSuccess {
                         setOverlay(did, it)
                         followStore.record(did, it.followUri)
+                        if (it.followUri != null) sendEffect(ProfileConnectionsEffect.FollowCommitted)
                     }.onFailure {
                         setOverlay(did, previous)
                         sendEffect(ProfileConnectionsEffect.ShowError)

@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.videoplayer.impl
 
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -22,6 +23,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.analytics.ReviewTrigger
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.core.common.navigation.LocalPipController
 import net.kikin.nubecita.core.common.navigation.rememberIsInPipMode
@@ -30,6 +32,7 @@ import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsEffect
 import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsEvent
 import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsSheetContent
 import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsViewModel
+import net.kikin.nubecita.core.review.requestReviewIfEligible
 import net.kikin.nubecita.designsystem.adaptive.PostCommentsSheetScaffold
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
@@ -71,6 +74,7 @@ internal fun VideoPlayerScreen(
     KeepScreenOnWhile(state.isPlaying)
     val navigator = LocalAppNavigator.current
     val currentNavigator by rememberUpdatedState(navigator)
+    val reviewActivity = LocalActivity.current
     val snackbarHostState = remember { SnackbarHostState() }
 
     val sheetState =
@@ -127,7 +131,11 @@ internal fun VideoPlayerScreen(
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
             when (effect) {
-                VideoPlayerEffect.NavigateBack -> currentNavigator.goBack()
+                VideoPlayerEffect.NavigateBack -> {
+                    // Leaving the fullscreen player is a natural pause.
+                    reviewActivity?.requestReviewIfEligible(ReviewTrigger.MediaExit)
+                    currentNavigator.goBack()
+                }
             }
         }
     }

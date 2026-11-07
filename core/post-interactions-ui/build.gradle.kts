@@ -13,6 +13,7 @@ dependencies {
     implementation(project(":core:post-interactions"))
     implementation(project(":core:posting"))
     implementation(project(":core:posts"))
+    implementation(project(":core:review"))
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
     implementation(project(":feature:composer:api"))

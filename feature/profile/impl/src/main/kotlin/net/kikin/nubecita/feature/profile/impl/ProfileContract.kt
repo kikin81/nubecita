@@ -664,6 +664,9 @@ sealed interface ProfileEffect : UiEffect {
      */
     data object RevealPinnedPost : ProfileEffect
 
+    /** A follow went through: a positive moment the screen may ask a review at. */
+    data object FollowCommitted : ProfileEffect
+
     /**
      * Header load failed; surface a transient Snackbar. The screen
      * composable maps [error] to a string resource for the SnackbarHost

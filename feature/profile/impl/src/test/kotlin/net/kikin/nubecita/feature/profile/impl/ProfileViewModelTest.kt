@@ -332,6 +332,21 @@ internal class ProfileViewModelTest {
             assertTrue(store.committed.value["did:plc:bob"] != null)
         }
 
+    /** The screen asks for a review on this; a follow that failed is no positive moment. */
+    @Test
+    fun `a committed follow is a positive moment`() =
+        runTest(mainDispatcher.dispatcher) {
+            val header = SAMPLE_HEADER.copy(did = "did:plc:bob")
+            val vm = newVm(repo = connectionsRepo(header), route = Profile(handle = "bob.bsky.social"))
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.FollowTapped)
+                advanceUntilIdle()
+                assertEquals(ProfileEffect.FollowCommitted, awaitItem())
+            }
+        }
+
     @Test
     fun `a failed follow doesn't reach the shared store`() =
         runTest(mainDispatcher.dispatcher) {

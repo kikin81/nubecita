@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.profile.impl
 
 import android.content.ActivityNotFoundException
+import androidx.activity.compose.LocalActivity
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.SnackbarHostState
@@ -17,11 +18,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
+import net.kikin.nubecita.core.analytics.ReviewTrigger
 import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.core.postinteractions.ui.InteractionStrings
 import net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions
+import net.kikin.nubecita.core.review.requestReviewIfEligible
 import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.feature.profile.impl.ui.openBioLinkInCustomTab
 import android.net.Uri as AndroidUri
@@ -258,9 +261,12 @@ internal fun ProfileScreen(
     val currentComingSoonEdit by rememberUpdatedState(comingSoonEdit)
     val currentComingSoonBlock by rememberUpdatedState(comingSoonBlock)
 
+    val reviewActivity = LocalActivity.current
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
             when (effect) {
+                // A positive moment: the reader found an account worth following.
+                ProfileEffect.FollowCommitted -> reviewActivity?.requestReviewIfEligible(ReviewTrigger.Follow)
                 is ProfileEffect.ShowError -> {
                     val msg =
                         when (effect.error) {

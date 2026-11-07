@@ -518,6 +518,14 @@ class AnalyticsModelTest {
     }
 
     @Test
+    fun `review_requested carries the moment that triggered it`() {
+        val event = ReviewRequested(ReviewTrigger.MediaExit)
+        assertEquals("review_requested", event.name)
+        assertEquals(mapOf("trigger" to Str("media_exit")), event.params)
+        AnalyticsValidator.requireValid(event)
+    }
+
+    @Test
     fun `translate_batch sends its count as a STRING bucket`() {
         // Not a LongVal. GA4 custom dimensions are text-only, so a numeric
         // param reports `(not set)` on every event — which is exactly how
