@@ -44,6 +44,8 @@ internal sealed interface MediaViewerLoadStatus {
      *   this is false, rather than shown disabled.
      * - [post] is the post the images belong to, kept current with the app's
      *   like, repost and bookmark state.
+     * - [isCommentsOpen] is the comments sheet's visibility. The controls stay
+     *   up under it: the auto-fade and tap-to-toggle are suspended.
      * - [isSaving] guards a double-tap from starting a second write and
      *   drives the in-flight indicator. While it is true the chrome auto-fade
      *   is suspended: the indicator lives in the chrome, so fading on
@@ -58,6 +60,7 @@ internal sealed interface MediaViewerLoadStatus {
         val isAltSheetOpen: Boolean,
         val canSave: Boolean = false,
         val isSaving: Boolean = false,
+        val isCommentsOpen: Boolean = false,
     ) : MediaViewerLoadStatus
 
     /**
@@ -136,6 +139,12 @@ internal sealed interface MediaViewerEvent : UiEvent {
      * a save is already in flight, so a double-tap writes one file.
      */
     data object OnSaveClick : MediaViewerEvent
+
+    /** Tap on the reply action; opens the comments sheet. */
+    data object OnCommentsClick : MediaViewerEvent
+
+    /** The comments sheet was dragged or tapped away. */
+    data object OnCommentsDismiss : MediaViewerEvent
 
     /** Tap on the author in the post details overlay. */
     data object OnAuthorClick : MediaViewerEvent

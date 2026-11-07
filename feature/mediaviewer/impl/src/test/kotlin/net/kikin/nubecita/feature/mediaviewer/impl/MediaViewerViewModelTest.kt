@@ -55,6 +55,85 @@ internal class MediaViewerViewModelTest {
             every { state } returns interactions
         }
 
+    private suspend fun TestScope.loaded(): MediaViewerViewModel {
+        val vm = newVm(FakeRepo(Result.success(samplePostWithImages(2))))
+        vm.handleEvent(MediaViewerEvent.Load)
+        advanceUntilIdle()
+        return vm
+    }
+
+    private val MediaViewerViewModel.status get() = uiState.value.loadStatus as MediaViewerLoadStatus.Loaded
+
+    @Test
+    fun `the reply action opens the comments`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = loaded()
+
+            vm.handleEvent(MediaViewerEvent.OnCommentsClick)
+
+            assertTrue(vm.status.isCommentsOpen)
+        }
+
+    @Test
+    fun `the controls don't auto-fade under an open sheet`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = loaded()
+            vm.handleEvent(MediaViewerEvent.OnCommentsClick)
+
+            vm.handleEvent(MediaViewerEvent.OnChromeAutoFadeTimeout)
+
+            assertTrue(vm.status.isChromeVisible)
+        }
+
+    @Test
+    fun `tapping the image under an open sheet doesn't toggle the controls`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = loaded()
+            vm.handleEvent(MediaViewerEvent.OnCommentsClick)
+
+            vm.handleEvent(MediaViewerEvent.OnTapImage)
+
+            assertTrue(vm.status.isChromeVisible)
+        }
+
+    /** Back and swipe-down both arrive here, so one rule covers both. */
+    @Test
+    fun `a dismiss request closes the sheet and keeps the viewer`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = loaded()
+            vm.handleEvent(MediaViewerEvent.OnCommentsClick)
+
+            vm.effects.test {
+                vm.handleEvent(MediaViewerEvent.OnDismissRequest)
+                advanceUntilIdle()
+
+                assertFalse(vm.status.isCommentsOpen)
+                expectNoEvents()
+            }
+        }
+
+    @Test
+    fun `a dismiss request with no sheet closes the viewer`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = loaded()
+
+            vm.effects.test {
+                vm.handleEvent(MediaViewerEvent.OnDismissRequest)
+                assertEquals(MediaViewerEffect.Dismiss, awaitItem())
+            }
+        }
+
+    @Test
+    fun `dismissing the sheet closes it`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = loaded()
+            vm.handleEvent(MediaViewerEvent.OnCommentsClick)
+
+            vm.handleEvent(MediaViewerEvent.OnCommentsDismiss)
+
+            assertFalse(vm.status.isCommentsOpen)
+        }
+
     @Test
     fun `the loaded state keeps the post`() =
         runTest(mainDispatcher.dispatcher) {

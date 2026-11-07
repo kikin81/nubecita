@@ -325,7 +325,7 @@ private fun VideoPlayerDetailWithCommentsCompactScreenshot() {
                     onCommentClick = {},
                 )
             },
-            videoContent = {
+            content = {
                 VideoPlayerContent(
                     state = sampleVideoPlayerState(isCommentsOpen = true),
                     player = null,
@@ -356,7 +356,7 @@ private fun VideoPlayerDetailWithCommentsMediumScreenshot() {
                     onCommentClick = {},
                 )
             },
-            videoContent = {
+            content = {
                 VideoPlayerContent(
                     state = sampleVideoPlayerState(isCommentsOpen = true),
                     player = null,
@@ -387,7 +387,7 @@ private fun VideoPlayerDetailWithCommentsExpandedScreenshot() {
                     onCommentClick = {},
                 )
             },
-            videoContent = {
+            content = {
                 VideoPlayerContent(
                     state = sampleVideoPlayerState(isCommentsOpen = true),
                     player = null,

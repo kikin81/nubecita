@@ -98,11 +98,40 @@ internal class MediaViewerViewModel
                 MediaViewerEvent.OnTapImage -> onTapImage()
                 MediaViewerEvent.OnAltBadgeClick -> setSheetOpen(true)
                 MediaViewerEvent.OnAltSheetDismiss -> setSheetOpen(false)
-                MediaViewerEvent.OnChromeAutoFadeTimeout -> setChromeVisible(false)
-                MediaViewerEvent.OnDismissRequest -> sendEffect(MediaViewerEffect.Dismiss)
+                MediaViewerEvent.OnChromeAutoFadeTimeout -> onChromeAutoFadeTimeout()
+                MediaViewerEvent.OnDismissRequest -> onDismissRequest()
                 MediaViewerEvent.OnSaveClick -> onSaveClick()
+                MediaViewerEvent.OnCommentsClick -> setCommentsOpen(true)
+                MediaViewerEvent.OnCommentsDismiss -> setCommentsOpen(false)
                 MediaViewerEvent.OnAuthorClick -> onAuthorClick()
                 MediaViewerEvent.OnCaptionClick -> onCaptionClick()
+            }
+        }
+
+        private fun onChromeAutoFadeTimeout() {
+            val status = uiState.value.loadStatus
+            if (status is MediaViewerLoadStatus.Loaded && status.isCommentsOpen) return
+            setChromeVisible(false)
+        }
+
+        /** Back and swipe-down both land here, so an open sheet closes before the viewer does. */
+        private fun onDismissRequest() {
+            val status = uiState.value.loadStatus
+            if (status is MediaViewerLoadStatus.Loaded && status.isCommentsOpen) {
+                setCommentsOpen(false)
+            } else {
+                sendEffect(MediaViewerEffect.Dismiss)
+            }
+        }
+
+        private fun setCommentsOpen(open: Boolean) {
+            setState {
+                val latest = loadStatus
+                if (latest is MediaViewerLoadStatus.Loaded) {
+                    copy(loadStatus = latest.copy(isCommentsOpen = open, isChromeVisible = true))
+                } else {
+                    this
+                }
             }
         }
 
@@ -258,7 +287,7 @@ internal class MediaViewerViewModel
             if (status !is MediaViewerLoadStatus.Loaded) return
             // Tapping while the alt sheet is open is a no-op — the sheet's
             // scrim already absorbed the tap before it reached the image.
-            if (status.isAltSheetOpen) return
+            if (status.isAltSheetOpen || status.isCommentsOpen) return
             setState { copy(loadStatus = status.copy(isChromeVisible = !status.isChromeVisible)) }
         }
 

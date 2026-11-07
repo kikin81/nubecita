@@ -103,9 +103,9 @@ fun PostCommentsSheetScaffold(
             enabledValues = setOf(SheetValue.Hidden, SheetValue.PartiallyExpanded, SheetValue.Expanded),
         ),
     adaptiveInfo: WindowAdaptiveInfo = currentWindowAdaptiveInfoV2(),
-    videoContent: @Composable () -> Unit,
+    content: @Composable () -> Unit,
 ) {
-    val movableVideo = remember(videoContent) { movableContentOf { videoContent() } }
+    val movableVideo = remember(content) { movableContentOf { content() } }
     val movableComments = remember(commentsContent) { movableContentOf { commentsContent() } }
 
     val isCompact =

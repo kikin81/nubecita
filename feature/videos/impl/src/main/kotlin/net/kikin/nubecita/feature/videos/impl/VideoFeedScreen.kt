@@ -219,7 +219,7 @@ internal fun VideoFeedScreen(
                 },
             )
         },
-        videoContent = {
+        content = {
             Scaffold(
                 modifier = modifier,
                 containerColor = Color.Black,

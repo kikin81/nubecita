@@ -174,7 +174,7 @@ private fun PostCommentsSheetScaffoldCompactPreview() {
             isCommentsOpen = true,
             onDismiss = {},
             commentsContent = { SampleCommentsContent() },
-            videoContent = { SampleVideoPlayerContent() },
+            content = { SampleVideoPlayerContent() },
         )
     }
 }
@@ -189,7 +189,7 @@ private fun PostCommentsSheetScaffoldMediumPreview() {
             isCommentsOpen = true,
             onDismiss = {},
             commentsContent = { SampleCommentsContent() },
-            videoContent = { SampleVideoPlayerContent() },
+            content = { SampleVideoPlayerContent() },
         )
     }
 }
@@ -204,7 +204,7 @@ private fun PostCommentsSheetScaffoldExpandedPreview() {
             isCommentsOpen = true,
             onDismiss = {},
             commentsContent = { SampleCommentsContent() },
-            videoContent = { SampleVideoPlayerContent() },
+            content = { SampleVideoPlayerContent() },
         )
     }
 }

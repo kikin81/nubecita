@@ -58,6 +58,7 @@ internal fun PostDetailsOverlay(
     callbacks: PostCallbacks,
     onAuthorClick: () -> Unit,
     onCaptionClick: () -> Unit,
+    onCommentsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -107,7 +108,7 @@ internal fun PostDetailsOverlay(
                             ),
                 )
             }
-            ActionRow(post = post, callbacks = callbacks)
+            ActionRow(post = post, callbacks = callbacks, onCommentsClick = onCommentsClick)
         }
     }
 }
@@ -158,6 +159,7 @@ private fun AuthorRow(
 private fun ActionRow(
     post: PostUi,
     callbacks: PostCallbacks,
+    onCommentsClick: () -> Unit,
 ) {
     var repostSheetOpen by remember(post.id) { mutableStateOf(false) }
     FlowRow(
@@ -169,7 +171,7 @@ private fun ActionRow(
         NubecitaOverlayStatButton(
             icon = NubecitaIconName.ChatBubble,
             accessibilityLabel = stringResource(R.string.mediaviewer_action_reply),
-            onClick = { callbacks.onReply(post) },
+            onClick = onCommentsClick,
             count = post.stats.replyCount.toLong(),
             inline = true,
         )
