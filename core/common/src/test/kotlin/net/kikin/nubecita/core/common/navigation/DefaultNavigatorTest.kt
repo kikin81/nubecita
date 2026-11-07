@@ -3,7 +3,9 @@ package net.kikin.nubecita.core.common.navigation
 import androidx.navigation3.runtime.NavKey
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 
@@ -19,6 +21,17 @@ class DefaultNavigatorTest {
 
         assertEquals(listOf<NavKey>(TestStart), navigator.backStack.toList())
     }
+
+    /** With nothing above Main, or after replaceTo(Login), MainShell won't appear: the route would outlive the session. */
+    @Test
+    fun `closeAndOpenInMainShell at the root holds nothing`() =
+        runTest {
+            val navigator = DefaultNavigator(start = TestStart, deepLinkRouter = router)
+
+            navigator.closeAndOpenInMainShell(TestProfile)
+
+            assertNull(withTimeoutOrNull(1) { router.pendingDeepLinks.first() })
+        }
 
     /** MainShell may not be composed while an outer screen covers it, so the route has to wait. */
     @Test
