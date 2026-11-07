@@ -1062,12 +1062,14 @@ enum class TranslationModelReadiness(
 data class TranslatePost(
     val sourceLanguage: String,
     val modelState: TranslationModelReadiness,
+    val targetLanguage: String,
 ) : AnalyticsEvent {
     override val name: String = "translate_post"
     override val params: Map<String, AnalyticsValue> =
         mapOf(
             "source_language" to Str(sourceLanguage),
             "model_state" to Str(modelState.wire),
+            "target_language" to Str(targetLanguage),
         )
 }
 
@@ -1130,12 +1132,14 @@ data class TranslateAutoOptIn(
 data class TranslateError(
     val reason: TranslationErrorReason,
     val sourceLanguage: String,
+    val targetLanguage: String,
 ) : AnalyticsEvent {
     override val name: String = "translate_error"
     override val params: Map<String, AnalyticsValue> =
         mapOf(
             "reason" to Str(reason.wire),
             "source_language" to Str(sourceLanguage),
+            "target_language" to Str(targetLanguage),
         )
 }
 
@@ -1201,11 +1205,13 @@ enum class TranslationDownloadOutcome(
 data class TranslationModelDownload(
     val outcome: TranslationDownloadOutcome,
     val sourceLanguage: String,
+    val targetLanguage: String,
 ) : AnalyticsEvent {
     override val name: String = "translation_model_download"
     override val params: Map<String, AnalyticsValue> =
         mapOf(
             "outcome" to Str(outcome.wire),
             "source_language" to Str(sourceLanguage),
+            "target_language" to Str(targetLanguage),
         )
 }

@@ -474,10 +474,14 @@ class AnalyticsModelTest {
 
     @Test
     fun `translate_post carries the language and the model readiness`() {
-        val event = TranslatePost("ja", TranslationModelReadiness.NeedsDownload)
+        val event = TranslatePost("ja", TranslationModelReadiness.NeedsDownload, "es")
         assertEquals("translate_post", event.name)
         assertEquals(
-            mapOf("source_language" to Str("ja"), "model_state" to Str("needs_download")),
+            mapOf(
+                "source_language" to Str("ja"),
+                "model_state" to Str("needs_download"),
+                "target_language" to Str("es"),
+            ),
             event.params,
         )
         AnalyticsValidator.requireValid(event)
@@ -485,10 +489,14 @@ class AnalyticsModelTest {
 
     @Test
     fun `translate_error carries a bucketed reason, never a message`() {
-        val event = TranslateError(TranslationErrorReason.TranslateFailed, "de")
+        val event = TranslateError(TranslationErrorReason.TranslateFailed, "de", "es")
         assertEquals("translate_error", event.name)
         assertEquals(
-            mapOf("reason" to Str("translate_failed"), "source_language" to Str("de")),
+            mapOf(
+                "reason" to Str("translate_failed"),
+                "source_language" to Str("de"),
+                "target_language" to Str("es"),
+            ),
             event.params,
         )
         AnalyticsValidator.requireValid(event)
@@ -496,10 +504,14 @@ class AnalyticsModelTest {
 
     @Test
     fun `translation_model_download carries the outcome`() {
-        val event = TranslationModelDownload(TranslationDownloadOutcome.DeferredWifi, "ja")
+        val event = TranslationModelDownload(TranslationDownloadOutcome.DeferredWifi, "ja", "es")
         assertEquals("translation_model_download", event.name)
         assertEquals(
-            mapOf("outcome" to Str("deferred_wifi"), "source_language" to Str("ja")),
+            mapOf(
+                "outcome" to Str("deferred_wifi"),
+                "source_language" to Str("ja"),
+                "target_language" to Str("es"),
+            ),
             event.params,
         )
         AnalyticsValidator.requireValid(event)
@@ -541,10 +553,10 @@ class AnalyticsModelTest {
     fun `no two translation events share a wire name`() {
         val names =
             listOf(
-                TranslatePost("ja", TranslationModelReadiness.Ready).name,
-                TranslateError(TranslationErrorReason.EmptyResult, "ja").name,
+                TranslatePost("ja", TranslationModelReadiness.Ready, "es").name,
+                TranslateError(TranslationErrorReason.EmptyResult, "ja", "es").name,
                 TranslateBatch(1, "ja").name,
-                TranslationModelDownload(TranslationDownloadOutcome.Completed, "ja").name,
+                TranslationModelDownload(TranslationDownloadOutcome.Completed, "ja", "es").name,
             )
         assertEquals(names.size, names.toSet().size, "duplicate wire name in $names")
     }
