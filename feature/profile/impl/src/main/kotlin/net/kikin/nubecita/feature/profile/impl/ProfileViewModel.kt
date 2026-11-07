@@ -40,6 +40,9 @@ import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.moderation.api.Report
 import net.kikin.nubecita.feature.profile.api.EditProfile
 import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.profile.api.ProfileConnections
+import net.kikin.nubecita.feature.profile.api.ProfileConnectionsTab
+import net.kikin.nubecita.feature.profile.impl.data.ConnectionFollowStore
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
 import net.kikin.nubecita.feature.profile.impl.data.dedupeByKey
@@ -81,6 +84,7 @@ internal class ProfileViewModel
         // Resolves the profile's pinned-post strongRef into a full post for display.
         private val postRepository: PostRepository,
         private val outgoingPostStore: OutgoingPostStore,
+        private val followStore: ConnectionFollowStore,
     ) : MviViewModel<ProfileScreenViewState, ProfileEvent, ProfileEffect>(
             ProfileScreenViewState(
                 handle = route.handle,
@@ -236,6 +240,7 @@ internal class ProfileViewModel
                 is ProfileEvent.OnVideoTapped ->
                     sendEffect(ProfileEffect.NavigateToVideoPlayer(event.postUri))
                 is ProfileEvent.HandleTapped -> onHandleTapped(event.handle)
+                is ProfileEvent.ConnectionsTapped -> onConnectionsTapped(event.tab)
                 is ProfileEvent.TagTapped -> sendEffect(ProfileEffect.NavigateTo(Hashtag(event.tag, event.author)))
                 ProfileEvent.Refresh -> onRefresh()
                 is ProfileEvent.LoadMore -> onLoadMore(event.tab)
@@ -803,6 +808,21 @@ internal class ProfileViewModel
             launchInitialTabLoad(actor, tab)
         }
 
+        private fun onConnectionsTapped(tab: ProfileConnectionsTab) {
+            val header = uiState.value.header ?: return
+            sendEffect(
+                ProfileEffect.NavigateTo(
+                    ProfileConnections(
+                        actor = header.did,
+                        initialTab = tab,
+                        title = header.displayName?.takeIf { it.isNotBlank() } ?: header.handle,
+                        followersCount = header.followersCount,
+                        followsCount = header.followsCount,
+                    ),
+                ),
+            )
+        }
+
         /**
          * Handle a Follow / Unfollow tap. Branches on the current
          * [ViewerRelationship]:
@@ -859,6 +879,7 @@ internal class ProfileViewModel
                         setState {
                             copy(viewerRelationship = ViewerRelationship.Following(followUri = uri, isPending = false))
                         }
+                        followStore.record(targetDid, uri)
                     }.onFailure { throwable ->
                         setState { copy(viewerRelationship = previous) }
                         sendEffect(ProfileEffect.ShowError(throwable.toProfileError()))
@@ -870,12 +891,14 @@ internal class ProfileViewModel
             previous: ViewerRelationship.Following,
             followUri: String,
         ) {
+            val targetDid = uiState.value.header?.did ?: return
             setState { copy(viewerRelationship = ViewerRelationship.NotFollowing(isPending = true)) }
             viewModelScope.launch {
                 repository
                     .unfollow(followUri)
                     .onSuccess {
                         setState { copy(viewerRelationship = ViewerRelationship.NotFollowing(isPending = false)) }
+                        followStore.record(targetDid, null)
                     }.onFailure { throwable ->
                         setState { copy(viewerRelationship = previous) }
                         sendEffect(ProfileEffect.ShowError(throwable.toProfileError()))

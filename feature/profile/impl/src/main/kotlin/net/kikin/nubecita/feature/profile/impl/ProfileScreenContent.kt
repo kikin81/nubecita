@@ -45,6 +45,7 @@ import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.tabs.ProfilePillTabs
+import net.kikin.nubecita.feature.profile.api.ProfileConnectionsTab
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileHero
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileLinksSheet
 import net.kikin.nubecita.feature.profile.impl.ui.ProfileTopBar
@@ -208,6 +209,8 @@ internal fun ProfileScreenContent(
                         onRetryHeader = { onEvent(ProfileEvent.Refresh) },
                         onVerificationBadgeClick = { onEvent(ProfileEvent.VerificationBadgeTapped) },
                         onLinksOverflowClick = { onEvent(ProfileEvent.LinksOverflowTapped) },
+                        onFollowersClick = { onEvent(ProfileEvent.ConnectionsTapped(ProfileConnectionsTab.Followers)) },
+                        onFollowsClick = { onEvent(ProfileEvent.ConnectionsTapped(ProfileConnectionsTab.Following)) },
                         topInset = topBarPadding,
                         modifier = Modifier.fillMaxWidth(),
                     )

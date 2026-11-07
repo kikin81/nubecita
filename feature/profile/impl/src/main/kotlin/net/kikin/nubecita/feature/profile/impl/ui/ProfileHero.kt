@@ -69,6 +69,8 @@ internal fun ProfileHero(
     onVerificationBadgeClick: () -> Unit,
     modifier: Modifier = Modifier,
     onLinksOverflowClick: () -> Unit = {},
+    onFollowersClick: () -> Unit = {},
+    onFollowsClick: () -> Unit = {},
     topInset: Dp = 0.dp,
 ) {
     when {
@@ -78,6 +80,8 @@ internal fun ProfileHero(
                 showSupporterBadge = showSupporterBadge,
                 onVerificationBadgeClick = onVerificationBadgeClick,
                 onLinksOverflowClick = onLinksOverflowClick,
+                onFollowersClick = onFollowersClick,
+                onFollowsClick = onFollowsClick,
                 modifier = modifier,
                 topInset = topInset,
             )
@@ -98,6 +102,8 @@ private fun ProfileHeroLoaded(
     showSupporterBadge: Boolean,
     onVerificationBadgeClick: () -> Unit,
     onLinksOverflowClick: () -> Unit,
+    onFollowersClick: () -> Unit,
+    onFollowsClick: () -> Unit,
     modifier: Modifier = Modifier,
     topInset: Dp = 0.dp,
 ) {
@@ -272,6 +278,8 @@ private fun ProfileHeroLoaded(
                 postsCount = header.postsCount,
                 followersCount = header.followersCount,
                 followsCount = header.followsCount,
+                onFollowersClick = onFollowersClick,
+                onFollowsClick = onFollowsClick,
             )
             ProfileMetaRow(
                 website = header.website,

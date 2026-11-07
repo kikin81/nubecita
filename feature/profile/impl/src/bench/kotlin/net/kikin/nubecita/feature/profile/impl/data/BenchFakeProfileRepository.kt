@@ -19,6 +19,7 @@ import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.VerifierUi
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
 import net.kikin.nubecita.feature.profile.impl.VerifierRef
+import net.kikin.nubecita.feature.profile.impl.ViewerRelationship
 import timber.log.Timber
 import java.io.FileNotFoundException
 import javax.inject.Inject
@@ -38,7 +39,11 @@ internal class BenchFakeProfileRepository
 
         override suspend fun fetchHeader(actor: String): Result<ProfileHeaderWithViewer> =
             ensureLoaded().map { dto ->
-                BenchProfileMapper.toProfileHeaderWithViewer(dto.header)
+                val loaded = BenchProfileMapper.toProfileHeaderWithViewer(dto.header)
+                // Every handle serves this one fixture, so anyone else's profile
+                // needs a relationship the Follow button can act on.
+                val isOwn = actor == loaded.header.did || actor == loaded.header.handle
+                if (isOwn) loaded else loaded.copy(viewerRelationship = ViewerRelationship.NotFollowing())
             }
 
         // Bench: resolve each ref to a deterministic fake verifier so the verification

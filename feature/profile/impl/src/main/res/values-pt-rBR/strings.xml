@@ -31,9 +31,6 @@
     <string name="profile_snackbar_link_copied">Link copiado para a área de transferência</string>
     <string name="profile_clipboard_label_post_link">Link do post do Bluesky</string>
 
-    <string name="profile_stats_posts_label">Posts</string>
-    <string name="profile_stats_followers_label">Seguidores</string>
-    <string name="profile_stats_follows_label">Seguindo</string>
 
     <string name="profile_meta_link_content_description">Site</string>
     <string name="profile_meta_location_content_description">Localização</string>
@@ -132,14 +129,25 @@
     <string name="profile_compose_fab_label">Escrever</string>
     <string name="profile_pinned_post_label">Fixado</string>
     <plurals name="profile_connections_followers_tab">
-        <item quantity="one">%1$s seguidor</item>
-        <item quantity="other">%1$s seguidores</item>
+        <item quantity="one">%1$s Seguidor</item>
+        <item quantity="other">%1$s Seguidores</item>
     </plurals>
-    <string name="profile_connections_following_tab">%1$s seguindo</string>
+    <string name="profile_connections_following_tab">%1$s Seguindo</string>
     <string name="profile_connections_empty_followers">Ainda sem seguidores</string>
     <string name="profile_connections_empty_following">Ainda não segue ninguém</string>
     <string name="profile_connections_load_error">Não foi possível carregar esta lista</string>
     <string name="profile_connections_follow_error">Não foi possível atualizar. Tente de novo.</string>
     <string name="profile_connections_follow_label">Seguir %1$s</string>
     <string name="profile_connections_unfollow_label">Deixar de seguir %1$s</string>
+    <plurals name="profile_stats_posts">
+        <item quantity="one">%1$s Post</item>
+        <item quantity="other">%1$s Posts</item>
+    </plurals>
+    <plurals name="profile_stats_followers">
+        <item quantity="one">%1$s Seguidor</item>
+        <item quantity="other">%1$s Seguidores</item>
+    </plurals>
+    <string name="profile_stats_following">%1$s Seguindo</string>
+    <string name="profile_stats_followers_click_label">Ver seguidores</string>
+    <string name="profile_stats_following_click_label">Ver quem segue</string>
 </resources>

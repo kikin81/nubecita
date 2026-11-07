@@ -37,6 +37,7 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.moderation.api.Report
 import net.kikin.nubecita.feature.moderation.api.ReportSubject
 import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.profile.impl.data.ConnectionFollowStore
 import net.kikin.nubecita.feature.profile.impl.data.ImageChange
 import net.kikin.nubecita.feature.profile.impl.data.ProfileHeaderWithViewer
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
@@ -204,6 +205,7 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
                     mockk {
                         every { posts } returns MutableStateFlow(persistentListOf())
                     },
+                followStore = ConnectionFollowStore(),
             )
 
         val profileRoot: NavKey = Profile(handle = header.handle)

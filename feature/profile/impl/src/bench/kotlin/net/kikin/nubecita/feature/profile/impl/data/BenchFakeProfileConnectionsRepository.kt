@@ -33,7 +33,7 @@ internal class BenchFakeProfileConnectionsRepository
                     ConnectionRowUi(
                         actor =
                             ActorUi(
-                                did = "did:plc:bench$prefix$index",
+                                did = if (index == PROFILE_ROW) PROFILE_DID else "did:plc:bench$prefix$index",
                                 handle = "$prefix$index.bsky.social",
                                 displayName = "Bench ${prefix.replaceFirstChar(Char::uppercase)} $index",
                                 avatarUrl = null,
@@ -48,5 +48,13 @@ internal class BenchFakeProfileConnectionsRepository
         private companion object {
             const val PAGE_SIZE = 20
             const val NEXT_CURSOR = "bench-page-2"
+
+            /**
+             * The bench profile fake serves this one account for every handle,
+             * so this row is the one whose profile matches it: following from
+             * there has to show here.
+             */
+            const val PROFILE_ROW = 3
+            const val PROFILE_DID = "did:plc:benchnubecita0000000000000"
         }
     }
