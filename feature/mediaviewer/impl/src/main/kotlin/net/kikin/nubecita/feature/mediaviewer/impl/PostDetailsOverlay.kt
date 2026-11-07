@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -96,11 +97,14 @@ internal fun PostDetailsOverlay(
                     maxLines = CAPTION_MAX_LINES,
                     overflow = TextOverflow.Ellipsis,
                     modifier =
-                        Modifier.clickable(
-                            role = Role.Button,
-                            onClickLabel = stringResource(R.string.mediaviewer_open_post),
-                            onClick = onCaptionClick,
-                        ),
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = MIN_TOUCH_HEIGHT)
+                            .clickable(
+                                role = Role.Button,
+                                onClickLabel = stringResource(R.string.mediaviewer_open_post),
+                                onClick = onCaptionClick,
+                            ),
                 )
             }
             ActionRow(post = post, callbacks = callbacks)
@@ -117,11 +121,13 @@ private fun AuthorRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s2),
         modifier =
-            Modifier.clickable(
-                role = Role.Button,
-                onClickLabel = stringResource(R.string.mediaviewer_open_profile),
-                onClick = onClick,
-            ),
+            Modifier
+                .heightIn(min = MIN_TOUCH_HEIGHT)
+                .clickable(
+                    role = Role.Button,
+                    onClickLabel = stringResource(R.string.mediaviewer_open_profile),
+                    onClick = onClick,
+                ),
     ) {
         NubecitaAsyncImage(
             model = post.author.avatarUrl,
@@ -220,4 +226,5 @@ private const val SCRIM_MID_ALPHA = 0.4f
 private const val SCRIM_END_ALPHA = 0.75f
 private val SCRIM_LEAD_IN = 96.dp
 private val AVATAR_SIZE = 40.dp
+private val MIN_TOUCH_HEIGHT = 48.dp
 private val MAX_WIDTH = 640.dp
