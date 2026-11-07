@@ -5,8 +5,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
+import net.kikin.nubecita.data.models.AuthorUi
+import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.ImageUi
+import net.kikin.nubecita.data.models.PostStatsUi
+import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
+import kotlin.time.Instant
 
 /**
  * Screenshot baselines for `MediaViewerScreen`'s view-mode matrix:
@@ -114,6 +120,7 @@ private fun MediaViewerLoadedSingleScreenshot() {
                 MediaViewerState(
                     loadStatus =
                         MediaViewerLoadStatus.Loaded(
+                            post = previewPost(),
                             images = persistentListOf(previewImage(0, altText = "the cat sat on the mat")),
                             currentIndex = 0,
                             isChromeVisible = true,
@@ -146,6 +153,7 @@ private fun MediaViewerLoadedSavableScreenshot() {
                 MediaViewerState(
                     loadStatus =
                         MediaViewerLoadStatus.Loaded(
+                            post = previewPost(),
                             images = persistentListOf(previewImage(0, altText = "the cat sat on the mat")),
                             currentIndex = 0,
                             isChromeVisible = true,
@@ -178,6 +186,7 @@ private fun MediaViewerLoadedSavingScreenshot() {
                 MediaViewerState(
                     loadStatus =
                         MediaViewerLoadStatus.Loaded(
+                            post = previewPost(),
                             images = persistentListOf(previewImage(0, altText = "the cat sat on the mat")),
                             currentIndex = 0,
                             isChromeVisible = true,
@@ -211,6 +220,7 @@ private fun MediaViewerLoadedMultiScreenshot() {
                 MediaViewerState(
                     loadStatus =
                         MediaViewerLoadStatus.Loaded(
+                            post = previewPost(),
                             images =
                                 persistentListOf(
                                     previewImage(0, altText = "first image alt text"),
@@ -248,6 +258,7 @@ private fun MediaViewerLoadedMultiNoAltScreenshot() {
                 MediaViewerState(
                     loadStatus =
                         MediaViewerLoadStatus.Loaded(
+                            post = previewPost(),
                             images =
                                 persistentListOf(
                                     previewImage(0, altText = null),
@@ -269,6 +280,77 @@ private fun MediaViewerLoadedMultiNoAltScreenshot() {
         )
     }
 }
+
+@PreviewTest
+@Preview(name = "details-long-caption-light", showBackground = true)
+@Preview(name = "details-long-caption-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun MediaViewerDetailsLongCaptionScreenshot() {
+    DetailsPreview(previewPost(text = LONG_CAPTION, liked = true))
+}
+
+@PreviewTest
+@Preview(name = "details-no-caption-light", showBackground = true)
+@Preview(name = "details-no-caption-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun MediaViewerDetailsNoCaptionScreenshot() {
+    DetailsPreview(previewPost(text = ""))
+}
+
+@Composable
+private fun DetailsPreview(post: PostUi) {
+    NubecitaCanvasPreviewTheme {
+        MediaViewerScreenContent(
+            state =
+                MediaViewerState(
+                    loadStatus =
+                        MediaViewerLoadStatus.Loaded(
+                            post = post,
+                            images = persistentListOf(previewImage(0, altText = null)),
+                            currentIndex = 0,
+                            isChromeVisible = true,
+                            isAltSheetOpen = false,
+                        ),
+                ),
+            onRetry = {},
+            onDismissRequest = {},
+            onPageChange = {},
+            onTapImage = {},
+            onAltBadgeClick = {},
+            onAltSheetDismiss = {},
+            onChromeAutoFadeTimeout = {},
+            onSaveClick = {},
+        )
+    }
+}
+
+private const val LONG_CAPTION =
+    "A long afternoon at the coast, with the tide out further than anyone remembered and the " +
+        "light going gold over the rocks, so we stayed until the last of it had gone and walked " +
+        "back along the sand without saying much at all."
+
+private fun previewPost(
+    text: String = "when a kid gives you a fake ID",
+    liked: Boolean = false,
+): PostUi =
+    PostUi(
+        id = "at://preview",
+        cid = "bafyreipreview",
+        author =
+            AuthorUi(
+                did = "did:plc:preview",
+                handle = "alice.bsky.social",
+                displayName = "Alice Chen",
+                avatarUrl = null,
+            ),
+        createdAt = Instant.parse("2026-04-25T12:00:00Z"),
+        text = text,
+        facets = persistentListOf(),
+        embed = EmbedUi.Images(items = persistentListOf(previewImage(0, altText = null))),
+        stats = PostStatsUi(replyCount = 18, repostCount = 752, likeCount = 11000),
+        viewer = ViewerStateUi(isLikedByViewer = liked),
+        repostedBy = null,
+    )
 
 private fun previewImage(
     index: Int,

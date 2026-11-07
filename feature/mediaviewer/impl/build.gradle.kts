@@ -15,12 +15,18 @@ android {
 dependencies {
     api(project(":feature:mediaviewer:api"))
 
+    implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     implementation(project(":core:image"))
+    implementation(project(":core:post-interactions"))
+    implementation(project(":core:post-interactions-ui"))
     implementation(project(":core:posts"))
     implementation(project(":data:models"))
     implementation(project(":designsystem"))
+    implementation(project(":feature:composer:api"))
+    implementation(project(":feature:postdetail:api"))
+    implementation(project(":feature:profile:api"))
     implementation(libs.atproto.runtime)
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.collections.immutable)

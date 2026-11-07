@@ -16,4 +16,26 @@
     <string name="mediaviewer_save_success">Se guardó en tus fotos</string>
     <string name="mediaviewer_save_failed_retrieval">No se pudo descargar la imagen. Revisa tu conexión e inténtalo de nuevo.</string>
     <string name="mediaviewer_save_failed_storage">No se pudo guardar la imagen en tus fotos.</string>
+
+    <!-- Post details overlay -->
+    <string name="mediaviewer_snackbar_error_network">Error de red. Reintenta.</string>
+    <string name="mediaviewer_snackbar_error_unauthenticated">Sesión expirada. Inicia sesión de nuevo.</string>
+    <string name="mediaviewer_snackbar_error_unknown">Algo salió mal. Reintenta.</string>
+    <string name="mediaviewer_snackbar_link_copied">Enlace copiado al portapapeles</string>
+    <string name="mediaviewer_snackbar_text_copied">Texto copiado</string>
+    <string name="mediaviewer_clipboard_label_post_link">Enlace de publicación de Bluesky</string>
+    <string name="mediaviewer_snackbar_overflow_report_coming_soon">Denunciar: próximamente</string>
+    <string name="mediaviewer_snackbar_overflow_mute_coming_soon">Silenciar: próximamente</string>
+    <string name="mediaviewer_snackbar_overflow_unmute_coming_soon">Dejar de silenciar: próximamente</string>
+    <string name="mediaviewer_snackbar_overflow_block_coming_soon">Bloquear: próximamente</string>
+    <string name="mediaviewer_snackbar_overflow_unblock_coming_soon">Desbloquear: próximamente</string>
+    <string name="mediaviewer_snackbar_overflow_mute_thread_coming_soon">Silenciar hilo: próximamente</string>
+    <string name="mediaviewer_snackbar_overflow_unmute_thread_coming_soon">Dejar de silenciar el hilo: próximamente</string>
+    <string name="mediaviewer_action_like">Me gusta</string>
+    <string name="mediaviewer_action_repost">Republicar</string>
+    <string name="mediaviewer_action_bookmark">Guardar</string>
+    <string name="mediaviewer_action_reply">Responder</string>
+    <string name="mediaviewer_action_share">Compartir</string>
+    <string name="mediaviewer_open_profile">Abrir perfil</string>
+    <string name="mediaviewer_open_post">Abrir publicación</string>
 </resources>

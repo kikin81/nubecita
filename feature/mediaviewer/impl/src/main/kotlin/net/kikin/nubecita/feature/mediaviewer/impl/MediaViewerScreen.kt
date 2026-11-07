@@ -53,6 +53,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation3.runtime.NavKey
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -68,11 +69,12 @@ import net.kikin.nubecita.core.common.navigation.sharedImageModifier
 import net.kikin.nubecita.designsystem.component.NubecitaOverlayIconButton
 import net.kikin.nubecita.designsystem.component.NubecitaOverlayPill
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
+import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.spacing
 import kotlin.time.Duration.Companion.seconds
 
-private val CHROME_AUTO_FADE_DELAY = 3.seconds
+private val CHROME_AUTO_FADE_DELAY = 5.seconds
 private const val SWIPE_DOWN_DISMISS_THRESHOLD_DP: Int = 120
 private const val MIN_ZOOM_TOLERANCE: Float = 0.02f
 
@@ -80,11 +82,14 @@ private const val MIN_ZOOM_TOLERANCE: Float = 0.02f
 @Composable
 internal fun MediaViewerScreen(
     onDismiss: () -> Unit,
+    onOpenInMainShell: (NavKey) -> Unit,
+    onNavigate: (NavKey) -> Unit,
     viewModel: MediaViewerViewModel,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val currentOnDismiss by rememberUpdatedState(onDismiss)
+    val currentOnOpenInMainShell by rememberUpdatedState(onOpenInMainShell)
 
     val onRetry = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.Retry) } }
     val onDismissRequest = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnDismissRequest) } }
@@ -94,10 +99,13 @@ internal fun MediaViewerScreen(
     val onAltSheetDismiss = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnAltSheetDismiss) } }
     val onChromeAutoFadeTimeout = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnChromeAutoFadeTimeout) } }
     val onSaveClick = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnSaveClick) } }
+    val onAuthorClick = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnAuthorClick) } }
+    val onCaptionClick = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnCaptionClick) } }
 
     LaunchedEffect(Unit) { viewModel.handleEvent(MediaViewerEvent.Load) }
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val postCallbacks = rememberMediaViewerInteractions(viewModel, snackbarHostState, onNavigate)
     val savedMessage by rememberUpdatedState(stringResource(R.string.mediaviewer_save_success))
     val retrievalFailedMessage by rememberUpdatedState(stringResource(R.string.mediaviewer_save_failed_retrieval))
     val storageFailedMessage by rememberUpdatedState(stringResource(R.string.mediaviewer_save_failed_storage))
@@ -106,6 +114,7 @@ internal fun MediaViewerScreen(
         viewModel.effects.collect { effect ->
             when (effect) {
                 MediaViewerEffect.Dismiss -> currentOnDismiss()
+                is MediaViewerEffect.OpenInMainShell -> currentOnOpenInMainShell(effect.route)
                 is MediaViewerEffect.ShowSaveOutcome ->
                     launch {
                         snackbarHostState.showSnackbar(
@@ -143,6 +152,9 @@ internal fun MediaViewerScreen(
         postUri = viewModel.postUri,
         contextKey = viewModel.contextKey,
         snackbarHostState = snackbarHostState,
+        postCallbacks = postCallbacks,
+        onAuthorClick = onAuthorClick,
+        onCaptionClick = onCaptionClick,
     )
 }
 
@@ -161,6 +173,9 @@ internal fun MediaViewerScreenContent(
     postUri: String = "",
     contextKey: String = "",
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
+    postCallbacks: PostCallbacks = PostCallbacks(),
+    onAuthorClick: () -> Unit = {},
+    onCaptionClick: () -> Unit = {},
 ) {
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -187,6 +202,9 @@ internal fun MediaViewerScreenContent(
                         onChromeAutoFadeTimeout = onChromeAutoFadeTimeout,
                         onDismissRequest = onDismissRequest,
                         onSaveClick = onSaveClick,
+                        postCallbacks = postCallbacks,
+                        onAuthorClick = onAuthorClick,
+                        onCaptionClick = onCaptionClick,
                     )
             }
             SnackbarHost(
@@ -253,6 +271,9 @@ private fun LoadedState(
     onChromeAutoFadeTimeout: () -> Unit,
     onDismissRequest: () -> Unit,
     onSaveClick: () -> Unit,
+    postCallbacks: PostCallbacks,
+    onAuthorClick: () -> Unit,
+    onCaptionClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val pagerState =
@@ -372,10 +393,26 @@ private fun LoadedState(
             )
         }
 
+        val chromeEnter = fadeIn(MaterialTheme.motionScheme.fastEffectsSpec())
+        val chromeExit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec())
         AnimatedVisibility(
             visible = status.isChromeVisible,
-            enter = fadeIn(),
-            exit = fadeOut(),
+            enter = chromeEnter,
+            exit = chromeExit,
+            modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter),
+        ) {
+            PostDetailsOverlay(
+                post = status.post,
+                callbacks = postCallbacks,
+                onAuthorClick = onAuthorClick,
+                onCaptionClick = onCaptionClick,
+            )
+        }
+
+        AnimatedVisibility(
+            visible = status.isChromeVisible,
+            enter = chromeEnter,
+            exit = chromeExit,
             modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
         ) {
             OverlayChrome(

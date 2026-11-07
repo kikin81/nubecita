@@ -16,4 +16,26 @@
     <string name="mediaviewer_save_success">Salva nas suas fotos</string>
     <string name="mediaviewer_save_failed_retrieval">Não foi possível baixar a imagem. Verifique sua conexão e tente novamente.</string>
     <string name="mediaviewer_save_failed_storage">Não foi possível salvar a imagem nas suas fotos.</string>
+
+    <!-- Post details overlay -->
+    <string name="mediaviewer_snackbar_error_network">Erro de rede. Tente de novo.</string>
+    <string name="mediaviewer_snackbar_error_unauthenticated">Sessão expirada. Entre novamente.</string>
+    <string name="mediaviewer_snackbar_error_unknown">Algo deu errado. Tente de novo.</string>
+    <string name="mediaviewer_snackbar_link_copied">Link copiado para a área de transferência</string>
+    <string name="mediaviewer_snackbar_text_copied">Texto copiado</string>
+    <string name="mediaviewer_clipboard_label_post_link">Link de post do Bluesky</string>
+    <string name="mediaviewer_snackbar_overflow_report_coming_soon">Denunciar — em breve</string>
+    <string name="mediaviewer_snackbar_overflow_mute_coming_soon">Silenciar — em breve</string>
+    <string name="mediaviewer_snackbar_overflow_unmute_coming_soon">Dessilenciar — em breve</string>
+    <string name="mediaviewer_snackbar_overflow_block_coming_soon">Bloquear — em breve</string>
+    <string name="mediaviewer_snackbar_overflow_unblock_coming_soon">Desbloquear — em breve</string>
+    <string name="mediaviewer_snackbar_overflow_mute_thread_coming_soon">Silenciar thread — em breve</string>
+    <string name="mediaviewer_snackbar_overflow_unmute_thread_coming_soon">Dessilenciar thread — em breve</string>
+    <string name="mediaviewer_action_like">Curtir</string>
+    <string name="mediaviewer_action_repost">Repostar</string>
+    <string name="mediaviewer_action_bookmark">Salvar</string>
+    <string name="mediaviewer_action_reply">Responder</string>
+    <string name="mediaviewer_action_share">Compartilhar</string>
+    <string name="mediaviewer_open_profile">Abrir perfil</string>
+    <string name="mediaviewer_open_post">Abrir publicação</string>
 </resources>
