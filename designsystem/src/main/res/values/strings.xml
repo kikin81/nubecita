@@ -172,6 +172,7 @@
     <string name="post_show_original">Show original</string>
     <string name="post_show_translation">Show translation</string>
     <string name="post_translation_waiting_wifi">Waiting for Wi-Fi</string>
+    <string name="post_translation_downloading">Downloading language…</string>
     <string name="language_picker_search_label">Search</string>
     <string name="language_picker_done">Done</string>
     <string name="language_picker_cancel">Cancel</string>

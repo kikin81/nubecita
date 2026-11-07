@@ -423,6 +423,35 @@ internal class FeedTranslationCoordinatorTest {
             assertEquals(listOf("ja"), requested)
         }
 
+    /** A 45MB pack takes a while; a chip that shows nothing until then reads as broken. */
+    @Test
+    fun `a missing pack shows that it is downloading`() =
+        runTest {
+            val states =
+                resolve(
+                    post(langs = listOf("ja")),
+                    reader = listOf("es"),
+                    target = "es",
+                    downloaded = setOf("ja"),
+                    userInitiated = true,
+                    downloadsLand = true,
+                )
+
+            assertEquals(
+                listOf(PostTranslationUi.Downloading("ja"), PostTranslationUi.InProgress("ja")),
+                states.take(2),
+            )
+            assertTrue(states.last() is PostTranslationUi.Shown)
+        }
+
+    @Test
+    fun `a pack already on disk goes straight to translating`() =
+        runTest {
+            val states = resolve(post(langs = listOf("ja")), downloaded = setOf("ja"), userInitiated = true)
+
+            assertTrue(states.none { it is PostTranslationUi.Downloading })
+        }
+
     /** Without it, a failure for one reader's language looks like everyone's. */
     @Test
     fun `the events carry the reader's language`() =
