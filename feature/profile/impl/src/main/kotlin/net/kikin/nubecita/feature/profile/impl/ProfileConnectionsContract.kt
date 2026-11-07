@@ -1,7 +1,7 @@
 package net.kikin.nubecita.feature.profile.impl
 
 import androidx.compose.runtime.Immutable
-import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
@@ -51,7 +51,7 @@ internal data class ProfileConnectionsState(
     val title: String,
     val followersCount: Long,
     val followsCount: Long,
-    val overlay: ImmutableMap<String, ConnectionFollowState> = persistentMapOf(),
+    val overlay: PersistentMap<String, ConnectionFollowState> = persistentMapOf(),
 ) : UiState
 
 internal sealed interface ProfileConnectionsEvent : UiEvent {

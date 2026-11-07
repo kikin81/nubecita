@@ -9,7 +9,6 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.collections.immutable.toPersistentMap
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -55,7 +54,7 @@ internal class ProfileConnectionsViewModel
         val following: Flow<PagingData<ConnectionRowUi>> = pagedList { repository.getFollows(route.actor, it) }
 
         private fun pagedList(load: suspend (String?) -> Result<ConnectionPage>): Flow<PagingData<ConnectionRowUi>> =
-            Pager(PagingConfig(pageSize = PAGE_SIZE)) { ProfileConnectionsPagingSource(load) }
+            Pager(PagingConfig(pageSize = PAGE_SIZE, enablePlaceholders = false)) { ProfileConnectionsPagingSource(load) }
                 .flow
                 .cachedIn(viewModelScope)
 
@@ -68,7 +67,7 @@ internal class ProfileConnectionsViewModel
         /** A write in flight here wins: it records its own result when it lands. */
         private fun applyCommitted(committed: Map<String, String?>) {
             setState {
-                val updated = overlay.toPersistentMap().builder()
+                val updated = overlay.builder()
                 committed.forEach { (did, followUri) ->
                     if (updated[did] !is ConnectionFollowState.Pending) {
                         updated[did] = ConnectionFollowState.Committed(followUri)
@@ -134,10 +133,7 @@ internal class ProfileConnectionsViewModel
             did: String,
             value: ConnectionFollowState?,
         ) {
-            setState {
-                val updated = overlay.toPersistentMap()
-                copy(overlay = if (value == null) updated.remove(did) else updated.put(did, value))
-            }
+            setState { copy(overlay = if (value == null) overlay.remove(did) else overlay.put(did, value)) }
         }
 
         private companion object {
