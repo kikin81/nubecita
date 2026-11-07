@@ -88,6 +88,7 @@
     <string name="post_show_original">Ver original</string>
     <string name="post_show_translation">Ver tradução</string>
     <string name="post_translation_waiting_wifi">Aguardando Wi-Fi</string>
+    <string name="post_translation_downloading">Baixando idioma…</string>
     <string name="language_picker_search_label">Buscar</string>
     <string name="language_picker_done">Concluído</string>
     <string name="language_picker_cancel">Cancelar</string>

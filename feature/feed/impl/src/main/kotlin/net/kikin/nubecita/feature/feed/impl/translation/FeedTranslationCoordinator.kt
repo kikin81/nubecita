@@ -96,6 +96,10 @@ class FeedTranslationCoordinator
                 if (ready) TranslationModelReadiness.Ready else TranslationModelReadiness.NeedsDownload,
             )
             if (!ready) {
+                // `request` suspends for the whole transfer. On a metered
+                // connection it returns at once and the state below replaces
+                // this with WaitingForWifi.
+                emit(PostTranslationUi.Downloading(source))
                 packs.forEach { models.request(it) }
                 val states = models.states.first()
                 if (packs.any { states[it] is TranslationModelState.WaitingForUnmeteredNetwork }) {

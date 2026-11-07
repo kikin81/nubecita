@@ -82,6 +82,15 @@ private fun PostCardTranslateWaitingWifiPreview() {
     PostCard(post = japanesePost(), translation = PostTranslationUi.WaitingForWifi("ja"))
 }
 
+@PreviewTest
+@Preview(name = "post-card-translate-downloading-light")
+@Preview(name = "post-card-translate-downloading-dark", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
+@Composable
+private fun PostCardTranslateDownloadingPreview() {
+    PostCard(post = japanesePost(), translation = PostTranslationUi.Downloading("ja"))
+}
+
 private const val JAPANESE_BODY =
     "MNPしすぎて残価あり分割の審査に通らないので、17eをペイディ後払いで公式で買って4年使うか途中で売却して元を取ろう"
 

@@ -48,6 +48,17 @@ public sealed interface PostTranslationUi {
         override val sourceLanguage: String,
     ) : PostTranslationUi
 
+    /**
+     * A language pack is downloading before anything can be translated.
+     *
+     * A pack is around 45MB, so this can take a while, and until it lands the
+     * chip would otherwise show nothing at all after a tap.
+     */
+    @Immutable
+    public data class Downloading(
+        override val sourceLanguage: String,
+    ) : PostTranslationUi
+
     /** Translation in flight; the card shimmers over the body. */
     @Immutable
     public data class InProgress(

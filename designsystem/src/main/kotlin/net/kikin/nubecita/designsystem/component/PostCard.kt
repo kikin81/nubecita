@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -432,6 +434,14 @@ private fun TranslationFooter(
                 modifier = modifier,
             )
 
+        is PostTranslationUi.Downloading ->
+            TranslateChip(
+                label = stringResource(R.string.post_translation_downloading),
+                onClick = null,
+                busy = true,
+                modifier = modifier,
+            )
+
         is PostTranslationUi.InProgress -> Unit
 
         is PostTranslationUi.Shown ->
@@ -471,6 +481,7 @@ private fun TranslationFooter(
 private val TranslateChipShape = RoundedCornerShape(percent = 50)
 private val TranslateChipBorderWidth = 1.dp
 private val TranslateChipIconSize = 14.dp
+private val TranslateChipSpinnerStroke = 2.dp
 private val TranslateChipHorizontalPadding = 10.dp
 private val TranslateChipVerticalPadding = 4.dp
 private val TranslateChipGap = 5.dp
@@ -488,6 +499,7 @@ private fun TranslateChip(
     label: String,
     onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    busy: Boolean = false,
 ) {
     Row(
         modifier =
@@ -517,16 +529,26 @@ private fun TranslateChip(
         horizontalArrangement = Arrangement.spacedBy(TranslateChipGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        NubecitaIcon(
-            name = NubecitaIconName.Language,
-            contentDescription = null,
-            // opticalSize, not Modifier.size: the glyph renders through `Text`,
-            // so its drawn size follows the font size this parameter sets.
-            // A modifier only clamps the Box around it — the glyph kept its
-            // 24dp default and overflowed the pill's padding onto the border.
-            opticalSize = TranslateChipIconSize,
-            tint = MaterialTheme.colorScheme.primary,
-        )
+        if (busy) {
+            // nubecita-allow-raw-progress: a 14dp in-chip spinner standing in
+            // for the globe; the wavy indicator doesn't read at this size.
+            CircularProgressIndicator(
+                modifier = Modifier.size(TranslateChipIconSize),
+                color = MaterialTheme.colorScheme.primary,
+                strokeWidth = TranslateChipSpinnerStroke,
+            )
+        } else {
+            NubecitaIcon(
+                name = NubecitaIconName.Language,
+                contentDescription = null,
+                // opticalSize, not Modifier.size: the glyph renders through `Text`,
+                // so its drawn size follows the font size this parameter sets.
+                // A modifier only clamps the Box around it — the glyph kept its
+                // 24dp default and overflowed the pill's padding onto the border.
+                opticalSize = TranslateChipIconSize,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
