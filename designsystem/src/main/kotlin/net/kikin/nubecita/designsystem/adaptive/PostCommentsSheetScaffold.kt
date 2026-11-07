@@ -29,8 +29,10 @@ import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -103,10 +105,15 @@ fun PostCommentsSheetScaffold(
             enabledValues = setOf(SheetValue.Hidden, SheetValue.PartiallyExpanded, SheetValue.Expanded),
         ),
     adaptiveInfo: WindowAdaptiveInfo = currentWindowAdaptiveInfoV2(),
-    videoContent: @Composable () -> Unit,
+    content: @Composable () -> Unit,
 ) {
-    val movableVideo = remember(videoContent) { movableContentOf { videoContent() } }
-    val movableComments = remember(commentsContent) { movableContentOf { commentsContent() } }
+    // Created once and reading the latest slot, because a caller's lambda can
+    // change identity: keying on it would rebuild the slot and lose the state
+    // inside it, such as the viewer's zoom and page.
+    val currentContent by rememberUpdatedState(content)
+    val currentCommentsContent by rememberUpdatedState(commentsContent)
+    val movableVideo = remember { movableContentOf { currentContent() } }
+    val movableComments = remember { movableContentOf { currentCommentsContent() } }
 
     val isCompact =
         !adaptiveInfo.windowSizeClass.isWidthAtLeastBreakpoint(

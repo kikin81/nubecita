@@ -21,10 +21,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,8 +35,6 @@ import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
 import net.kikin.nubecita.designsystem.component.NubecitaOverlayIconButton
 import net.kikin.nubecita.designsystem.component.NubecitaOverlayStatButton
 import net.kikin.nubecita.designsystem.component.PostCallbacks
-import net.kikin.nubecita.designsystem.component.PostRepostAction
-import net.kikin.nubecita.designsystem.component.PostRepostSheet
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.semanticColors
 import net.kikin.nubecita.designsystem.spacing
@@ -58,6 +52,9 @@ internal fun PostDetailsOverlay(
     callbacks: PostCallbacks,
     onAuthorClick: () -> Unit,
     onCaptionClick: () -> Unit,
+    onCommentsClick: () -> Unit,
+    onRepostClick: () -> Unit,
+    onInteraction: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -107,7 +104,13 @@ internal fun PostDetailsOverlay(
                             ),
                 )
             }
-            ActionRow(post = post, callbacks = callbacks)
+            ActionRow(
+                post = post,
+                callbacks = callbacks,
+                onCommentsClick = onCommentsClick,
+                onRepostClick = onRepostClick,
+                onInteraction = onInteraction,
+            )
         }
     }
 }
@@ -158,8 +161,10 @@ private fun AuthorRow(
 private fun ActionRow(
     post: PostUi,
     callbacks: PostCallbacks,
+    onCommentsClick: () -> Unit,
+    onRepostClick: () -> Unit,
+    onInteraction: () -> Unit,
 ) {
-    var repostSheetOpen by remember(post.id) { mutableStateOf(false) }
     FlowRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s2),
@@ -169,14 +174,14 @@ private fun ActionRow(
         NubecitaOverlayStatButton(
             icon = NubecitaIconName.ChatBubble,
             accessibilityLabel = stringResource(R.string.mediaviewer_action_reply),
-            onClick = { callbacks.onReply(post) },
+            onClick = onCommentsClick,
             count = post.stats.replyCount.toLong(),
             inline = true,
         )
         NubecitaOverlayStatButton(
             icon = NubecitaIconName.Repeat,
             accessibilityLabel = stringResource(R.string.mediaviewer_action_repost),
-            onClick = { repostSheetOpen = true },
+            onClick = onRepostClick,
             count = post.stats.repostCount.toLong(),
             active = post.viewer.isRepostedByViewer,
             activeColor = MaterialTheme.semanticColors.repostAccent,
@@ -185,7 +190,10 @@ private fun ActionRow(
         NubecitaOverlayStatButton(
             icon = NubecitaIconName.Favorite,
             accessibilityLabel = stringResource(R.string.mediaviewer_action_like),
-            onClick = { callbacks.onLike(post) },
+            onClick = {
+                onInteraction()
+                callbacks.onLike(post)
+            },
             count = post.stats.likeCount.toLong(),
             active = post.viewer.isLikedByViewer,
             toggleable = true,
@@ -195,25 +203,19 @@ private fun ActionRow(
         NubecitaOverlayIconButton(
             icon = NubecitaIconName.Bookmark,
             accessibilityLabel = stringResource(R.string.mediaviewer_action_bookmark),
-            onClick = { callbacks.onBookmark(post) },
+            onClick = {
+                onInteraction()
+                callbacks.onBookmark(post)
+            },
             active = post.viewer.isBookmarked,
             toggleable = true,
         )
         NubecitaOverlayIconButton(
             icon = NubecitaIconName.IosShare,
             accessibilityLabel = stringResource(R.string.mediaviewer_action_share),
-            onClick = { callbacks.onShare(post) },
-        )
-    }
-    if (repostSheetOpen) {
-        PostRepostSheet(
-            isReposted = post.viewer.isRepostedByViewer,
-            onDismiss = { repostSheetOpen = false },
-            onAction = { action ->
-                when (action) {
-                    PostRepostAction.Repost -> callbacks.onRepost(post)
-                    PostRepostAction.Quote -> callbacks.onQuote?.invoke(post)
-                }
+            onClick = {
+                onInteraction()
+                callbacks.onShare(post)
             },
         )
     }

@@ -52,6 +52,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import coil3.request.ImageRequest
@@ -66,12 +67,22 @@ import net.kikin.nubecita.core.common.navigation.SharedImageCorners
 import net.kikin.nubecita.core.common.navigation.SharedImageSurfaces
 import net.kikin.nubecita.core.common.navigation.postImageMemoryCacheKey
 import net.kikin.nubecita.core.common.navigation.sharedImageModifier
+import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsEffect
+import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsEvent
+import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsSheetContent
+import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsViewModel
+import net.kikin.nubecita.designsystem.adaptive.PostCommentsSheetScaffold
 import net.kikin.nubecita.designsystem.component.NubecitaOverlayIconButton
 import net.kikin.nubecita.designsystem.component.NubecitaOverlayPill
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.component.PostCallbacks
+import net.kikin.nubecita.designsystem.component.PostRepostAction
+import net.kikin.nubecita.designsystem.component.PostRepostSheet
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.spacing
+import net.kikin.nubecita.feature.composer.api.ComposerRoute
+import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
+import net.kikin.nubecita.feature.profile.api.Profile
 import kotlin.time.Duration.Companion.seconds
 
 private val CHROME_AUTO_FADE_DELAY = 5.seconds
@@ -86,8 +97,12 @@ internal fun MediaViewerScreen(
     onNavigate: (NavKey) -> Unit,
     viewModel: MediaViewerViewModel,
     modifier: Modifier = Modifier,
+    commentsViewModel: PostCommentsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val commentsState by commentsViewModel.uiState.collectAsStateWithLifecycle()
+    val isCommentsOpen = (state.loadStatus as? MediaViewerLoadStatus.Loaded)?.isCommentsOpen == true
+    val currentOnNavigate by rememberUpdatedState(onNavigate)
     val currentOnDismiss by rememberUpdatedState(onDismiss)
     val currentOnOpenInMainShell by rememberUpdatedState(onOpenInMainShell)
 
@@ -101,6 +116,11 @@ internal fun MediaViewerScreen(
     val onSaveClick = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnSaveClick) } }
     val onAuthorClick = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnAuthorClick) } }
     val onCaptionClick = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnCaptionClick) } }
+    val onCommentsClick = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnCommentsClick) } }
+    val onCommentsDismiss = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnCommentsDismiss) } }
+    val onRepostClick = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnRepostClick) } }
+    val onRepostDismiss = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnRepostDismiss) } }
+    val onInteraction = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnChromeInteraction) } }
 
     LaunchedEffect(Unit) { viewModel.handleEvent(MediaViewerEvent.Load) }
 
@@ -129,6 +149,26 @@ internal fun MediaViewerScreen(
         }
     }
 
+    LaunchedEffect(isCommentsOpen) {
+        commentsViewModel.handleEvent(
+            if (isCommentsOpen) {
+                PostCommentsEvent.OpenComments(viewModel.postUri)
+            } else {
+                PostCommentsEvent.DismissComments
+            },
+        )
+    }
+
+    LaunchedEffect(commentsViewModel) {
+        commentsViewModel.effects.collect { effect ->
+            when (effect) {
+                is PostCommentsEffect.NavigateToComposer ->
+                    currentOnNavigate(ComposerRoute(replyToUri = effect.parentPostUri))
+                is PostCommentsEffect.ShowError -> launch { snackbarHostState.showSnackbar(effect.message) }
+            }
+        }
+    }
+
     BackHandler {
         val current = state.loadStatus
         if (current is MediaViewerLoadStatus.Loaded && current.isAltSheetOpen) {
@@ -138,24 +178,48 @@ internal fun MediaViewerScreen(
         }
     }
 
-    MediaViewerScreenContent(
-        state = state,
-        onRetry = onRetry,
-        onDismissRequest = onDismissRequest,
-        onPageChange = onPageChange,
-        onTapImage = onTapImage,
-        onAltBadgeClick = onAltBadgeClick,
-        onAltSheetDismiss = onAltSheetDismiss,
-        onChromeAutoFadeTimeout = onChromeAutoFadeTimeout,
-        onSaveClick = onSaveClick,
+    PostCommentsSheetScaffold(
+        isCommentsOpen = isCommentsOpen,
+        onDismiss = onCommentsDismiss,
         modifier = modifier,
-        postUri = viewModel.postUri,
-        contextKey = viewModel.contextKey,
-        snackbarHostState = snackbarHostState,
-        postCallbacks = postCallbacks,
-        onAuthorClick = onAuthorClick,
-        onCaptionClick = onCaptionClick,
-    )
+        commentsContent = {
+            PostCommentsSheetContent(
+                state = commentsState,
+                onLikeClick = { comment -> commentsViewModel.handleEvent(PostCommentsEvent.LikeComment(comment.id)) },
+                onRetryClick = { commentsViewModel.handleEvent(PostCommentsEvent.RetryLoad) },
+                onRefresh = { commentsViewModel.handleEvent(PostCommentsEvent.Refresh) },
+                onOpenComposer = { commentsViewModel.handleEvent(PostCommentsEvent.OpenComposer) },
+                onAuthorClick = { author ->
+                    viewModel.handleEvent(MediaViewerEvent.OnOpenInMainShell(Profile(handle = author.did)))
+                },
+                onCommentClick = { comment ->
+                    viewModel.handleEvent(MediaViewerEvent.OnOpenInMainShell(PostDetailRoute(postUri = comment.id)))
+                },
+            )
+        },
+    ) {
+        MediaViewerScreenContent(
+            state = state,
+            onRetry = onRetry,
+            onDismissRequest = onDismissRequest,
+            onPageChange = onPageChange,
+            onTapImage = onTapImage,
+            onAltBadgeClick = onAltBadgeClick,
+            onAltSheetDismiss = onAltSheetDismiss,
+            onChromeAutoFadeTimeout = onChromeAutoFadeTimeout,
+            onSaveClick = onSaveClick,
+            postUri = viewModel.postUri,
+            contextKey = viewModel.contextKey,
+            snackbarHostState = snackbarHostState,
+            postCallbacks = postCallbacks,
+            onAuthorClick = onAuthorClick,
+            onCaptionClick = onCaptionClick,
+            onCommentsClick = onCommentsClick,
+            onRepostClick = onRepostClick,
+            onRepostDismiss = onRepostDismiss,
+            onInteraction = onInteraction,
+        )
+    }
 }
 
 @Composable
@@ -176,6 +240,10 @@ internal fun MediaViewerScreenContent(
     postCallbacks: PostCallbacks = PostCallbacks(),
     onAuthorClick: () -> Unit = {},
     onCaptionClick: () -> Unit = {},
+    onCommentsClick: () -> Unit = {},
+    onRepostClick: () -> Unit = {},
+    onRepostDismiss: () -> Unit = {},
+    onInteraction: () -> Unit = {},
 ) {
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -205,6 +273,10 @@ internal fun MediaViewerScreenContent(
                         postCallbacks = postCallbacks,
                         onAuthorClick = onAuthorClick,
                         onCaptionClick = onCaptionClick,
+                        onCommentsClick = onCommentsClick,
+                        onRepostClick = onRepostClick,
+                        onRepostDismiss = onRepostDismiss,
+                        onInteraction = onInteraction,
                     )
             }
             SnackbarHost(
@@ -274,6 +346,10 @@ private fun LoadedState(
     postCallbacks: PostCallbacks,
     onAuthorClick: () -> Unit,
     onCaptionClick: () -> Unit,
+    onCommentsClick: () -> Unit,
+    onRepostClick: () -> Unit,
+    onRepostDismiss: () -> Unit,
+    onInteraction: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val pagerState =
@@ -307,8 +383,15 @@ private fun LoadedState(
             }
     }
 
-    LaunchedEffect(status.isChromeVisible, status.currentIndex, status.isSaving) {
-        if (status.isChromeVisible && !status.isSaving) {
+    LaunchedEffect(
+        status.isChromeVisible,
+        status.currentIndex,
+        status.isSaving,
+        status.isCommentsOpen,
+        status.isRepostSheetOpen,
+        status.chromeInteractions,
+    ) {
+        if (status.isChromeVisible && !status.isSaving && !status.isCommentsOpen && !status.isRepostSheetOpen) {
             kotlinx.coroutines.delay(CHROME_AUTO_FADE_DELAY)
             currentOnChromeAutoFadeTimeout()
         }
@@ -375,7 +458,7 @@ private fun LoadedState(
                 sharedImageModifier(
                     postUri = postUri,
                     index = page,
-                    enabled = isActivePage,
+                    enabled = isActivePage && !status.isLeavingForRoute,
                     surface = contextKey,
                     // Inverted relative to the card: the viewer rests square
                     // and rounds off toward the card's radius as it shrinks.
@@ -406,6 +489,9 @@ private fun LoadedState(
                 callbacks = postCallbacks,
                 onAuthorClick = onAuthorClick,
                 onCaptionClick = onCaptionClick,
+                onCommentsClick = onCommentsClick,
+                onRepostClick = onRepostClick,
+                onInteraction = onInteraction,
             )
         }
 
@@ -424,6 +510,20 @@ private fun LoadedState(
                 onClose = onDismissRequest,
                 onAltBadgeClick = onAltBadgeClick,
                 onSaveClick = onSaveClick,
+            )
+        }
+
+        // Outside the fading block, or the auto-fade would take it down mid-choice.
+        if (status.isRepostSheetOpen) {
+            PostRepostSheet(
+                isReposted = status.post.viewer.isRepostedByViewer,
+                onDismiss = onRepostDismiss,
+                onAction = { action ->
+                    when (action) {
+                        PostRepostAction.Repost -> postCallbacks.onRepost(status.post)
+                        PostRepostAction.Quote -> postCallbacks.onQuote?.invoke(status.post)
+                    }
+                },
             )
         }
 
