@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
@@ -211,6 +212,9 @@ fun NubecitaOverlayPill(
  * from the switch semantics, not from the wording.
  *
  * Bookmark and overflow are easy to forget: the rail has seven cells, not five.
+ *
+ * [inline] puts the count beside the icon instead of under it, for a horizontal
+ * bar such as the media viewer's, where the stacked form would be too tall.
  */
 @Composable
 fun NubecitaOverlayStatButton(
@@ -223,41 +227,64 @@ fun NubecitaOverlayStatButton(
     toggleable: Boolean = false,
     activeColor: Color? = null,
     testTag: String? = null,
+    inline: Boolean = false,
 ) {
     val contentColor = MaterialTheme.semanticColors.onVideoOverlay
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s1),
-        modifier =
-            modifier
-                .minimumInteractiveComponentSize()
-                .clip(StatShape)
-                .background(MaterialTheme.semanticColors.videoOverlayScrim, StatShape)
-                .border(HAIRLINE_WIDTH, hairlineColor(), StatShape)
-                .overlayInteraction(
-                    onClick = onClick,
-                    active = active,
-                    toggleable = toggleable,
-                    onClickLabel = accessibilityLabel,
-                ).then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
-                .padding(
-                    horizontal = MaterialTheme.spacing.s2,
-                    vertical = MaterialTheme.spacing.s2,
-                ),
-    ) {
+    val container =
+        modifier
+            .minimumInteractiveComponentSize()
+            .clip(StatShape)
+            .background(MaterialTheme.semanticColors.videoOverlayScrim, StatShape)
+            .border(HAIRLINE_WIDTH, hairlineColor(), StatShape)
+            .overlayInteraction(
+                onClick = onClick,
+                active = active,
+                toggleable = toggleable,
+                onClickLabel = accessibilityLabel,
+            ).then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
+    val glyph: @Composable (Dp) -> Unit = { size ->
         NubecitaIcon(
             name = icon,
             contentDescription = if (toggleable) accessibilityLabel else null,
             filled = active,
             tint = if (active) activeColor ?: contentColor else contentColor,
-            opticalSize = MaterialTheme.spacing.s7,
+            opticalSize = size,
         )
+    }
+    val label: @Composable () -> Unit = {
         if (count != null) {
             Text(
                 text = rememberCompactCount(count),
                 style = MaterialTheme.typography.labelMedium,
                 color = contentColor,
             )
+        }
+    }
+    if (inline) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s2),
+            modifier =
+                container.padding(
+                    horizontal = MaterialTheme.spacing.s3,
+                    vertical = MaterialTheme.spacing.s2,
+                ),
+        ) {
+            glyph(ICON_BUTTON_GLYPH_SIZE)
+            label()
+        }
+    } else {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.s1),
+            modifier =
+                container.padding(
+                    horizontal = MaterialTheme.spacing.s2,
+                    vertical = MaterialTheme.spacing.s2,
+                ),
+        ) {
+            glyph(MaterialTheme.spacing.s7)
+            label()
         }
     }
 }

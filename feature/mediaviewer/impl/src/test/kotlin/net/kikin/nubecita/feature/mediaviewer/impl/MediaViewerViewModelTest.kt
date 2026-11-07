@@ -2,18 +2,27 @@ package net.kikin.nubecita.feature.mediaviewer.impl
 
 import app.cash.turbine.test
 import io.github.kikin81.atproto.runtime.XrpcError
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.auth.NoSessionException
+import net.kikin.nubecita.core.common.navigation.SharedImageSurfaces
 import net.kikin.nubecita.core.image.ImageRetrievalException
 import net.kikin.nubecita.core.image.ImageSaver
 import net.kikin.nubecita.core.image.ImageStorageException
+import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
+import net.kikin.nubecita.core.postinteractions.PostInteractionState
+import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.posts.PostRepository
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.data.models.AuthorUi
@@ -23,6 +32,8 @@ import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
+import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
+import net.kikin.nubecita.feature.profile.api.Profile
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -36,6 +47,112 @@ import android.net.Uri as AndroidUri
 internal class MediaViewerViewModelTest {
     @RegisterExtension
     val mainDispatcher = MainDispatcherExtension()
+
+    private val handler = mockk<PostInteractionHandler>(relaxed = true)
+    private val interactions = MutableStateFlow(persistentMapOf<String, PostInteractionState>())
+    private val cache =
+        mockk<PostInteractionsCache>(relaxed = true) {
+            every { state } returns interactions
+        }
+
+    @Test
+    fun `the loaded state keeps the post`() =
+        runTest(mainDispatcher.dispatcher) {
+            val post = samplePostWithImages(2)
+            val vm = newVm(FakeRepo(Result.success(post)))
+            vm.handleEvent(MediaViewerEvent.Load)
+            advanceUntilIdle()
+
+            assertEquals(post.id, (vm.uiState.value.loadStatus as MediaViewerLoadStatus.Loaded).post.id)
+        }
+
+    @Test
+    fun `the handler is bound to the media viewer surface`() =
+        runTest(mainDispatcher.dispatcher) {
+            newVm(FakeRepo(Result.success(samplePostWithImages(1))))
+
+            verify { handler.bind(PostSurface.MediaViewer, any()) }
+        }
+
+    @Test
+    fun `the loaded post is seeded so a like here reaches the rest of the app`() =
+        runTest(mainDispatcher.dispatcher) {
+            val post = samplePostWithImages(1)
+            val vm = newVm(FakeRepo(Result.success(post)))
+            vm.handleEvent(MediaViewerEvent.Load)
+            advanceUntilIdle()
+
+            verify { cache.seed(listOf(post)) }
+        }
+
+    /** Without this a tap looks like it worked and then reverts, as it once did on the feed. */
+    @Test
+    fun `an optimistic like reaches the post`() =
+        runTest(mainDispatcher.dispatcher) {
+            val post = samplePostWithImages(1)
+            val vm = newVm(FakeRepo(Result.success(post)))
+            vm.handleEvent(MediaViewerEvent.Load)
+            advanceUntilIdle()
+
+            interactions.value = persistentMapOf(post.id to PostInteractionState(viewerLikeUri = "at://like", likeCount = 7))
+            advanceUntilIdle()
+
+            val loaded = vm.uiState.value.loadStatus as MediaViewerLoadStatus.Loaded
+            assertTrue(loaded.post.viewer.isLikedByViewer)
+            assertEquals(7, loaded.post.stats.likeCount)
+        }
+
+    @Test
+    fun `state the app already holds applies on load`() =
+        runTest(mainDispatcher.dispatcher) {
+            val post = samplePostWithImages(1)
+            interactions.value = persistentMapOf(post.id to PostInteractionState(viewerLikeUri = "at://like", likeCount = 7))
+            val vm = newVm(FakeRepo(Result.success(post)))
+            vm.handleEvent(MediaViewerEvent.Load)
+            advanceUntilIdle()
+
+            assertTrue((vm.uiState.value.loadStatus as MediaViewerLoadStatus.Loaded).post.viewer.isLikedByViewer)
+        }
+
+    @Test
+    fun `tapping the author opens their profile`() =
+        runTest(mainDispatcher.dispatcher) {
+            val post = samplePostWithImages(1)
+            val vm = newVm(FakeRepo(Result.success(post)))
+            vm.handleEvent(MediaViewerEvent.Load)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(MediaViewerEvent.OnAuthorClick)
+                assertEquals(MediaViewerEffect.OpenInMainShell(Profile(handle = post.author.handle)), awaitItem())
+            }
+        }
+
+    @Test
+    fun `tapping the caption opens the post`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(FakeRepo(Result.success(samplePostWithImages(1))), postUri = "at://focus")
+            vm.handleEvent(MediaViewerEvent.Load)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(MediaViewerEvent.OnCaptionClick)
+                assertEquals(MediaViewerEffect.OpenInMainShell(PostDetailRoute(postUri = "at://focus")), awaitItem())
+            }
+        }
+
+    @Test
+    fun `tapping the caption from the post's own detail just closes the viewer`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(FakeRepo(Result.success(samplePostWithImages(1))), contextKey = SharedImageSurfaces.POST_DETAIL)
+            vm.handleEvent(MediaViewerEvent.Load)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(MediaViewerEvent.OnCaptionClick)
+                assertEquals(MediaViewerEffect.Dismiss, awaitItem())
+            }
+        }
 
     @Test
     fun `init load with image embed transitions to Loaded with currentIndex from route`() =
@@ -434,11 +551,14 @@ internal class MediaViewerViewModelTest {
         postUri: String = "at://focus",
         imageIndex: Int = 0,
         imageSaver: ImageSaver = FakeImageSaver(),
+        contextKey: String = "",
     ): MediaViewerViewModel =
         MediaViewerViewModel(
-            route = MediaViewerRoute(postUri = postUri, imageIndex = imageIndex),
+            route = MediaViewerRoute(postUri = postUri, imageIndex = imageIndex, contextKey = contextKey),
             postRepository = repo,
             imageSaver = imageSaver,
+            handler = handler,
+            postInteractionsCache = cache,
         )
 
     /** Throws [CancellationException], as a real save does when its scope dies. */

@@ -1,11 +1,13 @@
 package net.kikin.nubecita.feature.mediaviewer.impl
 
 import androidx.compose.runtime.Immutable
+import androidx.navigation3.runtime.NavKey
 import kotlinx.collections.immutable.ImmutableList
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
 import net.kikin.nubecita.data.models.ImageUi
+import net.kikin.nubecita.data.models.PostUi
 
 /**
  * One frame's worth of UI state for the fullscreen image viewer.
@@ -40,6 +42,8 @@ internal sealed interface MediaViewerLoadStatus {
      *   life of the process, but lives here so no composable performs its own
      *   `Build.VERSION` check — the save affordance is omitted entirely when
      *   this is false, rather than shown disabled.
+     * - [post] is the post the images belong to, kept current with the app's
+     *   like, repost and bookmark state.
      * - [isSaving] guards a double-tap from starting a second write and
      *   drives the in-flight indicator. While it is true the chrome auto-fade
      *   is suspended: the indicator lives in the chrome, so fading on
@@ -47,6 +51,7 @@ internal sealed interface MediaViewerLoadStatus {
      */
     @Immutable
     data class Loaded(
+        val post: PostUi,
         val images: ImmutableList<ImageUi>,
         val currentIndex: Int,
         val isChromeVisible: Boolean,
@@ -131,6 +136,12 @@ internal sealed interface MediaViewerEvent : UiEvent {
      * a save is already in flight, so a double-tap writes one file.
      */
     data object OnSaveClick : MediaViewerEvent
+
+    /** Tap on the author in the post details overlay. */
+    data object OnAuthorClick : MediaViewerEvent
+
+    /** Tap on the caption in the post details overlay. */
+    data object OnCaptionClick : MediaViewerEvent
 }
 
 /**
@@ -163,6 +174,15 @@ internal sealed interface MediaViewerEffect : UiEffect {
      */
     @Immutable
     data object Dismiss : MediaViewerEffect
+
+    /**
+     * Close the viewer and open [route] in `MainShell`. Its routes aren't on
+     * the outer stack the viewer lives on, so a plain push can't reach them.
+     */
+    @Immutable
+    data class OpenInMainShell(
+        val route: NavKey,
+    ) : MediaViewerEffect
 
     /**
      * A save attempt finished. Carries the outcome as a type; the screen

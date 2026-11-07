@@ -12,6 +12,7 @@ import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalAnimatedVisibilityScope
 import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.core.common.navigation.OuterShell
+import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
 import net.kikin.nubecita.feature.mediaviewer.impl.MediaViewerScreen
 import net.kikin.nubecita.feature.mediaviewer.impl.MediaViewerViewModel
@@ -62,6 +63,13 @@ internal object MediaViewerNavigationModule {
                 ) {
                     MediaViewerScreen(
                         onDismiss = { navigator.goBack() },
+                        onOpenInMainShell = navigator::closeAndOpenInMainShell,
+                        // The composer is registered on both shells, so it can
+                        // open above the viewer and return to it. Anything else
+                        // only exists inside MainShell.
+                        onNavigate = { key ->
+                            if (key is ComposerRoute) navigator.goTo(key) else navigator.closeAndOpenInMainShell(key)
+                        },
                         viewModel = viewModel,
                     )
                 }

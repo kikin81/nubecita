@@ -317,6 +317,7 @@ enum class PostSurface(
     Explore("explore"),
     Bookmarks("bookmarks"),
     Videos("videos"),
+    MediaViewer("media_viewer"),
 
     /** The Wear OS app, relayed through the phone (`:core:wear-sync`). */
     Watch("watch"),

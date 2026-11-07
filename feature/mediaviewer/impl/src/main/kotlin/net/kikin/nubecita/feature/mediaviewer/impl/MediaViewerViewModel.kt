@@ -8,15 +8,24 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.runtime.XrpcError
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.common.navigation.SharedImageSurfaces
 import net.kikin.nubecita.core.image.ImageRetrievalException
 import net.kikin.nubecita.core.image.ImageSaver
+import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
+import net.kikin.nubecita.core.postinteractions.PostInteractionState
+import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
+import net.kikin.nubecita.core.postinteractions.mergeInteractionState
 import net.kikin.nubecita.core.posts.PostNotFoundException
 import net.kikin.nubecita.core.posts.PostProjectionException
 import net.kikin.nubecita.core.posts.PostRepository
+import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.imageContainer
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
+import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
+import net.kikin.nubecita.feature.profile.api.Profile
 import java.io.IOException
 
 /**
@@ -46,7 +55,10 @@ internal class MediaViewerViewModel
         @Assisted private val route: MediaViewerRoute,
         private val postRepository: PostRepository,
         private val imageSaver: ImageSaver,
-    ) : MviViewModel<MediaViewerState, MediaViewerEvent, MediaViewerEffect>(MediaViewerState()) {
+        private val handler: PostInteractionHandler,
+        private val postInteractionsCache: PostInteractionsCache,
+    ) : MviViewModel<MediaViewerState, MediaViewerEvent, MediaViewerEffect>(MediaViewerState()),
+        PostInteractionHandler by handler {
         @AssistedFactory
         interface Factory {
             fun create(route: MediaViewerRoute): MediaViewerViewModel
@@ -54,6 +66,29 @@ internal class MediaViewerViewModel
 
         val postUri: String get() = route.postUri
         val contextKey: String get() = route.contextKey
+
+        init {
+            handler.bind(PostSurface.MediaViewer, viewModelScope)
+            // The handler owns writes; this is the read side. Without it a tap
+            // on like appears to work and then reverts.
+            viewModelScope.launch {
+                postInteractionsCache.state.collect { snapshot ->
+                    setState {
+                        val current = loadStatus
+                        if (current is MediaViewerLoadStatus.Loaded) {
+                            copy(loadStatus = current.copy(post = current.post.withInteraction(snapshot)))
+                        } else {
+                            this
+                        }
+                    }
+                }
+            }
+        }
+
+        private fun PostUi.withInteraction(snapshot: Map<String, PostInteractionState>): PostUi {
+            val interaction = snapshot[id]
+            return if (interaction != null && !interaction.isDeleted) mergeInteractionState(interaction) else this
+        }
 
         override fun handleEvent(event: MediaViewerEvent) {
             when (event) {
@@ -66,6 +101,24 @@ internal class MediaViewerViewModel
                 MediaViewerEvent.OnChromeAutoFadeTimeout -> setChromeVisible(false)
                 MediaViewerEvent.OnDismissRequest -> sendEffect(MediaViewerEffect.Dismiss)
                 MediaViewerEvent.OnSaveClick -> onSaveClick()
+                MediaViewerEvent.OnAuthorClick -> onAuthorClick()
+                MediaViewerEvent.OnCaptionClick -> onCaptionClick()
+            }
+        }
+
+        private fun onAuthorClick() {
+            val status = uiState.value.loadStatus
+            if (status !is MediaViewerLoadStatus.Loaded) return
+            sendEffect(MediaViewerEffect.OpenInMainShell(Profile(handle = status.post.author.handle)))
+        }
+
+        private fun onCaptionClick() {
+            // Opened from post detail, the thread is already underneath, so
+            // pushing the route would stack a second copy of it.
+            if (route.contextKey == SharedImageSurfaces.POST_DETAIL) {
+                sendEffect(MediaViewerEffect.Dismiss)
+            } else {
+                sendEffect(MediaViewerEffect.OpenInMainShell(PostDetailRoute(postUri = route.postUri)))
             }
         }
 
@@ -153,10 +206,13 @@ internal class MediaViewerViewModel
                                 copy(loadStatus = MediaViewerLoadStatus.Error(MediaViewerError.NoImages))
                             }
                         } else {
+                            postInteractionsCache.seed(listOf(post))
+                            val currentPost = post.withInteraction(postInteractionsCache.state.value)
                             setState {
                                 copy(
                                     loadStatus =
                                         MediaViewerLoadStatus.Loaded(
+                                            post = currentPost,
                                             images = embed.items.toImmutableList(),
                                             currentIndex = route.imageIndex.coerceIn(0, embed.items.size - 1),
                                             isChromeVisible = true,
