@@ -40,6 +40,7 @@ enum class AnalyticsScreen(
     Composer("composer"),
     Profile("profile"),
     EditProfile("edit_profile"),
+    ProfileConnections("profile_connections"),
     Settings("settings"),
     Bookmarks("bookmarks"),
     Chats("chats"),
