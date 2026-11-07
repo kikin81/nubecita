@@ -408,6 +408,21 @@ internal class FeedTranslationCoordinatorTest {
             assertTrue(states.last() is PostTranslationUi.WaitingForWifi)
         }
 
+    /** Identification can return a region or script; packs and their states are keyed on the bare language. */
+    @Test
+    fun `an identified tag with a region asks for the bare language's pack`() =
+        runTest {
+            val requested = mutableListOf<String>()
+            resolve(
+                post(langs = emptyList()),
+                identifier = mockk { coEvery { identify(any()) } returns "ja-JP" },
+                userInitiated = true,
+                requested = requested,
+            )
+
+            assertEquals(listOf("ja"), requested)
+        }
+
     /** Without it, a failure for one reader's language looks like everyone's. */
     @Test
     fun `the events carry the reader's language`() =

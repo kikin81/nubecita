@@ -74,7 +74,13 @@ class FeedTranslationCoordinator
             // any pack is. Checking only the post's language passed that check
             // for a Spanish reader and then failed with "model files not
             // found", for every reader whose language isn't English.
-            val packs = listOf(source, target).distinct().filterNot { LanguageTags.normalize(it) == PIVOT_LANGUAGE }
+            // Normalized because identification can return a region or script
+            // ("ja-JP"), while packs and their states are keyed on the bare tag.
+            val packs =
+                listOf(source, target)
+                    .mapNotNull(LanguageTags::normalize)
+                    .distinct()
+                    .filterNot { it == PIVOT_LANGUAGE }
             val ready = packs.all { models.isDownloaded(it) }
             // Logged here, before any pack is fetched. `request` suspends for
             // the whole transfer — minutes for a 62MB pack — so logging after
