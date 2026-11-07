@@ -14,14 +14,14 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import kotlin.time.Instant
 
-class VideoCommentsStateTest {
+class PostCommentsStateTest {
     @Test
     fun `initial state has expected defaults`() {
-        val state = VideoCommentsState()
+        val state = PostCommentsState()
 
         assertNull(state.postUri)
-        assertEquals(VideoCommentsDetent.Hidden, state.detent)
-        assertEquals(VideoCommentsStatus.Idle, state.status)
+        assertEquals(PostCommentsDetent.Hidden, state.detent)
+        assertEquals(PostCommentsStatus.Idle, state.status)
         assertTrue(state.comments.isEmpty())
         assertFalse(state.isRefreshing)
         assertFalse(state.isVisible)
@@ -32,38 +32,38 @@ class VideoCommentsStateTest {
 
     @Test
     fun `detent transitions reflect visibility`() {
-        val hidden = VideoCommentsState(detent = VideoCommentsDetent.Hidden)
+        val hidden = PostCommentsState(detent = PostCommentsDetent.Hidden)
         assertFalse(hidden.isVisible)
 
-        val partial = VideoCommentsState(detent = VideoCommentsDetent.PartiallyExpanded)
+        val partial = PostCommentsState(detent = PostCommentsDetent.PartiallyExpanded)
         assertTrue(partial.isVisible)
 
-        val expanded = VideoCommentsState(detent = VideoCommentsDetent.Expanded)
+        val expanded = PostCommentsState(detent = PostCommentsDetent.Expanded)
         assertTrue(expanded.isVisible)
     }
 
     @Test
     fun `status states compute loading, error, and empty flags`() {
-        val loadingState = VideoCommentsState(status = VideoCommentsStatus.Loading)
+        val loadingState = PostCommentsState(status = PostCommentsStatus.Loading)
         assertTrue(loadingState.isLoading)
         assertFalse(loadingState.isEmpty)
         assertFalse(loadingState.isError)
 
-        val emptyState = VideoCommentsState(status = VideoCommentsStatus.Empty)
+        val emptyState = PostCommentsState(status = PostCommentsStatus.Empty)
         assertTrue(emptyState.isEmpty)
         assertFalse(emptyState.isLoading)
         assertFalse(emptyState.isError)
 
         val loadedEmptyState =
-            VideoCommentsState(
-                status = VideoCommentsStatus.Loaded(persistentListOf()),
+            PostCommentsState(
+                status = PostCommentsStatus.Loaded(persistentListOf()),
                 comments = persistentListOf(),
             )
         assertTrue(loadedEmptyState.isEmpty)
 
         val errorState =
-            VideoCommentsState(
-                status = VideoCommentsStatus.Error(message = "Network timeout"),
+            PostCommentsState(
+                status = PostCommentsStatus.Error(message = "Network timeout"),
             )
         assertTrue(errorState.isError)
         assertFalse(errorState.isLoading)
@@ -71,8 +71,8 @@ class VideoCommentsStateTest {
 
         val comment = sampleComment("at://reply1")
         val loadedNonEmpty =
-            VideoCommentsState(
-                status = VideoCommentsStatus.Loaded(persistentListOf(comment)),
+            PostCommentsState(
+                status = PostCommentsStatus.Loaded(persistentListOf(comment)),
                 comments = persistentListOf(comment),
             )
         assertFalse(loadedNonEmpty.isEmpty)

@@ -12,9 +12,9 @@ import net.kikin.nubecita.data.models.ThreadItem
 import kotlin.time.Instant
 
 /**
- * Detent position for the video comments sheet.
+ * Detent position for the post comments sheet.
  */
-enum class VideoCommentsDetent {
+enum class PostCommentsDetent {
     Hidden,
     PartiallyExpanded,
     Expanded,
@@ -59,75 +59,75 @@ fun ThreadItem.Reply.toCommentItemUi(): CommentItemUi =
  * Content load status of the comments list.
  */
 @Immutable
-sealed interface VideoCommentsStatus {
-    data object Idle : VideoCommentsStatus
+sealed interface PostCommentsStatus {
+    data object Idle : PostCommentsStatus
 
-    data object Loading : VideoCommentsStatus
+    data object Loading : PostCommentsStatus
 
-    data object Empty : VideoCommentsStatus
+    data object Empty : PostCommentsStatus
 
     data class Loaded(
         val comments: ImmutableList<CommentItemUi>,
-    ) : VideoCommentsStatus
+    ) : PostCommentsStatus
 
     data class Error(
         val message: String? = null,
         val cause: Throwable? = null,
-    ) : VideoCommentsStatus
+    ) : PostCommentsStatus
 }
 
 /**
- * MVI state for the adaptive video comments sheet.
+ * MVI state for the adaptive post comments sheet.
  */
 @Immutable
-data class VideoCommentsState(
+data class PostCommentsState(
     val postUri: String? = null,
-    val detent: VideoCommentsDetent = VideoCommentsDetent.Hidden,
-    val status: VideoCommentsStatus = VideoCommentsStatus.Idle,
+    val detent: PostCommentsDetent = PostCommentsDetent.Hidden,
+    val status: PostCommentsStatus = PostCommentsStatus.Idle,
     val comments: ImmutableList<CommentItemUi> = persistentListOf(),
     val isRefreshing: Boolean = false,
 ) : UiState {
     val isVisible: Boolean get() = detent.isVisible
-    val isEmpty: Boolean get() = status is VideoCommentsStatus.Empty || (status is VideoCommentsStatus.Loaded && comments.isEmpty())
-    val isLoading: Boolean get() = status is VideoCommentsStatus.Loading
-    val isError: Boolean get() = status is VideoCommentsStatus.Error
+    val isEmpty: Boolean get() = status is PostCommentsStatus.Empty || (status is PostCommentsStatus.Loaded && comments.isEmpty())
+    val isLoading: Boolean get() = status is PostCommentsStatus.Loading
+    val isError: Boolean get() = status is PostCommentsStatus.Error
 }
 
 /**
- * UI events/intents dispatched to [VideoCommentsViewModel].
+ * UI events/intents dispatched to [PostCommentsViewModel].
  */
-sealed interface VideoCommentsEvent : UiEvent {
+sealed interface PostCommentsEvent : UiEvent {
     data class OpenComments(
         val postUri: String,
-        val initialDetent: VideoCommentsDetent = VideoCommentsDetent.PartiallyExpanded,
-    ) : VideoCommentsEvent
+        val initialDetent: PostCommentsDetent = PostCommentsDetent.PartiallyExpanded,
+    ) : PostCommentsEvent
 
-    data object DismissComments : VideoCommentsEvent
+    data object DismissComments : PostCommentsEvent
 
     data class SetDetent(
-        val detent: VideoCommentsDetent,
-    ) : VideoCommentsEvent
+        val detent: PostCommentsDetent,
+    ) : PostCommentsEvent
 
     data class LikeComment(
         val commentId: String,
-    ) : VideoCommentsEvent
+    ) : PostCommentsEvent
 
-    data object RetryLoad : VideoCommentsEvent
+    data object RetryLoad : PostCommentsEvent
 
-    data object Refresh : VideoCommentsEvent
+    data object Refresh : PostCommentsEvent
 
-    data object OpenComposer : VideoCommentsEvent
+    data object OpenComposer : PostCommentsEvent
 }
 
 /**
- * One-shot side effects emitted by [VideoCommentsViewModel].
+ * One-shot side effects emitted by [PostCommentsViewModel].
  */
-sealed interface VideoCommentsEffect : UiEffect {
+sealed interface PostCommentsEffect : UiEffect {
     data class ShowError(
         val message: String,
-    ) : VideoCommentsEffect
+    ) : PostCommentsEffect
 
     data class NavigateToComposer(
         val parentPostUri: String,
-    ) : VideoCommentsEffect
+    ) : PostCommentsEffect
 }

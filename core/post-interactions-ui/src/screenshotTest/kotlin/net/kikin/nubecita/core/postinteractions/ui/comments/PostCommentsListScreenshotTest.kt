@@ -82,7 +82,7 @@ private fun sampleComment(
 @PreviewTest
 @Preview(name = "video-comments-list-loaded", widthDp = PREVIEW_WIDTH_DP, heightDp = PREVIEW_HEIGHT_DP)
 @Composable
-private fun VideoCommentsListLoadedPreview() {
+private fun PostCommentsListLoadedPreview() {
     val comments =
         persistentListOf(
             sampleComment(
@@ -116,10 +116,10 @@ private fun VideoCommentsListLoadedPreview() {
         )
 
     val state =
-        VideoCommentsState(
+        PostCommentsState(
             postUri = "at://did:plc:author/app.bsky.feed.post/123",
-            detent = VideoCommentsDetent.PartiallyExpanded,
-            status = VideoCommentsStatus.Loaded(comments),
+            detent = PostCommentsDetent.PartiallyExpanded,
+            status = PostCommentsStatus.Loaded(comments),
             comments = comments,
         )
 
@@ -131,7 +131,7 @@ private fun VideoCommentsListLoadedPreview() {
                         .fillMaxSize()
                         .background(MaterialTheme.colorScheme.surfaceContainerLow),
             ) {
-                VideoCommentsList(
+                PostCommentsList(
                     state = state,
                     onLikeClick = {},
                     onRetryClick = {},
@@ -145,12 +145,12 @@ private fun VideoCommentsListLoadedPreview() {
 @PreviewTest
 @Preview(name = "video-comments-list-empty", widthDp = PREVIEW_WIDTH_DP, heightDp = PREVIEW_HEIGHT_DP)
 @Composable
-private fun VideoCommentsListEmptyPreview() {
+private fun PostCommentsListEmptyPreview() {
     val state =
-        VideoCommentsState(
+        PostCommentsState(
             postUri = "at://did:plc:author/app.bsky.feed.post/empty",
-            detent = VideoCommentsDetent.PartiallyExpanded,
-            status = VideoCommentsStatus.Empty,
+            detent = PostCommentsDetent.PartiallyExpanded,
+            status = PostCommentsStatus.Empty,
             comments = persistentListOf(),
         )
 
@@ -161,7 +161,7 @@ private fun VideoCommentsListEmptyPreview() {
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.surfaceContainerLow),
         ) {
-            VideoCommentsList(
+            PostCommentsList(
                 state = state,
                 onLikeClick = {},
                 onRetryClick = {},
@@ -174,12 +174,12 @@ private fun VideoCommentsListEmptyPreview() {
 @PreviewTest
 @Preview(name = "video-comments-list-error", widthDp = PREVIEW_WIDTH_DP, heightDp = PREVIEW_HEIGHT_DP)
 @Composable
-private fun VideoCommentsListErrorPreview() {
+private fun PostCommentsListErrorPreview() {
     val state =
-        VideoCommentsState(
+        PostCommentsState(
             postUri = "at://did:plc:author/app.bsky.feed.post/error",
-            detent = VideoCommentsDetent.PartiallyExpanded,
-            status = VideoCommentsStatus.Error(message = "Unable to connect to the network. Please check your connection."),
+            detent = PostCommentsDetent.PartiallyExpanded,
+            status = PostCommentsStatus.Error(message = "Unable to connect to the network. Please check your connection."),
             comments = persistentListOf(),
         )
 
@@ -190,7 +190,7 @@ private fun VideoCommentsListErrorPreview() {
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.surfaceContainerLow),
         ) {
-            VideoCommentsList(
+            PostCommentsList(
                 state = state,
                 onLikeClick = {},
                 onRetryClick = {},

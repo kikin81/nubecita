@@ -18,22 +18,22 @@ import net.kikin.nubecita.data.models.ThreadItem
 import javax.inject.Inject
 
 /**
- * Presenter / ViewModel for the video comments sheet.
+ * Presenter / ViewModel for the post comments sheet.
  *
  * Responsibilities:
  * - Fetches thread replies via [PostThreadRepository.getPostThread].
  * - Projects replies into [CommentItemUi] and seeds [PostInteractionsCache].
  * - Reconciles SWR background fetches with optimistic user likes and current scroll state.
- * - Manages detents ([VideoCommentsDetent.Hidden], [VideoCommentsDetent.PartiallyExpanded], [VideoCommentsDetent.Expanded]).
+ * - Manages detents ([PostCommentsDetent.Hidden], [PostCommentsDetent.PartiallyExpanded], [PostCommentsDetent.Expanded]).
  */
 @HiltViewModel
-class VideoCommentsViewModel
+class PostCommentsViewModel
     @Inject
     constructor(
         private val postThreadRepository: PostThreadRepository,
         private val postInteractionsCache: PostInteractionsCache,
         private val outgoingPostStore: OutgoingPostStore,
-    ) : MviViewModel<VideoCommentsState, VideoCommentsEvent, VideoCommentsEffect>(VideoCommentsState()) {
+    ) : MviViewModel<PostCommentsState, PostCommentsEvent, PostCommentsEffect>(PostCommentsState()) {
         private var loadJob: Job? = null
 
         init {
@@ -81,8 +81,8 @@ class VideoCommentsViewModel
                             copy(
                                 comments = updated,
                                 status =
-                                    if (status is VideoCommentsStatus.Loaded) {
-                                        VideoCommentsStatus.Loaded(updated)
+                                    if (status is PostCommentsStatus.Loaded) {
+                                        PostCommentsStatus.Loaded(updated)
                                     } else {
                                         status
                                     },
@@ -93,9 +93,9 @@ class VideoCommentsViewModel
             }
         }
 
-        override fun handleEvent(event: VideoCommentsEvent) {
+        override fun handleEvent(event: PostCommentsEvent) {
             when (event) {
-                is VideoCommentsEvent.OpenComments -> {
+                is PostCommentsEvent.OpenComments -> {
                     val currentUri = uiState.value.postUri
                     if (currentUri == event.postUri && uiState.value.comments.isNotEmpty()) {
                         // SWR revalidation: keep current comments visible, expand sheet, fetch fresh in background
@@ -111,7 +111,7 @@ class VideoCommentsViewModel
                             copy(
                                 postUri = event.postUri,
                                 detent = event.initialDetent,
-                                status = VideoCommentsStatus.Loading,
+                                status = PostCommentsStatus.Loading,
                                 comments = persistentListOf(),
                                 isRefreshing = false,
                             )
@@ -120,15 +120,15 @@ class VideoCommentsViewModel
                     }
                 }
 
-                VideoCommentsEvent.DismissComments -> {
-                    setState { copy(detent = VideoCommentsDetent.Hidden) }
+                PostCommentsEvent.DismissComments -> {
+                    setState { copy(detent = PostCommentsDetent.Hidden) }
                 }
 
-                is VideoCommentsEvent.SetDetent -> {
+                is PostCommentsEvent.SetDetent -> {
                     setState { copy(detent = event.detent) }
                 }
 
-                is VideoCommentsEvent.LikeComment -> {
+                is PostCommentsEvent.LikeComment -> {
                     val comment = uiState.value.comments.find { it.id == event.commentId }
                     if (comment != null) {
                         viewModelScope.launch {
@@ -136,7 +136,7 @@ class VideoCommentsViewModel
                                 .toggleLike(comment.id, comment.cid)
                                 .onFailure { error ->
                                     sendEffect(
-                                        VideoCommentsEffect.ShowError(
+                                        PostCommentsEffect.ShowError(
                                             error.message ?: "Failed to like comment",
                                         ),
                                     )
@@ -145,12 +145,12 @@ class VideoCommentsViewModel
                     }
                 }
 
-                VideoCommentsEvent.RetryLoad -> {
+                PostCommentsEvent.RetryLoad -> {
                     val uri = uiState.value.postUri
                     if (uri != null) {
                         setState {
                             copy(
-                                status = VideoCommentsStatus.Loading,
+                                status = PostCommentsStatus.Loading,
                                 isRefreshing = false,
                             )
                         }
@@ -158,7 +158,7 @@ class VideoCommentsViewModel
                     }
                 }
 
-                VideoCommentsEvent.Refresh -> {
+                PostCommentsEvent.Refresh -> {
                     val uri = uiState.value.postUri
                     if (uri != null) {
                         setState { copy(isRefreshing = true) }
@@ -166,10 +166,10 @@ class VideoCommentsViewModel
                     }
                 }
 
-                VideoCommentsEvent.OpenComposer -> {
+                PostCommentsEvent.OpenComposer -> {
                     val uri = uiState.value.postUri
                     if (uri != null) {
-                        sendEffect(VideoCommentsEffect.NavigateToComposer(uri))
+                        sendEffect(PostCommentsEffect.NavigateToComposer(uri))
                     }
                 }
             }
@@ -214,9 +214,9 @@ class VideoCommentsViewModel
                                     comments = reconciled,
                                     status =
                                         if (reconciled.isEmpty()) {
-                                            VideoCommentsStatus.Empty
+                                            PostCommentsStatus.Empty
                                         } else {
-                                            VideoCommentsStatus.Loaded(reconciled)
+                                            PostCommentsStatus.Loaded(reconciled)
                                         },
                                     isRefreshing = false,
                                 )
@@ -230,7 +230,7 @@ class VideoCommentsViewModel
                                 } else {
                                     copy(
                                         status =
-                                            VideoCommentsStatus.Error(
+                                            PostCommentsStatus.Error(
                                                 message = error.message ?: "Failed to load comments",
                                                 cause = error,
                                             ),
@@ -240,7 +240,7 @@ class VideoCommentsViewModel
                             }
                             if (hasExistingComments) {
                                 sendEffect(
-                                    VideoCommentsEffect.ShowError(
+                                    PostCommentsEffect.ShowError(
                                         error.message ?: "Failed to refresh comments",
                                     ),
                                 )

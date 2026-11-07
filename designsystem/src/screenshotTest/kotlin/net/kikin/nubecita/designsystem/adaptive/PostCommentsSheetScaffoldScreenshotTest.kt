@@ -168,9 +168,9 @@ private fun SampleCommentRow(
 @PreviewTest
 @Preview(name = "video-comments-sheet-compact", widthDp = COMPACT_WIDTH_DP, heightDp = HEIGHT_DP)
 @Composable
-private fun VideoCommentsSheetScaffoldCompactPreview() {
+private fun PostCommentsSheetScaffoldCompactPreview() {
     NubecitaCanvasPreviewTheme {
-        VideoCommentsSheetScaffold(
+        PostCommentsSheetScaffold(
             isCommentsOpen = true,
             onDismiss = {},
             commentsContent = { SampleCommentsContent() },
@@ -183,9 +183,9 @@ private fun VideoCommentsSheetScaffoldCompactPreview() {
 @PreviewTest
 @Preview(name = "video-comments-sheet-medium", widthDp = MEDIUM_WIDTH_DP, heightDp = HEIGHT_DP)
 @Composable
-private fun VideoCommentsSheetScaffoldMediumPreview() {
+private fun PostCommentsSheetScaffoldMediumPreview() {
     NubecitaCanvasPreviewTheme {
-        VideoCommentsSheetScaffold(
+        PostCommentsSheetScaffold(
             isCommentsOpen = true,
             onDismiss = {},
             commentsContent = { SampleCommentsContent() },
@@ -198,9 +198,9 @@ private fun VideoCommentsSheetScaffoldMediumPreview() {
 @PreviewTest
 @Preview(name = "video-comments-sheet-expanded", widthDp = EXPANDED_WIDTH_DP, heightDp = HEIGHT_DP)
 @Composable
-private fun VideoCommentsSheetScaffoldExpandedPreview() {
+private fun PostCommentsSheetScaffoldExpandedPreview() {
     NubecitaCanvasPreviewTheme {
-        VideoCommentsSheetScaffold(
+        PostCommentsSheetScaffold(
             isCommentsOpen = true,
             onDismiss = {},
             commentsContent = { SampleCommentsContent() },

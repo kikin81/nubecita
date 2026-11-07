@@ -7,15 +7,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.postinteractions.ui.comments.CommentItemUi
-import net.kikin.nubecita.core.postinteractions.ui.comments.VideoCommentsSheetContent
-import net.kikin.nubecita.core.postinteractions.ui.comments.VideoCommentsState
-import net.kikin.nubecita.core.postinteractions.ui.comments.VideoCommentsStatus
+import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsSheetContent
+import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsState
+import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsStatus
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
-import net.kikin.nubecita.designsystem.adaptive.VideoCommentsSheetScaffold
+import net.kikin.nubecita.designsystem.adaptive.PostCommentsSheetScaffold
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerError
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerLoadStatus
@@ -249,10 +249,10 @@ private fun sampleComment(
     )
 }
 
-private fun sampleCommentsState(): VideoCommentsState =
-    VideoCommentsState(
+private fun sampleCommentsState(): PostCommentsState =
+    PostCommentsState(
         status =
-            VideoCommentsStatus.Loaded(
+            PostCommentsStatus.Loaded(
                 comments =
                     persistentListOf(
                         sampleComment(
@@ -311,11 +311,11 @@ private fun sampleVideoPlayerState(isCommentsOpen: Boolean = true): VideoPlayerS
 @Composable
 private fun VideoPlayerDetailWithCommentsCompactScreenshot() {
     NubecitaCanvasPreviewTheme {
-        VideoCommentsSheetScaffold(
+        PostCommentsSheetScaffold(
             isCommentsOpen = true,
             onDismiss = {},
             commentsContent = {
-                VideoCommentsSheetContent(
+                PostCommentsSheetContent(
                     state = sampleCommentsState(),
                     onLikeClick = {},
                     onRetryClick = {},
@@ -342,11 +342,11 @@ private fun VideoPlayerDetailWithCommentsCompactScreenshot() {
 @Composable
 private fun VideoPlayerDetailWithCommentsMediumScreenshot() {
     NubecitaCanvasPreviewTheme {
-        VideoCommentsSheetScaffold(
+        PostCommentsSheetScaffold(
             isCommentsOpen = true,
             onDismiss = {},
             commentsContent = {
-                VideoCommentsSheetContent(
+                PostCommentsSheetContent(
                     state = sampleCommentsState(),
                     onLikeClick = {},
                     onRetryClick = {},
@@ -373,11 +373,11 @@ private fun VideoPlayerDetailWithCommentsMediumScreenshot() {
 @Composable
 private fun VideoPlayerDetailWithCommentsExpandedScreenshot() {
     NubecitaCanvasPreviewTheme {
-        VideoCommentsSheetScaffold(
+        PostCommentsSheetScaffold(
             isCommentsOpen = true,
             onDismiss = {},
             commentsContent = {
-                VideoCommentsSheetContent(
+                PostCommentsSheetContent(
                     state = sampleCommentsState(),
                     onLikeClick = {},
                     onRetryClick = {},

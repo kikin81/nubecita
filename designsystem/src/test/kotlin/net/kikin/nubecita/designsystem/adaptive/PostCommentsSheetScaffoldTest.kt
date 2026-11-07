@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-internal class VideoCommentsSheetScaffoldTest {
+internal class PostCommentsSheetScaffoldTest {
     @Test
     fun `isSettledHidden returns true only when currentValue is Hidden and not animating`() {
         val sheetState = mockk<SheetState>()

@@ -45,9 +45,9 @@ fun DockedCommentPill(
     modifier: Modifier = Modifier,
     userAvatarUrl: String? = null,
     avatarFallback: AvatarFallback? = null,
-    placeholderText: String = stringResource(R.string.video_comments_docked_pill_placeholder),
+    placeholderText: String = stringResource(R.string.post_comments_docked_pill_placeholder),
 ) {
-    val actionLabel = stringResource(R.string.video_comments_docked_pill_action)
+    val actionLabel = stringResource(R.string.post_comments_docked_pill_action)
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -72,7 +72,7 @@ fun DockedCommentPill(
                                 role = Role.Button,
                                 onClickLabel = actionLabel,
                                 onClick = onClick,
-                            ).testTag(VideoCommentsTestTags.DOCKED_PILL)
+                            ).testTag(PostCommentsTestTags.DOCKED_PILL)
                             .padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

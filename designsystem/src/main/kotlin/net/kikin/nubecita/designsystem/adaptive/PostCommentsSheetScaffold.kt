@@ -43,9 +43,9 @@ import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 
 /**
- * Default dimensions and constants for [VideoCommentsSheetScaffold].
+ * Default dimensions and constants for [PostCommentsSheetScaffold].
  */
-object VideoCommentsSheetScaffoldDefaults {
+object PostCommentsSheetScaffoldDefaults {
     val MinSideSheetWidth: Dp = 360.dp
     val MaxSideSheetWidth: Dp = 440.dp
     val DefaultSideSheetPreferredWidth: Dp = 400.dp
@@ -92,7 +92,7 @@ fun isCommentsSheetSettledHidden(
 @Suppress("ktlint:compose:content-slot-reused")
 @OptIn(ExperimentalMaterial3AdaptiveApi::class, ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
-fun VideoCommentsSheetScaffold(
+fun PostCommentsSheetScaffold(
     isCommentsOpen: Boolean,
     onDismiss: () -> Unit,
     commentsContent: @Composable () -> Unit,
@@ -134,7 +134,7 @@ fun VideoCommentsSheetScaffold(
                                 .align(Alignment.BottomCenter)
                                 .fillMaxWidth()
                                 .fillMaxHeight(0.5f),
-                        shape = VideoCommentsSheetScaffoldDefaults.BottomSheetShape,
+                        shape = PostCommentsSheetScaffoldDefaults.BottomSheetShape,
                         color = MaterialTheme.colorScheme.surfaceContainerLow,
                     ) {
                         Column(modifier = Modifier.fillMaxSize()) {
@@ -151,7 +151,7 @@ fun VideoCommentsSheetScaffold(
                     ModalBottomSheet(
                         onDismissRequest = onDismiss,
                         sheetState = sheetState,
-                        shape = VideoCommentsSheetScaffoldDefaults.BottomSheetShape,
+                        shape = PostCommentsSheetScaffoldDefaults.BottomSheetShape,
                         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                         scrimColor = BottomSheetDefaults.ScrimColor,
                         dragHandle = { BottomSheetDefaults.DragHandle() },
@@ -202,7 +202,7 @@ fun VideoCommentsSheetScaffold(
         val directive =
             remember(adaptiveInfo) {
                 calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(adaptiveInfo).copy(
-                    defaultPanePreferredWidth = VideoCommentsSheetScaffoldDefaults.DefaultSideSheetPreferredWidth,
+                    defaultPanePreferredWidth = PostCommentsSheetScaffoldDefaults.DefaultSideSheetPreferredWidth,
                 )
             }
         val scaffoldValue =
@@ -228,8 +228,8 @@ fun VideoCommentsSheetScaffold(
                         Modifier
                             .fillMaxHeight()
                             .widthIn(
-                                min = VideoCommentsSheetScaffoldDefaults.MinSideSheetWidth,
-                                max = VideoCommentsSheetScaffoldDefaults.MaxSideSheetWidth,
+                                min = PostCommentsSheetScaffoldDefaults.MinSideSheetWidth,
+                                max = PostCommentsSheetScaffoldDefaults.MaxSideSheetWidth,
                             ).windowInsetsPadding(WindowInsets.ime),
                 ) {
                     Surface(

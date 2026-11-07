@@ -166,10 +166,10 @@ class BaselineProfileGenerator {
                     check(device.wait(Until.hasObject(By.desc(SHEET_DRAG_HANDLE_DESC)), FEED_WAIT_MS)) {
                         "comments sheet did not open"
                     }
-                    device.awaitRes(VIDEO_COMMENTS_LIST_RES_ID, SHORT_WAIT_MS)
+                    device.awaitRes(POST_COMMENTS_LIST_RES_ID, SHORT_WAIT_MS)
                     SystemClock.sleep(RESULTS_SETTLE_MS)
-                    if (device.hasObject(By.res(VIDEO_COMMENTS_LIST_RES_ID))) {
-                        device.flingList(VIDEO_COMMENTS_LIST_RES_ID)
+                    if (device.hasObject(By.res(POST_COMMENTS_LIST_RES_ID))) {
+                        device.flingList(POST_COMMENTS_LIST_RES_ID)
                     }
                     // Back out of the sheet and the vertical feed, and switch the
                     // persisted feed choice back to Following.

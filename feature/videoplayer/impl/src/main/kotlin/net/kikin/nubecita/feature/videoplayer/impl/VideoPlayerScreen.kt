@@ -26,11 +26,11 @@ import net.kikin.nubecita.core.common.navigation.LocalAppNavigator
 import net.kikin.nubecita.core.common.navigation.LocalPipController
 import net.kikin.nubecita.core.common.navigation.rememberIsInPipMode
 import net.kikin.nubecita.core.common.screen.KeepScreenOnWhile
-import net.kikin.nubecita.core.postinteractions.ui.comments.VideoCommentsEffect
-import net.kikin.nubecita.core.postinteractions.ui.comments.VideoCommentsEvent
-import net.kikin.nubecita.core.postinteractions.ui.comments.VideoCommentsSheetContent
-import net.kikin.nubecita.core.postinteractions.ui.comments.VideoCommentsViewModel
-import net.kikin.nubecita.designsystem.adaptive.VideoCommentsSheetScaffold
+import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsEffect
+import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsEvent
+import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsSheetContent
+import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsViewModel
+import net.kikin.nubecita.designsystem.adaptive.PostCommentsSheetScaffold
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
@@ -46,7 +46,7 @@ import net.kikin.nubecita.feature.videoplayer.impl.ui.VideoPlayerContent
  *    `@OuterShell`-qualified per `VideoPlayerNavigationModule`, so
  *    dismissing the player pops the outer back stack back to `Main`,
  *    preserving the inner MainShell tab the user was on.
- *  - Comments sheet presentation via [VideoCommentsSheetScaffold],
+ *  - Comments sheet presentation via [PostCommentsSheetScaffold],
  *    wiring cross-shell composer navigation on the outer shell navigator.
  *
  * The [viewModel] argument is required (no `hiltViewModel()` default)
@@ -59,7 +59,7 @@ import net.kikin.nubecita.feature.videoplayer.impl.ui.VideoPlayerContent
 internal fun VideoPlayerScreen(
     viewModel: VideoPlayerViewModel,
     modifier: Modifier = Modifier,
-    commentsViewModel: VideoCommentsViewModel = hiltViewModel(),
+    commentsViewModel: PostCommentsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val commentsState by commentsViewModel.uiState.collectAsStateWithLifecycle()
@@ -93,7 +93,7 @@ internal fun VideoPlayerScreen(
         if (isInPip) {
             if (state.isCommentsOpen) {
                 viewModel.handleEvent(VideoPlayerEvent.DismissComments)
-                commentsViewModel.handleEvent(VideoCommentsEvent.DismissComments)
+                commentsViewModel.handleEvent(PostCommentsEvent.DismissComments)
             }
             sheetState.hide()
         }
@@ -104,7 +104,7 @@ internal fun VideoPlayerScreen(
         try {
             progress.collect { /* progress updates */ }
             viewModel.handleEvent(VideoPlayerEvent.DismissComments)
-            commentsViewModel.handleEvent(VideoCommentsEvent.DismissComments)
+            commentsViewModel.handleEvent(PostCommentsEvent.DismissComments)
         } catch (_: CancellationException) {
             // Back gesture cancelled
         }
@@ -112,7 +112,7 @@ internal fun VideoPlayerScreen(
 
     LaunchedEffect(state.isCommentsOpen) {
         if (state.isCommentsOpen) {
-            commentsViewModel.handleEvent(VideoCommentsEvent.OpenComments(viewModel.postUri))
+            commentsViewModel.handleEvent(PostCommentsEvent.OpenComments(viewModel.postUri))
         }
     }
 
@@ -135,11 +135,11 @@ internal fun VideoPlayerScreen(
     LaunchedEffect(commentsViewModel) {
         commentsViewModel.effects.collect { effect ->
             when (effect) {
-                is VideoCommentsEffect.NavigateToComposer -> {
+                is PostCommentsEffect.NavigateToComposer -> {
                     currentNavigator.goTo(ComposerRoute(replyToUri = effect.parentPostUri))
                 }
 
-                is VideoCommentsEffect.ShowError -> {
+                is PostCommentsEffect.ShowError -> {
                     launch {
                         snackbarHostState.showSnackbar(effect.message)
                     }
@@ -163,27 +163,27 @@ internal fun VideoPlayerScreen(
 
     val onDismissComments = {
         viewModel.handleEvent(VideoPlayerEvent.DismissComments)
-        commentsViewModel.handleEvent(VideoCommentsEvent.DismissComments)
+        commentsViewModel.handleEvent(PostCommentsEvent.DismissComments)
     }
 
-    VideoCommentsSheetScaffold(
+    PostCommentsSheetScaffold(
         isCommentsOpen = state.isCommentsOpen && !isInPip,
         onDismiss = onDismissComments,
         sheetState = sheetState,
         commentsContent = {
-            VideoCommentsSheetContent(
+            PostCommentsSheetContent(
                 state = commentsState,
                 onLikeClick = { comment ->
-                    commentsViewModel.handleEvent(VideoCommentsEvent.LikeComment(comment.id))
+                    commentsViewModel.handleEvent(PostCommentsEvent.LikeComment(comment.id))
                 },
                 onRetryClick = {
-                    commentsViewModel.handleEvent(VideoCommentsEvent.RetryLoad)
+                    commentsViewModel.handleEvent(PostCommentsEvent.RetryLoad)
                 },
                 onRefresh = {
-                    commentsViewModel.handleEvent(VideoCommentsEvent.Refresh)
+                    commentsViewModel.handleEvent(PostCommentsEvent.Refresh)
                 },
                 onOpenComposer = {
-                    commentsViewModel.handleEvent(VideoCommentsEvent.OpenComposer)
+                    commentsViewModel.handleEvent(PostCommentsEvent.OpenComposer)
                 },
                 onAuthorClick = { author ->
                     currentNavigator.goTo(Profile(handle = author.did))

@@ -26,7 +26,7 @@ import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import net.kikin.nubecita.core.postinteractions.ui.comments.rememberVideoCommentsNestedScrollConnection
+import net.kikin.nubecita.core.postinteractions.ui.comments.rememberPostCommentsNestedScrollConnection
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -41,7 +41,7 @@ import org.junit.runner.RunWith
  * - When comments sheet is open / not settled hidden (`isSheetSettledHidden == false`),
  *   `userScrollEnabled` on [VerticalPager] is false. Swiping over comments does not
  *   scroll or advance the parent [VerticalPager].
- * - [rememberVideoCommentsNestedScrollConnection] consumes upward deltas when partially
+ * - [rememberPostCommentsNestedScrollConnection] consumes upward deltas when partially
  *   expanded (triggering expand) and downward deltas at scroll offset 0 (triggering collapse)
  *   without dispatching scroll deltas to the pager.
  * - Only after the sheet has completely settled in hidden (`isSheetSettledHidden == true`)
@@ -75,7 +75,7 @@ class VideoFeedGestureArbitrationTest {
                         if (page == 0 && isCommentsOpen) {
                             val listState = rememberLazyListState()
                             val nestedScroll =
-                                rememberVideoCommentsNestedScrollConnection(
+                                rememberPostCommentsNestedScrollConnection(
                                     isPartiallyExpanded = { true },
                                     isAtTop = {
                                         listState.firstVisibleItemIndex == 0 &&
