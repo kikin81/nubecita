@@ -5,7 +5,7 @@ import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.data.models.toVerifiedBadge
 
 /** The handle the server reports for a deleted or deactivated account. */
-private const val DELETED_ACCOUNT_HANDLE = "missing.invalid"
+internal const val DELETED_ACCOUNT_HANDLE = "missing.invalid"
 
 internal fun ProfileView.toConnectionRowUi(viewerDid: String?): ConnectionRowUi {
     val isBlocked = viewer?.blocking != null || viewer?.blockedBy == true

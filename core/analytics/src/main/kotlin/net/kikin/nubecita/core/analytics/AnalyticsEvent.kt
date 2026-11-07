@@ -311,6 +311,7 @@ enum class PostSurface(
     Feed("feed"),
     PostDetail("post_detail"),
     Profile("profile"),
+    ProfileConnections("profile_connections"),
     Search("search"),
     FeedView("feed_view"),
     Explore("explore"),

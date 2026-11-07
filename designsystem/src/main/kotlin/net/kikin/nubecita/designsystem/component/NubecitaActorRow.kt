@@ -56,6 +56,8 @@ enum class NubecitaActorRowDensity {
  * @param supportingContent an optional third line under the handle — the login
  *   typeahead uses it for the network hosting the account. Rendered inside the
  *   text column, so it wraps and ellipsizes with the rest.
+ * @param trailingContent an optional action at the end of the row, such as a
+ *   follow button. The text column gives way to it.
  * @param density see [NubecitaActorRowDensity]. Defaults to
  *   [NubecitaActorRowDensity.Comfortable], the People tab's sizing.
  * @param showAvatarFallback draws the deterministic hue-and-initial placeholder
@@ -71,6 +73,7 @@ fun NubecitaActorRow(
     query: String? = null,
     showAvatarFallback: Boolean = false,
     density: NubecitaActorRowDensity = NubecitaActorRowDensity.Comfortable,
+    trailingContent: @Composable (() -> Unit)? = null,
     supportingContent: @Composable (ColumnScope.() -> Unit)? = null,
 ) {
     val compact = density == NubecitaActorRowDensity.Compact
@@ -139,6 +142,7 @@ fun NubecitaActorRow(
             }
             supportingContent?.invoke(this)
         }
+        trailingContent?.invoke()
     }
 }
 
