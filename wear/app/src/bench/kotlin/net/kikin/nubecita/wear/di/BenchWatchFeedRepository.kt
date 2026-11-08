@@ -74,6 +74,8 @@ internal class BenchWatchFeedRepository
                 post("p5", "Ben Okafor", "ben.example.social", img[R.raw.bench_avatar_2], "City lights from the train home.", 120, likes = 88, thumb = img[R.raw.bench_thumb_city], video = true),
                 // Long name and multi-paragraph text: the round-screen clipping case.
                 post("p6", "HEY, SLOW DOWN! 20 IS PLENTY ON OUR NEIGHBORHOOD STREETS", "slowdown.example.social", img[R.raw.bench_avatar_3], LONG_POST_TEXT, 240, likes = 12, replies = 2),
+                // Repost line, long name and an image: the tallest feed card.
+                post("p7", "depths of wikipedia with a long display name", "depths.example.social", img[R.raw.bench_avatar_3], "i can't believe we just let this guy decide what we can end sentences with", 120, likes = 67, replies = 2, reposts = 8, repostedBy = "jay.edidin.example.social", thumb = img[R.raw.bench_thumb_lake], images = 1),
             )
 
         private fun photos(img: Map<Int, String>) =

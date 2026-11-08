@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -131,6 +132,10 @@ fun FeedScreen(
                             .minimumVerticalContentPadding(CardDefaults.minimumVerticalListContentPadding),
                     transformation = SurfaceTransformation(transformationSpec),
                 ) {
+                    // A card with an image is otherwise taller than a round screen, which
+                    // cuts off its top and bottom rows.
+                    val hasImage = post.thumbnailPath != null
+                    val imageCardTextLines = if (LocalConfiguration.current.fontScale >= CARD_LARGE_FONT_SCALE) 1 else CARD_TEXT_LINES_WITH_IMAGE
                     Column(modifier = Modifier.padding(horizontal = roundCardTextInset()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         post.repostedBy?.let { by ->
                             Text(
@@ -143,9 +148,9 @@ fun FeedScreen(
                         }
                         AuthorRow(post, nowMs)
                         if (post.text.isNotBlank()) {
-                            Text(post.text, style = MaterialTheme.typography.bodyMedium, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                            Text(post.text, style = MaterialTheme.typography.bodyMedium, maxLines = if (hasImage) imageCardTextLines else CARD_TEXT_LINES, overflow = TextOverflow.Ellipsis)
                         }
-                        PostMedia(post, imageHeight = 96)
+                        PostMedia(post, imageHeight = if (hasImage) (LocalConfiguration.current.screenHeightDp * CARD_IMAGE_HEIGHT_FRACTION).toInt() else CARD_IMAGE_HEIGHT)
                         PostCounts(post)
                     }
                 }
@@ -153,6 +158,14 @@ fun FeedScreen(
         }
     }
 }
+
+private const val CARD_TEXT_LINES = 4
+private const val CARD_TEXT_LINES_WITH_IMAGE = 2
+private const val CARD_LARGE_FONT_SCALE = 1.15f
+private const val CARD_IMAGE_HEIGHT = 96
+
+// Of the screen height, so the card still fits on the smallest round watch.
+private const val CARD_IMAGE_HEIGHT_FRACTION = 0.25f
 
 /**
  * A post written on the watch, above the timeline until the phone posts it:

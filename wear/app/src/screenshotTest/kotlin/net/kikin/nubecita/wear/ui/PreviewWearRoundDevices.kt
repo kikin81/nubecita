@@ -9,4 +9,5 @@ import androidx.compose.ui.tooling.preview.Preview
  */
 @Preview(name = "Small round", device = Devices.WEAR_OS_SMALL_ROUND, showSystemUi = true, showBackground = true, backgroundColor = 0xFF000000)
 @Preview(name = "Large round", device = Devices.WEAR_OS_LARGE_ROUND, showSystemUi = true, showBackground = true, backgroundColor = 0xFF000000)
+@Preview(name = "Small round, largest font", device = Devices.WEAR_OS_SMALL_ROUND, showSystemUi = true, showBackground = true, backgroundColor = 0xFF000000, fontScale = 1.24f)
 annotation class PreviewWearRoundDevices
