@@ -44,6 +44,21 @@ class WearGateViewModelTest {
         }
 
     @Test
+    fun phoneAnswersBeforeTheStoredSession_staysLoading_thenShowsContent() =
+        runTest {
+            phone.status = PhoneAppStatus.Installed
+            val vm = viewModel()
+
+            vm.handleEvent(WearGateEvent.Resumed)
+            advanceUntilIdle()
+            assertEquals(WearGateStatus.Loading, vm.uiState.value.status)
+
+            sessions.emit(alice)
+            advanceUntilIdle()
+            assertEquals(WearGateStatus.SignedIn(did = "did:plc:alice", handle = "alice.bsky.social"), vm.uiState.value.status)
+        }
+
+    @Test
     fun signedInSession_showsContent_evenBeforeThePhoneIsChecked() =
         runTest {
             sessions.emit(alice)

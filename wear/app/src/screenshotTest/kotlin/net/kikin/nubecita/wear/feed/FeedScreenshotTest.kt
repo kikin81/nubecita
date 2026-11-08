@@ -102,6 +102,48 @@ private fun PostFontScalesPreview() {
     NubecitaWearTheme { PostScreen(post = POSTS[1], nowMs = NOW, onOpenOnPhone = {}) }
 }
 
+private val LONG_POST =
+    post(
+        "long",
+        "HEY, SLOW DOWN! 20 IS PLENTY ON OUR NEIGHBORHOOD STREETS",
+        "A car went past the school at roughly 31 mph, eleven over the limit, with nobody slowing for the crossing.\n\n" +
+            "At that speed about one in three people hit on foot are seriously injured, and more than that at higher speeds. " +
+            "Twenty is plenty on streets where people live, walk and cross with their kids every single day.",
+        240,
+        repostedBy = "a.very.long.handle.for.a.reposter.example.social",
+    )
+
+// The author is item 0 and the repost line 1, so this opens mid-post, where
+// lines run the full height of the circle.
+private const val LONG_POST_BODY_ITEM = 2
+
+@PreviewTest
+@WearPreviewDevices
+@Composable
+private fun PostLongTopPreview() {
+    NubecitaWearTheme { PostScreen(post = LONG_POST, nowMs = NOW) }
+}
+
+@PreviewTest
+@WearPreviewDevices
+@WearPreviewFontScales
+@Composable
+private fun PostLongBodyPreview() {
+    NubecitaWearTheme {
+        PostScreen(post = LONG_POST, nowMs = NOW, listState = rememberTransformingLazyColumnState(initialAnchorItemIndex = LONG_POST_BODY_ITEM))
+    }
+}
+
+@PreviewTest
+@WearPreviewDevices
+@WearPreviewFontScales
+@Composable
+private fun FeedLongPostPreview() {
+    NubecitaWearTheme {
+        FeedScreen(state = READY.copy(posts = persistentListOf(LONG_POST)), nowMs = NOW, onPostClick = {}, onSwitchFeed = {})
+    }
+}
+
 // The action row is the last item (author, repost line, text, media, counts,
 // actions → index 5). Anchoring on it centres the row, where a user scrolls it
 // to; near the bottom edge the round screen is too narrow for three buttons.

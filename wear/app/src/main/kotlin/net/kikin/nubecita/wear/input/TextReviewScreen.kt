@@ -30,6 +30,8 @@ import androidx.wear.compose.material3.lazy.transformedHeight
 import net.kikin.nubecita.core.common.text.GraphemeCounter
 import net.kikin.nubecita.wear.R
 import net.kikin.nubecita.wear.ui.WearScrollIndicator
+import net.kikin.nubecita.wear.ui.roundEdgeFade
+import net.kikin.nubecita.wear.ui.roundTextInset
 
 /** How long reviewed text is against its limit, counted as Bluesky does (graphemes). */
 @Immutable
@@ -82,7 +84,7 @@ fun TextReviewScreen(
             }
         },
     ) { contentPadding ->
-        TransformingLazyColumn(state = listState, contentPadding = contentPadding) {
+        TransformingLazyColumn(state = listState, modifier = Modifier.roundEdgeFade(listState), contentPadding = contentPadding) {
             item {
                 ListHeader(
                     modifier =
@@ -101,7 +103,7 @@ fun TextReviewScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = roundTextInset()),
                 )
             }
             item {

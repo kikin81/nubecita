@@ -72,6 +72,8 @@ internal class BenchWatchFeedRepository
                 post("p3", "Cleo Marsh", "cleo.example.social", img[R.raw.bench_avatar_3], "The lake was perfectly still this morning.", 41, likes = 310, reposts = 24, thumb = img[R.raw.bench_thumb_lake], images = 3, bookmarked = true),
                 post("p4", "Ana Ruiz", "ana.example.social", img[R.raw.bench_avatar_1], "Anyone else read on their watch now? Tiny screen, big feelings.", 75, likes = 19, replies = 3, repostedBy = "ben.example.social"),
                 post("p5", "Ben Okafor", "ben.example.social", img[R.raw.bench_avatar_2], "City lights from the train home.", 120, likes = 88, thumb = img[R.raw.bench_thumb_city], video = true),
+                // Long name and multi-paragraph text: the round-screen clipping case.
+                post("p6", "HEY, SLOW DOWN! 20 IS PLENTY ON OUR NEIGHBORHOOD STREETS", "slowdown.example.social", img[R.raw.bench_avatar_3], LONG_POST_TEXT, 240, likes = 12, replies = 2),
             )
 
         private fun photos(img: Map<Int, String>) =
@@ -122,6 +124,10 @@ internal class BenchWatchFeedRepository
 
         private companion object {
             const val PHOTOS_KEY = "uri-bench-photos"
+            const val LONG_POST_TEXT =
+                "HEY, MYSTERY CAR. Not sure exactly how fast. Too fast, though.\n\n" +
+                    "At roughly 31 mph (11 mph over the limit), about 1 in 3 people hit on foot are seriously injured, and 1 in 10 more at higher speeds. " +
+                    "Twenty is plenty on streets where people live, walk and cross with their kids."
 
             // Fixed so screenshots read "Updated …" against the bench clock.
             val UPDATED_AT: Long = System.currentTimeMillis() - 4 * 60_000L

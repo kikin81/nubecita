@@ -20,6 +20,7 @@ import androidx.wear.compose.material3.lazy.rememberTransformationSpec
 import androidx.wear.compose.material3.lazy.transformedHeight
 import net.kikin.nubecita.wear.R
 import net.kikin.nubecita.wear.ui.WearScrollIndicator
+import net.kikin.nubecita.wear.ui.roundEdgeFade
 
 /** Picks which synced feed the feed screen shows. */
 @Composable
@@ -36,7 +37,7 @@ fun FeedPickerScreen(
         modifier = modifier,
         scrollIndicator = { WearScrollIndicator(listState) },
     ) { contentPadding ->
-        TransformingLazyColumn(state = listState, contentPadding = contentPadding) {
+        TransformingLazyColumn(state = listState, modifier = Modifier.roundEdgeFade(listState), contentPadding = contentPadding) {
             item {
                 ListHeader(
                     modifier =

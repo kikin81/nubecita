@@ -26,10 +26,14 @@
         <!--
             A unique, explicit taskAffinity keeps a single correct Recents entry
             (Wear quality guideline WO-V6).
+
+            The splash theme must be on the activity: set only on <application>,
+            the system's starting window ignored it and launched to plain black.
         -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:theme="@style/Theme.NubecitaWear"
             android:taskAffinity="net.kikin.nubecita.wear.main">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

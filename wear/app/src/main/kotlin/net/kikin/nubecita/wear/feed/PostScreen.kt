@@ -4,6 +4,7 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberOverscrollEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -28,11 +29,14 @@ import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.openOnPhoneDialogCurvedText
 import net.kikin.nubecita.wear.R
 import net.kikin.nubecita.wear.ui.WearScrollIndicator
+import net.kikin.nubecita.wear.ui.roundEdgeFade
+import net.kikin.nubecita.wear.ui.roundTextInset
 
 /**
  * One post in full: the whole text and a larger image. The author is a centered
  * header because the top of a round screen is too narrow for a left-aligned
- * row; the repost line and body come after it, where the screen is wider. Plain text items take
+ * row. Text and media take [roundTextInset], since the list's own padding leaves
+ * them against the edge, and the list fades at the ends. Plain text items take
  * no `transformedHeight` (that edge morph is for surfaces and crops text).
  */
 @Composable
@@ -74,13 +78,14 @@ fun PostScreen(
             }
         },
     ) { contentPadding ->
-        TransformingLazyColumn(state = listState, contentPadding = contentPadding) {
+        val textInset = roundTextInset()
+        TransformingLazyColumn(state = listState, modifier = Modifier.roundEdgeFade(listState), contentPadding = contentPadding) {
             item { CenteredAuthor(post, nowMs) }
             post.repostedBy?.let { by ->
                 item {
                     Text(
                         stringResource(R.string.wear_post_reposted_by, by),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = textInset),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
@@ -90,9 +95,9 @@ fun PostScreen(
                 }
             }
             if (post.text.isNotBlank()) {
-                item { Text(post.text, modifier = Modifier.fillMaxWidth(), style = MaterialTheme.typography.bodyMedium) }
+                item { Text(post.text, modifier = Modifier.fillMaxWidth().padding(horizontal = textInset), style = MaterialTheme.typography.bodyMedium) }
             }
-            item { PostMedia(post, imageHeight = 140) }
+            item { PostMedia(post, imageHeight = 140, modifier = Modifier.padding(horizontal = textInset)) }
             item { PostCounts(post) }
             // Hidden for a phone that doesn't run watch actions yet.
             if (actionsAvailable) {
@@ -115,7 +120,8 @@ private fun CenteredAuthor(
     post: WatchPostUi,
     nowMs: Long,
 ) {
-    Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+    // Inset so a long name ellipsizes inside the circle, not past its edge.
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = roundTextInset()), horizontalAlignment = Alignment.CenterHorizontally) {
         AuthorAvatar(post.avatarPath)
         Text(post.authorName, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
         Text(

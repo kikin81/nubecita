@@ -47,6 +47,9 @@ import net.kikin.nubecita.wear.R
 import net.kikin.nubecita.wear.feed.relativeTime
 import net.kikin.nubecita.wear.gate.GateMessageScreen
 import net.kikin.nubecita.wear.ui.WearScrollIndicator
+import net.kikin.nubecita.wear.ui.roundCardTextInset
+import net.kikin.nubecita.wear.ui.roundEdgeFade
+import net.kikin.nubecita.wear.ui.roundTextInset
 
 /**
  * The synced conversations, most recent first. A conversation with unread
@@ -80,7 +83,7 @@ fun ConvoListScreen(
         modifier = modifier,
         scrollIndicator = { WearScrollIndicator(listState) },
     ) { contentPadding ->
-        TransformingLazyColumn(state = listState, contentPadding = contentPadding) {
+        TransformingLazyColumn(state = listState, modifier = Modifier.roundEdgeFade(listState), contentPadding = contentPadding) {
             item {
                 ListHeader(
                     modifier =
@@ -97,7 +100,7 @@ fun ConvoListScreen(
                 item {
                     Text(
                         stringResource(R.string.wear_dms_empty),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = roundTextInset()),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -115,7 +118,7 @@ fun ConvoListScreen(
                             .minimumVerticalContentPadding(CardDefaults.minimumVerticalListContentPadding),
                     transformation = SurfaceTransformation(transformationSpec),
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Column(modifier = Modifier.padding(horizontal = roundCardTextInset()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
                                 convo.title,
@@ -176,7 +179,7 @@ fun ThreadScreen(
 ) {
     val transformationSpec = rememberTransformationSpec()
     val content: @Composable BoxScope.(PaddingValues) -> Unit = { contentPadding ->
-        TransformingLazyColumn(state = listState, contentPadding = contentPadding) {
+        TransformingLazyColumn(state = listState, modifier = Modifier.roundEdgeFade(listState), contentPadding = contentPadding) {
             item {
                 ListHeader(
                     modifier =
@@ -222,7 +225,7 @@ private fun MessageBubble(
     // Inset from the sides: the newest message sits at the bottom of the list,
     // where a round screen is narrowest, and would otherwise be clipped.
     Box(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = roundTextInset()),
         contentAlignment = if (mine) Alignment.CenterEnd else Alignment.CenterStart,
     ) {
         Column(
@@ -267,7 +270,7 @@ private fun PendingReplyBubble(
     onRetry: (WatchPendingDmUi) -> Unit,
 ) {
     val failed = reply.status == WatchSendStatus.FAILED
-    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp), contentAlignment = Alignment.CenterEnd) {
+    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = roundTextInset()), contentAlignment = Alignment.CenterEnd) {
         Column(
             modifier =
                 Modifier

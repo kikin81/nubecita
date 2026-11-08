@@ -3,6 +3,7 @@ package net.kikin.nubecita.wear.gate
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberOverscrollEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -20,6 +21,8 @@ import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.lazy.rememberTransformationSpec
 import androidx.wear.compose.material3.lazy.transformedHeight
 import net.kikin.nubecita.wear.ui.WearScrollIndicator
+import net.kikin.nubecita.wear.ui.roundEdgeFade
+import net.kikin.nubecita.wear.ui.roundTextInset
 
 /**
  * A title, an explanation and an optional action — the shape of every gate
@@ -60,7 +63,7 @@ fun GateMessageScreen(
             }
         },
     ) { contentPadding ->
-        TransformingLazyColumn(state = state, contentPadding = contentPadding) {
+        TransformingLazyColumn(state = state, modifier = Modifier.roundEdgeFade(state), contentPadding = contentPadding) {
             item {
                 ListHeader(
                     modifier =
@@ -76,7 +79,7 @@ fun GateMessageScreen(
             item {
                 Text(
                     text = body,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = roundTextInset()),
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
                 )
