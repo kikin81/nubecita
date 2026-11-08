@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Branded launch: the round launcher icon at 48dp, following the layer-list
+    recipe in Google's Wear splash screen guide.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:width="48dp"
+        android:height="48dp"
+        android:drawable="@mipmap/ic_launcher_round"
+        android:gravity="center" />
+</layer-list>

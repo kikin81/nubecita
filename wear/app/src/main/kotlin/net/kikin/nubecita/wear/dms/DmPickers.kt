@@ -30,6 +30,7 @@ import androidx.wear.compose.material3.lazy.transformedHeight
 import net.kikin.nubecita.core.wearcontract.WearDmReactions
 import net.kikin.nubecita.wear.R
 import net.kikin.nubecita.wear.ui.WearScrollIndicator
+import net.kikin.nubecita.wear.ui.roundEdgeFade
 
 /**
  * The canned quick replies, localized; tapping one sends it and goes back.
@@ -45,7 +46,7 @@ fun QuickReplyScreen(
     val replies = stringArrayResource(R.array.wear_dms_quick_replies).toList()
     val transformationSpec = rememberTransformationSpec()
     ScreenScaffold(scrollState = listState, modifier = modifier, scrollIndicator = { WearScrollIndicator(listState) }) { contentPadding ->
-        TransformingLazyColumn(state = listState, contentPadding = contentPadding) {
+        TransformingLazyColumn(state = listState, modifier = Modifier.roundEdgeFade(listState), contentPadding = contentPadding) {
             item {
                 ListHeader(
                     modifier =
@@ -98,7 +99,7 @@ fun ReactionScreen(
 ) {
     val transformationSpec = rememberTransformationSpec()
     ScreenScaffold(scrollState = listState, modifier = modifier, scrollIndicator = { WearScrollIndicator(listState) }) { contentPadding ->
-        TransformingLazyColumn(state = listState, contentPadding = contentPadding) {
+        TransformingLazyColumn(state = listState, modifier = Modifier.roundEdgeFade(listState), contentPadding = contentPadding) {
             item {
                 ListHeader(
                     modifier =

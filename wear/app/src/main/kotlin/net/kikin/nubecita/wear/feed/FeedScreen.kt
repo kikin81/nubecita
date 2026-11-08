@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -37,6 +38,9 @@ import androidx.wear.compose.material3.lazy.transformedHeight
 import net.kikin.nubecita.wear.R
 import net.kikin.nubecita.wear.gate.GateMessageScreen
 import net.kikin.nubecita.wear.ui.WearScrollIndicator
+import net.kikin.nubecita.wear.ui.roundCardTextInset
+import net.kikin.nubecita.wear.ui.roundEdgeFade
+import net.kikin.nubecita.wear.ui.roundTextInset
 
 /**
  * The selected synced feed. Touch fling and the crown both snap item by item.
@@ -78,6 +82,7 @@ fun FeedScreen(
     ) { contentPadding ->
         TransformingLazyColumn(
             state = listState,
+            modifier = Modifier.roundEdgeFade(listState),
             contentPadding = contentPadding,
             flingBehavior = TransformingLazyColumnDefaults.snapFlingBehavior(listState),
             rotaryScrollableBehavior = RotaryScrollableDefaults.snapBehavior(listState),
@@ -126,7 +131,7 @@ fun FeedScreen(
                             .minimumVerticalContentPadding(CardDefaults.minimumVerticalListContentPadding),
                     transformation = SurfaceTransformation(transformationSpec),
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(modifier = Modifier.padding(horizontal = roundCardTextInset()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         post.repostedBy?.let { by ->
                             Text(
                                 stringResource(R.string.wear_post_reposted_by, by),
@@ -161,7 +166,7 @@ private fun PendingPostCard(
     modifier: Modifier = Modifier,
 ) {
     val content: @Composable ColumnScope.() -> Unit = {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(modifier = Modifier.padding(horizontal = roundCardTextInset()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(pending.text, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
             Text(
                 stringResource(if (pending.failed) R.string.wear_post_not_posted else R.string.wear_post_posting),
@@ -203,7 +208,8 @@ private fun FeedHeader(
     onOpenMessages: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+    // Inset so a long feed name ellipsizes inside the narrow top of the circle.
+    Column(modifier = modifier.fillMaxWidth().padding(horizontal = roundTextInset()), horizontalAlignment = Alignment.CenterHorizontally) {
         if (onSwitchFeed == null && onOpenMessages == null) {
             Text(feedName, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             return@Column

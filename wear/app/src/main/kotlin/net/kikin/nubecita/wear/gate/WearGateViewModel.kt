@@ -89,6 +89,9 @@ class WearGateViewModel
         private fun updateStatus() {
             val status =
                 when (val current = session) {
+                    // Not read yet: the phone check can answer first, and must
+                    // not flash "sign in on your phone" at a signed-in user.
+                    null -> WearGateStatus.Loading
                     is PhoneSession.SignedIn -> WearGateStatus.SignedIn(did = current.account.did, handle = current.account.handle)
                     PhoneSession.UpdateRequired -> WearGateStatus.UpdateRequired
                     else ->
