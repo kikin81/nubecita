@@ -75,6 +75,7 @@ fun FeedScreen(
         WatchFeedStatus.Ready -> Unit
     }
     val feed = state.selectedFeed ?: return
+    val configuration = LocalConfiguration.current
     val transformationSpec = rememberTransformationSpec()
     ScreenScaffold(
         scrollState = listState,
@@ -135,7 +136,7 @@ fun FeedScreen(
                     // A card with an image is otherwise taller than a round screen, which
                     // cuts off its top and bottom rows.
                     val hasImage = post.thumbnailPath != null
-                    val imageCardTextLines = if (LocalConfiguration.current.fontScale >= CARD_LARGE_FONT_SCALE) 1 else CARD_TEXT_LINES_WITH_IMAGE
+                    val imageCardTextLines = if (configuration.fontScale >= CARD_LARGE_FONT_SCALE) 1 else CARD_TEXT_LINES_WITH_IMAGE
                     Column(modifier = Modifier.padding(horizontal = roundCardTextInset()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         post.repostedBy?.let { by ->
                             Text(
@@ -150,7 +151,7 @@ fun FeedScreen(
                         if (post.text.isNotBlank()) {
                             Text(post.text, style = MaterialTheme.typography.bodyMedium, maxLines = if (hasImage) imageCardTextLines else CARD_TEXT_LINES, overflow = TextOverflow.Ellipsis)
                         }
-                        PostMedia(post, imageHeight = if (hasImage) (LocalConfiguration.current.screenHeightDp * CARD_IMAGE_HEIGHT_FRACTION).toInt() else CARD_IMAGE_HEIGHT)
+                        PostMedia(post, imageHeight = if (hasImage) (configuration.screenHeightDp * CARD_IMAGE_HEIGHT_FRACTION).toInt() else CARD_IMAGE_HEIGHT)
                         PostCounts(post)
                     }
                 }
