@@ -16,6 +16,9 @@ import javax.inject.Singleton
  * present at the next start therefore means the process died in between — a
  * silent logout that, before this, produced no telemetry at all.
  *
+ * The same pass reports a token refresh the previous process sent and never
+ * finished, from the marker [TokenRefreshTelemetry] writes before each POST.
+ *
  * Exists as a public seam purely so `:app` can wire it into the `AppInitializer`
  * multibinding: [SessionTelemetry] itself is `internal` to this module.
  *
@@ -27,6 +30,7 @@ class SessionClearTelemetryRecovery
     @Inject
     internal constructor(
         private val telemetry: SessionTelemetry,
+        private val refreshTelemetry: TokenRefreshTelemetry,
         @param:ApplicationScope private val scope: CoroutineScope,
     ) {
         private val started = AtomicBoolean(false)
@@ -39,6 +43,9 @@ class SessionClearTelemetryRecovery
          */
         fun start() {
             if (!started.compareAndSet(false, true)) return
-            scope.launch { telemetry.reportLostClearTelemetry() }
+            scope.launch {
+                telemetry.reportLostClearTelemetry()
+                refreshTelemetry.reportRefreshDiedInFlight()
+            }
         }
     }

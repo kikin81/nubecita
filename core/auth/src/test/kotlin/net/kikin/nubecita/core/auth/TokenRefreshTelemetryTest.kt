@@ -2,10 +2,12 @@ package net.kikin.nubecita.core.auth
 
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.TokenRefresh
 import net.kikin.nubecita.core.analytics.TokenRefreshCaller
 import net.kikin.nubecita.core.analytics.TokenRefreshOutcome
 import net.kikin.nubecita.core.logging.CrashReporter
@@ -26,15 +28,91 @@ class TokenRefreshTelemetryTest {
             override fun now(): Instant = Instant.fromEpochMilliseconds(nowMillis)
         }
 
-    private fun telemetry(scope: TestScope) =
-        TokenRefreshTelemetry(
-            crashReporter = crashReporter,
-            analytics = analytics,
-            history = history,
-            foreground = FixedForegroundSignal(true),
-            scope = scope.backgroundScope,
-            clock = clock,
-        )
+    private fun telemetry(
+        scope: TestScope,
+        processId: String = "this-process",
+    ) = TokenRefreshTelemetry(
+        crashReporter = crashReporter,
+        analytics = analytics,
+        history = history,
+        foreground = FixedForegroundSignal(true),
+        scope = scope.backgroundScope,
+        clock = clock,
+        processId = processId,
+    )
+
+    @Test
+    fun `a refresh the previous process never finished is reported once`() =
+        runTest {
+            history.inFlight =
+                InFlightRefresh(nowMillis, TokenRefreshCaller.DmPoll, foreground = false, processId = "earlier-process")
+            val telemetry = telemetry(this)
+
+            telemetry.reportRefreshDiedInFlight()
+            telemetry.reportRefreshDiedInFlight()
+
+            verify(exactly = 1) { crashReporter.recordException(match { it is TokenRefreshDiedInFlightException }) }
+            verify(exactly = 1) {
+                analytics.log(
+                    TokenRefresh(TokenRefreshCaller.DmPoll, TokenRefreshOutcome.ProcessDied, foreground = false),
+                )
+            }
+        }
+
+    @Test
+    fun `a failed history write does not report the same death again`() =
+        runTest {
+            history.inFlight =
+                InFlightRefresh(nowMillis, TokenRefreshCaller.DmPoll, foreground = false, processId = "earlier-process")
+            history.failDiedInFlightWrite = true
+            val telemetry = telemetry(this)
+
+            telemetry.reportRefreshDiedInFlight()
+            telemetry.reportRefreshDiedInFlight()
+
+            verify(exactly = 1) { crashReporter.recordException(match { it is TokenRefreshDiedInFlightException }) }
+        }
+
+    @Test
+    fun `a refresh that finished leaves nothing to report`() =
+        runTest {
+            val earlier = telemetry(this, processId = "earlier-process")
+            earlier.onSending(TokenRefreshCaller.Untagged)
+            nowMillis += 300
+            earlier.onAttempt(TokenRefreshCaller.Untagged, TokenRefreshOutcome.Ok, durationMillis = 300)
+            runCurrent()
+
+            telemetry(this).reportRefreshDiedInFlight()
+
+            verify(exactly = 0) { crashReporter.recordException(any()) }
+        }
+
+    /** The recovery pass can run while this process is itself mid-refresh. */
+    @Test
+    fun `this process's own refresh in progress is not reported`() =
+        runTest {
+            val telemetry = telemetry(this)
+            telemetry.onSending(TokenRefreshCaller.Untagged)
+
+            telemetry.reportRefreshDiedInFlight()
+
+            verify(exactly = 0) { crashReporter.recordException(any()) }
+        }
+
+    @Test
+    fun `the clear names the last refresh that died in flight`() =
+        runTest {
+            history.inFlight =
+                InFlightRefresh(nowMillis, TokenRefreshCaller.Widget, foreground = false, processId = "earlier-process")
+            val telemetry = telemetry(this)
+            telemetry.reportRefreshDiedInFlight()
+            nowMillis += 20 * MINUTE
+
+            val keys = telemetry.clearKeys()
+
+            assertEquals("20", keys["last_died_refresh_mins_ago"])
+            assertEquals("widget", keys["last_died_refresh_caller"])
+        }
 
     @Test
     fun `ok and lost-response refreshes persist and surface as minutes ago on the clear`() =
@@ -101,6 +179,8 @@ class TokenRefreshTelemetryTest {
                     "last_ok_refresh_caller" to "none",
                     "last_lost_refresh_mins_ago" to "none",
                     "last_lost_refresh_caller" to "none",
+                    "last_died_refresh_mins_ago" to "none",
+                    "last_died_refresh_caller" to "none",
                 ),
                 keys,
             )
