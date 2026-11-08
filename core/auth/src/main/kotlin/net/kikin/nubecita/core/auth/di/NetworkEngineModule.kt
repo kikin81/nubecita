@@ -6,6 +6,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.okhttp.OkHttp
+import okhttp3.OkHttpClient
 import javax.inject.Singleton
 
 /**
@@ -22,4 +23,16 @@ object NetworkEngineModule {
     @Provides
     @Singleton
     fun provideHttpClientEngine(): HttpClientEngine = OkHttp.create()
+
+    @Provides
+    @Singleton
+    @TokenEndpoint
+    fun provideTokenEndpointEngine(): HttpClientEngine = OkHttp.create { preconfigured = tokenEndpointOkHttpClient() }
+
+    /**
+     * OkHttp re-sends a request whose connection dropped mid-flight
+     * (`retryOnConnectionFailure`, on by default). For a token POST that
+     * re-send is a replay of a single-use token, so it is off here.
+     */
+    internal fun tokenEndpointOkHttpClient(): OkHttpClient = OkHttpClient.Builder().retryOnConnectionFailure(false).build()
 }
