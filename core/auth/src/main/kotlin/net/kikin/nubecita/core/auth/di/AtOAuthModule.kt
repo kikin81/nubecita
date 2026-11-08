@@ -31,6 +31,7 @@ internal object AtOAuthModule {
         sessionStore: OAuthSessionStore,
         pendingStore: PendingAuthStore,
         httpClient: HttpClient,
+        @TokenEndpoint tokenHttpClient: HttpClient,
         persistFailureReporter: SessionPersistFailureReporter,
     ): AtOAuth =
         AtOAuth(
@@ -49,5 +50,9 @@ internal object AtOAuthModule {
             // default, the returning callback fails "No pending login" and the
             // user cannot sign in at all (nubecita-nzec).
             pendingStore = pendingStore,
+            // Refresh and code exchange spend single-use tokens; this client's
+            // engine never re-sends a dropped POST, which the server would
+            // treat as a replay and answer by deleting the session.
+            tokenHttpClient = tokenHttpClient,
         )
 }

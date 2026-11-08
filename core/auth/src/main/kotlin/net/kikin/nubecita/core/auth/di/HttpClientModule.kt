@@ -5,6 +5,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.ktor.client.HttpClient
+import io.ktor.client.HttpClientConfig
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.logging.LogLevel
@@ -36,42 +37,56 @@ internal object HttpClientModule {
     fun provideHttpClient(
         engine: HttpClientEngine,
         refreshTelemetry: TokenRefreshTelemetry,
-    ): HttpClient =
-        HttpClient(engine) {
-            // Observes every refresh-token POST (the SDK refreshes through this
-            // same client) — caller, outcome, lost responses (nubecita-z2gt).
-            install(tokenRefreshMonitor(refreshTelemetry))
-            install(HttpTimeout) {
-                requestTimeoutMillis = 30_000
-                connectTimeoutMillis = 10_000
-                socketTimeoutMillis = 30_000
-            }
-            // Debug-only request/response trace. HEADERS level surfaces the
-            // status, URL, and DPoP-Nonce rotation needed to diagnose the
-            // cold-start refresh path (nubecita-09o) without logging request
-            // bodies. Gated on BuildConfig.DEBUG (NOT Timber.treeCount) so a
-            // future release Timber tree (Crashlytics/Sentry) cannot retroactively
-            // enable header logging and leak access tokens. Defense in depth:
-            // sanitizeHeader also redacts Authorization + DPoP values even in
-            // debug, so the diagnostically-useful DPoP-Nonce stays visible while
-            // the bearer token + signed proof JWT do not. Filter via:
-            //   adb logcat -s AtProtoHttp
-            if (BuildConfig.DEBUG) {
-                install(Logging) {
-                    level = LogLevel.HEADERS
-                    logger =
-                        object : Logger {
-                            override fun log(message: String) {
-                                Timber.tag(TAG).d(message)
-                            }
+    ): HttpClient = HttpClient(engine) { atProtoDefaults(refreshTelemetry) }
+
+    /**
+     * The client `AtOAuth` sends its refresh and code-exchange POSTs through.
+     * Same configuration as [provideHttpClient], on an engine that never
+     * re-sends a request ([NetworkEngineModule.provideTokenEndpointEngine]).
+     */
+    @Provides
+    @Singleton
+    @TokenEndpoint
+    fun provideTokenHttpClient(
+        @TokenEndpoint engine: HttpClientEngine,
+        refreshTelemetry: TokenRefreshTelemetry,
+    ): HttpClient = HttpClient(engine) { atProtoDefaults(refreshTelemetry) }
+
+    private fun HttpClientConfig<*>.atProtoDefaults(refreshTelemetry: TokenRefreshTelemetry) {
+        // Observes every refresh-token POST (the SDK refreshes through the
+        // TokenEndpoint client) — caller, outcome, lost responses (nubecita-z2gt).
+        install(tokenRefreshMonitor(refreshTelemetry))
+        install(HttpTimeout) {
+            requestTimeoutMillis = 30_000
+            connectTimeoutMillis = 10_000
+            socketTimeoutMillis = 30_000
+        }
+        // Debug-only request/response trace. HEADERS level surfaces the
+        // status, URL, and DPoP-Nonce rotation needed to diagnose the
+        // cold-start refresh path (nubecita-09o) without logging request
+        // bodies. Gated on BuildConfig.DEBUG (NOT Timber.treeCount) so a
+        // future release Timber tree (Crashlytics/Sentry) cannot retroactively
+        // enable header logging and leak access tokens. Defense in depth:
+        // sanitizeHeader also redacts Authorization + DPoP values even in
+        // debug, so the diagnostically-useful DPoP-Nonce stays visible while
+        // the bearer token + signed proof JWT do not. Filter via:
+        //   adb logcat -s AtProtoHttp
+        if (BuildConfig.DEBUG) {
+            install(Logging) {
+                level = LogLevel.HEADERS
+                logger =
+                    object : Logger {
+                        override fun log(message: String) {
+                            Timber.tag(TAG).d(message)
                         }
-                    sanitizeHeader { header ->
-                        header.equals("Authorization", ignoreCase = true) ||
-                            header.equals("DPoP", ignoreCase = true) ||
-                            header.equals("Cookie", ignoreCase = true) ||
-                            header.equals("Set-Cookie", ignoreCase = true)
                     }
+                sanitizeHeader { header ->
+                    header.equals("Authorization", ignoreCase = true) ||
+                        header.equals("DPoP", ignoreCase = true) ||
+                        header.equals("Cookie", ignoreCase = true) ||
+                        header.equals("Set-Cookie", ignoreCase = true)
                 }
             }
         }
+    }
 }

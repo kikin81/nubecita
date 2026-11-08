@@ -7,6 +7,7 @@ import dagger.hilt.testing.TestInstallIn
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.mock.MockEngine
 import net.kikin.nubecita.core.auth.di.NetworkEngineModule
+import net.kikin.nubecita.core.auth.di.TokenEndpoint
 import javax.inject.Singleton
 
 /**
@@ -31,6 +32,15 @@ object MockEngineModule {
     @Provides
     @Singleton
     fun provideHttpClientEngine(holder: MockEngineHandlerHolder): HttpClientEngine =
+        MockEngine { request ->
+            holder.handler.invoke(this, request)
+        }
+
+    /** The token-endpoint engine; the same handler serves both. */
+    @Provides
+    @Singleton
+    @TokenEndpoint
+    fun provideTokenEndpointEngine(holder: MockEngineHandlerHolder): HttpClientEngine =
         MockEngine { request ->
             holder.handler.invoke(this, request)
         }
