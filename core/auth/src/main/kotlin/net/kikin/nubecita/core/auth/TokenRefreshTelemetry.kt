@@ -131,14 +131,18 @@ internal class TokenRefreshTelemetry(
     }
 
     /**
-     * Reports a refresh a previous process sent and never finished, then
-     * consumes the marker so it fires once. Called once per app start.
+     * Reports a refresh a previous process sent and never finished. Called
+     * once per app start. The marker is consumed before anything is
+     * reported, so a failure partway through loses this report rather than
+     * repeating it on every later launch: a duplicate would inflate the very
+     * count this exists to measure.
      */
     suspend fun reportRefreshDiedInFlight() {
         safely {
             val marker = history.unfinished() ?: return@safely
             // This process's own refresh, still running: not a death.
             if (marker.processId == processId) return@safely
+            history.clearInFlight()
             crashReporter.setCustomKey(KEY_DIED_REFRESH_CALLER, marker.caller.wire)
             crashReporter.recordException(TokenRefreshDiedInFlightException())
             analytics.log(
@@ -149,7 +153,6 @@ internal class TokenRefreshTelemetry(
                 ),
             )
             history.recordDiedInFlight(RefreshRecord(epochMillis = marker.epochMillis, caller = marker.caller))
-            history.clearInFlight()
         }
     }
 

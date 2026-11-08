@@ -60,6 +60,20 @@ class TokenRefreshTelemetryTest {
         }
 
     @Test
+    fun `a failed history write does not report the same death again`() =
+        runTest {
+            history.inFlight =
+                InFlightRefresh(nowMillis, TokenRefreshCaller.DmPoll, foreground = false, processId = "earlier-process")
+            history.failDiedInFlightWrite = true
+            val telemetry = telemetry(this)
+
+            telemetry.reportRefreshDiedInFlight()
+            telemetry.reportRefreshDiedInFlight()
+
+            verify(exactly = 1) { crashReporter.recordException(match { it is TokenRefreshDiedInFlightException }) }
+        }
+
+    @Test
     fun `a refresh that finished leaves nothing to report`() =
         runTest {
             val earlier = telemetry(this, processId = "earlier-process")

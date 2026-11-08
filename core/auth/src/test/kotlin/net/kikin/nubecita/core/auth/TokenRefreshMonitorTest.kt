@@ -207,6 +207,7 @@ internal class InMemoryRefreshHistoryStore : RefreshHistoryStore {
     var history = RefreshHistory(lastOk = null, lastLostResponse = null)
     var inFlight: InFlightRefresh? = null
     var completedAt: Long? = null
+    var failDiedInFlightWrite = false
 
     override suspend fun recordOk(record: RefreshRecord) {
         history = history.copy(lastOk = record)
@@ -217,6 +218,7 @@ internal class InMemoryRefreshHistoryStore : RefreshHistoryStore {
     }
 
     override suspend fun recordDiedInFlight(record: RefreshRecord) {
+        if (failDiedInFlightWrite) throw java.io.IOException("disk full")
         history = history.copy(lastDiedInFlight = record)
     }
 
