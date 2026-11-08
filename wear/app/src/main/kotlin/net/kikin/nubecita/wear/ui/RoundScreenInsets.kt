@@ -3,7 +3,7 @@ package net.kikin.nubecita.wear.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
@@ -54,24 +54,16 @@ private fun roundInset(fraction: Float): Dp {
  */
 fun Modifier.roundEdgeFade(state: TransformingLazyColumnState): Modifier =
     graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-        .drawWithContent {
-            drawContent()
+        .drawWithCache {
+            // Built once per size, so scrolling allocates nothing per frame.
             val bandHeight = size.height * FADE_BAND
             val bandSize = Size(size.width, bandHeight)
-            if (state.canScrollBackward) {
-                drawRect(
-                    brush = Brush.verticalGradient(0f to Color.Transparent, FADE_HIDDEN_STOP to Color.Transparent, 1f to Color.Black, endY = bandHeight),
-                    size = bandSize,
-                    blendMode = BlendMode.DstIn,
-                )
-            }
-            if (state.canScrollForward) {
-                val top = size.height - bandHeight
-                drawRect(
-                    brush = Brush.verticalGradient(0f to Color.Black, 1f - FADE_HIDDEN_STOP to Color.Transparent, 1f to Color.Transparent, startY = top, endY = size.height),
-                    topLeft = Offset(0f, top),
-                    size = bandSize,
-                    blendMode = BlendMode.DstIn,
-                )
+            val bottomTop = size.height - bandHeight
+            val topFade = Brush.verticalGradient(0f to Color.Transparent, FADE_HIDDEN_STOP to Color.Transparent, 1f to Color.Black, endY = bandHeight)
+            val bottomFade = Brush.verticalGradient(0f to Color.Black, 1f - FADE_HIDDEN_STOP to Color.Transparent, 1f to Color.Transparent, startY = bottomTop, endY = size.height)
+            onDrawWithContent {
+                drawContent()
+                if (state.canScrollBackward) drawRect(brush = topFade, size = bandSize, blendMode = BlendMode.DstIn)
+                if (state.canScrollForward) drawRect(brush = bottomFade, topLeft = Offset(0f, bottomTop), size = bandSize, blendMode = BlendMode.DstIn)
             }
         }
