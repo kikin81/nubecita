@@ -22,6 +22,8 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.IOException
+import java.net.ConnectException
+import java.net.SocketException
 import java.net.UnknownHostException
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -30,18 +32,20 @@ class TokenRefreshMonitorTest {
     private val crashReporter = mockk<CrashReporter>(relaxed = true)
     private val analytics = mockk<AnalyticsClient>(relaxed = true)
 
-    private fun telemetry(scope: TestScope) =
-        TokenRefreshTelemetry(
-            crashReporter = crashReporter,
-            analytics = analytics,
-            history = InMemoryRefreshHistoryStore(),
-            foreground = FixedForegroundSignal(false),
-            scope = scope.backgroundScope,
-            clock =
-                object : Clock {
-                    override fun now(): Instant = Instant.fromEpochMilliseconds(1_720_000_000_000L)
-                },
-        )
+    private fun telemetry(
+        scope: TestScope,
+        history: InMemoryRefreshHistoryStore = InMemoryRefreshHistoryStore(),
+    ) = TokenRefreshTelemetry(
+        crashReporter = crashReporter,
+        analytics = analytics,
+        history = history,
+        foreground = FixedForegroundSignal(false),
+        scope = scope.backgroundScope,
+        clock =
+            object : Clock {
+                override fun now(): Instant = Instant.fromEpochMilliseconds(1_720_000_000_000L)
+            },
+    )
 
     private fun client(
         telemetry: TokenRefreshTelemetry,
@@ -134,6 +138,59 @@ class TokenRefreshMonitorTest {
             verify { crashReporter.recordException(match { it is TokenRefreshOutcomeUnknownException }) }
         }
 
+    /** Before the POST, or a process that dies mid-request leaves nothing to find. */
+    @Test
+    fun `a refresh is marked in flight before it is sent`() =
+        runTest {
+            val history = InMemoryRefreshHistoryStore()
+            var markedWhenSent: InFlightRefresh? = null
+            val http =
+                client(
+                    telemetry(this, history),
+                    MockEngine {
+                        markedWhenSent = history.inFlight
+                        respond("{}", HttpStatusCode.OK)
+                    },
+                )
+
+            withContext(RefreshCaller.Widget) { http.refresh() }
+
+            assertEquals(TokenRefreshCaller.Widget, markedWhenSent?.caller)
+        }
+
+    /**
+     * OkHttp re-sends a request whose connection dropped mid-flight, keeping the
+     * first failure as suppressed. If the retry then fails DNS, the first POST
+     * may still have reached the server and consumed the token.
+     */
+    @Test
+    fun `a pre-send failure that hides an earlier aborted attempt is a lost response`() =
+        runTest {
+            val retried =
+                UnknownHostException("bsky.social").apply {
+                    addSuppressed(SocketException("Software caused connection abort"))
+                }
+            val http = client(telemetry(this), MockEngine { throw retried })
+
+            runCatching { http.refresh() }
+
+            expect(TokenRefreshCaller.Untagged, TokenRefreshOutcome.LostResponse)
+        }
+
+    @Test
+    fun `a pre-send failure whose suppressed attempts also failed before sending is still not_sent`() =
+        runTest {
+            val retried =
+                UnknownHostException("bsky.social").apply {
+                    addSuppressed(ConnectException("Connection refused"))
+                }
+            val http = client(telemetry(this), MockEngine { throw retried })
+
+            runCatching { http.refresh() }
+
+            expect(TokenRefreshCaller.Untagged, TokenRefreshOutcome.NotSent)
+        }
+
     @Test
     fun `a pre-send failure is not_sent and records no non-fatal`() =
         runTest {
@@ -148,6 +205,8 @@ class TokenRefreshMonitorTest {
 
 internal class InMemoryRefreshHistoryStore : RefreshHistoryStore {
     var history = RefreshHistory(lastOk = null, lastLostResponse = null)
+    var inFlight: InFlightRefresh? = null
+    var completedAt: Long? = null
 
     override suspend fun recordOk(record: RefreshRecord) {
         history = history.copy(lastOk = record)
@@ -155,6 +214,24 @@ internal class InMemoryRefreshHistoryStore : RefreshHistoryStore {
 
     override suspend fun recordLostResponse(record: RefreshRecord) {
         history = history.copy(lastLostResponse = record)
+    }
+
+    override suspend fun recordDiedInFlight(record: RefreshRecord) {
+        history = history.copy(lastDiedInFlight = record)
+    }
+
+    override suspend fun markInFlight(refresh: InFlightRefresh) {
+        inFlight = refresh
+    }
+
+    override suspend fun recordCompleted(epochMillis: Long) {
+        completedAt = maxOf(completedAt ?: 0L, epochMillis)
+    }
+
+    override suspend fun unfinished(): InFlightRefresh? = inFlight?.takeIf { marker -> (completedAt ?: Long.MIN_VALUE) < marker.epochMillis }
+
+    override suspend fun clearInFlight() {
+        inFlight = null
     }
 
     override suspend fun history(): RefreshHistory = history

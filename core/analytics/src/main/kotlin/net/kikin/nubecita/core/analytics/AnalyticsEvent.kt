@@ -755,6 +755,13 @@ enum class TokenRefreshOutcome(
      * deleting the whole session. The precursor of a spurious logout.
      */
     LostResponse("lost_response"),
+
+    /**
+     * Sent, then the process died before an outcome was recorded: found at the
+     * next start from a marker written before the POST. The server may have
+     * consumed the token, so this is a lost response that never got to say so.
+     */
+    ProcessDied("process_died"),
 }
 
 /**

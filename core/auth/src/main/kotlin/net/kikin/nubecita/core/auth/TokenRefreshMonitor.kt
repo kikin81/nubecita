@@ -38,6 +38,7 @@ internal fun tokenRefreshMonitor(telemetry: TokenRefreshTelemetry): ClientPlugin
             if (!request.isRefreshTokenGrant()) return@on proceed(request)
 
             val caller = currentCoroutineContext()[RefreshCaller].toAnalyticsCaller()
+            telemetry.onSending(caller)
             val started = TimeSource.Monotonic.markNow()
             val call =
                 try {
@@ -109,19 +110,39 @@ internal fun classifyRefreshRejection(
 }
 
 /**
- * Mirrors the SDK's `DpopAuthProvider.isPreSendFailure`: these failures happen
- * before the request reaches the server, so the token was provably not
- * consumed. Everything else may have been sent and its response lost.
+ * Not sent only when every attempt failed before reaching the server, so the
+ * token was provably not consumed. Everything else may have been sent and its
+ * response lost.
+ *
+ * "Every attempt" because OkHttp re-sends a request whose connection dropped
+ * mid-flight and keeps the earlier failure as suppressed. A DNS failure on that
+ * retry says nothing about the first POST, which may already have consumed the
+ * token: a Pixel was logged not_sent this way and signed out 16 minutes later.
  */
 internal fun classifyRefreshFailure(e: Throwable): TokenRefreshOutcome =
-    when (e) {
-        is UnknownHostException,
-        is ConnectException,
-        is UnresolvedAddressException,
-        is ConnectTimeoutException,
-        -> TokenRefreshOutcome.NotSent
-        else -> TokenRefreshOutcome.LostResponse
+    if (e.isPreSendFailure() && e.earlierAttempts().all { it.isPreSendFailure() }) {
+        TokenRefreshOutcome.NotSent
+    } else {
+        TokenRefreshOutcome.LostResponse
     }
+
+/**
+ * The failures OkHttp kept from attempts before this one. kotlinx.coroutines can
+ * re-create an exception as it crosses a coroutine boundary, with the original
+ * as its cause, so a same-type cause's suppressed list counts too. Not the rest
+ * of the cause chain: a genuine DNS failure is caused by an Android
+ * `GaiException`, which would wrongly read as a request that went out.
+ */
+private fun Throwable.earlierAttempts(): List<Throwable> {
+    val original = cause?.takeIf { it::class == this::class }
+    return suppressed.toList() + (original?.suppressed?.toList() ?: emptyList())
+}
+
+private fun Throwable.isPreSendFailure(): Boolean =
+    this is UnknownHostException ||
+        this is ConnectException ||
+        this is UnresolvedAddressException ||
+        this is ConnectTimeoutException
 
 private fun RefreshCaller?.toAnalyticsCaller(): TokenRefreshCaller =
     when (this) {
