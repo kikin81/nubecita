@@ -45,7 +45,7 @@ class WearMarketingScreenshotJourney {
             // The bench feed: fictional accounts, generated images, fixed clock.
             assertTrue("bench feed never appeared", device.wait(Until.hasObject(By.text("Ana Ruiz")), TIMEOUT_MS))
             // Scroll past the header so the first post sits whole in the middle.
-            scrollBy(from = 9, to = 3)
+            scrollBy(from = 6, to = 4)
             Screengrab.screenshot("01_feed")
 
             device.findObject(By.text("Ana Ruiz")).click()

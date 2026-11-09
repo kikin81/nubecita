@@ -38,7 +38,7 @@ internal class BenchWatchDmRepository
 
         private val convos =
             listOf(
-                Triple("dm-ana", "Ana Ruiz", false) to listOf(Msg(true, null, "Yes! 8am at the trailhead.", 9), Msg(false, null, "Perfect, I'll bring coffee.", 3)),
+                Triple("dm-ana", "Ana Ruiz", false) to listOf(Msg(true, null, "Yes! 8am works.", 9), Msg(false, null, "Perfect, I'll bring coffee.", 3)),
                 Triple("dm-trip", "Weekend Trip", true) to listOf(Msg(false, "Ben", "Who's driving?", 50), Msg(false, "Cleo", "I can, the car fits four.", 44), Msg(true, null, "I'll bring snacks.", 40)),
                 Triple("dm-cleo", "Cleo Marsh", false) to listOf(Msg(false, null, "Loved the lake photos!", 180)),
             )
