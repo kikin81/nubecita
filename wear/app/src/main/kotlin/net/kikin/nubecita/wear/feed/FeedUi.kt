@@ -14,6 +14,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -88,7 +89,7 @@ fun AuthorAvatar(
     )
 }
 
-/** A feed card's author line: avatar, name and compact time on one row. */
+/** A feed card's author line: avatar and name, with the compact time at the end of the row. */
 @Composable
 fun AuthorRow(
     post: WatchPostUi,
@@ -105,13 +106,14 @@ fun AuthorRow(
         // The name gives way to the time when it's long.
         Text(
             post.authorName,
-            modifier = Modifier.weight(1f, fill = false),
+            modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         Text(
-            "· " + compactTime(post.createdAtMs, nowMs),
+            compactTime(post.createdAtMs, nowMs),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
@@ -125,13 +127,14 @@ fun PostMedia(
     post: WatchPostUi,
     imageHeight: Int,
     modifier: Modifier = Modifier,
+    shape: Shape = RoundedCornerShape(12.dp),
 ) {
     when {
         post.thumbnailPath != null ->
             AsyncImage(
                 model = File(post.thumbnailPath),
                 contentDescription = stringResource(if (post.isVideo) R.string.wear_post_video else R.string.wear_post_image),
-                modifier = modifier.fillMaxWidth().height(imageHeight.dp).clip(RoundedCornerShape(12.dp)),
+                modifier = modifier.fillMaxWidth().height(imageHeight.dp).clip(shape),
                 contentScale = ContentScale.Crop,
             )
         post.hasContentWarning -> MediaLabel(stringResource(R.string.wear_post_sensitive_media), modifier)
