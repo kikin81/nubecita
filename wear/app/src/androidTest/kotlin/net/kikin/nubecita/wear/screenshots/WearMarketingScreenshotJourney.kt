@@ -1,5 +1,6 @@
 package net.kikin.nubecita.wear.screenshots
 
+import android.os.SystemClock
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -25,7 +26,7 @@ import tools.fastlane.screengrab.locale.LocaleTestRule
  * Runs against the bench flavor only (a signed-in fake session and a fixed
  * clock, no paired phone needed); the production variant skips it. Captures
  * are raw full-screen 1:1 images with no frame, as Play requires for Wear
- * (WO-G5). W4 (messages) adds its screens here.
+ * (WO-G5).
  */
 @RunWith(AndroidJUnit4::class)
 class WearMarketingScreenshotJourney {
@@ -39,28 +40,58 @@ class WearMarketingScreenshotJourney {
     }
 
     @Test
-    fun feedPostAndFeeds() {
+    fun feedAndPost() {
         ActivityScenario.launch(MainActivity::class.java).use {
             // The bench feed: fictional accounts, generated images, fixed clock.
             assertTrue("bench feed never appeared", device.wait(Until.hasObject(By.text("Ana Ruiz")), TIMEOUT_MS))
-            device.waitForIdle()
+            // Scroll past the header so the first post sits whole in the middle.
+            scrollBy(from = 9, to = 3)
             Screengrab.screenshot("01_feed")
 
-            // Scroll so the first post's photo is on screen.
-            device.swipe(device.displayWidth / 2, device.displayHeight * 9 / 10, device.displayWidth / 2, device.displayHeight / 6, SWIPE_STEPS)
-            device.waitForIdle()
-            Screengrab.screenshot("02_feed_photo")
-
-            device.findObject(By.text("Ana Ruiz"))?.click()
+            device.findObject(By.text("Ana Ruiz")).click()
             assertTrue("post screen never opened", device.wait(Until.hasObject(By.textContains("Worth the cold hands")), TIMEOUT_MS))
-            device.waitForIdle()
-            Screengrab.screenshot("03_post")
+            // Bring the whole image into the middle of the screen.
+            scrollBy(from = 7, to = 2)
+            Screengrab.screenshot("02_post")
         }
+    }
+
+    @Test
+    fun messagesConversationAndReply() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            assertTrue("messages button never appeared", device.wait(Until.hasObject(By.descStartsWith("Messages")), TIMEOUT_MS))
+            device.findObject(By.descStartsWith("Messages")).click()
+            assertTrue("conversation list never opened", device.wait(Until.hasObject(By.text("Weekend Trip")), TIMEOUT_MS))
+            device.waitForIdle()
+            Screengrab.screenshot("03_messages")
+
+            device.findObject(By.text("Ana Ruiz")).click()
+            assertTrue("conversation never opened", device.wait(Until.hasObject(By.text("Reply")), TIMEOUT_MS))
+            device.waitForIdle()
+            Screengrab.screenshot("04_conversation")
+
+            device.findObject(By.text("Reply")).click()
+            assertTrue("reply screen never opened", device.wait(Until.hasObject(By.text("Sounds good")), TIMEOUT_MS))
+            device.waitForIdle()
+            Screengrab.screenshot("05_reply")
+        }
+    }
+
+    /** Swipes up the centre of the screen between two tenths of its height. */
+    private fun scrollBy(
+        from: Int,
+        to: Int,
+    ) {
+        val x = device.displayWidth / 2
+        device.swipe(x, device.displayHeight * from / 10, x, device.displayHeight * to / 10, SWIPE_STEPS)
+        device.waitForIdle()
+        SystemClock.sleep(SETTLE_MS)
     }
 
     companion object {
         private const val TIMEOUT_MS = 10_000L
         private const val SWIPE_STEPS = 40
+        private const val SETTLE_MS = 1_000L
 
         @get:ClassRule
         @JvmStatic
