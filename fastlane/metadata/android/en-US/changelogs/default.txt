@@ -1,8 +1,8 @@
 Thanks for using nubecita! What's new:
 • nubecita on your wrist: our new Wear OS app is here.
-• Read your feed on your watch, even when your phone isn't nearby, and like, repost or bookmark posts.
+• Read your feed on your watch, and like, repost or bookmark posts.
 • Reply to messages by voice, typing or a quick reply, or react to them.
-• Post from your watch: say or type a short post and send it.
-• Choose which pinned feeds go to your watch in Settings → Watch.
-• Bug fixes and improvements.
+• Post from your watch by voice or typing.
+• Add the Unread messages complication to your watch face.
+• Cleaner layouts on round watches.
 Thanks for being here. 💙
