@@ -215,6 +215,39 @@ private fun FeedImageCardPreview() {
     }
 }
 
+// A card taller than the screen: its repost line and counts sit in the narrow
+// top and bottom of a round watch. Anchored on the card, where the feed's snap
+// stops it.
+private val TALL_IMAGE_POST =
+    post(
+        "tall",
+        "depths of wikipedia with a long display name",
+        "i can't believe we just let this guy decide what we can end sentences with",
+        120,
+        likes = 67,
+        repostedBy = "jay.edidin.example.social",
+        images = 1,
+    ).copy(thumbnailPath = "/preview/tall.webp")
+
+private const val FEED_FIRST_POST_ITEM = 1
+
+@PreviewTest
+@PreviewWearRoundDevices
+@Composable
+private fun FeedTallImageCardPreview() {
+    WithPreviewImage {
+        NubecitaWearTheme {
+            FeedScreen(
+                state = READY.copy(posts = persistentListOf(TALL_IMAGE_POST)),
+                nowMs = NOW,
+                onPostClick = {},
+                onSwitchFeed = {},
+                listState = rememberTransformingLazyColumnState(initialAnchorItemIndex = FEED_FIRST_POST_ITEM),
+            )
+        }
+    }
+}
+
 // The action row is the last item (author, repost line, text, media, counts,
 // actions → index 5). Anchoring on it centres the row, where a user scrolls it
 // to; near the bottom edge the round screen is too narrow for three buttons.
