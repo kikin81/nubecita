@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -151,8 +152,7 @@ fun FeedScreen(
                         if (post.text.isNotBlank()) {
                             Text(post.text, style = MaterialTheme.typography.bodyMedium, maxLines = if (hasImage) imageCardTextLines else CARD_TEXT_LINES, overflow = TextOverflow.Ellipsis)
                         }
-                        PostMedia(post, imageHeight = if (hasImage) (configuration.screenHeightDp * CARD_IMAGE_HEIGHT_FRACTION).toInt() else CARD_IMAGE_HEIGHT)
-                        PostCounts(post)
+                        PostMedia(post, imageHeight = if (hasImage) (configuration.screenHeightDp * CARD_IMAGE_HEIGHT_FRACTION).toInt() else CARD_IMAGE_HEIGHT, shape = CardImageShape)
                     }
                 }
             }
@@ -166,7 +166,8 @@ private const val CARD_LARGE_FONT_SCALE = 1.15f
 private const val CARD_IMAGE_HEIGHT = 96
 
 // Of the screen height, so the card still fits on the smallest round watch.
-private const val CARD_IMAGE_HEIGHT_FRACTION = 0.25f
+private const val CARD_IMAGE_HEIGHT_FRACTION = 0.2f
+private val CardImageShape = RoundedCornerShape(percent = 50)
 
 /**
  * A post written on the watch, above the timeline until the phone posts it:
