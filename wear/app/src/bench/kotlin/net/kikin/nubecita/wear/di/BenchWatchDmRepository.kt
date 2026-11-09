@@ -38,14 +38,14 @@ internal class BenchWatchDmRepository
 
         private val convos =
             listOf(
-                Triple("dm-ana", "Ana Ruiz", false) to listOf(Msg(false, null, "Are we still on for the hike Saturday?", 12), Msg(true, null, "Yes! 8am at the trailhead.", 9), Msg(false, null, "Perfect, I'll bring coffee.", 3)),
+                Triple("dm-ana", "Ana Ruiz", false) to listOf(Msg(true, null, "Yes! 8am works.", 9), Msg(false, null, "Perfect, I'll bring coffee.", 3)),
                 Triple("dm-trip", "Weekend Trip", true) to listOf(Msg(false, "Ben", "Who's driving?", 50), Msg(false, "Cleo", "I can, the car fits four.", 44), Msg(true, null, "I'll bring snacks.", 40)),
                 Triple("dm-cleo", "Cleo Marsh", false) to listOf(Msg(false, null, "Loved the lake photos!", 180)),
             )
 
-        override fun state(accountDid: String): Flow<WatchDmStateEntity?> = flowOf(WatchDmStateEntity(accountDid, now, unreadCount = 3))
+        override fun state(accountDid: String): Flow<WatchDmStateEntity?> = flowOf(WatchDmStateEntity(accountDid, now, unreadCount = 2))
 
-        override suspend fun latestUnreadCount(): Int = 3
+        override suspend fun latestUnreadCount(): Int = 2
 
         override fun convos(accountDid: String): Flow<List<WatchConvoEntity>> =
             flowOf(
@@ -79,8 +79,8 @@ internal class BenchWatchDmRepository
             )
 
         private companion object {
-            // Ana has two unread, the group one, the rest none.
-            val UNREAD = listOf(2, 1)
+            // Ana and the group have one unread each, the rest none.
+            val UNREAD = listOf(1, 1)
         }
 
         private data class Msg(

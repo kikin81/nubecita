@@ -1,8 +1,8 @@
 Obrigado por usar o nubecita! Novidades:
-• nubecita no seu pulso: chegou nosso novo app para Wear OS.
-• Leia seu feed no relógio, mesmo sem o celular por perto, e curta, reposte ou salve posts.
-• Responda mensagens por voz, digitando ou com uma resposta rápida, ou reaja a elas.
-• Poste do seu relógio: fale ou digite um post curto e envie.
-• Escolha quais feeds fixados vão para o relógio em Configurações → Relógio.
-• Correções de bugs e melhorias.
-Obrigado por estar aqui! 💙
+• nubecita no seu pulso: nosso novo app para Wear OS chegou.
+• Leia seu feed no relógio, curta, republique ou salve postagens.
+• Responda mensagens por voz, digitando ou com respostas rápidas, ou reaja a elas.
+• Poste do relógio por voz ou digitando.
+• Adicione a complicação Mensagens não lidas ao mostrador.
+• Layouts mais limpos em relógios redondos.
+Obrigado por estar aqui. 💙
