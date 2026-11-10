@@ -46,6 +46,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -290,16 +291,20 @@ internal fun FeedScreen(
         }
 
     val scope = rememberCoroutineScope()
-    // Tapping means "take me there and stop telling me": the list goes to the
-    // top and the acknowledgement is recorded, so the same entries never raise
-    // the pill again.
+    // Tapping means "take me there and stop telling me". The VM rebuilds the
+    // pager at the newest entry — index 0 of the window loaded around the
+    // saved place is not the top (nubecita-lrnv.4) — and records the
+    // acknowledgement, so the same entries never raise the pill again.
     val onNewPostsClick =
         remember(viewModel, listState, scope) {
             {
                 scope.launch { listState.scrollToItem(0) }
-                viewModel.handleEvent(FeedEvent.DismissNewPosts)
+                viewModel.handleEvent(FeedEvent.ShowNewest)
             }
         }
+    // A Feed-tab re-tap asks for the same thing. The list's own scroll to the
+    // top stays inside FeedScreenContent; this is the half only the VM can do.
+    val onTabReTap = remember(viewModel) { { viewModel.handleEvent(FeedEvent.ShowNewest) } }
     val onFillSeam =
         remember(viewModel) { { position: Int -> viewModel.handleEvent(FeedEvent.FillSeam(position)) } }
     // Jump-to-newest IS the destructive refresh (D8), plus the scroll that
@@ -362,6 +367,7 @@ internal fun FeedScreen(
         anchoring = anchoring,
         newPosts = newPosts,
         onNewPostsClick = onNewPostsClick,
+        onTabReTap = onTabReTap,
         onFillSeam = onFillSeam,
         onJumpToNewest = onJumpToNewest,
         listState = listState,
@@ -431,6 +437,9 @@ internal fun FeedScreenContent(
     // Faces for the new-posts pill; empty means no pill.
     newPosts: ImmutableList<AuthorUi> = persistentListOf(),
     onNewPostsClick: () -> Unit = {},
+    // Called on a Feed-tab re-tap while this page is the one on screen, after
+    // the list has been asked to scroll to the top.
+    onTabReTap: () -> Unit = {},
     onComposeClick: () -> Unit = {},
     onRetryOutgoing: (localId: String) -> Unit = {},
     onDiscardOutgoing: (localId: String) -> Unit = {},
@@ -487,8 +496,14 @@ internal fun FeedScreenContent(
     // collector restarts cleanly across recompositions that re-create
     // either reference.
     val tabReTapSignal = LocalTabReTapSignal.current
+    val currentOnTabReTap by rememberUpdatedState(onTabReTap)
+    val currentIsPageActive by rememberUpdatedState(isPageActive)
     LaunchedEffect(tabReTapSignal, listState) {
         tabReTapSignal.collect {
+            // Only the page on screen: every composed pane hears the signal,
+            // and an off-screen feed should not lose its place to a tap the
+            // reader made somewhere else.
+            if (currentIsPageActive) currentOnTabReTap()
             listState.animateScrollToItem(0)
             chipRowOffsetHeightPx.animateTo(0f)
         }

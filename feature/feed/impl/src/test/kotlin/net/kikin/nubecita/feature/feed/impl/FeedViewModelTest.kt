@@ -656,13 +656,70 @@ internal class FeedViewModelTest {
             advanceUntilIdle()
             assertEquals(listOf<Int?>(37), repo.initialPositions)
 
-            vm.handleEvent(FeedEvent.DismissNewPosts)
+            vm.handleEvent(FeedEvent.ShowNewest)
             advanceUntilIdle()
 
             assertEquals(listOf<Int?>(37, null), repo.initialPositions)
             // And nothing is left for the screen to restore: a pending target
             // would scroll the reader straight back to where they were.
             assertNull(vm.restoreTarget.value)
+            // What was new has been seen.
+            assertEquals(1, repo.dismissals)
+        }
+
+    @Test
+    fun `asking for the newest again rebuilds again`() =
+        feedTest {
+            // A reader who taps twice — the pill, then the tab a minute later —
+            // gets a fresh catch-up both times rather than the second ask being
+            // read as "already at the top".
+            val repo = FakeFeedRepository()
+            val vm = viewModel(repo)
+            backgroundScope.launch { vm.feed.collect {} }
+            advanceUntilIdle()
+
+            vm.handleEvent(FeedEvent.ShowNewest)
+            advanceUntilIdle()
+            vm.handleEvent(FeedEvent.ShowNewest)
+            advanceUntilIdle()
+
+            assertEquals(3, repo.initialPositions.size)
+        }
+
+    @Test
+    fun `a generator feed does not rebuild when asked for the newest`() =
+        feedTest {
+            // D14: it refreshes on open and keeps no place, so its window
+            // already starts at the top and a rebuild would only refetch it.
+            val repo = FakeFeedRepository()
+            val vm = viewModel(repo)
+            vm.handleEvent(FeedEvent.Bind("at://did:plc:gen/app.bsky.feed.generator/mine", FeedKind.Generator))
+            backgroundScope.launch { vm.feed.collect {} }
+            advanceUntilIdle()
+            val before = repo.initialPositions.size
+
+            vm.handleEvent(FeedEvent.ShowNewest)
+            advanceUntilIdle()
+
+            assertEquals(before, repo.initialPositions.size)
+            assertEquals(0, repo.dismissals)
+        }
+
+    @Test
+    fun `switching feeds after asking for the newest restores the next feed's place`() =
+        feedTest {
+            val repo = FakeFeedRepository()
+            repo.storedAnchor = FeedAnchor(position = 37, itemKey = "single:at://post/a", offset = 0)
+            val vm = viewModel(repo)
+            backgroundScope.launch { vm.feed.collect {} }
+            advanceUntilIdle()
+            vm.handleEvent(FeedEvent.ShowNewest)
+            advanceUntilIdle()
+
+            vm.handleEvent(FeedEvent.Bind("at://did:plc:me/app.bsky.graph.list/friends", FeedKind.List))
+            advanceUntilIdle()
+
+            assertEquals(37, repo.initialPositions.last())
         }
 
     @Test
