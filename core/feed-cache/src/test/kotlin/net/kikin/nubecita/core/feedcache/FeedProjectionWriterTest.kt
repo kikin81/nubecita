@@ -285,7 +285,7 @@ internal class FeedProjectionWriterTest {
             // equal strings and different ones must differ, or a stale
             // projection either never refreshes or refreshes forever.
             val captured = mutableListOf<String?>()
-            coEvery { partitionStateDao.updatePrefsFingerprint(any(), any(), any(), any()) } answers {
+            coEvery { partitionStateDao.savePrefsFingerprint(any(), any(), any(), any()) } answers {
                 captured += arg<String?>(3)
             }
 
@@ -317,6 +317,12 @@ internal class FeedProjectionWriterTest {
         coEvery { partitionStateDao.insertIfAbsent(any()) } answers { if (row == null) row = firstArg() }
         coEvery { partitionStateDao.updatePrefsFingerprint(any(), any(), any(), any()) } answers {
             row = row?.copy(prefsFingerprint = arg(3))
+        }
+        // The DAO's @Transaction pair, reproduced: on a mock its default body
+        // never runs, so leaving it relaxed would make every write a no-op.
+        coEvery { partitionStateDao.savePrefsFingerprint(any(), any(), any(), any()) } answers {
+            val current = row ?: FeedPartitionStateEntity(arg(0), arg(1), arg(2))
+            row = current.copy(prefsFingerprint = arg(3))
         }
         coEvery { partitionStateDao.updatePillDismissed(any(), any(), any(), any()) } answers {
             row = row?.copy(pillDismissedPosition = arg(3))

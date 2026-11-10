@@ -10,7 +10,6 @@ import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.model.FeedItemEntity
 import net.kikin.nubecita.core.database.model.FeedItemMemberEntity
-import net.kikin.nubecita.core.database.model.FeedPartitionStateEntity
 import net.kikin.nubecita.core.feedmapping.dedupeByLeafPost
 import net.kikin.nubecita.core.feedmapping.dedupeByThreadRoot
 import net.kikin.nubecita.core.feedmapping.dedupeClusterContext
@@ -339,20 +338,11 @@ internal class FeedProjectionWriter
          * place and the pill's dismissal mark, and a whole-row upsert here
          * nulled both on every page written — so the place was lost while the
          * reader scrolled and the pill re-announced posts already read
-         * (nubecita-lrnv.3). Insert-if-absent first, because an `UPDATE` alone
-         * does nothing on a partition whose row does not exist yet. Callers
-         * hold the transaction, so the pair is atomic.
+         * (nubecita-lrnv.3).
          */
         private suspend fun recordFingerprint(feedKey: FeedKey) {
             val fingerprint = projectionPrefsFingerprint(prefs(), feedViewPrefs())
-            partitionStateDao.insertIfAbsent(
-                FeedPartitionStateEntity(
-                    accountDid = feedKey.accountDid,
-                    feedType = feedKey.feedType.name,
-                    feedUri = feedKey.feedUri,
-                ),
-            )
-            partitionStateDao.updatePrefsFingerprint(
+            partitionStateDao.savePrefsFingerprint(
                 accountDid = feedKey.accountDid,
                 feedType = feedKey.feedType.name,
                 feedUri = feedKey.feedUri,

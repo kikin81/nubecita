@@ -44,6 +44,27 @@ interface FeedPartitionStateDao {
     )
 
     /**
+     * Records the preferences a projection was built with, creating the row if
+     * the partition has none yet, and touching nothing else on it.
+     *
+     * The projection writer's entry point. It used to write the row whole,
+     * which nulled the reader's anchor and the pill's dismissal mark on every
+     * page written (nubecita-lrnv.3). Insert-if-absent first for the same
+     * reason as [saveAnchor]: an `UPDATE` alone does nothing on a partition
+     * whose row does not exist yet.
+     */
+    @Transaction
+    suspend fun savePrefsFingerprint(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        fingerprint: String?,
+    ) {
+        insertIfAbsent(FeedPartitionStateEntity(accountDid, feedType, feedUri))
+        updatePrefsFingerprint(accountDid, feedType, feedUri, fingerprint)
+    }
+
+    /**
      * Records the reader's place in this partition.
      *
      * Targeted, like [updatePrefsFingerprint] and for the same reason: the row

@@ -48,6 +48,35 @@ internal class FeedPartitionStateDaoTest : DatabaseTest() {
         }
 
     @Test
+    fun savingAFingerprintKeepsThePlaceAndTheDismissal() =
+        runTest {
+            // The projection writer calls this on every page it writes, so a
+            // write that touched the rest of the row would lose the reader's
+            // place while they scroll (nubecita-lrnv.3).
+            dao.saveAnchor(ACCOUNT, TYPE, FEED_URI, itemKey = "single:at://post/d", position = -266, offset = 120)
+            dao.updatePillDismissed(ACCOUNT, TYPE, FEED_URI, position = -500)
+
+            dao.savePrefsFingerprint(ACCOUNT, TYPE, FEED_URI, fingerprint = "replies=false")
+
+            val state = dao.state(ACCOUNT, TYPE, FEED_URI)
+            assertEquals("replies=false", state?.prefsFingerprint)
+            assertEquals("single:at://post/d", state?.anchorItemKey)
+            assertEquals(-266, state?.anchorPosition)
+            assertEquals(120, state?.anchorOffset)
+            assertEquals(-500, state?.pillDismissedPosition)
+        }
+
+    @Test
+    fun savingAFingerprintCreatesTheRowWhenThereIsNone() =
+        runTest {
+            assertNull(dao.state(ACCOUNT, TYPE, FEED_URI))
+
+            dao.savePrefsFingerprint(ACCOUNT, TYPE, FEED_URI, fingerprint = "replies=false")
+
+            assertEquals("replies=false", dao.state(ACCOUNT, TYPE, FEED_URI)?.prefsFingerprint)
+        }
+
+    @Test
     fun anchorAndFingerprintDoNotClobberEachOther() =
         runTest {
             // Both writes are targeted for this reason: the row carries two
