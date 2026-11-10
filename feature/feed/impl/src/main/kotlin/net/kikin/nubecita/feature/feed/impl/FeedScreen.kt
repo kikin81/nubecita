@@ -46,6 +46,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -290,16 +291,30 @@ internal fun FeedScreen(
         }
 
     val scope = rememberCoroutineScope()
-    // Tapping means "take me there and stop telling me": the list goes to the
-    // top and the acknowledgement is recorded, so the same entries never raise
-    // the pill again.
-    val onNewPostsClick =
-        remember(viewModel, listState, scope) {
-            {
-                scope.launch { listState.scrollToItem(0) }
-                viewModel.handleEvent(FeedEvent.DismissNewPosts)
-            }
+    // "Take me to the newest" — the pill, or a Feed-tab re-tap. The VM fetches
+    // the newest page, rebuilds the pager at the top (index 0 of the window
+    // loaded around the saved place is not the top, nubecita-lrnv.4), records
+    // the acknowledgement, and then raises scrollToNewest.
+    //
+    // The scroll also waits for a window that starts at the top of the
+    // partition. Scrolling to index 0 of a window that does not would land on
+    // its first row, and LazyListState follows that row's key into the next
+    // generation instead of staying at the top.
+    val scrollToNewest by viewModel.scrollToNewest.collectAsStateWithLifecycle()
+    val windowStartsAtTop = items.loadState.source.prepend.endOfPaginationReached
+    // A boolean, not the count: the effect only cares that something is
+    // loaded, and keying on the count would relaunch it with every page.
+    val hasItems = items.itemCount > 0
+    LaunchedEffect(scrollToNewest, windowStartsAtTop, hasItems) {
+        if (scrollToNewest && windowStartsAtTop && hasItems) {
+            listState.scrollToItem(0)
+            viewModel.handleEvent(FeedEvent.NewestShown)
         }
+    }
+    val onNewPostsClick = remember(viewModel) { { viewModel.handleEvent(FeedEvent.ShowNewest) } }
+    // FeedScreenContent animates its own scroll to the top on a re-tap; this is
+    // the half only the VM can do.
+    val onTabReTap = onNewPostsClick
     val onFillSeam =
         remember(viewModel) { { position: Int -> viewModel.handleEvent(FeedEvent.FillSeam(position)) } }
     // Jump-to-newest IS the destructive refresh (D8), plus the scroll that
@@ -362,6 +377,7 @@ internal fun FeedScreen(
         anchoring = anchoring,
         newPosts = newPosts,
         onNewPostsClick = onNewPostsClick,
+        onTabReTap = onTabReTap,
         onFillSeam = onFillSeam,
         onJumpToNewest = onJumpToNewest,
         listState = listState,
@@ -431,6 +447,9 @@ internal fun FeedScreenContent(
     // Faces for the new-posts pill; empty means no pill.
     newPosts: ImmutableList<AuthorUi> = persistentListOf(),
     onNewPostsClick: () -> Unit = {},
+    // Called on a Feed-tab re-tap while this page is the one on screen, after
+    // the list has been asked to scroll to the top.
+    onTabReTap: () -> Unit = {},
     onComposeClick: () -> Unit = {},
     onRetryOutgoing: (localId: String) -> Unit = {},
     onDiscardOutgoing: (localId: String) -> Unit = {},
@@ -487,10 +506,18 @@ internal fun FeedScreenContent(
     // collector restarts cleanly across recompositions that re-create
     // either reference.
     val tabReTapSignal = LocalTabReTapSignal.current
+    val currentOnTabReTap by rememberUpdatedState(onTabReTap)
+    val currentIsPageActive by rememberUpdatedState(isPageActive)
     LaunchedEffect(tabReTapSignal, listState) {
         tabReTapSignal.collect {
-            listState.animateScrollToItem(0)
-            chipRowOffsetHeightPx.animateTo(0f)
+            // Only the page on screen: every composed pane hears the signal,
+            // and an off-screen feed should not lose its place to a tap the
+            // reader made somewhere else.
+            if (currentIsPageActive) {
+                currentOnTabReTap()
+                listState.animateScrollToItem(0)
+                chipRowOffsetHeightPx.animateTo(0f)
+            }
         }
     }
     // FAB is the composer entry point. wtq.9 swapped the prior scroll-

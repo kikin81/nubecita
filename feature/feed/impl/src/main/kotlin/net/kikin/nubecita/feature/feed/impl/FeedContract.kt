@@ -228,14 +228,23 @@ sealed interface FeedEvent : UiEvent {
     data object RestoreConsumed : FeedEvent
 
     /**
-     * The reader has seen what arrived above them — they tapped the pill, or
-     * scrolled up past it.
+     * Take the reader to the newest entry — they tapped the new-posts pill, or
+     * re-tapped the Feed tab.
      *
-     * Recorded rather than just hidden: the pill is derived from what is
-     * stored above the reader (D20), so without a persisted acknowledgement it
-     * would be back on the next composition.
+     * The newest page is fetched, then the pager is rebuilt at the top of the
+     * partition rather than the list scrolled to index 0: the loaded window
+     * starts at the reader's saved place, so its index 0 can sit hundreds of
+     * rows below the newest entry (nubecita-lrnv.4).
+     *
+     * The new posts are acknowledged at the same time, and recorded rather
+     * than just hidden: the pill is derived from what is stored above the
+     * reader (D20), so without a persisted acknowledgement it would be back on
+     * the next composition.
      */
-    data object DismissNewPosts : FeedEvent
+    data object ShowNewest : FeedEvent
+
+    /** The screen has scrolled to the newest entry and does not want to again. */
+    data object NewestShown : FeedEvent
 
     /**
      * The loaded pages changed: every [PostUi] they now hold.

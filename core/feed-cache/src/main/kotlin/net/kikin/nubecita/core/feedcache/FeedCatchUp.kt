@@ -1,10 +1,13 @@
 package net.kikin.nubecita.core.feedcache
 
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.model.FeedItemEntity
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
 /**
@@ -87,8 +90,15 @@ internal class FeedCatchUp
          * rethrows it unwrapped, and `getOrElse` only handles the failure
          * value, so a cancelled fetch escapes rather than being miscollapsed
          * into a failure.
+         *
+         * Calls for one partition run one at a time. Paging's PREPEND, the
+         * feed's "show newest" and the background worker can all ask, and two
+         * fills interleaving would each read the same stored resume point and
+         * write their pages over one another.
          */
-        suspend fun catchUp(feedKey: FeedKey): Result<CatchUpOutcome> {
+        suspend fun catchUp(feedKey: FeedKey): Result<CatchUpOutcome> = partitionLocks.computeIfAbsent(feedKey) { Mutex() }.withLock { catchUpLocked(feedKey) }
+
+        private suspend fun catchUpLocked(feedKey: FeedKey): Result<CatchUpOutcome> {
             if (!feedKey.feedType.supportsSince) return Result.success(CatchUpOutcome.NOT_POSSIBLE)
             val key =
                 remoteKeyDao.remoteKey(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
@@ -253,6 +263,13 @@ internal class FeedCatchUp
         }
 
         internal companion object {
+            /**
+             * One lock per partition, shared by every instance: the catch-up is
+             * constructed unscoped, once per mediator and once per repository,
+             * so an instance field would serialize nothing.
+             */
+            private val partitionLocks = ConcurrentHashMap<FeedKey, Mutex>()
+
             /**
              * How many consecutive barren pages to follow in one call.
              *

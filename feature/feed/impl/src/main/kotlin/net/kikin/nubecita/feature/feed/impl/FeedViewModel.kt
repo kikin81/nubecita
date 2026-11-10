@@ -13,6 +13,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -129,6 +130,29 @@ class FeedViewModel
          */
         val restoreTarget = MutableStateFlow<FeedAnchor?>(null)
 
+        /**
+         * Where the next `Pager` starts. Each [FeedEvent.ShowNewest] is a new
+         * [PagerStart.Newest] value, so a second tap rebuilds again rather than
+         * being swallowed as "already at the top".
+         */
+        private val pagerStart = MutableStateFlow<PagerStart>(PagerStart.SavedPlace)
+
+        /**
+         * True once a [FeedEvent.ShowNewest] has caught up and reopened the
+         * pager at the top; the screen scrolls to it and clears this with
+         * [FeedEvent.NewestShown]. The same publish-then-consume shape as
+         * [restoreTarget], and for the same reason: the VM never touches
+         * `LazyListState` (D9).
+         *
+         * Raised only after the catch-up has written. Scrolling any earlier
+         * lands on a row that the catch-up then pushes down, and the list
+         * follows that row's key rather than staying at the top.
+         */
+        val scrollToNewest = MutableStateFlow(false)
+
+        /** The "show newest" in flight, so a second tap does not start another. */
+        private var showNewestJob: Job? = null
+
         /** The partition this VM reads, once an account is known. */
         private val feedKey: Flow<FeedKey> =
             combine(sessionStateProvider.state, binding) { session, bound ->
@@ -150,13 +174,17 @@ class FeedViewModel
          * would be dropped by the next generation anyway (D21).
          */
         val feed: Flow<PagingData<CachedFeedRow>> =
-            feedKey
-                .flatMapLatest { key ->
+            combine(feedKey, pagerStart, ::Pair)
+                .flatMapLatest { (key, start) ->
                     // Read before the Pager is built, so the first page loaded
                     // is the one the reader was in rather than the top. A
                     // dead anchor resolves downward inside the repository
                     // (D11); `null` just means "open at the top".
-                    val anchor = feedRepository.anchor(key)
+                    val anchor =
+                        when (start) {
+                            PagerStart.SavedPlace -> feedRepository.anchor(key)
+                            is PagerStart.Newest -> null
+                        }
                     restoreTarget.value = anchor
                     feedRepository.pagedFeed(key, initialPosition = anchor?.position)
                 }.cachedIn(viewModelScope)
@@ -223,7 +251,8 @@ class FeedViewModel
                 is FeedEvent.FillSeam -> fillSeam(event.position)
                 is FeedEvent.ItemsLoaded -> onItemsLoaded(event.posts)
                 is FeedEvent.AnchorChanged -> saveAnchor(event.itemKey, event.offset)
-                FeedEvent.DismissNewPosts -> dismissNewPosts()
+                FeedEvent.ShowNewest -> showNewest()
+                FeedEvent.NewestShown -> scrollToNewest.value = false
                 FeedEvent.RestoreConsumed -> restoreTarget.value = null
                 FeedEvent.ClearError -> Unit
                 is FeedEvent.OnPostTapped -> sendEffect(FeedEffect.NavigateToPost(event.post.id))
@@ -308,6 +337,13 @@ class FeedViewModel
             if (binding.value == next) return
             optimisticMutes.value = persistentSetOf()
             optimisticUnmutes.value = persistentSetOf()
+            // A "show newest" belonged to the feed being left; the next one
+            // opens at its own saved place. One still fetching is cancelled
+            // with it, or it would finish by reopening the NEW feed at the top.
+            showNewestJob?.cancel()
+            showNewestJob = null
+            scrollToNewest.value = false
+            pagerStart.value = PagerStart.SavedPlace
             binding.value = next
         }
 
@@ -392,12 +428,39 @@ class FeedViewModel
         }
 
         /**
-         * The reader has seen what arrived — they tapped the pill, or scrolled
-         * up past it. Everything currently above them stops being new.
+         * Go to the newest entry: catch up, rebuild the pager at the top of
+         * the partition, acknowledge what was new, and tell the screen to
+         * scroll there.
+         *
+         * Only for a feed that can catch up. A generator feed refreshes on
+         * open (D14), keeps no place and raises no pill, so its loaded window
+         * already starts at the top and the screen's scroll is enough.
+         *
+         * The catch-up comes FIRST. Reopening at the top of a stale partition
+         * and letting Paging's PREPEND fetch afterwards writes the newest page
+         * above the reader, and the list keeps the row it was showing — so the
+         * reader lands under what they asked to see. One call fetches the
+         * newest page; the rest of the range fills below it through PREPEND
+         * and the seam, out of the reader's way. `FeedCatchUp` serializes the
+         * two callers.
+         *
+         * A failed fetch still reopens at the newest entry held, and says why.
          */
-        private fun dismissNewPosts() {
+        private fun showNewest() {
             val key = currentFeedKey() ?: return
-            viewModelScope.launch { feedRepository.dismissNewPosts(key) }
+            if (!key.feedType.supportsSince) return
+            if (showNewestJob?.isActive == true) return
+            // A pending restore would scroll the reader straight back down.
+            restoreTarget.value = null
+            showNewestJob =
+                viewModelScope.launch {
+                    feedRepository.catchUp(key).onFailure { sendEffect(FeedEffect.ShowError(it.toFeedError())) }
+                    pagerStart.value =
+                        PagerStart.Newest(request = (pagerStart.value as? PagerStart.Newest)?.request?.plus(1) ?: 0)
+                    // After the catch-up, so what it just fetched counts as seen.
+                    feedRepository.dismissNewPosts(key)
+                    scrollToNewest.value = true
+                }
         }
 
         private fun currentFeedKey(): FeedKey? =
@@ -696,4 +759,15 @@ internal fun ImmutableList<OutgoingPostUi>.notYetInFeed(loaded: List<CachedFeedR
     val present = loaded.allPosts().mapTo(HashSet()) { it.id }
     if (present.isEmpty()) return this
     return filterNot { it.post.id in present }.toImmutableList()
+}
+
+/** Where a feed's `Pager` starts. */
+private sealed interface PagerStart {
+    /** At the reader's saved place, or the top when there is none. */
+    data object SavedPlace : PagerStart
+
+    /** At the newest entry, asked for explicitly; [request] distinguishes repeat asks. */
+    data class Newest(
+        val request: Int,
+    ) : PagerStart
 }
