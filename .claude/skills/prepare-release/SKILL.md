@@ -72,8 +72,8 @@ for c in $(seq 1 10); do
   adb -s $S shell am force-stop $P; sleep 2
   adb -s $S shell am start -n $P/.MainActivity >/dev/null
   sleep 8
-  adb -s $S shell uiautomator dump /sdcard/u.xml >/dev/null
-  snack=$(adb -s $S exec-out cat /sdcard/u.xml | grep -c "load your feeds")
+  adb -s $S shell uiautomator dump /data/local/tmp/u.xml >/dev/null
+  snack=$(adb -s $S exec-out cat /data/local/tmp/u.xml | grep -c "load your feeds")
   errors=$(adb -s $S logcat -d | grep -cE "use_dpop_nonce|XrpcError")
   echo "cycle $c snackbar=$snack errors=$errors"
 done
