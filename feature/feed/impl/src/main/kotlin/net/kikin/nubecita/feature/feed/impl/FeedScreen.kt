@@ -302,8 +302,11 @@ internal fun FeedScreen(
     // generation instead of staying at the top.
     val scrollToNewest by viewModel.scrollToNewest.collectAsStateWithLifecycle()
     val windowStartsAtTop = items.loadState.source.prepend.endOfPaginationReached
-    LaunchedEffect(scrollToNewest, windowStartsAtTop, items.itemCount) {
-        if (scrollToNewest && windowStartsAtTop && items.itemCount > 0) {
+    // A boolean, not the count: the effect only cares that something is
+    // loaded, and keying on the count would relaunch it with every page.
+    val hasItems = items.itemCount > 0
+    LaunchedEffect(scrollToNewest, windowStartsAtTop, hasItems) {
+        if (scrollToNewest && windowStartsAtTop && hasItems) {
             listState.scrollToItem(0)
             viewModel.handleEvent(FeedEvent.NewestShown)
         }
@@ -510,9 +513,11 @@ internal fun FeedScreenContent(
             // Only the page on screen: every composed pane hears the signal,
             // and an off-screen feed should not lose its place to a tap the
             // reader made somewhere else.
-            if (currentIsPageActive) currentOnTabReTap()
-            listState.animateScrollToItem(0)
-            chipRowOffsetHeightPx.animateTo(0f)
+            if (currentIsPageActive) {
+                currentOnTabReTap()
+                listState.animateScrollToItem(0)
+                chipRowOffsetHeightPx.animateTo(0f)
+            }
         }
     }
     // FAB is the composer entry point. wtq.9 swapped the prior scroll-

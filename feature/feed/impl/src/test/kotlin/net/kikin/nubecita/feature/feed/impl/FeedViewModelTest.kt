@@ -731,6 +731,28 @@ internal class FeedViewModelTest {
         }
 
     @Test
+    fun `switching feeds while the newest is still fetching drops that request`() =
+        feedTest {
+            val repo = FakeFeedRepository()
+            repo.storedAnchor = FeedAnchor(position = 37, itemKey = "single:at://post/a", offset = 0)
+            repo.catchUpGate = CompletableDeferred()
+            val vm = viewModel(repo)
+            backgroundScope.launch { vm.feed.collect {} }
+            advanceUntilIdle()
+            vm.handleEvent(FeedEvent.ShowNewest)
+            advanceUntilIdle()
+
+            vm.handleEvent(FeedEvent.Bind("at://did:plc:me/app.bsky.graph.list/friends", FeedKind.List))
+            advanceUntilIdle()
+            repo.catchUpGate?.complete(Unit)
+            advanceUntilIdle()
+
+            // The list opened at its own saved place and stays there.
+            assertEquals(37, repo.initialPositions.last())
+            assertEquals(false, vm.scrollToNewest.value)
+        }
+
+    @Test
     fun `asking for the newest again rebuilds again`() =
         feedTest {
             // A reader who taps twice — the pill, then the tab a minute later —

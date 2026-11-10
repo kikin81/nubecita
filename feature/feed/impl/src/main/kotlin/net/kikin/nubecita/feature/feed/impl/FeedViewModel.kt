@@ -338,7 +338,11 @@ class FeedViewModel
             optimisticMutes.value = persistentSetOf()
             optimisticUnmutes.value = persistentSetOf()
             // A "show newest" belonged to the feed being left; the next one
-            // opens at its own saved place.
+            // opens at its own saved place. One still fetching is cancelled
+            // with it, or it would finish by reopening the NEW feed at the top.
+            showNewestJob?.cancel()
+            showNewestJob = null
+            scrollToNewest.value = false
             pagerStart.value = PagerStart.SavedPlace
             binding.value = next
         }
