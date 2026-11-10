@@ -19,6 +19,7 @@ import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.model.FeedItemEntity
+import net.kikin.nubecita.core.database.model.FeedPartitionStateEntity
 import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPrefs
@@ -300,6 +301,76 @@ internal class FeedProjectionWriterTest {
 
             assertEquals(2, captured.size)
             assertTrue(captured[0] != captured[1], "fingerprints must differ: $captured")
+        }
+
+    /**
+     * Backs [partitionStateDao] with one row that behaves like the table, so a
+     * test asserts what the row holds afterwards rather than which DAO method
+     * was called. A whole-row write and a targeted one look alike to a
+     * `coVerify` on "a fingerprint was written"; they differ only in what they
+     * leave behind in the other columns.
+     */
+    private fun statefulPartitionRow(initial: FeedPartitionStateEntity): () -> FeedPartitionStateEntity? {
+        var row: FeedPartitionStateEntity? = initial
+        coEvery { partitionStateDao.state(any(), any(), any()) } answers { row }
+        coEvery { partitionStateDao.upsert(any()) } answers { row = firstArg() }
+        coEvery { partitionStateDao.insertIfAbsent(any()) } answers { if (row == null) row = firstArg() }
+        coEvery { partitionStateDao.updatePrefsFingerprint(any(), any(), any(), any()) } answers {
+            row = row?.copy(prefsFingerprint = arg(3))
+        }
+        coEvery { partitionStateDao.updatePillDismissed(any(), any(), any(), any()) } answers {
+            row = row?.copy(pillDismissedPosition = arg(3))
+        }
+        return { row }
+    }
+
+    private fun readerMidFeed() =
+        FeedPartitionStateEntity(
+            accountDid = "did:plc:me",
+            feedType = "FOLLOWING",
+            feedUri = "",
+            prefsFingerprint = "stale",
+            anchorItemKey = "at://p/anchor",
+            anchorPosition = -266,
+            anchorOffset = 120,
+            pillDismissedPosition = -500,
+        )
+
+    @Test
+    fun `a prepend keeps the reader's place and the pill's dismissal mark`() =
+        runTest {
+            // The background worker and Paging's PREPEND both land here while
+            // the reader has a place. Losing it on every new page is the
+            // feature eating the thing it exists to keep.
+            prefs(hideReplies = false)
+            val row = statefulPartitionRow(readerMidFeed())
+
+            writer().writePrepend(FeedKey.following("did:plc:me"), listOf(topLevelEntry("at://p/new")), basePosition = -750)
+
+            val after = row()
+            assertEquals("at://p/anchor", after?.anchorItemKey)
+            assertEquals(-266, after?.anchorPosition)
+            assertEquals(120, after?.anchorOffset)
+            assertEquals(-500, after?.pillDismissedPosition)
+            assertTrue(after?.prefsFingerprint != "stale", "the fingerprint should still be recorded")
+        }
+
+    @Test
+    fun `an append keeps the reader's place and the pill's dismissal mark`() =
+        runTest {
+            // Scrolling down is the commonest write of all: every page loaded
+            // below the reader would otherwise forget where they are.
+            prefs(hideReplies = false)
+            val row = statefulPartitionRow(readerMidFeed())
+
+            writer().writeAppend(FeedKey.following("did:plc:me"), listOf(topLevelEntry("at://p/older")))
+
+            val after = row()
+            assertEquals("at://p/anchor", after?.anchorItemKey)
+            assertEquals(-266, after?.anchorPosition)
+            assertEquals(120, after?.anchorOffset)
+            assertEquals(-500, after?.pillDismissedPosition)
+            assertTrue(after?.prefsFingerprint != "stale", "the fingerprint should still be recorded")
         }
 
     @Test
