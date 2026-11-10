@@ -452,4 +452,31 @@ internal class MigrationTest {
 
         db.close()
     }
+
+    @Test
+    fun migrate10To11_addsTheFillPosition_andKeepsAFillInFlight() {
+        // A fill in flight across the upgrade keeps its cursors; the new
+        // column reads NULL, which the catch-up treats as "restart the fill"
+        // rather than guessing where the old one was writing.
+        helper.createDatabase(dbName, 10).use { db ->
+            db.execSQL(
+                "INSERT INTO feed_remote_keys " +
+                    "(account_did, feed_type, feed_uri, next_cursor, boundary_since, fill_cursor, pending_boundary) " +
+                    "VALUES ('did:plc:t', 'FOLLOWING', '', 'append-1', 'boundary-1', 'fill-1', 'pending-1')",
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 11, true)
+
+        db.query("SELECT next_cursor, boundary_since, fill_cursor, pending_boundary, fill_next_position FROM feed_remote_keys").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("append-1", c.getString(0))
+            assertEquals("boundary-1", c.getString(1))
+            assertEquals("fill-1", c.getString(2))
+            assertEquals("pending-1", c.getString(3))
+            assertTrue(c.isNull(4))
+        }
+
+        db.close()
+    }
 }

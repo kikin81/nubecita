@@ -23,6 +23,14 @@ import androidx.room.Entity
  *   so an interrupted fill resumes rather than restarting.
  * - [pendingBoundary] — the `startCursor` returned by the newest fill page,
  *   promoted to [boundarySince] once the range is exhausted.
+ * - [fillNextPosition] — where the next page of an unfinished fill is written:
+ *   directly below the last page that landed. Stored rather than derived
+ *   because nothing in the rows says which prepend window is the current
+ *   fill's — every catch-up reserves a fresh window below the previous one,
+ *   and deriving it from the highest negative position picked the OLDEST
+ *   window, filing today's posts below yesterday's (nubecita-lrnv.1). Set
+ *   only while [fillCursor] is; a fill cursor without it is a fill started
+ *   before the column existed, which restarts rather than guesses.
  *
  * They are separate columns rather than a reused cursor because a prepend that
  * wrote back nothing would re-fetch the same range from a stale boundary on
@@ -42,4 +50,5 @@ data class FeedRemoteKeyEntity(
     @ColumnInfo(name = "boundary_since") val boundarySince: String? = null,
     @ColumnInfo(name = "fill_cursor") val fillCursor: String? = null,
     @ColumnInfo(name = "pending_boundary") val pendingBoundary: String? = null,
+    @ColumnInfo(name = "fill_next_position") val fillNextPosition: Int? = null,
 )

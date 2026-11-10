@@ -39,7 +39,9 @@ import net.kikin.nubecita.core.database.util.InstantConverter
  * is a state [FeedPostDao] and the `RemoteMediator` already handle. v8 adds the
  * reader's scroll anchor to [FeedPartitionStateEntity] — three nullable
  * columns, so `@AutoMigration(7 → 8)` expresses it, and a partition with no
- * anchor yet reads exactly like one the reader has never scrolled.
+ * anchor yet reads exactly like one the reader has never scrolled. v11 adds
+ * `fill_next_position` to [FeedRemoteKeyEntity] — one nullable column, by
+ * `@AutoMigration(10 → 11)`; a row without it reads as "no fill in progress".
  *
  * Schema export is on; generated JSON is committed under
  * `core/database/schemas/`. Every schema bump must commit the new
@@ -60,7 +62,7 @@ import net.kikin.nubecita.core.database.util.InstantConverter
         SavedFeedEntity::class,
         TranslationEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = BootstrapEntityDrop::class),
@@ -71,6 +73,7 @@ import net.kikin.nubecita.core.database.util.InstantConverter
         AutoMigration(from = 7, to = 8),
         AutoMigration(from = 8, to = 9),
         AutoMigration(from = 9, to = 10),
+        AutoMigration(from = 10, to = 11),
     ],
 )
 @TypeConverters(InstantConverter::class)

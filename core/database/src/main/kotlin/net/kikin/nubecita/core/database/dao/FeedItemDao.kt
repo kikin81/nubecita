@@ -242,6 +242,32 @@ interface FeedItemDao {
         fromPosition: Int,
     ): FeedItemEntity?
 
+    /**
+     * The lowest position at or above [from] held by a projected item, or
+     * `null` if none is.
+     *
+     * The projection's half of a prepend's room check. `feed_post` and
+     * `feed_item` are not packed alike: a local re-projection (D27) lays items
+     * out contiguously from the partition's lowest entry, while catch-up
+     * windows leave `feed_post` sparse, so a slot free in one can be taken in
+     * the other — and the projection write is an upsert keyed on position, so
+     * writing there replaces a row the reader can see.
+     *
+     * Seam rows are excluded: the seam marks exactly where the next fill page
+     * goes, and is moved by every fill page that lands.
+     */
+    @Query(
+        "SELECT MIN(position) FROM feed_item " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND position >= :from AND row_type != 'seam'",
+    )
+    suspend fun firstItemPositionAtOrAbove(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        from: Int,
+    ): Int?
+
     @Query(
         "SELECT MIN(position) FROM feed_item " +
             "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri",
