@@ -61,6 +61,28 @@ So this step is the cheap gate: the flows the generator does **not** cover, chec
 | Paywall view | Opening it only — never attempt a real purchase |
 | Wear app launches | Ships in the same release, and the shrinker has stripped its capabilities before |
 
+### Cold-start network check
+
+Run this on the same signed-in device, after the hand-checked flows. It catches failures that only show up when a fresh process sends many authenticated requests at once, which no single hand-checked flow does. The atproto 9.15.0 DPoP nonce race (fixed in 9.15.1) failed feeds, profiles and chats on cold start for weeks without a crash.
+
+```bash
+S=<serial>; P=net.kikin.nubecita
+for c in $(seq 1 10); do
+  adb -s $S logcat -c
+  adb -s $S shell am force-stop $P; sleep 2
+  adb -s $S shell am start -n $P/.MainActivity >/dev/null
+  sleep 8
+  adb -s $S shell uiautomator dump /sdcard/u.xml >/dev/null
+  snack=$(adb -s $S exec-out cat /sdcard/u.xml | grep -c "load your feeds")
+  errors=$(adb -s $S logcat -d | grep -cE "use_dpop_nonce|XrpcError")
+  echo "cycle $c snackbar=$snack errors=$errors"
+done
+```
+
+Pass: no snackbar and no errors in all 10, still signed in at the end. The snackbar check works on any build. The logcat check needs a debug build, because release builds strip the app's logging.
+
+Use `am start -n …/.MainActivity`, not `monkey`: debug builds also ship LeakCanary's launcher activity, which `monkey` can pick. Keep it to about 10 cycles: each force-stop that lands mid-refresh is a small logout risk on the signed-in account.
+
 ### When one fails
 
 - **A crash never retries.** If logcat shows `FATAL` for `net.kikin.nubecita`, stop. No judgement call.
