@@ -19,6 +19,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -27,12 +28,25 @@ import org.junit.jupiter.api.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class DefaultXrpcClientProviderTest {
     @Test
+    fun `the created client reports failures through the failure reporter`() =
+        runTest {
+            val sessionState = MutableStateFlow<SessionState>(SessionState.SignedIn(handle = "alice", did = "did:plc:alice"))
+            val atOAuth = mockk<AtOAuth>()
+            coEvery { atOAuth.createClient(any()) } returns newClient()
+            val reporter = XrpcFailureReporter(RecordingAnalyticsClient())
+
+            newProvider(atOAuth, FakeSessionStateProvider(sessionState), reporter).authenticated()
+
+            coVerify(exactly = 1) { atOAuth.createClient(reporter) }
+        }
+
+    @Test
     fun `cache hit returns same instance and createClient is invoked once`() =
         runTest {
             val sessionState = MutableStateFlow<SessionState>(SessionState.SignedIn(handle = "alice", did = "did:plc:alice"))
             val atOAuth = mockk<AtOAuth>()
             val client = newClient()
-            coEvery { atOAuth.createClient() } returns client
+            coEvery { atOAuth.createClient(any()) } returns client
 
             val provider = newProvider(atOAuth, FakeSessionStateProvider(sessionState))
 
@@ -40,7 +54,7 @@ internal class DefaultXrpcClientProviderTest {
             val second = provider.authenticated()
 
             assertSame(first, second)
-            coVerify(exactly = 1) { atOAuth.createClient() }
+            coVerify(exactly = 1) { atOAuth.createClient(any()) }
         }
 
     @Test
@@ -50,7 +64,7 @@ internal class DefaultXrpcClientProviderTest {
             val atOAuth = mockk<AtOAuth>()
             val firstClient = newClient()
             val secondClient = newClient()
-            coEvery { atOAuth.createClient() } returnsMany listOf(firstClient, secondClient)
+            coEvery { atOAuth.createClient(any()) } returnsMany listOf(firstClient, secondClient)
 
             val provider = newProvider(atOAuth, FakeSessionStateProvider(sessionState))
 
@@ -61,7 +75,7 @@ internal class DefaultXrpcClientProviderTest {
 
             val afterChange = provider.authenticated()
             assertSame(secondClient, afterChange)
-            coVerify(exactly = 2) { atOAuth.createClient() }
+            coVerify(exactly = 2) { atOAuth.createClient(any()) }
         }
 
     @Test
@@ -73,7 +87,7 @@ internal class DefaultXrpcClientProviderTest {
 
             val thrown = runCatching { provider.authenticated() }.exceptionOrNull()
             assertTrue(thrown is NoSessionException, "expected NoSessionException, got $thrown")
-            coVerify(exactly = 0) { atOAuth.createClient() }
+            coVerify(exactly = 0) { atOAuth.createClient(any()) }
         }
 
     @Test
@@ -82,7 +96,7 @@ internal class DefaultXrpcClientProviderTest {
             val sessionState = MutableStateFlow<SessionState>(SessionState.SignedIn(handle = "alice", did = "did:plc:alice"))
             val atOAuth = mockk<AtOAuth>()
             val client = newClient()
-            coEvery { atOAuth.createClient() } coAnswers {
+            coEvery { atOAuth.createClient(any()) } coAnswers {
                 // Yield to let other concurrent callers reach the mutex; the
                 // implementation must serialize them so only one createClient
                 // runs to completion.
@@ -97,7 +111,7 @@ internal class DefaultXrpcClientProviderTest {
 
             assertEquals(16, results.size)
             results.forEach { assertSame(client, it) }
-            coVerify(exactly = 1) { atOAuth.createClient() }
+            coVerify(exactly = 1) { atOAuth.createClient(any()) }
         }
 
     @Test
@@ -107,14 +121,14 @@ internal class DefaultXrpcClientProviderTest {
             val atOAuth = mockk<AtOAuth>()
             val firstClient = newClient()
             val secondClient = newClient()
-            coEvery { atOAuth.createClient() } returnsMany listOf(firstClient, secondClient)
+            coEvery { atOAuth.createClient(any()) } returnsMany listOf(firstClient, secondClient)
 
             val provider = newProvider(atOAuth, FakeSessionStateProvider(sessionState))
 
             assertSame(firstClient, provider.authenticated())
             provider.invalidate()
             assertSame(secondClient, provider.authenticated())
-            coVerify(exactly = 2) { atOAuth.createClient() }
+            coVerify(exactly = 2) { atOAuth.createClient(any()) }
         }
 
     @Test
@@ -124,7 +138,7 @@ internal class DefaultXrpcClientProviderTest {
             val atOAuth = mockk<AtOAuth>()
             val firstClient = newClient()
             val secondClient = newClient()
-            coEvery { atOAuth.createClient() } returnsMany listOf(firstClient, secondClient)
+            coEvery { atOAuth.createClient(any()) } returnsMany listOf(firstClient, secondClient)
 
             val collectorDispatcher = StandardTestDispatcher(testScheduler)
             val collectorScope = CoroutineScope(SupervisorJob() + collectorDispatcher)
@@ -132,6 +146,7 @@ internal class DefaultXrpcClientProviderTest {
                 DefaultXrpcClientProvider(
                     atOAuth = atOAuth,
                     sessionStateProvider = FakeSessionStateProvider(sessionState),
+                    failureReporter = XrpcFailureReporter(RecordingAnalyticsClient()),
                     coroutineScope = collectorScope,
                 )
 
@@ -147,7 +162,7 @@ internal class DefaultXrpcClientProviderTest {
             advanceUntilIdle()
 
             assertSame(secondClient, provider.authenticated())
-            coVerify(exactly = 2) { atOAuth.createClient() }
+            coVerify(exactly = 2) { atOAuth.createClient(any()) }
 
             collectorScope.cancel()
         }
@@ -167,10 +182,12 @@ private fun newClient(): XrpcClient = XrpcClient(baseUrl = "https://example.test
 private fun TestScope.newProvider(
     atOAuth: AtOAuth,
     sessionStateProvider: SessionStateProvider,
+    failureReporter: XrpcFailureReporter = XrpcFailureReporter(RecordingAnalyticsClient()),
 ): DefaultXrpcClientProvider =
     DefaultXrpcClientProvider(
         atOAuth = atOAuth,
         sessionStateProvider = sessionStateProvider,
+        failureReporter = failureReporter,
         coroutineScope = backgroundScope,
     )
 

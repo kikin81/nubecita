@@ -27,6 +27,7 @@ internal class DefaultXrpcClientProvider
     constructor(
         private val atOAuth: AtOAuth,
         private val sessionStateProvider: SessionStateProvider,
+        private val failureReporter: XrpcFailureReporter,
         @AuthCoroutineScope coroutineScope: CoroutineScope,
     ) : XrpcClientProvider {
         private val mutex = Mutex()
@@ -66,7 +67,7 @@ internal class DefaultXrpcClientProvider
                     return@withLock existing
                 }
                 Timber.tag(TAG).d("authenticated() cache MISS did=%s — creating fresh client", activeDid.redactDid())
-                val freshClient = atOAuth.createClient()
+                val freshClient = atOAuth.createClient(errorListener = failureReporter)
                 cachedClient = freshClient
                 cachedDid = activeDid
                 freshClient
