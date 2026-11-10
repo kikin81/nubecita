@@ -172,27 +172,6 @@ interface FeedPostDao {
     ): Int?
 
     /**
-     * The bottom of the prepend block: the highest negative position in the
-     * partition, or `null` when nothing has been prepended.
-     *
-     * This is how an interrupted multi-page catch-up finds where to continue.
-     * The fill writes contiguously from the top of its window, so the position
-     * after this one is the next free slot — and deriving it from the rows
-     * means a fill that resumes after process death lands below the pages that
-     * already landed rather than on top of them.
-     */
-    @Query(
-        "SELECT MAX(position) FROM feed_post " +
-            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
-            "AND position < 0",
-    )
-    suspend fun maxNegativePosition(
-        accountDid: String,
-        feedType: String,
-        feedUri: String,
-    ): Int?
-
-    /**
      * The lowest occupied position at or above [from], or `null` if nothing is
      * stored there.
      *

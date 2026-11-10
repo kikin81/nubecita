@@ -82,12 +82,14 @@ internal class FeedRemoteKeyDaoTest : DatabaseTest() {
                 boundarySince = "boundary-1",
                 fillCursor = "fill-1",
                 pendingBoundary = "pending-1",
+                fillNextPosition = -1202,
             )
 
             val row = dao.remoteKey(ACCOUNT, TYPE, FEED_URI)
             assertEquals("boundary-1", row?.boundarySince)
             assertEquals("fill-1", row?.fillCursor)
             assertEquals("pending-1", row?.pendingBoundary)
+            assertEquals(-1202, row?.fillNextPosition)
         }
 
     @Test
@@ -99,7 +101,7 @@ internal class FeedRemoteKeyDaoTest : DatabaseTest() {
             // direction would never see it.
             dao.upsert(key(cursor = "append-1"))
 
-            dao.updatePrependCursors(ACCOUNT, TYPE, FEED_URI, "boundary-1", "fill-1", "pending-1")
+            dao.updatePrependCursors(ACCOUNT, TYPE, FEED_URI, "boundary-1", "fill-1", "pending-1", -1202)
 
             assertEquals("append-1", dao.remoteKey(ACCOUNT, TYPE, FEED_URI)?.nextCursor)
         }
@@ -108,7 +110,7 @@ internal class FeedRemoteKeyDaoTest : DatabaseTest() {
     fun anAppendWriteLeavesThePrependCursorsAlone() =
         runTest {
             dao.upsert(key(cursor = "append-1"))
-            dao.updatePrependCursors(ACCOUNT, TYPE, FEED_URI, "boundary-1", "fill-1", "pending-1")
+            dao.updatePrependCursors(ACCOUNT, TYPE, FEED_URI, "boundary-1", "fill-1", "pending-1", -1202)
 
             dao.updateAppendCursor(ACCOUNT, TYPE, FEED_URI, nextCursor = "append-2")
 
@@ -117,6 +119,7 @@ internal class FeedRemoteKeyDaoTest : DatabaseTest() {
             assertEquals("boundary-1", row?.boundarySince)
             assertEquals("fill-1", row?.fillCursor)
             assertEquals("pending-1", row?.pendingBoundary)
+            assertEquals(-1202, row?.fillNextPosition)
         }
 
     @Test
@@ -125,7 +128,7 @@ internal class FeedRemoteKeyDaoTest : DatabaseTest() {
             // REFRESH legitimately starts over, so the whole-row write is right
             // here: the partition it described no longer exists.
             dao.upsert(key(cursor = "append-1"))
-            dao.updatePrependCursors(ACCOUNT, TYPE, FEED_URI, "boundary-1", "fill-1", "pending-1")
+            dao.updatePrependCursors(ACCOUNT, TYPE, FEED_URI, "boundary-1", "fill-1", "pending-1", -1202)
 
             dao.upsert(key(cursor = "append-fresh"))
 
@@ -134,6 +137,7 @@ internal class FeedRemoteKeyDaoTest : DatabaseTest() {
             assertNull(row?.boundarySince)
             assertNull(row?.fillCursor)
             assertNull(row?.pendingBoundary)
+            assertNull(row?.fillNextPosition)
         }
 
     @Test
@@ -142,7 +146,7 @@ internal class FeedRemoteKeyDaoTest : DatabaseTest() {
             dao.upsert(key(cursor = "a"))
             dao.upsert(key(type = "DISCOVER", uri = "at://feed/x", cursor = "b"))
 
-            dao.updatePrependCursors(ACCOUNT, TYPE, FEED_URI, "boundary-1", null, null)
+            dao.updatePrependCursors(ACCOUNT, TYPE, FEED_URI, "boundary-1", null, null, null)
 
             assertEquals("boundary-1", dao.remoteKey(ACCOUNT, TYPE, FEED_URI)?.boundarySince)
             assertNull(dao.remoteKey(ACCOUNT, "DISCOVER", "at://feed/x")?.boundarySince)

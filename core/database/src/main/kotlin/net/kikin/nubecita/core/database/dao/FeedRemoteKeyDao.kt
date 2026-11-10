@@ -42,10 +42,17 @@ interface FeedRemoteKeyDao {
         nextCursor: String?,
     )
 
-    /** Writes only the PREPEND cursors, leaving `next_cursor` untouched. */
+    /**
+     * Writes only the PREPEND state, leaving `next_cursor` untouched.
+     *
+     * [fillNextPosition] travels with [fillCursor]: both describe the same
+     * unfinished fill, and one without the other would resume the fetch at the
+     * right point but write it to the wrong place.
+     */
     @Query(
         "UPDATE feed_remote_keys SET boundary_since = :boundarySince, " +
-            "fill_cursor = :fillCursor, pending_boundary = :pendingBoundary " +
+            "fill_cursor = :fillCursor, pending_boundary = :pendingBoundary, " +
+            "fill_next_position = :fillNextPosition " +
             "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri",
     )
     suspend fun updatePrependCursors(
@@ -55,6 +62,7 @@ interface FeedRemoteKeyDao {
         boundarySince: String?,
         fillCursor: String?,
         pendingBoundary: String?,
+        fillNextPosition: Int?,
     )
 
     @Query("DELETE FROM feed_remote_keys WHERE account_did = :accountDid")

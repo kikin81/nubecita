@@ -68,11 +68,14 @@ internal class FeedCatchUp
          * already written is renumbered — which is the whole point, since
          * renumbering would invalidate a live `PagingSource` mid-scroll.
          *
-         * The window is read back from the stored rows, not tracked in memory,
-         * so a fill interrupted by process death resumes **below** the pages
-         * that already landed. Without that, a resumed fill would restart at
-         * the top of the window and — because the write is an upsert keyed on
-         * `position` — overwrite the batch above it rather than failing.
+         * Where the next page goes is persisted with the fill cursor, not
+         * tracked in memory, so a fill interrupted by process death resumes
+         * **directly below** the pages that already landed. It cannot be read
+         * back from the rows: every catch-up reserves a fresh window below the
+         * previous one, so the partition holds several prepend blocks and
+         * nothing marks which is the current fill's. Deriving it from the
+         * highest negative position picked the oldest block and filed the
+         * newest posts below yesterday's (nubecita-lrnv.1).
          *
          * One call returns as soon as it has written rendered items; the rest
          * of the range is fetched by the next call, resuming from the persisted
@@ -100,15 +103,15 @@ internal class FeedCatchUp
                 return Result.success(CatchUpOutcome.NOT_POSSIBLE)
             }
 
-            var cursor = key.fillCursor
-            val resuming = cursor != null
-            var pendingBoundary = key.pendingBoundary
-            val lowestPrepended =
-                feedPostDao.maxNegativePosition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
+            // A fill cursor without a recorded position is a fill started
+            // before the position was stored. Where it was writing is not
+            // knowable, so it starts over from the newest page instead.
+            val resumeAt = key.fillNextPosition?.takeIf { key.fillCursor != null }
+            val resuming = resumeAt != null
+            var cursor = if (resuming) key.fillCursor else null
+            var pendingBoundary = if (resuming) key.pendingBoundary else null
             var nextFree =
-                if (resuming && lowestPrepended != null) {
-                    lowestPrepended + 1
-                } else {
+                resumeAt ?: run {
                     val min = feedPostDao.minPosition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri) ?: 0
                     minOf(min, 0) - CATCH_UP_ENTRY_BUDGET
                 }
@@ -122,13 +125,27 @@ internal class FeedCatchUp
                 // stored entries; asking the database turns that into a stop.
                 // A full window is the budget cap from D5 — the seam offers
                 // jump-to-newest rather than a load-more nobody taps twice.
+                //
+                // Both tables are asked. A local re-projection packs items
+                // contiguously while catch-up windows leave entries sparse, so
+                // a slot free in `feed_post` can hold a projected item — and
+                // the projection write is an upsert, so writing there would
+                // replace a row the reader can see.
                 val first =
-                    feedPostDao.firstPositionAtOrAbove(
-                        feedKey.accountDid,
-                        feedKey.feedType.name,
-                        feedKey.feedUri,
-                        nextFree,
-                    )
+                    listOfNotNull(
+                        feedPostDao.firstPositionAtOrAbove(
+                            feedKey.accountDid,
+                            feedKey.feedType.name,
+                            feedKey.feedUri,
+                            nextFree,
+                        ),
+                        feedItemDao.firstItemPositionAtOrAbove(
+                            feedKey.accountDid,
+                            feedKey.feedType.name,
+                            feedKey.feedUri,
+                            nextFree,
+                        ),
+                    ).minOrNull()
                 val room = if (first == null) CATCH_UP_ENTRY_BUDGET else first - nextFree
                 if (room <= 0) {
                     // The window is full: this is as far as a catch-up may go
@@ -194,6 +211,7 @@ internal class FeedCatchUp
                         boundarySince = if (exhausted) pendingBoundary ?: since else since,
                         fillCursor = if (exhausted) null else fetched.nextCursor,
                         pendingBoundary = if (exhausted) null else pendingBoundary,
+                        fillNextPosition = if (exhausted) null else base + entries.size,
                     )
                 }
 

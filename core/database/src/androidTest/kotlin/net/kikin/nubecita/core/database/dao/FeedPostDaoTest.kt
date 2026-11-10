@@ -194,22 +194,6 @@ internal class FeedPostDaoTest : DatabaseTest() {
         }
 
     @Test
-    fun maxNegativePosition_findsTheBottomOfThePrependBlock() =
-        runTest {
-            // Where an interrupted catch-up continues from. Positions at or
-            // above zero are the pre-existing partition and must not count.
-            upsertEntries(listOf(post(position = -250), post(position = -249), post(position = 0), post(position = 4)))
-            assertEquals(-249, dao.maxNegativePosition(ACCOUNT, TYPE, FEED_URI))
-        }
-
-    @Test
-    fun maxNegativePosition_isNullWhenNothingWasPrepended() =
-        runTest {
-            upsertEntries(listOf(post(position = 0), post(position = 1)))
-            assertNull(dao.maxNegativePosition(ACCOUNT, TYPE, FEED_URI))
-        }
-
-    @Test
     fun firstPositionAtOrAbove_boundsTheRemainingWindow() =
         runTest {
             // The prepend's room check. From -250 the next occupied row is

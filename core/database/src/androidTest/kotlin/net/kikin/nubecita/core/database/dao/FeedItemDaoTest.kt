@@ -242,6 +242,18 @@ internal class FeedItemDaoTest : DatabaseTest() {
         }
 
     @Test
+    fun firstItemPositionAtOrAbove_isTheNextTakenSlot_ignoringSeams() =
+        runTest {
+            // A prepend's room check. The seam marks where the next fill page
+            // goes, so counting it as taken would end every fill after one page.
+            dao.upsert(listOf(seam(position = -7, exhausted = false), item(position = -3), item(position = 0)))
+
+            assertEquals(-3, dao.firstItemPositionAtOrAbove(ACCOUNT, TYPE, FEED_URI, from = -10))
+            assertEquals(0, dao.firstItemPositionAtOrAbove(ACCOUNT, TYPE, FEED_URI, from = -2))
+            assertNull(dao.firstItemPositionAtOrAbove(ACCOUNT, TYPE, FEED_URI, from = 1))
+        }
+
+    @Test
     fun tailItem_isNullOnAnEmptyPartition() =
         runTest {
             assertNull(dao.tailItem(ACCOUNT, TYPE, FEED_URI))

@@ -26,9 +26,9 @@ import java.util.TreeMap
  * prepended into — the state every daily reader's partition is in.
  *
  * The position queries are answered from one in-memory table rather than
- * stubbed per call. Stubbing them is how this went unnoticed: the existing
- * resume test hands `maxNegativePosition` a value that already assumes a single
- * prepend block, so it can only ever confirm that assumption.
+ * stubbed per call. Stubbing them is how this went unnoticed: the resume test
+ * used to hand the old `maxNegativePosition` query a value that already assumed
+ * a single prepend block, so it could only ever confirm that assumption.
  *
  * Each page runs through a fresh [FeedCatchUp], so the resume is derived from
  * stored state alone — the same position a resume after process death is in.
@@ -44,7 +44,6 @@ internal class FeedCatchUpStackedWindowsTest {
         mockk<FeedPostDao>(relaxed = true).also { dao ->
             coEvery { dao.maxPosition(ACCOUNT, TYPE, URI) } answers { entries.lastKeyOrNull() }
             coEvery { dao.minPosition(ACCOUNT, TYPE, URI) } answers { entries.firstKeyOrNull() }
-            coEvery { dao.maxNegativePosition(ACCOUNT, TYPE, URI) } answers { entries.lowerKey(0) }
             coEvery { dao.firstPositionAtOrAbove(ACCOUNT, TYPE, URI, any()) } answers { entries.ceilingKey(arg(3)) }
             coEvery { dao.upsert(any()) } answers {
                 firstArg<List<FeedPostEntity>>().forEach { entries[it.position] = it.uri.substringAfterLast('/') }
@@ -54,21 +53,41 @@ internal class FeedCatchUpStackedWindowsTest {
     private val remoteKeyDao =
         mockk<FeedRemoteKeyDao>(relaxed = true).also { dao ->
             coEvery { dao.remoteKey(ACCOUNT, TYPE, URI) } answers { remoteKey }
-            coEvery { dao.updatePrependCursors(ACCOUNT, TYPE, URI, any(), any(), any()) } answers {
+            coEvery { dao.updatePrependCursors(ACCOUNT, TYPE, URI, any(), any(), any(), any()) } answers {
                 remoteKey =
                     remoteKey?.copy(
                         boundarySince = arg(3),
                         fillCursor = arg(4),
                         pendingBoundary = arg(5),
+                        fillNextPosition = arg(6),
                     )
             }
+        }
+
+    /** `feed_item` positions holding a projected item (seams aside). */
+    private val items = sortedSetOf<Int>()
+
+    /** Item positions a prepend wrote over while they were already taken. */
+    private val overwrittenItems = mutableListOf<Int>()
+
+    private val feedItemDao =
+        mockk<FeedItemDao>(relaxed = true).also { dao ->
+            coEvery { dao.firstItemPositionAtOrAbove(ACCOUNT, TYPE, URI, any()) } answers { items.ceiling(arg(3)) }
         }
 
     private val projectionWriter =
         mockk<FeedProjectionWriter>(relaxed = true).also {
             // Every entry renders, so each call stops after its first page and
-            // the second page is genuinely a resume.
-            coEvery { it.writePrepend(any(), any(), any()) } answers { secondArg<List<FeedViewPost>>().size }
+            // the second page is genuinely a resume. Like the real write, the
+            // block of items starts at the base position.
+            coEvery { it.writePrepend(any(), any(), any()) } answers {
+                val count = secondArg<List<FeedViewPost>>().size
+                val base = thirdArg<Int>()
+                (base until base + count).forEach { position ->
+                    if (!items.add(position)) overwrittenItems += position
+                }
+                count
+            }
         }
 
     private val networkSource = mockk<FeedNetworkSource>()
@@ -82,7 +101,7 @@ internal class FeedCatchUpStackedWindowsTest {
         FeedCatchUp(
             networkSource = networkSource,
             feedPostDao = feedPostDao,
-            feedItemDao = mockk<FeedItemDao>(relaxed = true),
+            feedItemDao = feedItemDao,
             cachedPostDao = mockk<CachedPostDao>(relaxed = true),
             projectionWriter = projectionWriter,
             remoteKeyDao = remoteKeyDao,
@@ -130,6 +149,33 @@ internal class FeedCatchUpStackedWindowsTest {
                 ),
                 entries.values.toList(),
             )
+        }
+
+    @Test
+    fun `a fill stops short of an item the entries table no longer accounts for`() =
+        runTest {
+            // feed_post and feed_item are not packed alike. Here the entry at
+            // -260 is gone — deleted upstream, say, while it was a cluster's
+            // context post — but the item that showed it is still on screen.
+            // Counting only entries, the slots from -262 up to -251 look free.
+            entries[-250] = "earlier-1a"
+            (0..4).forEach { entries[it] = "head-$it" }
+            items += -260
+            items += (-250..-245)
+            remoteKey =
+                remoteKeyEntity(boundarySince = "boundary-0").copy(
+                    fillCursor = "fill-1",
+                    pendingBoundary = "newest",
+                    fillNextPosition = -262,
+                )
+            coEvery { networkSource.fetchPage(key, cursor = "fill-1", since = "boundary-0", limit = any()) } answers {
+                val limit = arg<Int>(3)
+                Result.success(FeedNetworkPage((1..minOf(limit, 5)).map { post("new-$it") }, "fill-2", null))
+            }
+
+            freshCatchUp().catchUp(key).getOrThrow()
+
+            assertEquals(emptyList<Int>(), overwrittenItems, "a prepend replaced items the reader can see")
         }
 
     private fun remoteKeyEntity(boundarySince: String) =

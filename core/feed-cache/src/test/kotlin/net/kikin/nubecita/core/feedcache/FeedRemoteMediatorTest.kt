@@ -45,7 +45,12 @@ internal class FeedRemoteMediatorTest {
     private val key = FeedKey.following("did:plc:me")
     private val feedPostDao = mockk<FeedPostDao>(relaxed = true)
     private val cachedPostDao = mockk<CachedPostDao>(relaxed = true)
-    private val feedItemDao = mockk<FeedItemDao>(relaxed = true)
+    private val feedItemDao =
+        mockk<FeedItemDao>(relaxed = true).also {
+            // Explicit for the same reason as partitionStateDao: a relaxed Int?
+            // is a stub value, which would read as "an item sits there".
+            coEvery { it.firstItemPositionAtOrAbove(any(), any(), any(), any()) } returns null
+        }
     private val partitionStateDao =
         mockk<FeedPartitionStateDao>(relaxed = true).also {
             // Explicit: a relaxed mock answers a nullable return with a STUB,
@@ -364,6 +369,7 @@ internal class FeedRemoteMediatorTest {
         boundarySince: String? = "boundary-1",
         fillCursor: String? = null,
         pendingBoundary: String? = null,
+        fillNextPosition: Int? = null,
     ) = FeedRemoteKeyEntity(
         accountDid = "did:plc:me",
         feedType = "FOLLOWING",
@@ -372,6 +378,7 @@ internal class FeedRemoteMediatorTest {
         boundarySince = boundarySince,
         fillCursor = fillCursor,
         pendingBoundary = pendingBoundary,
+        fillNextPosition = fillNextPosition,
     )
 
     @Test
@@ -475,9 +482,9 @@ internal class FeedRemoteMediatorTest {
             // Fill page 2 is older than page 1 but newer than the anchor, so it
             // has to sort between them. Restarting at the top of the window
             // would upsert straight over page 1 — same primary key, no error.
-            coEvery { remoteKeyDao.remoteKey(any(), any(), any()) } returns keyWith(fillCursor = "fill-1")
+            coEvery { remoteKeyDao.remoteKey(any(), any(), any()) } returns
+                keyWith(fillCursor = "fill-1", fillNextPosition = -247)
             coEvery { feedPostDao.minPosition("did:plc:me", "FOLLOWING", "") } returns -250
-            coEvery { feedPostDao.maxNegativePosition("did:plc:me", "FOLLOWING", "") } returns -248
             coEvery { feedPostDao.firstPositionAtOrAbove(any(), any(), any(), any()) } returns 0
             coEvery {
                 networkSource.fetchPage(key, cursor = "fill-1", since = "boundary-1", limit = any())
@@ -499,8 +506,7 @@ internal class FeedRemoteMediatorTest {
             // page deeper in the range would move the boundary backwards and
             // the next catch-up would re-fetch what it already has.
             coEvery { remoteKeyDao.remoteKey(any(), any(), any()) } returns
-                keyWith(fillCursor = "fill-1", pendingBoundary = "newest-1")
-            coEvery { feedPostDao.maxNegativePosition("did:plc:me", "FOLLOWING", "") } returns -248
+                keyWith(fillCursor = "fill-1", pendingBoundary = "newest-1", fillNextPosition = -247)
             coEvery { feedPostDao.firstPositionAtOrAbove(any(), any(), any(), any()) } returns 0
             coEvery {
                 networkSource.fetchPage(key, cursor = "fill-1", since = "boundary-1", limit = any())
@@ -516,6 +522,7 @@ internal class FeedRemoteMediatorTest {
                     boundarySince = "newest-1",
                     fillCursor = null,
                     pendingBoundary = null,
+                    fillNextPosition = null,
                 )
             }
         }
@@ -542,6 +549,8 @@ internal class FeedRemoteMediatorTest {
                     boundarySince = "boundary-1",
                     fillCursor = "fill-1",
                     pendingBoundary = "newest-1",
+                    // The next page goes directly below the one that just landed.
+                    fillNextPosition = -FeedCatchUp.CATCH_UP_ENTRY_BUDGET + 1,
                 )
             }
         }
@@ -572,6 +581,7 @@ internal class FeedRemoteMediatorTest {
                     boundarySince = "newest-1",
                     fillCursor = null,
                     pendingBoundary = null,
+                    fillNextPosition = null,
                 )
             }
         }
@@ -640,8 +650,8 @@ internal class FeedRemoteMediatorTest {
             // would walk past its window — and the write is an upsert keyed on
             // position, so it would silently replace stored entries. A full
             // window is D5's budget cap: the seam offers jump-to-newest.
-            coEvery { remoteKeyDao.remoteKey(any(), any(), any()) } returns keyWith(fillCursor = "fill-1")
-            coEvery { feedPostDao.maxNegativePosition("did:plc:me", "FOLLOWING", "") } returns -1
+            coEvery { remoteKeyDao.remoteKey(any(), any(), any()) } returns
+                keyWith(fillCursor = "fill-1", fillNextPosition = 0)
             coEvery { feedPostDao.firstPositionAtOrAbove("did:plc:me", "FOLLOWING", "", 0) } returns 0
 
             val result = mediator().load(LoadType.PREPEND, emptyState())
@@ -665,7 +675,7 @@ internal class FeedRemoteMediatorTest {
 
             assertSame(boom, (result as RemoteMediator.MediatorResult.Error).throwable)
             coVerify(exactly = 0) { feedPostDao.upsert(any()) }
-            coVerify(exactly = 0) { remoteKeyDao.updatePrependCursors(any(), any(), any(), any(), any(), any()) }
+            coVerify(exactly = 0) { remoteKeyDao.updatePrependCursors(any(), any(), any(), any(), any(), any(), any()) }
         }
 
     @Test
