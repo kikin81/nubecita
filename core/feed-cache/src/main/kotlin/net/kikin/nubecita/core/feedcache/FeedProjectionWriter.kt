@@ -10,7 +10,6 @@ import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.model.FeedItemEntity
 import net.kikin.nubecita.core.database.model.FeedItemMemberEntity
-import net.kikin.nubecita.core.database.model.FeedPartitionStateEntity
 import net.kikin.nubecita.core.feedmapping.dedupeByLeafPost
 import net.kikin.nubecita.core.feedmapping.dedupeByThreadRoot
 import net.kikin.nubecita.core.feedmapping.dedupeClusterContext
@@ -334,16 +333,20 @@ internal class FeedProjectionWriter
          * projection is only coherent if every row in it was produced under the
          * same preferences, so the fingerprint describes the partition rather
          * than the page.
+         *
+         * Targeted, never a whole-row write: the same row carries the reader's
+         * place and the pill's dismissal mark, and a whole-row upsert here
+         * nulled both on every page written — so the place was lost while the
+         * reader scrolled and the pill re-announced posts already read
+         * (nubecita-lrnv.3).
          */
         private suspend fun recordFingerprint(feedKey: FeedKey) {
             val fingerprint = projectionPrefsFingerprint(prefs(), feedViewPrefs())
-            partitionStateDao.upsert(
-                FeedPartitionStateEntity(
-                    accountDid = feedKey.accountDid,
-                    feedType = feedKey.feedType.name,
-                    feedUri = feedKey.feedUri,
-                    prefsFingerprint = fingerprint,
-                ),
+            partitionStateDao.savePrefsFingerprint(
+                accountDid = feedKey.accountDid,
+                feedType = feedKey.feedType.name,
+                feedUri = feedKey.feedUri,
+                fingerprint = fingerprint,
             )
         }
 
