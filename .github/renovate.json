@@ -53,6 +53,14 @@
             "description": "Keep aboutlibraries and Coil out of the gradle minor/patch automerge so they land as reviewable PRs. The known aboutlibraries shrinkResources failure is a runtime R8 issue on the licenses screen, which CI's assembleDebug-only build job cannot catch, and Coil minors move image loading across the whole feed. This is a review gate, not a version pin — both are free to reach their latest release.",
             "matchPackageNames": ["/aboutlibraries/", "/^io.coil-kt.coil3/"],
             "automerge": false
+        },
+        {
+            "description": "atproto-kotlin owns OAuth, token refresh and DPoP. A routine-looking minor (9.15.0) changed retry behaviour and automerged inside the all-minor-patch group, failing requests on every cold start. Give it its own PR, never automerged, so each bump is reviewed and checked on a device.",
+            "matchPackageNames": ["/^io\\.github\\.kikin81\\.atproto/"],
+            "groupName": "atproto-kotlin",
+            "automerge": false,
+            "addLabels": ["atproto-sdk"],
+            "prBodyNotes": "**Before merging:** this SDK handles sign-in and token refresh. Read the release notes for auth changes, then install a build on a signed-in device and cold-start it ~10 times. Expect no \"Couldn't load\" snackbars and no `use_dpop_nonce` errors in logcat, and stay signed in."
         }
     ]
 }
