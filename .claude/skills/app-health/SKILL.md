@@ -87,7 +87,7 @@ in `YYYY-MM-DD`. Everything downstream uses these.
 ### 2. Run the query battery
 
 Work through `references/metrics.md` section by section, issuing the MCP calls it
-specifies for BOTH the current and prior windows. The four areas:
+specifies for BOTH the current and prior windows. The five areas:
 
 1. **Auth & login** — success vs error rate, error by reason/stage, the redirect
    funnel, and the spurious-logout signals (`session_cleared` invalid_grant,
@@ -116,6 +116,13 @@ specifies for BOTH the current and prior windows. The four areas:
    `android signals crashes describe` (catalog §4a): it prints the custom keys
    and breadcrumb logs that distinguish the two spurious-logout signatures. Keep
    CLI numbers out of the WoW tables; its window is rolling, not calendar.
+5. **Network errors** — `api_error` grouped by endpoint × error code, status
+   class and app version, plus the refresh and video network signals (catalog
+   §5). Users affected % is the headline, not the event count. Two traps: it
+   only sees HTTP error responses (timeouts and offline never reach it), and
+   before the build carrying it ships there is no data — say "not shipped
+   yet", not 0. Read §5's table before calling a group ours: 5xx and
+   `UpstreamFailure` are usually Bluesky's side.
 
 Batch calls where the MCP allows. Don't invent numbers — if a metric returns
 nothing, say so.
@@ -171,6 +178,11 @@ things to fix — that's what the reader wants first. Every 🔴/🟡 needs a on
   with the new `url` and `updated`. The page itself needs no change: it reads
   whatever rows the file holds. Pin every write with the `if_version` you read.
 
+  Network errors (catalog §5) add four `weekly.json` columns —
+  `api_error_users_pct`, `api_error_per_user`, `api_error_5xx_share`,
+  `refresh_lost_response_pct` — and their top groups go into `findings.json`
+  as one finding per group worth naming (endpoint, code, users, likely cause).
+
   Add a metric by adding its column to `weekly.json` *and* a tile or row to
   `files/index.html`; older weeks simply lack the key. Leave a metric you did
   not measure out of the row rather than writing a zero — a zero is a reading,
@@ -212,6 +224,12 @@ Window: <current range> vs <prior range> (Nd WoW) · Sources: GA4 / Crashlytics 
 ## Stability  🟢|🟡|🔴
 - Crash-free users %, crash-free sessions %, ANR rate
 - Top crashes/ANRs to fix (title · users affected · Δ · console link)
+<table>
+
+## Network errors  🟢|🟡|🔴
+- api_error users affected %, per active user; 401 / other 4xx / 5xx split
+- Top groups: endpoint · error code · events · users · Δ · likely cause (catalog §5)
+- Newest app version vs the rest; refresh lost_response share; video network errors
 <table>
 
 ## Data gaps

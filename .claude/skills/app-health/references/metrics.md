@@ -14,6 +14,7 @@ them here.
 - [3. Paywall & Pro](#3-paywall--pro)
 - [4. Stability](#4-stability)
 - [4a. Enriching an issue with the `android` CLI](#4a-enriching-an-issue-with-the-android-cli)
+- [5. Network errors](#5-network-errors)
 - [Week-over-week method](#week-over-week-method)
 - [Flag thresholds](#flag-thresholds)
 
@@ -60,6 +61,9 @@ change):
 | paywall plan | `customEvent:plan` |
 | paywall_restore outcome | `customEvent:outcome` |
 | pip outcome | `customEvent:pip_outcome` |
+| api_error endpoint (XRPC NSID) | `customEvent:endpoint` |
+| api_error code · video_playback_error code | `customEvent:error_code` (string for api_error, number for video) |
+| api_error HTTP status | `customEvent:status` |
 
 There's also a **`customUser:is_pro`** user-scoped dim — useful to segment any
 metric by Pro vs free. If a param isn't registered, report the event total and
@@ -507,6 +511,87 @@ actually shows up. Run it on any session-clear issue before judging the cause.
 
 ---
 
+## 5. Network errors
+
+Answers: are requests to Bluesky failing, which ones, and is it us or them?
+
+Every XRPC failure reaches a feature as a caught exception and, at most, a
+snackbar ("Couldn't load your feeds"). Nothing crashes, so Crashlytics never
+sees it. The atproto 9.15.0 DPoP nonce race failed requests on most cold
+starts for a release and was only found by noticing it on a device. This
+section is how the next one gets found from the data.
+
+**Primary signal: `api_error`** (nubecita-bvay). Fired once per XRPC call that
+*finally* fails, after the SDK's single DPoP retry — so a nonce rotation the
+SDK absorbed is not counted. Params: `endpoint` (the NSID, e.g.
+`app.bsky.actor.getPreferences`), `error_code` (the XRPC error name, e.g.
+`use_dpop_nonce`, `InvalidToken`, `UpstreamFailure`), `status` (the HTTP
+status). Only the **signed-in** client reports it; the signed-out (anonymous)
+and video-upload clients do not.
+
+⚠️ **It sees HTTP error responses only.** A request that never gets an answer
+(timeout, DNS failure, offline, connection reset) throws a transport exception,
+not an `XrpcError`, and is not counted. A quiet `api_error` week does not mean
+the network was fine — check `token_refresh lost_response` below for the
+transport side.
+
+⚠️ **New instrumentation.** Before the first release carrying it, the event
+returns nothing — report "not shipped yet", not 0. In its first week the prior
+window is empty: "new this week — no baseline" (Conventions).
+
+Queries — all `run_report` with both date ranges, filtered to
+`eventName == api_error`:
+
+1. **Rate.** Metrics `eventCount`, `activeUsers` (no extra dimension). Report
+   `api_error` per active user, and **users affected %** =
+   `api_error activeUsers ÷ total activeUsers`. Users affected is the headline:
+   one user stuck in a retry loop inflates the count, not the reach.
+2. **Group by endpoint × error code.** Dimensions `customEvent:endpoint`,
+   `customEvent:error_code`; metrics `eventCount`, `activeUsers`; order by
+   `eventCount` desc, `limit` 15. This is the table the report shows.
+3. **Status class.** Dimension `customEvent:status`; fold into `401`, other
+   `4xx`, `5xx` for the report.
+4. **By app version.** Dimensions `appVersion`, `customEvent:error_code`;
+   metrics `eventCount`, `activeUsers`. Divide by each version's own active
+   users (one `run_report`, dimension `appVersion`, no event filter). As with
+   logouts (§1a), never judge the aggregate: an old build with a fixed bug can
+   dominate it.
+
+**Reading the groups** — what each one usually means and where to look:
+
+| Group | Likely cause | Next step |
+|---|---|---|
+| `use_dpop_nonce` (401), any endpoint | The SDK's nonce retry regressed — the exact 9.15.0 signature | Compare by `appVersion`; check the atproto version that build pins |
+| `InvalidToken` / `ExpiredToken` / `invalid_token` (401) | Token refresh failing, or a session the server deleted | Cross-check `token_refresh` and `session_cleared` (§1, §1a) |
+| `UpstreamFailure`, `InternalServerError`, any 5xx | Bluesky's side — PDS or AppView outage | Check status.bsky.app for the window before calling it ours |
+| `RateLimitExceeded` (429) | A request loop or an over-eager refresh in the app | Find the endpoint; it should almost never fire |
+| `InvalidRequest` (400) on one endpoint | App or lexicon bug — malformed params | Treat as a regression in whichever version introduced it |
+| `RecordNotFound`, `NotFound`, `BlockedActor` on read endpoints | Normal product traffic (deleted posts, blocks) | Watch the rate only; not a fix by itself |
+
+**Supporting signals** (already instrumented — include them here, not in their
+home sections, so the network story reads in one place):
+
+- **Refresh lost to the network** — `token_refresh` with
+  `customEvent:outcome == lost_response`, ÷ all `token_refresh`. A rising share
+  means flaky connectivity at the worst moment (§1b explains why it can cost a
+  session).
+- **Crashlytics XrpcError non-fatals** — `topIssues` on NON_FATAL, issues
+  titled `io.github.kikin81.atproto.runtime.XrpcError…`. Only
+  `PushRegistration` records these, so they cover one call path, not the app —
+  but until `api_error` reaches most users they are the only per-request
+  network signal, and the subtitle carries the error name and status
+  (`use_dpop_nonce … (HTTP 401)`, `InternalServerError … (HTTP 500)`). The
+  sample event's breadcrumbs show which other repositories failed in the same
+  minute (`[ActorProfileRepo] fetchProfile failed: … use_dpop_nonce`), which is
+  how a cross-endpoint failure shows up here. Seen 2026-11-09: one
+  `use_dpop_nonce` on 1.373.4 (the 9.15.0 race, fixed in 1.374.1) and a
+  repeating push-register 500 on 1.351.0.
+- **Video network errors** — `video_playback_error` with `customEvent:error_code`
+  in **2000–2999** (Media3's IO range: 2001 network failed, 2002 timeout, 2004
+  bad HTTP status). Codes 4000+ are decoder problems, not network.
+
+---
+
 ## Week-over-week method
 
 - Two equal windows: current = last N full days (exclude today), prior = the N
@@ -537,3 +622,6 @@ Guidelines, not gospel — use judgment and the per-user-rate lens. When unsure,
 | Crash-free users % | 99.0–99.5%, or −0.2pt WoW | <99.0%, or a sharp drop |
 | ANR rate | rising | a new/climbing ANR hitting many users |
 | Any Crashlytics issue | steady, moderate reach | new issue spiking, or one hitting a large user share |
+| `api_error` users affected % | up ~25% WoW, or >5% of active users | >10% of active users, or doubles WoW |
+| One `api_error` group (endpoint × code) | a new group in the top 3 | `use_dpop_nonce`, `InvalidRequest` or `RateLimitExceeded` in the top 3, or one group concentrated on the newest `appVersion` |
+| `token_refresh` lost_response share | up WoW | >5% of refreshes |
