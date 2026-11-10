@@ -784,6 +784,30 @@ data class TokenRefresh(
         )
 }
 
+/**
+ * Fired once per XRPC call that finally fails, after any DPoP retry
+ * (`XrpcFailureReporter` in `:core:auth`). Split by [endpoint] and app version,
+ * a jump in one [errorCode] is how a regression like the atproto 9.15.0 nonce
+ * race (failed requests on every cold start) becomes visible. Carries no
+ * message text or user content.
+ */
+data class ApiError(
+    val endpoint: String,
+    val errorCode: String,
+    val status: Int,
+) : AnalyticsEvent {
+    override val name: String = "api_error"
+    override val params: Map<String, AnalyticsValue> =
+        mapOf(
+            "endpoint" to Str(endpoint.take(MAX_API_ERROR_VALUE_LENGTH)),
+            "error_code" to Str(errorCode.take(MAX_API_ERROR_VALUE_LENGTH)),
+            "status" to LongVal(status.toLong()),
+        )
+}
+
+// GA4 truncates longer parameter values.
+private const val MAX_API_ERROR_VALUE_LENGTH = 100
+
 /** Where a tapped notification came from. */
 enum class NotificationSource(
     val wire: String,
