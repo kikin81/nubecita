@@ -162,8 +162,8 @@ things to fix — that's what the reader wants first. Every 🔴/🟡 needs a on
   app.** A terminal Claude Code session has neither, and the Claude Docs tools
   cannot open a Dashboard-type Artifact (they refuse it as `access`). From a
   terminal session: run the checkup, write `weekly.json` and `findings.json`
-  (and any page change) to `health-reports/dashboard/`, and hand the publish
-  to a Claude Code session in the desktop app. Its live `files/index.html` is
+  (and any page change) to `health-reports/dashboard/`, and hand off the
+  publishing to a Claude Code session in the desktop app. Its live `files/index.html` is
   the source of truth — read it there before changing the page, because a
   local copy goes stale as soon as the desktop session edits the chart.
 
