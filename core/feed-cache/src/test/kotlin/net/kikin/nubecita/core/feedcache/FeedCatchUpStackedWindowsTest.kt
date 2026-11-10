@@ -4,6 +4,8 @@ import io.github.kikin81.atproto.app.bsky.feed.FeedViewPost
 import io.github.kikin81.atproto.app.bsky.feed.PostView
 import io.mockk.coEvery
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.add
@@ -176,6 +178,38 @@ internal class FeedCatchUpStackedWindowsTest {
             freshCatchUp().catchUp(key).getOrThrow()
 
             assertEquals(emptyList<Int>(), overwrittenItems, "a prepend replaced items the reader can see")
+        }
+
+    @Test
+    fun `two catch-ups on one partition run one after the other`() =
+        runTest {
+            // Paging's PREPEND and a "show newest" can ask at once. Interleaved,
+            // both would read the same stored resume point and write their
+            // pages over each other.
+            (0..4).forEach { entries[it] = "head-$it" }
+            remoteKey = remoteKeyEntity(boundarySince = "boundary-0")
+            val firstFetchEntered = CompletableDeferred<Unit>()
+            val releaseFirstFetch = CompletableDeferred<Unit>()
+            var fetches = 0
+            coEvery { networkSource.fetchPage(key, cursor = any(), since = "boundary-0", limit = any()) } coAnswers {
+                fetches++
+                if (fetches == 1) {
+                    firstFetchEntered.complete(Unit)
+                    releaseFirstFetch.await()
+                }
+                Result.success(FeedNetworkPage(listOf(post("new-$fetches")), "fill-$fetches", "newest-$fetches"))
+            }
+
+            val first = async { freshCatchUp().catchUp(key) }
+            firstFetchEntered.await()
+            val second = async { freshCatchUp().catchUp(key) }
+            testScheduler.advanceUntilIdle()
+            assertEquals(1, fetches, "the second catch-up fetched while the first was still writing")
+
+            releaseFirstFetch.complete(Unit)
+            first.await()
+            second.await()
+            assertEquals(2, fetches)
         }
 
     private fun remoteKeyEntity(boundarySince: String) =

@@ -291,33 +291,26 @@ internal fun FeedScreen(
         }
 
     val scope = rememberCoroutineScope()
-    // "Take me to the newest" — the pill, or a Feed-tab re-tap. The VM rebuilds
-    // the pager at the newest entry, since index 0 of the window loaded around
-    // the saved place is not the top (nubecita-lrnv.4), and records the
-    // acknowledgement so the same entries never raise the pill again.
+    // "Take me to the newest" — the pill, or a Feed-tab re-tap. The VM fetches
+    // the newest page, rebuilds the pager at the top (index 0 of the window
+    // loaded around the saved place is not the top, nubecita-lrnv.4), records
+    // the acknowledgement, and then raises scrollToNewest.
     //
-    // The scroll waits for a window that starts at the top of the partition.
-    // Scrolling straight away would land on the OLD window's first row, and
-    // LazyListState follows that row's key into the rebuilt generation — so a
-    // reader within one initial load of the top would be carried back down to
-    // it instead of staying on the newest post.
-    var showNewestPending by remember { mutableStateOf(false) }
+    // The scroll also waits for a window that starts at the top of the
+    // partition. Scrolling to index 0 of a window that does not would land on
+    // its first row, and LazyListState follows that row's key into the next
+    // generation instead of staying at the top.
+    val scrollToNewest by viewModel.scrollToNewest.collectAsStateWithLifecycle()
     val windowStartsAtTop = items.loadState.source.prepend.endOfPaginationReached
-    LaunchedEffect(showNewestPending, windowStartsAtTop, items.itemCount) {
-        if (showNewestPending && windowStartsAtTop && items.itemCount > 0) {
+    LaunchedEffect(scrollToNewest, windowStartsAtTop, items.itemCount) {
+        if (scrollToNewest && windowStartsAtTop && items.itemCount > 0) {
             listState.scrollToItem(0)
-            showNewestPending = false
+            viewModel.handleEvent(FeedEvent.NewestShown)
         }
     }
-    val onNewPostsClick =
-        remember(viewModel) {
-            {
-                showNewestPending = true
-                viewModel.handleEvent(FeedEvent.ShowNewest)
-            }
-        }
-    // FeedScreenContent animates its own scroll to the top on a re-tap; this
-    // is the half only the VM and the pending scroll can do.
+    val onNewPostsClick = remember(viewModel) { { viewModel.handleEvent(FeedEvent.ShowNewest) } }
+    // FeedScreenContent animates its own scroll to the top on a re-tap; this is
+    // the half only the VM can do.
     val onTabReTap = onNewPostsClick
     val onFillSeam =
         remember(viewModel) { { position: Int -> viewModel.handleEvent(FeedEvent.FillSeam(position)) } }

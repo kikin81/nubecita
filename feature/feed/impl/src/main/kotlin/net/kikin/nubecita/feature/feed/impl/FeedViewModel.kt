@@ -13,6 +13,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -136,6 +137,22 @@ class FeedViewModel
          */
         private val pagerStart = MutableStateFlow<PagerStart>(PagerStart.SavedPlace)
 
+        /**
+         * True once a [FeedEvent.ShowNewest] has caught up and reopened the
+         * pager at the top; the screen scrolls to it and clears this with
+         * [FeedEvent.NewestShown]. The same publish-then-consume shape as
+         * [restoreTarget], and for the same reason: the VM never touches
+         * `LazyListState` (D9).
+         *
+         * Raised only after the catch-up has written. Scrolling any earlier
+         * lands on a row that the catch-up then pushes down, and the list
+         * follows that row's key rather than staying at the top.
+         */
+        val scrollToNewest = MutableStateFlow(false)
+
+        /** The "show newest" in flight, so a second tap does not start another. */
+        private var showNewestJob: Job? = null
+
         /** The partition this VM reads, once an account is known. */
         private val feedKey: Flow<FeedKey> =
             combine(sessionStateProvider.state, binding) { session, bound ->
@@ -235,6 +252,7 @@ class FeedViewModel
                 is FeedEvent.ItemsLoaded -> onItemsLoaded(event.posts)
                 is FeedEvent.AnchorChanged -> saveAnchor(event.itemKey, event.offset)
                 FeedEvent.ShowNewest -> showNewest()
+                FeedEvent.NewestShown -> scrollToNewest.value = false
                 FeedEvent.RestoreConsumed -> restoreTarget.value = null
                 FeedEvent.ClearError -> Unit
                 is FeedEvent.OnPostTapped -> sendEffect(FeedEffect.NavigateToPost(event.post.id))
@@ -406,25 +424,39 @@ class FeedViewModel
         }
 
         /**
-         * Go to the newest entry: rebuild the pager at the top of the
-         * partition, and acknowledge what was new.
+         * Go to the newest entry: catch up, rebuild the pager at the top of
+         * the partition, acknowledge what was new, and tell the screen to
+         * scroll there.
          *
          * Only for a feed that can catch up. A generator feed refreshes on
          * open (D14), keeps no place and raises no pill, so its loaded window
          * already starts at the top and the screen's scroll is enough.
          *
-         * Not a direct [FeedRepository.catchUp]: the rebuilt pager's first
-         * page has nothing above it, so Paging asks the mediator to PREPEND on
-         * its own — and a second, concurrent catch-up would race it for the
-         * same window.
+         * The catch-up comes FIRST. Reopening at the top of a stale partition
+         * and letting Paging's PREPEND fetch afterwards writes the newest page
+         * above the reader, and the list keeps the row it was showing — so the
+         * reader lands under what they asked to see. One call fetches the
+         * newest page; the rest of the range fills below it through PREPEND
+         * and the seam, out of the reader's way. `FeedCatchUp` serializes the
+         * two callers.
+         *
+         * A failed fetch still reopens at the newest entry held, and says why.
          */
         private fun showNewest() {
             val key = currentFeedKey() ?: return
             if (!key.feedType.supportsSince) return
+            if (showNewestJob?.isActive == true) return
             // A pending restore would scroll the reader straight back down.
             restoreTarget.value = null
-            pagerStart.value = PagerStart.Newest(request = (pagerStart.value as? PagerStart.Newest)?.request?.plus(1) ?: 0)
-            viewModelScope.launch { feedRepository.dismissNewPosts(key) }
+            showNewestJob =
+                viewModelScope.launch {
+                    feedRepository.catchUp(key).onFailure { sendEffect(FeedEffect.ShowError(it.toFeedError())) }
+                    pagerStart.value =
+                        PagerStart.Newest(request = (pagerStart.value as? PagerStart.Newest)?.request?.plus(1) ?: 0)
+                    // After the catch-up, so what it just fetched counts as seen.
+                    feedRepository.dismissNewPosts(key)
+                    scrollToNewest.value = true
+                }
         }
 
         private fun currentFeedKey(): FeedKey? =

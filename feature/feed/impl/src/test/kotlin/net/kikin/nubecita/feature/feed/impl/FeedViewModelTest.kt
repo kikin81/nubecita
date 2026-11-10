@@ -668,6 +668,69 @@ internal class FeedViewModelTest {
         }
 
     @Test
+    fun `the newest page is fetched before the feed reopens, and only then scrolled to`() =
+        feedTest {
+            // Reopened first, the catch-up would write the newest page ABOVE the
+            // reader, and the list would keep the row it was showing — landing
+            // the reader under the posts they asked to see.
+            val repo = FakeFeedRepository()
+            repo.storedAnchor = FeedAnchor(position = 37, itemKey = "single:at://post/a", offset = 0)
+            repo.catchUpGate = CompletableDeferred()
+            val vm = viewModel(repo)
+            backgroundScope.launch { vm.feed.collect {} }
+            advanceUntilIdle()
+
+            vm.handleEvent(FeedEvent.ShowNewest)
+            advanceUntilIdle()
+            assertEquals(1, repo.catchUpCalls)
+            assertEquals(listOf<Int?>(37), repo.initialPositions, "reopened before the catch-up wrote")
+            assertEquals(false, vm.scrollToNewest.value)
+
+            repo.catchUpGate?.complete(Unit)
+            advanceUntilIdle()
+            assertEquals(listOf<Int?>(37, null), repo.initialPositions)
+            assertEquals(true, vm.scrollToNewest.value)
+
+            vm.handleEvent(FeedEvent.NewestShown)
+            assertEquals(false, vm.scrollToNewest.value)
+        }
+
+    @Test
+    fun `a second ask while the first is still fetching starts nothing new`() =
+        feedTest {
+            val repo = FakeFeedRepository()
+            repo.catchUpGate = CompletableDeferred()
+            val vm = viewModel(repo)
+            backgroundScope.launch { vm.feed.collect {} }
+            advanceUntilIdle()
+
+            vm.handleEvent(FeedEvent.ShowNewest)
+            vm.handleEvent(FeedEvent.ShowNewest)
+            advanceUntilIdle()
+
+            assertEquals(1, repo.catchUpCalls)
+        }
+
+    @Test
+    fun `a failed fetch still opens at the newest entry held, and says why`() =
+        feedTest {
+            val repo = FakeFeedRepository()
+            repo.storedAnchor = FeedAnchor(position = 37, itemKey = "single:at://post/a", offset = 0)
+            repo.catchUpResult = Result.failure(java.io.IOException("offline"))
+            val vm = viewModel(repo)
+            backgroundScope.launch { vm.feed.collect {} }
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(FeedEvent.ShowNewest)
+                advanceUntilIdle()
+                assertTrue(awaitItem() is FeedEffect.ShowError)
+            }
+            assertEquals(listOf<Int?>(37, null), repo.initialPositions)
+            assertEquals(true, vm.scrollToNewest.value)
+        }
+
+    @Test
     fun `asking for the newest again rebuilds again`() =
         feedTest {
             // A reader who taps twice — the pill, then the tab a minute later —
