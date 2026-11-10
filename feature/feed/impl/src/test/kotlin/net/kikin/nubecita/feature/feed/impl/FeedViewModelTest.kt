@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -637,6 +638,31 @@ internal class FeedViewModelTest {
 
             assertNull(vm.restoreTarget.value)
             assertEquals(1, repo.anchorCleared)
+        }
+
+    @Test
+    fun `tapping the new-posts pill reopens the feed at the newest entry`() =
+        feedTest {
+            // The loaded window starts at the saved place, so scrolling it to
+            // index 0 only reaches the top of what happens to be loaded —
+            // hundreds of rows below the newest on a reader who was away a
+            // day (nubecita-lrnv.4). The pager itself has to start at the top,
+            // where the first page has nothing above it and Paging's PREPEND
+            // catches up straight away.
+            val repo = FakeFeedRepository()
+            repo.storedAnchor = FeedAnchor(position = 37, itemKey = "single:at://post/a", offset = -24)
+            val vm = viewModel(repo)
+            backgroundScope.launch { vm.feed.collect {} }
+            advanceUntilIdle()
+            assertEquals(listOf<Int?>(37), repo.initialPositions)
+
+            vm.handleEvent(FeedEvent.DismissNewPosts)
+            advanceUntilIdle()
+
+            assertEquals(listOf<Int?>(37, null), repo.initialPositions)
+            // And nothing is left for the screen to restore: a pending target
+            // would scroll the reader straight back to where they were.
+            assertNull(vm.restoreTarget.value)
         }
 
     @Test
