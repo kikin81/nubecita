@@ -266,15 +266,15 @@ internal class FeedProjectionWriterTest {
     fun `the projection records the preferences it was built with`() =
         runTest {
             prefs(hideReplies = false)
-            val state = slot<net.kikin.nubecita.core.database.model.FeedPartitionStateEntity>()
-            coEvery { partitionStateDao.upsert(capture(state)) } returns Unit
+            val row = statefulPartitionRow(initial = null)
 
             writer().writeRefresh(FeedKey.following("did:plc:me"), listOf(replyEntry("at://p/1")))
 
-            assertTrue(state.isCaptured, "a projection must record its preferences")
+            val fingerprint = row()?.prefsFingerprint
+            assertTrue(fingerprint != null, "a projection must record its preferences, on a partition with no row yet")
             assertTrue(
-                state.captured.prefsFingerprint?.contains("replies=false") == true,
-                "fingerprint should reflect the reply tuner, was ${state.captured.prefsFingerprint}",
+                fingerprint?.contains("replies=false") == true,
+                "fingerprint should reflect the reply tuner, was $fingerprint",
             )
         }
 
@@ -285,8 +285,8 @@ internal class FeedProjectionWriterTest {
             // equal strings and different ones must differ, or a stale
             // projection either never refreshes or refreshes forever.
             val captured = mutableListOf<String?>()
-            coEvery { partitionStateDao.upsert(any()) } answers {
-                captured += firstArg<net.kikin.nubecita.core.database.model.FeedPartitionStateEntity>().prefsFingerprint
+            coEvery { partitionStateDao.updatePrefsFingerprint(any(), any(), any(), any()) } answers {
+                captured += arg<String?>(3)
             }
 
             prefs(hideReplies = false)
@@ -310,7 +310,7 @@ internal class FeedProjectionWriterTest {
      * `coVerify` on "a fingerprint was written"; they differ only in what they
      * leave behind in the other columns.
      */
-    private fun statefulPartitionRow(initial: FeedPartitionStateEntity): () -> FeedPartitionStateEntity? {
+    private fun statefulPartitionRow(initial: FeedPartitionStateEntity?): () -> FeedPartitionStateEntity? {
         var row: FeedPartitionStateEntity? = initial
         coEvery { partitionStateDao.state(any(), any(), any()) } answers { row }
         coEvery { partitionStateDao.upsert(any()) } answers { row = firstArg() }
