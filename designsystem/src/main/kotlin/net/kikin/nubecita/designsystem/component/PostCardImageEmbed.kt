@@ -2,6 +2,7 @@ package net.kikin.nubecita.designsystem.component
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.carousel.CarouselDefaults
 import androidx.compose.material3.carousel.CarouselState
 import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
 import androidx.compose.material3.carousel.rememberCarouselState
@@ -40,6 +42,7 @@ import net.kikin.nubecita.data.models.ImageUi
 import net.kikin.nubecita.data.models.thumbOrFullsize
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.spacing
+import kotlin.math.floor
 
 /**
  * Renders a Bluesky `app.bsky.embed.images` embed.
@@ -48,7 +51,9 @@ import net.kikin.nubecita.designsystem.spacing
  *   height derived from the post's `aspectRatio` (width/height), clamped
  *   to `[MIN_ASPECT_RATIO, MAX_ASPECT_RATIO]` = `[2/3, 3/1]`.
  * - **Multi-image (`items.size > 1`):** delegates to M3's
- *   [HorizontalMultiBrowseCarousel].
+ *   [HorizontalMultiBrowseCarousel], sized by [carouselPreferredItemWidth]
+ *   from the width the card actually has, so a wider canvas shows more
+ *   images rather than the same images squeezed.
  *
  * [postUri] opts the embed into the shared-element transition into the
  * full-screen media viewer and into the Coil memory-cache hand-off that makes
@@ -200,7 +205,7 @@ private fun MultiImageCarousel(
             }
         }
 
-    Box(
+    BoxWithConstraints(
         modifier =
             modifier
                 .fillMaxWidth()
@@ -209,7 +214,7 @@ private fun MultiImageCarousel(
     ) {
         HorizontalMultiBrowseCarousel(
             state = state,
-            preferredItemWidth = CAROUSEL_PREFERRED_ITEM_WIDTH,
+            preferredItemWidth = carouselPreferredItemWidth(availableWidth = maxWidth),
             modifier = Modifier.fillMaxSize(),
             itemSpacing = EMBED_GAP,
         ) { index ->
@@ -277,7 +282,51 @@ private fun CarouselCountPill(
 
 private val EMBED_HEIGHT: Dp = 240.dp
 private val EMBED_GAP: Dp = 4.dp
-private val CAROUSEL_PREFERRED_ITEM_WIDTH: Dp = 220.dp
+
+/** The smallest a large carousel item should be; wider canvases fit more of them. */
+private val CAROUSEL_TARGET_ITEM_WIDTH: Dp = 220.dp
+
+/** The peek of the next image: M3's own maximum small-item size. */
+private val CAROUSEL_PEEK_WIDTH: Dp = CarouselDefaults.MaxSmallItemSize
+
+/**
+ * The `preferredItemWidth` that makes M3 show as many [target]-sized images
+ * as fit beside a [peek] of the next one, sized to fill [availableWidth]
+ * exactly.
+ *
+ * A fixed preferred width misbehaves. M3 tries `ceil(width / preferred)`
+ * large items and squeezes them to fit when they don't: a ~319dp phone card
+ * with the old fixed 220dp got two "large" items of ~102dp, a medium and a
+ * small, all 240dp tall, once a post had four or more images to fill them
+ * (nubecita-3w2k). No fixed value works across widths, because the answer
+ * flips at every multiple of it.
+ *
+ * Deciding the count here and handing M3 the width that fits it exactly gives
+ * M3 a zero-cost arrangement, which it takes at once: one large image plus a
+ * peek on phones, two on a foldable's inner screen or a wide column, three on
+ * a tablet, and never a large item narrower than [target]. With fewer images
+ * than fit, M3 drops the peek and lets them fill the row.
+ */
+internal fun carouselPreferredItemWidth(
+    availableWidth: Dp,
+    target: Dp = CAROUSEL_TARGET_ITEM_WIDTH,
+    peek: Dp = CAROUSEL_PEEK_WIDTH,
+    spacing: Dp = EMBED_GAP,
+): Dp {
+    // Unbounded width (a carousel in a horizontally scrolling parent) or an
+    // unspecified (NaN) one has no row to fill: fall back to the target.
+    // Compose's Dp.isFinite only rejects +Infinity, so check the raw float.
+    // Never return less than 1dp: M3 divides the width by this to count large
+    // items, and a zero or negative value there allocates a negative-size
+    // array and throws.
+    if (!availableWidth.value.isFinite()) return target
+    val forLarge = availableWidth - peek - spacing
+    val count = floor(forLarge / (target + spacing)).toInt().coerceAtLeast(1)
+    return ((forLarge - spacing * (count - 1)) / count).coerceAtLeast(MIN_PREFERRED_ITEM_WIDTH)
+}
+
+private val MIN_PREFERRED_ITEM_WIDTH: Dp = 1.dp
+
 private val IMAGE_SHAPE = RoundedCornerShape(16.dp)
 
 private val ImageUi.carouselSlideUrl: String
