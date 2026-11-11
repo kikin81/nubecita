@@ -38,7 +38,7 @@ internal class PostTranslationsHandleTest {
         runTest {
             val landed = CompletableDeferred<String?>()
             val store = store(translated = landed)
-            val handle = PostTranslationsHandle(store, CoroutineScope(Job() + StandardTestDispatcher(testScheduler)))
+            val handle = StorePostTranslationsHandle(store, CoroutineScope(Job() + StandardTestDispatcher(testScheduler)))
 
             handle.translate(post())
             advanceUntilIdle()
@@ -53,7 +53,7 @@ internal class PostTranslationsHandleTest {
     fun `a language already offered is not offered again`() =
         runTest {
             val store = store(translated = CompletableDeferred("ja"), shouldOffer = false)
-            val handle = PostTranslationsHandle(store, CoroutineScope(Job() + StandardTestDispatcher(testScheduler)))
+            val handle = StorePostTranslationsHandle(store, CoroutineScope(Job() + StandardTestDispatcher(testScheduler)))
 
             handle.translate(post())
             advanceUntilIdle()
@@ -65,7 +65,7 @@ internal class PostTranslationsHandleTest {
     fun `a post that wasn't translated raises no offer`() =
         runTest {
             val store = store(translated = CompletableDeferred(null))
-            val handle = PostTranslationsHandle(store, CoroutineScope(Job() + StandardTestDispatcher(testScheduler)))
+            val handle = StorePostTranslationsHandle(store, CoroutineScope(Job() + StandardTestDispatcher(testScheduler)))
 
             handle.translate(post())
             advanceUntilIdle()
@@ -77,7 +77,7 @@ internal class PostTranslationsHandleTest {
     fun `accepting clears the offer and records the answer`() =
         runTest {
             val store = store(translated = CompletableDeferred("ja"))
-            val handle = PostTranslationsHandle(store, CoroutineScope(Job() + StandardTestDispatcher(testScheduler)))
+            val handle = StorePostTranslationsHandle(store, CoroutineScope(Job() + StandardTestDispatcher(testScheduler)))
             handle.translate(post())
             advanceUntilIdle()
 
@@ -94,7 +94,7 @@ internal class PostTranslationsHandleTest {
             val store = store(translated = CompletableDeferred("ja"))
             coEvery { store.declineAuto(any()) } throws IllegalStateException("datastore down")
             val scope = CoroutineScope(Job() + StandardTestDispatcher(testScheduler))
-            val handle = PostTranslationsHandle(store, scope)
+            val handle = StorePostTranslationsHandle(store, scope)
             handle.translate(post())
             advanceUntilIdle()
 
@@ -113,7 +113,7 @@ internal class PostTranslationsHandleTest {
             val store = store(translated = CompletableDeferred("ja"))
             coEvery { store.shouldOfferAuto(any()) } throws IllegalStateException("datastore down")
             val scope = CoroutineScope(Job() + StandardTestDispatcher(testScheduler))
-            val handle = PostTranslationsHandle(store, scope)
+            val handle = StorePostTranslationsHandle(store, scope)
 
             handle.translate(post())
             advanceUntilIdle()

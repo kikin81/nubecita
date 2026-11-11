@@ -21,24 +21,67 @@ import timber.log.Timber
  *
  * Get one from [rememberPostTranslations]; pass [stateOf], [translate] and
  * [toggleOriginal] to each `PostCard`, and place [AutoTranslateOffer] once.
+ * Previews and screenshot fixtures use [previewPostTranslations].
  */
 @Stable
-class PostTranslationsHandle internal constructor(
-    private val store: PostTranslations,
-    private val scope: CoroutineScope,
-) {
+interface PostTranslationsHandle {
     /** The language being offered as automatic, if any. */
-    var autoOffer: String? by mutableStateOf(null)
-        private set
+    val autoOffer: String?
 
     /** What the card for [post] should say about translation, or null. */
-    fun stateOf(post: PostUi): PostTranslationUi? = store.stateOf(post)
+    fun stateOf(post: PostUi): PostTranslationUi?
 
     /** Toggle between the translation and the original for [postUri]. */
-    fun toggleOriginal(postUri: String) = store.toggleOriginal(postUri)
+    fun toggleOriginal(postUri: String)
 
     /** The reader tapped the chip on [post]. */
-    fun translate(post: PostUi) {
+    fun translate(post: PostUi)
+
+    /** The reader accepted the automatic-translation offer. */
+    fun acceptAutoOffer()
+
+    /** The reader dismissed the offer. */
+    fun declineAutoOffer()
+}
+
+/**
+ * A handle with fixed per-post states and no behaviour, for previews and
+ * screenshot fixtures that need to render translated, offered or in-progress
+ * posts without a store. [states] is keyed by post uri.
+ */
+fun previewPostTranslations(states: Map<String, PostTranslationUi>): PostTranslationsHandle = FixedPostTranslations(states)
+
+@Stable
+private class FixedPostTranslations(
+    private val states: Map<String, PostTranslationUi>,
+) : PostTranslationsHandle {
+    override val autoOffer: String? = null
+
+    override fun stateOf(post: PostUi): PostTranslationUi? = states[post.id]
+
+    override fun toggleOriginal(postUri: String) = Unit
+
+    override fun translate(post: PostUi) = Unit
+
+    override fun acceptAutoOffer() = Unit
+
+    override fun declineAutoOffer() = Unit
+}
+
+/** The [PostTranslationsHandle] every real screen gets, over the shared store. */
+@Stable
+internal class StorePostTranslationsHandle(
+    private val store: PostTranslations,
+    private val scope: CoroutineScope,
+) : PostTranslationsHandle {
+    override var autoOffer: String? by mutableStateOf(null)
+        private set
+
+    override fun stateOf(post: PostUi): PostTranslationUi? = store.stateOf(post)
+
+    override fun toggleOriginal(postUri: String) = store.toggleOriginal(postUri)
+
+    override fun translate(post: PostUi) {
         val pending = store.translate(post)
         scope.launch {
             val source = pending.await() ?: return@launch
@@ -54,15 +97,13 @@ class PostTranslationsHandle internal constructor(
         }
     }
 
-    /** The reader accepted the automatic-translation offer. */
-    fun acceptAutoOffer() {
+    override fun acceptAutoOffer() {
         val source = autoOffer ?: return
         autoOffer = null
         scope.launch { guarded("accepting automatic translation for $source") { store.acceptAuto(source) } }
     }
 
-    /** The reader dismissed the offer. */
-    fun declineAutoOffer() {
+    override fun declineAutoOffer() {
         val source = autoOffer ?: return
         autoOffer = null
         scope.launch { guarded("declining automatic translation for $source") { store.declineAuto(source) } }

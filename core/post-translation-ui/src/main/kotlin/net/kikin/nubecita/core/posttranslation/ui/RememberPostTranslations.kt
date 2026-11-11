@@ -40,7 +40,7 @@ fun rememberPostTranslations(
 ): PostTranslationsHandle? {
     if (translations == null) return null
     val scope = rememberCoroutineScope()
-    val handle = remember(translations, scope) { PostTranslationsHandle(translations, scope) }
+    val handle = remember(translations, scope) { StorePostTranslationsHandle(translations, scope) }
     // One fresh try per visit for posts that failed, which is what rebuilding
     // a screen-scoped map on each visit used to give for free.
     LaunchedEffect(translations) { translations.onSurfaceEntered() }
