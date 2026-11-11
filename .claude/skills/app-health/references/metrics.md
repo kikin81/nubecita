@@ -630,6 +630,11 @@ Two traps seen on the first live run (2026-11-10):
   as the headline and name the concentration ("1 user, 32 errors"); a single
   stuck device is a bug report, not a failing feature.
 
+**A ratio with a zero denominator is not measured.** No translations, no plan
+picked, no active users of an event — the rate is absent, never `0%` and
+never a division error: leave its `weekly.json` key out, give its question the
+note ("no translations this week"), and keep the counts that do exist.
+
 | id | question | the decision it feeds |
 |---|---|---|
 | `catch_up_cap` | How often do readers hit the catch-up cap, and on which feed? | Whether to build the on-demand "load missing posts" fill (nubecita-2xk0) |
@@ -676,7 +681,8 @@ only, never 🔴.
 4. `translate_error` by `customEvent:reason`. **Error rate** by users —
    `translate_error activeUsers ÷ translate_post activeUsers` — is the
    headline; report the event rate beside it, and the concentration when they
-   disagree (see the traps above).
+   disagree (see the traps above). No `translate_post` users means no rate
+   (zero-denominator rule above).
 5. `translation_model_download` by `customEvent:outcome` — download success
    versus failure.
 6. `translate_batch` — `eventCount` and `activeUsers` only (automatic
@@ -694,7 +700,9 @@ a single *user* dominating them is a device to reproduce on, not a rate. A large
    Sources: `push` (from the push gateway), `dm_poll` (a local notification
    from the background DM poll), and `in_app` (a row tapped in the
    Notifications tab).
-2. **Re-engagement taps per active user** — `push` + `dm_poll` only — is the
+2. **Re-engagement taps per active user** —
+   `(push eventCount + dm_poll eventCount) ÷ total activeUsers`, the total
+   being the Conventions denominator, not the event's own users — is the
    headline. `in_app` taps come from people already in the app, so they
    measure the Notifications tab, not what brings anyone back; report them as
    a separate line, never summed into the headline.
@@ -710,7 +718,8 @@ Crashlytics `PushRegistration` non-fatals).
 ### `paywall_plan` — `paywall_plan_selected`, `paywall_checkout_started`
 
 1. Both events by `customEvent:plan`, `activeUsers`.
-2. **Carry-through per plan** = `checkout_started users ÷ plan_selected users`.
+2. **Carry-through per plan** = `checkout_started users ÷ plan_selected users`,
+   per plan; a plan nobody picked has no carry-through (zero-denominator rule).
 3. Pair with RevenueCat new subscriptions by product for the same window (§3) —
    GA has no purchase-success event, so payment lives only there.
 
@@ -722,6 +731,10 @@ checked out points at its price or its checkout path.
 
 Take §5's endpoint × error code table and status-class split as they are; this
 question only reshapes them into the dashboard dataset below. Do not re-query.
+In `breakdowns.json` its entry has `"dimension": "endpoint × error_code"` and
+one row per §5 group, `"key": "<endpoint> · <error_code>"` (e.g.
+`"app.bsky.actor.getPreferences · use_dpop_nonce"`), top 8 by events. Both
+dimensions are already in the Conventions table.
 
 ### Dashboard output
 

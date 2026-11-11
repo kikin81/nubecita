@@ -180,7 +180,7 @@ things to fix — that's what the reader wants first. Every 🔴/🟡 needs a on
 
   To update: read the current `weekly.json` (its url is in the `datasets/weekly`
   document, `Artifact` `action: "read"` with that `path`), append one row for
-  the new week, re-upload both files (`Artifact` `action: "publish"` with
+  the new week, re-upload all three files (`Artifact` `action: "publish"` with
   `asset: true`, one call each — a JSON file is approved on its own), then one
   `ArtifactData` `batch` updating `datasets/weekly`, `datasets/findings` and
   `datasets/breakdowns` with the new `url` and `updated`. The page itself needs no change: it reads
