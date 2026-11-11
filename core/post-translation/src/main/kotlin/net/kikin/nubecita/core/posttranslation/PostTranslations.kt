@@ -37,10 +37,15 @@ import javax.inject.Singleton
  * reader goes back. Surfaces adopt it through the Compose helper in
  * `:core:post-translation-ui`, never by holding state of their own.
  *
- * **Snapshot state, not a `StateFlow<Map>`.** Cards read their entry during
- * composition, and a snapshot map recomposes only the card whose entry
- * changed. One flow of the whole map would recompose every visible card on
- * each change, on lists that must hold 120hz.
+ * **Snapshot state, read per card.** Cards read their entry during
+ * composition. A `SnapshotStateMap` is one state object, so a write
+ * invalidates every visible card that read it, not just the card whose entry
+ * changed; this is the same map the feed held before, which is what the 120hz
+ * measurement was taken against. It is cheap in practice because writes
+ * happen only when a list is at rest, and each re-run card's `PostCard` skips
+ * because its inputs didn't change. Per-post state holders would narrow the
+ * invalidation to one card; that is worth doing only if a measurement shows
+ * the re-runs cost frames.
  *
  * **Main-thread confined.** Every field, snapshot or not, is read and written
  * on [main]. The coordinator resolves on the caller's dispatcher and only the
