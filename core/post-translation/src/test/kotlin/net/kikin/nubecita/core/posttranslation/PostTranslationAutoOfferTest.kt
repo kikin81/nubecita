@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.feed.impl.translation
+package net.kikin.nubecita.core.posttranslation
 
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -11,7 +11,6 @@ import net.kikin.nubecita.core.analytics.AnalyticsEvent
 import net.kikin.nubecita.core.analytics.AnalyticsScreen
 import net.kikin.nubecita.core.analytics.TranslateAutoOptIn
 import net.kikin.nubecita.core.analytics.UserProperty
-import net.kikin.nubecita.core.posttranslation.PostTranslationCoordinator
 import net.kikin.nubecita.core.preferences.ReaderLanguages
 import net.kikin.nubecita.core.preferences.TranslationPreferences
 import net.kikin.nubecita.core.translation.LanguageIdentifier
@@ -23,7 +22,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /** The offer to translate a whole language automatically, after a chip tap. */
-class FeedTranslationAutoOfferTest {
+class PostTranslationAutoOfferTest {
     @Test
     fun `a language never offered before is offered`() =
         runTest {
@@ -104,7 +103,7 @@ class FeedTranslationAutoOfferTest {
                 every { targetLanguage } returns flowOf("en")
             },
         analytics = analytics,
-        cache = EmptyTranslationCache,
+        cache = InMemoryTranslationCache(),
     )
 
     private class RecordingAnalytics : AnalyticsClient {
