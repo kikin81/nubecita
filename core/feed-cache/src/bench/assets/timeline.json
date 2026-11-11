@@ -1,5 +1,5 @@
 {
- "_comment": "Deterministic fixture timeline for the :app bench flavor. Loaded by FakeFeedRepository on first fetchPage() call. Field names mirror data/models/*.kt Kotlin property names. Sealed types use a 'type' discriminator following kotlinx.serialization defaults. Timestamps end at 2026-05-27T17:00:00Z and span the prior 24h. See bd nubecita-crmi.6 Section E stage 1. INVARIANT: the first 4 items must NOT be Gif embeds. The fastlane marketing hero (MarketingScreenshotJourney.a01Feed) captures the initial feed viewport, and an animated GIF there would freeze on a random frame, making the Play Store screenshot non-deterministic. GIF posts start at index 4 (still in the macrobench scroll path). Guarded by BenchTimelineFixtureTest. TRANSLATION: the first six posts are foreign-language fixtures for epic nubecita-s6xk. They cover the declared-foreign case, the declared-de-but-reads-as-English case that langs exists for, the undeclared case that only identification reaches, and an English control that must never be offered.",
+ "_comment": "Deterministic fixture timeline for the :app bench flavor. Loaded by FakeFeedRepository on first fetchPage() call. Field names mirror data/models/*.kt Kotlin property names. Sealed types use a 'type' discriminator following kotlinx.serialization defaults. Timestamps end at 2026-05-27T17:00:00Z and span the prior 24h. See bd nubecita-crmi.6 Section E stage 1. INVARIANT: the first 4 items must NOT be Gif embeds. The fastlane marketing hero (MarketingScreenshotJourney.a01Feed) captures the initial feed viewport, and an animated GIF there would freeze on a random frame, making the Play Store screenshot non-deterministic. GIF posts start at index 4 (still in the macrobench scroll path). Guarded by BenchTimelineFixtureTest. TRANSLATION: the first six posts are foreign-language fixtures for epic nubecita-s6xk. They cover the declared-foreign case, the declared-de-but-reads-as-English case that langs exists for, the undeclared case that only identification reaches, and an English control that must never be offered. GALLERY: items 9-18 are posts with 1 to 10 images (epic nubecita-mdmd), 1-4 as Images and 5-10 as Gallery like real app.bsky.embed.gallery posts, mixing portrait and landscape; the 8-image one is all portrait like the post that showed the squeezed carousel. They sit below the hero fold and inside the macrobench scroll path so the carousel's per-item sizing is exercised there.",
  "cursor": null,
  "items": [
   {
@@ -321,6 +321,716 @@
      "isOwnPost": true
     },
     "threadRootUri": "at://did:plc:alice000000000000000000/app.bsky.feed.post/3kfeed0001"
+   }
+  },
+  {
+   "type": "Single",
+   "post": {
+    "id": "at://did:plc:galalice00000000000000000/app.bsky.feed.post/3kgallery01",
+    "cid": "bafyreigallery010000000000000000000000000000000000000000000",
+    "author": {
+     "did": "did:plc:galalice00000000000000000",
+     "handle": "alice.bsky.social",
+     "displayName": "Alice Chen",
+     "avatarUrl": "file:///android_asset/img/avatars/alice.jpg"
+    },
+    "createdAt": "2026-05-26T19:07:00Z",
+    "text": "one shot from this morning, nothing else needed",
+    "facets": [],
+    "embed": {
+     "type": "Images",
+     "items": [
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+       "altText": "A ridge overlook above a sea of clouds.",
+       "aspectRatio": 1.501
+      }
+     ]
+    },
+    "stats": {
+     "replyCount": 1,
+     "repostCount": 2,
+     "likeCount": 19,
+     "quoteCount": 0
+    },
+    "viewer": {
+     "isLikedByViewer": false,
+     "isRepostedByViewer": false,
+     "isFollowingAuthor": true,
+     "likeUri": null,
+     "repostUri": null,
+     "isAuthorMutedByViewer": false,
+     "isAuthorBlockedByViewer": false,
+     "isAuthorBlockingViewer": false
+    },
+    "repostedBy": null
+   }
+  },
+  {
+   "type": "Single",
+   "post": {
+    "id": "at://did:plc:galbob0000000000000000000/app.bsky.feed.post/3kgallery02",
+    "cid": "bafyreigallery020000000000000000000000000000000000000000000",
+    "author": {
+     "did": "did:plc:galbob0000000000000000000",
+     "handle": "bob.dev",
+     "displayName": "Bob Iglesias",
+     "avatarUrl": "file:///android_asset/img/avatars/bob.jpg"
+    },
+    "createdAt": "2026-05-26T19:14:00Z",
+    "text": "before and after the ridge clouds rolled in",
+    "facets": [],
+    "embed": {
+     "type": "Images",
+     "items": [
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+       "altText": "A ridge overlook above a sea of clouds.",
+       "aspectRatio": 1.501
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "altText": "A sketchbook page of ink studies.",
+       "aspectRatio": 0.7
+      }
+     ]
+    },
+    "stats": {
+     "replyCount": 2,
+     "repostCount": 4,
+     "likeCount": 28,
+     "quoteCount": 0
+    },
+    "viewer": {
+     "isLikedByViewer": false,
+     "isRepostedByViewer": false,
+     "isFollowingAuthor": true,
+     "likeUri": null,
+     "repostUri": null,
+     "isAuthorMutedByViewer": false,
+     "isAuthorBlockedByViewer": false,
+     "isAuthorBlockingViewer": false
+    },
+    "repostedBy": null
+   }
+  },
+  {
+   "type": "Single",
+   "post": {
+    "id": "at://did:plc:galcarmen0000000000000000/app.bsky.feed.post/3kgallery03",
+    "cid": "bafyreigallery030000000000000000000000000000000000000000000",
+    "author": {
+     "did": "did:plc:galcarmen0000000000000000",
+     "handle": "carmen.codes",
+     "displayName": "Carmen Ruiz",
+     "avatarUrl": "file:///android_asset/img/avatars/carmen.jpg"
+    },
+    "createdAt": "2026-05-26T19:21:00Z",
+    "text": "three favourites from the weekend",
+    "facets": [],
+    "embed": {
+     "type": "Images",
+     "items": [
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+       "altText": "A ridge overlook above a sea of clouds.",
+       "aspectRatio": 1.501
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "altText": "A sketchbook page of ink studies.",
+       "aspectRatio": 0.7
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/topo-map.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/topo-map.jpg",
+       "altText": "A topographic map on a table.",
+       "aspectRatio": 1.0
+      }
+     ]
+    },
+    "stats": {
+     "replyCount": 3,
+     "repostCount": 6,
+     "likeCount": 37,
+     "quoteCount": 0
+    },
+    "viewer": {
+     "isLikedByViewer": false,
+     "isRepostedByViewer": false,
+     "isFollowingAuthor": true,
+     "likeUri": null,
+     "repostUri": null,
+     "isAuthorMutedByViewer": false,
+     "isAuthorBlockedByViewer": false,
+     "isAuthorBlockingViewer": false
+    },
+    "repostedBy": null
+   }
+  },
+  {
+   "type": "Single",
+   "post": {
+    "id": "at://did:plc:galdiego00000000000000000/app.bsky.feed.post/3kgallery04",
+    "cid": "bafyreigallery040000000000000000000000000000000000000000000",
+    "author": {
+     "did": "did:plc:galdiego00000000000000000",
+     "handle": "diego.outdoors",
+     "displayName": "Diego Santos",
+     "avatarUrl": "file:///android_asset/img/avatars/diego.jpg"
+    },
+    "createdAt": "2026-05-26T19:28:00Z",
+    "text": "four frames, four seasons on the same trail",
+    "facets": [],
+    "embed": {
+     "type": "Images",
+     "items": [
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+       "altText": "A ridge overlook above a sea of clouds.",
+       "aspectRatio": 1.501
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "altText": "A sketchbook page of ink studies.",
+       "aspectRatio": 0.7
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/topo-map.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/topo-map.jpg",
+       "altText": "A topographic map on a table.",
+       "aspectRatio": 1.0
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+       "altText": "A narrow trail climbing a ridge.",
+       "aspectRatio": 0.75
+      }
+     ]
+    },
+    "stats": {
+     "replyCount": 4,
+     "repostCount": 8,
+     "likeCount": 46,
+     "quoteCount": 0
+    },
+    "viewer": {
+     "isLikedByViewer": false,
+     "isRepostedByViewer": false,
+     "isFollowingAuthor": true,
+     "likeUri": null,
+     "repostUri": null,
+     "isAuthorMutedByViewer": false,
+     "isAuthorBlockedByViewer": false,
+     "isAuthorBlockingViewer": false
+    },
+    "repostedBy": null
+   }
+  },
+  {
+   "type": "Single",
+   "post": {
+    "id": "at://did:plc:galelena00000000000000000/app.bsky.feed.post/3kgallery05",
+    "cid": "bafyreigallery050000000000000000000000000000000000000000000",
+    "author": {
+     "did": "did:plc:galelena00000000000000000",
+     "handle": "elena.draws",
+     "displayName": "Elena Volkova",
+     "avatarUrl": "file:///android_asset/img/avatars/elena.jpg"
+    },
+    "createdAt": "2026-05-26T19:35:00Z",
+    "text": "photo dump: five from the coast trip",
+    "facets": [],
+    "embed": {
+     "type": "Gallery",
+     "items": [
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+       "altText": "A ridge overlook above a sea of clouds.",
+       "aspectRatio": 1.501
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "altText": "A sketchbook page of ink studies.",
+       "aspectRatio": 0.7
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/topo-map.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/topo-map.jpg",
+       "altText": "A topographic map on a table.",
+       "aspectRatio": 1.0
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+       "altText": "A narrow trail climbing a ridge.",
+       "aspectRatio": 0.75
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+       "altText": "A pour-over coffee dripper on a wooden countertop.",
+       "aspectRatio": 1.333
+      }
+     ]
+    },
+    "stats": {
+     "replyCount": 5,
+     "repostCount": 10,
+     "likeCount": 55,
+     "quoteCount": 0
+    },
+    "viewer": {
+     "isLikedByViewer": false,
+     "isRepostedByViewer": false,
+     "isFollowingAuthor": true,
+     "likeUri": null,
+     "repostUri": null,
+     "isAuthorMutedByViewer": false,
+     "isAuthorBlockedByViewer": false,
+     "isAuthorBlockingViewer": false
+    },
+    "repostedBy": null
+   }
+  },
+  {
+   "type": "Single",
+   "post": {
+    "id": "at://did:plc:galfede000000000000000000/app.bsky.feed.post/3kgallery06",
+    "cid": "bafyreigallery060000000000000000000000000000000000000000000",
+    "author": {
+     "did": "did:plc:galfede000000000000000000",
+     "handle": "fede.gardens",
+     "displayName": "Fede Marin",
+     "avatarUrl": "file:///android_asset/img/avatars/fede.jpg"
+    },
+    "createdAt": "2026-05-26T18:42:00Z",
+    "text": "six pages from this month's sketchbook",
+    "facets": [],
+    "embed": {
+     "type": "Gallery",
+     "items": [
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+       "altText": "A ridge overlook above a sea of clouds.",
+       "aspectRatio": 1.501
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "altText": "A sketchbook page of ink studies.",
+       "aspectRatio": 0.7
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/topo-map.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/topo-map.jpg",
+       "altText": "A topographic map on a table.",
+       "aspectRatio": 1.0
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+       "altText": "A narrow trail climbing a ridge.",
+       "aspectRatio": 0.75
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+       "altText": "A pour-over coffee dripper on a wooden countertop.",
+       "aspectRatio": 1.333
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/video-poster-4.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/video-poster-4.jpg",
+       "altText": "A tall street scene at night.",
+       "aspectRatio": 0.562
+      }
+     ]
+    },
+    "stats": {
+     "replyCount": 6,
+     "repostCount": 12,
+     "likeCount": 64,
+     "quoteCount": 0
+    },
+    "viewer": {
+     "isLikedByViewer": false,
+     "isRepostedByViewer": false,
+     "isFollowingAuthor": true,
+     "likeUri": null,
+     "repostUri": null,
+     "isAuthorMutedByViewer": false,
+     "isAuthorBlockedByViewer": false,
+     "isAuthorBlockingViewer": false
+    },
+    "repostedBy": null
+   }
+  },
+  {
+   "type": "Single",
+   "post": {
+    "id": "at://did:plc:galgabe000000000000000000/app.bsky.feed.post/3kgallery07",
+    "cid": "bafyreigallery070000000000000000000000000000000000000000000",
+    "author": {
+     "did": "did:plc:galgabe000000000000000000",
+     "handle": "gabe.shoots",
+     "displayName": "Gabe Nakamura",
+     "avatarUrl": "file:///android_asset/img/avatars/gabe.jpg"
+    },
+    "createdAt": "2026-05-26T18:49:00Z",
+    "text": "a week of walks, one photo a day",
+    "facets": [],
+    "embed": {
+     "type": "Gallery",
+     "items": [
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+       "altText": "A ridge overlook above a sea of clouds.",
+       "aspectRatio": 1.501
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "altText": "A sketchbook page of ink studies.",
+       "aspectRatio": 0.7
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/topo-map.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/topo-map.jpg",
+       "altText": "A topographic map on a table.",
+       "aspectRatio": 1.0
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+       "altText": "A narrow trail climbing a ridge.",
+       "aspectRatio": 0.75
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+       "altText": "A pour-over coffee dripper on a wooden countertop.",
+       "aspectRatio": 1.333
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/video-poster-4.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/video-poster-4.jpg",
+       "altText": "A tall street scene at night.",
+       "aspectRatio": 0.562
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/tomato-truss.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/tomato-truss.jpg",
+       "altText": "A truss of ripening tomatoes.",
+       "aspectRatio": 1.333
+      }
+     ]
+    },
+    "stats": {
+     "replyCount": 7,
+     "repostCount": 14,
+     "likeCount": 73,
+     "quoteCount": 0
+    },
+    "viewer": {
+     "isLikedByViewer": false,
+     "isRepostedByViewer": false,
+     "isFollowingAuthor": true,
+     "likeUri": null,
+     "repostUri": null,
+     "isAuthorMutedByViewer": false,
+     "isAuthorBlockedByViewer": false,
+     "isAuthorBlockingViewer": false
+    },
+    "repostedBy": null
+   }
+  },
+  {
+   "type": "Single",
+   "post": {
+    "id": "at://did:plc:galhugo000000000000000000/app.bsky.feed.post/3kgallery08",
+    "cid": "bafyreigallery080000000000000000000000000000000000000000000",
+    "author": {
+     "did": "did:plc:galhugo000000000000000000",
+     "handle": "hugo.walks",
+     "displayName": "Hugo Bauer",
+     "avatarUrl": "file:///android_asset/img/avatars/hugo.jpg"
+    },
+    "createdAt": "2026-05-26T18:56:00Z",
+    "text": "sketches for this project, all eight directions",
+    "facets": [],
+    "embed": {
+     "type": "Gallery",
+     "items": [
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "altText": "A sketchbook page of ink studies.",
+       "aspectRatio": 0.7
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+       "altText": "A narrow trail climbing a ridge.",
+       "aspectRatio": 0.75
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/video-poster-4.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/video-poster-4.jpg",
+       "altText": "A tall street scene at night.",
+       "aspectRatio": 0.562
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "altText": "A sketchbook page of ink studies.",
+       "aspectRatio": 0.7
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+       "altText": "A narrow trail climbing a ridge.",
+       "aspectRatio": 0.75
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/video-poster-4.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/video-poster-4.jpg",
+       "altText": "A tall street scene at night.",
+       "aspectRatio": 0.562
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "altText": "A sketchbook page of ink studies.",
+       "aspectRatio": 0.7
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+       "altText": "A narrow trail climbing a ridge.",
+       "aspectRatio": 0.75
+      }
+     ]
+    },
+    "stats": {
+     "replyCount": 8,
+     "repostCount": 16,
+     "likeCount": 82,
+     "quoteCount": 0
+    },
+    "viewer": {
+     "isLikedByViewer": false,
+     "isRepostedByViewer": false,
+     "isFollowingAuthor": true,
+     "likeUri": null,
+     "repostUri": null,
+     "isAuthorMutedByViewer": false,
+     "isAuthorBlockedByViewer": false,
+     "isAuthorBlockingViewer": false
+    },
+    "repostedBy": null
+   }
+  },
+  {
+   "type": "Single",
+   "post": {
+    "id": "at://did:plc:galivy0000000000000000000/app.bsky.feed.post/3kgallery09",
+    "cid": "bafyreigallery090000000000000000000000000000000000000000000",
+    "author": {
+     "did": "did:plc:galivy0000000000000000000",
+     "handle": "ivy.fpv",
+     "displayName": "Ivy Park",
+     "avatarUrl": "file:///android_asset/img/avatars/ivy.jpg"
+    },
+    "createdAt": "2026-05-26T18:03:00Z",
+    "text": "garden update, nine photos because I could not choose",
+    "facets": [],
+    "embed": {
+     "type": "Gallery",
+     "items": [
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+       "altText": "A ridge overlook above a sea of clouds.",
+       "aspectRatio": 1.501
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "altText": "A sketchbook page of ink studies.",
+       "aspectRatio": 0.7
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/topo-map.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/topo-map.jpg",
+       "altText": "A topographic map on a table.",
+       "aspectRatio": 1.0
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+       "altText": "A narrow trail climbing a ridge.",
+       "aspectRatio": 0.75
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+       "altText": "A pour-over coffee dripper on a wooden countertop.",
+       "aspectRatio": 1.333
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/video-poster-4.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/video-poster-4.jpg",
+       "altText": "A tall street scene at night.",
+       "aspectRatio": 0.562
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/tomato-truss.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/tomato-truss.jpg",
+       "altText": "A truss of ripening tomatoes.",
+       "aspectRatio": 1.333
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/ridge-flower.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/ridge-flower.jpg",
+       "altText": "A single wildflower on a mountain ridge.",
+       "aspectRatio": 1.0
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/video-poster-1.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/video-poster-1.jpg",
+       "altText": "A wide coastal view at dusk.",
+       "aspectRatio": 1.778
+      }
+     ]
+    },
+    "stats": {
+     "replyCount": 9,
+     "repostCount": 18,
+     "likeCount": 91,
+     "quoteCount": 0
+    },
+    "viewer": {
+     "isLikedByViewer": false,
+     "isRepostedByViewer": false,
+     "isFollowingAuthor": true,
+     "likeUri": null,
+     "repostUri": null,
+     "isAuthorMutedByViewer": false,
+     "isAuthorBlockedByViewer": false,
+     "isAuthorBlockingViewer": false
+    },
+    "repostedBy": null
+   }
+  },
+  {
+   "type": "Single",
+   "post": {
+    "id": "at://did:plc:galjuno000000000000000000/app.bsky.feed.post/3kgallery10",
+    "cid": "bafyreigallery100000000000000000000000000000000000000000000",
+    "author": {
+     "did": "did:plc:galjuno000000000000000000",
+     "handle": "juno.sketches",
+     "displayName": "Juno Reyes",
+     "avatarUrl": "file:///android_asset/img/avatars/juno.jpg"
+    },
+    "createdAt": "2026-05-26T18:10:00Z",
+    "text": "ten from the trip, the maximum I am allowed to post",
+    "facets": [],
+    "embed": {
+     "type": "Gallery",
+     "items": [
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/ridge-overlook.jpg",
+       "altText": "A ridge overlook above a sea of clouds.",
+       "aspectRatio": 1.501
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/sketchbook-page.jpg",
+       "altText": "A sketchbook page of ink studies.",
+       "aspectRatio": 0.7
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/topo-map.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/topo-map.jpg",
+       "altText": "A topographic map on a table.",
+       "aspectRatio": 1.0
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/ridge-trail.jpg",
+       "altText": "A narrow trail climbing a ridge.",
+       "aspectRatio": 0.75
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/coffee-yirgacheffe.jpg",
+       "altText": "A pour-over coffee dripper on a wooden countertop.",
+       "aspectRatio": 1.333
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/video-poster-4.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/video-poster-4.jpg",
+       "altText": "A tall street scene at night.",
+       "aspectRatio": 0.562
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/tomato-truss.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/tomato-truss.jpg",
+       "altText": "A truss of ripening tomatoes.",
+       "aspectRatio": 1.333
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/ridge-flower.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/ridge-flower.jpg",
+       "altText": "A single wildflower on a mountain ridge.",
+       "aspectRatio": 1.0
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/video-poster-1.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/video-poster-1.jpg",
+       "altText": "A wide coastal view at dusk.",
+       "aspectRatio": 1.778
+      },
+      {
+       "fullsizeUrl": "file:///android_asset/img/posts/video-poster-3.jpg",
+       "thumbUrl": "file:///android_asset/img/posts/video-poster-3.jpg",
+       "altText": "An ultra-wide skyline panorama.",
+       "aspectRatio": 2.4
+      }
+     ]
+    },
+    "stats": {
+     "replyCount": 10,
+     "repostCount": 20,
+     "likeCount": 100,
+     "quoteCount": 0
+    },
+    "viewer": {
+     "isLikedByViewer": false,
+     "isRepostedByViewer": false,
+     "isFollowingAuthor": true,
+     "likeUri": null,
+     "repostUri": null,
+     "isAuthorMutedByViewer": false,
+     "isAuthorBlockedByViewer": false,
+     "isAuthorBlockingViewer": false
+    },
+    "repostedBy": null
    }
   },
   {

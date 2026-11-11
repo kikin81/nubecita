@@ -175,7 +175,7 @@ internal data class BenchViewerDto(
  * harmless because every variant-specific field is optional.
  *
  * Variants currently shipped by the fixture: `Empty`, `Images`,
- * `Video`, `External`. The wider [net.kikin.nubecita.data.models.EmbedUi]
+ * `Gallery`, `Video`, `External`. The wider [net.kikin.nubecita.data.models.EmbedUi]
  * hierarchy ([Record][net.kikin.nubecita.data.models.EmbedUi.Record],
  * [RecordWithMedia][net.kikin.nubecita.data.models.EmbedUi.RecordWithMedia],
  * etc.) lands here once the fixture grows.
@@ -222,6 +222,14 @@ internal data class BenchEmbedDto(
 
         @SerialName("Images")
         Images,
+
+        /**
+         * `app.bsky.embed.gallery`: more than four images. Shares [items]
+         * with [Images]; the fixture uses it for 5-10 image posts, the way
+         * real posts arrive.
+         */
+        @SerialName("Gallery")
+        Gallery,
 
         @SerialName("Video")
         Video,
