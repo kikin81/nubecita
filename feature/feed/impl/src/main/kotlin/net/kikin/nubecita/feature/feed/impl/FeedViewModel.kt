@@ -48,6 +48,7 @@ import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
+import net.kikin.nubecita.core.posttranslation.PostTranslationCoordinator
 import net.kikin.nubecita.core.preferences.AutoplayPolicy
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.data.models.AuthorUi
@@ -57,7 +58,6 @@ import net.kikin.nubecita.data.models.OutgoingPostUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
-import net.kikin.nubecita.feature.feed.impl.translation.FeedTranslationCoordinator
 import net.kikin.nubecita.feature.search.api.Hashtag
 import java.io.IOException
 import javax.inject.Inject
@@ -84,7 +84,7 @@ class FeedViewModel
          * to the composition, not to `UiState`. The ViewModel is only the
          * injection point — it never reads or writes translation state.
          */
-        val translationCoordinator: FeedTranslationCoordinator,
+        val translationCoordinator: PostTranslationCoordinator,
         autoplayPolicy: AutoplayPolicy,
     ) : MviViewModel<FeedState, FeedEvent, FeedEffect>(FeedState()),
         PostInteractionHandler by handler {

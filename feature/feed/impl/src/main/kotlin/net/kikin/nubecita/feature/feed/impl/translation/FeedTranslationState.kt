@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
+import net.kikin.nubecita.core.posttranslation.PostTranslationCoordinator
 import net.kikin.nubecita.data.models.PostTranslationUi
 import net.kikin.nubecita.data.models.PostUi
 import timber.log.Timber
@@ -39,7 +40,7 @@ import timber.log.Timber
  */
 @Stable
 class FeedTranslationState(
-    private val coordinator: FeedTranslationCoordinator,
+    private val coordinator: PostTranslationCoordinator,
     private val scope: CoroutineScope,
 ) {
     private val entries = mutableStateMapOf<String, PostTranslationUi>()
@@ -244,7 +245,7 @@ class FeedTranslationState(
 internal fun rememberFeedTranslations(
     listState: LazyListState,
     visiblePosts: () -> List<PostUi>,
-    coordinator: FeedTranslationCoordinator?,
+    coordinator: PostTranslationCoordinator?,
     scope: CoroutineScope,
 ): FeedTranslationState? {
     if (coordinator == null) return null

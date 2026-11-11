@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.feed.impl.translation
+package net.kikin.nubecita.core.posttranslation
 
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.first
@@ -28,12 +28,13 @@ import javax.inject.Singleton
 /**
  * Decides what a post's translation state should be, and produces it.
  *
- * Injected as a whole rather than as five collaborators so the feed's
- * composable layer holds one reference and the decision order lives in one
- * readable place.
+ * Injected as a whole rather than as six collaborators so the decision order
+ * lives in one readable place. Surfaces don't call this directly: they go
+ * through [PostTranslations], which owns the per-post state every surface
+ * shares.
  */
 @Singleton
-class FeedTranslationCoordinator
+class PostTranslationCoordinator
     @Inject
     constructor(
         private val engine: TranslationEngine,
@@ -42,31 +43,53 @@ class FeedTranslationCoordinator
         private val preferences: TranslationPreferences,
         private val readerLanguages: ReaderLanguages,
         private val analytics: AnalyticsClient,
+        private val cache: TranslationCache,
     ) {
         /**
          * Resolve [post] and report each state it passes through via [emit].
          *
          * [userInitiated] is the difference between "this reader has opted
-         * into this language" and "they just tapped the chip on this one
-         * post". Both translate; only the first happens on its own.
+         * into this language" and "they asked for this one post". Both
+         * translate; only the first happens on its own. [countTap] is whether
+         * this call is the tap itself: a post the reader asked for is
+         * re-resolved when its pack arrives, and that second pass is the same
+         * request, not a second tap.
+         *
+         * Returns what this call did, so a caller can tell work done by the
+         * engine from a cache hit, and a failure worth retrying from an
+         * ordinary outcome.
          */
         suspend fun resolve(
             post: PostUi,
             userInitiated: Boolean,
+            countTap: Boolean = userInitiated,
             emit: (PostTranslationUi) -> Unit,
-        ) {
+        ): ResolveOutcome {
             val reader = readerLanguages.languages.first()
             val target = readerLanguages.targetLanguage.first()
             val enabled = preferences.autoTranslateEnabled.first()
 
-            val source = detectSource(post, reader, enabled) ?: return
-            if (!engine.supports(source, target)) return
+            // Detection first, cache second. A post in one of the reader's
+            // languages shows nothing even if a translation of it is cached:
+            // they may have added that language to never-translate since.
+            val source = detectSource(post, reader, enabled) ?: return ResolveOutcome.Settled
+
+            // A translation follows its post. Once the reader has one, for
+            // whatever reason, it is shown wherever the post appears, whether
+            // or not its language is on the auto list, and with no shimmer:
+            // nothing is being worked on.
+            cache.find(post.id, target)?.let { cached ->
+                emit(cached)
+                return ResolveOutcome.Cached(cached.sourceLanguage)
+            }
+
+            if (!engine.supports(source, target)) return ResolveOutcome.Settled
 
             val auto = preferences.autoTranslateLanguages.first()
             val wanted = userInitiated || (enabled && LanguageTags.matchesAny(source, auto))
             if (!wanted) {
                 emit(PostTranslationUi.Offered(source))
-                return
+                return ResolveOutcome.Settled
             }
 
             // Both ends need a pack, except English: ML Kit pivots every pair
@@ -90,7 +113,7 @@ class FeedTranslationCoordinator
             // or failed is `translation_model_download`'s job, which is why
             // nothing below logs a tap.
             logTap(
-                userInitiated,
+                countTap,
                 source,
                 target,
                 if (ready) TranslationModelReadiness.Ready else TranslationModelReadiness.NeedsDownload,
@@ -108,7 +131,7 @@ class FeedTranslationCoordinator
                     // nothing when tapped reads as a broken feature.
                     analytics.log(TranslationModelDownload(TranslationDownloadOutcome.DeferredWifi, source, target))
                     emit(PostTranslationUi.WaitingForWifi(source))
-                    return
+                    return ResolveOutcome.Settled
                 }
                 // The download outcome is read here rather than inside the
                 // repository so that :core:translation stays free of an
@@ -118,7 +141,7 @@ class FeedTranslationCoordinator
                     analytics.log(TranslationModelDownload(TranslationDownloadOutcome.Failed, source, target))
                     analytics.log(TranslateError(TranslationErrorReason.ModelUnavailable, source, target))
                     emit(PostTranslationUi.Offered(source))
-                    return
+                    return ResolveOutcome.Failed
                 }
                 analytics.log(TranslationModelDownload(TranslationDownloadOutcome.Completed, source, target))
             }
@@ -134,7 +157,7 @@ class FeedTranslationCoordinator
                         // than to an error state.
                         analytics.log(TranslateError(TranslationErrorReason.TranslateFailed, source, target))
                         emit(PostTranslationUi.Offered(source))
-                        return
+                        return ResolveOutcome.Failed
                     }
             if (translated.isBlank() && post.text.isNotBlank()) {
                 // The engine returned, so nothing threw, but there is nothing
@@ -142,17 +165,21 @@ class FeedTranslationCoordinator
                 // would simply go empty.
                 analytics.log(TranslateError(TranslationErrorReason.EmptyResult, source, target))
                 emit(PostTranslationUi.Offered(source))
-                return
+                return ResolveOutcome.Failed
             }
 
             val restored = restoreFacets(post.text, translated, post.facets)
-            emit(
+            val shown =
                 PostTranslationUi.Shown(
                     sourceLanguage = source,
                     text = restored.text,
                     facets = restored.facets.toImmutableList(),
-                ),
-            )
+                )
+            emit(shown)
+            // After the emit: the reader sees the translation without waiting
+            // on the write, and a failed write only costs a re-translation.
+            cache.put(post.id, target, shown)
+            return ResolveOutcome.Translated(source)
         }
 
         /**
@@ -205,12 +232,12 @@ class FeedTranslationCoordinator
          * would stop meaning anything.
          */
         private fun logTap(
-            userInitiated: Boolean,
+            isTap: Boolean,
             source: String,
             target: String,
             readiness: TranslationModelReadiness,
         ) {
-            if (userInitiated) analytics.log(TranslatePost(source, readiness, target))
+            if (isTap) analytics.log(TranslatePost(source, readiness, target))
         }
 
         /**
@@ -221,8 +248,8 @@ class FeedTranslationCoordinator
          * screen's coroutine scope. `rememberCoroutineScope` builds a plain
          * `Job`, not a `SupervisorJob`, so one such throw cancelled the scope
          * and every later translation on the screen — including chip taps —
-         * silently did nothing. [FeedTranslationState] now contains the throw
-         * per post and reports it here, so the dashboard shows a failure
+         * silently did nothing. [PostTranslations] contains the throw per post
+         * and reports it here, so the dashboard shows a failure
          * instead of an absence of taps.
          *
          * The language is unknown by design: the throw can land before the
@@ -236,8 +263,10 @@ class FeedTranslationCoordinator
         /**
          * Report one settle's worth of automatic translations.
          *
-         * Called by [FeedTranslationState], which is the only thing that knows
-         * where a settle begins and ends. [sourceLanguage] is the first of the
+         * Called by [PostTranslations], which is the only thing that knows
+         * where a settle begins and ends. Counts translations the engine
+         * performed, never cache hits: a settle over posts translated days ago
+         * is not new translation work. [sourceLanguage] is the first of the
          * batch: a settle is a single screenful, so a mixed-language one is
          * rare enough that a representative beats inventing a param for it.
          */
@@ -286,3 +315,28 @@ class FeedTranslationCoordinator
             const val PIVOT_LANGUAGE = "en"
         }
     }
+
+/**
+ * What one [PostTranslationCoordinator.resolve] call did.
+ *
+ * Separates engine work from cache hits, because only the former is new
+ * translation work to report, and failures from ordinary outcomes, because a
+ * failure earns a fresh try the next time a surface shows the post.
+ */
+sealed interface ResolveOutcome {
+    /** The engine translated the post, from [sourceLanguage]. */
+    data class Translated(
+        val sourceLanguage: String,
+    ) : ResolveOutcome
+
+    /** A cached translation was shown; nothing was translated. */
+    data class Cached(
+        val sourceLanguage: String,
+    ) : ResolveOutcome
+
+    /** Translating was attempted and failed; the post shows its offer. */
+    data object Failed : ResolveOutcome
+
+    /** Left alone, offered, unsupported, or parked waiting for Wi-Fi. */
+    data object Settled : ResolveOutcome
+}

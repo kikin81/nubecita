@@ -19,6 +19,7 @@ import net.kikin.nubecita.core.analytics.TranslateBatch
 import net.kikin.nubecita.core.analytics.TranslateError
 import net.kikin.nubecita.core.analytics.TranslationErrorReason
 import net.kikin.nubecita.core.analytics.UserProperty
+import net.kikin.nubecita.core.posttranslation.PostTranslationCoordinator
 import net.kikin.nubecita.core.preferences.ReaderLanguages
 import net.kikin.nubecita.core.preferences.TranslationPreferences
 import net.kikin.nubecita.core.translation.LanguageIdentifier
@@ -160,7 +161,7 @@ class FeedTranslationStateTest {
         analytics: RecordingAnalyticsClient,
         auto: Set<String> = setOf("ja"),
         offeredWriteFails: Boolean = false,
-    ): FeedTranslationCoordinator {
+    ): PostTranslationCoordinator {
         val identifier =
             mockk<LanguageIdentifier> {
                 // Generic stub first: MockK resolves to the LAST matching
@@ -196,7 +197,7 @@ class FeedTranslationStateTest {
                 every { this@mockk.languages } returns flowOf(listOf("en"))
                 every { targetLanguage } returns flowOf("en")
             }
-        return FeedTranslationCoordinator(engine, identifier, models, prefs, languages, analytics)
+        return PostTranslationCoordinator(engine, identifier, models, prefs, languages, analytics, EmptyTranslationCache)
     }
 
     private fun unlabelledPost() = post(id = "at://post/throws", text = UNLABELLED_TEXT, langs = emptyList())

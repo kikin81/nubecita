@@ -13,6 +13,7 @@ import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.dao.RecentSearchDao
 import net.kikin.nubecita.core.database.dao.SavedFeedDao
+import net.kikin.nubecita.core.database.dao.TranslationDao
 
 /**
  * Provides each DAO from the singleton [NubecitaDatabase]. DAOs are not
@@ -45,4 +46,7 @@ internal object DaosModule {
 
     @Provides
     fun providesSavedFeedDao(database: NubecitaDatabase): SavedFeedDao = database.savedFeedDao()
+
+    @Provides
+    fun providesTranslationDao(database: NubecitaDatabase): TranslationDao = database.translationDao()
 }
