@@ -10,9 +10,12 @@ import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.time.LocalClock
+import net.kikin.nubecita.core.posttranslation.ui.PostTranslationsHandle
+import net.kikin.nubecita.core.posttranslation.ui.previewPostTranslations
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.PostStatsUi
+import net.kikin.nubecita.data.models.PostTranslationUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ThreadItem
 import net.kikin.nubecita.data.models.ViewerStateUi
@@ -131,6 +134,50 @@ private fun PostDetailScreenContainerHierarchyScreenshot() {
     NubecitaCanvasPreviewTheme {
         PostDetailScreenScreenshotHost(
             state = PostDetailState(items = containerHierarchyThread(), loadStatus = PostDetailLoadStatus.Idle),
+        )
+    }
+}
+
+/**
+ * Translation in a thread: the focus shows the translation the feed made
+ * (attribution and "Show original" in place of the chip), one reply in a
+ * language not on the auto list shows the Translate chip, and one the reader
+ * reverted shows its original with "Show translation". Three distinct footers,
+ * so a regression that drops any of them changes the capture.
+ */
+@PreviewTest
+@Preview(name = "translated-thread-light", showBackground = true)
+@Preview(name = "translated-thread-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostDetailScreenTranslatedThreadScreenshot() {
+    val focus = fixturePost("ja-focus", text = "今日の東京はとても暑いです。駅までの道のりで汗だくになりました。")
+    val offered = fixturePost("de-reply", text = "In Berlin regnet es seit drei Tagen. Ich würde gerne tauschen!")
+    val reverted = fixturePost("ja-reply", text = "麦茶を冷やしておくのがおすすめです。")
+    NubecitaCanvasPreviewTheme {
+        PostDetailScreenScreenshotHost(
+            state =
+                PostDetailState(
+                    items =
+                        persistentListOf<ThreadItem>(
+                            ThreadItem.Focus(post = focus),
+                            ThreadItem.Reply(post = offered, depth = 1),
+                            ThreadItem.Reply(post = reverted, depth = 1),
+                        ),
+                    loadStatus = PostDetailLoadStatus.Idle,
+                ),
+            translations =
+                previewPostTranslations(
+                    mapOf(
+                        focus.id to
+                            PostTranslationUi.Shown(
+                                sourceLanguage = "ja",
+                                text = "It is very hot in Tokyo today. I got sweaty on the way to the station.",
+                                facets = persistentListOf(),
+                            ),
+                        offered.id to PostTranslationUi.Offered("de"),
+                        reverted.id to PostTranslationUi.OriginalShown("ja"),
+                    ),
+                ),
         )
     }
 }
@@ -272,7 +319,10 @@ private fun PostDetailScreenMultiImageCarouselAtFocusScreenshot() {
 }
 
 @Composable
-private fun PostDetailScreenScreenshotHost(state: PostDetailState) {
+private fun PostDetailScreenScreenshotHost(
+    state: PostDetailState,
+    translations: PostTranslationsHandle? = null,
+) {
     val snackbarHostState = remember { SnackbarHostState() }
     // Provide a fixed clock so PostCard's relative-time label is
     // deterministic — pairs with FIXTURE_CREATED_AT below to render "2h"
@@ -285,6 +335,7 @@ private fun PostDetailScreenScreenshotHost(state: PostDetailState) {
             onBack = {},
             onRetry = {},
             onRefresh = {},
+            translations = translations,
         )
     }
 }

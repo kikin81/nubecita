@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.postdetail.impl
 
 import app.cash.turbine.test
 import io.github.kikin81.atproto.runtime.XrpcError
+import io.mockk.mockk
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
@@ -1024,6 +1025,9 @@ internal class PostDetailViewModelTest {
             handler = handler,
             muteRepository = muteRepository,
             outgoingPostStore = outgoingPostStore,
+            // The ViewModel only exposes the store to the screen; nothing here
+            // reads it, so a relaxed mock is the whole contract.
+            translations = mockk(relaxed = true),
         )
 
     private fun outgoingReply(

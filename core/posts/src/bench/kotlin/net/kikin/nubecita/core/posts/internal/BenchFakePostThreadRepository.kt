@@ -26,9 +26,11 @@ import javax.inject.Singleton
  *    media-viewer launch (`getPost(focus.id)`) resolves while the buggy one
  *    (`getPost(route.postUri)` = handle) 404s.
  *
- * Returns the same thread for every URI — the bench flavor has exactly one
- * deep-linkable post-detail fixture. Selected over the production module by AGP
- * source-set merging; see the bench `PostThreadRepositoryModule`.
+ * Returns the gallery thread for every URI except the timeline's foreign-language
+ * posts listed in [benchForeignThreads], which open threads of their own so
+ * translation can be exercised across the feed and post detail offline. Selected
+ * over the production module by AGP source-set merging; see the bench
+ * `PostThreadRepositoryModule`.
  */
 @Singleton
 internal class BenchFakePostThreadRepository
@@ -38,7 +40,7 @@ internal class BenchFakePostThreadRepository
     ) : PostThreadRepository {
         override suspend fun getPostThread(uri: String): Result<ImmutableList<ThreadItem>> =
             withContext(ioDispatcher) {
-                Result.success(BENCH_THREAD)
+                Result.success(benchForeignThreads[uri] ?: BENCH_THREAD)
             }
 
         private companion object {
