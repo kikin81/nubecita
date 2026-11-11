@@ -494,7 +494,12 @@ private fun LoadedState(
             val transitionScope = LocalAnimatedVisibilityScope.current
             val fittedRatio =
                 image.aspectRatio?.takeIf {
-                    transitionScope != null &&
+                    // A malformed 0-sized wire dimension yields 0 or NaN (which
+                    // Modifier.aspectRatio rejects with a crash) or Infinity
+                    // (a zero-height image); fall back to fillMaxSize.
+                    it.isFinite() &&
+                        it > 0f &&
+                        transitionScope != null &&
                         isSharedTransitionRunning(
                             current = transitionScope.transition.currentState,
                             target = transitionScope.transition.targetState,
