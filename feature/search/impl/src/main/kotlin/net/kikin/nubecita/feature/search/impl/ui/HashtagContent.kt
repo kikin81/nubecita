@@ -44,6 +44,7 @@ import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
 import kotlinx.coroutines.flow.distinctUntilChanged
 import net.kikin.nubecita.core.postinteractions.PostTapMarkers
+import net.kikin.nubecita.core.posttranslation.ui.PostTranslationsHandle
 import net.kikin.nubecita.designsystem.component.NubecitaPullToRefreshBox
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.component.PostCallbacks
@@ -73,11 +74,13 @@ internal fun HashtagContent(
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     callbacks: PostCallbacks = PostCallbacks.None,
     tapMarkers: PostTapMarkers = PostTapMarkers(),
+    // One list state per tab so switching tabs keeps each tab's scroll
+    // position. Hoisted to the stateful screen, which drives translation
+    // from the selected tab's list.
+    topListState: LazyListState = rememberLazyListState(),
+    latestListState: LazyListState = rememberLazyListState(),
+    translations: PostTranslationsHandle? = null,
 ) {
-    // One list state per tab so switching tabs keeps each tab's scroll position.
-    val topListState = rememberLazyListState()
-    val latestListState = rememberLazyListState()
-
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surface,
@@ -139,6 +142,7 @@ internal fun HashtagContent(
                     },
                 callbacks = callbacks,
                 tapMarkers = tapMarkers,
+                translations = translations,
                 onEvent = onEvent,
             )
         }
@@ -180,6 +184,7 @@ private fun HashtagTabBody(
     listState: LazyListState,
     callbacks: PostCallbacks,
     tapMarkers: PostTapMarkers,
+    translations: PostTranslationsHandle?,
     onEvent: (HashtagEvent) -> Unit,
 ) {
     when (val status = tab.status) {
@@ -205,6 +210,7 @@ private fun HashtagTabBody(
                     listState = listState,
                     callbacks = callbacks,
                     tapMarkers = tapMarkers,
+                    translations = translations,
                     onEvent = onEvent,
                 )
             }
@@ -217,6 +223,7 @@ private fun HashtagResultsList(
     listState: LazyListState,
     callbacks: PostCallbacks,
     tapMarkers: PostTapMarkers,
+    translations: PostTranslationsHandle?,
     onEvent: (HashtagEvent) -> Unit,
 ) {
     // Per-list reveal state for covered (NSFW-labelled) media, as in the Posts tab.
@@ -235,6 +242,9 @@ private fun HashtagResultsList(
                 onRevealMedia = { revealedMedia = revealedMedia.adding(item.post.id) },
                 animateLikeTap = item.post.id == tapMarkers.lastLikeTapPostUri,
                 animateRepostTap = item.post.id == tapMarkers.lastRepostTapPostUri,
+                translation = translations?.stateOf(item.post),
+                onTranslate = { translations?.translate(item.post) },
+                onToggleTranslation = { translations?.toggleOriginal(item.post.id) },
             )
         }
         if (status.isAppending) {

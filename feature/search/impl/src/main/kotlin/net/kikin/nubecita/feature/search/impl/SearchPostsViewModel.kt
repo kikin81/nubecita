@@ -21,6 +21,7 @@ import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
+import net.kikin.nubecita.core.posttranslation.PostTranslations
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsRepository
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
@@ -65,6 +66,13 @@ internal class SearchPostsViewModel
         private val analytics: AnalyticsClient,
         private val cache: PostInteractionsCache,
         private val handler: PostInteractionHandler,
+        /**
+         * The app-wide translation store, exposed for the screen's Compose
+         * layer the way the feed and post detail do. The ViewModel never
+         * reads or writes it: translation state is snapshot-backed and read
+         * per card, not part of `UiState`.
+         */
+        val translations: PostTranslations,
     ) : MviViewModel<SearchPostsState, SearchPostsEvent, SearchPostsEffect>(SearchPostsState()),
         PostInteractionHandler by handler {
         private data class FetchKey(

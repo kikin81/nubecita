@@ -12,6 +12,7 @@ import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
+import net.kikin.nubecita.core.posttranslation.PostTranslations
 import net.kikin.nubecita.feature.search.api.Hashtag
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsPage
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsRepository
@@ -39,6 +40,13 @@ internal class HashtagViewModel
         private val repository: SearchPostsRepository,
         private val cache: PostInteractionsCache,
         private val handler: PostInteractionHandler,
+        /**
+         * The app-wide translation store, exposed for the screen's Compose
+         * layer the way the feed and post detail do. The ViewModel never
+         * reads or writes it: translation state is snapshot-backed and read
+         * per card, not part of `UiState`.
+         */
+        val translations: PostTranslations,
     ) : MviViewModel<HashtagState, HashtagEvent, HashtagEffect>(HashtagState(tag = route.tag, author = route.author)),
         PostInteractionHandler by handler {
         @AssistedFactory

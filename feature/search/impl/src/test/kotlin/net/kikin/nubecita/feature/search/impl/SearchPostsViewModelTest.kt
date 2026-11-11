@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.search.impl
 
 import app.cash.turbine.test
+import io.mockk.mockk
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.Dispatchers
@@ -60,7 +61,7 @@ class SearchPostsViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun buildVm() = SearchPostsViewModel(repo, analytics, cache, handler)
+    private fun buildVm() = SearchPostsViewModel(repo, analytics, cache, handler, mockk(relaxed = true))
 
     @Test
     fun setQuery_blank_stateStaysIdle() =

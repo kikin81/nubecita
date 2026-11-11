@@ -27,6 +27,7 @@ import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentSet
 import kotlinx.coroutines.flow.distinctUntilChanged
 import net.kikin.nubecita.core.postinteractions.PostTapMarkers
+import net.kikin.nubecita.core.posttranslation.ui.PostTranslationsHandle
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.component.PostCallbacks
@@ -59,8 +60,10 @@ internal fun PostsTabContent(
     modifier: Modifier = Modifier,
     callbacks: PostCallbacks = PostCallbacks.None,
     tapMarkers: PostTapMarkers = PostTapMarkers(),
+    // Hoisted to the stateful screen, which drives translation from it.
+    listState: LazyListState = rememberLazyListState(),
+    translations: PostTranslationsHandle? = null,
 ) {
-    val listState = rememberLazyListState()
     val currentOnEvent by rememberUpdatedState(onEvent)
 
     when (val status = state.loadStatus) {
@@ -77,6 +80,7 @@ internal fun PostsTabContent(
                 listState = listState,
                 callbacks = callbacks,
                 tapMarkers = tapMarkers,
+                translations = translations,
                 onEvent = onEvent,
                 modifier = modifier,
             )
@@ -133,6 +137,7 @@ private fun LoadedBody(
     listState: LazyListState,
     callbacks: PostCallbacks,
     tapMarkers: PostTapMarkers,
+    translations: PostTranslationsHandle?,
     onEvent: (SearchPostsEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -160,6 +165,9 @@ private fun LoadedBody(
                 onRevealMedia = { revealedMedia = revealedMedia.adding(item.post.id) },
                 animateLikeTap = item.post.id == tapMarkers.lastLikeTapPostUri,
                 animateRepostTap = item.post.id == tapMarkers.lastRepostTapPostUri,
+                translation = translations?.stateOf(item.post),
+                onTranslate = { translations?.translate(item.post) },
+                onToggleTranslation = { translations?.toggleOriginal(item.post.id) },
             )
         }
         if (isAppending) {

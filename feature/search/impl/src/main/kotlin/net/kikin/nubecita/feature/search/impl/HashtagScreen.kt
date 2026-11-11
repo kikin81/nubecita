@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.search.impl
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -17,10 +18,14 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.postinteractions.ui.InteractionStrings
 import net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions
+import net.kikin.nubecita.core.posttranslation.ui.AutoTranslateOffer
+import net.kikin.nubecita.core.posttranslation.ui.rememberPostTranslations
+import net.kikin.nubecita.core.posttranslation.ui.visiblePostsById
 import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.search.api.Hashtag
+import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
 import net.kikin.nubecita.feature.search.impl.ui.HashtagContent
 import android.net.Uri as AndroidUri
 import net.kikin.nubecita.designsystem.R as DesignSystemR
@@ -136,6 +141,27 @@ internal fun HashtagScreen(
         }
     }
 
+    // Results translate under the feed's rules, through the app-wide store,
+    // driven by whichever tab is showing: switching tabs re-keys the settle
+    // effect onto that tab's list.
+    val topListState = rememberLazyListState()
+    val latestListState = rememberLazyListState()
+    val activeListState =
+        when (state.selectedSort) {
+            SearchPostsSort.TOP -> topListState
+            SearchPostsSort.LATEST -> latestListState
+        }
+    val translations =
+        rememberPostTranslations(
+            listState = activeListState,
+            visiblePosts = {
+                val loaded = state.tab(state.selectedSort).status as? SearchPostsLoadStatus.Loaded
+                activeListState.visiblePostsById(loaded?.items?.map { it.post }.orEmpty())
+            },
+            translations = viewModel.translations,
+        )
+    AutoTranslateOffer(translations)
+
     HashtagContent(
         state = state,
         onEvent = viewModel::handleEvent,
@@ -144,5 +170,8 @@ internal fun HashtagScreen(
         callbacks = callbacks,
         tapMarkers = interactions.tapMarkers,
         modifier = modifier,
+        topListState = topListState,
+        latestListState = latestListState,
+        translations = translations,
     )
 }
