@@ -22,6 +22,7 @@ import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.FeedViewPrefs
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -294,8 +295,20 @@ internal class FeedProjectionWriter
          * the stored posts, so the grouping rules see what the server actually
          * sent rather than a reconstruction from denormalized columns.
          *
-         * Positions restart from the partition's lowest existing position, so a
-         * prepend window above zero is preserved and ordering is unchanged.
+         * The seam markers survive, and the rebuild happens **per segment** —
+         * the entries between one marker and the next (nubecita-2xk0.3). A
+         * marker records a break in the stored timeline: an active seam where
+         * the next fill page goes, or a passive gap a capped fill left. Neither
+         * can be reconstructed from the entries, so clearing them would leave
+         * the reader a bare discontinuity, and projecting across them would let
+         * an item land on a marker's slot or a thread group reach across a gap
+         * — the prepends never did either (D7).
+         *
+         * Each segment's items are packed from the segment's first entry
+         * position. That cannot reach the marker below: a segment never renders
+         * more items than it holds entries, and its entries all sit above the
+         * marker, whose slot holds no entry (nubecita-2xk0.1). Marker slots are
+         * skipped anyway, for a marker written before that rule over an entry.
          * Items are keyed by content, so an anchor pointing at a surviving item
          * still resolves even though its position may have shifted.
          */
@@ -307,22 +320,39 @@ internal class FeedProjectionWriter
                 cachedPostDao
                     .byUris(feedKey.accountDid, envelopes.map { it.uri })
                     .associateBy { it.uri }
-            val page = envelopes.mapNotNull { it.toFeedViewPostOrNull(postsByUri[it.uri]) }
-            if (page.isEmpty()) return
+            val markers = feedItemDao.seamPositions(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
+            val markerSlots = markers.toSet()
+            // Segment index = how many markers sit at or above the entry. "At"
+            // only happens for a marker written over an entry before markers had
+            // a slot of their own; that entry belongs with the posts below it.
+            val segments = envelopes.groupBy { envelope -> markers.count { it <= envelope.position } }
 
             val viewerDid = viewerDid()
-            val items =
-                page
-                    .filteredForFeed(feedKey, viewerDid)
-                    .toFeedItemsUi(prefs(), viewerDid)
-                    .dedupeByThreadRoot()
-                    .dedupeClusterContext()
-                    // Rebuilt from the whole partition at once, so there is
-                    // nothing above it to seed from.
-                    .dedupeByLeafPost()
-
-            feedItemDao.clearPartition(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
-            write(feedKey, items, basePosition = envelopes.first().position)
+            val prefs = prefs()
+            feedItemDao.clearProjectedItems(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
+            segments.toSortedMap().forEach { (index, segment) ->
+                val items =
+                    segment
+                        .mapNotNull { it.toFeedViewPostOrNull(postsByUri[it.uri]) }
+                        .filteredForFeed(feedKey, viewerDid)
+                        .toFeedItemsUi(prefs, viewerDid)
+                        .dedupeByThreadRoot()
+                        .dedupeClusterContext()
+                        // Rebuilt a segment at a time, with nothing above it to
+                        // seed from: a post shown on both sides of a gap is two
+                        // events, as the prepends that wrote them had it.
+                        .dedupeByLeafPost()
+                val positions =
+                    generateSequence(segment.first().position) { it + 1 }
+                        .filter { it !in markerSlots }
+                        .take(items.size)
+                        .toList()
+                val limit = markers.getOrNull(index)
+                if (limit != null && positions.any { it > limit }) {
+                    Timber.e("Feed re-projection overran the marker at %d in %s", limit, feedKey.feedType)
+                }
+                write(feedKey, items, positionOf = { positions[it] })
+            }
             recordFingerprint(feedKey)
         }
 
@@ -398,12 +428,19 @@ internal class FeedProjectionWriter
             feedKey: FeedKey,
             items: List<FeedItemUi>,
             basePosition: Int,
+        ) = write(feedKey, items, positionOf = { basePosition + it })
+
+        /** Writes [items] in order, the item at index `i` at `positionOf(i)`. */
+        private suspend fun write(
+            feedKey: FeedKey,
+            items: List<FeedItemUi>,
+            positionOf: (index: Int) -> Int,
         ) {
             if (items.isEmpty()) return
             val rows = ArrayList<FeedItemEntity>(items.size)
             val members = ArrayList<FeedItemMemberEntity>(items.size * 2)
             items.forEachIndexed { index, item ->
-                val position = basePosition + index
+                val position = positionOf(index)
                 val uris = item.memberUris()
                 rows +=
                     FeedItemEntity(
