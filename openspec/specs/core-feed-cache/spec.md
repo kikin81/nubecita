@@ -2,7 +2,9 @@
 
 ## Purpose
 `:core:feed-cache` is the offline-first source of truth for feeds, shared by the app feed and the home-screen widgets. It fetches feeds from the AT Protocol, caches them in a **DID-keyed** Room store (denormalized per-position **wire-post snapshots**), exposes a Paging 3 stream (`RemoteMediator`) for the app feed and a non-Paging **head query** for widgets, and re-maps cached posts to `:data:models` `PostUi` with **fresh moderation on read**. Single-account MVP, but the schema is DID-keyed so multi-account needs no migration. Implemented in `nubecita-lgoo.1` (sub-project A of the Glance feed widgets epic); storage validated at power-user scale (design D-A2). Saved-feeds metadata for the Pro picker is **not** owned here — it reuses `:core:feeds:PinnedFeedsRepository`.
+
 ## Requirements
+
 ### Requirement: `:core:feed-cache` is the single offline-first feed data source
 
 The system SHALL provide a `:core:feed-cache` module that owns feed fetching, wire→`PostUi` mapping, and the offline cache, exposed through a repository interface. Room entities SHALL NOT cross the module boundary — feed data SHALL be returned as `:data:models` `PostUi`. Reads SHALL return `Flow`/`PagingData`; writes SHALL be `suspend`.
@@ -18,7 +20,6 @@ The system SHALL provide a `:core:feed-cache` module that owns feed fetching, wi
 ### Requirement: Feed posts are cached in a DID-keyed offline store
 
 The system SHALL persist fetched feed entries in a `feed_post` table keyed by `(accountDid, feedType, feedUri, position)`, and paging cursors in a `feed_remote_keys` table keyed by `(accountDid, feedType, feedUri)`. `feedType` SHALL distinguish Following, Discover, custom, and list feeds. `feedUri` SHALL hold the feed-generator or list AT-URI (empty sentinel for Following). `feed_post` SHALL index `uri`; the by-author index belongs to the post store, where the author is.
-
 
 #### Scenario: Fetched posts are stored under the account partition
 - **WHEN** a feed page is fetched for the signed-in account
@@ -138,9 +139,7 @@ The system SHALL migrate `NubecitaDatabase` from version 4 to version 5 by addin
 
 ### Requirement: `since`-bounded prepend fetches only genuinely new entries
 
-For a feed whose XRPC method accepts `since`, the system SHALL fetch newer entries by passing the partition's persisted boundary cursor as `since`, rather than paging backwards and matching URIs. The fetch SHALL be bounded by a configured number of fetched entries, never by elapsed wall-clock time.
-
-Writes SHALL be additive: a prepend SHALL NOT clear the partition and SHALL NOT renumber existing rows.
+For a feed whose XRPC method accepts `since`, the system SHALL fetch newer entries by passing the partition's persisted boundary cursor as `since`, not by paging backwards and matching URIs. The fetch SHALL be bounded by a number of fetched entries, never by elapsed time. Writes SHALL be additive: a prepend SHALL NOT clear the partition or renumber rows. Reaching the budget SHALL complete the catch-up, never pause it: a full window SHALL NOT stop later catch-ups fetching newer entries.
 
 #### Scenario: Only newer entries are fetched
 - **WHEN** a prepend runs with the partition's boundary cursor as `since`
@@ -152,13 +151,19 @@ Writes SHALL be additive: a prepend SHALL NOT clear the partition and SHALL NOT 
 
 #### Scenario: The budget stops an unbounded catch-up
 - **WHEN** the configured entry budget is reached before the range is exhausted
-- **THEN** fetching stops, the partition retains a seam above the read position, and the consumer is informed the range is incomplete
+- **THEN** fetching stops, a passive gap marker is left between the fill and the previously-read content, and the catch-up reports itself complete
+
+#### Scenario: A full window does not stall later catch-ups
+- **WHEN** a catch-up reaches the budget with the range unexhausted, and a later catch-up runs on the same partition
+- **THEN** the later catch-up fetches from the newest entry onward, bounded by the newest entry the earlier fill wrote, and writes its pages in a new window above everything cached
+
+#### Scenario: A partition already stalled recovers without a refresh
+- **WHEN** a catch-up runs on a partition whose persisted fill state points into a window with no free slot
+- **THEN** the catch-up completes that fill with a gap, and the next catch-up fetches new entries, with no destructive refresh and the reader's anchor unchanged
 
 ### Requirement: A prepend persists its own cursor state
 
-The system SHALL persist three cursors per partition: the boundary `since` (the `startCursor` of the newest page ever written), the in-range fill cursor, and the `startCursor` returned by the newest fill page, which becomes the boundary once the range is exhausted.
-
-`startCursor` is a page-level response field, not a per-entry one, so the boundary cannot be derived from the anchor row. A prepend SHALL leave the **append** cursor untouched and SHALL write back its own state.
+The system SHALL persist, per partition, the boundary `since`, the in-range fill cursor, the next fill position, and the pending boundary (the newest fill page's `startCursor`, a page-level field no row carries). The fill cursor and next fill position SHALL be set and cleared together. A fill completes when the range is exhausted or the budget is reached; the pending boundary SHALL then become the boundary and the fill state SHALL be cleared. A prepend SHALL NOT touch the append cursor.
 
 #### Scenario: A second prepend makes progress
 - **WHEN** a prepend completes and a later prepend runs against the same partition
@@ -166,7 +171,15 @@ The system SHALL persist three cursors per partition: the boundary `since` (the 
 
 #### Scenario: An interrupted fill resumes rather than restarting
 - **WHEN** a multi-page fill is interrupted by process death and the feed is reopened
-- **THEN** the next fill resumes from the persisted in-range fill cursor
+- **THEN** the next fill resumes from the persisted in-range fill cursor, writing directly below the last page that landed
+
+#### Scenario: Reaching the budget advances the boundary
+- **WHEN** a fill reaches the budget with the range unexhausted
+- **THEN** the boundary becomes the `startCursor` of the newest page that fill wrote, and the fill cursor, next fill position and pending boundary are cleared
+
+#### Scenario: A completed fill with no pending boundary does not stall
+- **WHEN** a fill reaches the budget and no pending boundary is recorded
+- **THEN** the fill state is cleared, the boundary is left unchanged, a non-fatal is recorded, and re-fetched entries already shown are not rendered twice
 
 #### Scenario: The append cursor is unaffected
 - **WHEN** a prepend writes its cursor state
@@ -174,9 +187,7 @@ The system SHALL persist three cursors per partition: the boundary `since` (the 
 
 ### Requirement: Prepends allocate inside a reserved negative window
 
-Fill pages SHALL march downward from the top of a reserved negative window toward the anchor. Allocation SHALL be relative to the partition's current minimum position, never a fixed `-1`: `position` is part of the primary key and writes go through `@Upsert`, so a restart at `-1` would overwrite the previous batch rather than insert below it.
-
-Unused positions within the window SHALL be left empty; gaps are expected.
+Fill pages SHALL march downward through a reserved negative window allocated relative to the partition's current minimum position, never a fixed `-1`: writes upsert on `position`, so a restart there would overwrite the previous batch. Each window SHALL reserve its bottom slot for a gap marker: entries SHALL stop one slot before the first position held by a stored entry or a projected item. Unused positions SHALL be left empty; gaps are expected.
 
 #### Scenario: Fill pages allocate downward inside the window
 - **WHEN** a multi-page catch-up writes its second fill page, which is older than the first but newer than the anchor
@@ -185,6 +196,10 @@ Unused positions within the window SHALL be left empty; gaps are expected.
 #### Scenario: Allocation reads the current minimum
 - **WHEN** a prepend runs against a partition that already holds prepended rows
 - **THEN** the new rows are allocated relative to the partition's current minimum position and cannot collide with the earlier batch
+
+#### Scenario: The bottom slot stays free for the marker
+- **WHEN** a fill writes pages until its window is full
+- **THEN** the slot directly above the first occupied position below the window holds no entry and no item
 
 ### Requirement: Eviction counts rows and preserves the reader's anchor
 
@@ -334,25 +349,39 @@ Eviction SHALL be reference-aware: a post SHALL survive until nothing live refer
 
 ### Requirement: A seam is a persisted marker row
 
-When a catch-up leaves part of the range unfetched, the system SHALL write an explicit seam marker row into the projection table at the boundary position, carrying whether the range is exhausted. The seam SHALL NOT be inferred from a gap in the position sequence, which a keyset `PagingSource` skips.
-
-The marker SHALL be a row-type discriminator on the projection table, never a new `FeedItemUi` variant — that sealed type is shared with features that have no notion of a seam.
+When a catch-up leaves part of the range unfetched, the system SHALL write an explicit marker row into the projection table, as a row-type discriminator and never a new `FeedItemUi` variant, and SHALL NOT infer the marker from a gap in positions, which a keyset `PagingSource` skips. A marker SHALL only be written at a position holding no projected item and SHALL NOT replace one; when no such position is available it SHALL be skipped and a non-fatal recorded.
 
 #### Scenario: An incomplete catch-up writes a marker
 - **WHEN** a prepend stops with the range unexhausted
-- **THEN** a seam marker row exists at the boundary position between the prepended entries and the previously-read content
+- **THEN** an active seam marker row exists at the position the next fill page will be written at, between the prepended entries and the previously-read content
 
 #### Scenario: The seam is paged like any other row
 - **WHEN** the reader scrolls to the boundary
 - **THEN** the seam row is emitted by the `PagingSource` in position order, with a stable key, rather than being inferred from a position gap
 
+#### Scenario: A marker never replaces an item
+- **WHEN** any marker is written
+- **THEN** no projected item is removed or replaced and no member row is left under the marker
+
+### Requirement: Seam markers are one active seam and any number of passive gap markers
+
+An active seam marks a fill in progress: at most one exists per partition, at the position the next fill page will be written at, replaced by each fill page and removed when the range is exhausted. A passive gap marker marks where a completed fill stopped short: any number may exist, each persisting at its position until a destructive refresh or eviction removes it. Writing, moving or removing the active seam SHALL NOT remove any passive gap marker.
+
 #### Scenario: Exhausting the range removes the marker
-- **WHEN** a fill reports the range exhausted
-- **THEN** the seam marker row is deleted and the timeline is continuous
+- **WHEN** a fill reports the range exhausted while the partition also holds passive gap markers from earlier fills
+- **THEN** the active seam row is deleted and the timeline is continuous across that fill, and every passive gap marker from earlier fills is still present
 
 #### Scenario: A half-filled seam survives process death
 - **WHEN** a multi-page fill is interrupted and the feed is reopened
-- **THEN** the seam marker is still present with its fill state, and scrolling to it resumes the fill
+- **THEN** the active seam marker is still present with its fill state, and scrolling to it resumes the fill
+
+#### Scenario: A second overflow keeps the first gap marked
+- **WHEN** a fill reaches the budget, and a later fill also reaches the budget before the reader refreshes
+- **THEN** both discontinuities carry a passive gap marker, each at its own position
+
+#### Scenario: A passive marker keeps its key
+- **WHEN** later fills are written above a passive gap marker
+- **THEN** the marker's position and key are unchanged
 
 ### Requirement: The partition records the preferences its projection was built with
 
@@ -395,3 +424,41 @@ This SHALL apply to prepend fills as well as appends. Range exhaustion has its o
 #### Scenario: An empty fill page is not mistaken for exhaustion
 - **WHEN** a prepend fill page projects to zero items while the returned cursor still differs from the `since` value
 - **THEN** the range is not reported exhausted and the fill continues within its budget
+
+### Requirement: Re-projection preserves seam markers
+
+A local re-projection SHALL keep every seam marker row at its position. It SHALL delete and rewrite projected items and their members only, and SHALL project the stored entries in segments split at the marker positions, writing each segment's items within that segment so that no item is written at or beyond the marker below it.
+
+De-duplication and chain merging during a re-projection SHALL NOT reach across a marker.
+
+#### Scenario: A preference change keeps the gap marked
+- **WHEN** the partition holds a passive gap marker and a preference change re-projects it
+- **THEN** the marker is still present at its position, between the same entries as before
+
+#### Scenario: A preference change keeps an active fill resumable
+- **WHEN** a fill is in progress and a preference change re-projects the partition
+- **THEN** the active seam is still present and the next fill page is written below the last page that landed, overwriting no item
+
+#### Scenario: No item lands on a marker
+- **WHEN** a re-projection writes the items of a segment
+- **THEN** every item's position is above the marker that ends the segment
+
+#### Scenario: Grouping stops at a marker
+- **WHEN** the same thread root appears above and below a marker
+- **THEN** each segment keeps its own item for it, as the prepend that wrote it did
+
+### Requirement: A capped catch-up is reported distinctly
+
+A catch-up that completes because it reaches the budget SHALL report a distinct outcome from one that exhausts its range, and SHALL log an analytics event carrying the feed type and the number of entries fetched. Callers that only need to know whether to keep paging SHALL treat both outcomes alike.
+
+#### Scenario: A capped fill is distinguishable
+- **WHEN** a catch-up completes because it reaches the budget
+- **THEN** it reports the capped outcome, and an exhausted-range completion reports the plain caught-up outcome
+
+#### Scenario: The cap is measured once per fill
+- **WHEN** a fill reaches the budget
+- **THEN** exactly one `feed_catch_up_exhausted` event is logged with the feed type and the entries fetched, and none is logged for a fill that exhausts its range
+
+#### Scenario: Paging and the worker are unaffected by the distinction
+- **WHEN** Paging's prepend or the background worker receives the capped outcome
+- **THEN** each behaves as for the plain caught-up outcome: end of prepend pagination, no retry
