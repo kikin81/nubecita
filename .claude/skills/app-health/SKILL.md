@@ -158,6 +158,15 @@ things to fix — that's what the reader wants first. Every 🔴/🟡 needs a on
   this repo is public and the Artifact holds real user metrics. Ask the user
   for the link if the listing doesn't show it.
 
+  **The `Artifact` / `ArtifactData` tools exist only in the Claude desktop
+  app.** A terminal Claude Code session has neither, and the Claude Docs tools
+  cannot open a Dashboard-type Artifact (they refuse it as `access`). From a
+  terminal session: run the checkup, write `weekly.json` and `findings.json`
+  (and any page change) to `health-reports/dashboard/`, and hand off the
+  publishing to a Claude Code session in the desktop app. Its live `files/index.html` is
+  the source of truth — read it there before changing the page, because a
+  local copy goes stale as soon as the desktop session edits the chart.
+
   It is a Dashboard-type Artifact, mobile-first, and it is the thing to look at
   for trend; the markdown file stays the full written record. Keep the same
   Artifact every week so the series grows — never create a second one.
