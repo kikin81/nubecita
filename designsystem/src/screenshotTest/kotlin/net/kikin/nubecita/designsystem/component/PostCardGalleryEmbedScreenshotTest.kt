@@ -38,6 +38,29 @@ private fun PostCardGalleryEmbedTenScreenshot() {
     }
 }
 
+/**
+ * The carousel adapts to the width it gets (nubecita-3w2k): as many 220dp
+ * images as fit beside a peek, never squeezed. A foldable's inner screen fits
+ * two, a tablet column three; a phone (the fixtures above) fits one.
+ */
+@PreviewTest
+@Preview(name = "gallery-ten-foldable-light", showBackground = true, widthDp = 560)
+@Composable
+private fun PostCardGalleryEmbedTenFoldableScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostCardImageEmbed(items = galleryPreviewImages(10))
+    }
+}
+
+@PreviewTest
+@Preview(name = "gallery-ten-tablet-light", showBackground = true, widthDp = 840)
+@Composable
+private fun PostCardGalleryEmbedTenTabletScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        PostCardImageEmbed(items = galleryPreviewImages(10))
+    }
+}
+
 private fun galleryPreviewImages(count: Int) =
     (0 until count)
         .map { index ->
