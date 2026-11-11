@@ -27,6 +27,7 @@ import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
 import net.kikin.nubecita.core.posts.PostThreadRepository
+import net.kikin.nubecita.core.posttranslation.PostTranslations
 import net.kikin.nubecita.data.models.OutgoingPostUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ThreadItem
@@ -63,6 +64,15 @@ internal class PostDetailViewModel
         private val muteRepository: MuteRepository,
         private val handler: PostInteractionHandler,
         private val outgoingPostStore: OutgoingPostStore,
+        /**
+         * The app-wide translation store, for the screen's Compose layer.
+         *
+         * Exposed rather than consumed, as the feed does: translation state
+         * is snapshot-backed and read per card, so it belongs to the
+         * composition, not to `UiState`. The ViewModel never reads or writes
+         * it.
+         */
+        val translations: PostTranslations,
     ) : MviViewModel<PostDetailState, PostDetailEvent, PostDetailEffect>(PostDetailState()),
         PostInteractionHandler by handler {
         @AssistedFactory

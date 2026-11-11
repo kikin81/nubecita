@@ -53,6 +53,9 @@ import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.core.postinteractions.ui.InteractionStrings
 import net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions
+import net.kikin.nubecita.core.posttranslation.ui.AutoTranslateOffer
+import net.kikin.nubecita.core.posttranslation.ui.PostTranslationsHandle
+import net.kikin.nubecita.core.posttranslation.ui.rememberPostTranslations
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.FacetTarget
@@ -373,6 +376,23 @@ internal fun PostDetailScreen(
             { localId: String -> viewModel.handleEvent(PostDetailEvent.DiscardOutgoing(localId)) }
         }
 
+    // Every ancestor, the focus and every reply translate under the feed's
+    // rules, through the same app-wide store: a post the feed translated opens
+    // translated, and one translated here is translated back in the feed.
+    val listState = rememberLazyListState()
+    val translations =
+        rememberPostTranslations(
+            listState = listState,
+            visiblePosts = {
+                visibleThreadPosts(
+                    visibleKeys = listState.layoutInfo.visibleItemsInfo.map { it.key },
+                    items = state.items,
+                )
+            },
+            translations = viewModel.translations,
+        )
+    AutoTranslateOffer(translations)
+
     PostDetailScreenContent(
         state = state,
         snackbarHostState = snackbarHostState,
@@ -387,6 +407,8 @@ internal fun PostDetailScreen(
         onRetryOutgoing = onRetryOutgoing,
         onDiscardOutgoing = onDiscardOutgoing,
         modifier = modifier,
+        listState = listState,
+        translations = translations,
     )
 }
 
@@ -406,10 +428,12 @@ internal fun PostDetailScreenContent(
     onVideoTap: (postUri: String) -> Unit = {},
     onRetryOutgoing: (localId: String) -> Unit = {},
     onDiscardOutgoing: (localId: String) -> Unit = {},
+    // Shared by the top bar and the thread's LazyColumn: the bar reads it to
+    // decide whether to show the focus author. Hoisted to the stateful screen,
+    // which also drives translation from it.
+    listState: LazyListState = rememberLazyListState(),
+    translations: PostTranslationsHandle? = null,
 ) {
-    // Hoisted so the top bar and the thread's LazyColumn share one scroll state:
-    // the bar reads it to decide whether to show the focus author.
-    val listState = rememberLazyListState()
     // The LazyColumn renders `items` 1:1 up to the focus (outgoing replies only
     // follow the focus or a reply), so this index IS the lazy-list index.
     val focusIndex = remember(state.items) { state.items.indexOfFirst { it is ThreadItem.Focus } }
@@ -484,6 +508,7 @@ internal fun PostDetailScreenContent(
                     contentPadding = padding,
                     lastLikeTapPostUri = state.lastLikeTapPostUri,
                     lastRepostTapPostUri = state.lastRepostTapPostUri,
+                    translations = translations,
                 )
         }
     }
@@ -506,6 +531,7 @@ private fun LoadedThread(
     contentPadding: PaddingValues,
     lastLikeTapPostUri: String? = null,
     lastRepostTapPostUri: String? = null,
+    translations: PostTranslationsHandle? = null,
 ) {
     // Per-thread reveal state for covered (NSFW-labelled) media. Post-detail
     // covers (never drops) warned media, so every ancestor / focus / reply
@@ -569,6 +595,9 @@ private fun LoadedThread(
                                 animateRepostTap = item.post.id == lastRepostTapPostUri,
                                 isMediaRevealed = item.post.id in revealedMedia,
                                 onRevealMedia = { revealedMedia = revealedMedia.adding(item.post.id) },
+                                translation = translations?.stateOf(item.post),
+                                onTranslate = { translations?.translate(item.post) },
+                                onToggleTranslation = { translations?.toggleOriginal(item.post.id) },
                             )
                         }
                         is ThreadItem.Focus -> {
@@ -600,6 +629,9 @@ private fun LoadedThread(
                                     animateRepostTap = item.post.id == lastRepostTapPostUri,
                                     isMediaRevealed = item.post.id in revealedMedia,
                                     onRevealMedia = { revealedMedia = revealedMedia.adding(item.post.id) },
+                                    translation = translations?.stateOf(item.post),
+                                    onTranslate = { translations?.translate(item.post) },
+                                    onToggleTranslation = { translations?.toggleOriginal(item.post.id) },
                                 )
                             }
                         }
@@ -617,6 +649,9 @@ private fun LoadedThread(
                                 animateRepostTap = item.post.id == lastRepostTapPostUri,
                                 isMediaRevealed = item.post.id in revealedMedia,
                                 onRevealMedia = { revealedMedia = revealedMedia.adding(item.post.id) },
+                                translation = translations?.stateOf(item.post),
+                                onTranslate = { translations?.translate(item.post) },
+                                onToggleTranslation = { translations?.toggleOriginal(item.post.id) },
                             )
                         }
                         is ThreadItem.Blocked ->
