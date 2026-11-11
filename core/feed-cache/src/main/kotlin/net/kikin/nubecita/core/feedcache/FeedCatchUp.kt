@@ -7,6 +7,7 @@ import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.model.FeedItemEntity
+import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
@@ -113,6 +114,13 @@ internal class FeedCatchUp
                 return Result.success(CatchUpOutcome.NOT_POSSIBLE)
             }
 
+            // Member rows a pre-reservation marker write left under a seam: the
+            // marker replaced an item, the item's members stayed. Cheap and
+            // idempotent, so it simply runs on every catch-up.
+            transactionRunner.run {
+                feedItemDao.deleteMembersUnderSeams(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
+            }
+
             // A fill cursor without a recorded position is a fill started
             // before the position was stored. Where it was writing is not
             // knowable, so it starts over from the newest page instead.
@@ -156,13 +164,17 @@ internal class FeedCatchUp
                             nextFree,
                         ),
                     ).minOrNull()
-                val room = if (first == null) CATCH_UP_ENTRY_BUDGET else first - nextFree
-                if (room <= 0) {
+                // The slot just above `first` is the window's reserved marker
+                // slot, so entries stop one short of it. A marker is a row keyed
+                // on position like any item, and written over one it would
+                // replace a post the reader can see (nubecita-2xk0.1).
+                val room = if (first == null) CATCH_UP_ENTRY_BUDGET else first - 1 - nextFree
+                if (first != null && room <= 0) {
                     // The window is full: this is as far as a catch-up may go
                     // (D5). The seam stays, marked exhausted, so the reader is
                     // offered a jump to the newest rather than a fill that
                     // cannot complete.
-                    transactionRunner.run { writeSeam(feedKey, position = nextFree, exhausted = true) }
+                    transactionRunner.run { writeSeam(feedKey, position = first - 1, exhausted = true) }
                     return Result.success(CatchUpOutcome.CAUGHT_UP)
                 }
 
@@ -205,7 +217,10 @@ internal class FeedCatchUp
                     if (exhausted) {
                         feedItemDao.clearSeam(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
                     } else {
-                        writeSeam(feedKey, position = base + projected, exhausted = false)
+                        // Where the next fill page starts: a slot no entry holds
+                        // yet. base + projected can be one, whenever the
+                        // projection dropped rows from this page.
+                        writeSeam(feedKey, position = base + entries.size, exhausted = false)
                     }
                     // Targeted: `next_cursor` belongs to the other direction,
                     // and a whole-row write from here would clear it and break
@@ -234,11 +249,18 @@ internal class FeedCatchUp
         }
 
         /**
-         * Moves the partition's seam marker to [position].
+         * Moves the partition's active seam to [position], or turns it into a
+         * passive gap marker there when [exhausted].
          *
-         * Cleared first, because at most one seam exists and the boundary
-         * moves down as each fill page lands — leaving the old one would show
-         * the reader two breaks in a timeline that has one.
+         * The active seam is cleared first: at most one exists, and it moves
+         * down as each fill page lands. Passive gap markers from earlier fills
+         * are left alone — each marks a break the reader can still reach.
+         *
+         * Never written over a stored entry or a projected item. The marker is
+         * a row keyed on position, so writing it there would replace a post;
+         * every caller picks a slot reserved for it, and a slot that is not
+         * free (a window filled before the reservation existed) is skipped and
+         * reported rather than overwritten.
          */
         private suspend fun writeSeam(
             feedKey: FeedKey,
@@ -246,6 +268,13 @@ internal class FeedCatchUp
             exhausted: Boolean,
         ) {
             feedItemDao.clearSeam(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri)
+            val taken =
+                feedPostDao.firstPositionAtOrAbove(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri, position) == position ||
+                    feedItemDao.firstItemPositionAtOrAbove(feedKey.accountDid, feedKey.feedType.name, feedKey.feedUri, position) == position
+            if (taken) {
+                Timber.e("Feed seam marker skipped: position %d in %s is occupied", position, feedKey.feedType)
+                return
+            }
             feedItemDao.upsert(
                 listOf(
                     FeedItemEntity(

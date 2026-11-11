@@ -380,18 +380,6 @@ interface FeedItemDao {
         limit: Int,
     ): Flow<List<CachedPostEntity>>
 
-    /** The partition's seam marker, if a catch-up left one. At most one exists. */
-    @Query(
-        "SELECT * FROM feed_item " +
-            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
-            "AND row_type = 'seam' ORDER BY position LIMIT 1",
-    )
-    suspend fun seam(
-        accountDid: String,
-        feedType: String,
-        feedUri: String,
-    ): FeedItemEntity?
-
     /**
      * Removes one item and its members.
      *
@@ -434,10 +422,37 @@ interface FeedItemDao {
         position: Int,
     )
 
+    /**
+     * Removes member rows sitting under a seam row.
+     *
+     * A seam has no members. Ones found under it were left by a marker write
+     * that replaced a projected item (before markers had a slot of their own,
+     * nubecita-2xk0.1): the item's row became the seam, its members stayed.
+     * Idempotent and partition-scoped, so it can run on every catch-up.
+     */
+    @Query(
+        "DELETE FROM feed_item_member " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND position IN (SELECT position FROM feed_item " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND row_type = 'seam')",
+    )
+    suspend fun deleteMembersUnderSeams(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+    )
+
+    /**
+     * Removes the partition's **active** seam — the one marking a fill in
+     * progress. Passive gap markers (`seam_exhausted = 1`) stay: each marks a
+     * break a completed fill left, and removing one would leave the reader a
+     * bare discontinuity (nubecita-2xk0).
+     */
     @Query(
         "DELETE FROM feed_item " +
             "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
-            "AND row_type = 'seam'",
+            "AND row_type = 'seam' AND (seam_exhausted IS NULL OR seam_exhausted = 0)",
     )
     suspend fun clearSeam(
         accountDid: String,
