@@ -114,7 +114,6 @@ internal fun MediaViewerScreen(
     val currentOnDismiss by rememberUpdatedState(onDismiss)
     val currentOnOpenInMainShell by rememberUpdatedState(onOpenInMainShell)
     val reviewActivity = LocalActivity.current
-    val currentState by rememberUpdatedState(state)
 
     val onRetry = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.Retry) } }
     val onDismissRequest = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnDismissRequest) } }
@@ -200,11 +199,15 @@ internal fun MediaViewerScreen(
     // button, swipe down) asks exactly once. Leaving composition alone isn't
     // closing: rotation disposes it, and so does a route pushed on top (the
     // composer, for a reply), after which the viewer comes back. Only a
-    // viewer no longer on the back stack was closed.
+    // viewer no longer on the back stack was closed. The state is read from
+    // the VM, not the composed `state`: leaving for a route sets
+    // isLeavingForRoute and navigates in the same turn, and the leaving entry
+    // can be disposed (its lifecycle-aware collection already stopped)
+    // before it recomposes with that update.
     val currentIsStillOnBackStack by rememberUpdatedState(isStillOnBackStack)
-    DisposableEffect(reviewActivity) {
+    DisposableEffect(reviewActivity, viewModel) {
         onDispose {
-            val status = currentState.loadStatus
+            val status = viewModel.uiState.value.loadStatus
             if (reviewActivity != null &&
                 !reviewActivity.isChangingConfigurations &&
                 !currentIsStillOnBackStack() &&
