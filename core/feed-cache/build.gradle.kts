@@ -19,6 +19,7 @@ dependencies {
     // module's repositories, so consumers see the data-models types transitively.
     api(project(":data:models"))
 
+    implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
     implementation(project(":core:database"))

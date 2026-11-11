@@ -25,6 +25,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import net.kikin.nubecita.core.analytics.NoOpAnalyticsClient
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.database.NubecitaDatabase
@@ -120,6 +121,7 @@ internal class FeedRepositoryTest {
                     projectionWriter = projectionWriter,
                     remoteKeyDao = remoteKeyDao,
                     transactionRunner = passthroughRunner,
+                    analytics = NoOpAnalyticsClient(),
                 ),
             testMediator = noopMediator,
             testRows = seed,

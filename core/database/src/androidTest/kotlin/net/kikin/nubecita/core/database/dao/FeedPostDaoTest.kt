@@ -185,6 +185,16 @@ internal class FeedPostDaoTest : DatabaseTest() {
         }
 
     @Test
+    fun countInRange_countsEntriesInAHalfOpenRange() =
+        runTest {
+            // Sizes a completed catch-up window for analytics: [from, until).
+            upsertEntries(listOf(post(position = -250), post(position = -200), post(position = -2), post(position = -1), post(position = 0)))
+
+            assertEquals(3, dao.countInRange(ACCOUNT, TYPE, FEED_URI, from = -250, until = -1))
+            assertEquals(0, dao.countInRange(ACCOUNT, TYPE, FEED_URI, from = -199, until = -2))
+        }
+
+    @Test
     fun minPosition_returnsNewest_orNullWhenEmpty() =
         runTest {
             assertNull(dao.minPosition(ACCOUNT, TYPE, FEED_URI))

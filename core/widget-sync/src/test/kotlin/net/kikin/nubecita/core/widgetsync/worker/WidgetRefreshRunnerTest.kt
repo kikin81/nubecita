@@ -212,6 +212,23 @@ internal class WidgetRefreshRunnerTest {
         }
 
     @Test
+    fun `a capped catch-up counts as fresh, with no destructive refresh`() =
+        runTest {
+            // The fill reached its budget and left a gap, but the head is the
+            // newest page it fetched. Refreshing here would throw away the
+            // reader's place to "fix" a gap the app already marks.
+            val repo = mockk<FeedRepository>()
+            coEvery { repo.catchUp(any()) } returns Result.success(CatchUpOutcome.CAUGHT_UP_WITH_GAP)
+            coEvery { repo.trimToCap(any(), any(), any(), any()) } just Runs
+            val updater = RecordingUpdater()
+            val runner = runner(repo, updater = updater)
+
+            assertEquals(WidgetRefreshRunner.Outcome.SUCCESS, runner.run())
+            coVerify(exactly = 0) { repo.refresh(any()) }
+            assertEquals(1, updater.calls)
+        }
+
+    @Test
     fun `a cold partition still loads from the top`() =
         runTest {
             // Nothing to prepend above, so the destructive path is the only one

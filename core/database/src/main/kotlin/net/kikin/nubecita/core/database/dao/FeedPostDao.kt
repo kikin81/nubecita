@@ -195,6 +195,25 @@ interface FeedPostDao {
     ): Int?
 
     /**
+     * How many entries sit at positions in `[from, until)`.
+     *
+     * Sizes a catch-up's completed window for the analytics that count how
+     * often a fill reaches its budget.
+     */
+    @Query(
+        "SELECT COUNT(*) FROM feed_post " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND position >= :from AND position < :until",
+    )
+    suspend fun countInRange(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+        from: Int,
+        until: Int,
+    ): Int
+
+    /**
      * Removes every entry showing [uri], in every partition of the account.
      *
      * Every partition, because a post can sit in several feeds at once, and
