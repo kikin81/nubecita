@@ -1,7 +1,10 @@
 package net.kikin.nubecita.core.feedcache
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -58,13 +61,11 @@ class BenchTimelineFixtureTest {
         val countsByIndex =
             allItems()
                 .mapIndexedNotNull { index, item ->
-                    val embed =
-                        item.jsonObject["post"]
-                            ?.jsonObject
-                            ?.get("embed")
-                            ?.jsonObject
-                    val type = embed?.get("type")?.jsonPrimitive?.content
-                    val count = embed?.get("items")?.jsonArray?.size
+                    // Safe casts: an explicit JSON null (or an unexpected
+                    // shape) skips the item instead of throwing.
+                    val embed = (item.jsonObject["post"] as? JsonObject)?.get("embed") as? JsonObject
+                    val type = (embed?.get("type") as? JsonPrimitive)?.content
+                    val count = (embed?.get("items") as? JsonArray)?.size
                     if ((type == "Images" || type == "Gallery") && count != null) index to count else null
                 }
         val counts = countsByIndex.map { it.second }.toSet()
