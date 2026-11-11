@@ -11,6 +11,7 @@ import net.kikin.nubecita.core.analytics.AnalyticsEvent
 import net.kikin.nubecita.core.analytics.AnalyticsScreen
 import net.kikin.nubecita.core.analytics.TranslateAutoOptIn
 import net.kikin.nubecita.core.analytics.UserProperty
+import net.kikin.nubecita.core.posttranslation.PostTranslationCoordinator
 import net.kikin.nubecita.core.preferences.ReaderLanguages
 import net.kikin.nubecita.core.preferences.TranslationPreferences
 import net.kikin.nubecita.core.translation.LanguageIdentifier
@@ -92,7 +93,7 @@ class FeedTranslationAutoOfferTest {
         offered: Set<String> = emptySet(),
         prefs: TranslationPreferences = prefs(auto, offered),
         analytics: AnalyticsClient = RecordingAnalytics(),
-    ) = FeedTranslationCoordinator(
+    ) = PostTranslationCoordinator(
         engine = mockk<TranslationEngine>(relaxed = true),
         identifier = mockk<LanguageIdentifier> { coEvery { identify(any()) } returns null },
         models = mockk<TranslationModelRepository>(relaxed = true),
@@ -103,6 +104,7 @@ class FeedTranslationAutoOfferTest {
                 every { targetLanguage } returns flowOf("en")
             },
         analytics = analytics,
+        cache = EmptyTranslationCache,
     )
 
     private class RecordingAnalytics : AnalyticsClient {

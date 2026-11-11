@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.feed.impl.translation
+package net.kikin.nubecita.core.posttranslation
 
 import io.mockk.coEvery
 import io.mockk.every
@@ -45,7 +45,10 @@ import kotlin.time.Instant
  *
  * Most of these pin a case the obvious implementation gets wrong.
  */
-internal class FeedTranslationCoordinatorTest {
+internal class PostTranslationCoordinatorTest {
+    /** What the last [resolve] call returned. */
+    private var outcome: ResolveOutcome? = null
+
     @Test
     fun `a post in a language the reader reads is left alone`() =
         runTest {
@@ -238,7 +241,7 @@ internal class FeedTranslationCoordinatorTest {
                     every { this@mockk.downloaded } returns flowOf(emptyList())
                 }
             val subject =
-                FeedTranslationCoordinator(
+                PostTranslationCoordinator(
                     engine =
                         mockk {
                             every { supports(any(), any()) } returns true
@@ -258,6 +261,7 @@ internal class FeedTranslationCoordinatorTest {
                             every { targetLanguage } returns flowOf("en")
                         },
                     analytics = analytics,
+                    cache = InMemoryTranslationCache(),
                 )
 
             val job = launch { subject.resolve(post(langs = listOf("ja")), userInitiated = true) {} }
@@ -499,6 +503,122 @@ internal class FeedTranslationCoordinatorTest {
             assertTrue(analytics.events.isEmpty())
         }
 
+    // ---- the shared cache ------------------------------------------------
+
+    @Test
+    fun `a cached translation is shown at once, with no shimmer and no engine call`() =
+        runTest {
+            // Translated on another surface, or before a restart. Nothing is
+            // being worked on, so the card must not shimmer, and the language
+            // need not be on the auto list: a translation follows its post.
+            val cached = PostTranslationUi.Shown("ja", "Good morning", persistentListOf())
+            val engine = engineThatMustNotRun()
+
+            val states =
+                resolve(
+                    post(langs = listOf("ja")),
+                    cache = InMemoryTranslationCache(mapOf(("at://post/1" to "en") to cached)),
+                    engine = engine,
+                )
+
+            assertEquals(listOf(cached), states)
+            assertEquals(ResolveOutcome.Cached("ja"), outcome)
+        }
+
+    @Test
+    fun `a cached translation into another target language is not served`() =
+        runTest {
+            // The reader changed their device language: the old translation
+            // reads fine in *a* language, which is exactly why it must not show.
+            val cached = PostTranslationUi.Shown("ja", "Buenos días", persistentListOf())
+
+            val states =
+                resolve(
+                    post(langs = listOf("ja")),
+                    cache = InMemoryTranslationCache(mapOf(("at://post/1" to "es") to cached)),
+                )
+
+            assertEquals(listOf(PostTranslationUi.Offered("ja")), states)
+        }
+
+    @Test
+    fun `a post the reader reads shows nothing even if a translation of it is cached`() =
+        runTest {
+            // The reader added Japanese to never-translate after this post was
+            // translated. Detection runs first, so the cache can't bring it back.
+            val cached = PostTranslationUi.Shown("ja", "Good morning", persistentListOf())
+            val cache = InMemoryTranslationCache(mapOf(("at://post/1" to "en") to cached))
+
+            val states = resolve(post(langs = listOf("ja")), reader = listOf("en", "ja"), cache = cache)
+
+            assertTrue(states.isEmpty())
+            assertEquals(0, cache.reads)
+            assertEquals(ResolveOutcome.Settled, outcome)
+        }
+
+    @Test
+    fun `a translation is written to the cache once, as shown`() =
+        runTest {
+            val cache = InMemoryTranslationCache()
+
+            val states = resolve(post(langs = listOf("ja")), auto = setOf("ja"), downloaded = setOf("ja"), cache = cache)
+
+            val shown = assertInstanceOf(PostTranslationUi.Shown::class.java, states.last())
+            assertEquals(listOf(Triple("at://post/1", "en", shown)), cache.writes)
+            assertEquals(ResolveOutcome.Translated("ja"), outcome)
+        }
+
+    @Test
+    fun `a failed translation is reported as a failure and cached nowhere`() =
+        runTest {
+            val cache = InMemoryTranslationCache()
+            val engine =
+                mockk<TranslationEngine> {
+                    every { supports(any(), any()) } returns true
+                    coEvery { translate(any(), any(), any()) } returns Result.failure(IllegalStateException("boom"))
+                }
+
+            resolve(post(langs = listOf("ja")), downloaded = setOf("ja"), userInitiated = true, engine = engine, cache = cache)
+
+            assertEquals(ResolveOutcome.Failed, outcome)
+            assertTrue(cache.writes.isEmpty())
+        }
+
+    @Test
+    fun `an offer is an ordinary outcome, not a failure`() =
+        runTest {
+            resolve(post(langs = listOf("ja")))
+
+            assertEquals(ResolveOutcome.Settled, outcome)
+        }
+
+    @Test
+    fun `re-resolving a reader's request is not counted as a second tap`() =
+        runTest {
+            // A post the reader asked for is resolved again when its pack
+            // lands. It is still their request, so it translates, but the tap
+            // was already counted.
+            val analytics = RecordingAnalyticsClient()
+
+            val states =
+                resolve(
+                    post(langs = listOf("ja")),
+                    downloaded = setOf("ja"),
+                    userInitiated = true,
+                    countTap = false,
+                    analytics = analytics,
+                )
+
+            assertInstanceOf(PostTranslationUi.Shown::class.java, states.last())
+            assertTrue(analytics.events.none { it is TranslatePost })
+        }
+
+    private fun engineThatMustNotRun(): TranslationEngine =
+        mockk {
+            every { supports(any(), any()) } throws AssertionError("the engine must not be consulted")
+            coEvery { translate(any(), any(), any()) } throws AssertionError("the engine must not run")
+        }
+
     private suspend fun resolve(
         post: PostUi,
         reader: List<String> = listOf("en"),
@@ -508,6 +628,8 @@ internal class FeedTranslationCoordinatorTest {
         downloaded: Set<String> = emptySet(),
         metered: Boolean = false,
         userInitiated: Boolean = false,
+        countTap: Boolean = userInitiated,
+        cache: InMemoryTranslationCache = InMemoryTranslationCache(),
         downloadsLand: Boolean = false,
         requested: MutableList<String> = mutableListOf(),
         analytics: RecordingAnalyticsClient = RecordingAnalyticsClient(),
@@ -548,10 +670,10 @@ internal class FeedTranslationCoordinatorTest {
                 every { this@mockk.languages } returns flowOf(reader)
                 every { targetLanguage } returns flowOf(target)
             }
-        val subject = FeedTranslationCoordinator(engine, identifier, models, prefs, languages, analytics)
+        val subject = PostTranslationCoordinator(engine, identifier, models, prefs, languages, analytics, cache)
 
         val seen = mutableListOf<PostTranslationUi>()
-        subject.resolve(post, userInitiated) { seen += it }
+        outcome = subject.resolve(post, userInitiated, countTap) { seen += it }
         return seen
     }
 

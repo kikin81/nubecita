@@ -118,7 +118,7 @@ internal class ReaderLanguagesTest {
     fun `editing the never-translate list re-emits`() =
         runTest {
             val never = MutableStateFlow(emptySet<String>())
-            val subject = ReaderLanguages(FakeTranslationPreferences(never = never), { listOf("en-US") })
+            val subject = ReaderLanguages(FakeTranslationPreferences(never = never), FakeDeviceLocales(listOf("en-US")))
 
             subject.languages.test {
                 assertEquals(listOf("en"), awaitItem())
@@ -127,13 +127,35 @@ internal class ReaderLanguagesTest {
             }
         }
 
+    @Test
+    fun `a device language change re-targets translations`() =
+        runTest {
+            // The reader switches their phone from English to Japanese while
+            // the app is running. Translations must follow, not keep targeting
+            // English until the process dies.
+            val device = FakeDeviceLocales(listOf("en-US"))
+            val subject = ReaderLanguages(FakeTranslationPreferences(never = MutableStateFlow(emptySet())), device)
+
+            subject.targetLanguage.test {
+                assertEquals("en", awaitItem())
+                device.locales.value = listOf("ja-JP")
+                assertEquals("ja", awaitItem())
+            }
+        }
+
     private fun readerLanguages(
         device: List<String>,
         never: Set<String> = emptySet(),
     ) = ReaderLanguages(
         preferences = FakeTranslationPreferences(never = MutableStateFlow(never)),
-        deviceLocales = { device },
+        deviceLocales = FakeDeviceLocales(device),
     )
+
+    private class FakeDeviceLocales(
+        initial: List<String>,
+    ) : DeviceLocales {
+        override val locales = MutableStateFlow(initial)
+    }
 
     private class FakeTranslationPreferences(
         private val never: MutableStateFlow<Set<String>>,

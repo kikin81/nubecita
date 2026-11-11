@@ -45,6 +45,7 @@ dependencies {
     implementation(project(":core:moderation"))
     implementation(project(":core:post-interactions"))
     implementation(project(":core:post-interactions-ui"))
+    implementation(project(":core:post-translation"))
     implementation(project(":core:posting"))
     implementation(project(":core:preferences"))
     implementation(project(":core:translation"))

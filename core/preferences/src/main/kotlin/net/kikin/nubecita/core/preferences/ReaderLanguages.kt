@@ -1,8 +1,21 @@
 package net.kikin.nubecita.core.preferences
 
+import android.content.ComponentCallbacks
+import android.content.Context
+import android.content.res.Configuration
 import androidx.core.os.LocaleListCompat
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.core.common.language.LanguageTags
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -45,8 +58,8 @@ class ReaderLanguages
          * what their German posts get translated into.
          */
         val languages: Flow<List<String>> =
-            preferences.neverTranslateLanguages.map { never ->
-                LanguageTags.normalizeAll(deviceLocales.current() + never)
+            combine(deviceLocales.locales, preferences.neverTranslateLanguages) { device, never ->
+                LanguageTags.normalizeAll(device + never)
             }
 
         /**
@@ -67,21 +80,61 @@ class ReaderLanguages
     }
 
 /**
- * The device's preferred locales, most-preferred first.
+ * The device's preferred locales, most-preferred first, as they change.
+ *
+ * A flow because the reader can change their device language while the app
+ * is running. Android announces that as a configuration change; a value read
+ * once would keep translating into the old language until the process died,
+ * and so would anything app-scoped that outlives the recreated activity.
  *
  * An interface so the resolution rules above can be unit-tested on the JVM:
  * the real implementation reads a process-wide Android singleton that a test
  * cannot meaningfully vary.
  */
-fun interface DeviceLocales {
-    /** The reader's configured locales as BCP-47 tags, most-preferred first. */
-    fun current(): List<String>
+interface DeviceLocales {
+    /**
+     * The reader's configured locales as BCP-47 tags, most-preferred first.
+     * Emits the current list on collection and again whenever it changes.
+     */
+    val locales: Flow<List<String>>
 }
 
+/**
+ * [DeviceLocales] backed by one app-wide configuration listener.
+ *
+ * A [StateFlow] held for the process, not a cold `callbackFlow` per
+ * collector: callers read it with `.first()` once per post they resolve, and
+ * a cold flow would register and unregister a `ComponentCallbacks` on every
+ * one of those reads. Here one registration lives for the process and every
+ * read is the current value.
+ */
+@Singleton
 internal class SystemDeviceLocales
     @Inject
-    constructor() : DeviceLocales {
-        override fun current(): List<String> {
+    constructor(
+        @param:ApplicationContext private val context: Context,
+        @ApplicationScope scope: CoroutineScope,
+    ) : DeviceLocales {
+        override val locales: StateFlow<List<String>> =
+            callbackFlow {
+                val callbacks =
+                    object : ComponentCallbacks {
+                        // By the time an application-level callback runs, the
+                        // framework has already installed the new default
+                        // locale list, so reading it here sees the change.
+                        override fun onConfigurationChanged(newConfig: Configuration) {
+                            trySend(read())
+                        }
+
+                        @Deprecated("Deprecated in API 34; required by the interface.")
+                        override fun onLowMemory() = Unit
+                    }
+                context.registerComponentCallbacks(callbacks)
+                awaitClose { context.unregisterComponentCallbacks(callbacks) }
+            }.distinctUntilChanged()
+                .stateIn(scope, SharingStarted.Eagerly, read())
+
+        private fun read(): List<String> {
             // getAdjustedDefault, not getDefault: it reorders the system list
             // against the locales the app actually ships, so the head is a
             // language the reader both prefers and sees the UI in.
