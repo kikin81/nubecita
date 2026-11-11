@@ -5,6 +5,7 @@ package net.kikin.nubecita.feature.mediaviewer.impl
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.gestures.Orientation
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -64,6 +66,7 @@ import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import me.saket.telephoto.zoomable.rememberZoomableImageState
 import me.saket.telephoto.zoomable.rememberZoomableState
 import net.kikin.nubecita.core.analytics.ReviewTrigger
+import net.kikin.nubecita.core.common.navigation.LocalAnimatedVisibilityScope
 import net.kikin.nubecita.core.common.navigation.LocalGalleryStateSync
 import net.kikin.nubecita.core.common.navigation.SharedImageCorners
 import net.kikin.nubecita.core.common.navigation.SharedImageSurfaces
@@ -478,14 +481,40 @@ private fun LoadedState(
                     peerCornerRadius = SharedImageCorners.CARD,
                 )
 
-            ZoomableAsyncImage(
-                model = imageRequest,
-                contentDescription = image.altText,
-                state = zoomableState,
-                modifier = Modifier.fillMaxSize().then(sharedModifier),
-                contentScale = ContentScale.Fit,
-                onClick = { onTapImage() },
-            )
+            // While the shared transition runs, lay the image out at the
+            // rect `ContentScale.Fit` draws into, not the whole screen. Only
+            // the arriving side of a shared element draws, so on the way back
+            // it is the card's cropped image drawn into the viewer's bounds:
+            // full-screen bounds showed it full-bleed for a frame before it
+            // shrank (nubecita-mdmd.2). At rest the image takes the whole
+            // screen again so zoom and pan gestures do. A Fit image draws the
+            // same pixels in either box, so the switch is invisible. With no
+            // declared aspect ratio there is no fitted rect to use; those keep
+            // the full-screen layout.
+            val transitionScope = LocalAnimatedVisibilityScope.current
+            val fittedRatio =
+                image.aspectRatio?.takeIf {
+                    transitionScope != null &&
+                        isSharedTransitionRunning(
+                            current = transitionScope.transition.currentState,
+                            target = transitionScope.transition.targetState,
+                        )
+                }
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                ZoomableAsyncImage(
+                    model = imageRequest,
+                    contentDescription = image.altText,
+                    state = zoomableState,
+                    modifier =
+                        if (fittedRatio != null) {
+                            Modifier.aspectRatio(fittedRatio).then(sharedModifier)
+                        } else {
+                            Modifier.fillMaxSize().then(sharedModifier)
+                        },
+                    contentScale = ContentScale.Fit,
+                    onClick = { onTapImage() },
+                )
+            }
         }
 
         val chromeEnter = fadeIn(MaterialTheme.motionScheme.fastEffectsSpec())
@@ -623,3 +652,12 @@ private fun MediaViewerError.localizedMessage(): String =
         MediaViewerError.NoImages -> stringResource(R.string.mediaviewer_error_no_images)
         is MediaViewerError.Unknown -> stringResource(R.string.mediaviewer_error_unknown)
     }
+
+/**
+ * Whether the viewer's enter/exit transition is in progress: anything but
+ * settled on screen. Pure so the rule is testable without a composition.
+ */
+internal fun isSharedTransitionRunning(
+    current: EnterExitState,
+    target: EnterExitState,
+): Boolean = current != EnterExitState.Visible || target != EnterExitState.Visible
