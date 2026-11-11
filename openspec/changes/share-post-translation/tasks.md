@@ -1,7 +1,7 @@
 ## 1. PR 1 — `:core:post-translation`: shared store, cache, coordinator
 
 - [ ] 1.1 Create `:core:post-translation` (`nubecita.android.library` + `.hilt`, empty `consumer-rules.pro`, `compose-runtime` dep) and register it in `settings.gradle.kts`.
-- [ ] 1.2 Make `DeviceLocales` observable (D5): a `locales` flow from a `ComponentCallbacks` on the application context, and `ReaderLanguages.languages` combining it with `neverTranslateLanguages`. Unit-test that a locale emission changes `targetLanguage`, keeping the existing `ReaderLanguages` resolution tests green. The store collects it once (`stateIn`) and the coordinator reads the current value; no per-post `.first()` on the locale flow.
+- [ ] 1.2 Make `DeviceLocales` observable (D5): a `locales` flow from a `ComponentCallbacks` on the application context, and `ReaderLanguages.languages` combining it with `neverTranslateLanguages`. Unit-test that a locale emission changes `targetLanguage`, keeping the existing `ReaderLanguages` resolution tests green. `SystemDeviceLocales` holds it as a process-long `StateFlow`, so per-post reads register nothing.
 - [ ] 1.3 Add `@MainDispatcher` to `:core:common` beside `@DefaultDispatcher` / `@IoDispatcher`, bound to `Dispatchers.Main.immediate`.
 - [ ] 1.4 Move `FeedTranslationCoordinator` → `PostTranslationCoordinator` with behaviour unchanged; the feed switches its import. Move `FeedTranslationCoordinatorTest` with every case intact.
 - [ ] 1.5 Add the internal `TranslationCache` interface plus a Room implementation over `TranslationDao` (facets via `Facet.serializer()`), with a JVM round-trip test for facet serialization.
