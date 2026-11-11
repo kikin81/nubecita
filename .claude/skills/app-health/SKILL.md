@@ -87,7 +87,7 @@ in `YYYY-MM-DD`. Everything downstream uses these.
 ### 2. Run the query battery
 
 Work through `references/metrics.md` section by section, issuing the MCP calls it
-specifies for BOTH the current and prior windows. The five areas:
+specifies for BOTH the current and prior windows. The six areas:
 
 1. **Auth & login** — success vs error rate, error by reason/stage, the redirect
    funnel, and the spurious-logout signals (`session_cleared` invalid_grant,
@@ -123,6 +123,13 @@ specifies for BOTH the current and prior windows. The five areas:
    before the build carrying it ships there is no data — say "not shipped
    yet", not 0. Read §5's table before calling a group ours: 5xx and
    `UpstreamFailure` are usually Bluesky's side.
+6. **Decision breakdowns** — the custom dimensions nothing above reads, one
+   question at a time (catalog §6): how often readers hit the catch-up cap and
+   on which feed, translation health by language and failure reason, which
+   notification types people tap, which paywall plan is picked versus checked
+   out, and the §5 error groups reshaped for the dashboard. These are product
+   questions, not health checks — they get 🟢/🟡 at most, and a question whose
+   event has not shipped yet says so rather than reporting 0.
 
 Batch calls where the MCP allows. Don't invent numbers — if a metric returns
 nothing, say so.
@@ -178,19 +185,29 @@ things to fix — that's what the reader wants first. Every 🔴/🟡 needs a on
   |---|---|---|
   | `weekly` | `weekly.json` | one row per week, metrics as columns — the trend spine |
   | `findings` | `findings.json` | this week's ranked findings, replaced each run |
+  | `breakdowns` | `breakdowns.json` | this week's decision breakdowns (catalog §6), replaced each run |
 
   To update: read the current `weekly.json` (its url is in the `datasets/weekly`
   document, `Artifact` `action: "read"` with that `path`), append one row for
-  the new week, re-upload both files (`Artifact` `action: "publish"` with
+  the new week, re-upload all three files (`Artifact` `action: "publish"` with
   `asset: true`, one call each — a JSON file is approved on its own), then one
-  `ArtifactData` `batch` updating `datasets/weekly` and `datasets/findings`
-  with the new `url` and `updated`. The page itself needs no change: it reads
+  `ArtifactData` `batch` updating `datasets/weekly`, `datasets/findings` and
+  `datasets/breakdowns` with the new `url` and `updated`. The page itself needs no change: it reads
   whatever rows the file holds. Pin every write with the `if_version` you read.
 
   Network errors (catalog §5) add four `weekly.json` columns —
   `api_error_users_pct`, `api_error_per_user`, `api_error_5xx_share`,
   `refresh_lost_response_pct` — and their top groups go into `findings.json`
   as one finding per group worth naming (endpoint, code, users, likely cause).
+
+  Decision breakdowns (catalog §6) add `breakdowns.json` and three headline
+  columns to the week's row — `catch_up_cap_users_pct`,
+  `translate_error_rate_pct`, `notification_taps_pu`. The first run that writes
+  `breakdowns.json` also needs a one-time page change: a `datasets/breakdowns`
+  document and one panel per question on `files/index.html` (question as the
+  title, headline and verdict, then a small table of `rows` with the prior
+  week beside each). After that the page reads whatever questions the file
+  holds, so a new question is a catalog change only.
 
   Add a metric by adding its column to `weekly.json` *and* a tile or row to
   `files/index.html`; older weeks simply lack the key. Leave a metric you did
@@ -241,8 +258,16 @@ Window: <current range> vs <prior range> (Nd WoW) · Sources: GA4 / Crashlytics 
 - Newest app version vs the rest; refresh lost_response share; video network errors
 <table>
 
+## Decision breakdowns
+- One line per question (catalog §6): the question, its headline, 🟢/🟡, and the
+  top rows — e.g. "Catch-up cap: 2.1% of readers saw a gap (prior 1.4%), all on
+  following, 1.2 per reader → gap fill not yet worth building"
+- Name the decision each number points at; say "not shipped yet" or "low
+  volume" where that is the honest reading
+
 ## Data gaps
 - <any source/metric that was unavailable this run>
+- <registered dimensions no question reads — candidates to archive>
 ```
 
 ## Safety & privacy (important)

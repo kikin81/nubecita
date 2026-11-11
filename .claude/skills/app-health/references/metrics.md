@@ -15,6 +15,7 @@ them here.
 - [4. Stability](#4-stability)
 - [4a. Enriching an issue with the `android` CLI](#4a-enriching-an-issue-with-the-android-cli)
 - [5. Network errors](#5-network-errors)
+- [6. Decision breakdowns](#6-decision-breakdowns)
 - [Week-over-week method](#week-over-week-method)
 - [Flag thresholds](#flag-thresholds)
 
@@ -64,6 +65,12 @@ change):
 | api_error endpoint (XRPC NSID) | `customEvent:endpoint` |
 | api_error code · video_playback_error code | `customEvent:error_code` (string for api_error, number for video) |
 | api_error HTTP status | `customEvent:status` |
+| feed_catch_up_exhausted entries written | `customEvent:posts_fetched` (shown as "Catch Up Posts Fetched"; registered 2026-11-10, no backfill) |
+| translate_* source · target language | `customEvent:source_language` · `customEvent:target_language` |
+| translate_post on-device model state | `customEvent:model_state` |
+| translation_model_download result | `customEvent:outcome` |
+| translate_error reason | `customEvent:reason` (shared with login_error / session_cleared — always filter by `eventName`) |
+| notification_tap type · source | `customEvent:notification_type` · `customEvent:notification_source` |
 
 There's also a **`customUser:is_pro`** user-scoped dim — useful to segment any
 metric by Pro vs free. If a param isn't registered, report the event total and
@@ -592,7 +599,183 @@ home sections, so the network story reads in one place):
 
 ---
 
-## Week-over-week method
+## 6. Decision breakdowns
+
+Answers: what do the custom dimensions say about the decisions we actually
+have to make? Sections 1–5 judge health; this one splits a handful of events by
+the dimensions nothing else reads, one **question** at a time, so each panel on
+the dashboard answers something a person would act on. A dimension that feeds
+no question here is a candidate to archive — say so under Data gaps rather than
+querying it for its own sake.
+
+Every query: `run_report` with both date ranges, `dimension_filter` on
+`eventName` (several dimensions are shared across events — `reason`, `outcome`
+— so never split one without the event filter), metrics `eventCount` and
+`activeUsers`, ordered by `eventCount` desc. Use the total `activeUsers` from
+Conventions as the denominator. Low volume is the norm here: show counts, not
+percentages, below ~20 events (Week-over-week method).
+
+Two traps seen on the first live run (2026-11-10):
+
+- **`(not set)` is usually a registration date, not a bug.** Dimensions apply
+  only from the day they were registered, with no backfill, so an event that
+  predates its dimension reports `(not set)` for those days — 21 of 36
+  `translate_post` events did, the week `target_language` was registered. Show
+  the `(not set)` row as such, never fold it into a real value, and expect it
+  to fade within a window.
+- **Count events *and* users, and say when one user is the story.** That same
+  week `translate_error` was 32 events against 36 `translate_post` — an 89%
+  event rate — but all 32 came from one user. When an event's
+  `eventCount ÷ activeUsers` is far above the rest, report the user-level rate
+  as the headline and name the concentration ("1 user, 32 errors"); a single
+  stuck device is a bug report, not a failing feature.
+
+**A ratio with a zero denominator is not measured.** No translations, no plan
+picked, no active users of an event — the rate is absent, never `0%` and
+never a division error: leave its `weekly.json` key out, give its question the
+note ("no translations this week"), and keep the counts that do exist.
+
+| id | question | the decision it feeds |
+|---|---|---|
+| `catch_up_cap` | How often do readers hit the catch-up cap, and on which feed? | Whether to build the on-demand "load missing posts" fill (nubecita-2xk0) |
+| `translation` | Is translation working, for which languages, and where does it fail? | Which language pairs to prioritise; whether the on-device model is the bottleneck |
+| `notifications` | Which notifications bring people back into the app? | Which notification types earn their interruption |
+| `paywall_plan` | Which plan do people pick, and do they carry it to checkout? | Plan pricing and ordering on the paywall |
+| `api_errors` | Which endpoints fail, and with what? | Reuses §5 — no new queries |
+
+### `catch_up_cap` — `feed_catch_up_exhausted`
+
+Fired once each time a feed catch-up reaches its entry budget before reaching
+the reader's cached posts and completes leaving a gap (the passive marker,
+"Older posts not loaded"). Shipped in **1.376.0**; before that build there is
+no data — "not shipped yet", not 0.
+
+1. Dimension `customEvent:feed_type`. Report events and users per feed type.
+   Only feeds whose XRPC method takes `since` catch up — `following` and
+   `list` (`FeedType.supportsSince`); generator feeds refresh instead. A
+   `discover` or `custom` value means that changed.
+2. **Reach:** `feed_catch_up_exhausted activeUsers ÷ total activeUsers` —
+   the share of readers who saw a gap this week. This is the headline.
+3. **Repeat rate:** `eventCount ÷ activeUsers` for the event — gaps per affected
+   reader. Near 1 means occasional heavy days; well above 1 means a reader who
+   overflows on most opens.
+4. `customEvent:posts_fetched` is near-constant (the budget less the reserved
+   slot, 249) by construction. Report it only if it is not — a smaller value
+   means windows are filling early, which is worth a look.
+
+Reading it: reach under ~5% with repeat ≈1 says the gap is rare and
+jump-to-newest is enough. Reach above ~15%, or repeat well above 1 for a stable
+set of users, says the gap is a routine experience — the case for building the
+gap fill. Either way it is a product signal, not a health one: verdict 🟢/🟡
+only, never 🔴.
+
+### `translation` — `translate_post`, `translate_error`, `translation_model_download`, `translate_batch`
+
+1. `translate_post` by `customEvent:target_language` — which languages readers
+   translate *into* (their own). Top 5 by events.
+2. `translate_post` by `customEvent:source_language` — which languages they
+   translate *from*. Top 5.
+3. `translate_post` by `customEvent:model_state` — `ready` versus
+   `needs_download`: how often the on-device model was already there when the
+   reader asked.
+4. `translate_error` by `customEvent:reason`. **Error rate** by users —
+   `translate_error activeUsers ÷ translate_post activeUsers` — is the
+   headline; report the event rate beside it, and the concentration when they
+   disagree (see the traps above). No `translate_post` users means no rate
+   (zero-denominator rule above).
+5. `translation_model_download` by `customEvent:outcome` — download success
+   versus failure.
+6. `translate_batch` — `eventCount` and `activeUsers` only (automatic
+   translation on scroll). `translated_count` is registered but adds little
+   week to week; skip it unless the batch count moves.
+
+Reading it: a user-level error rate above ~10%, or a model-download failure
+share above ~20%, is 🟡; a single `reason` dominating errors names the fix, and
+a single *user* dominating them is a device to reproduce on, not a rate. A large
+`needs_download` share means first use is slow — worth a prefetch.
+
+### `notifications` — `notification_tap`
+
+1. Dimensions `customEvent:notification_type`, `customEvent:notification_source`.
+   Sources: `push` (from the push gateway), `dm_poll` (a local notification
+   from the background DM poll), and `in_app` (a row tapped in the
+   Notifications tab).
+2. **Re-engagement taps per active user** —
+   `(push eventCount + dm_poll eventCount) ÷ total activeUsers`, the total
+   being the Conventions denominator, not the event's own users — is the
+   headline. `in_app` taps come from people already in the app, so they
+   measure the Notifications tab, not what brings anyone back; report them as
+   a separate line, never summed into the headline.
+3. The type mix (`reply`, `like`, `follow`, `message`, …) within the
+   re-engagement sources.
+
+Reading it: this counts taps, not deliveries (the app does not log a
+delivery), so it shows which types people act on, not a click-through rate.
+A type that vanishes week over week while others hold usually means the server
+or the push path stopped sending it — cross-check push registration (§5,
+Crashlytics `PushRegistration` non-fatals).
+
+### `paywall_plan` — `paywall_plan_selected`, `paywall_checkout_started`
+
+1. Both events by `customEvent:plan`, `activeUsers`.
+2. **Carry-through per plan** = `checkout_started users ÷ plan_selected users`,
+   per plan; a plan nobody picked has no carry-through (zero-denominator rule).
+3. Pair with RevenueCat new subscriptions by product for the same window (§3) —
+   GA has no purchase-success event, so payment lives only there.
+
+Reading it: volumes are tiny (§3's exposure note), so report counts and the
+pairing, never a percentage on single digits. A plan that is picked but rarely
+checked out points at its price or its checkout path.
+
+### `api_errors` — reuse §5
+
+Take §5's endpoint × error code table and status-class split as they are; this
+question only reshapes them into the dashboard dataset below. Do not re-query.
+In `breakdowns.json` its entry has `"dimension": "endpoint × error_code"` and
+one row per §5 group, `"key": "<endpoint> · <error_code>"` (e.g.
+`"app.bsky.actor.getPreferences · use_dpop_nonce"`), top 8 by events. Both
+dimensions are already in the Conventions table.
+
+### Dashboard output
+
+Write `breakdowns.json` beside `weekly.json` and `findings.json`, **replaced
+each run** (like `findings.json` — it describes this week against last):
+
+```json
+{
+  "week": "<current range start>..<end>",
+  "prior": "<prior range start>..<end>",
+  "questions": [
+    {
+      "id": "catch_up_cap",
+      "question": "How often do readers hit the catch-up cap, and on which feed?",
+      "headline": "2.1% of readers saw a gap (prior: 1.4%), 1.2 per affected reader",
+      "verdict": "🟢",
+      "dimension": "feed_type",
+      "rows": [
+        {"key": "following", "events": 41, "users": 34, "prior_events": 27, "prior_users": 23}
+      ],
+      "note": "optional — e.g. 'not shipped yet', 'low volume'"
+    }
+  ]
+}
+```
+
+One entry per question, in the table's order; a question whose events are not
+shipped yet still gets an entry with empty `rows` and the note, so the panel
+says so instead of disappearing. Cap `rows` at 8 (top by events). Never put a
+row the dimension did not return.
+
+Add these headline columns to the week's `weekly.json` row, so the trend is
+charted with the rest (absent key when not measured, never 0):
+
+| column | value |
+|---|---|
+| `catch_up_cap_users_pct` | `catch_up_cap` reach |
+| `translate_error_rate_pct` | `translation` error rate |
+| `notification_taps_pu` | re-engagement (`push` + `dm_poll`) taps per active user |
+
+
 
 - Two equal windows: current = last N full days (exclude today), prior = the N
   days before that.
