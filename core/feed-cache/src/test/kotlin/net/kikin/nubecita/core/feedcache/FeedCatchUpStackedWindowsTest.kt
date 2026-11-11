@@ -17,9 +17,11 @@ import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
+import net.kikin.nubecita.core.database.model.FeedItemEntity
 import net.kikin.nubecita.core.database.model.FeedPostEntity
 import net.kikin.nubecita.core.database.model.FeedRemoteKeyEntity
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.util.TreeMap
 
@@ -69,28 +71,72 @@ internal class FeedCatchUpStackedWindowsTest {
     /** `feed_item` positions holding a projected item (seams aside). */
     private val items = sortedSetOf<Int>()
 
-    /** Item positions a prepend wrote over while they were already taken. */
+    /** `feed_item` seam rows: position → whether the marker is passive (exhausted). */
+    private val seams = TreeMap<Int, Boolean>()
+
+    /** `feed_item_member` rows per position. A projected item has at least one. */
+    private val members = mutableMapOf<Int, Int>()
+
+    /** Item positions a write replaced while they were already taken. */
     private val overwrittenItems = mutableListOf<Int>()
+
+    /** How many of each page's entries the projection renders; all of them by default. */
+    private var renders: (Int) -> Int = { it }
 
     private val feedItemDao =
         mockk<FeedItemDao>(relaxed = true).also { dao ->
             coEvery { dao.firstItemPositionAtOrAbove(ACCOUNT, TYPE, URI, any()) } answers { items.ceiling(arg(3)) }
+            // The DAO contract after this change: only the active seam goes.
+            coEvery { dao.clearSeam(ACCOUNT, TYPE, URI) } answers { seams.entries.removeIf { !it.value } }
+            coEvery { dao.deleteMembersUnderSeams(ACCOUNT, TYPE, URI) } answers { members.keys.removeAll(seams.keys) }
+            coEvery { dao.upsert(any()) } answers {
+                firstArg<List<FeedItemEntity>>().forEach { row ->
+                    if (row.rowType == FeedItemEntity.ROW_TYPE_SEAM) {
+                        // Same primary key: a seam written here replaces the item.
+                        if (items.remove(row.position)) overwrittenItems += row.position
+                        seams[row.position] = row.seamExhausted == true
+                    } else {
+                        items += row.position
+                    }
+                }
+            }
         }
 
     private val projectionWriter =
         mockk<FeedProjectionWriter>(relaxed = true).also {
-            // Every entry renders, so each call stops after its first page and
-            // the second page is genuinely a resume. Like the real write, the
-            // block of items starts at the base position.
+            // Like the real write, the block of items starts at the base
+            // position, one member row each, replacing whatever row was there.
             coEvery { it.writePrepend(any(), any(), any()) } answers {
-                val count = secondArg<List<FeedViewPost>>().size
+                val count = renders(secondArg<List<FeedViewPost>>().size)
                 val base = thirdArg<Int>()
                 (base until base + count).forEach { position ->
+                    seams.remove(position)
                     if (!items.add(position)) overwrittenItems += position
+                    members[position] = 1
                 }
                 count
             }
         }
+
+    /** A stored post with its projected item, as a refresh or earlier fill leaves it. */
+    private fun storedPost(
+        position: Int,
+        tail: String = "p$position",
+    ) {
+        entries[position] = tail
+        items += position
+        members[position] = 1
+    }
+
+    /** Serves `limit` entries per page under [cursor], never exhausting the range. */
+    private fun endlessRange(since: String) {
+        var page = 0
+        coEvery { networkSource.fetchPage(key, cursor = any(), since = since, limit = any()) } answers {
+            page++
+            val limit = arg<Int>(3)
+            Result.success(FeedNetworkPage((1..limit).map { post("p$page-$it") }, "fill-$page", if (page == 1) "newest" else null))
+        }
+    }
 
     private val networkSource = mockk<FeedNetworkSource>()
 
@@ -210,6 +256,82 @@ internal class FeedCatchUpStackedWindowsTest {
             first.await()
             second.await()
             assertEquals(2, fetches)
+        }
+
+    // --- markers never replace a post (nubecita-2xk0.1) ---------------------
+
+    @Test
+    fun `a full window leaves its bottom slot for the marker`() =
+        runTest {
+            // On device the window filled right up to the head, and the marker
+            // was written over the post sitting there.
+            (0..4).forEach { storedPost(it) }
+            remoteKey = remoteKeyEntity(boundarySince = "boundary-0")
+            endlessRange(since = "boundary-0")
+
+            repeat(10) { freshCatchUp().catchUp(key).getOrThrow() }
+
+            assertEquals(emptyList<Int>(), overwrittenItems, "a write replaced a post")
+            assertTrue(-1 !in entries, "the slot above the head holds an entry")
+            assertEquals(mapOf(-1 to true), seams.toMap(), "the passive marker is not in the reserved slot")
+            // Every post the refresh wrote is still there.
+            assertTrue(items.containsAll((0..4).toList()))
+        }
+
+    @Test
+    fun `the active seam sits where the next fill page starts`() =
+        runTest {
+            // A page whose projection dropped a row: base + projected is a slot
+            // that holds an entry, which the old seam write landed on.
+            (0..4).forEach { storedPost(it) }
+            remoteKey = remoteKeyEntity(boundarySince = "boundary-0")
+            renders = { entries -> entries - 1 }
+            coEvery { networkSource.fetchPage(key, cursor = null, since = "boundary-0", limit = any()) } returns
+                Result.success(FeedNetworkPage(listOf(post("n1"), post("n2"), post("n3")), "fill-1", "newest"))
+
+            freshCatchUp().catchUp(key).getOrThrow()
+
+            val base = -FeedCatchUp.CATCH_UP_ENTRY_BUDGET
+            assertEquals(mapOf(base + 3 to false), seams.toMap())
+            assertTrue(base + 3 !in entries)
+            assertEquals(base + 3, remoteKey?.fillNextPosition)
+        }
+
+    @Test
+    fun `a marker is not written over a post when no slot is free`() =
+        runTest {
+            // The state a full window left behind before the slot was reserved:
+            // entries packed right down to the head, the fill still pending.
+            (-1250..-1001).forEach { storedPost(it) }
+            (-1000..-996).forEach { storedPost(it) }
+            remoteKey =
+                remoteKeyEntity(boundarySince = "boundary-0").copy(
+                    fillCursor = "fill-5",
+                    pendingBoundary = "newest",
+                    fillNextPosition = -1000,
+                )
+
+            freshCatchUp().catchUp(key).getOrThrow()
+
+            assertEquals(emptyList<Int>(), overwrittenItems)
+            assertTrue(items.containsAll((-1250..-996).toList()))
+        }
+
+    @Test
+    fun `member rows the old marker write orphaned are removed`() =
+        runTest {
+            // The Fold: a marker at -1000 over the post that was there, and that
+            // post's member row still under it.
+            (-1000..-996).forEach { storedPost(it) }
+            items -= -1000
+            seams[-1000] = true
+            remoteKey = remoteKeyEntity(boundarySince = "boundary-0")
+            endlessRange(since = "boundary-0")
+
+            freshCatchUp().catchUp(key).getOrThrow()
+
+            assertTrue(-1000 !in members, "a member row is still under the marker")
+            assertEquals(true, seams[-1000], "the existing passive marker was removed")
         }
 
     private fun remoteKeyEntity(boundarySince: String) =

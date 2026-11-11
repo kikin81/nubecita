@@ -174,16 +174,49 @@ internal class FeedItemDaoTest : DatabaseTest() {
         runTest {
             dao.upsert(listOf(item(position = -3), seam(position = -1, exhausted = false), item(position = 0)))
 
-            val found = dao.seam(ACCOUNT, TYPE, FEED_URI)
-            assertNotNull(found)
-            assertEquals(FeedItemEntity.ROW_TYPE_SEAM, found?.rowType)
-            assertEquals(false, found?.seamExhausted)
+            val found = dao.itemsIn(ACCOUNT, TYPE, FEED_URI).single { it.position == -1 }
+            assertEquals(FeedItemEntity.ROW_TYPE_SEAM, found.rowType)
+            assertEquals(false, found.seamExhausted)
             // The seam is a row in the ordered read, not an inferred gap.
             assertEquals(listOf(-3, -1, 0), dao.itemsIn(ACCOUNT, TYPE, FEED_URI).map { it.position })
 
             dao.clearSeam(ACCOUNT, TYPE, FEED_URI)
-            assertNull(dao.seam(ACCOUNT, TYPE, FEED_URI))
             assertEquals(listOf(-3, 0), dao.itemsIn(ACCOUNT, TYPE, FEED_URI).map { it.position })
+        }
+
+    @Test
+    fun clearSeam_removesTheActiveSeamOnly() =
+        runTest {
+            // A passive gap marker is a break a completed fill left; clearing the
+            // fill's moving seam must not take it with it (nubecita-2xk0).
+            dao.upsert(
+                listOf(
+                    seam(position = -260, exhausted = false),
+                    item(position = -259),
+                    seam(position = -1, exhausted = true),
+                    item(position = 0),
+                ),
+            )
+
+            dao.clearSeam(ACCOUNT, TYPE, FEED_URI)
+
+            assertEquals(listOf(-259, -1, 0), dao.itemsIn(ACCOUNT, TYPE, FEED_URI).map { it.position })
+            assertEquals(true, dao.itemsIn(ACCOUNT, TYPE, FEED_URI).single { it.position == -1 }.seamExhausted)
+        }
+
+    @Test
+    fun deleteMembersUnderSeams_removesOnlyOrphanedMembers() =
+        runTest {
+            // The Fold's damage: a marker written over the item at -1000, the
+            // item's member row left behind under it.
+            dao.upsert(listOf(seam(position = -1000, exhausted = true), item(position = -999)))
+            dao.upsertMembers(listOf(member(-1000, 0, "at://post/lost"), member(-999, 0, "at://post/-999")))
+
+            dao.deleteMembersUnderSeams(ACCOUNT, TYPE, FEED_URI)
+            dao.deleteMembersUnderSeams(ACCOUNT, TYPE, FEED_URI)
+
+            assertEquals(emptyList<String>(), dao.membersOf(ACCOUNT, TYPE, FEED_URI, -1000).map { it.uri })
+            assertEquals(listOf("at://post/-999"), dao.membersOf(ACCOUNT, TYPE, FEED_URI, -999).map { it.uri })
         }
 
     @Test
