@@ -1,8 +1,15 @@
 package net.kikin.nubecita.designsystem.component
 
 import android.content.res.Configuration
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.data.models.AuthorUi
@@ -14,8 +21,9 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 import kotlin.time.Instant
 
 /**
- * Screenshot baselines for [ThreadCluster] — two visual branches
- * (with-ellipsis, without-ellipsis) × light/dark = 4 baselines.
+ * Screenshot baselines for [ThreadCluster] — the with/without-ellipsis
+ * branches, the direct-reply-to-root collapse, and a video on the root
+ * (rendered through the context video slot), each in light and dark.
  *
  * Each fixture uses three distinct authors so the cluster shape is
  * visible: connector lines join three post bodies, with the optional
@@ -120,5 +128,45 @@ private fun ThreadClusterDirectReplyToRootScreenshot() {
         // Pass the same post as both root and parent — simulates the
         // direct-reply-to-root wire shape after the mapper runs.
         ThreadCluster(root = root(), parent = root(), leaf = leaf(), hasEllipsis = false)
+    }
+}
+
+@PreviewTest
+@Preview(name = "video-on-root-light", showBackground = true)
+@Preview(name = "video-on-root-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ThreadClusterVideoOnRootScreenshot() {
+    // The root carries a video and the leaf is a plain-text reply. The root
+    // must take the context slot — before nubecita-2e8h it got none, and its
+    // video rendered as nothing at all. `:designsystem` can't reach the feed's
+    // real video embed, so the slot paints a stub block: a regression drops
+    // the block and the baseline no longer matches.
+    val videoRoot =
+        root().copy(
+            embed =
+                EmbedUi.Video(
+                    posterUrl = null,
+                    playlistUrl = "https://video.bsky.app/fixture/playlist.m3u8",
+                    aspectRatio = 16f / 9f,
+                    durationSeconds = null,
+                    altText = null,
+                ),
+        )
+    NubecitaTheme(dynamicColor = false) {
+        ThreadCluster(
+            root = videoRoot,
+            parent = videoRoot,
+            leaf = leaf(),
+            hasEllipsis = false,
+            contextVideoEmbedSlot = { _, _, _ ->
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(120.dp)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                )
+            },
+        )
     }
 }

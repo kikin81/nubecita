@@ -10,9 +10,13 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.MainShellNavState
 import net.kikin.nubecita.core.testing.android.HiltTestActivity
+import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.FeedItemUi
+import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.feed.api.Feed
 import net.kikin.nubecita.feature.feed.impl.testing.FakeFeedRepository
@@ -129,7 +133,74 @@ class FeedScreenVideoTapInstrumentationTest {
         assertEquals(listOf(VIDEO_POST_URI), capturedUris)
     }
 
+    /**
+     * A video on a post shown as CONTEXT — the root above a reply, or a
+     * non-last post of a same-author chain — must still render, as a tappable
+     * poster that opens that post's video (nubecita-2e8h). Only the last post
+     * joins the autoplay coordinator; the others used to get no video slot at
+     * all, and PostCard renders nothing without one.
+     */
+    @Test
+    fun aVideoOnAReplyClusterRoot_rendersAndOpensTheRootsVideo() {
+        val video = videoPost(CONTEXT_VIDEO_URI)
+        (feedRepository as FakeFeedRepository).items =
+            listOf(
+                FeedItemUi.ReplyCluster(
+                    root = video,
+                    parent = video,
+                    leaf = textPost(REPLY_URI),
+                    hasEllipsis = false,
+                ),
+            )
+
+        assertContextVideoOpens(CONTEXT_VIDEO_URI)
+    }
+
+    @Test
+    fun aVideoOnAChainsFirstPost_rendersAndOpensThatPostsVideo() {
+        (feedRepository as FakeFeedRepository).items =
+            listOf(
+                FeedItemUi.SelfThreadChain(
+                    posts = persistentListOf(videoPost(CONTEXT_VIDEO_URI), textPost(REPLY_URI)),
+                ),
+            )
+
+        assertContextVideoOpens(CONTEXT_VIDEO_URI)
+    }
+
+    private fun assertContextVideoOpens(expectedUri: String) {
+        val capturedUris = mutableListOf<String>()
+        composeTestRule.setContent {
+            NubecitaTheme {
+                CompositionLocalProvider(LocalMainShellNavState provides navState) {
+                    FeedScreen(onNavigateToVideoPlayer = { uri -> capturedUris += uri })
+                }
+            }
+        }
+        composeTestRule.waitUntil(timeoutMillis = WAIT_TIMEOUT_MILLIS) {
+            composeTestRule.onAllNodes(hasContentDescription(VIDEO_ALT_TEXT)).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeTestRule.onAllNodes(hasContentDescription(VIDEO_ALT_TEXT)).onFirst().performClick()
+        composeTestRule.waitUntil(timeoutMillis = WAIT_TIMEOUT_MILLIS) { capturedUris.isNotEmpty() }
+        assertEquals(listOf(expectedUri), capturedUris)
+    }
+
+    private fun videoPost(uri: String): PostUi =
+        (
+            FakeFeedRepository
+                .singleVideoPostTimeline(
+                    postUri = uri,
+                    playlistUrl = "https://example.invalid/test-stream.m3u8",
+                    posterUrl = null,
+                    altText = VIDEO_ALT_TEXT,
+                ).single() as FeedItemUi.Single
+        ).post
+
+    private fun textPost(uri: String): PostUi = videoPost(uri).copy(text = "A reply with no video", embed = EmbedUi.Empty)
+
     private companion object {
+        const val CONTEXT_VIDEO_URI = "at://did:plc:video/app.bsky.feed.post/context"
+        const val REPLY_URI = "at://did:plc:video/app.bsky.feed.post/reply"
         const val WAIT_TIMEOUT_MILLIS = 5_000L
         const val VIDEO_POST_URI = "at://did:plc:video/app.bsky.feed.post/v1"
         const val VIDEO_ALT_TEXT = "Test video alt text for zak.8"
