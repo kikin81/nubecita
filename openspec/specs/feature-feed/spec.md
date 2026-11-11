@@ -2,7 +2,9 @@
 
 ## Purpose
 The Following timeline: `FeedViewModel` over `FeedRepository` and the pure `FeedViewPostMapper`, a sealed `FeedLoadStatus` state machine covering initial load, refresh and cursor-paged append, and `FeedScreen`'s render contract — thread de-duplication and self-thread chains, stable list keys and hoisted scroll state, inline video, list-detail metadata, the compose FAB, and the reply/tab-re-tap entry points.
+
 ## Requirements
+
 ### Requirement: `FeedViewModel` is the canonical entry point for the Following timeline
 
 The system SHALL expose `net.kikin.nubecita.feature.feed.impl.FeedViewModel` as the only `ViewModel` that orchestrates `app.bsky.feed.getTimeline`. `FeedViewModel` MUST extend `MviViewModel<FeedState, FeedEvent, FeedEffect>` and MUST be `@HiltViewModel`-annotated. Every screen rendering the Following timeline (today: the placeholder; tomorrow: the real `FeedScreen` from `nubecita-1d5`) MUST consume this ViewModel via `hiltViewModel()` rather than instantiating its own.
@@ -671,7 +673,6 @@ Each `PostCard` in `FeedScreen`'s loaded list SHALL expose a reply affordance in
 
 The feed SHALL render at most one item per thread root, retaining the first occurrence in order. Root ID is derived as: `ReplyCluster` uses root ID, `SelfThreadChain` uses first post ID, `Single` uses post ID, and tombstones have no root (never dropped). Reposts are never dropped. De-duplication is a pure function over `List<FeedItemUi>` applied before cluster-context de-duplication.
 
-
 #### Scenario: Two replies to the same thread arrive in one page
 
 - **WHEN** a page contains two `ReplyCluster` items whose `root` is the same post
@@ -1064,7 +1065,9 @@ A seam SHALL NEVER be a bare visual break: it always carries either a fill indic
 
 ### Requirement: Reaching the catch-up budget offers jump-to-newest
 
-When the configured budget is reached with the range still unexhausted, the seam SHALL offer **jump to newest**, which performs the destructive refresh rather than another fill.
+When the configured budget is reached with the range still unexhausted, the seam SHALL become a passive gap marker offering **jump to newest**, which performs the destructive refresh rather than another fill.
+
+Jump-to-newest SHALL be optional: reaching the budget SHALL NOT stop later catch-ups from bringing new posts above the gap, and the reader SHALL keep their place without tapping it.
 
 #### Scenario: The budget offers jump-to-newest rather than another fill
 
@@ -1075,6 +1078,16 @@ When the configured budget is reached with the range still unexhausted, the seam
 
 - **WHEN** the reader taps jump-to-newest
 - **THEN** the destructive refresh runs and the reader lands at the top of a fresh timeline
+
+#### Scenario: New posts keep arriving after the budget is reached
+
+- **WHEN** a catch-up reached the budget, the reader did not tap jump-to-newest, and more posts are published
+- **THEN** reopening the feed, tapping the new-posts pill or re-tapping the Feed tab brings those posts in above the gap, and the reader's saved place is unchanged
+
+#### Scenario: A passive gap does not fill on scroll
+
+- **WHEN** the reader scrolls a passive gap marker into view
+- **THEN** no fetch is started for it, and it keeps rendering the jump-to-newest affordance
 
 ### Requirement: Optimistic list mutations survive the migration to `PagingData`
 
