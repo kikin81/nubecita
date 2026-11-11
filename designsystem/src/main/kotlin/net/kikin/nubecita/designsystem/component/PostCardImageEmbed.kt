@@ -30,7 +30,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.isFinite
 import coil3.request.ImageRequest
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -314,11 +313,13 @@ internal fun carouselPreferredItemWidth(
     peek: Dp = CAROUSEL_PEEK_WIDTH,
     spacing: Dp = EMBED_GAP,
 ): Dp {
-    // Unbounded width (a carousel in a horizontally scrolling parent) has no
-    // row to fill: fall back to the target. Never return less than 1dp: M3
-    // divides the width by this to count large items, and a zero or negative
-    // value there allocates a negative-size array and throws.
-    if (!availableWidth.isFinite) return target
+    // Unbounded width (a carousel in a horizontally scrolling parent) or an
+    // unspecified (NaN) one has no row to fill: fall back to the target.
+    // Compose's Dp.isFinite only rejects +Infinity, so check the raw float.
+    // Never return less than 1dp: M3 divides the width by this to count large
+    // items, and a zero or negative value there allocates a negative-size
+    // array and throws.
+    if (!availableWidth.value.isFinite()) return target
     val forLarge = availableWidth - peek - spacing
     val count = floor(forLarge / (target + spacing)).toInt().coerceAtLeast(1)
     return ((forLarge - spacing * (count - 1)) / count).coerceAtLeast(MIN_PREFERRED_ITEM_WIDTH)

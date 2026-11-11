@@ -60,8 +60,9 @@ internal class CarouselPreferredItemWidthTest {
     }
 
     @Test
-    fun `an unbounded width falls back to the target`() {
+    fun `an unbounded or unspecified width falls back to the target`() {
         assertDp(220f, carouselPreferredItemWidth(Dp.Infinity))
+        assertDp(220f, carouselPreferredItemWidth(Dp.Unspecified))
     }
 
     private fun assertDp(
