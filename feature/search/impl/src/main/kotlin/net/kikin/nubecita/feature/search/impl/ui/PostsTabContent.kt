@@ -63,6 +63,7 @@ internal fun PostsTabContent(
     // Hoisted to the stateful screen, which drives translation from it.
     listState: LazyListState = rememberLazyListState(),
     translations: PostTranslationsHandle? = null,
+    onOpenImage: (postUri: String, imageIndex: Int) -> Unit = { _, _ -> },
 ) {
     val currentOnEvent by rememberUpdatedState(onEvent)
 
@@ -81,6 +82,7 @@ internal fun PostsTabContent(
                 callbacks = callbacks,
                 tapMarkers = tapMarkers,
                 translations = translations,
+                onOpenImage = onOpenImage,
                 onEvent = onEvent,
                 modifier = modifier,
             )
@@ -138,6 +140,7 @@ private fun LoadedBody(
     callbacks: PostCallbacks,
     tapMarkers: PostTapMarkers,
     translations: PostTranslationsHandle?,
+    onOpenImage: (postUri: String, imageIndex: Int) -> Unit,
     onEvent: (SearchPostsEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -168,6 +171,8 @@ private fun LoadedBody(
                 translation = translations?.stateOf(item.post),
                 onTranslate = { translations?.translate(item.post) },
                 onToggleTranslation = { translations?.toggleOriginal(item.post.id) },
+                onImageClick = { index -> onOpenImage(item.post.id, index) },
+                onQuotedImageClick = onOpenImage,
             )
         }
         if (isAppending) {

@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.search.impl.di
 
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.navigation3.ListDetailSceneStrategy
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import dagger.Module
@@ -11,7 +12,9 @@ import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import net.kikin.nubecita.core.common.navigation.EntryProviderInstaller
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
+import net.kikin.nubecita.core.common.navigation.LocalSharedImageSurface
 import net.kikin.nubecita.core.common.navigation.MainShell
+import net.kikin.nubecita.core.common.navigation.SharedImageSurfaces
 import net.kikin.nubecita.designsystem.R
 import net.kikin.nubecita.designsystem.component.DetailPaneEmptyState
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
@@ -54,7 +57,9 @@ internal object SearchNavigationModule {
                         },
                     ),
             ) {
-                SearchScreen()
+                CompositionLocalProvider(LocalSharedImageSurface provides SharedImageSurfaces.SEARCH) {
+                    SearchScreen()
+                }
             }
             // Hashtag is a sub-route pushed from any post-text host, so — like
             // Profile(handle = …) — it stacks in the DETAIL pane rather than
@@ -66,7 +71,9 @@ internal object SearchNavigationModule {
                     hiltViewModel<HashtagViewModel, HashtagViewModel.Factory>(
                         creationCallback = { factory -> factory.create(route) },
                     )
-                HashtagScreen(viewModel = viewModel, onBack = { navState.removeLast() })
+                CompositionLocalProvider(LocalSharedImageSurface provides SharedImageSurfaces.HASHTAG) {
+                    HashtagScreen(viewModel = viewModel, onBack = { navState.removeLast() })
+                }
             }
         }
 }

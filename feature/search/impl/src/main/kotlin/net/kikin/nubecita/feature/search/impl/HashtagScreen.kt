@@ -27,6 +27,7 @@ import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.search.api.Hashtag
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
 import net.kikin.nubecita.feature.search.impl.ui.HashtagContent
+import net.kikin.nubecita.feature.search.impl.ui.rememberOpenMediaViewer
 import android.net.Uri as AndroidUri
 import net.kikin.nubecita.designsystem.R as DesignSystemR
 
@@ -173,5 +174,6 @@ internal fun HashtagScreen(
         topListState = topListState,
         latestListState = latestListState,
         translations = translations,
+        onOpenImage = rememberOpenMediaViewer(),
     )
 }
