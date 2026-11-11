@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.search.impl
 
 import android.content.ActivityNotFoundException
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -16,6 +17,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.postinteractions.ui.InteractionStrings
 import net.kikin.nubecita.core.postinteractions.ui.rememberPostInteractions
+import net.kikin.nubecita.core.posttranslation.ui.AutoTranslateOffer
+import net.kikin.nubecita.core.posttranslation.ui.rememberPostTranslations
+import net.kikin.nubecita.core.posttranslation.ui.visiblePostsById
 import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
@@ -185,11 +189,27 @@ internal fun SearchPostsScreen(
         }
     }
 
+    // Results translate under the feed's rules, through the app-wide store:
+    // a post translated in the feed shows translated here, and the reverse.
+    val listState = rememberLazyListState()
+    val translations =
+        rememberPostTranslations(
+            listState = listState,
+            visiblePosts = {
+                val loaded = state.loadStatus as? SearchPostsLoadStatus.Loaded
+                listState.visiblePostsById(loaded?.items?.map { it.post }.orEmpty())
+            },
+            translations = viewModel.translations,
+        )
+    AutoTranslateOffer(translations)
+
     PostsTabContent(
         state = state,
         callbacks = callbacks,
         tapMarkers = interactions.tapMarkers,
         onEvent = viewModel::handleEvent,
         modifier = modifier,
+        listState = listState,
+        translations = translations,
     )
 }

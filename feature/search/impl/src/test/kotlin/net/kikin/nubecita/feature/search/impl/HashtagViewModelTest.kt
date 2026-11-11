@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.search.impl
 
 import app.cash.turbine.test
+import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -47,7 +48,7 @@ class HashtagViewModelTest {
     private fun buildVm(
         tag: String = "Kotlin",
         author: String? = null,
-    ) = HashtagViewModel(Hashtag(tag, author), repo, cache, handler)
+    ) = HashtagViewModel(Hashtag(tag, author), repo, cache, handler, mockk(relaxed = true))
 
     private fun hits(vararg ids: String) = ids.map { searchPostFixture(uri = it, text = "post $it") }
 

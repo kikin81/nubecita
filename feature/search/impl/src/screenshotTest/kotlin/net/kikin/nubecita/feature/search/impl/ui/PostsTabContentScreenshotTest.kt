@@ -6,10 +6,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
+import net.kikin.nubecita.core.posttranslation.ui.previewPostTranslations
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostStatsUi
+import net.kikin.nubecita.data.models.PostTranslationUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
@@ -94,6 +96,51 @@ private fun PostsTabContentLoadedScreenshot() {
                         onOverflowAction = { _, _ -> },
                     ),
                 onEvent = {},
+            )
+        }
+    }
+}
+
+/**
+ * Search results under translation: a Spanish hit shows its translation, with
+ * the search term highlighted in the translated text the reader searched in,
+ * and a German hit offers the chip.
+ */
+@PreviewTest
+@Preview(name = "posts-tab-translated-light", showBackground = true)
+@Preview(name = "posts-tab-translated-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostsTabContentTranslatedScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            PostsTabContent(
+                state =
+                    SearchPostsState(
+                        currentQuery = "coffee",
+                        loadStatus =
+                            SearchPostsLoadStatus.Loaded(
+                                items =
+                                    persistentListOf(
+                                        screenshotHit("at://es", "El mejor café de la ciudad está en esta esquina"),
+                                        screenshotHit("at://de", "Kaffee am Morgen, sonst geht gar nichts"),
+                                    ),
+                                nextCursor = null,
+                                endReached = true,
+                            ),
+                    ),
+                onEvent = {},
+                translations =
+                    previewPostTranslations(
+                        mapOf(
+                            "at://es" to
+                                PostTranslationUi.Shown(
+                                    sourceLanguage = "es",
+                                    text = "The best coffee in the city is on this corner",
+                                    facets = persistentListOf(),
+                                ),
+                            "at://de" to PostTranslationUi.Offered("de"),
+                        ),
+                    ),
             )
         }
     }

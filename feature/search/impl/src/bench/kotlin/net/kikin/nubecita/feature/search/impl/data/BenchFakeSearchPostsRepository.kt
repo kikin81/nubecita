@@ -159,6 +159,28 @@ internal class BenchFakeSearchPostsRepository
                     createdAt = "2026-05-26T16:40:00Z",
                     stats = PostStatsUi(replyCount = 18, repostCount = 40, likeCount = 374, quoteCount = 5),
                 ),
+                // Foreign-language hits, last so the marketing capture of the
+                // top of this list is unchanged. They are the timeline
+                // fixture's ハルカ and Klaus posts, ids and all, so a
+                // translation made in the feed is the same post here.
+                searchHit(
+                    id = "at://did:plc:lang00000000000000000002/app.bsky.feed.post/3klang0002",
+                    author = author("carmen", "tokyo.bsky.social", "ハルカ"),
+                    text = "今日の東京はとても暑いです。駅までの道のりで汗だくになりました。みなさんも水分補給を忘れずに。",
+                    createdAt = "2026-05-26T12:00:00Z",
+                    stats = PostStatsUi(replyCount = 0, repostCount = 5, likeCount = 15, quoteCount = 0),
+                    langs = listOf("ja"),
+                ),
+                searchHit(
+                    id = "at://did:plc:lang00000000000000000003/app.bsky.feed.post/3klang0003",
+                    author = author("diego", "klaus.bsky.social", "Klaus"),
+                    text =
+                        "Ich habe heute den ganzen Tag an diesem Fehler gearbeitet und endlich die Ursache " +
+                            "gefunden. Es war ein Off-by-one-Fehler.",
+                    createdAt = "2026-05-26T12:00:00Z",
+                    stats = PostStatsUi(replyCount = 0, repostCount = 5, likeCount = 15, quoteCount = 0),
+                    langs = listOf("de"),
+                ),
             )
 
         private companion object {
@@ -210,6 +232,7 @@ internal class BenchFakeSearchPostsRepository
                 createdAt: String,
                 stats: PostStatsUi,
                 embed: EmbedUi = EmbedUi.Empty,
+                langs: List<String> = emptyList(),
             ): FeedItemUi.Single =
                 FeedItemUi.Single(
                     post =
@@ -224,6 +247,7 @@ internal class BenchFakeSearchPostsRepository
                             stats = stats,
                             viewer = ViewerStateUi(),
                             repostedBy = null,
+                            langs = langs.toImmutableList(),
                         ),
                 )
         }
