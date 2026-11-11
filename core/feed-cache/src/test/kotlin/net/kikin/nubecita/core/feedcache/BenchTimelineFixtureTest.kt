@@ -1,7 +1,10 @@
 package net.kikin.nubecita.core.feedcache
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -51,8 +54,34 @@ class BenchTimelineFixtureTest {
         }
     }
 
+    @Test
+    fun `gallery posts cover every image count from one to ten, below the hero fold`() {
+        // The gallery epic (nubecita-mdmd) judges the carousel on device and in
+        // the macrobench scroll by these posts, so every count must exist.
+        val countsByIndex =
+            allItems()
+                .mapIndexedNotNull { index, item ->
+                    // Safe casts: an explicit JSON null (or an unexpected
+                    // shape) skips the item instead of throwing.
+                    val embed = (item.jsonObject["post"] as? JsonObject)?.get("embed") as? JsonObject
+                    val type = (embed?.get("type") as? JsonPrimitive)?.content
+                    val count = (embed?.get("items") as? JsonArray)?.size
+                    if ((type == "Images" || type == "Gallery") && count != null) index to count else null
+                }
+        val counts = countsByIndex.map { it.second }.toSet()
+
+        assertTrue((1..10).all { it in counts }, "image counts present: ${counts.sorted()}")
+        countsByIndex
+            .filter { (_, count) -> count > 4 }
+            .forEach { (index, _) ->
+                assertTrue(index >= HERO_FOLD, "gallery post at $index is inside the hero fold")
+            }
+    }
+
     // The first [HERO_FOLD] feed items — what a01Feed captures un-scrolled.
-    private fun heroFoldItems(): List<JsonElement> {
+    private fun heroFoldItems(): List<JsonElement> = allItems().take(HERO_FOLD)
+
+    private fun allItems(): List<JsonElement> {
         // testDebugUnitTest runs with the module dir as the working directory;
         // fall back to the repo-root-relative path in case a runner differs.
         val fixture =
@@ -65,7 +94,6 @@ class BenchTimelineFixtureTest {
             .parseToJsonElement(fixture.readText())
             .jsonObject["items"]!!
             .jsonArray
-            .take(HERO_FOLD)
     }
 
     // Reads `post.embed.<field>` as a string, or null when the field is absent.

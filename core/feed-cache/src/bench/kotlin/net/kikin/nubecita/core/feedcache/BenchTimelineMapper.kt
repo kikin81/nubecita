@@ -183,6 +183,10 @@ internal object BenchTimelineMapper {
                     EmbedUi.Images(
                         items = (items ?: emptyList()).map { it.toImageUi() }.toPersistentList(),
                     )
+                BenchEmbedDto.Type.Gallery ->
+                    EmbedUi.Gallery(
+                        items = (items ?: emptyList()).map { it.toImageUi() }.toPersistentList(),
+                    )
                 BenchEmbedDto.Type.Video -> toEmbedUiVideoOrUnsupported()
                 BenchEmbedDto.Type.External -> toEmbedUiExternalOrUnsupported()
                 BenchEmbedDto.Type.Gif ->
