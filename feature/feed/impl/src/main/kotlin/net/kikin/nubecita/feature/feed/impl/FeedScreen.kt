@@ -25,7 +25,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -36,7 +35,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
@@ -58,7 +56,6 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -80,6 +77,9 @@ import net.kikin.nubecita.core.common.haptic.rememberPostHaptics
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.core.common.time.LocalClock
 import net.kikin.nubecita.core.feedcache.CachedFeedRow
+import net.kikin.nubecita.core.posttranslation.ui.AutoTranslateOffer
+import net.kikin.nubecita.core.posttranslation.ui.PostTranslationsHandle
+import net.kikin.nubecita.core.posttranslation.ui.rememberPostTranslations
 import net.kikin.nubecita.data.models.AuthorUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.FeedItemUi
@@ -92,8 +92,6 @@ import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCardShimmer
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
-import net.kikin.nubecita.feature.feed.impl.translation.FeedTranslationState
-import net.kikin.nubecita.feature.feed.impl.translation.rememberFeedTranslations
 import net.kikin.nubecita.feature.feed.impl.ui.FeedAnchoring
 import net.kikin.nubecita.feature.feed.impl.ui.FeedChipRow
 import net.kikin.nubecita.feature.feed.impl.ui.FeedEmptyState
@@ -107,7 +105,6 @@ import net.kikin.nubecita.feature.feed.impl.ui.rememberFeedInteractions
 import net.kikin.nubecita.feature.feed.impl.video.FeedVideoPlayerCoordinator
 import net.kikin.nubecita.feature.feeds.api.Feeds
 import net.kikin.nubecita.feature.videos.api.VideoFeed
-import java.util.Locale
 import kotlin.math.roundToInt
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -338,9 +335,8 @@ internal fun FeedScreen(
     // `visiblePosts` reads the layout at settle time rather than closing over a
     // snapshot: the posts that matter are the ones still on screen when the
     // scroll stops, not the ones that were when it started.
-    val translationScope = rememberCoroutineScope()
     val translations =
-        rememberFeedTranslations(
+        rememberPostTranslations(
             listState = listState,
             visiblePosts = {
                 val loaded = snapshot.items
@@ -356,20 +352,13 @@ internal fun FeedScreen(
                     .mapNotNull { info -> loaded.getOrNull(info.index - leading) }
                     .allPosts()
             },
-            coordinator = viewModel.translationCoordinator,
-            scope = translationScope,
+            translations = viewModel.translations,
         )
 
     // Hosted here rather than inside the list: the offer belongs to the
     // screen, and a dialog anchored to a post would vanish the moment that
     // post scrolled out of the composition.
-    translations?.autoOffer?.let { source ->
-        AutoTranslateOfferDialog(
-            sourceLanguage = source,
-            onAccept = translations::acceptAutoOffer,
-            onDecline = translations::declineAutoOffer,
-        )
-    }
+    AutoTranslateOffer(translations)
 
     FeedScreenContent(
         viewState = viewState,
@@ -468,7 +457,7 @@ internal fun FeedScreenContent(
      */
     header: (@Composable () -> Unit)? = null,
     /** Per-post translation state, or null on a surface that does not translate. */
-    translations: FeedTranslationState? = null,
+    translations: PostTranslationsHandle? = null,
 ) {
     var showPinnedListsSheet by rememberSaveable { mutableStateOf(false) }
 
@@ -962,40 +951,3 @@ private fun previewFeedItems(): ImmutableList<FeedItemUi> =
         FeedItemUi.Single(post = previewPost("4", text = "Preview post 4 — back to a standalone entry.")),
         FeedItemUi.Single(post = previewPost("5", text = "Preview post 5 — closing out the fixture.")),
     )
-
-/**
- * Offers to translate a whole language automatically, after the reader has
- * translated one post in it by hand.
- *
- * No download size. The pack is not on disk when this is asked — that is the
- * point of asking — and nothing can measure one that is not there, so the
- * copy says how it downloads rather than quoting a number that would have to
- * be invented and would drift as the packs change.
- */
-@Composable
-private fun AutoTranslateOfferDialog(
-    sourceLanguage: String,
-    onAccept: () -> Unit,
-    onDecline: () -> Unit,
-) {
-    val locale = LocalLocale.current.platformLocale
-    val language =
-        remember(sourceLanguage, locale) {
-            Locale.forLanguageTag(sourceLanguage).getDisplayLanguage(locale).ifBlank { sourceLanguage }
-        }
-    AlertDialog(
-        onDismissRequest = onDecline,
-        title = { Text(stringResource(R.string.feed_auto_translate_offer_title, language)) },
-        text = { Text(stringResource(R.string.feed_auto_translate_offer_body, language)) },
-        confirmButton = {
-            TextButton(onClick = onAccept) {
-                Text(stringResource(R.string.feed_auto_translate_offer_accept))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDecline) {
-                Text(stringResource(R.string.feed_auto_translate_offer_decline))
-            }
-        },
-    )
-}

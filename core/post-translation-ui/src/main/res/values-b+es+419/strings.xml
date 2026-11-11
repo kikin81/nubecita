@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="post_translation_auto_offer_title">¿Traducir %1$s automáticamente?</string>
+    <string name="post_translation_auto_offer_body">Las publicaciones nuevas en %1$s se traducirán cuando dejes de desplazarte. El paquete de idioma se descarga solo por Wi-Fi.</string>
+    <string name="post_translation_auto_offer_accept">Traducir automáticamente</string>
+    <string name="post_translation_auto_offer_decline">Ahora no</string>
+</resources>

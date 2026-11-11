@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dialog title, offered once per language after the reader translates a post by hand. %1$s is the language's display name, e.g. "Japanese". -->
+    <string name="post_translation_auto_offer_title">Translate %1$s automatically?</string>
+    <!-- Dialog body. States how the pack downloads, never its size: no size exists before the download. %1$s is the language's display name. -->
+    <string name="post_translation_auto_offer_body">New posts in %1$s will be translated when you stop scrolling. The language pack downloads over Wi-Fi only.</string>
+    <!-- Confirm button: add the language to automatic translation. -->
+    <string name="post_translation_auto_offer_accept">Translate automatically</string>
+    <!-- Dismiss button. The language is not offered again either way. -->
+    <string name="post_translation_auto_offer_decline">Not now</string>
+</resources>

@@ -48,7 +48,7 @@ import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
-import net.kikin.nubecita.core.posttranslation.PostTranslationCoordinator
+import net.kikin.nubecita.core.posttranslation.PostTranslations
 import net.kikin.nubecita.core.preferences.AutoplayPolicy
 import net.kikin.nubecita.core.video.SharedVideoPlayer
 import net.kikin.nubecita.data.models.AuthorUi
@@ -77,14 +77,14 @@ class FeedViewModel
         private val handler: PostInteractionHandler,
         private val outgoingPostStore: OutgoingPostStore,
         /**
-         * Resolves per-post translation for the screen's Compose layer.
+         * The app-wide translation store, for the screen's Compose layer.
          *
          * Exposed rather than consumed, like [sharedVideoPlayer] above: the
-         * state it drives is scroll-scoped and snapshot-backed, so it belongs
-         * to the composition, not to `UiState`. The ViewModel is only the
-         * injection point — it never reads or writes translation state.
+         * state is snapshot-backed and read per card, so it belongs to the
+         * composition, not to `UiState`. The ViewModel is only the injection
+         * point; it never reads or writes translation state.
          */
-        val translationCoordinator: PostTranslationCoordinator,
+        val translations: PostTranslations,
         autoplayPolicy: AutoplayPolicy,
     ) : MviViewModel<FeedState, FeedEvent, FeedEffect>(FeedState()),
         PostInteractionHandler by handler {

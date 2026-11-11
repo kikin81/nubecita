@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="post_translation_auto_offer_title">Traduzir %1$s automaticamente?</string>
+    <string name="post_translation_auto_offer_body">Novos posts em %1$s serão traduzidos quando você parar de rolar. O pacote de idioma é baixado apenas por Wi-Fi.</string>
+    <string name="post_translation_auto_offer_accept">Traduzir automaticamente</string>
+    <string name="post_translation_auto_offer_decline">Agora não</string>
+</resources>

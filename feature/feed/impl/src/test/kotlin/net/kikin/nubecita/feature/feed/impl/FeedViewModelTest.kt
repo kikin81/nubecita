@@ -132,7 +132,7 @@ internal class FeedViewModelTest {
             outgoingPostStore = outgoingStore,
             // Exposed for the screen's Compose layer; the VM never touches it,
             // so a relaxed mock is the whole of its involvement here.
-            translationCoordinator = mockk(relaxed = true),
+            translations = mockk(relaxed = true),
             autoplayPolicy = autoplayPolicy(autoplayEnabled),
         ).also { created += it }
 
