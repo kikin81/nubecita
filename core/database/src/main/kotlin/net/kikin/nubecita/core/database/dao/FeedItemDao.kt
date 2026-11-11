@@ -481,6 +481,55 @@ interface FeedItemDao {
     )
 
     /**
+     * Positions of every seam marker in the partition, ascending — the active
+     * seam and any passive gap markers alike.
+     *
+     * A re-projection splits the stored entries at these positions so that no
+     * rebuilt item lands on a marker and no grouping reaches across one
+     * (nubecita-2xk0.3).
+     */
+    @Query(
+        "SELECT position FROM feed_item " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND row_type = 'seam' ORDER BY position",
+    )
+    suspend fun seamPositions(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+    ): List<Int>
+
+    @Query(
+        "DELETE FROM feed_item " +
+            "WHERE account_did = :accountDid AND feed_type = :feedType AND feed_uri = :feedUri " +
+            "AND row_type = 'item'",
+    )
+    suspend fun clearItemRows(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+    )
+
+    /**
+     * Clears a partition's projected items and their members, keeping its seam
+     * markers.
+     *
+     * What a re-projection needs: the items are rebuilt, but a marker records a
+     * break in the stored timeline that the projection cannot reconstruct, and
+     * clearing it would leave the reader a bare discontinuity. Seams carry no
+     * members, so every member row in the partition goes with the items.
+     */
+    @Transaction
+    suspend fun clearProjectedItems(
+        accountDid: String,
+        feedType: String,
+        feedUri: String,
+    ) {
+        clearItemRows(accountDid, feedType, feedUri)
+        clearPartitionMembers(accountDid, feedType, feedUri)
+    }
+
+    /**
      * Clears a partition's projection, items and members together.
      *
      * `@Transaction` because a half-cleared projection is a worse state than

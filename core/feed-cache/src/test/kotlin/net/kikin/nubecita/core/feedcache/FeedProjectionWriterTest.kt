@@ -438,7 +438,10 @@ internal class FeedProjectionWriterTest {
 
             assertTrue(rows.isCaptured, "re-projection must write items")
             assertEquals(1, rows.captured.size)
-            coVerify { feedItemDao.clearPartition("did:plc:me", "FOLLOWING", "") }
+            // Items only: the partition's seam markers are not the projection's
+            // to rebuild (nubecita-2xk0.3).
+            coVerify { feedItemDao.clearProjectedItems("did:plc:me", "FOLLOWING", "") }
+            coVerify(exactly = 0) { feedItemDao.clearPartition(any(), any(), any()) }
         }
 
     @Test
@@ -456,6 +459,81 @@ internal class FeedProjectionWriterTest {
             writer().reproject(key)
 
             coVerify(exactly = 0) { feedItemDao.upsert(any()) }
+        }
+
+    // --- re-projection keeps markers (nubecita-2xk0.3) ----------------------
+
+    /**
+     * Serves [entries] (position → wire entry) and [markers] to a
+     * re-projection, and returns every item row it writes.
+     */
+    private fun reprojectionOf(
+        entries: Map<Int, FeedViewPost>,
+        markers: List<Int>,
+    ): MutableList<FeedItemEntity> {
+        val key = FeedKey.following("did:plc:me")
+        coEvery { feedPostDao.entriesIn(any(), any(), any()) } returns
+            entries.toSortedMap().map { (position, wire) -> wire.toFeedPostEntity(key, position) }
+        coEvery { cachedPostDao.byUris(any(), any()) } returns entries.values.flatMap { it.toCachedPosts(key) }
+        coEvery { feedItemDao.seamPositions(any(), any(), any()) } returns markers
+        val written = mutableListOf<FeedItemEntity>()
+        coEvery { feedItemDao.upsert(any()) } answers { written += firstArg<List<FeedItemEntity>>() }
+        return written
+    }
+
+    @Test
+    fun `a re-projection keeps the markers and keeps each item on its side of them`() =
+        runTest {
+            prefs(hideReplies = false)
+            // Two completed windows, each closed by a passive marker, above the
+            // refresh's head.
+            val older = (-500..-497).associateWith { topLevelEntry("at://p/older$it") }
+            val newer = (-250..-247).associateWith { topLevelEntry("at://p/newer$it") }
+            val head = (0..1).associateWith { topLevelEntry("at://p/head$it") }
+            val written = reprojectionOf(older + newer + head, markers = listOf(-251, -1))
+
+            writer().reproject(FeedKey.following("did:plc:me"))
+
+            coVerify(exactly = 0) { feedItemDao.clearPartition(any(), any(), any()) }
+            coVerify { feedItemDao.clearProjectedItems("did:plc:me", "FOLLOWING", "") }
+            val byPost = written.associate { it.leafUri to it.position }
+            assertTrue(older.keys.all { byPost.getValue("at://p/older$it") < -251 }, "older items moved below a marker: $byPost")
+            assertTrue(newer.keys.all { byPost.getValue("at://p/newer$it") in -250..-2 }, "newer items left their segment: $byPost")
+            assertTrue(head.keys.all { byPost.getValue("at://p/head$it") >= 0 }, "head items left their segment: $byPost")
+        }
+
+    @Test
+    fun `a re-projection writes no item onto an active fill's next slot`() =
+        runTest {
+            prefs(hideReplies = false)
+            // A fill in progress: its pages above the active seam at -245,
+            // which is where the next page will be written.
+            val fill = (-250..-246).associateWith { topLevelEntry("at://p/fill$it") }
+            val head = (0..1).associateWith { topLevelEntry("at://p/head$it") }
+            val written = reprojectionOf(fill + head, markers = listOf(-245))
+
+            writer().reproject(FeedKey.following("did:plc:me"))
+
+            assertTrue(written.none { it.position == -245 }, "an item was written onto the active seam's slot")
+            assertTrue(written.filter { it.leafUri.orEmpty().contains("fill") }.all { it.position < -245 })
+        }
+
+    @Test
+    fun `grouping stops at a marker`() =
+        runTest {
+            prefs(hideReplies = false)
+            // Two replies into the same thread, one either side of a gap. A
+            // prepend kept both — the later one is a new event — and so does
+            // the rebuild.
+            val written =
+                reprojectionOf(
+                    mapOf(-250 to replyEntry("at://p/reply-after-gap"), 0 to replyEntry("at://p/reply-before-gap")),
+                    markers = listOf(-1),
+                )
+
+            writer().reproject(FeedKey.following("did:plc:me"))
+
+            assertEquals(2, written.size, "one item per side of the marker: $written")
         }
 
     @Test

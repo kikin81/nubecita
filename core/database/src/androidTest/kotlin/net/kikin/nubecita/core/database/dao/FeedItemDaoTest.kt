@@ -205,6 +205,37 @@ internal class FeedItemDaoTest : DatabaseTest() {
         }
 
     @Test
+    fun seamPositions_listsEveryMarkerAscending() =
+        runTest {
+            dao.upsert(
+                listOf(
+                    item(position = -300),
+                    seam(position = -1, exhausted = true),
+                    seam(position = -251, exhausted = true),
+                    seam(position = -260, exhausted = false),
+                    item(position = 0),
+                ),
+            )
+
+            assertEquals(listOf(-260, -251, -1), dao.seamPositions(ACCOUNT, TYPE, FEED_URI))
+        }
+
+    @Test
+    fun clearProjectedItems_keepsTheMarkers() =
+        runTest {
+            // A re-projection rebuilds items; the markers record breaks it cannot
+            // reconstruct (nubecita-2xk0.3).
+            dao.upsert(listOf(item(position = -252), seam(position = -251, exhausted = true), item(position = 0)))
+            dao.upsertMembers(listOf(member(-252, 0, "at://post/-252"), member(0, 0, "at://post/0")))
+
+            dao.clearProjectedItems(ACCOUNT, TYPE, FEED_URI)
+
+            assertEquals(listOf(-251), dao.itemsIn(ACCOUNT, TYPE, FEED_URI).map { it.position })
+            assertEquals(emptyList<String>(), dao.membersOf(ACCOUNT, TYPE, FEED_URI, -252).map { it.uri })
+            assertEquals(emptyList<String>(), dao.membersOf(ACCOUNT, TYPE, FEED_URI, 0).map { it.uri })
+        }
+
+    @Test
     fun deleteMembersUnderSeams_removesOnlyOrphanedMembers() =
         runTest {
             // The Fold's damage: a marker written over the item at -1000, the
