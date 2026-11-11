@@ -65,9 +65,13 @@ internal class MlKitTranslationEngine
             val target = mlKitTag(targetLanguage) ?: return Result.failure(UnsupportedLanguage(targetLanguage))
             if (source == target) return Result.success(text)
 
-            return runCatchingCancellable {
-                val translator = translator(source, target)
-                withContext(defaultDispatcher) { translator.translate(text).await() }
+            // Line by line: ML Kit drops newlines and translates a whole post
+            // as one fused sentence (see translateLineByLine).
+            return translateLineByLine(text) { line ->
+                runCatchingCancellable {
+                    val translator = translator(source, target)
+                    withContext(defaultDispatcher) { translator.translate(line).await() }
+                }
             }.onFailure { error ->
                 Timber.w(error, "Translation failed for $sourceLanguage -> $targetLanguage")
             }

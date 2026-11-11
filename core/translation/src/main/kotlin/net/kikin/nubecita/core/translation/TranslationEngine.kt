@@ -21,6 +21,10 @@ interface TranslationEngine {
      * `Result` rather than an exception. A caller that cannot translate shows
      * the original, which is always a correct thing to show.
      *
+     * Line breaks in [text] are preserved: each line is translated on its own,
+     * because an engine handed several lines at once may fuse them into one
+     * sentence and translate that instead.
+     *
      * Suspends; the implementation does the work off the main thread. Measured
      * at 36–311ms per post with the pack already on disk.
      */

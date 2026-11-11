@@ -24,7 +24,8 @@ import kotlinx.collections.immutable.toImmutableList
  * #おはよう                   ->  # Good morning       translated (ja)
  * ```
  *
- * Emoji survive intact; newlines collapse to spaces.
+ * Emoji survive intact. ML Kit would collapse newlines to spaces too, but the
+ * engine translates line by line, so they survive as well.
  *
  * The obvious escape hatch — swap each faceted span for a placeholder token,
  * translate, put the originals back — was probed and **fails**. `⟦0⟧` and
