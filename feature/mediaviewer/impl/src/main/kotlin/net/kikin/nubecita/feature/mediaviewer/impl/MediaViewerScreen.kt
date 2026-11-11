@@ -40,6 +40,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -141,14 +142,7 @@ internal fun MediaViewerScreen(
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {
-                MediaViewerEffect.Dismiss -> {
-                    // Closing after looking at a post's images is a natural
-                    // pause; closing an error or a still-loading viewer isn't.
-                    if (currentState.loadStatus is MediaViewerLoadStatus.Loaded) {
-                        reviewActivity?.requestReviewIfEligible(ReviewTrigger.MediaExit)
-                    }
-                    currentOnDismiss()
-                }
+                MediaViewerEffect.Dismiss -> currentOnDismiss()
                 is MediaViewerEffect.OpenInMainShell -> currentOnOpenInMainShell(effect.route)
                 is MediaViewerEffect.ShowSaveOutcome ->
                     launch {
@@ -184,12 +178,35 @@ internal fun MediaViewerScreen(
         }
     }
 
-    BackHandler {
-        val current = state.loadStatus
-        if (current is MediaViewerLoadStatus.Loaded && current.isAltSheetOpen) {
+    // Back with a sheet open closes the sheet. Otherwise this handler is off
+    // and back goes to NavDisplay, which pops the viewer as a predictive
+    // back: the transition, shared image included, follows the gesture. An
+    // always-on handler here took the gesture from NavDisplay, so nothing
+    // moved until release (nubecita-mdmd.3).
+    val loaded = state.loadStatus as? MediaViewerLoadStatus.Loaded
+    BackHandler(enabled = loaded != null && (loaded.isAltSheetOpen || loaded.isCommentsOpen)) {
+        if (loaded?.isAltSheetOpen == true) {
             viewModel.handleEvent(MediaViewerEvent.OnAltSheetDismiss)
         } else {
             viewModel.handleEvent(MediaViewerEvent.OnDismissRequest)
+        }
+    }
+
+    // Closing after looking at a post's images is a natural pause for a
+    // review prompt; closing an error or a still-loading viewer isn't, and
+    // neither is leaving for another route. Asked when the viewer leaves
+    // composition, so every way out (back gesture, close button, swipe down)
+    // asks exactly once, and skipped on rotation, which also disposes it.
+    DisposableEffect(reviewActivity) {
+        onDispose {
+            val status = currentState.loadStatus
+            if (reviewActivity != null &&
+                !reviewActivity.isChangingConfigurations &&
+                status is MediaViewerLoadStatus.Loaded &&
+                !status.isLeavingForRoute
+            ) {
+                reviewActivity.requestReviewIfEligible(ReviewTrigger.MediaExit)
+            }
         }
     }
 
