@@ -154,7 +154,7 @@ For a feed whose XRPC method accepts `since`, the system SHALL fetch newer entri
 - **THEN** fetching stops, a passive gap marker is left between the fill and the previously-read content, and the catch-up reports itself complete
 
 #### Scenario: A full window does not stall later catch-ups
-- **WHEN** a catch-up reached the budget with the range unexhausted, and a later catch-up runs on the same partition
+- **WHEN** a catch-up reaches the budget with the range unexhausted, and a later catch-up runs on the same partition
 - **THEN** the later catch-up fetches from the newest entry onward, bounded by the newest entry the earlier fill wrote, and writes its pages in a new window above everything cached
 
 #### Scenario: A partition already stalled recovers without a refresh
@@ -163,7 +163,7 @@ For a feed whose XRPC method accepts `since`, the system SHALL fetch newer entri
 
 ### Requirement: A prepend persists its own cursor state
 
-The system SHALL persist per partition: the boundary `since`, the in-range fill cursor, the next fill position, and the pending boundary (the newest fill page's `startCursor`, a page-level field no row carries). The fill cursor and next fill position SHALL be set and cleared together. A fill completes when the range is exhausted or the budget is reached; the pending boundary SHALL then become the boundary and the fill state SHALL be cleared. A prepend SHALL NOT touch the append cursor.
+The system SHALL persist, per partition, the boundary `since`, the in-range fill cursor, the next fill position, and the pending boundary (the newest fill page's `startCursor`, a page-level field no row carries). The fill cursor and next fill position SHALL be set and cleared together. A fill completes when the range is exhausted or the budget is reached; the pending boundary SHALL then become the boundary and the fill state SHALL be cleared. A prepend SHALL NOT touch the append cursor.
 
 #### Scenario: A second prepend makes progress
 - **WHEN** a prepend completes and a later prepend runs against the same partition
@@ -178,7 +178,7 @@ The system SHALL persist per partition: the boundary `since`, the in-range fill 
 - **THEN** the boundary becomes the `startCursor` of the newest page that fill wrote, and the fill cursor, next fill position and pending boundary are cleared
 
 #### Scenario: A completed fill with no pending boundary does not stall
-- **WHEN** a fill reaches the budget and no pending boundary was recorded
+- **WHEN** a fill reaches the budget and no pending boundary is recorded
 - **THEN** the fill state is cleared, the boundary is left unchanged, a non-fatal is recorded, and re-fetched entries already shown are not rendered twice
 
 #### Scenario: The append cursor is unaffected
@@ -449,15 +449,15 @@ De-duplication and chain merging during a re-projection SHALL NOT reach across a
 
 ### Requirement: A capped catch-up is reported distinctly
 
-A catch-up that completes because it reached the budget SHALL report a distinct outcome from one that exhausted its range, and SHALL log an analytics event carrying the feed type and the number of entries fetched. Callers that only need to know whether to keep paging SHALL treat both outcomes alike.
+A catch-up that completes because it reaches the budget SHALL report a distinct outcome from one that exhausts its range, and SHALL log an analytics event carrying the feed type and the number of entries fetched. Callers that only need to know whether to keep paging SHALL treat both outcomes alike.
 
 #### Scenario: A capped fill is distinguishable
-- **WHEN** a catch-up completes because it reached the budget
+- **WHEN** a catch-up completes because it reaches the budget
 - **THEN** it reports the capped outcome, and an exhausted-range completion reports the plain caught-up outcome
 
 #### Scenario: The cap is measured once per fill
 - **WHEN** a fill reaches the budget
-- **THEN** exactly one `feed_catch_up_exhausted` event is logged with the feed type and the entries fetched, and none is logged for a fill that exhausted its range
+- **THEN** exactly one `feed_catch_up_exhausted` event is logged with the feed type and the entries fetched, and none is logged for a fill that exhausts its range
 
 #### Scenario: Paging and the worker are unaffected by the distinction
 - **WHEN** Paging's prepend or the background worker receives the capped outcome

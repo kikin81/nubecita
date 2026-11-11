@@ -1081,7 +1081,7 @@ Jump-to-newest SHALL be optional: reaching the budget SHALL NOT stop later catch
 
 #### Scenario: New posts keep arriving after the budget is reached
 
-- **WHEN** a catch-up reached the budget, the reader did not tap jump-to-newest, and more posts are published
+- **WHEN** a catch-up reaches the budget, the reader does not tap jump-to-newest, and more posts are published
 - **THEN** reopening the feed, tapping the new-posts pill or re-tapping the Feed tab brings those posts in above the gap, and the reader's saved place is unchanged
 
 #### Scenario: A passive gap does not fill on scroll
