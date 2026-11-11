@@ -70,6 +70,9 @@ internal object MediaViewerNavigationModule {
                         onNavigate = { key ->
                             if (key is ComposerRoute) navigator.goTo(key) else navigator.closeAndOpenInMainShell(key)
                         },
+                        // Popped means closed; still here means covered by a
+                        // route opened on top, like the composer.
+                        isStillOnBackStack = { route in navigator.backStack },
                         viewModel = viewModel,
                     )
                 }

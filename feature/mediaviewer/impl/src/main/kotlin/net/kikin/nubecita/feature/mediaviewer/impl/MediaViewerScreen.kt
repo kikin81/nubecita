@@ -102,6 +102,7 @@ internal fun MediaViewerScreen(
     onDismiss: () -> Unit,
     onOpenInMainShell: (NavKey) -> Unit,
     onNavigate: (NavKey) -> Unit,
+    isStillOnBackStack: () -> Boolean,
     viewModel: MediaViewerViewModel,
     modifier: Modifier = Modifier,
     commentsViewModel: PostCommentsViewModel = hiltViewModel(),
@@ -195,13 +196,18 @@ internal fun MediaViewerScreen(
     // Closing after looking at a post's images is a natural pause for a
     // review prompt; closing an error or a still-loading viewer isn't, and
     // neither is leaving for another route. Asked when the viewer leaves
-    // composition, so every way out (back gesture, close button, swipe down)
-    // asks exactly once, and skipped on rotation, which also disposes it.
+    // composition having been closed, so every way out (back gesture, close
+    // button, swipe down) asks exactly once. Leaving composition alone isn't
+    // closing: rotation disposes it, and so does a route pushed on top (the
+    // composer, for a reply), after which the viewer comes back. Only a
+    // viewer no longer on the back stack was closed.
+    val currentIsStillOnBackStack by rememberUpdatedState(isStillOnBackStack)
     DisposableEffect(reviewActivity) {
         onDispose {
             val status = currentState.loadStatus
             if (reviewActivity != null &&
                 !reviewActivity.isChangingConfigurations &&
+                !currentIsStillOnBackStack() &&
                 status is MediaViewerLoadStatus.Loaded &&
                 !status.isLeavingForRoute
             ) {
