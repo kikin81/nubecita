@@ -32,6 +32,11 @@ import androidx.room.Entity
  *   only while [fillCursor] is; a fill cursor without it is a fill started
  *   before the column existed, which restarts rather than guesses.
  *
+ * A fill completes either when the range is exhausted or when it reaches its
+ * entry budget. Either way [pendingBoundary] becomes [boundarySince] and
+ * [fillCursor], [fillNextPosition] and [pendingBoundary] are cleared. Leaving
+ * them set on a budget-capped fill is what stalled ingestion (nubecita-2xk0).
+ *
  * They are separate columns rather than a reused cursor because a prepend that
  * wrote back nothing would re-fetch the same range from a stale boundary on
  * every run and never make progress, and one that overwrote [nextCursor] would

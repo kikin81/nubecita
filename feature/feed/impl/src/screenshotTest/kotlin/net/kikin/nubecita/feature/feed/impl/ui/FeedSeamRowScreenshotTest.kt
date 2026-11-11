@@ -37,3 +37,23 @@ private fun FeedSeamRowExhaustedScreenshot() {
         FeedSeamRow(exhausted = true, isFilling = false, onFill = {}, onJumpToNewest = {})
     }
 }
+
+/**
+ * The gap marker in the two translated locales, on a phone-width row.
+ *
+ * Its supporting text is a full sentence and runs longest in es-419 and pt-BR,
+ * and it shares the row with the jump-to-newest button, so these pin that the
+ * text wraps within its column instead of pushing the button off the row.
+ * `locale` uses the resource-qualifier form (`b+es+419`), matching the
+ * `values-b+es+419/` folder; the BCP-47 form would silently fall back to
+ * English.
+ */
+@PreviewTest
+@Preview(name = "seam-exhausted-es419", showBackground = true, widthDp = 360, locale = "b+es+419")
+@Preview(name = "seam-exhausted-ptBR", showBackground = true, widthDp = 360, locale = "pt-rBR")
+@Composable
+private fun FeedSeamRowExhaustedLocalizedScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        FeedSeamRow(exhausted = true, isFilling = false, onFill = {}, onJumpToNewest = {})
+    }
+}

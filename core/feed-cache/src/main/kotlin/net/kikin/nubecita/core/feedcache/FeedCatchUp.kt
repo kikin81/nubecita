@@ -155,8 +155,9 @@ internal class FeedCatchUp
                 // budget is per-call, so a fill resumed often enough would
                 // otherwise walk past its window and silently upsert over
                 // stored entries; asking the database turns that into a stop.
-                // A full window is the budget cap from D5 — the seam offers
-                // jump-to-newest rather than a load-more nobody taps twice.
+                // A full window is the budget cap from D5: the fill completes
+                // there with a passive gap marker (completeWithGap) rather than
+                // a load-more nobody taps twice, or a pending fill that stalls.
                 //
                 // Both tables are asked. A local re-projection packs items
                 // contiguously while catch-up windows leave entries sparse, so

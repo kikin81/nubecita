@@ -29,6 +29,13 @@ import androidx.room.Index
  * marker row gives the seam a position, a stable key, and somewhere to keep
  * [seamExhausted] across process death.
  *
+ * A seam is one of two kinds, told apart by [seamExhausted]: the **active
+ * seam**, at most one, marking where the next page of a fill in progress goes
+ * and moving down as pages land; and **passive gap markers**, any number, each
+ * left where a fill reached its budget and completed. A passive marker never
+ * moves and is removed only by a destructive refresh or eviction
+ * (nubecita-2xk0). Neither kind ever shares a position with an item.
+ *
  * [itemKey] is the stable list key, persisted rather than re-derived so the
  * read path and the write path cannot disagree about it. It is namespaced per
  * variant (`chain:`/`cluster:` prefixes): a chain rooted at post P keyed on a
@@ -69,7 +76,11 @@ data class FeedItemEntity(
     @ColumnInfo(name = "thread_root_uri") val threadRootUri: String? = null,
     /** `ReplyCluster` only: whether context between root and parent is elided. */
     @ColumnInfo(name = "has_ellipsis") val hasEllipsis: Boolean? = null,
-    /** Seam rows only: whether the catch-up range above this seam is exhausted. */
+    /**
+     * Seam rows only: `true` for a passive gap marker (a fill completed here
+     * without reaching the posts below), `false` or `null` for the active seam
+     * of a fill in progress.
+     */
     @ColumnInfo(name = "seam_exhausted") val seamExhausted: Boolean? = null,
 ) {
     companion object {

@@ -76,7 +76,8 @@
     <string name="feed_new_posts">Publicaciones nuevas</string>
     <string name="feed_seam_load">Cargar las publicaciones intermedias</string>
     <string name="feed_seam_loading">Cargando las publicaciones que te perdiste</string>
-    <string name="feed_seam_capped">Aquí hay más de lo que guardamos</string>
+    <string name="feed_seam_capped">No se cargaron publicaciones anteriores</string>
+    <string name="feed_seam_capped_supporting">Mostrando las publicaciones más recientes desde tu última visita</string>
     <string name="feed_seam_jump_to_newest">Ir a lo más reciente</string>
     <string name="feed_auto_translate_offer_title">¿Traducir %1$s automáticamente?</string>
     <string name="feed_auto_translate_offer_body">Las publicaciones nuevas en %1$s se traducirán cuando dejes de desplazarte. El paquete de idioma se descarga solo por Wi-Fi.</string>

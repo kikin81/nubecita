@@ -109,8 +109,10 @@
     <string name="feed_seam_load">Load the posts in between</string>
     <!-- Shown on the seam row while the gap is being filled. -->
     <string name="feed_seam_loading">Loading the posts you missed</string>
-    <!-- Shown on the seam row once the gap is wider than the feed keeps. -->
-    <string name="feed_seam_capped">There is more here than we keep</string>
+    <!-- Label on a gap marker: a catch-up stopped short here, so the posts between this point and the ones below were not loaded. An intentional break, not an error. -->
+    <string name="feed_seam_capped">Older posts not loaded</string>
+    <!-- Supporting text under the gap marker's label: what the reader is seeing above it. -->
+    <string name="feed_seam_capped_supporting">Showing newest posts since your last visit</string>
     <!-- Button on the seam row: discard the stored timeline and start again at the newest post. -->
     <string name="feed_seam_jump_to_newest">Jump to newest</string>
     <string name="feed_auto_translate_offer_title">Translate %1$s automatically?</string>
