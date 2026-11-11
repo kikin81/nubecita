@@ -40,6 +40,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -101,6 +102,7 @@ internal fun MediaViewerScreen(
     onDismiss: () -> Unit,
     onOpenInMainShell: (NavKey) -> Unit,
     onNavigate: (NavKey) -> Unit,
+    isStillOnBackStack: () -> Boolean,
     viewModel: MediaViewerViewModel,
     modifier: Modifier = Modifier,
     commentsViewModel: PostCommentsViewModel = hiltViewModel(),
@@ -112,7 +114,6 @@ internal fun MediaViewerScreen(
     val currentOnDismiss by rememberUpdatedState(onDismiss)
     val currentOnOpenInMainShell by rememberUpdatedState(onOpenInMainShell)
     val reviewActivity = LocalActivity.current
-    val currentState by rememberUpdatedState(state)
 
     val onRetry = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.Retry) } }
     val onDismissRequest = remember(viewModel) { { viewModel.handleEvent(MediaViewerEvent.OnDismissRequest) } }
@@ -141,14 +142,7 @@ internal fun MediaViewerScreen(
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {
-                MediaViewerEffect.Dismiss -> {
-                    // Closing after looking at a post's images is a natural
-                    // pause; closing an error or a still-loading viewer isn't.
-                    if (currentState.loadStatus is MediaViewerLoadStatus.Loaded) {
-                        reviewActivity?.requestReviewIfEligible(ReviewTrigger.MediaExit)
-                    }
-                    currentOnDismiss()
-                }
+                MediaViewerEffect.Dismiss -> currentOnDismiss()
                 is MediaViewerEffect.OpenInMainShell -> currentOnOpenInMainShell(effect.route)
                 is MediaViewerEffect.ShowSaveOutcome ->
                     launch {
@@ -184,12 +178,44 @@ internal fun MediaViewerScreen(
         }
     }
 
-    BackHandler {
-        val current = state.loadStatus
-        if (current is MediaViewerLoadStatus.Loaded && current.isAltSheetOpen) {
+    // Back with a sheet open closes the sheet. Otherwise this handler is off
+    // and back goes to NavDisplay, which pops the viewer as a predictive
+    // back: the transition, shared image included, follows the gesture. An
+    // always-on handler here took the gesture from NavDisplay, so nothing
+    // moved until release (nubecita-mdmd.3).
+    val loaded = state.loadStatus as? MediaViewerLoadStatus.Loaded
+    BackHandler(enabled = loaded != null && (loaded.isAltSheetOpen || loaded.isCommentsOpen)) {
+        if (loaded?.isAltSheetOpen == true) {
             viewModel.handleEvent(MediaViewerEvent.OnAltSheetDismiss)
         } else {
             viewModel.handleEvent(MediaViewerEvent.OnDismissRequest)
+        }
+    }
+
+    // Closing after looking at a post's images is a natural pause for a
+    // review prompt; closing an error or a still-loading viewer isn't, and
+    // neither is leaving for another route. Asked when the viewer leaves
+    // composition having been closed, so every way out (back gesture, close
+    // button, swipe down) asks exactly once. Leaving composition alone isn't
+    // closing: rotation disposes it, and so does a route pushed on top (the
+    // composer, for a reply), after which the viewer comes back. Only a
+    // viewer no longer on the back stack was closed. The state is read from
+    // the VM, not the composed `state`: leaving for a route sets
+    // isLeavingForRoute and navigates in the same turn, and the leaving entry
+    // can be disposed (its lifecycle-aware collection already stopped)
+    // before it recomposes with that update.
+    val currentIsStillOnBackStack by rememberUpdatedState(isStillOnBackStack)
+    DisposableEffect(reviewActivity, viewModel) {
+        onDispose {
+            val status = viewModel.uiState.value.loadStatus
+            if (reviewActivity != null &&
+                !reviewActivity.isChangingConfigurations &&
+                !currentIsStillOnBackStack() &&
+                status is MediaViewerLoadStatus.Loaded &&
+                !status.isLeavingForRoute
+            ) {
+                reviewActivity.requestReviewIfEligible(ReviewTrigger.MediaExit)
+            }
         }
     }
 
