@@ -13,6 +13,11 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.AnalyticsEvent
+import net.kikin.nubecita.core.analytics.AnalyticsScreen
+import net.kikin.nubecita.core.analytics.FeedCatchUpExhausted
+import net.kikin.nubecita.core.analytics.UserProperty
 import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
@@ -24,6 +29,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.util.TreeMap
+import net.kikin.nubecita.core.analytics.FeedType as AnalyticsFeedType
 
 /**
  * A multi-page catch-up into a partition that earlier catch-ups have already
@@ -49,6 +55,7 @@ internal class FeedCatchUpStackedWindowsTest {
             coEvery { dao.maxPosition(ACCOUNT, TYPE, URI) } answers { entries.lastKeyOrNull() }
             coEvery { dao.minPosition(ACCOUNT, TYPE, URI) } answers { entries.firstKeyOrNull() }
             coEvery { dao.firstPositionAtOrAbove(ACCOUNT, TYPE, URI, any()) } answers { entries.ceilingKey(arg(3)) }
+            coEvery { dao.countInRange(ACCOUNT, TYPE, URI, any(), any()) } answers { entries.subMap(arg(3), arg(4)).size }
             coEvery { dao.upsert(any()) } answers {
                 firstArg<List<FeedPostEntity>>().forEach { entries[it.position] = it.uri.substringAfterLast('/') }
             }
@@ -128,15 +135,48 @@ internal class FeedCatchUpStackedWindowsTest {
         members[position] = 1
     }
 
-    /** Serves `limit` entries per page under [cursor], never exhausting the range. */
-    private fun endlessRange(since: String) {
-        var page = 0
-        coEvery { networkSource.fetchPage(key, cursor = any(), since = since, limit = any()) } answers {
-            page++
+    /** Every `fetchPage` call made: the `since` and `cursor` it was asked for. */
+    private val fetches = mutableListOf<Pair<String?, String?>>()
+
+    /**
+     * Serves `limit` entries per page for any `since`, never exhausting the
+     * range — more new posts than any window holds. Each page reports a
+     * `startCursor` (`newest-<page>`) unless [withStartCursor] is false.
+     */
+    private fun endlessRange(withStartCursor: Boolean = true) {
+        coEvery { networkSource.fetchPage(key, cursor = any(), since = any(), limit = any()) } answers {
+            fetches += arg<String?>(2) to arg<String?>(1)
+            val page = fetches.size
             val limit = arg<Int>(3)
-            Result.success(FeedNetworkPage((1..limit).map { post("p$page-$it") }, "fill-$page", if (page == 1) "newest" else null))
+            Result.success(
+                FeedNetworkPage(
+                    (1..limit).map { post("p$page-$it") },
+                    "fill-$page",
+                    if (withStartCursor) "newest-$page" else null,
+                ),
+            )
         }
     }
+
+    /** Runs catch-ups until one stops asking for more. */
+    private suspend fun catchUpUntilSettled(): CatchUpOutcome {
+        while (true) {
+            val outcome = freshCatchUp().catchUp(key).getOrThrow()
+            if (outcome != CatchUpOutcome.MORE_PENDING) return outcome
+        }
+    }
+
+    private val loggedEvents = mutableListOf<AnalyticsEvent>()
+    private val recordingAnalytics =
+        object : AnalyticsClient {
+            override fun log(event: AnalyticsEvent) {
+                loggedEvents += event
+            }
+
+            override fun setUserProperty(property: UserProperty) = Unit
+
+            override fun logScreen(screen: AnalyticsScreen) = Unit
+        }
 
     private val networkSource = mockk<FeedNetworkSource>()
 
@@ -154,6 +194,7 @@ internal class FeedCatchUpStackedWindowsTest {
             projectionWriter = projectionWriter,
             remoteKeyDao = remoteKeyDao,
             transactionRunner = transactionRunner,
+            analytics = recordingAnalytics,
         )
 
     @Test
@@ -267,9 +308,9 @@ internal class FeedCatchUpStackedWindowsTest {
             // was written over the post sitting there.
             (0..4).forEach { storedPost(it) }
             remoteKey = remoteKeyEntity(boundarySince = "boundary-0")
-            endlessRange(since = "boundary-0")
+            endlessRange()
 
-            repeat(10) { freshCatchUp().catchUp(key).getOrThrow() }
+            catchUpUntilSettled()
 
             assertEquals(emptyList<Int>(), overwrittenItems, "a write replaced a post")
             assertTrue(-1 !in entries, "the slot above the head holds an entry")
@@ -326,12 +367,119 @@ internal class FeedCatchUpStackedWindowsTest {
             items -= -1000
             seams[-1000] = true
             remoteKey = remoteKeyEntity(boundarySince = "boundary-0")
-            endlessRange(since = "boundary-0")
+            endlessRange()
 
             freshCatchUp().catchUp(key).getOrThrow()
 
             assertTrue(-1000 !in members, "a member row is still under the marker")
             assertEquals(true, seams[-1000], "the existing passive marker was removed")
+        }
+
+    // --- a capped fill completes instead of stalling (nubecita-2xk0.2) -------
+
+    @Test
+    fun `a capped fill completes with a gap, and the next catch-up fetches from the newest`() =
+        runTest {
+            (0..4).forEach { storedPost(it) }
+            remoteKey = remoteKeyEntity(boundarySince = "boundary-0")
+            endlessRange()
+
+            assertEquals(CatchUpOutcome.CAUGHT_UP_WITH_GAP, catchUpUntilSettled())
+
+            // The fill is done: the boundary is the newest page it fetched,
+            // and nothing is left pending to resume into the full window.
+            assertEquals("newest-1", remoteKey?.boundarySince)
+            assertEquals(null, remoteKey?.fillCursor)
+            assertEquals(null, remoteKey?.fillNextPosition)
+            assertEquals(null, remoteKey?.pendingBoundary)
+
+            val fetchesBefore = fetches.size
+            freshCatchUp().catchUp(key).getOrThrow()
+
+            assertEquals(fetchesBefore + 1, fetches.size, "the catch-up after a capped fill fetched nothing")
+            assertEquals("newest-1" to null, fetches.last(), "it should start fresh from the promoted boundary")
+            // Into a new window above everything cached.
+            assertTrue(entries.firstKey() < -FeedCatchUp.CATCH_UP_ENTRY_BUDGET)
+        }
+
+    @Test
+    fun `a partition already stalled recovers on its next catch-up`() =
+        runTest {
+            // The Fold after 1.375.1: a full window, the fill still pending, and
+            // every catch-up returning without a fetch.
+            (-1250..-996).forEach { storedPost(it) }
+            remoteKey =
+                remoteKeyEntity(boundarySince = "boundary-0").copy(
+                    fillCursor = "fill-5",
+                    pendingBoundary = "newest",
+                    fillNextPosition = -1000,
+                )
+            endlessRange()
+
+            assertEquals(CatchUpOutcome.CAUGHT_UP_WITH_GAP, freshCatchUp().catchUp(key).getOrThrow())
+            assertEquals("newest", remoteKey?.boundarySince)
+            assertEquals(null, remoteKey?.fillCursor)
+
+            freshCatchUp().catchUp(key).getOrThrow()
+            assertEquals(listOf("newest" to null), fetches, "the recovered partition fetched nothing")
+        }
+
+    @Test
+    fun `a capped fill with no pending boundary still clears and fetches again`() =
+        runTest {
+            // Unreachable for getTimeline, which always reports a cursor; handled
+            // anyway, because a null here would otherwise restart the stall.
+            (0..4).forEach { storedPost(it) }
+            remoteKey = remoteKeyEntity(boundarySince = "boundary-0")
+            endlessRange(withStartCursor = false)
+
+            assertEquals(CatchUpOutcome.CAUGHT_UP_WITH_GAP, catchUpUntilSettled())
+            assertEquals("boundary-0", remoteKey?.boundarySince)
+            assertEquals(null, remoteKey?.fillCursor)
+            assertEquals(null, remoteKey?.fillNextPosition)
+
+            val fetchesBefore = fetches.size
+            freshCatchUp().catchUp(key).getOrThrow()
+            assertEquals(fetchesBefore + 1, fetches.size)
+            assertEquals("boundary-0" to null, fetches.last())
+        }
+
+    @Test
+    fun `a second overflow keeps the first gap marked`() =
+        runTest {
+            (0..4).forEach { storedPost(it) }
+            remoteKey = remoteKeyEntity(boundarySince = "boundary-0")
+            endlessRange()
+
+            assertEquals(CatchUpOutcome.CAUGHT_UP_WITH_GAP, catchUpUntilSettled())
+            assertEquals(CatchUpOutcome.CAUGHT_UP_WITH_GAP, catchUpUntilSettled())
+
+            // One passive marker per completed window, each in its own reserved
+            // slot, and the first one where it was.
+            assertEquals(mapOf(-251 to true, -1 to true), seams.toMap())
+            assertEquals(emptyList<Int>(), overwrittenItems)
+        }
+
+    @Test
+    fun `reaching the budget is counted once, and an exhausted range is not`() =
+        runTest {
+            (0..4).forEach { storedPost(it) }
+            remoteKey = remoteKeyEntity(boundarySince = "boundary-0")
+            endlessRange()
+
+            catchUpUntilSettled()
+
+            assertEquals(
+                listOf(FeedCatchUpExhausted(AnalyticsFeedType.Following, postsFetched = FeedCatchUp.CATCH_UP_ENTRY_BUDGET - 1)),
+                loggedEvents,
+            )
+
+            // A fill that reaches the reader's posts is an ordinary catch-up.
+            loggedEvents.clear()
+            coEvery { networkSource.fetchPage(key, cursor = any(), since = any(), limit = any()) } returns
+                Result.success(FeedNetworkPage(listOf(post("last")), "newest-1", "newest-x"))
+            freshCatchUp().catchUp(key).getOrThrow()
+            assertEquals(emptyList<AnalyticsEvent>(), loggedEvents)
         }
 
     private fun remoteKeyEntity(boundarySince: String) =

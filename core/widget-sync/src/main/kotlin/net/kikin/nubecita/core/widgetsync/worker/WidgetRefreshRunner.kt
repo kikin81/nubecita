@@ -206,7 +206,7 @@ internal class WidgetRefreshRunner
             return when (outcome.getOrNull()) {
                 // A caught-up or partly-filled partition is fresh at its head,
                 // which is all the widget reads.
-                CatchUpOutcome.CAUGHT_UP, CatchUpOutcome.MORE_PENDING -> true
+                CatchUpOutcome.CAUGHT_UP, CatchUpOutcome.CAUGHT_UP_WITH_GAP, CatchUpOutcome.MORE_PENDING -> true
                 CatchUpOutcome.NOT_POSSIBLE -> repository.refresh(feedKey).isSuccess
                 // A failed catch-up is a network failure, and the destructive
                 // path would hit the same network. Retrying it here would

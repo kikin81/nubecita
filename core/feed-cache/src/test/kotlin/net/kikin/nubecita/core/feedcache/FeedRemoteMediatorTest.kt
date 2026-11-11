@@ -23,6 +23,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import net.kikin.nubecita.core.analytics.NoOpAnalyticsClient
 import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
@@ -121,6 +122,7 @@ internal class FeedRemoteMediatorTest {
                     projectionWriter = projectionWriter,
                     remoteKeyDao = remoteKeyDao,
                     transactionRunner = transactionRunner,
+                    analytics = NoOpAnalyticsClient(),
                 ),
         )
 
@@ -653,6 +655,21 @@ internal class FeedRemoteMediatorTest {
             coEvery { remoteKeyDao.remoteKey(any(), any(), any()) } returns
                 keyWith(fillCursor = "fill-1", fillNextPosition = 0)
             coEvery { feedPostDao.firstPositionAtOrAbove("did:plc:me", "FOLLOWING", "", 0) } returns 0
+
+            val result = mediator().load(LoadType.PREPEND, emptyState())
+
+            assertTrue((result as RemoteMediator.MediatorResult.Success).endOfPaginationReached)
+            coVerify(exactly = 0) { networkSource.fetchPage(any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `a capped catch-up ends PREPEND pagination like any completed one`() =
+        runTest {
+            // A full window, the fill still pending: the catch-up completes it
+            // with a gap rather than fetching. Paging must not ask again.
+            coEvery { remoteKeyDao.remoteKey(any(), any(), any()) } returns
+                keyWith(fillCursor = "fill-1", pendingBoundary = "newest-1", fillNextPosition = -1)
+            coEvery { feedPostDao.firstPositionAtOrAbove("did:plc:me", "FOLLOWING", "", -1) } returns 0
 
             val result = mediator().load(LoadType.PREPEND, emptyState())
 

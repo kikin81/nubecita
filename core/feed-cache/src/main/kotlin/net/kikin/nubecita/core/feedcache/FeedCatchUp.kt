@@ -2,6 +2,8 @@ package net.kikin.nubecita.core.feedcache
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.FeedCatchUpExhausted
 import net.kikin.nubecita.core.database.dao.CachedPostDao
 import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
@@ -10,6 +12,7 @@ import net.kikin.nubecita.core.database.model.FeedItemEntity
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
+import net.kikin.nubecita.core.analytics.FeedType as AnalyticsFeedType
 
 /**
  * What one catch-up was able to do.
@@ -26,6 +29,16 @@ enum class CatchUpOutcome {
 
     /** A page landed and more of the range remains, resumable from the stored fill cursor. */
     MORE_PENDING,
+
+    /**
+     * The fill reached its budget before the range was exhausted, and was
+     * completed with a passive gap marker rather than left pending: the
+     * boundary has moved to the newest entry it wrote, so the next catch-up
+     * fetches what arrives after that. Callers that only decide whether to keep
+     * paging treat it as [CAUGHT_UP]; it is separate so the cap can be counted
+     * (nubecita-2xk0).
+     */
+    CAUGHT_UP_WITH_GAP,
 
     /** No bounded prepend exists here — a cold partition, no recorded boundary, or a feed whose XRPC method takes no `since`. */
     NOT_POSSIBLE,
@@ -55,6 +68,7 @@ internal class FeedCatchUp
         private val projectionWriter: FeedProjectionWriter,
         private val remoteKeyDao: FeedRemoteKeyDao,
         private val transactionRunner: FeedCacheTransactionRunner,
+        private val analytics: AnalyticsClient,
     ) {
         /**
          * Fetches the entries that arrived above the cached head and writes them
@@ -170,12 +184,11 @@ internal class FeedCatchUp
                 // replace a post the reader can see (nubecita-2xk0.1).
                 val room = if (first == null) CATCH_UP_ENTRY_BUDGET else first - 1 - nextFree
                 if (first != null && room <= 0) {
-                    // The window is full: this is as far as a catch-up may go
-                    // (D5). The seam stays, marked exhausted, so the reader is
-                    // offered a jump to the newest rather than a fill that
-                    // cannot complete.
-                    transactionRunner.run { writeSeam(feedKey, position = first - 1, exhausted = true) }
-                    return Result.success(CatchUpOutcome.CAUGHT_UP)
+                    // The window is full: this is as far as one fill may go
+                    // (D5). It is completed with a gap rather than left pending
+                    // — a pending fill would resume into this same full window
+                    // on every later catch-up and never fetch again.
+                    return Result.success(completeWithGap(feedKey, since, pendingBoundary, markerAt = first - 1))
                 }
 
                 val fetched =
@@ -246,6 +259,61 @@ internal class FeedCatchUp
                 }
                 cursor = fetched.nextCursor
             }
+        }
+
+        /**
+         * Ends a fill that reached its budget before reaching the reader's
+         * posts, leaving a passive gap marker at [markerAt] (nubecita-2xk0).
+         *
+         * The boundary moves to [pendingBoundary] — the newest page this fill
+         * fetched — and the fill state is cleared, so the next catch-up starts
+         * a fresh fill from the newest post and asks only for what arrived
+         * after that one. Leaving the fill pending instead is what stalled
+         * ingestion: every later catch-up resumed into the full window, found no
+         * room, and returned without fetching.
+         *
+         * This is also how a partition already in that stalled state recovers:
+         * its first catch-up lands here.
+         *
+         * A missing [pendingBoundary] should not happen for a feed that accepts
+         * `since`. If it does, the fill state is still cleared and the old
+         * boundary kept: the next fill walks the range again from the newest,
+         * and the prepend projection keeps posts already shown from rendering
+         * twice. Cleared either way, because keeping the state is the stall.
+         */
+        private suspend fun completeWithGap(
+            feedKey: FeedKey,
+            since: String,
+            pendingBoundary: String?,
+            markerAt: Int,
+        ): CatchUpOutcome {
+            if (pendingBoundary == null) {
+                Timber.e("Feed catch-up capped with no pending boundary in %s; keeping the old one", feedKey.feedType)
+            }
+            // The window this fill used: from its top down to the marker slot,
+            // which is where a window allocated below the minimum always ends.
+            val written =
+                feedPostDao.countInRange(
+                    feedKey.accountDid,
+                    feedKey.feedType.name,
+                    feedKey.feedUri,
+                    from = markerAt + 1 - CATCH_UP_ENTRY_BUDGET,
+                    until = markerAt,
+                )
+            transactionRunner.run {
+                writeSeam(feedKey, position = markerAt, exhausted = true)
+                remoteKeyDao.updatePrependCursors(
+                    accountDid = feedKey.accountDid,
+                    feedType = feedKey.feedType.name,
+                    feedUri = feedKey.feedUri,
+                    boundarySince = pendingBoundary ?: since,
+                    fillCursor = null,
+                    pendingBoundary = null,
+                    fillNextPosition = null,
+                )
+            }
+            analytics.log(FeedCatchUpExhausted(feedKey.feedType.toAnalyticsFeedType(), postsFetched = written))
+            return CatchUpOutcome.CAUGHT_UP_WITH_GAP
         }
 
         /**
@@ -320,4 +388,13 @@ internal class FeedCatchUp
              */
             const val CATCH_UP_ENTRY_BUDGET = FeedRepository.DEFAULT_CAP / 2
         }
+    }
+
+/** The analytics vocabulary's name for a cached feed's kind. */
+private fun FeedType.toAnalyticsFeedType(): AnalyticsFeedType =
+    when (this) {
+        FeedType.FOLLOWING -> AnalyticsFeedType.Following
+        FeedType.DISCOVER -> AnalyticsFeedType.Discover
+        FeedType.CUSTOM -> AnalyticsFeedType.Custom
+        FeedType.LIST -> AnalyticsFeedType.List
     }

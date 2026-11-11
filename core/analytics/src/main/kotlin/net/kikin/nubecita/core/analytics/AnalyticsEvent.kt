@@ -1279,3 +1279,23 @@ data class ReviewRequested(
     override val name: String = "review_requested"
     override val params: Map<String, AnalyticsValue> = mapOf("trigger" to Str(trigger.wire))
 }
+
+/**
+ * Fired when a feed catch-up reaches its entry budget before catching up to
+ * the reader's cached posts, and completes leaving a gap in the timeline.
+ *
+ * How often this happens decides whether an on-demand "load the missing
+ * posts" fill is worth building (nubecita-2xk0). [postsFetched] is how many
+ * entries the completed fill wrote — at most the budget.
+ */
+data class FeedCatchUpExhausted(
+    val feedType: FeedType,
+    val postsFetched: Int,
+) : AnalyticsEvent {
+    override val name: String = "feed_catch_up_exhausted"
+    override val params: Map<String, AnalyticsValue> =
+        mapOf(
+            "feed_type" to Str(feedType.wire),
+            "posts_fetched" to LongVal(postsFetched.toLong()),
+        )
+}

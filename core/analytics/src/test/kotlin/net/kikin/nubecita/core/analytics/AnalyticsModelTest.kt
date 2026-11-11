@@ -568,4 +568,15 @@ class AnalyticsModelTest {
             )
         assertEquals(names.size, names.toSet().size, "duplicate wire name in $names")
     }
+
+    @Test
+    fun `feed_catch_up_exhausted carries the feed type and how many entries the fill wrote`() {
+        val event = FeedCatchUpExhausted(FeedType.Following, postsFetched = 249)
+
+        assertEquals("feed_catch_up_exhausted", event.name)
+        assertEquals(
+            mapOf("feed_type" to AnalyticsValue.Str("following"), "posts_fetched" to AnalyticsValue.LongVal(249L)),
+            event.params,
+        )
+    }
 }
