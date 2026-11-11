@@ -51,6 +51,19 @@ internal class CarouselPreferredItemWidthTest {
         assertDp(140f, carouselPreferredItemWidth(200.dp))
     }
 
+    @Test
+    fun `a width too narrow for a peek never yields a zero or negative width`() {
+        // M3 divides the carousel width by this; zero or negative throws.
+        listOf(0.dp, 20.dp, 59.dp, 60.dp).forEach { width ->
+            assertTrue(carouselPreferredItemWidth(width) >= 1.dp, "${width.value}dp gave a non-positive width")
+        }
+    }
+
+    @Test
+    fun `an unbounded width falls back to the target`() {
+        assertDp(220f, carouselPreferredItemWidth(Dp.Infinity))
+    }
+
     private fun assertDp(
         expected: Float,
         actual: Dp,
