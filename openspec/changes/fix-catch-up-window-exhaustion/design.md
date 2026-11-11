@@ -102,6 +102,22 @@ A segment's items are never more than its entries, and its entries all sit stric
 - New fills are allocated below the partition minimum, i.e. above everything cached — the existing "prepend above the reader without moving the viewport" requirement covers them unchanged.
 - Markers are already excluded from the saved anchor (the screen skips `seam:` keys) and from the pill's faces (they have no leaf post); nothing changes there.
 
+### D7 — A capped catch-up is a distinct outcome, and it is measured
+
+`CatchUpOutcome` gains `CAUGHT_UP_WITH_GAP`, returned by the D1 transition. Paging's mediator and the background worker treat it exactly like `CAUGHT_UP` (end of pagination; no retry). Collapsing it into `CAUGHT_UP` would leave no way to tell how many readers live with a fractured timeline.
+
+`FeedCatchUp` logs an analytics event on the transition, `feed_catch_up_exhausted`, with `feed_type` and `posts_fetched` (the entries the fill wrote — the budget, less the reserved slot, when it fills by entries). It is logged there rather than at the callers because it is the one place every catch-up passes through: Paging's PREPEND, the feed's show-newest and seam fill, and the background worker. This adds `:core:analytics` (the `AnalyticsClient` interface) to `:core:feed-cache`'s dependencies. The event's frequency decides whether the deferred on-demand gap fill is worth building. Its parameters need registering as GA4 custom dimensions to be reportable (a manual Admin-API step; the analytics MCP is read-only).
+
+### D8 — The passive marker reads as an intentional break, not an error
+
+The marker's copy changes from "There is more here than we keep" to:
+
+- primary label: **"Older posts not loaded"**
+- supporting text: **"Showing newest posts since your last visit"**
+- action: **"Jump to newest"** (unchanged)
+
+Neutral and informative: nothing in it suggests a failed request. "Older" is relative to what the reader just scrolled past, which is exactly where the missing posts sit. New strings ship with es-419 and pt-BR translations in the same change. The active seam's copy ("Loading the posts you missed" / "Load the posts in between") is unchanged.
+
 ## Risks / Trade-offs
 
 - [Gap markers accumulate for a reader who overflows repeatedly] → each is one row; they are evicted with their neighbourhood by `trimToCap`, whose anchor-aware ceiling already bounds growth. Jump-to-newest on any of them clears all.
@@ -114,7 +130,10 @@ A segment's items are never more than its entries, and its entries all sit stric
 
 No schema change and no data migration. Partitions already stalled recover on their first catch-up after the update (D1). Rollback is a plain revert: the previous build reads the same columns; a partition whose fill was completed by this build simply looks like one with a promoted boundary and a capped seam, both states the old code understands.
 
+### Repairing partitions the old marker write damaged
+
+Partitions where today's code upserted a marker over an item carry a `feed_item_member` row under a seam row. The repair is idempotent and partition-scoped: delete member rows whose position holds a seam row, inside the catch-up's transaction. The item that was replaced is not reconstructed: its entry is still stored, so the next destructive refresh restores it, and it is one post per affected partition. Rebuilding it in place would mean moving the legacy marker off an entry position, which the reserved-slot rule makes unnecessary for every marker written from now on.
+
 ## Open Questions
 
-- Should the outcome be reported distinctly (e.g. `CatchUpOutcome.CAUGHT_UP_WITH_GAP`) for analytics on how often readers overflow? Paging and the worker treat it exactly like `CAUGHT_UP`. Leaning yes — it is the only signal for whether the deferred gap-fill is worth building.
-- Should the passive marker's copy change? "There is more here than we keep" is accurate; a softer "Some posts from this time aren't shown" may read better once it is no longer the only way forward. Copy only; can follow.
+None. The outcome type and the marker copy were settled as D7 and D8.

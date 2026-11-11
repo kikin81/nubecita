@@ -6,6 +6,7 @@ Each numbered group is one stacked PR (bottom to top), landed together with `gh 
 - [ ] 1.2 Reserve each window's bottom slot: the room check ends one slot before the first occupied position (entry or item). Unit test in `FeedCatchUpStackedWindowsTest`: a fill run until its window is full leaves the slot above the first occupied position empty in both tables.
 - [ ] 1.3 Write the active seam at the fill's next free position instead of `base + projected`. Unit test: after a page whose projection dropped rows, the seam's position holds no entry, and the next page's write replaces it.
 - [ ] 1.4 Never upsert a marker over a projected item: skip the write and record a non-fatal when the target slot holds one. Unit test reproducing the device state (window abutting an occupied row at -1000): the item survives, no member row is orphaned.
+- [ ] 1.5 Repair partitions the old write damaged: inside the catch-up transaction, delete `feed_item_member` rows whose position holds a seam row (idempotent, partition-scoped). Instrumented DAO test plus a unit test from the Fold snapshot (seam at -1000 with one member row under it).
 
 ## 2. Window exhaustion completes the fill (`:core:feed-cache`)
 
@@ -13,7 +14,8 @@ Each numbered group is one stacked PR (bottom to top), landed together with `gh 
 - [ ] 2.2 The recovery path: a partition persisted in today's stalled state (fill cursor set, no room) completes on the next catch-up. Unit test from the Fold's snapshot values (`fill_next_position = -1000`, exhausted seam at -1000); assert the following catch-up issues a network fetch.
 - [ ] 2.3 The null-`pending_boundary` fallback: clear the fill state, keep the boundary, record a non-fatal. Unit test asserts no stall and that a re-fetched, already-rendered post is not projected twice.
 - [ ] 2.4 Second overflow: two consecutive budget-capped fills leave two passive markers, each at its own position with an unchanged key. Unit test over two catch-ups.
-- [ ] 2.5 Decide the open question on a distinct outcome (`CAUGHT_UP_WITH_GAP`); if adopted, map it to end-of-pagination in `FeedRemoteMediator` and the worker exactly like `CAUGHT_UP`, and log it. Update `FeedRemoteMediatorTest` accordingly.
+- [ ] 2.5 Return `CatchUpOutcome.CAUGHT_UP_WITH_GAP` from the transition (D7); map it to end-of-pagination in `FeedRemoteMediator` and treat it as success in `WidgetRefreshRunner`, exactly like `CAUGHT_UP`. Update `FeedRemoteMediatorTest` and the worker's tests; grep every `when` over `CatchUpOutcome`, including the bench flavor.
+- [ ] 2.6 Log `feed_catch_up_exhausted` (`feed_type`, `posts_fetched`) from `FeedCatchUp` on the transition: add `:core:analytics` to `:core:feed-cache`, add the event to `AnalyticsEvent`, inject `AnalyticsClient`. Unit test with a recording client: logged once per capped fill, never for an exhausted range. Note the GA4 custom-dimension registration as a manual follow-up.
 
 ## 3. Re-projection keeps markers (`:core:database`, `:core:feed-cache`)
 
@@ -24,7 +26,9 @@ Each numbered group is one stacked PR (bottom to top), landed together with `gh 
 ## 4. Feed surface and verification (`:feature:feed:impl`, device)
 
 - [ ] 4.1 Confirm the passive marker renders the capped state and never starts a fill; the active seam still fills on scroll. Add a `FeedSeamRow` screenshot fixture for a passive marker sitting between two posts if none covers it.
+- [ ] 4.1a Change the passive marker's copy (D8): "Older posts not loaded" / "Showing newest posts since your last visit" / "Jump to newest", with es-419 and pt-BR translations in the same commit; run `:feature:feed:impl:lintProductionDebug` (the `:app` lint misses missing translations). Regenerate only the affected `FeedSeamRow` baselines via the CI `update-baselines` label.
 - [ ] 4.2 `FeedViewModelTest`: after a budget-capped catch-up, `ShowNewest` triggers a fresh catch-up (the fake records a fetch) and reopens at the top.
 - [ ] 4.3 Update the KDoc that encodes the old single-seam assumption (`FeedCatchUp.writeSeam`, `FeedItemDao`, `FeedItemPagingSource`) and the `FeedRemoteKeyEntity` docs for the completion transition.
-- [ ] 4.4 Device pass on the Fold, bench-free, against the saved stalled cache (`/tmp/nubedb`, or a fresh capture from a partition in the stalled state): open the feed and confirm a network fetch happens and new posts land above the gap marker; tap the pill and land on the newest post; confirm the post at the old marker position is intact; change a reply preference and confirm the marker survives. Record each against its scenario.
+- [ ] 4.4 Device pass on the Fold, bench-free, against the saved stalled cache (`/tmp/nubedb`, or a fresh capture from a partition in the stalled state): open the feed and confirm a network fetch happens and new posts land above the gap marker; tap the pill and land on the newest post; confirm no further post is lost at a marker position; change a reply preference and confirm the marker survives. Record each against its scenario.
+- [ ] 4.4a Lifecycle edge cases on the Fold, each with the marker on screen and again with the reader just below it: fold and unfold, split-screen and resizing the split, and backgrounding mid-fill then returning (process kept, and process killed via `am kill`). Confirm the reader's item stays in view (key stability), the marker keeps its position and key, and an interrupted fill resumes without overwriting anything.
 - [ ] 4.5 Top-of-stack gate: `:app:assembleDebug`, touched-module lint (`:core:database:lintDebug`, `:core:feed-cache:lintProductionDebug`, `:feature:feed:impl:lintProductionDebug`), bench compile, compose-expert review of the cumulative diff if any `@Composable` changed.

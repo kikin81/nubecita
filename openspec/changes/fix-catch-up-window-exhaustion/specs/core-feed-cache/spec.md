@@ -137,3 +137,19 @@ De-duplication and chain merging during a re-projection SHALL NOT reach across a
 #### Scenario: Grouping stops at a marker
 - **WHEN** the same thread root appears above and below a marker
 - **THEN** each segment keeps its own item for it, as the prepend that wrote it did
+
+### Requirement: A capped catch-up is reported distinctly
+
+A catch-up that completes because it reached the budget SHALL report a distinct outcome from one that exhausted its range, and SHALL log an analytics event carrying the feed type and the number of entries fetched. Callers that only need to know whether to keep paging SHALL treat both outcomes alike.
+
+#### Scenario: A capped fill is distinguishable
+- **WHEN** a catch-up completes because it reached the budget
+- **THEN** it reports the capped outcome, and an exhausted-range completion reports the plain caught-up outcome
+
+#### Scenario: The cap is measured once per fill
+- **WHEN** a fill reaches the budget
+- **THEN** exactly one `feed_catch_up_exhausted` event is logged with the feed type and the entries fetched, and none is logged for a fill that exhausted its range
+
+#### Scenario: Paging and the worker are unaffected by the distinction
+- **WHEN** Paging's prepend or the background worker receives the capped outcome
+- **THEN** each behaves as for the plain caught-up outcome: end of prepend pagination, no retry
