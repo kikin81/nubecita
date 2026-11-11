@@ -696,6 +696,29 @@ internal class FeedViewModelTest {
         }
 
     @Test
+    fun `a capped catch-up still opens the feed at the newest entry, with no error`() =
+        feedTest {
+            // The catch-up reached its budget and left a gap. That is a
+            // completed fetch, not a failure: the newest page is stored, so the
+            // reader goes to it as for any other catch-up (nubecita-2xk0).
+            val repo = FakeFeedRepository()
+            repo.storedAnchor = FeedAnchor(position = 37, itemKey = "single:at://post/a", offset = 0)
+            repo.catchUpResult = Result.success(CatchUpOutcome.CAUGHT_UP_WITH_GAP)
+            val vm = viewModel(repo)
+            backgroundScope.launch { vm.feed.collect {} }
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(FeedEvent.ShowNewest)
+                advanceUntilIdle()
+                expectNoEvents()
+            }
+            assertEquals(1, repo.catchUpCalls)
+            assertEquals(listOf<Int?>(37, null), repo.initialPositions)
+            assertEquals(true, vm.scrollToNewest.value)
+        }
+
+    @Test
     fun `a second ask while the first is still fetching starts nothing new`() =
         feedTest {
             val repo = FakeFeedRepository()

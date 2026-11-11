@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.feature.feed.impl.R
 
@@ -41,10 +42,12 @@ import net.kikin.nubecita.feature.feed.impl.R
  * Two shapes, by [exhausted]:
  *  - **Fillable** — the range is still reachable, so the row fills itself when
  *    the reader comes near it and otherwise offers the fill as a tap.
- *  - **Exhausted** — the gap is wider than the feed keeps (D5), so no amount
- *    of filling closes it. The affordance becomes jump-to-newest, routed
- *    through the destructive refresh, which is the only honest way to the
- *    other side.
+ *  - **Exhausted** — a passive gap marker: a catch-up reached its budget here
+ *    and completed, so the posts between this point and the ones below were
+ *    never fetched (nubecita-2xk0). It reads as an intentional break, not an
+ *    error, and offers jump-to-newest — the destructive refresh — for a reader
+ *    who wants a continuous timeline. Optional: new posts keep arriving above
+ *    the gap without it.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -98,11 +101,19 @@ internal fun FeedSeamRow(
             ) {
                 when {
                     exhausted -> {
-                        Text(
-                            text = stringResource(R.string.feed_seam_capped),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        // One TalkBack stop for the label and its supporting line.
+                        Column(modifier = Modifier.weight(1f).semantics(mergeDescendants = true) {}) {
+                            Text(
+                                text = stringResource(R.string.feed_seam_capped),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = stringResource(R.string.feed_seam_capped_supporting),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         TextButton(onClick = onJumpToNewest) {
                             Text(stringResource(R.string.feed_seam_jump_to_newest))
                         }
