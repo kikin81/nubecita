@@ -40,8 +40,8 @@ import androidx.compose.ui.unit.dp
  *
  * [NONE] is the default and means "this surface does not participate" — no
  * shared element is registered and no explicit memory-cache key is set, so
- * cards on surfaces that cannot open the viewer (search results, bookmarks,
- * notification previews, Wear) keep Coil's size-aware default key.
+ * cards on surfaces that cannot open the viewer (bookmarks, notification
+ * previews, Wear) keep Coil's size-aware default key.
  */
 object SharedImageSurfaces {
     const val NONE: String = ""
@@ -49,6 +49,16 @@ object SharedImageSurfaces {
     const val FEED_VIEW: String = "feedview"
     const val POST_DETAIL: String = "postdetail"
     const val PROFILE: String = "profile"
+
+    /** Search's Posts results. */
+    const val SEARCH: String = "search"
+
+    /**
+     * A hashtag's results. Separate from [SEARCH] because the hashtag screen
+     * opens in the detail pane beside search results, so the same post can be
+     * on screen in both at once.
+     */
+    const val HASHTAG: String = "hashtag"
 }
 
 /**

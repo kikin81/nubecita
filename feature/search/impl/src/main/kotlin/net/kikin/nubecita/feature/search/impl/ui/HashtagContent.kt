@@ -80,6 +80,7 @@ internal fun HashtagContent(
     topListState: LazyListState = rememberLazyListState(),
     latestListState: LazyListState = rememberLazyListState(),
     translations: PostTranslationsHandle? = null,
+    onOpenImage: (postUri: String, imageIndex: Int) -> Unit = { _, _ -> },
 ) {
     Scaffold(
         modifier = modifier,
@@ -143,6 +144,7 @@ internal fun HashtagContent(
                 callbacks = callbacks,
                 tapMarkers = tapMarkers,
                 translations = translations,
+                onOpenImage = onOpenImage,
                 onEvent = onEvent,
             )
         }
@@ -185,6 +187,7 @@ private fun HashtagTabBody(
     callbacks: PostCallbacks,
     tapMarkers: PostTapMarkers,
     translations: PostTranslationsHandle?,
+    onOpenImage: (postUri: String, imageIndex: Int) -> Unit,
     onEvent: (HashtagEvent) -> Unit,
 ) {
     when (val status = tab.status) {
@@ -211,6 +214,7 @@ private fun HashtagTabBody(
                     callbacks = callbacks,
                     tapMarkers = tapMarkers,
                     translations = translations,
+                    onOpenImage = onOpenImage,
                     onEvent = onEvent,
                 )
             }
@@ -224,6 +228,7 @@ private fun HashtagResultsList(
     callbacks: PostCallbacks,
     tapMarkers: PostTapMarkers,
     translations: PostTranslationsHandle?,
+    onOpenImage: (postUri: String, imageIndex: Int) -> Unit,
     onEvent: (HashtagEvent) -> Unit,
 ) {
     // Per-list reveal state for covered (NSFW-labelled) media, as in the Posts tab.
@@ -245,6 +250,8 @@ private fun HashtagResultsList(
                 translation = translations?.stateOf(item.post),
                 onTranslate = { translations?.translate(item.post) },
                 onToggleTranslation = { translations?.toggleOriginal(item.post.id) },
+                onImageClick = { index -> onOpenImage(item.post.id, index) },
+                onQuotedImageClick = onOpenImage,
             )
         }
         if (status.isAppending) {
