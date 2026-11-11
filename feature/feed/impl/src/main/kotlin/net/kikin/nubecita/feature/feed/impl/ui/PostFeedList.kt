@@ -163,6 +163,38 @@ internal fun PostFeedList(
         RememberReadingPosition(listState = listState, items = items, leadingItems = leadingItems, anchoring = anchoring)
     }
 
+    // Videos on posts shown as CONTEXT — a reply cluster's root and parent,
+    // and every chain post but the last. Only an item's leaf joins the
+    // autoplay coordinator (one player per item), so these render the
+    // static poster with a play badge and open their own post's video on
+    // tap. Before this they got no slot at all, and PostCard renders
+    // nothing without one: the video simply vanished (nubecita-2e8h).
+    // Built once per list, not per item; the post comes in as an argument.
+    val contextVideoSlot: @Composable (PostUi, EmbedUi.Video, MediaCover?) -> Unit =
+        remember(onVideoTap, coordinator) {
+            { post, video, cover ->
+                PostCardVideoEmbed(
+                    video = video,
+                    onTap = onVideoTap?.let { tap -> { tap(post.id) } },
+                    cover = cover,
+                    // Same split as the leaf's autoplay-off branch: no badge
+                    // in the no-coordinator preview path.
+                    showPlayAffordance = coordinator != null,
+                )
+            }
+        }
+    val contextQuotedVideoSlot: @Composable (PostUi, QuotedEmbedUi.Video) -> Unit =
+        remember(onVideoTap, coordinator) {
+            { post, quotedVideo ->
+                val quotedUri = post.embed.quotedRecord?.uri
+                PostCardVideoEmbed(
+                    quotedVideo = quotedVideo,
+                    onTap = if (quotedUri != null) onVideoTap?.let { tap -> { tap(quotedUri) } } else null,
+                    showPlayAffordance = coordinator != null,
+                )
+            }
+        }
+
     NubecitaPullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
@@ -416,6 +448,8 @@ internal fun PostFeedList(
                             shape = cardShape,
                             leafVideoEmbedSlot = videoSlot,
                             leafQuotedVideoEmbedSlot = quotedVideoSlot,
+                            contextVideoEmbedSlot = contextVideoSlot,
+                            contextQuotedVideoEmbedSlot = contextQuotedVideoSlot,
                             // Tapping "View full thread" routes to the cluster's
                             // leaf URI — same MVI dispatch a body tap on the
                             // leaf would use. Per CLAUDE.md / m28.5.1 acceptance
@@ -448,10 +482,9 @@ internal fun PostFeedList(
                         //
                         // Only the leaf post participates in the video
                         // coordinator (matches ReplyCluster's leaf-only
-                        // video binding). Non-leaf chain posts get
-                        // videoEmbedSlot = null, so any video embed in
-                        // those positions collapses cleanly per
-                        // PostCard's videoEmbedSlot KDoc.
+                        // video binding). Non-leaf chain posts get the
+                        // context slot instead: a poster that opens their
+                        // own video, never autoplaying.
                         val chainLastIndex = item.posts.lastIndex
                         Surface(
                             color = cardColor,
@@ -466,8 +499,18 @@ internal fun PostFeedList(
                                         callbacks = callbacks,
                                         connectAbove = index > 0,
                                         connectBelow = index < chainLastIndex,
-                                        videoEmbedSlot = if (isLeaf) videoSlot else null,
-                                        quotedVideoEmbedSlot = if (isLeaf) quotedVideoSlot else null,
+                                        videoEmbedSlot =
+                                            if (isLeaf) {
+                                                videoSlot
+                                            } else {
+                                                { video, cover -> contextVideoSlot(chainPost, video, cover) }
+                                            },
+                                        quotedVideoEmbedSlot =
+                                            if (isLeaf) {
+                                                quotedVideoSlot
+                                            } else {
+                                                { quoted -> contextQuotedVideoSlot(chainPost, quoted) }
+                                            },
                                         onImageClick = { idx -> onImageTap(chainPost, idx) },
                                         onQuotedImageClick = onQuotedImageTap,
                                         animateLikeTap = chainPost.id == lastLikeTapPostUri,

@@ -42,13 +42,14 @@ import kotlin.time.Instant
  * reason — keeps the line unbroken across the fold gap.
  *
  * Video slots: the leaf is the only post in the cluster that participates in
- * the feed video coordinator. Root and parent posts pass `videoEmbedSlot =
- * null`, so any video embeds in those positions render as static-poster
- * fallbacks via PostCard's internal `Unsupported` chip path. Reasoning is in
- * the openspec design (decision D3): the coordinator's "most visible" math
- * operates on whole `LazyColumn` items, but a cluster carries three
- * potentially-video posts; binding three video players per cluster would
- * expand coordinator complexity for a marginal use case.
+ * the feed video coordinator. Root and parent take [contextVideoEmbedSlot] /
+ * [contextQuotedVideoEmbedSlot] instead — the host renders a static poster
+ * that opens that post's own video. Reasoning is in the openspec design
+ * (decision D3): the coordinator's "most visible" math operates on whole
+ * `LazyColumn` items, but a cluster carries three potentially-video posts;
+ * binding three video players per cluster would expand coordinator complexity
+ * for a marginal use case. Leaving the context slots null renders no video at
+ * all, which hides content the reader may have come for (nubecita-2e8h).
  *
  * @param root The thread starter (`replyRef.root` from the lexicon).
  * @param parent The immediate parent (`replyRef.parent` from the lexicon).
@@ -62,7 +63,11 @@ import kotlin.time.Instant
  * @param leafVideoEmbedSlot Forwarded to the leaf `PostCard`. Root and
  *   parent receive `null`.
  * @param leafQuotedVideoEmbedSlot Forwarded to the leaf `PostCard`'s quoted
- *   post slot. Root and parent receive `null`.
+ *   post slot.
+ * @param contextVideoEmbedSlot The root's and parent's video slot, given the
+ *   post it renders for. Null renders no video for them.
+ * @param contextQuotedVideoEmbedSlot The root's and parent's quoted-video
+ *   slot, given the post it renders for.
  * @param onFoldTap Tap handler for the [ThreadFold]. Wires to a no-op in v1
  *   until post-detail navigation exists.
  */
@@ -83,6 +88,8 @@ fun ThreadCluster(
     shape: Shape = RectangleShape,
     leafVideoEmbedSlot: (@Composable (EmbedUi.Video, cover: MediaCover?) -> Unit)? = null,
     leafQuotedVideoEmbedSlot: (@Composable (QuotedEmbedUi.Video) -> Unit)? = null,
+    contextVideoEmbedSlot: (@Composable (post: PostUi, video: EmbedUi.Video, cover: MediaCover?) -> Unit)? = null,
+    contextQuotedVideoEmbedSlot: (@Composable (post: PostUi, quoted: QuotedEmbedUi.Video) -> Unit)? = null,
     onFoldTap: () -> Unit = {},
     onImageClick: ((post: PostUi, imageIndex: Int) -> Unit)? = null,
     onQuotedImageClick: ((quotedPostUri: String, imageIndex: Int) -> Unit)? = null,
@@ -121,6 +128,8 @@ fun ThreadCluster(
                 callbacks = callbacks,
                 connectAbove = false,
                 connectBelow = true,
+                videoEmbedSlot = contextVideoEmbedSlot?.let { slot -> { video, cover -> slot(root, video, cover) } },
+                quotedVideoEmbedSlot = contextQuotedVideoEmbedSlot?.let { slot -> { quoted -> slot(root, quoted) } },
                 onImageClick = onImageClick?.let { handler -> { idx -> handler(root, idx) } },
                 onQuotedImageClick = onQuotedImageClick,
                 animateLikeTap = root.id == lastLikeTapPostUri,
@@ -137,6 +146,8 @@ fun ThreadCluster(
                     callbacks = callbacks,
                     connectAbove = true,
                     connectBelow = true,
+                    videoEmbedSlot = contextVideoEmbedSlot?.let { slot -> { video, cover -> slot(parent, video, cover) } },
+                    quotedVideoEmbedSlot = contextQuotedVideoEmbedSlot?.let { slot -> { quoted -> slot(parent, quoted) } },
                     onImageClick = onImageClick?.let { handler -> { idx -> handler(parent, idx) } },
                     onQuotedImageClick = onQuotedImageClick,
                     animateLikeTap = parent.id == lastLikeTapPostUri,
