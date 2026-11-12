@@ -4,11 +4,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
@@ -35,6 +37,10 @@ import net.kikin.nubecita.wear.gate.WearGateViewModel
 import net.kikin.nubecita.wear.input.TextReviewScreen
 import net.kikin.nubecita.wear.input.rememberWearTextInput
 import net.kikin.nubecita.wear.landing.LandingScreen
+import net.kikin.nubecita.wear.launch.PendingNewPost
+import net.kikin.nubecita.wear.launch.WearLaunchTarget
+import net.kikin.nubecita.wear.launch.initialBackStack
+import net.kikin.nubecita.wear.launch.resolvePendingNewPost
 import net.kikin.nubecita.wear.navigation.WearConvos
 import net.kikin.nubecita.wear.navigation.WearFeedPicker
 import net.kikin.nubecita.wear.navigation.WearHome
@@ -56,12 +62,13 @@ import net.kikin.nubecita.wear.ui.theme.NubecitaWearTheme
  *
  * The back stack starts on the [WearLanding] screen (Home, Messages, New post)
  * and is keyed by account, so a different account never inherits the previous
- * account's open screens. [openMessages] starts it on the conversation list,
- * above the landing screen so back still lands there.
+ * account's open screens. [launchTarget] (from the complication or launcher
+ * widget) starts it on the feed or conversation list above the landing screen,
+ * so back still lands there, or opens New post straight from the landing screen.
  */
 @Composable
 fun NubecitaWearApp(
-    openMessages: Boolean = false,
+    launchTarget: WearLaunchTarget = WearLaunchTarget.Landing,
     viewModel: WearGateViewModel = hiltViewModel(),
     feedViewModel: WatchFeedViewModel = hiltViewModel(),
     dmViewModel: WatchDmViewModel = hiltViewModel(),
@@ -82,7 +89,7 @@ fun NubecitaWearApp(
                 }
                 val now = rememberNow()
                 key(account.did) {
-                    val backStack = rememberNavBackStack(*if (openMessages) arrayOf<NavKey>(WearLanding, WearConvos) else arrayOf<NavKey>(WearLanding))
+                    val backStack = rememberNavBackStack(*initialBackStack(launchTarget).toTypedArray())
                     NavDisplay(
                         backStack = backStack,
                         sceneStrategies = listOf(rememberSwipeDismissableSceneStrategy()),
@@ -90,6 +97,19 @@ fun NubecitaWearApp(
                             entryProvider {
                                 entry<WearLanding> {
                                     val writePost = rememberWearTextInput(stringResource(R.string.wear_post_new)) { text -> backStack.add(WearPostReview(text)) }
+                                    // A New post launch opens the input once posting availability is known.
+                                    var pendingNewPost by rememberSaveable { mutableStateOf(launchTarget == WearLaunchTarget.NewPost) }
+                                    LaunchedEffect(pendingNewPost, feedState.status, feedState.postingAvailable) {
+                                        if (!pendingNewPost) return@LaunchedEffect
+                                        when (resolvePendingNewPost(feedState.status, feedState.postingAvailable)) {
+                                            PendingNewPost.Open -> {
+                                                pendingNewPost = false
+                                                writePost()
+                                            }
+                                            PendingNewPost.Drop -> pendingNewPost = false
+                                            PendingNewPost.Wait -> Unit
+                                        }
+                                    }
                                     LandingScreen(
                                         onOpenFeed = { backStack.add(WearHome) },
                                         unreadMessages = dmState.unreadCount,

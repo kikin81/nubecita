@@ -2,7 +2,6 @@ package net.kikin.nubecita.wear.complication
 
 import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import android.graphics.drawable.Icon
 import androidx.wear.watchface.complications.data.ComplicationData
 import androidx.wear.watchface.complications.data.ComplicationType
@@ -17,9 +16,10 @@ import androidx.wear.watchface.complications.data.SmallImageType
 import androidx.wear.watchface.complications.datasource.ComplicationRequest
 import androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService
 import dagger.hilt.android.AndroidEntryPoint
-import net.kikin.nubecita.wear.MainActivity
 import net.kikin.nubecita.wear.R
 import net.kikin.nubecita.wear.data.WatchDmRepository
+import net.kikin.nubecita.wear.launch.WearLaunchTarget
+import net.kikin.nubecita.wear.launch.launchIntent
 import javax.inject.Inject
 
 /**
@@ -40,7 +40,7 @@ class UnreadDmsComplicationService : SuspendingComplicationDataSourceService() {
 
     override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData {
         val unread = repository.latestUnreadCount() ?: return NoDataComplicationData()
-        return unreadDmsData(this, request.complicationType, unread, openMessagesIntent(this)) ?: NoDataComplicationData()
+        return unreadDmsData(this, request.complicationType, unread, launchIntent(this, WearLaunchTarget.Messages)) ?: NoDataComplicationData()
     }
 
     override fun getPreviewData(type: ComplicationType): ComplicationData? = unreadDmsData(this, type, PREVIEW_UNREAD, tapAction = null)
@@ -92,14 +92,3 @@ private fun unreadDmsData(
         else -> null
     }
 }
-
-private fun openMessagesIntent(context: Context): PendingIntent =
-    PendingIntent.getActivity(
-        context,
-        0,
-        Intent(context, MainActivity::class.java)
-            .setAction(MainActivity.ACTION_OPEN_MESSAGES)
-            // A fresh task: the tap means "show my messages", not "resume where I was".
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
-        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-    )
