@@ -246,6 +246,14 @@ nothing compiling them: `AuthTestHarness` injects four `internal` types from
 logout mystery, under time pressure.
 
 Production exposure is two independent gates: the classes are absent from any
-build that does not pass the flag (verified by dex-string count — 0 without, 59
-with), and the flag itself is refused on any machine that could sign a
-distributable artifact.
+build that does not pass the flag, and the flag itself is refused on any machine
+that could sign a distributable artifact.
+
+Verifying the first gate: in a **debug** APK, count `AuthTestHarness` dex
+strings — 0 without the flag, 59 with. In a **release** APK that count is not a
+usable discriminator, because R8 renames the classes; the flagged release build
+yields 1, not 59. Count a string literal R8 cannot rename instead — the poison
+token `nubecita-harness-deliberately-invalid-token` or the broadcast action
+`net.kikin.nubecita.AUTH_HARNESS`. Both read 0 unflagged and 1 flagged in
+`productionRelease`. Checking only the class name in a release build would
+report a near-zero either way and look like a pass.
