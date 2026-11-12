@@ -6,18 +6,12 @@ import io.github.kikin81.atproto.oauth.OAuthSessionStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.long
 import net.kikin.nubecita.core.analytics.SessionClearReason
 import net.kikin.nubecita.core.analytics.TokenRefreshCaller
 import timber.log.Timber
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.io.encoding.Base64
-import kotlin.io.encoding.ExperimentalEncodingApi
 
 /**
  * Opt-in harness for exercising the session-loss telemetry chain against a
@@ -238,19 +232,19 @@ class AuthTestHarness
         private suspend fun stashAccessToken() {
             val session = currentSession()
             val exp =
-                jwtExpiry(session.accessToken)
+                HarnessTokenExpiry.of(session.accessToken)
                     ?: error(
                         "the access token is not a JWT with an exp claim, so the SDK can never see it as " +
                             "expired and ExpiredAccessToken cannot work against this PDS — the stash was " +
                             "NOT saved. Re-run the plan with this finding.",
                     )
             harnessStore.stash(accessToken = session.accessToken, expEpochSeconds = exp)
-            val secondsLeft = exp - sdkNowSeconds(session)
+            val secondsLeft = secondsLeftOn(exp, session)
             Timber.tag(TAG).w(
                 "stashed the live access token: exp=%d, %d seconds (%d min) until the SDK calls it expired",
                 exp,
                 secondsLeft,
-                secondsLeft / SECONDS_PER_MINUTE,
+                secondsLeft / HarnessTokenExpiry.SECONDS_PER_MINUTE,
             )
         }
 
@@ -267,11 +261,11 @@ class AuthTestHarness
         private suspend fun applyStashedAccessToken() {
             val session = currentSession()
             val stashed = harnessStore.stashed() ?: error("nothing stashed — run StashAccessToken first")
-            val secondsLeft = stashed.expEpochSeconds - sdkNowSeconds(session)
+            val secondsLeft = secondsLeftOn(stashed.expEpochSeconds, session)
             if (secondsLeft > 0) {
                 error(
                     "the stashed token does not expire for another $secondsLeft seconds " +
-                        "(${secondsLeft / SECONDS_PER_MINUTE} min); wait that out and re-run",
+                        "(${secondsLeft / HarnessTokenExpiry.SECONDS_PER_MINUTE} min); wait that out and re-run",
                 )
             }
             dataStore.updateData { current ->
@@ -294,17 +288,19 @@ class AuthTestHarness
          * the shape the MIUI logouts actually took: a background-woken process
          * that refreshed and was frozen moments later.
          *
-         * The fabricated process id is prefixed so a reader of the stored marker
-         * can see it was staged. Note that `reportRefreshDiedInFlight` puts only
-         * the CALLER on the non-fatal and only caller/outcome/foreground on the
-         * GA4 event — the process id never reaches either, so it cannot be used
-         * to filter the staged events out downstream.
+         * Staged under [TokenRefreshCaller.Harness], which is what makes the
+         * reported event separable: `reportRefreshDiedInFlight` carries the
+         * marker's caller onto both the `died_refresh_caller` Crashlytics key
+         * and the GA4 event's `refresh_caller`, so a staged `process_died` can
+         * be filtered out of a fleet-wide count instead of inflating it. The
+         * fabricated process id is prefixed too, but only for a reader of the
+         * stored marker and of logcat — it reaches neither backend.
          */
         private suspend fun stageDiedInFlightMarker() {
             val marker =
                 InFlightRefresh(
                     epochMillis = System.currentTimeMillis() - MARKER_BACKDATE_MILLIS,
-                    caller = TokenRefreshCaller.Untagged,
+                    caller = TokenRefreshCaller.Harness,
                     foreground = false,
                     processId = "$HARNESS_PROCESS_ID_PREFIX${UUID.randomUUID()}",
                 )
@@ -312,8 +308,8 @@ class AuthTestHarness
             Timber.tag(TAG).w(
                 "staged an in-flight marker (processId=%s). Next launch will report " +
                     "TokenRefreshDiedInFlightException and token_refresh outcome=process_died with " +
-                    "refresh_caller=%s, foreground=%b. The process id is NOT reported — exclude these " +
-                    "from any fleet count by device and run time.",
+                    "refresh_caller=%s, foreground=%b. Filter on that caller to keep these out of a " +
+                    "fleet count.",
                 marker.processId,
                 marker.caller.wire,
                 marker.foreground,
@@ -349,46 +345,15 @@ class AuthTestHarness
             dataStore.data.firstOrNull()
                 ?: error("no stored session — sign in before running the harness")
 
-        /**
-         * The clock the SDK compares `exp` against: wall time shifted by the
-         * offset it calibrated from the server's `Date` header. Using plain wall
-         * time here would let this disagree with `isAccessTokenExpired()` on a
-         * device whose clock is off, which is exactly the case the offset exists
-         * for.
-         */
-        private fun sdkNowSeconds(session: OAuthSession): Long = (System.currentTimeMillis() / MILLIS_PER_SECOND) + session.clockOffsetSeconds
-
-        /**
-         * The `exp` claim of a JWT access token, or null when the token is
-         * opaque or malformed. Mirrors `DpopAuthProvider.accessTokenExpiry`
-         * deliberately — a different decoding here could call a token expired
-         * that the SDK does not, and the point is to agree with the SDK.
-         */
-        @OptIn(ExperimentalEncodingApi::class)
-        private fun jwtExpiry(token: String): Long? =
-            try {
-                val parts = token.split('.')
-                if (parts.size != JWT_PART_COUNT) {
-                    null
-                } else {
-                    val payload = Base64.UrlSafe.decode(parts[1].padBase64()).toString(Charsets.UTF_8)
-                    JSON
-                        .parseToJsonElement(payload)
-                        .jsonObject["exp"]
-                        ?.jsonPrimitive
-                        ?.long
-                }
-            } catch (_: Exception) {
-                null
-            }
-
-        private fun String.padBase64(): String =
-            when (length % BASE64_BLOCK) {
-                0 -> this
-                2 -> "$this=="
-                3 -> "$this="
-                else -> this
-            }
+        private fun secondsLeftOn(
+            expEpochSeconds: Long,
+            session: OAuthSession,
+        ): Long =
+            HarnessTokenExpiry.secondsLeft(
+                expEpochSeconds = expEpochSeconds,
+                nowMillis = System.currentTimeMillis(),
+                clockOffsetSeconds = session.clockOffsetSeconds,
+            )
 
         internal fun halt(): Nothing {
             Runtime.getRuntime().halt(0)
@@ -397,8 +362,6 @@ class AuthTestHarness
 
         private companion object {
             const val TAG = "AuthTestHarness"
-
-            private val JSON = Json { ignoreUnknownKeys = true }
 
             /**
              * Shaped like a token so nothing upstream rejects it for being
@@ -424,10 +387,5 @@ class AuthTestHarness
              * an impatient halt costs a whole re-run plus a fresh sign-in.
              */
             const val TELEMETRY_PERSIST_DELAY_MILLIS = 3_000L
-
-            const val MILLIS_PER_SECOND = 1_000L
-            const val SECONDS_PER_MINUTE = 60L
-            const val JWT_PART_COUNT = 3
-            const val BASE64_BLOCK = 4
         }
     }

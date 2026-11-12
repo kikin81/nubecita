@@ -123,27 +123,35 @@ Pass if **all** of:
 - no `api_error`
 - the profile renders
 
-### `DiedInFlightMarker` contaminates a fleet count — log your runs
+### `DiedInFlightMarker` lands in a fleet count — filter it out, and log your runs
 
 This stages the proven cause of the remaining MIUI logouts (nubecita-25a5)
 without spending a real token: it writes only the in-flight marker, shaped as
-the real ones were — `foreground = false`, caller `untagged`.
+the real ones were — `foreground = false`, a previous process's id.
 
 Its output lands in **the same** `TokenRefreshDiedInFlightException` Crashlytics
 issue and the same GA4 `token_refresh outcome=process_died` count used to
-confirm the #1184 fix. There is no in-band way to tell a staged event from a
-real one:
+confirm the #1184 fix. One field separates it: the marker is staged under
+caller **`harness`**, and `reportRefreshDiedInFlight` carries the marker's
+caller to both sinks. So exclude with:
 
-- `reportRefreshDiedInFlight` puts only `died_refresh_caller` on the non-fatal.
-- The GA4 event carries `refresh_caller`, `outcome`, `foreground` only.
-- The fabricated process id (prefixed `harness-`) is used only to decide "not my
-  own refresh" and is then **discarded** — it never reaches either sink. Don't
-  plan to filter on it.
+- GA4: `refresh_caller != harness` on `token_refresh`.
+- Crashlytics: the `died_refresh_caller` custom key on the non-fatal reads
+  `harness`.
 
-So exclusion is **out of band**: device and time. Record every run below before
-anyone reads those numbers. The tester is on a Xiaomi 23028RNCAG, so a run from
-an emulator or a dev Pixel is already separable by device model — that is the
-discriminator to use.
+Two things that do **not** work, so don't reach for them:
+
+- **The fabricated process id** (prefixed `harness-`) is used only to decide
+  "not my own refresh" and is then discarded — it reaches neither sink. It is
+  visible in the stored marker and in logcat, and nowhere else.
+- **A `harness=true` Crashlytics custom key** would be set in the staging
+  process, while the report happens in the *next* process. Custom keys are
+  per-process, so it would be silently absent for exactly this scenario.
+
+Keep the run log anyway. The caller filter depends on someone applying it; a row
+here is what lets a reader who didn't notice the field reconcile a count after
+the fact. The tester is on a Xiaomi 23028RNCAG, so a run from an emulator or a
+dev Pixel is separable by device model too.
 
 | Date | Device | Scenario | Events staged |
 |---|---|---|---|
@@ -230,6 +238,14 @@ rm -f app/build/outputs/apk/production/release/app-production-release.apk
 `-PauthTestHarness=true` attaches the `authHarness` source sets in `:core:auth`
 and `:app`. Without it the harness classes do not exist in the build at all —
 there is nothing to strip and nothing to verify.
+
+The same flag attaches the harness's own unit tests, which cover the expiry
+arithmetic `ExpiredAccessToken` depends on. CI runs them in the `build` job's
+harness step, but run them yourself before burning a sign-in cycle on a device:
+
+```bash
+./gradlew -PauthTestHarness=true :core:auth:testProductionDebugUnitTest
+```
 
 **The build refuses to run on a machine with release signing material.** If
 `keystore.properties` exists or the `KEYSTORE_*` env vars are set, the flag
@@ -353,3 +369,18 @@ token `nubecita-harness-deliberately-invalid-token` or the broadcast action
 `net.kikin.nubecita.AUTH_HARNESS`. Both read 0 unflagged and 1 flagged in
 `productionRelease`. Checking only the class name in a release build would
 report a near-zero either way and look like a pass.
+
+Don't grep for the bare word `harness` either. Since the `TokenRefreshCaller`
+enum gained a `Harness("harness")` entry, the strings `harness` and `Harness`
+are in `:core:analytics` main source and therefore present in a clean release
+APK — along with the framework's own `isRunningInTestHarness`. Verified counts
+in `productionRelease` (flagged / unflagged):
+
+| Marker | Flagged | Unflagged |
+|---|---|---|
+| `nubecita-harness-deliberately-invalid-token` | 1 | 0 |
+| `net.kikin.nubecita.AUTH_HARNESS` | 1 | 0 |
+| `auth_harness` | 1 | 0 |
+| `stashed_access_token` | 2 | 0 |
+| `harness-` (with the hyphen) | 2 | 0 |
+| `harness` (bare) | — | **present: not a marker** |

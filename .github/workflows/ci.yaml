@@ -243,7 +243,7 @@ jobs:
           compileProductionDebugAndroidTestSources compileDebugAndroidTestSources
           hiltJavaCompileProductionDebugAndroidTest hiltJavaCompileDebugAndroidTest
 
-      - name: Compile auth test harness
+      - name: Compile and test auth test harness
         # Same rot argument as the androidTest step above. The harness
         # (nubecita-zh7p) lives in flag-gated `authHarness` source sets, so no
         # ordinary build compiles it — and it injects four `internal` types out
@@ -259,9 +259,17 @@ jobs:
         # KEYSTORE_* secrets. If that ever changes, this step starts failing
         # loudly rather than quietly building a harness into a signable
         # artifact — which is the correct direction to fail in.
+        #
+        # The unit tests run here, not in the `test` job, because they live in
+        # the flag-gated `authHarnessTest` source set and the `test` job passes
+        # no flag. Compiling them would not be enough: the expiry arithmetic
+        # they cover fails silently — a wrong comparison writes back a token the
+        # server still accepts, nothing refreshes, and the device run reads as a
+        # clean pass having tested nothing. Each such run costs a sign-in cycle.
         run: >-
           ./gradlew -PauthTestHarness=true
           :app:compileProductionDebugKotlin :app:hiltJavaCompileProductionDebug
+          :core:auth:testProductionDebugUnitTest
 
   screenshot:
     name: Screenshot tests

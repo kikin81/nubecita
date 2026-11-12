@@ -27,6 +27,13 @@ android {
     // encrypted session store, which the `bench` flavor replaces with fakes.
     if (providers.gradleProperty("authTestHarness").orNull.toBoolean()) {
         sourceSets.getByName("production").kotlin.srcDir("src/authHarness/kotlin")
+        // Gated the same way, and for the same reason the harness itself is: a
+        // test source set referencing harness-only types cannot compile in an
+        // unflagged build. CI runs these in the flagged harness step — a test
+        // that only ever compiles would not catch the failure it exists for
+        // (an expiry comparison that applies a still-valid token tests nothing
+        // and still reads as a pass).
+        sourceSets.getByName("testProduction").kotlin.srcDir("src/authHarnessTest/kotlin")
     }
 
     // The `environment` flavor dimension splits the production AuthBindingsModule
