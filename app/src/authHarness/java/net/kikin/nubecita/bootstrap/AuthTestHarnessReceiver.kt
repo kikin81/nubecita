@@ -27,9 +27,10 @@ import javax.inject.Singleton
  * exported receiver declared in the shipped manifest is exactly the kind of
  * thing that outlives the branch that added it.
  *
- * The Settings entry drives the same harness; this exists because repeating a
- * four-scenario matrix by hand is how a verification run quietly turns into a
- * verification run you only think you did.
+ * The broadcast is the only trigger — there is no Settings entry. Repeating the
+ * scenario matrix by hand is how a verification run quietly turns into a
+ * verification run you only think you did, and two of the scenarios are a
+ * two-step stash-then-apply that has to survive a wait in between.
  */
 @Singleton
 class AuthTestHarnessReceiver
@@ -66,7 +67,7 @@ class AuthTestHarnessReceiver
                 return
             }
             Timber.tag(TAG).w("running %s — expect: %s", scenario.name, scenario.expectation)
-            scope.launch { harness.runAndHalt(scenario) }
+            scope.launch { harness.run(scenario) }
         }
 
         private companion object {

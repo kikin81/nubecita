@@ -44,18 +44,110 @@ lie told anywhere is the token string.
 | Scenario | Stages | Expect |
 |---|---|---|
 | `BadRefreshToken` | both tokens poisoned | real `invalid_grant` → `session_cleared` → signed out |
-| `BadAccessToken` | access token only | refresh **succeeds**, `token_refresh outcome=ok`, still signed in |
+| `BadAccessToken` | access token only, opaque | SDK's `invalid_token` branch; **one request may legitimately fail** — see below |
+| `StashAccessToken` | saves the live JWT, logs its `exp`; changes nothing | the wait remaining. Does **not** halt |
+| `ExpiredAccessToken` | writes the stashed token back once `exp` has passed | exactly one `token_refresh outcome=ok`, still signed in |
+| `DiedInFlightMarker` | an in-flight refresh marker from a fabricated dead process | `TokenRefreshDiedInFlightException` + `outcome=process_died` next launch |
 | `ProcessDeathMidClear` | pending marker written, session wiped, nothing reported | `session_clear_telemetry_lost` on next launch |
 | `DirectClear` | plain `sessionStore.clear()` | `session_cleared`, `reason=unknown`, no refresh breadcrumbs |
 
 **Always run `BadAccessToken` first.** It is the control: it exercises the
 refresh telemetry path *without* destroying the session. If it reports nothing,
-the pipeline is broken and nothing the other three tell you means anything.
-Skipping it is how you spend an afternoon reading `clear()` looking for a bug
-that a DNS blackhole was causing.
+the pipeline is broken and nothing the others tell you means anything. Skipping
+it is how you spend an afternoon reading `clear()` looking for a bug that a DNS
+blackhole was causing.
 
-Every scenario ends in `Runtime.halt(0)` — the paths under test only complete on
-the NEXT launch.
+Every scenario except `StashAccessToken` ends in `Runtime.halt(0)` — the paths
+under test only complete on the NEXT launch.
+
+### `BadAccessToken` is not real expiry — don't read its failure as a bug
+
+The poison string is opaque, so `DpopAuthProvider.accessTokenExpiry()` returns
+null and `isAccessTokenExpired()` is permanently false. The SDK only refreshes
+after a 401, and it picks the path from evidence in the token:
+
+- With a stale DPoP nonce, the first 401 carries only `use_dpop_nonce`, so
+  `onUnauthorized` stores the new nonce and returns.
+- The retry then gets `invalid_token`, which *does* trigger the refresh — but
+  `XrpcClient` retries only once, so **that request can fail.**
+
+A 4xx or an `api_error` out of this scenario is a harness artifact of an opaque
+token, not a regression. Keep the scenario — it is the only one that covers the
+`invalid_token` branch — but never read its failures as a finding.
+
+Shifting the device clock is not an alternative: `calibrateClockFromHeader`
+resets the offset from the server's `Date` header before the expiry check, so
+the SDK's view of "now" ignores the device clock.
+
+### Real expiry is a two-step scenario
+
+`ExpiredAccessToken` reproduces what an idling user actually hits: a real,
+server-signed JWT whose `exp` has passed, sitting next to a **valid** refresh
+token and the same DPoP key. On the first 401 of the cold-start burst — even a
+`use_dpop_nonce` one — `isAccessTokenExpired()` is true, so the SDK refreshes
+single-flight before its one retry.
+
+1. **Stash**, with the app signed in and running:
+
+```bash
+adb -s <serial> shell am broadcast -a net.kikin.nubecita.AUTH_HARNESS --es scenario StashAccessToken -p net.kikin.nubecita
+```
+
+   This changes nothing and does not halt. Read the logged `exp` and the wait.
+   **If it refuses because the token is not a JWT with `exp`, stop** — the
+   expiry path does not exist against that PDS and the scenario is unusable.
+   That refusal is the assumption check, deliberately made at runtime rather
+   than assumed in advance.
+
+2. **Wait out the `exp`**, then apply:
+
+```bash
+adb -s <serial> shell am broadcast -a net.kikin.nubecita.AUTH_HARNESS --es scenario ExpiredAccessToken -p net.kikin.nubecita
+```
+
+   It refuses while the token is still valid and says how long remains. The
+   stash is deleted once applied, so a second apply needs a new stash.
+
+3. **Cold start straight into a profile** — the burst is the point, so don't
+   open the app normally first:
+
+```bash
+adb -s <serial> shell am start -W -a android.intent.action.VIEW -d https://bsky.app/profile/bsky.app -p net.kikin.nubecita
+```
+
+Pass if **all** of:
+
+- exactly one `token_refresh outcome=ok`, after its `nonce_challenge`
+- every 401 is `use_dpop_nonce` or an expired-token 401, and each is retried once
+- no other 4xx/5xx in `adb logcat -s AtProtoHttp` (debug builds only)
+- no `api_error`
+- the profile renders
+
+### `DiedInFlightMarker` contaminates a fleet count — log your runs
+
+This stages the proven cause of the remaining MIUI logouts (nubecita-25a5)
+without spending a real token: it writes only the in-flight marker, shaped as
+the real ones were — `foreground = false`, caller `untagged`.
+
+Its output lands in **the same** `TokenRefreshDiedInFlightException` Crashlytics
+issue and the same GA4 `token_refresh outcome=process_died` count used to
+confirm the #1184 fix. There is no in-band way to tell a staged event from a
+real one:
+
+- `reportRefreshDiedInFlight` puts only `died_refresh_caller` on the non-fatal.
+- The GA4 event carries `refresh_caller`, `outcome`, `foreground` only.
+- The fabricated process id (prefixed `harness-`) is used only to decide "not my
+  own refresh" and is then **discarded** — it never reaches either sink. Don't
+  plan to filter on it.
+
+So exclusion is **out of band**: device and time. Record every run below before
+anyone reads those numbers. The tester is on a Xiaomi 23028RNCAG, so a run from
+an emulator or a dev Pixel is already separable by device model — that is the
+discriminator to use.
+
+| Date | Device | Scenario | Events staged |
+|---|---|---|---|
+| _(append a row per run)_ | | | |
 
 ## Pre-flight
 
@@ -168,7 +260,11 @@ The app must be running for the runtime-registered receiver to exist. An
 unknown scenario name logs an error and does nothing rather than defaulting —
 if nothing happens, check the spelling against the table above.
 
-Then **relaunch the app** — every scenario's payoff is on the next launch.
+Then **relaunch the app** — every scenario's payoff is on the next launch,
+except `StashAccessToken`, which deliberately leaves the process alive.
+
+`ExpiredAccessToken` and `DiedInFlightMarker` have their own recipes above; use
+those rather than this generic one.
 
 ## Verify — three observation points, all three required
 
