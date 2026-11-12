@@ -42,6 +42,9 @@ class WearMarketingScreenshotJourney {
     @Test
     fun feedAndPost() {
         ActivityScenario.launch(MainActivity::class.java).use {
+            // The app opens on the landing screen; Home is the feed.
+            assertTrue("landing screen never appeared", device.wait(Until.hasObject(By.desc("Home")), TIMEOUT_MS))
+            device.findObject(By.desc("Home")).click()
             // The bench feed: fictional accounts, generated images, fixed clock.
             assertTrue("bench feed never appeared", device.wait(Until.hasObject(By.text("Ana Ruiz")), TIMEOUT_MS))
             // Scroll past the header so the first post sits whole in the middle.

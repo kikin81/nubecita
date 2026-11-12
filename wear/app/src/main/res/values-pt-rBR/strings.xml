@@ -51,6 +51,7 @@
     <string name="wear_post_repost_confirm_title">Repostar isto?</string>
     <string name="wear_post_repost_confirm_body">Seus seguidores vão ver.</string>
     <string name="wear_dms_title">Mensagens</string>
+    <string name="wear_landing_home">Início</string>
     <string name="wear_dms_open">Mensagens</string>
     <string name="wear_dms_open_unread">Mensagens · %1$d</string>
     <string name="wear_dms_empty">Ainda não há conversas.</string>

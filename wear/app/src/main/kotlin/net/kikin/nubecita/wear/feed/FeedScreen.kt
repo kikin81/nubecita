@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -15,7 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -56,9 +54,6 @@ fun FeedScreen(
     onPostClick: (WatchPostUi) -> Unit,
     onSwitchFeed: () -> Unit,
     modifier: Modifier = Modifier,
-    unreadMessages: Int = 0,
-    onOpenMessages: (() -> Unit)? = null,
-    onNewPost: (() -> Unit)? = null,
     onRetryPost: (WatchPendingPostUi) -> Unit = {},
     listState: TransformingLazyColumnState = rememberTransformingLazyColumnState(),
 ) {
@@ -95,22 +90,8 @@ fun FeedScreen(
                 FeedHeader(
                     feedName = feed.label(),
                     onSwitchFeed = if (state.feeds.size > 1) onSwitchFeed else null,
-                    unreadMessages = unreadMessages,
-                    onOpenMessages = onOpenMessages,
                     modifier = Modifier.transformedHeight(this, transformationSpec),
                 )
-            }
-            if (onNewPost != null) {
-                item {
-                    Box(modifier = Modifier.fillMaxWidth().transformedHeight(this, transformationSpec), contentAlignment = Alignment.Center) {
-                        CompactButton(
-                            onClick = onNewPost,
-                            colors = ButtonDefaults.filledTonalButtonColors(),
-                            icon = { Icon(painter = painterResource(R.drawable.ic_edit), contentDescription = null, modifier = Modifier.size(18.dp)) },
-                            label = { Text(stringResource(R.string.wear_post_new), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        )
-                    }
-                }
             }
             items(state.pendingPosts, key = { it.actionId }) { pending ->
                 PendingPostCard(
@@ -211,63 +192,37 @@ private fun PendingPostCard(
 }
 
 /**
- * The feed's header in one row: the feed's name as its own switcher (a plain title when there's nothing to switch to) and,
- * once the phone has synced DMs, Messages beside it. Messages turns primary
- * only while something is unread, so it doesn't compete with the timeline.
+ * The feed's name, as its own switcher when more than one feed is synced
+ * (a plain title otherwise). Messages and New post live on the landing screen.
  */
 @Composable
 private fun FeedHeader(
     feedName: String,
     onSwitchFeed: (() -> Unit)?,
-    unreadMessages: Int,
-    onOpenMessages: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     // Inset so a long feed name ellipsizes inside the narrow top of the circle.
-    Column(modifier = modifier.fillMaxWidth().padding(horizontal = roundTextInset()), horizontalAlignment = Alignment.CenterHorizontally) {
-        if (onSwitchFeed == null && onOpenMessages == null) {
+    Box(modifier = modifier.fillMaxWidth().padding(horizontal = roundTextInset()), contentAlignment = Alignment.Center) {
+        if (onSwitchFeed == null) {
             Text(feedName, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            return@Column
+            return@Box
         }
         val switchLabel = stringResource(R.string.wear_feed_switch)
-        // Compact buttons sized to their content: the top of a round screen is
-        // narrow, and full-size buttons truncated the feed name.
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
-            if (onSwitchFeed != null) {
-                CompactButton(
-                    onClick = onSwitchFeed,
-                    modifier =
-                        Modifier.weight(1f, fill = false).semantics {
-                            onClick(label = switchLabel) {
-                                onSwitchFeed()
-                                true
-                            }
-                        },
-                    colors = ButtonDefaults.filledTonalButtonColors(),
-                    label = {
-                        Text(feedName, modifier = Modifier.weight(1f, fill = false), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Icon(painter = painterResource(R.drawable.ic_expand_more), contentDescription = null, modifier = Modifier.size(18.dp))
-                    },
-                )
-            } else {
-                Text(feedName, modifier = Modifier.weight(1f, fill = false), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            if (onOpenMessages != null) {
-                val description =
-                    if (unreadMessages > 0) {
-                        stringResource(R.string.wear_dms_open_unread, unreadMessages)
-                    } else {
-                        stringResource(R.string.wear_dms_open)
+        // A compact button sized to its content: the top of a round screen is narrow.
+        CompactButton(
+            onClick = onSwitchFeed,
+            modifier =
+                Modifier.semantics {
+                    onClick(label = switchLabel) {
+                        onSwitchFeed()
+                        true
                     }
-                CompactButton(
-                    onClick = onOpenMessages,
-                    modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = description },
-                    // Primary only while something is unread.
-                    colors = if (unreadMessages > 0) ButtonDefaults.buttonColors() else ButtonDefaults.filledTonalButtonColors(),
-                    icon = { Icon(painter = painterResource(R.drawable.ic_messages), contentDescription = null, modifier = Modifier.size(18.dp)) },
-                    label = if (unreadMessages > 0) ({ Text(unreadMessages.toString()) }) else null,
-                )
-            }
-        }
+                },
+            colors = ButtonDefaults.filledTonalButtonColors(),
+            label = {
+                Text(feedName, modifier = Modifier.weight(1f, fill = false), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Icon(painter = painterResource(R.drawable.ic_expand_more), contentDescription = null, modifier = Modifier.size(18.dp))
+            },
+        )
     }
 }

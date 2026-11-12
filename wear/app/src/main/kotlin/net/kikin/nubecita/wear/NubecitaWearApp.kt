@@ -34,9 +34,11 @@ import net.kikin.nubecita.wear.gate.WearGateEvent
 import net.kikin.nubecita.wear.gate.WearGateViewModel
 import net.kikin.nubecita.wear.input.TextReviewScreen
 import net.kikin.nubecita.wear.input.rememberWearTextInput
+import net.kikin.nubecita.wear.landing.LandingScreen
 import net.kikin.nubecita.wear.navigation.WearConvos
 import net.kikin.nubecita.wear.navigation.WearFeedPicker
 import net.kikin.nubecita.wear.navigation.WearHome
+import net.kikin.nubecita.wear.navigation.WearLanding
 import net.kikin.nubecita.wear.navigation.WearPost
 import net.kikin.nubecita.wear.navigation.WearPostReview
 import net.kikin.nubecita.wear.navigation.WearReact
@@ -52,9 +54,10 @@ import net.kikin.nubecita.wear.ui.theme.NubecitaWearTheme
  * [WearGate] that explains a missing phone app or sign-in, and — once signed
  * in — a Navigation 3 back stack where swipe-to-dismiss pops.
  *
- * The back stack is keyed by account, so a different account never inherits
- * the previous account's open screens. [openMessages] starts it on the
- * conversation list, above the feed so back still lands there.
+ * The back stack starts on the [WearLanding] screen (Home, Messages, New post)
+ * and is keyed by account, so a different account never inherits the previous
+ * account's open screens. [openMessages] starts it on the conversation list,
+ * above the landing screen so back still lands there.
  */
 @Composable
 fun NubecitaWearApp(
@@ -79,22 +82,27 @@ fun NubecitaWearApp(
                 }
                 val now = rememberNow()
                 key(account.did) {
-                    val backStack = rememberNavBackStack(*if (openMessages) arrayOf<NavKey>(WearHome, WearConvos) else arrayOf<NavKey>(WearHome))
+                    val backStack = rememberNavBackStack(*if (openMessages) arrayOf<NavKey>(WearLanding, WearConvos) else arrayOf<NavKey>(WearLanding))
                     NavDisplay(
                         backStack = backStack,
                         sceneStrategies = listOf(rememberSwipeDismissableSceneStrategy()),
                         entryProvider =
                             entryProvider {
-                                entry<WearHome> {
+                                entry<WearLanding> {
                                     val writePost = rememberWearTextInput(stringResource(R.string.wear_post_new)) { text -> backStack.add(WearPostReview(text)) }
+                                    LandingScreen(
+                                        onOpenFeed = { backStack.add(WearHome) },
+                                        unreadMessages = dmState.unreadCount,
+                                        onOpenMessages = if (dmState.status == WatchDmStatus.Ready) ({ backStack.add(WearConvos) }) else null,
+                                        onNewPost = if (feedState.postingAvailable) writePost else null,
+                                    )
+                                }
+                                entry<WearHome> {
                                     FeedScreen(
                                         state = feedState,
                                         nowMs = now,
                                         onPostClick = { post -> backStack.add(WearPost(post.uri)) },
                                         onSwitchFeed = { backStack.add(WearFeedPicker) },
-                                        unreadMessages = dmState.unreadCount,
-                                        onOpenMessages = if (dmState.status == WatchDmStatus.Ready) ({ backStack.add(WearConvos) }) else null,
-                                        onNewPost = if (feedState.postingAvailable) writePost else null,
                                         onRetryPost = { pending -> feedViewModel.handleEvent(WatchFeedEvent.RetryPost(pending.actionId)) },
                                     )
                                 }
@@ -110,8 +118,11 @@ fun NubecitaWearApp(
                                         sendLabel = stringResource(R.string.wear_post_send),
                                         onSend = {
                                             feedViewModel.handleEvent(WatchFeedEvent.PostSent(route.text))
-                                            // Back to the feed, where the post shows as "Posting…".
-                                            backStack.remove(route)
+                                            // On to the feed, where the post shows as "Posting…";
+                                            // back from there returns to the landing screen.
+                                            // Guarded: a second tap before recomposition finds it gone.
+                                            val index = backStack.indexOf(route)
+                                            if (index >= 0) backStack[index] = WearHome
                                         },
                                         onChange = rewrite,
                                     )
