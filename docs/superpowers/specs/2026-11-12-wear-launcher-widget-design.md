@@ -124,8 +124,11 @@ One **large** widget, laid out like the system Weather widget (reference:
   those states (Messages / New post are disabled on the landing screen, gate
   screens explain sign-in). If New post isn't available, the deep link lands on
   the landing screen instead of opening the input.
-- Before DMs ever sync (or signed out), the Messages card shows the icon and
-  "Messages" with no count — *my call*, mirroring the complication's no-data.
+- Before DMs ever sync, the Messages card shows the icon and "Messages" with
+  no count — *my call*, mirroring the complication's no-data.
+- **Amended during implementation:** signed out (or no session yet), the
+  surface shows only a "Sign in on your phone" prompt that opens the app's
+  sign-in gate — required by Wear quality `WO-V9`, found in child 4.
 - Counts above 99 show as "99+" — *my call*, reusing `unreadDmsLabel`.
 
 ## Proposed stack (one PR per bd child)

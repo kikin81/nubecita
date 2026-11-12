@@ -31,19 +31,13 @@ The surface SHALL show the Nubecita name, a Messages card and two pills labelled
 
 ### Requirement: Unread count states
 
-The Messages card SHALL show the signed-in account's synced unread DM total: the number with a pluralized "new message(s)" label when above zero, capped as "99+" above 99; "No new messages" at zero; and just "Messages" with no number before DMs have ever synced or when signed out.
+While signed in, the Messages card SHALL show the account's synced unread DM total: the number with a short pluralized "new" label when above zero, capped as "99+" above 99; "No new messages" at zero; and just "Messages" with no number before DMs have ever synced.
 
 #### Scenario: Some unread
 
 - **GIVEN** 3 unread messages are synced
 - **WHEN** the surface is shown
-- **THEN** the Messages card reads "3" and "new messages"
-
-#### Scenario: One unread
-
-- **GIVEN** 1 unread message is synced
-- **WHEN** the surface is shown
-- **THEN** the Messages card reads "1" and "new message"
+- **THEN** the Messages card reads "3" and "new"
 
 #### Scenario: More than 99
 
@@ -57,11 +51,22 @@ The Messages card SHALL show the signed-in account's synced unread DM total: the
 - **WHEN** the surface is shown
 - **THEN** the Messages card reads "No new messages"
 
-#### Scenario: Never synced or signed out
+#### Scenario: Never synced
 
-- **GIVEN** DMs have never synced, or the user signed out on the phone
+- **GIVEN** the user is signed in but DMs have never synced
 - **WHEN** the surface is shown
 - **THEN** the Messages card reads "Messages" with no number
+
+### Requirement: Signed-out prompt
+
+When the phone reports no signed-in session (signed out, or no session received yet), the surface SHALL replace its tiles with a single prompt to sign in on the phone (Wear quality WO-V9). Tapping it SHALL open the app, whose gate explains how to sign in.
+
+#### Scenario: Signed out
+
+- **GIVEN** the user is signed out on the phone
+- **WHEN** the surface is shown
+- **THEN** it shows only "Sign in on your phone"
+- **AND** tapping it opens the app's sign-in explanation
 
 ### Requirement: Push-only refresh
 
@@ -77,7 +82,7 @@ The surface SHALL update only when the synced DMs change on the watch (a new sna
 
 - **GIVEN** the surface shows "5"
 - **WHEN** the user signs out on the phone and the watch clears its DMs
-- **THEN** the surface shows "Messages" with no number
+- **THEN** the surface shows the sign-in prompt instead of the count
 
 ### Requirement: Tiles open their destination
 
