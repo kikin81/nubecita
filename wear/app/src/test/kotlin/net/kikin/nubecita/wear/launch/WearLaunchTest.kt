@@ -1,7 +1,6 @@
 package net.kikin.nubecita.wear.launch
 
 import net.kikin.nubecita.wear.MainActivity
-import net.kikin.nubecita.wear.feed.WatchFeedStatus
 import net.kikin.nubecita.wear.navigation.WearConvos
 import net.kikin.nubecita.wear.navigation.WearHome
 import net.kikin.nubecita.wear.navigation.WearLanding
@@ -33,11 +32,10 @@ class WearLaunchTest {
     }
 
     @Test
-    fun resolvePendingNewPost_waitsForTheFeedThenOpensOrDrops() {
-        assertEquals(PendingNewPost.Wait, resolvePendingNewPost(WatchFeedStatus.Loading, postingAvailable = false))
-        assertEquals(PendingNewPost.Wait, resolvePendingNewPost(WatchFeedStatus.Loading, postingAvailable = true))
-        assertEquals(PendingNewPost.Open, resolvePendingNewPost(WatchFeedStatus.Ready, postingAvailable = true))
-        assertEquals(PendingNewPost.Drop, resolvePendingNewPost(WatchFeedStatus.Ready, postingAvailable = false))
-        assertEquals(PendingNewPost.Open, resolvePendingNewPost(WatchFeedStatus.NoFeeds, postingAvailable = true))
+    fun resolvePendingNewPost_waitsForThePhoneToAnswer() {
+        // The feed loads from Room before the phone's capability check answers; until it does, wait.
+        assertEquals(PendingNewPost.Wait, resolvePendingNewPost(postingChecked = false, postingAvailable = false))
+        assertEquals(PendingNewPost.Open, resolvePendingNewPost(postingChecked = true, postingAvailable = true))
+        assertEquals(PendingNewPost.Drop, resolvePendingNewPost(postingChecked = true, postingAvailable = false))
     }
 }

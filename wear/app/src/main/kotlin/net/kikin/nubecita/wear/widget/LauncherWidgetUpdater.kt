@@ -6,6 +6,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
+import net.kikin.nubecita.wear.data.PhoneSessionSource
+import net.kikin.nubecita.wear.data.WatchDmRepository
 import net.kikin.nubecita.wear.data.sync.DmSyncObserver
 import timber.log.Timber
 import javax.inject.Inject
@@ -15,14 +17,21 @@ fun interface LauncherWidgetRefresh {
     suspend fun refresh()
 }
 
-/** Re-renders placed launcher widgets through Glance Wear. */
+/**
+ * Re-renders placed launcher widgets through Glance Wear. On Wear OS 7 the update
+ * is pushed with a document rendered by [widget] itself, so it reads the real
+ * session and count (a stand-in would push its own data to every placed widget).
+ */
 internal class GlanceLauncherWidgetRefresh
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
+        session: PhoneSessionSource,
+        repository: WatchDmRepository,
     ) : LauncherWidgetRefresh {
-        // The widget class identifies the placed instances; its data source isn't used here.
-        override suspend fun refresh() = LauncherWidget(unreadCount = { null }).triggerUpdateAll(context)
+        internal val widget = liveLauncherWidget(session = { session }, repository = { repository })
+
+        override suspend fun refresh() = widget.triggerUpdateAll(context)
     }
 
 /**

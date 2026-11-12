@@ -104,5 +104,4 @@
         <item quantity="other">new</item>
     </plurals>
     <string name="wear_widget_no_new_messages">No new messages</string>
-    <string name="wear_widget_messages_unread">Messages, %1$s new</string>
 </resources>

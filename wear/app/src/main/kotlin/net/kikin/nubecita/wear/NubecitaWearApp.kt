@@ -99,9 +99,10 @@ fun NubecitaWearApp(
                                     val writePost = rememberWearTextInput(stringResource(R.string.wear_post_new)) { text -> backStack.add(WearPostReview(text)) }
                                     // A New post launch opens the input once posting availability is known.
                                     var pendingNewPost by rememberSaveable { mutableStateOf(launchTarget == WearLaunchTarget.NewPost) }
-                                    LaunchedEffect(pendingNewPost, feedState.status, feedState.postingAvailable) {
+                                    // Not keyed on pendingNewPost: clearing it here mustn't restart this effect.
+                                    LaunchedEffect(feedState.postingChecked, feedState.postingAvailable) {
                                         if (!pendingNewPost) return@LaunchedEffect
-                                        when (resolvePendingNewPost(feedState.status, feedState.postingAvailable)) {
+                                        when (resolvePendingNewPost(feedState.postingChecked, feedState.postingAvailable)) {
                                             PendingNewPost.Open -> {
                                                 pendingNewPost = false
                                                 writePost()

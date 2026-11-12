@@ -37,10 +37,16 @@ import androidx.wear.compose.remote.material3.RemoteIcon
 import androidx.wear.compose.remote.material3.RemoteMaterialTheme
 import androidx.wear.compose.remote.material3.RemoteText
 import androidx.wear.compose.remote.material3.dynamicRemoteColorScheme
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
 import net.kikin.nubecita.wear.R
+import net.kikin.nubecita.wear.data.PhoneSession
+import net.kikin.nubecita.wear.data.PhoneSessionSource
+import net.kikin.nubecita.wear.data.WatchDmRepository
 import net.kikin.nubecita.wear.launch.WearLaunchTarget
 import net.kikin.nubecita.wear.launch.launchIntent
 import net.kikin.nubecita.wear.ui.theme.NubecitaWearColors
+import timber.log.Timber
 
 /**
  * The Nubecita launcher (nubecita-hzfs): a Messages card with the synced unread
@@ -51,13 +57,20 @@ import net.kikin.nubecita.wear.ui.theme.NubecitaWearColors
  * refreshes on a timer.
  */
 class LauncherWidget(
+    private val signedIn: suspend () -> Boolean,
     private val unreadCount: suspend () -> Int?,
 ) : GlanceWearWidget() {
     override suspend fun provideWidgetData(
         context: Context,
         params: WearWidgetParams,
     ): WearWidgetData {
-        val model = launcherWidgetModel(unreadCount())
+        // The service's scope has no exception handler: a failed read must not crash the
+        // watch app. Unknown reads as signed in with no count — the plain Messages card.
+        val model =
+            launcherWidgetModel(
+                signedIn = readOr(fallback = true, read = signedIn),
+                unread = readOr(fallback = null, read = unreadCount),
+            )
         val labels = LauncherLabels.from(context, model)
         return WearWidgetDocument(background = WearWidgetBrush.color(Color.Black.rc)) {
             LauncherWidgetContent(
@@ -68,13 +81,43 @@ class LauncherWidget(
     }
 }
 
+/**
+ * The launcher reading the phone session and synced unread count — the one
+ * widget both the service (pull renders) and [GlanceLauncherWidgetRefresh]
+ * (push renders on Wear OS 7, which render on the instance they're called on)
+ * use. Sources are passed lazily: the service's are injected after it's built.
+ */
+internal fun liveLauncherWidget(
+    session: () -> PhoneSessionSource,
+    repository: () -> WatchDmRepository,
+): LauncherWidget =
+    LauncherWidget(
+        // The stored session answers offline; a missing one (no phone app yet) reads as signed out.
+        signedIn = { session().session.first() is PhoneSession.SignedIn },
+        unreadCount = { repository().latestUnreadCount() },
+    )
+
+private suspend fun <T> readOr(
+    fallback: T,
+    read: suspend () -> T,
+): T =
+    try {
+        read()
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (error: Exception) {
+        Timber.w(error, "Launcher widget read failed; rendering the fallback")
+        fallback
+    }
+
 /** Every string the layout shows, resolved up front (the document is rendered by the host). */
 internal data class LauncherLabels(
     val messagesHeadline: String,
     val messagesCaption: String?,
-    val messagesDescription: String,
+    val messagesDescription: String?,
     val home: String,
     val newPost: String,
+    val signIn: String,
 ) {
     companion object {
         fun from(
@@ -92,19 +135,17 @@ internal data class LauncherLabels(
                     },
                 messagesCaption =
                     if (count != null && model.hasUnread) {
-                        // "99+" reads as many.
-                        res.getQuantityString(R.plurals.wear_widget_new_messages, count.toIntOrNull() ?: Int.MAX_VALUE)
+                        // "99+" reads as many; 100 lands in the plural "other" category in every locale.
+                        res.getQuantityString(R.plurals.wear_widget_new_messages, count.toIntOrNull() ?: 100)
                     } else {
                         null
                     },
-                messagesDescription =
-                    if (count != null && model.hasUnread) {
-                        context.getString(R.string.wear_widget_messages_unread, count)
-                    } else {
-                        context.getString(R.string.wear_dms_open)
-                    },
+                // The headline and caption are read too, so the icon only names the card —
+                // and says nothing when the headline already is "Messages".
+                messagesDescription = if (count == null) null else context.getString(R.string.wear_dms_open),
                 home = context.getString(R.string.wear_landing_home),
                 newPost = context.getString(R.string.wear_post_new),
+                signIn = context.getString(R.string.wear_gate_signed_out_title),
             )
         }
     }
@@ -125,6 +166,10 @@ internal fun LauncherWidgetContent(
             // Gaps are padding on the weighted items, not spacedBy: with spacedBy, a
             // Wear OS 7 emulator's host clipped the pills' outer edges (the weights
             // didn't leave room for the gaps); with padding they render whole.
+            if (!model.signedIn) {
+                SignInCard(labels.signIn, RemoteModifier.fillMaxWidth().weight(1f))
+                return@RemoteColumn
+            }
             RemoteRow(modifier = RemoteModifier.fillMaxWidth().weight(1f)) {
                 MessagesCard(model, labels, RemoteModifier.weight(MESSAGES_WEIGHT).fillMaxHeight())
                 RemoteColumn(modifier = RemoteModifier.weight(1f).fillMaxHeight().padding(start = GAP.rdp)) {
@@ -160,7 +205,7 @@ private fun MessagesCard(
         RemoteColumn(modifier = RemoteModifier.padding(horizontal = CARD_HORIZONTAL_PADDING.rdp)) {
             RemoteIcon(
                 imageVector = RemoteImageVector.vectorResource(if (model.hasUnread) R.drawable.ic_messages_unread else R.drawable.ic_messages),
-                contentDescription = labels.messagesDescription.rs,
+                contentDescription = labels.messagesDescription?.rs,
                 modifier = RemoteModifier.size(ICON_SIZE.rdp),
                 tint = colors.onPrimaryContainer,
             )
@@ -182,6 +227,33 @@ private fun MessagesCard(
                 )
             }
         }
+    }
+}
+
+/** Signed out (WO-V9): one card prompting sign-in; the app's gate walks through it. */
+@RemoteComposable
+@Composable
+private fun SignInCard(
+    label: String,
+    modifier: RemoteModifier,
+) {
+    val colors = RemoteMaterialTheme.colorScheme
+    RemoteBox(
+        modifier =
+            modifier
+                .clip(RemoteMaterialTheme.shapes.large)
+                .background(colors.primaryContainer)
+                .clickable(pendingIntentAction { ctx -> launchIntent(ctx, WearLaunchTarget.Landing) }),
+        contentAlignment = RemoteAlignment.Center,
+    ) {
+        RemoteText(
+            text = label.rs,
+            modifier = RemoteModifier.padding(horizontal = CARD_HORIZONTAL_PADDING.rdp),
+            color = colors.onPrimaryContainer,
+            style = RemoteMaterialTheme.typography.titleSmall,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

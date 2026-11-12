@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import androidx.navigation3.runtime.NavKey
 import net.kikin.nubecita.wear.MainActivity
-import net.kikin.nubecita.wear.feed.WatchFeedStatus
 import net.kikin.nubecita.wear.navigation.WearConvos
 import net.kikin.nubecita.wear.navigation.WearHome
 import net.kikin.nubecita.wear.navigation.WearLanding
@@ -41,16 +40,16 @@ fun initialBackStack(target: WearLaunchTarget): List<NavKey> =
 enum class PendingNewPost { Open, Drop, Wait }
 
 /**
- * Waits while the feed store is loading (posting availability isn't known
- * yet), then opens the input if posting is available or drops the request —
- * so availability that arrives later never pops the input open on its own.
+ * Waits until the phone has answered whether it posts from the watch, then
+ * opens the input if it does or drops the request — so availability that
+ * arrives later never pops the input open on its own.
  */
 fun resolvePendingNewPost(
-    feedStatus: WatchFeedStatus,
+    postingChecked: Boolean,
     postingAvailable: Boolean,
 ): PendingNewPost =
     when {
-        feedStatus == WatchFeedStatus.Loading -> PendingNewPost.Wait
+        !postingChecked -> PendingNewPost.Wait
         postingAvailable -> PendingNewPost.Open
         else -> PendingNewPost.Drop
     }

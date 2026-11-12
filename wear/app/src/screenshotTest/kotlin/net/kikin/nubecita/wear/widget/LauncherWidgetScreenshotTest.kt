@@ -33,7 +33,7 @@ private val TileParams =
 private fun LauncherLargeRectangularPreview(
     @PreviewParameter(RectangularLargeWidgetPreviewParams::class) params: WearWidgetParams,
 ) {
-    WearWidgetPreview(LauncherWidget { 3 }, params)
+    WearWidgetPreview(LauncherWidget(signedIn = { true }, unreadCount = { 3 }), params)
 }
 
 @PreviewTest
@@ -42,7 +42,7 @@ private fun LauncherLargeRectangularPreview(
 private fun LauncherLargeRoundPreview(
     @PreviewParameter(RoundLargeWidgetPreviewParams::class) params: WearWidgetParams,
 ) {
-    WearWidgetPreview(LauncherWidget { 3 }, params)
+    WearWidgetPreview(LauncherWidget(signedIn = { true }, unreadCount = { 3 }), params)
 }
 
 @PreviewTest
@@ -51,33 +51,40 @@ private fun LauncherLargeRoundPreview(
 private fun LauncherLargeSquirclePreview(
     @PreviewParameter(SquircleLargeWidgetPreviewParams::class) params: WearWidgetParams,
 ) {
-    WearWidgetPreview(LauncherWidget { 3 }, params)
+    WearWidgetPreview(LauncherWidget(signedIn = { true }, unreadCount = { 3 }), params)
 }
 
 @PreviewTest
 @Preview(name = "Tile, 3 unread", device = TILE_DEVICE)
 @Composable
 private fun LauncherTileUnreadPreview() {
-    WearWidgetPreview(LauncherWidget { 3 }, TileParams)
+    WearWidgetPreview(LauncherWidget(signedIn = { true }, unreadCount = { 3 }), TileParams)
 }
 
 @PreviewTest
 @Preview(name = "Tile, none unread", device = TILE_DEVICE)
 @Composable
 private fun LauncherTileNoneUnreadPreview() {
-    WearWidgetPreview(LauncherWidget { 0 }, TileParams)
+    WearWidgetPreview(LauncherWidget(signedIn = { true }, unreadCount = { 0 }), TileParams)
 }
 
 @PreviewTest
 @Preview(name = "Tile, never synced", device = TILE_DEVICE)
 @Composable
 private fun LauncherTileNoDataPreview() {
-    WearWidgetPreview(LauncherWidget { null }, TileParams)
+    WearWidgetPreview(LauncherWidget(signedIn = { true }, unreadCount = { null }), TileParams)
 }
 
 @PreviewTest
 @Preview(name = "Tile, 99+ at largest font", device = TILE_DEVICE, fontScale = 1.24f)
 @Composable
 private fun LauncherTileManyLargestFontPreview() {
-    WearWidgetPreview(LauncherWidget { 120 }, TileParams)
+    WearWidgetPreview(LauncherWidget(signedIn = { true }, unreadCount = { 120 }), TileParams)
+}
+
+@PreviewTest
+@Preview(name = "Tile, signed out", device = TILE_DEVICE)
+@Composable
+private fun LauncherTileSignedOutPreview() {
+    WearWidgetPreview(LauncherWidget(signedIn = { false }, unreadCount = { null }), TileParams)
 }
