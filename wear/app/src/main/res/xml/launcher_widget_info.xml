@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Nubecita launcher widget (nubecita-hzfs): large card only. -->
+<wearwidget-provider
+    description="@string/wear_widget_description"
+    label="@string/app_name"
+    preferredType="LARGE">
+    <container
+        previewImage="@drawable/launcher_widget_preview_large"
+        type="LARGE" />
+</wearwidget-provider>

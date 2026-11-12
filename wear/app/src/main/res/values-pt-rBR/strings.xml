@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="wear_gate_phone_app_missing_title">Instale o Nubecita no celular</string>
     <string name="wear_gate_phone_app_missing_body">O Nubecita no relógio mostra o que o app Nubecita do seu celular envia para ele.</string>
     <string name="wear_gate_install_on_phone">Instalar no celular</string>
@@ -98,4 +98,14 @@
     <string name="wear_post_send">Publicar</string>
     <string name="wear_post_posting">Publicando…</string>
     <string name="wear_post_not_posted">Não publicado — toque para tentar de novo</string>
+    <!-- Launcher widget / tile (nubecita-hzfs). -->
+    <string name="wear_widget_description">Mensagens, Início e Nova publicação</string>
+    <!-- The caption under the widget's big unread number, which is drawn separately (so no %d here);
+         never shown at 0, so a "one" category that also covers 0 (pt-BR) only ever means 1. -->
+    <plurals name="wear_widget_new_messages" tools:ignore="ImpliedQuantity">
+        <item quantity="one">nova</item>
+        <item quantity="other">novas</item>
+    </plurals>
+    <string name="wear_widget_no_new_messages">Nenhuma mensagem nova</string>
+    <string name="wear_widget_messages_unread">Mensagens, %1$s novas</string>
 </resources>

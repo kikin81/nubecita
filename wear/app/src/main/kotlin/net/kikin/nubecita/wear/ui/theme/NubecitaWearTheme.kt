@@ -8,9 +8,10 @@ import androidx.wear.compose.material3.MaterialTheme
 /**
  * Brand colors for the watch: the phone's dark-scheme primary tones on Wear
  * Material 3's pure-black background (Wear quality guideline WO-V13). The watch
- * deliberately doesn't use `:designsystem` — that is phone Material 3.
+ * deliberately doesn't use `:designsystem` — that is phone Material 3. The launcher
+ * widget renders with the same scheme (via Remote Material 3).
  */
-private val NubecitaWearColors =
+internal val NubecitaWearColors =
     ColorScheme(
         primary = Color(0xFFA0C9FF), // NubecitaPalette.Sky80
         onPrimary = Color(0xFF003259), // Sky20
