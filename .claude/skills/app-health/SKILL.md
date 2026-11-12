@@ -168,13 +168,13 @@ things to fix — that's what the reader wants first. Every 🔴/🟡 needs a on
   **The `Artifact` / `ArtifactData` tools exist only in the Claude desktop
   app.** A terminal Claude Code session has neither, and the Claude Docs tools
   cannot open a Dashboard-type Artifact (they refuse it as `access`). From a
-  terminal session: run the checkup, then stage in `health-reports/dashboard/`
+  terminal session: run the checkup, then write to `health-reports/dashboard/`
   the new week's row *alone* as `weekly-row.json` — never a whole
   `weekly.json`, which a terminal session cannot build because it cannot read
   the live rows — plus the replacement `findings.json` and `breakdowns.json`
   (both are rewritten wholesale each run) and any page change, and hand off
   the publishing to a Claude Code session in the desktop app. That session
-  does the append: read the live `weekly.json`, add the staged row, and upload
+  does the append: read the live `weekly.json`, add the new row, and upload
   the merged file. Its live `files/index.html` is the source of truth — read
   it there before changing the page, because a local copy goes stale as soon
   as the desktop session edits the chart.
