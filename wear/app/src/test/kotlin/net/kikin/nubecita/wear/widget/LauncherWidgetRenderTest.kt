@@ -33,9 +33,10 @@ class LauncherWidgetRenderTest {
     private fun render(
         unread: Int?,
         containerType: Int,
+        signedIn: Boolean = true,
     ): ByteArray =
         runBlocking {
-            val widget = LauncherWidget { unread }
+            val widget = LauncherWidget(signedIn = { signedIn }, unreadCount = { unread })
             val p = params(containerType)
             widget.provideWidgetData(context, p).captureRawContent(context, p).rcDocument
         }
@@ -46,6 +47,15 @@ class LauncherWidgetRenderTest {
             for (unread in listOf(null, 0, 1, 3, 100)) {
                 assertTrue("unread=$unread type=$type", render(unread, type).isNotEmpty())
             }
+        }
+    }
+
+    @Test
+    fun signedOut_rendersTheSignInPromptInBothForms() {
+        for (type in listOf(ContainerInfo.CONTAINER_TYPE_LARGE, ContainerInfo.CONTAINER_TYPE_TILE_COMPAT)) {
+            val signedOut = render(3, type, signedIn = false)
+            assertTrue("type=$type", signedOut.isNotEmpty())
+            assertFalse("signed out still shows the tiles (type=$type)", signedOut.contentEquals(render(3, type)))
         }
     }
 

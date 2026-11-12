@@ -22,7 +22,7 @@ internal class GlanceLauncherWidgetRefresh
         @param:ApplicationContext private val context: Context,
     ) : LauncherWidgetRefresh {
         // The widget class identifies the placed instances; its data source isn't used here.
-        override suspend fun refresh() = LauncherWidget(unreadCount = { null }).triggerUpdateAll(context)
+        override suspend fun refresh() = LauncherWidget(signedIn = { false }, unreadCount = { null }).triggerUpdateAll(context)
     }
 
 /**

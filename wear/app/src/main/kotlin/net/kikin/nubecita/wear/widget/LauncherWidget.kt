@@ -51,13 +51,14 @@ import net.kikin.nubecita.wear.ui.theme.NubecitaWearColors
  * refreshes on a timer.
  */
 class LauncherWidget(
+    private val signedIn: suspend () -> Boolean,
     private val unreadCount: suspend () -> Int?,
 ) : GlanceWearWidget() {
     override suspend fun provideWidgetData(
         context: Context,
         params: WearWidgetParams,
     ): WearWidgetData {
-        val model = launcherWidgetModel(unreadCount())
+        val model = launcherWidgetModel(signedIn = signedIn(), unread = unreadCount())
         val labels = LauncherLabels.from(context, model)
         return WearWidgetDocument(background = WearWidgetBrush.color(Color.Black.rc)) {
             LauncherWidgetContent(
@@ -75,6 +76,7 @@ internal data class LauncherLabels(
     val messagesDescription: String,
     val home: String,
     val newPost: String,
+    val signIn: String,
 ) {
     companion object {
         fun from(
@@ -105,6 +107,7 @@ internal data class LauncherLabels(
                     },
                 home = context.getString(R.string.wear_landing_home),
                 newPost = context.getString(R.string.wear_post_new),
+                signIn = context.getString(R.string.wear_gate_signed_out_title),
             )
         }
     }
@@ -125,6 +128,10 @@ internal fun LauncherWidgetContent(
             // Gaps are padding on the weighted items, not spacedBy: with spacedBy, a
             // Wear OS 7 emulator's host clipped the pills' outer edges (the weights
             // didn't leave room for the gaps); with padding they render whole.
+            if (!model.signedIn) {
+                SignInCard(labels.signIn, RemoteModifier.fillMaxWidth().weight(1f))
+                return@RemoteColumn
+            }
             RemoteRow(modifier = RemoteModifier.fillMaxWidth().weight(1f)) {
                 MessagesCard(model, labels, RemoteModifier.weight(MESSAGES_WEIGHT).fillMaxHeight())
                 RemoteColumn(modifier = RemoteModifier.weight(1f).fillMaxHeight().padding(start = GAP.rdp)) {
@@ -182,6 +189,33 @@ private fun MessagesCard(
                 )
             }
         }
+    }
+}
+
+/** Signed out (WO-V9): one card prompting sign-in; the app's gate walks through it. */
+@RemoteComposable
+@Composable
+private fun SignInCard(
+    label: String,
+    modifier: RemoteModifier,
+) {
+    val colors = RemoteMaterialTheme.colorScheme
+    RemoteBox(
+        modifier =
+            modifier
+                .clip(RemoteMaterialTheme.shapes.large)
+                .background(colors.primaryContainer)
+                .clickable(pendingIntentAction { ctx -> launchIntent(ctx, WearLaunchTarget.Landing) }),
+        contentAlignment = RemoteAlignment.Center,
+    ) {
+        RemoteText(
+            text = label.rs,
+            modifier = RemoteModifier.padding(horizontal = CARD_HORIZONTAL_PADDING.rdp),
+            color = colors.onPrimaryContainer,
+            style = RemoteMaterialTheme.typography.titleSmall,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

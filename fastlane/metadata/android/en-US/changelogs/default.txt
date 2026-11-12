@@ -4,5 +4,5 @@ Thanks for using nubecita! What's new:
 • Reply to messages by voice, typing or a quick reply, or react to them.
 • Post from your watch by voice or typing.
 • Add the Unread messages complication to your watch face.
-• Cleaner layouts on round watches.
+• Swipe from your watch face to the nubecita tile: messages, home and a new post, one tap away.
 Thanks for being here. 💙
