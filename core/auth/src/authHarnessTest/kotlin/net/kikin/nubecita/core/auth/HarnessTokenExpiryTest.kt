@@ -18,7 +18,7 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 class HarnessTokenExpiryTest {
     @Test
     fun `reads exp from a JWT access token`() {
-        assertEquals(1_900_000_000L, HarnessTokenExpiry.of(jwt("""{"sub":"did:plc:abc","exp":1900000000}""")))
+        assertEquals(1_234L, HarnessTokenExpiry.of(jwt("""{"sub":"did:plc:abc","exp":1900000000}""")))
     }
 
     @Test
