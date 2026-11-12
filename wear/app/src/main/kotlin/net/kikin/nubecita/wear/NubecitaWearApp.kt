@@ -201,8 +201,10 @@ fun NubecitaWearApp(
                                     )
                                 }
                                 entry<WearPost> { route ->
-                                    // The post may vanish when a newer snapshot lands;
-                                    // go back to the feed rather than show a blank page.
+                                    // The post may vanish when a newer snapshot lands; go
+                                    // back to the feed rather than show a blank page. While
+                                    // the store is still loading (a restore after process
+                                    // death) stay put: the post is coming, not gone.
                                     val post = feedState.posts.firstOrNull { it.uri == route.uri }
                                     if (post != null) {
                                         PostScreen(
@@ -214,7 +216,7 @@ fun NubecitaWearApp(
                                             onToggleBookmark = { feedViewModel.handleEvent(WatchFeedEvent.ToggleBookmark(post.uri)) },
                                             onOpenOnPhone = { feedViewModel.handleEvent(WatchFeedEvent.OpenOnPhone(post.uri)) },
                                         )
-                                    } else {
+                                    } else if (feedState.hasLostPost(route.uri)) {
                                         LaunchedEffect(route) { backStack.remove(route) }
                                     }
                                 }

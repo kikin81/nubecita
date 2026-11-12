@@ -74,12 +74,19 @@ data class WatchFeedState(
     val posts: ImmutableList<WatchPostUi> = persistentListOf(),
     /** The paired phone runs watch actions, so the post screen offers them. */
     val actionsAvailable: Boolean = false,
-    /** The paired phone posts from the watch, so the feed offers "New post". */
+    /** The paired phone posts from the watch, so the landing screen offers "New post". */
     val postingAvailable: Boolean = false,
     /** Posts written on the watch, oldest first, until the phone posts them. */
     val pendingPosts: ImmutableList<WatchPendingPostUi> = persistentListOf(),
 ) : UiState {
     val selectedFeed: WatchFeedTab? get() = feeds.firstOrNull { it.key == selectedKey }
+
+    /**
+     * Whether the post at [uri] has left the synced feed. Only knowable once
+     * the store has answered: while [WatchFeedStatus.Loading] (e.g. a post
+     * route restored after process death) the posts are empty, not gone.
+     */
+    fun hasLostPost(uri: String): Boolean = status != WatchFeedStatus.Loading && posts.none { it.uri == uri }
 }
 
 sealed interface WatchFeedEvent : UiEvent {
