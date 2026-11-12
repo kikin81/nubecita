@@ -1,6 +1,8 @@
 package net.kikin.nubecita.bootstrap
 
 import android.content.Context
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -43,6 +45,15 @@ import net.kikin.nubecita.feature.notifications.impl.store.NotificationsPollingO
 @Module
 @InstallIn(SingletonComponent::class)
 internal object ProductionBootstrapModule {
+    // The startup coordinators that call an authenticated endpoint wait for the
+    // process's first foreground (StartOnFirstForeground). A background wake
+    // (push, package update, boot) needs no token, and refreshing one there is
+    // how a refresh gets lost to MIUI killing the process mid-request, which
+    // ends the session on the next replay (nubecita-25a5).
+    @Provides
+    @ProcessLifecycle
+    fun provideProcessLifecycle(): Lifecycle = ProcessLifecycleOwner.get().lifecycle
+
     @Provides
     @IntoSet
     fun provideAppLifecycleInitializer(
@@ -138,7 +149,8 @@ internal object ProductionBootstrapModule {
     @IntoSet
     fun provideModerationPreferencesInitializer(
         coordinator: ModerationPreferencesCoordinator,
-    ): AppInitializer = AppInitializer { coordinator.start() }
+        @ProcessLifecycle lifecycle: Lifecycle,
+    ): AppInitializer = StartOnFirstForeground(lifecycle) { coordinator.start() }
 
     // Refresh the viewer's post-audience default on sign-in (so the composer
     // pre-fills with the synced value) and reset it on sign-out. Production-only,
@@ -147,7 +159,8 @@ internal object ProductionBootstrapModule {
     @IntoSet
     fun providePostAudienceDefaultInitializer(
         coordinator: PostAudienceDefaultCoordinator,
-    ): AppInitializer = AppInitializer { coordinator.start() }
+        @ProcessLifecycle lifecycle: Lifecycle,
+    ): AppInitializer = StartOnFirstForeground(lifecycle) { coordinator.start() }
 
     // Refresh the viewer's feed-view preferences (hide replies / replies by
     // unfollowed / reposts / quote posts) on sign-in, and reset on sign-out so a
@@ -159,7 +172,8 @@ internal object ProductionBootstrapModule {
     @IntoSet
     fun provideFeedViewPreferencesInitializer(
         coordinator: FeedViewPreferencesCoordinator,
-    ): AppInitializer = AppInitializer { coordinator.start() }
+        @ProcessLifecycle lifecycle: Lifecycle,
+    ): AppInitializer = StartOnFirstForeground(lifecycle) { coordinator.start() }
 
     // Boot-time backstop for the shared-image copy directory: delete orphaned
     // copies older than the retention window — the case where a share opened the
