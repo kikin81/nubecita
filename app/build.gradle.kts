@@ -359,6 +359,7 @@ dependencies {
     // the Configuration; the default WorkManagerInitializer is disabled in the
     // manifest so the Hilt factory is used.
     implementation(libs.androidx.hilt.work)
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
