@@ -114,7 +114,7 @@ private suspend fun <T> readOr(
 internal data class LauncherLabels(
     val messagesHeadline: String,
     val messagesCaption: String?,
-    val messagesDescription: String,
+    val messagesDescription: String?,
     val home: String,
     val newPost: String,
     val signIn: String,
@@ -135,17 +135,14 @@ internal data class LauncherLabels(
                     },
                 messagesCaption =
                     if (count != null && model.hasUnread) {
-                        // "99+" reads as many.
-                        res.getQuantityString(R.plurals.wear_widget_new_messages, count.toIntOrNull() ?: Int.MAX_VALUE)
+                        // "99+" reads as many; 100 lands in the plural "other" category in every locale.
+                        res.getQuantityString(R.plurals.wear_widget_new_messages, count.toIntOrNull() ?: 100)
                     } else {
                         null
                     },
-                messagesDescription =
-                    if (count != null && model.hasUnread) {
-                        context.getString(R.string.wear_widget_messages_unread, count)
-                    } else {
-                        context.getString(R.string.wear_dms_open)
-                    },
+                // The headline and caption are read too, so the icon only names the card —
+                // and says nothing when the headline already is "Messages".
+                messagesDescription = if (count == null) null else context.getString(R.string.wear_dms_open),
                 home = context.getString(R.string.wear_landing_home),
                 newPost = context.getString(R.string.wear_post_new),
                 signIn = context.getString(R.string.wear_gate_signed_out_title),
@@ -208,7 +205,7 @@ private fun MessagesCard(
         RemoteColumn(modifier = RemoteModifier.padding(horizontal = CARD_HORIZONTAL_PADDING.rdp)) {
             RemoteIcon(
                 imageVector = RemoteImageVector.vectorResource(if (model.hasUnread) R.drawable.ic_messages_unread else R.drawable.ic_messages),
-                contentDescription = labels.messagesDescription.rs,
+                contentDescription = labels.messagesDescription?.rs,
                 modifier = RemoteModifier.size(ICON_SIZE.rdp),
                 tint = colors.onPrimaryContainer,
             )

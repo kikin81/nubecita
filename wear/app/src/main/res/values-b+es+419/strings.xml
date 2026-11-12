@@ -107,5 +107,4 @@
         <item quantity="other">nuevos</item>
     </plurals>
     <string name="wear_widget_no_new_messages">No hay mensajes nuevos</string>
-    <string name="wear_widget_messages_unread">Mensajes, %1$s nuevos</string>
 </resources>
