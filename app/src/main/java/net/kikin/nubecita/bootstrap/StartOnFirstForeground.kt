@@ -27,6 +27,10 @@ internal class StartOnFirstForeground(
     private val delegate: AppInitializer,
 ) : AppInitializer {
     override fun start() {
+        if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            delegate.start()
+            return
+        }
         lifecycle.addObserver(
             object : DefaultLifecycleObserver {
                 override fun onStart(owner: LifecycleOwner) {
