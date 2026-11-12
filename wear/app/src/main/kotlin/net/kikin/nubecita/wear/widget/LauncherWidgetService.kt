@@ -3,13 +3,22 @@ package net.kikin.nubecita.wear.widget
 import androidx.glance.wear.AssociateWithGlanceWearWidget
 import androidx.glance.wear.GlanceWearWidget
 import androidx.glance.wear.GlanceWearWidgetService
+import dagger.hilt.android.AndroidEntryPoint
+import net.kikin.nubecita.wear.data.WatchDmRepository
+import javax.inject.Inject
 
 /**
  * Serves [LauncherWidget] over both the widget and tile protocols (see the
  * manifest), so partial-height Wear OS 7 watches show the widget card and every
- * other watch shows it as a full-screen tile.
+ * other watch shows it inside a tile. The unread count is read from the synced
+ * DMs on each render; [LauncherWidgetUpdater] asks for a render when they change.
  */
+@AndroidEntryPoint
 @AssociateWithGlanceWearWidget(LauncherWidget::class)
 class LauncherWidgetService : GlanceWearWidgetService() {
-    override val widget: GlanceWearWidget = LauncherWidget(unreadCount = { null })
+    @Inject
+    lateinit var repository: WatchDmRepository
+
+    // Read at render time, after injection: the service is constructed before onCreate.
+    override val widget: GlanceWearWidget = LauncherWidget(unreadCount = { repository.latestUnreadCount() })
 }
