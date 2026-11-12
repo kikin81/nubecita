@@ -60,6 +60,22 @@ class LauncherWidgetRenderTest {
     }
 
     @Test
+    fun failingDataReads_stillRender_asSignedInWithoutACount() {
+        // The session (Play services) and count (Room) reads can fail; the service's scope has no
+        // handler, so a throw here would crash the watch app. Fall back to the plain Messages card.
+        val p = params(ContainerInfo.CONTAINER_TYPE_LARGE)
+        val failing =
+            runBlocking {
+                LauncherWidget(signedIn = { error("GMS unavailable") }, unreadCount = { error("db closed") })
+                    .provideWidgetData(context, p)
+                    .captureRawContent(context, p)
+                    .rcDocument
+            }
+
+        assertTrue(failing.contentEquals(render(null, ContainerInfo.CONTAINER_TYPE_LARGE)))
+    }
+
+    @Test
     fun theCountReachesTheDocument() {
         val three = render(3, ContainerInfo.CONTAINER_TYPE_LARGE)
         val none = render(0, ContainerInfo.CONTAINER_TYPE_LARGE)

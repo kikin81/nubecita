@@ -37,10 +37,12 @@ import androidx.wear.compose.remote.material3.RemoteIcon
 import androidx.wear.compose.remote.material3.RemoteMaterialTheme
 import androidx.wear.compose.remote.material3.RemoteText
 import androidx.wear.compose.remote.material3.dynamicRemoteColorScheme
+import kotlinx.coroutines.CancellationException
 import net.kikin.nubecita.wear.R
 import net.kikin.nubecita.wear.launch.WearLaunchTarget
 import net.kikin.nubecita.wear.launch.launchIntent
 import net.kikin.nubecita.wear.ui.theme.NubecitaWearColors
+import timber.log.Timber
 
 /**
  * The Nubecita launcher (nubecita-hzfs): a Messages card with the synced unread
@@ -58,7 +60,13 @@ class LauncherWidget(
         context: Context,
         params: WearWidgetParams,
     ): WearWidgetData {
-        val model = launcherWidgetModel(signedIn = signedIn(), unread = unreadCount())
+        // The service's scope has no exception handler: a failed read must not crash the
+        // watch app. Unknown reads as signed in with no count — the plain Messages card.
+        val model =
+            launcherWidgetModel(
+                signedIn = readOr(fallback = true, read = signedIn),
+                unread = readOr(fallback = null, read = unreadCount),
+            )
         val labels = LauncherLabels.from(context, model)
         return WearWidgetDocument(background = WearWidgetBrush.color(Color.Black.rc)) {
             LauncherWidgetContent(
@@ -68,6 +76,19 @@ class LauncherWidget(
         }
     }
 }
+
+private suspend fun <T> readOr(
+    fallback: T,
+    read: suspend () -> T,
+): T =
+    try {
+        read()
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (error: Exception) {
+        Timber.w(error, "Launcher widget read failed; rendering the fallback")
+        fallback
+    }
 
 /** Every string the layout shows, resolved up front (the document is rendered by the host). */
 internal data class LauncherLabels(
