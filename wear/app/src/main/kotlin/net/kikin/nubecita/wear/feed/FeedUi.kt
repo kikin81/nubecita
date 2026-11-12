@@ -23,6 +23,9 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import coil3.compose.AsyncImage
@@ -30,16 +33,35 @@ import kotlinx.coroutines.delay
 import net.kikin.nubecita.wear.R
 import java.io.File
 
-/** The current time, ticking once a minute (enough for "5 min ago"). */
+/**
+ * The current time, ticking once a minute (enough for "5 min ago") — only
+ * while the app is visible, so a backgrounded watch app wakes no one.
+ */
 @Composable
 fun rememberNow(): Long {
-    val now by produceState(System.currentTimeMillis()) {
-        while (true) {
-            delay(MINUTE_MS)
-            value = System.currentTimeMillis()
-        }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val now by produceState(System.currentTimeMillis(), lifecycle) {
+        lifecycle.tickWhileStarted(clock = System::currentTimeMillis) { value = it }
     }
     return now
+}
+
+/**
+ * Calls [onTick] with [clock]'s time once a minute while [this] is at least
+ * STARTED, and suspends without ticking while it isn't. Each return to
+ * STARTED ticks at once, so the times shown are current on resume rather
+ * than up to a minute stale.
+ */
+internal suspend fun Lifecycle.tickWhileStarted(
+    clock: () -> Long,
+    onTick: (Long) -> Unit,
+) {
+    repeatOnLifecycle(Lifecycle.State.STARTED) {
+        while (true) {
+            onTick(clock())
+            delay(MINUTE_MS)
+        }
+    }
 }
 
 /** "5 min. ago", localized by the platform. */
@@ -171,7 +193,7 @@ fun PostCounts(
     )
 }
 
-private const val MINUTE_MS = 60_000L
+internal const val MINUTE_MS = 60_000L
 
 /**
  * The `bsky.app` link for a post's AT-URI (`at://<did>/app.bsky.feed.post/<rkey>`),
