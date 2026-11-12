@@ -6,6 +6,8 @@ plugins {
 android {
     namespace = "net.kikin.nubecita.wear"
     buildFeatures.buildConfig = true
+    // Robolectric widget/intent tests read the app's resources.
+    testOptions.unitTests.isIncludeAndroidResources = true
 
     defaultConfig {
         // Must match the phone app's applicationId (and signing key): the Wear
@@ -23,12 +25,20 @@ dependencies {
     implementation(project(":core:wear-contract"))
     implementation(project(":wear:data"))
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.compose.remote.core)
+    implementation(libs.androidx.compose.remote.creation)
+    implementation(libs.androidx.compose.remote.creation.compose)
+    implementation(libs.androidx.compose.remote.tooling.preview)
     implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.glance.wear)
+    implementation(libs.androidx.glance.wear.core)
+    implementation(libs.androidx.glance.wear.tooling.preview)
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)
     implementation(libs.androidx.wear.compose.navigation3)
+    implementation(libs.androidx.wear.compose.remote.material3)
     implementation(libs.androidx.wear.input)
     implementation(libs.androidx.wear.phone.interactions)
     implementation(libs.androidx.wear.remote.interactions)
@@ -41,7 +51,11 @@ dependencies {
     implementation(libs.timber)
 
     testImplementation(project(":core:testing"))
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    testRuntimeOnly(libs.junit.vintage.engine)
 
     // fastlane screengrab: Play Store screenshots from the bench flavor
     // (nubecita-sn52.5). Test-only; run by the `wear_screenshots` lane.
