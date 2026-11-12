@@ -43,7 +43,7 @@ class LauncherWidgetRenderTest {
     @Test
     fun everyCountStateRendersInBothForms() {
         for (type in listOf(ContainerInfo.CONTAINER_TYPE_LARGE, ContainerInfo.CONTAINER_TYPE_TILE_COMPAT)) {
-            for (unread in listOf(null, 0, 3)) {
+            for (unread in listOf(null, 0, 1, 3, 100)) {
                 assertTrue("unread=$unread type=$type", render(unread, type).isNotEmpty())
             }
         }

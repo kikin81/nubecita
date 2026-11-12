@@ -355,6 +355,17 @@ class WatchSyncIngesterTest {
         }
 
     @Test
+    fun signing_out_clears_the_latest_unread_count() =
+        runTest {
+            // The launcher widget re-reads this on sign-out; it must not keep the old account's count.
+            ingester.ingestDms(dmPath, dmSnapshot(10, convo("c1", "hi")))
+
+            ingester.onSession(null)
+
+            assertNull(dms.latestUnreadCount())
+        }
+
+    @Test
     fun deleting_the_dm_snapshot_or_signing_out_clears_dms() =
         runTest {
             ingester.ingestDms(dmPath, dmSnapshot(10, convo("c1", "hi")))
