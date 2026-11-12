@@ -340,6 +340,25 @@ class WatchFeedViewModelTest {
         }
 
     @Test
+    fun posting_support_is_unchecked_until_the_phone_answers_even_if_it_fails() =
+        runTest {
+            repo.feeds.value = listOf(feed(WearFeedKey.FOLLOWING, null))
+            val vm = vm()
+            assertFalse(vm.uiState.value.postingChecked)
+
+            vm.handleEvent(WatchFeedEvent.AccountChanged(did))
+            advanceUntilIdle()
+            assertTrue(vm.uiState.value.postingChecked)
+
+            support.fail = true
+            val failed = vm()
+            failed.handleEvent(WatchFeedEvent.AccountChanged(did))
+            advanceUntilIdle()
+            assertTrue(failed.uiState.value.postingChecked, "a failed check is an answer: don't wait forever")
+            assertFalse(failed.uiState.value.postingAvailable)
+        }
+
+    @Test
     fun a_reviewed_post_is_queued_for_the_account_and_shown_until_posted_or_failed() =
         runTest {
             repo.feeds.value = listOf(feed(WearFeedKey.FOLLOWING, null))

@@ -54,7 +54,9 @@ class WatchFeedViewModel
         private val account = MutableStateFlow<String?>(null)
         private val selected = MutableStateFlow<String?>(null)
         private val actionsAvailable = MutableStateFlow(false)
-        private val postingAvailable = MutableStateFlow(false)
+
+        // Null until the phone answers, so a New post launch can wait for it.
+        private val postingAvailable = MutableStateFlow<Boolean?>(null)
 
         init {
             // Nested, not combined: posts are only ever queried with a feed key
@@ -92,7 +94,8 @@ class WatchFeedViewModel
             combine(feed, actionsAvailable, postingAvailable, pendingPosts) { state, available, canPost, pending ->
                 state.copy(
                     actionsAvailable = available,
-                    postingAvailable = canPost,
+                    postingAvailable = canPost == true,
+                    postingChecked = canPost != null,
                     pendingPosts = pending.map { WatchPendingPostUi(it.actionId, it.text, failed = it.status == WatchPendingPostEntity.STATUS_FAILED) }.toImmutableList(),
                 )
             }.onEach { state -> setState { state } }

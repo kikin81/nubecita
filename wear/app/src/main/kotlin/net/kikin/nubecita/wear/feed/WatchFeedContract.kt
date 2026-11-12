@@ -76,6 +76,8 @@ data class WatchFeedState(
     val actionsAvailable: Boolean = false,
     /** The paired phone posts from the watch, so the landing screen offers "New post". */
     val postingAvailable: Boolean = false,
+    /** The phone has answered whether it posts from the watch (or the check failed): [postingAvailable] is final. */
+    val postingChecked: Boolean = false,
     /** Posts written on the watch, oldest first, until the phone posts them. */
     val pendingPosts: ImmutableList<WatchPendingPostUi> = persistentListOf(),
 ) : UiState {
