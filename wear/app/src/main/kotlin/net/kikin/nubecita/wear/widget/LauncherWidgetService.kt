@@ -4,8 +4,6 @@ import androidx.glance.wear.AssociateWithGlanceWearWidget
 import androidx.glance.wear.GlanceWearWidget
 import androidx.glance.wear.GlanceWearWidgetService
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.flow.first
-import net.kikin.nubecita.wear.data.PhoneSession
 import net.kikin.nubecita.wear.data.PhoneSessionSource
 import net.kikin.nubecita.wear.data.WatchDmRepository
 import javax.inject.Inject
@@ -26,10 +24,5 @@ class LauncherWidgetService : GlanceWearWidgetService() {
     lateinit var session: PhoneSessionSource
 
     // Read at render time, after injection: the service is constructed before onCreate.
-    // The stored session answers offline; a missing one (no phone app yet) reads as signed out.
-    override val widget: GlanceWearWidget =
-        LauncherWidget(
-            signedIn = { session.session.first() is PhoneSession.SignedIn },
-            unreadCount = { repository.latestUnreadCount() },
-        )
+    override val widget: GlanceWearWidget = liveLauncherWidget(session = { session }, repository = { repository })
 }

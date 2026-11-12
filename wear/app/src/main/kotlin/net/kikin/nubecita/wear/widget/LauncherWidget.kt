@@ -38,7 +38,11 @@ import androidx.wear.compose.remote.material3.RemoteMaterialTheme
 import androidx.wear.compose.remote.material3.RemoteText
 import androidx.wear.compose.remote.material3.dynamicRemoteColorScheme
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
 import net.kikin.nubecita.wear.R
+import net.kikin.nubecita.wear.data.PhoneSession
+import net.kikin.nubecita.wear.data.PhoneSessionSource
+import net.kikin.nubecita.wear.data.WatchDmRepository
 import net.kikin.nubecita.wear.launch.WearLaunchTarget
 import net.kikin.nubecita.wear.launch.launchIntent
 import net.kikin.nubecita.wear.ui.theme.NubecitaWearColors
@@ -76,6 +80,22 @@ class LauncherWidget(
         }
     }
 }
+
+/**
+ * The launcher reading the phone session and synced unread count — the one
+ * widget both the service (pull renders) and [GlanceLauncherWidgetRefresh]
+ * (push renders on Wear OS 7, which render on the instance they're called on)
+ * use. Sources are passed lazily: the service's are injected after it's built.
+ */
+internal fun liveLauncherWidget(
+    session: () -> PhoneSessionSource,
+    repository: () -> WatchDmRepository,
+): LauncherWidget =
+    LauncherWidget(
+        // The stored session answers offline; a missing one (no phone app yet) reads as signed out.
+        signedIn = { session().session.first() is PhoneSession.SignedIn },
+        unreadCount = { repository().latestUnreadCount() },
+    )
 
 private suspend fun <T> readOr(
     fallback: T,

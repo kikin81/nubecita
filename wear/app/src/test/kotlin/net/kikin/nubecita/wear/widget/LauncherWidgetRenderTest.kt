@@ -7,7 +7,17 @@ import androidx.glance.wear.core.ContainerInfo
 import androidx.glance.wear.core.WearWidgetParams
 import androidx.glance.wear.core.WidgetInstanceId
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
+import net.kikin.nubecita.core.wearcontract.WearAccount
+import net.kikin.nubecita.wear.data.PhoneSession
+import net.kikin.nubecita.wear.data.PhoneSessionSource
+import net.kikin.nubecita.wear.data.WatchDmRepository
+import net.kikin.nubecita.wear.data.db.WatchConvoEntity
+import net.kikin.nubecita.wear.data.db.WatchDmStateEntity
+import net.kikin.nubecita.wear.data.db.WatchMessageEntity
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -81,5 +91,45 @@ class LauncherWidgetRenderTest {
         val none = render(0, ContainerInfo.CONTAINER_TYPE_LARGE)
 
         assertFalse("3 unread and 0 unread render the same document", three.contentEquals(none))
+    }
+
+    @Test
+    fun theRefreshPath_rendersFromTheRealSession_andCount() {
+        // On Wear OS 7 a refresh pushes the document rendered by the instance it's called on, so
+        // that instance must read the real session and count, not a stand-in.
+        val p = params(ContainerInfo.CONTAINER_TYPE_LARGE)
+        val refreshed =
+            runBlocking {
+                GlanceLauncherWidgetRefresh(context, FakeSession(PhoneSession.SignedIn(WearAccount("did:plc:a", "a.test"))), FakeDms(unread = 3))
+                    .widget
+                    .provideWidgetData(context, p)
+                    .captureRawContent(context, p)
+                    .rcDocument
+            }
+
+        assertTrue(refreshed.contentEquals(render(3, ContainerInfo.CONTAINER_TYPE_LARGE)))
+    }
+
+    private class FakeSession(
+        value: PhoneSession,
+    ) : PhoneSessionSource {
+        override val session: Flow<PhoneSession> = flowOf(value)
+    }
+
+    private class FakeDms(
+        private val unread: Int?,
+    ) : WatchDmRepository {
+        override fun state(accountDid: String): Flow<WatchDmStateEntity?> = emptyFlow()
+
+        override fun convos(accountDid: String): Flow<List<WatchConvoEntity>> = emptyFlow()
+
+        override fun lastMessages(accountDid: String): Flow<List<WatchMessageEntity>> = emptyFlow()
+
+        override fun messages(
+            accountDid: String,
+            convoId: String,
+        ): Flow<List<WatchMessageEntity>> = emptyFlow()
+
+        override suspend fun latestUnreadCount(): Int? = unread
     }
 }
