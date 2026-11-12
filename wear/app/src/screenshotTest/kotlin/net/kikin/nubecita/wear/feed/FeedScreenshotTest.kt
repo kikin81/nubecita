@@ -302,21 +302,13 @@ private fun RepostConfirmPreview() {
     NubecitaWearTheme { RepostConfirmContent() }
 }
 
-@PreviewTest
-@WearPreviewDevices
-@Composable
-private fun FeedWithMessagesPreview() {
-    // Once the phone has synced DMs, the feed offers Messages with the unread count.
-    NubecitaWearTheme { FeedScreen(state = READY, nowMs = NOW, onPostClick = {}, onSwitchFeed = {}, unreadMessages = 3, onOpenMessages = {}) }
-}
-
 private val POSTING =
     READY.copy(
         postingAvailable = true,
         pendingPosts =
             persistentListOf(
-                WatchPendingPostUi("p1", "Finished my first 10k this morning!", failed = false),
-                WatchPendingPostUi("p2", "Golden hour at the pier again", failed = true),
+                WatchPendingPostUi("action-1", "Finished my first 10k this morning!", failed = false),
+                WatchPendingPostUi("action-2", "Golden hour at the pier again", failed = true),
             ),
     )
 
@@ -324,12 +316,12 @@ private val POSTING =
 @WearPreviewDevices
 @Composable
 private fun FeedPostingPreview() {
-    NubecitaWearTheme { FeedScreen(state = POSTING, nowMs = NOW, onPostClick = {}, onSwitchFeed = {}, onNewPost = {}) }
+    NubecitaWearTheme { FeedScreen(state = POSTING, nowMs = NOW, onPostClick = {}, onSwitchFeed = {}) }
 }
 
 @PreviewTest
 @WearPreviewFontScales
 @Composable
 private fun FeedPostingFontScalesPreview() {
-    NubecitaWearTheme { FeedScreen(state = POSTING, nowMs = NOW, onPostClick = {}, onSwitchFeed = {}, onNewPost = {}) }
+    NubecitaWearTheme { FeedScreen(state = POSTING, nowMs = NOW, onPostClick = {}, onSwitchFeed = {}) }
 }

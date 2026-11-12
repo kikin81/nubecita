@@ -48,6 +48,7 @@
     <string name="wear_post_repost_confirm_title">Repost this?</string>
     <string name="wear_post_repost_confirm_body">Your followers will see it.</string>
     <string name="wear_dms_title">Messages</string>
+    <string name="wear_landing_home">Home</string>
     <string name="wear_dms_open">Messages</string>
     <string name="wear_dms_open_unread">Messages · %1$d</string>
     <string name="wear_dms_empty">No conversations yet.</string>

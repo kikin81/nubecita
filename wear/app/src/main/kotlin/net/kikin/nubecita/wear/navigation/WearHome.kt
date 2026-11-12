@@ -3,7 +3,11 @@ package net.kikin.nubecita.wear.navigation
 import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable
 
-/** Start destination: the selected synced feed. */
+/** Start destination: Home, Messages and New post as three large buttons. */
+@Serializable
+data object WearLanding : NavKey
+
+/** Home: the selected synced feed, opened from [WearLanding]. */
 @Serializable
 data object WearHome : NavKey
 

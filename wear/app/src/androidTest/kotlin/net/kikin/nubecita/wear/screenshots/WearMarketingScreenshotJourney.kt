@@ -9,6 +9,7 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import net.kikin.nubecita.wear.BuildConfig
 import net.kikin.nubecita.wear.MainActivity
+import net.kikin.nubecita.wear.R
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -42,6 +43,10 @@ class WearMarketingScreenshotJourney {
     @Test
     fun feedAndPost() {
         ActivityScenario.launch(MainActivity::class.java).use {
+            // The app opens on the landing screen; Home is the feed.
+            val home = appString(R.string.wear_landing_home)
+            assertTrue("landing screen never appeared", device.wait(Until.hasObject(By.desc(home)), TIMEOUT_MS))
+            device.findObject(By.desc(home)).click()
             // The bench feed: fictional accounts, generated images, fixed clock.
             assertTrue("bench feed never appeared", device.wait(Until.hasObject(By.text("Ana Ruiz")), TIMEOUT_MS))
             // Scroll past the header so the first post sits whole in the middle.
@@ -59,8 +64,10 @@ class WearMarketingScreenshotJourney {
     @Test
     fun messagesConversationAndReply() {
         ActivityScenario.launch(MainActivity::class.java).use {
-            assertTrue("messages button never appeared", device.wait(Until.hasObject(By.descStartsWith("Messages")), TIMEOUT_MS))
-            device.findObject(By.descStartsWith("Messages")).click()
+            // "Messages", or "Messages · N" while something is unread.
+            val messages = appString(R.string.wear_dms_open)
+            assertTrue("messages button never appeared", device.wait(Until.hasObject(By.descStartsWith(messages)), TIMEOUT_MS))
+            device.findObject(By.descStartsWith(messages)).click()
             assertTrue("conversation list never opened", device.wait(Until.hasObject(By.text("Weekend Trip")), TIMEOUT_MS))
             device.waitForIdle()
             Screengrab.screenshot("03_messages")
@@ -76,6 +83,9 @@ class WearMarketingScreenshotJourney {
             Screengrab.screenshot("05_reply")
         }
     }
+
+    /** A string in the app's current locale, so the journey matches whichever locale it captures. */
+    private fun appString(id: Int): String = InstrumentationRegistry.getInstrumentation().targetContext.getString(id)
 
     /** Swipes up the centre of the screen between two tenths of its height. */
     private fun scrollBy(
