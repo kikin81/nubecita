@@ -8,9 +8,12 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSerializable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavEntryDecorator
@@ -82,6 +85,7 @@ class MainShellNavState(
     val startRoute: NavKey,
     topLevelKeyState: MutableState<NavKey>,
     private val backStacks: Map<NavKey, NavBackStack<NavKey>>,
+    private val results: SnapshotStateMap<String, Any?> = mutableStateMapOf(),
 ) {
     init {
         require(startRoute in backStacks.keys) {
@@ -266,13 +270,20 @@ class MainShellNavState(
         }
     }
 
-    // One-shot results handed from a popped sub-route back to the destination beneath it
-    // (the Nav3 analog of Nav2's SavedStateHandle results). Snapshot-backed so a consumer
-    // that reads via peekResult recomposes when a value appears. NOT an event bus: a value
-    // is keyed for a specific consumer and read exactly once.
-    private val results = mutableStateMapOf<String, Any?>()
+    // `results` holds one-shot values handed from a popped sub-route back to the destination
+    // beneath it (the Nav3 analog of Nav2's SavedStateHandle results). Snapshot-backed so a
+    // consumer that reads via peekResult recomposes when a value appears. NOT an event bus: a
+    // value is keyed for a specific consumer and read exactly once.
 
-    /** Stash a one-shot [value] for a returning consumer keyed by [key]; overwrites any prior. */
+    /**
+     * Stash a one-shot [value] for a returning consumer keyed by [key]; overwrites any prior.
+     *
+     * [rememberMainShellNavState] saves pending results with the rest of the navigation
+     * state, so a result set just before the process is killed is still delivered after
+     * restore. That only works for values a `Bundle` can hold — primitives, `String`,
+     * `Parcelable`, `java.io.Serializable`. Anything else is dropped at save time (the
+     * rest of the state still saves); keep results to small plain values.
+     */
     fun setResult(
         key: String,
         value: Any?,
@@ -310,6 +321,9 @@ class MainShellNavState(
  *   so the active tab survives `saveInstanceState → recreate()`.
  * - Per-tab back stacks are created via `rememberNavBackStack(key)`, so
  *   each tab's stack contents survive too.
+ * - Pending one-shot results (see [MainShellNavState.setResult]) are saved
+ *   alongside, so a result is not lost if the process dies before its
+ *   consumer reads it.
  *
  * Call from inside `MainShell`'s composable body. Do not call from a
  * `ViewModel` or any non-Composable context.
@@ -351,14 +365,31 @@ fun rememberMainShellNavState(
     val backStacks: Map<NavKey, NavBackStack<NavKey>> =
         topLevelRoutes.associateWith { key -> rememberNavBackStack(key) }
 
+    val results = rememberSaveable(saver = ResultsSaver) { mutableStateMapOf() }
+
     return remember(startRoute, topLevelRoutes) {
         MainShellNavState(
             startRoute = startRoute,
             topLevelKeyState = topLevelKeyState,
             backStacks = backStacks,
+            results = results,
         )
     }
 }
+
+/**
+ * Saves the pending one-shot results map. Entries whose value the platform
+ * cannot save are left out instead of failing the whole save.
+ */
+private val ResultsSaver: Saver<SnapshotStateMap<String, Any?>, HashMap<String, Any?>> =
+    Saver(
+        save = { results ->
+            HashMap<String, Any?>().apply {
+                results.forEach { (key, value) -> if (value == null || canBeSaved(value)) put(key, value) }
+            }
+        },
+        restore = { saved -> mutableStateMapOf<String, Any?>().apply { putAll(saved) } },
+    )
 
 /**
  * Builds one tab's [NavEntry] list from its stack [keys], giving every

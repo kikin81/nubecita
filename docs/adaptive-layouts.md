@@ -133,13 +133,48 @@ Where the list-detail pieces live:
 | `topLevelKey` (the active tab the wrapper key-matches on) | `:core:common` | `core/common/.../navigation/MainShellNavState.kt` |
 | `profilePaneMetadata` (instance-dependent list/detail role) | `:feature:profile:impl` | `.../feature/profile/impl/di/ProfileNavigationModule.kt` |
 
+## Entry state retention
+
+Every entry on the inner `NavDisplay` keeps its ViewModels and `rememberSaveable`
+state for as long as it is on its tab's stack — across tab switches, fold /
+unfold and rotation, and (for saved state) process death. Three rules make that
+hold; breaking any of them brings back a bug the `nubecita-owmt` epic fixed:
+
+1. **Decorate every tab's stack, not the displayed one.** Navigation 3 clears an
+   entry's `ViewModelStore` and saved state once its key leaves the list being
+   decorated. `MainShellNavState.backStack` only holds the start tab's stack plus
+   the active tab's, so decorating it wiped a tab each time the user left it.
+   `MainShell` therefore passes `NavDisplay(entries = …)` the result of
+   `MainShellNavState.rememberDecoratedEntries`, which runs
+   `rememberDecoratedNavEntries` once per tab (the Navigation 3
+   multiple-back-stacks recipe shape).
+2. **Never wrap the `NavDisplay` or its decorators in a `key(...)` on window
+   size.** The ViewModel decorator clears all of its stores when it leaves
+   composition, so re-keying on the pane count rebuilt every screen on each fold.
+   `MainActivity` handles size changes via `configChanges`, so state simply
+   carries across the one-pane ↔ two-pane crossing.
+3. **Sub-routes get a scoped `contentKey`.** Navigation 3 treats entries with the
+   same `contentKey` as one piece of content. `scopedEntries` (in
+   `MainShellNavState.kt`) re-keys every sub-route by tab and by occurrence, so
+   the same post open on two tabs, or twice on one, is two screens. Tab roots
+   keep their registered key — `ActiveTabScopedSceneStrategy` matches on it.
+
+The expected behaviour is written down as android-cli journeys:
+`app/src/journeysTest/tab_state_retention.journey.xml` and
+`pane_boundary_state_retention.journey.xml`. Run both on a foldable after
+touching `MainShell`, `MainShellNavState` or a scene strategy.
+`MainShellEntryStateRetentionTest` (`:app` androidTest) covers rules 1 and 3 by
+reading entry state, not stack keys.
+
 ## Versioning note
 
-Built against **`androidx.navigation3` `1.2.0-alpha03`** — `OverlayScene`,
-`SceneStrategyScope.onBack`, and the built-in `DialogSceneStrategy` are present.
-The scene-strategy APIs are alpha; when bumping, re-check against the in-artifact
+Built against **`androidx.navigation3` `1.2.1`** and
+**`androidx.compose.material3.adaptive` `1.3.0`** (`nav3Core` /
+`nav3AdaptiveMaterial3` in `gradle/libs.versions.toml`). When bumping either,
+re-check the custom scenes against the in-artifact
 `androidx/navigation3/scene/DialogScene.kt` and `SceneStrategySamples.kt`
-(authoritative source for the exact signatures) rather than the docs.
+(authoritative source for the exact signatures) rather than the docs, and re-run
+the two journeys above.
 
 ## References
 
@@ -153,9 +188,6 @@ The scene-strategy APIs are alpha; when bumping, re-check against the in-artifac
 
 ## Migration
 
-The composer (`:app/shell/composer/*`) predates this and still uses the
-hand-rolled launcher/overlay/`CompositionLocal`. Tracked by **`nubecita-11st`**:
-tag `ComposerRoute` with `adaptiveDialog()`, delete the composer launcher/overlay
-files. Submit results don't depend on presentation either: the composer hands
-the post to `OutgoingPostStore` and closes (nubecita-zxwh). New adaptive surfaces
-should mirror the **scene-strategy** approach, not the composer.
+Done. The composer was the last surface on the hand-rolled
+launcher/overlay/`CompositionLocal` pattern; it moved to `adaptiveDialog()` in
+**`nubecita-11st`**. New adaptive surfaces mirror the scene-strategy approach.
