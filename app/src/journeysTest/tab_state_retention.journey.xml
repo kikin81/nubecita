@@ -1,0 +1,37 @@
+<journey name="Navigation State Retention - Tab Switch">
+  <description>
+    Verifies that a top-level tab other than Home keeps its state while the user is on another
+    tab: the submitted search query, the loaded results, the scroll position, and any sub-route
+    pushed onto that tab must all be exactly as the user left them. Leaving a tab must not
+    rebuild its screens from scratch (nubecita-owmt.2).
+
+    Works on any width. Run it folded (bottom navigation bar) and unfolded (navigation rail).
+  </description>
+  <actions>
+    <action>Verify that the app is open on the Home feed</action>
+    <action>Tap the Search tab on the main navigation</action>
+    <action>Type a search query into the search input field and submit the search</action>
+    <action>Verify that post search results are displayed, and record the search query shown in the search field</action>
+    <action>Scroll the search results down slowly until the first result that was visible is off screen</action>
+    <action>Verify that search results are displayed, and record the text of the topmost fully visible result</action>
+    <action>Tap the Chats tab on the main navigation</action>
+    <action>Verify that the Chats screen is visible</action>
+    <action>Tap the Search tab on the main navigation</action>
+    <action>Verify that the search field still shows the recorded query, that search results are displayed without a loading indicator, and that the topmost fully visible result is the recorded one</action>
+    <action>Tap the topmost fully visible search result to open its detail screen</action>
+    <action>Verify that the post detail screen is visible</action>
+    <action>Tap the Notifications tab on the main navigation</action>
+    <action>Verify that the Notifications screen is visible</action>
+    <action>Tap the Search tab on the main navigation</action>
+    <action>Verify that the post detail screen for the same post is visible</action>
+    <action>Press the system back button</action>
+    <action>Verify that the search field still shows the recorded query and that the topmost fully visible result is the recorded one</action>
+    <action>Tap the You tab on the main navigation</action>
+    <action>Scroll the profile down slowly until the profile header is off screen</action>
+    <action>Verify that profile posts are displayed, and record the text of the topmost fully visible post</action>
+    <action>Tap the Home tab on the main navigation</action>
+    <action>Verify that the Home feed is visible</action>
+    <action>Tap the You tab on the main navigation</action>
+    <action>Verify that the profile header is still off screen and that the topmost fully visible post is the recorded one</action>
+  </actions>
+</journey>
