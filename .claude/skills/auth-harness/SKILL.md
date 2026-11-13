@@ -155,7 +155,35 @@ dev Pixel is separable by device model too.
 
 | Date | Device | Scenario | Events staged |
 |---|---|---|---|
+| 2026-11-12 17:02 PST | emulator-5556 (sdk_gphone64_arm64) | DiedInFlightMarker | 1 × `process_died` / `TokenRefreshDiedInFlightException`, caller `harness` (GA4 delivery disabled on this debug build — see below) |
 | _(append a row per run)_ | | | |
+
+### Build type: you cannot observe HTTP and GA4 in the same run
+
+Verified on device 2026-11-12. The two observation surfaces are mutually
+exclusive, so pick the build type from what the scenario needs to prove:
+
+| Build | `AtProtoHttp` logs | GA4 events |
+|---|---|---|
+| `productionDebug` | yes | **no** — `app/src/debug/AndroidManifest.xml` sets `firebase_analytics_collection_enabled=false` (enforced by `DebugAnalyticsCollectionTest`) |
+| `productionRelease -PdebugSignedRelease=true` | **no** — `install(Logging)` is inside `if (BuildConfig.DEBUG)` in `HttpClientModule.kt` | yes |
+
+`ExpiredAccessToken` needs `AtProtoHttp`, so build it debug. Running it on a
+release build does not merely lose criterion 1: an empty `AtProtoHttp` log reads
+as "no extra token requests" and "no other 4xx/5xx", so two criteria pass
+vacuously. That is a false pass, not a void run.
+
+Crashlytics is unaffected by either gate. And the caller of a reported dead
+refresh is checkable without GA4 at all — it persists:
+
+```bash
+adb -s <device> shell run-as net.kikin.nubecita \
+  cat /data/data/net.kikin.nubecita/files/datastore/auth_telemetry.preferences_pb | strings
+```
+
+`last_died_refresh_caller` is written as the final statement of
+`reportRefreshDiedInFlight`, after `recordException` and the analytics call, so
+seeing `harness` there proves the whole report path ran.
 
 ## Pre-flight
 
