@@ -3,7 +3,10 @@ package net.kikin.nubecita.feature.videoplayer.impl.ui
 import android.content.res.Configuration
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.ExperimentalMediaQueryApi
+import androidx.compose.ui.UiMediaScope
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.postinteractions.ui.comments.CommentItemUi
@@ -201,6 +204,41 @@ private fun VideoPlayerContentErrorScreenshot() {
             onEvent = {},
         )
     }
+}
+
+// Posture fixtures (nubecita-z5ok). Both render the same Ready state at the same
+// landscape-foldable size; only the simulated window posture differs, so the
+// pair discriminates the Grid's two configurations: controller overlaid on the
+// video (flat) vs. video in the top half and controller in the bottom half
+// (tabletop).
+@OptIn(ExperimentalMediaQueryApi::class)
+@PreviewTest
+@Preview(name = "posture-flat", showBackground = true, widthDp = POSTURE_PREVIEW_WIDTH_DP, heightDp = POSTURE_PREVIEW_HEIGHT_DP)
+@Composable
+private fun VideoPlayerFlatPostureScreenshot() {
+    VideoPlayerPosturePreview(posture = UiMediaScope.Posture.Flat)
+}
+
+@OptIn(ExperimentalMediaQueryApi::class)
+@PreviewTest
+@Preview(name = "posture-tabletop", showBackground = true, widthDp = POSTURE_PREVIEW_WIDTH_DP, heightDp = POSTURE_PREVIEW_HEIGHT_DP)
+@Composable
+private fun VideoPlayerTabletopPostureScreenshot() {
+    VideoPlayerPosturePreview(posture = UiMediaScope.Posture.Tabletop)
+}
+
+// Flex mode on a flip-style foldable: the narrowest, shortest tabletop panel.
+// Guards the stacked controls against clipping or overlap there.
+@OptIn(ExperimentalMediaQueryApi::class)
+@PreviewTest
+@Preview(name = "posture-tabletop-flip", showBackground = true, widthDp = FLIP_PREVIEW_WIDTH_DP, heightDp = FLIP_PREVIEW_HEIGHT_DP)
+@Composable
+private fun VideoPlayerTabletopFlipPostureScreenshot() {
+    VideoPlayerPosturePreview(
+        posture = UiMediaScope.Posture.Tabletop,
+        windowWidth = FLIP_PREVIEW_WIDTH_DP.dp,
+        windowHeight = FLIP_PREVIEW_HEIGHT_DP.dp,
+    )
 }
 
 private fun sampleComment(

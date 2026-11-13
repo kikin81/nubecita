@@ -3,7 +3,6 @@ package net.kikin.nubecita.feature.videoplayer.impl
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
@@ -38,6 +37,7 @@ import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.videoplayer.impl.ui.VideoPlayerContent
+import net.kikin.nubecita.feature.videoplayer.impl.ui.isTabletopPosture
 
 /**
  * Stateful entry for the fullscreen video player.
@@ -91,6 +91,12 @@ internal fun VideoPlayerScreen(
     val isInPip by rememberIsInPipMode()
     val pipEnabled by pipBridge.isEnabled.collectAsStateWithLifecycle()
     var sourceRect by remember { mutableStateOf<android.graphics.Rect?>(null) }
+
+    // Foldable tabletop posture (nubecita-z5ok): video on the upright half,
+    // controls on the flat half. Resolved here in composition and passed down
+    // as a flag. The PiP window is never laid out as tabletop, whatever the
+    // device posture underneath it.
+    val isTabletop = isTabletopPosture() && !isInPip
 
     // Instant PiP snap-to-hidden: bypass exit animation so PiP capture window does not snap a collapsing sheet.
     LaunchedEffect(isInPip) {
@@ -214,7 +220,9 @@ internal fun VideoPlayerScreen(
                     isInPip = isInPip,
                     onSourceRectChange = { sourceRect = it },
                     onPopOut = onPopOut,
-                    modifier = Modifier.fillMaxSize().padding(innerPadding),
+                    isTabletop = isTabletop,
+                    contentPadding = innerPadding,
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
         },

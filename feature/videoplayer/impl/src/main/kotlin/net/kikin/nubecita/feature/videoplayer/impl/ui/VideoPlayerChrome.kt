@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalGridApi::class)
+
 package net.kikin.nubecita.feature.videoplayer.impl.ui
 
 import androidx.compose.animation.core.Animatable
@@ -10,9 +12,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalGridApi
+import androidx.compose.foundation.layout.Grid
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
@@ -68,6 +74,13 @@ import java.util.Locale
  * 10s · large morphing play/pause · skip-forward 10s), and a bottom column
  * (seek bar with elapsed/total + a row with the time labels, mute, and the
  * optional pop-out affordance).
+ *
+ * The three bands are named areas of one `Grid`. By default they share a
+ * single cell and are pinned to its edges, which is the overlay that sits on
+ * top of the video. With [stacked] they get a row each, for the half-height
+ * tabletop panel where the centered transport would otherwise collide with
+ * the bottom band. Same children either way; see
+ * [VideoPlayerChromeGridConfiguration].
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -80,6 +93,7 @@ internal fun VideoPlayerChrome(
     // (PiP entry for Pro, paywall for non-Pro) lives in the screen, not the VM
     // (design D5), so it's a plain callback rather than a VideoPlayerEvent.
     onPopOut: (() -> Unit)? = null,
+    stacked: Boolean = false,
 ) {
     // Remembered so the morph button's `shapes` is a stable instance —
     // IconButtonShapes isn't @Stable, so allocating it inline would defeat
@@ -91,7 +105,27 @@ internal fun VideoPlayerChrome(
                 pressedShape = RoundedCornerShape(PLAY_PAUSE_PRESSED_CORNER),
             )
         }
-    Box(modifier = modifier.windowInsetsPadding(WindowInsets.systemBars)) {
+    val gridConfig =
+        if (stacked) VideoPlayerChromeGridConfiguration.Stacked else VideoPlayerChromeGridConfiguration.Overlay
+    // Stacked means this panel is the flat half below the fold: its top edge is
+    // the hinge, not the top of the window, so the status bar inset does not
+    // apply to it.
+    // Remembered: this composable re-runs on every 250ms position tick, and a
+    // fresh `only(...)` wrapper each time would hand windowInsetsPadding a new
+    // insets instance to compare on each of them.
+    val systemBars = WindowInsets.systemBars
+    val insets =
+        remember(systemBars, stacked) {
+            if (stacked) {
+                systemBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom)
+            } else {
+                systemBars
+            }
+        }
+    Grid(
+        config = gridConfig,
+        modifier = modifier.windowInsetsPadding(insets),
+    ) {
         // Top band: back button.
         NubecitaOverlayIconButton(
             icon = NubecitaIconName.Close,
@@ -99,7 +133,7 @@ internal fun VideoPlayerChrome(
             onClick = { onEvent(VideoPlayerEvent.BackClicked) },
             modifier =
                 Modifier
-                    .align(Alignment.TopStart)
+                    .gridItem(areaId = VideoPlayerChromeArea.TopBar, alignment = Alignment.TopStart)
                     .padding(8.dp),
         )
 
@@ -108,7 +142,7 @@ internal fun VideoPlayerChrome(
         // kept close to the transport, distinct from the post actions — rather
         // than in the bottom row (nubecita-6rdb.6, design option a).
         Column(
-            modifier = Modifier.align(Alignment.Center),
+            modifier = Modifier.gridItem(areaId = VideoPlayerChromeArea.Transport, alignment = Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -195,7 +229,7 @@ internal fun VideoPlayerChrome(
         Column(
             modifier =
                 Modifier
-                    .align(Alignment.BottomCenter)
+                    .gridItem(areaId = VideoPlayerChromeArea.BottomBar, alignment = Alignment.BottomCenter)
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),

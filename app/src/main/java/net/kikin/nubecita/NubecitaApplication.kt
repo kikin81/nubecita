@@ -1,6 +1,8 @@
 package net.kikin.nubecita
 
 import android.app.Application
+import androidx.compose.ui.ComposeUiFlags
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import coil3.ImageLoader
@@ -75,7 +77,15 @@ class NubecitaApplication :
     // planted in production below). See `:core:logging`.
     @Inject lateinit var crashReporter: CrashReporter
 
+    @OptIn(ExperimentalComposeUiApi::class)
     override fun onCreate() {
+        // Opt in to Compose's experimental mediaQuery integration so every
+        // ComposeView root provides LocalUiMediaScope (window posture, pointer
+        // precision, ...). Off by default in Compose 1.12; without it any
+        // mediaQuery { } call throws. Must be set before the first composition,
+        // hence ahead of super.onCreate(). Consumer: the fullscreen video
+        // player's tabletop layout (nubecita-z5ok).
+        ComposeUiFlags.isMediaQueryIntegrationEnabled = true
         super.onCreate()
 
         // Install App Check provider before any Firebase service is touched.
