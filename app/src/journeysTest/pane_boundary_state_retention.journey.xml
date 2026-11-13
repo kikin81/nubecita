@@ -1,0 +1,37 @@
+<journey name="Navigation State Retention - Pane Boundary">
+  <description>
+    Verifies that screen state survives the window crossing between the single-pane layout
+    (folded, compact width) and the two-pane list-detail layout (unfolded, medium or expanded
+    width). Scroll position and loaded content must be the same on both sides of the crossing,
+    for the list pane and for a sub-route shown in the detail pane (nubecita-owmt.3). Infinite
+    scroll must keep working after the crossing (nubecita-bm14).
+
+    Requires a foldable device or emulator. Start with the device unfolded.
+  </description>
+  <actions>
+    <action>Verify that the device is unfolded and the app shows the Home feed with a navigation rail</action>
+    <action>Tap the Search tab on the main navigation</action>
+    <action>Type a search query into the search input field and submit the search</action>
+    <action>Verify that post search results are displayed in the list pane</action>
+    <action>Scroll the search results down slowly until the first result that was visible is off screen</action>
+    <action>Verify that search results are displayed, and record the text of the topmost fully visible result</action>
+    <action>Fold the device</action>
+    <action>Verify that the app shows a bottom navigation bar, that search results are displayed, and that the topmost fully visible result is the recorded one</action>
+    <action>Unfold the device</action>
+    <action>Verify that the app shows a navigation rail, that search results are displayed in the list pane, and that the topmost fully visible result is the recorded one</action>
+    <action>Tap the topmost fully visible search result to open it in the detail pane</action>
+    <action>Verify that the post detail is visible in the detail pane next to the search results</action>
+    <action>Scroll the post detail down slowly until the focused post is off screen, if the thread is long enough to scroll</action>
+    <action>Verify that the post detail is visible, and record the text of its topmost fully visible post</action>
+    <action>Fold the device</action>
+    <action>Verify that the post detail is shown full screen and that its topmost fully visible post is the recorded one</action>
+    <action>Unfold the device</action>
+    <action>Verify that the search results and the post detail are shown side by side and that each pane's topmost fully visible item is the recorded one</action>
+    <action>Tap the Home tab on the main navigation</action>
+    <action>Scroll the Home feed down slowly for several screens</action>
+    <action>Fold the device</action>
+    <action>Unfold the device</action>
+    <action>Scroll the Home feed down slowly for several more screens</action>
+    <action>Verify that the Home feed keeps loading older posts and does not stop at an end that never loads</action>
+  </actions>
+</journey>
