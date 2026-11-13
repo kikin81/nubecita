@@ -724,6 +724,19 @@ enum class TokenRefreshCaller(
 
     /** No tag on the calling coroutine. */
     Untagged("untagged"),
+
+    /**
+     * A refresh event staged by the debug-only auth test harness
+     * (nubecita-zh7p), not something a real refresh produced.
+     *
+     * Only a build that passed `-PauthTestHarness=true` can stage one, so this
+     * value is unreachable in a shippable artifact — it exists so that a
+     * staged event is filterable in GA4 (`refresh_caller`) and Crashlytics
+     * (`died_refresh_caller`) rather than sitting in the real
+     * [Untagged] stream, which is what a fleet-wide `process_died` count is
+     * read from.
+     */
+    Harness("harness"),
 }
 
 /** How a single POST of a refresh token to the token endpoint ended. */

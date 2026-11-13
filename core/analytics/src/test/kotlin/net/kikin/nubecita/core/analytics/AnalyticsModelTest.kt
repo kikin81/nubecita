@@ -232,6 +232,21 @@ class AnalyticsModelTest {
     }
 
     @Test
+    fun `token_refresh tags a harness-staged event so it can be filtered out of the real stream`() {
+        // The whole point of the value is that a GA4 / Crashlytics filter can
+        // separate staged dead-refresh markers from real ones. Pin the wire
+        // string: a rename here silently breaks every saved filter.
+        val event =
+            TokenRefresh(
+                caller = TokenRefreshCaller.Harness,
+                outcome = TokenRefreshOutcome.ProcessDied,
+                foreground = false,
+            )
+        assertEquals(Str("harness"), event.params["refresh_caller"])
+        AnalyticsValidator.requireValid(event)
+    }
+
+    @Test
     fun `notification_tap carries source and type and passes GA4 validation`() {
         val event = NotificationTap(source = NotificationSource.DmPoll, type = NotificationType.Message)
         assertEquals("notification_tap", event.name)

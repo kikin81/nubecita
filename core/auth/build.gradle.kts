@@ -14,6 +14,28 @@ android {
     // crash reports — independent of which Timber trees are planted at runtime.
     buildFeatures.buildConfig = true
 
+    // Opt-in auth test harness (nubecita-zh7p): `-PauthTestHarness=true`.
+    //
+    // A source set rather than a BuildConfig flag, deliberately. A runtime (or
+    // even R8-folded) flag still compiles a "wipe this user's session" code
+    // path into the Play APK and leaves its absence resting on the optimizer
+    // behaving as expected. Gating the source directory means the class does
+    // not exist in any build that did not ask for it — no stripping to verify,
+    // nothing to get wrong.
+    //
+    // Attached to `production`, not `main`: the harness drives the real
+    // encrypted session store, which the `bench` flavor replaces with fakes.
+    if (providers.gradleProperty("authTestHarness").orNull.toBoolean()) {
+        sourceSets.getByName("production").kotlin.srcDir("src/authHarness/kotlin")
+        // Gated the same way, and for the same reason the harness itself is: a
+        // test source set referencing harness-only types cannot compile in an
+        // unflagged build. CI runs these in the flagged harness step — a test
+        // that only ever compiles would not catch the failure it exists for
+        // (an expiry comparison that applies a still-valid token tests nothing
+        // and still reads as a pass).
+        sourceSets.getByName("testProduction").kotlin.srcDir("src/authHarnessTest/kotlin")
+    }
+
     // The `environment` flavor dimension splits the production AuthBindingsModule
     // (real DPoP-signed XrpcClient, Tink-encrypted OAuthSessionStore, AtOAuth flow
     // orchestrator) from a bench-flavor parallel that binds in-process fakes. The

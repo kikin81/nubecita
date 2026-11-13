@@ -255,6 +255,38 @@ android {
         // stays non-profileable, non-debuggable.
     }
 
+    // Opt-in auth test harness (nubecita-zh7p): `-PauthTestHarness=true`.
+    // Mirrors the gated source set in `:core:auth` — see the comment there for
+    // why this is a source set and not a BuildConfig flag. `production` only:
+    // the harness drives the real session store, which `bench` fakes out.
+    if (providers.gradleProperty("authTestHarness").orNull.toBoolean()) {
+        // A machine that can sign a distributable artifact must not be able to
+        // build the harness at all. The source-set gate above already keeps the
+        // class out of any build that did not ask for it — but "did not ask" is
+        // a flag, and a flag can be passed by accident or copied out of a
+        // runbook. This is the part that cannot be. The release keystore
+        // resolves only from keystore.properties or the CI secrets, so its
+        // presence is the signal that whatever this build produces could reach
+        // Play or App Distribution; note the `debug` build type signs with it
+        // too, so this covers the FAD path and not just `release`.
+        //
+        // :app is the only guarded site because it is the only distributable
+        // artifact that can reach the harness: :wear:app does not depend on
+        // :core:auth, and :core:auth on its own packages nothing installable.
+        check(signingConfigs.getByName("release").storeFile == null) {
+            "-PauthTestHarness=true is refused on a machine with release signing " +
+                "material. The harness wipes a real account's session and halts the " +
+                "process; it must never be built where the artifact could be signed " +
+                "and distributed. Build it on a machine without keystore.properties " +
+                "and without the KEYSTORE_* env vars."
+        }
+        // kotlin.srcDir, not java.srcDir: KSP picks a java srcDir up and
+        // generates Hilt factories for it, but kotlinc never compiles the
+        // sources, so the build fails on generated code referencing classes
+        // that were never built.
+        sourceSets.getByName("production").kotlin.srcDir("src/authHarness/java")
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
