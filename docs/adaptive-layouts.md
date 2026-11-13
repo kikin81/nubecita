@@ -166,7 +166,70 @@ touching `MainShell`, `MainShellNavState` or a scene strategy.
 `MainShellEntryStateRetentionTest` (`:app` androidTest) covers rules 1 and 3 by
 reading entry state, not stack keys.
 
+## Foldable tabletop posture (`Grid` + `mediaQuery`)
+
+Scene strategies answer "which screens are on screen". Posture is a different
+question: one screen, the same children, a different geometry. When a foldable
+is half-opened with the hinge horizontal, the fullscreen video player puts the
+video on the upright half and the controls on the flat half. It does that
+without a second layout composable.
+
+**The pattern** (`:feature:videoplayer:impl`, `ui/VideoPlayerGrid.kt`):
+
+- One `Grid` with named areas. The children are tagged once with
+  `Modifier.gridItem(areaId = ...)`; only the `GridConfigurationScope.() -> Unit`
+  that maps area ids to cells changes. Flat maps both areas to one cell (the
+  controller overlays the player by declaration order); tabletop maps them to
+  two `0.5f` rows.
+- `Grid` reads its config in the **measure** pass, so a fold is a relayout, not
+  a recomposition. An `if (tabletop) A() else B()` branch would dispose and
+  recreate the `PlayerSurface`; this never does. Verified on device: same
+  SurfaceFlinger layer, no activity lifecycle events, position keeps advancing.
+- Posture comes from `mediaQuery { windowPosture == UiMediaScope.Posture.Tabletop }`,
+  read **in composition** by the stateful screen (`isTabletopPosture()`) and
+  passed down as a `Boolean`. Never call `mediaQuery` inside the
+  `Grid(config = { ... })` block, and keep it out of stateless `*Content`
+  composables so previews and screenshot fixtures need no `LocalUiMediaScope`.
+
+**Rules that are easy to get wrong:**
+
+1. **The flag.** `LocalUiMediaScope` only exists when
+   `ComposeUiFlags.isMediaQueryIntegrationEnabled` is set before the first
+   composition (`NubecitaApplication.onCreate`). Reading it otherwise throws.
+   Instrumented tests boot `HiltTestApplication`, which does not set it, so any
+   `mediaQuery` call reachable from a journey must be guarded on the flag
+   (`isTabletopPosture()` is; tabletop simply never activates there).
+2. **The grid spans the whole window.** Its 50/50 split only lands on the fold
+   if nothing pads it unevenly. Take the host `Scaffold`'s `innerPadding` as a
+   `contentPadding` parameter and apply it per area (the edge on the fold gets
+   none), rather than `Modifier.padding(innerPadding)` on the grid. Padding the
+   grid moved the split 12dp off the fold on a Pixel Fold.
+3. **Aspect-fit under loose constraints.** `fillMaxSize().aspectRatio(r)` only
+   ever fits the width and overflows a cell that is wider than the content. In a
+   grid cell use `aspectRatio(r)` alone.
+4. **Controls get their own stacked config.** A half-height panel is too short
+   for edge-pinned bands that share one cell, so `VideoPlayerChrome` is a nested
+   grid: one cell when overlaid, three rows when `stacked`.
+5. **Pin what would auto-hide.** Controls that fade out over content have
+   nothing to uncover when they own half the screen.
+
+**Known limit:** the split assumes the fold is the window's horizontal midline.
+That holds for a fullscreen or side-by-side window, not for a freeform window
+that the fold crosses off-center (`nubecita-275s`).
+
+Journey: `app/src/journeysTest/video_player_tabletop.journey.xml`, driven on a
+foldable emulator by `scripts/tabletop-video-journey.sh` (posture via
+`adb emu posture 2|3`), which asserts the bounds against the fold, the playback
+position and the surface identity.
+
 ## Versioning note
+
+`Grid` and `mediaQuery` are **experimental in Compose 1.12** (`ExperimentalGridApi`,
+`ExperimentalMediaQueryApi`, and the `ComposeUiFlags` opt-in above). On a Compose
+BOM bump, re-check `VideoPlayerGrid.kt` against the in-artifact `Grid.kt` /
+`MediaQuery.kt`, drop the opt-ins and the flag once they are no longer needed,
+and re-run the tabletop journey.
+
 
 Built against **`androidx.navigation3` `1.2.1`** and
 **`androidx.compose.material3.adaptive` `1.3.0`** (`nav3Core` /

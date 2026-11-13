@@ -1,0 +1,37 @@
+<journey name="Video Player - Foldable Tabletop Posture">
+  <description>
+    Verifies that the fullscreen video player moves between its flat layout (controls
+    overlaid on the video) and its tabletop layout (video on the upright half above the
+    fold, controls on the flat half below it) when a foldable is half-folded and unfolded
+    mid-playback, without restarting or interrupting the video.
+
+    Run on a foldable with the bench build, held in landscape so the fold is horizontal.
+    scripts/tabletop-video-journey.sh drives the same steps on a foldable emulator and
+    asserts the bounds, the playback position and the video surface identity.
+
+    Bring the video post into view with a touch scroll. An accessibility scroll before
+    opening the player trips nubecita-khe8 (the player is torn down 30 seconds in), which
+    is unrelated to posture.
+  </description>
+  <actions>
+    <action>Rotate the device to landscape with the device fully unfolded (flat)</action>
+    <action>Verify that the app is open on the Home feed</action>
+    <action>Tap the Discover feed chip</action>
+    <action>Scroll down by touch until a video post is visible and wait for it to start playing in the feed</action>
+    <action>Tap the video to open the fullscreen video player</action>
+    <action>Verify that the video is playing and fills the width of the screen, centered vertically across the fold</action>
+    <action>Tap an empty area of the video to show the player controls</action>
+    <action>Verify that the Close, Skip back, Pause and Skip forward controls and the seek bar are drawn on top of the video</action>
+    <action>Tap Skip back 10 seconds twice so the video restarts from the beginning</action>
+    <action>Fold the device halfway into tabletop posture (hinge horizontal, top half upright)</action>
+    <action>Verify that the whole video is now on the upper half of the screen and none of it crosses the fold</action>
+    <action>Verify that the Close button, the transport controls, the seek bar and the like, repost and comment actions are all on the lower half, below the fold, with nothing overlapping or clipped</action>
+    <action>Verify that the video kept playing through the fold and its elapsed time did not go back to 0:00</action>
+    <action>Wait 5 seconds and verify that the controls on the lower half are still visible (they do not auto-hide in tabletop posture)</action>
+    <action>Tap Skip back 10 seconds on the lower half and verify that the elapsed time jumps back and the video keeps playing</action>
+    <action>Unfold the device back to flat</action>
+    <action>Verify that the video is again centered across the whole screen and is still playing</action>
+    <action>Tap an empty area of the video and verify that the controls are again drawn on top of the video</action>
+    <action>Tap Close and verify that the Discover feed is visible</action>
+  </actions>
+</journey>

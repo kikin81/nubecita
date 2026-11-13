@@ -317,6 +317,8 @@ The shared `AdaptiveDialogSceneStrategy` (in `:app` at `app/src/main/java/.../sh
 
 Reference impls: `EditProfileNavigationModule` and `ComposerNavigationModule` both register their route with one `adaptiveDialog()` metadata tag and are pushed via `navState.add(...)` (the composer was migrated off the old hand-rolled launcher/overlay in `nubecita-11st`). Mirror this scene-strategy approach for any new adaptive surface. Full contract + the Google I/O 2026 "scene strategies over per-form-factor layouts" rationale + the alpha-version note: `docs/adaptive-layouts.md`. Background recipes live in the `/navigation-3` and `/adaptive` Claude CLI skills (nav3 Dialog / BottomSheet / list-detail scene recipes).
 
+**Foldable tabletop posture** is a different tool: one screen, same children, different geometry. Use a single `Grid` with named areas whose config lambda is picked from `mediaQuery { windowPosture == UiMediaScope.Posture.Tabletop }`, never an `if/else` between two layout composables (that recreates the `PlayerSurface`). Read posture in the stateful screen via a flag-guarded helper and pass a `Boolean` down; `mediaQuery` throws unless `ComposeUiFlags.isMediaQueryIntegrationEnabled` was set at startup, which `HiltTestApplication` does not do. Reference impl: `:feature:videoplayer:impl` `ui/VideoPlayerGrid.kt`; rules in `docs/adaptive-layouts.md` § "Foldable tabletop posture".
+
 ### Entry state retention in `MainShell`
 
 A screen inside `MainShell` keeps its ViewModels and `rememberSaveable` state for as long as it is on its tab's stack: across tab switches, across fold / unfold / rotation, and (saved state) across process death. Three rules hold that up — full rationale in `docs/adaptive-layouts.md` § "Entry state retention":
