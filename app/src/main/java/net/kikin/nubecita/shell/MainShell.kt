@@ -124,6 +124,12 @@ fun MainShell(modifier: Modifier = Modifier) {
             )
         }
     val installers = remember(entryPoint) { entryPoint.mainShellEntryProviderInstallers() }
+    // Remembered so the per-tab `rememberDecoratedNavEntries` calls below see a stable
+    // provider instead of a fresh lambda on every recomposition.
+    val mainShellEntryProvider =
+        remember(installers) {
+            entryProvider<NavKey> { installers.forEach { installer -> installer() } }
+        }
     val deepLinkRouter = remember(entryPoint) { entryPoint.deepLinkRouter() }
     val analytics = remember(entryPoint) { entryPoint.analyticsClient() }
     val notificationsUnreadCountStore =
@@ -348,8 +354,10 @@ fun MainShell(modifier: Modifier = Modifier) {
                 // signal. Each tab's screen interprets it: Feed/Profile
                 // scroll their list to top, Search focuses the EditText
                 // and opens the IME. Switching tabs navigates as before
-                // — the destination tab restores its last scroll position
-                // via Nav3's per-tab back-stack.
+                // — the destination tab comes back exactly as it was left
+                // (stack, ViewModels, scroll position) because every tab's
+                // entries stay decorated while off screen; see
+                // `MainShellNavState.rememberDecoratedEntries`.
                 // `mainShellNavState.topLevelKey` resolves the post-
                 // mutation active tab so a rapid double-tap during a tab
                 // switch animation behaves correctly (per the change's
@@ -391,8 +399,31 @@ fun MainShell(modifier: Modifier = Modifier) {
             Box(modifier = Modifier.fillMaxSize()) {
                 val isTwoPane = listDetailDirective.maxHorizontalPartitions > 1
                 key(isTwoPane) {
+                    // Decorate every tab's stack, not just the displayed one, so a tab's
+                    // ViewModels and saved state survive while the user is on another tab
+                    // (nubecita-owmt.2) — see `MainShellNavState.rememberDecoratedEntries`.
+                    //
+                    // SceneSetupNavEntryDecorator is internal in nav3-ui — NavDisplay applies
+                    // it itself. Supply only the public decorators required for hiltViewModel()
+                    // and saved state to work inside NavEntries.
+                    //
+                    // These MUST be created INSIDE `key(isTwoPane)`, not hoisted above it.
+                    // Hoisting a single shared SaveableStateHolder crashes on the boundary
+                    // crossing: `key()` composes the new NavDisplay subtree before disposing the
+                    // old one, so both briefly call `SaveableStateProvider("Feed")` on the same
+                    // holder → `IllegalArgumentException: Key Feed was used multiple times`.
+                    val entries =
+                        mainShellNavState.rememberDecoratedEntries(
+                            entryProvider = mainShellEntryProvider,
+                            entryDecorators = {
+                                listOf(
+                                    rememberSaveableStateHolderNavEntryDecorator(),
+                                    rememberViewModelStoreNavEntryDecorator(),
+                                )
+                            },
+                        )
                     NavDisplay(
-                        backStack = mainShellNavState.backStack,
+                        entries = entries,
                         onBack = { mainShellNavState.removeLast() },
                         // The list-detail strategy is scoped to the active tab's segment
                         // so a tab switch doesn't render the previous tab's detail entry
@@ -405,28 +436,6 @@ fun MainShell(modifier: Modifier = Modifier) {
                                     mainShellNavState.topLevelKey
                                 },
                             ),
-                        // SceneSetupNavEntryDecorator is internal in nav3-ui — NavDisplay applies
-                        // it itself. Supply only the public decorators required for hiltViewModel()
-                        // and saved state to work inside NavEntries.
-                        //
-                        // These MUST be created INSIDE `key(isTwoPane)`, not hoisted above it.
-                        // Hoisting a single shared SaveableStateHolder crashes on the boundary
-                        // crossing: `key()` composes the new NavDisplay subtree before disposing the
-                        // old one, so both briefly call `SaveableStateProvider("Feed")` on the same
-                        // holder → `IllegalArgumentException: Key Feed was used multiple times`.
-                        // Per-keyed-instance holders avoid that. State still survives the key anyway:
-                        // entry ViewModelStores are retained by nav3's ViewModelStoreProvider (outside
-                        // this composition) and saved scroll round-trips the parent SaveableStateRegistry
-                        // — both verified byte-identical before/after a rotation.
-                        entryDecorators =
-                            listOf(
-                                rememberSaveableStateHolderNavEntryDecorator(),
-                                rememberViewModelStoreNavEntryDecorator(),
-                            ),
-                        entryProvider =
-                            entryProvider {
-                                installers.forEach { installer -> installer() }
-                            },
                     )
                 }
                 SnackbarHost(
