@@ -232,10 +232,15 @@ class MainShellNavState(
      * (nubecita-owmt.2). Decorating per tab keeps that state for as long as the
      * entry is on its own tab's stack, and still clears it on a real pop.
      *
+     * Sub-route entries are re-keyed so that every entry on display has its own
+     * `contentKey` (see [scopedEntries]). Navigation 3 treats entries that share
+     * a `contentKey` as the same content, so without this the same route open on
+     * two tabs — or twice on one tab, which [add] allows as `[X, Y, X]` — was one
+     * screen with one ViewModel and one scroll position (nubecita-owmt.4).
+     *
      * [entryDecorators] is invoked once per tab, inside a `key(tab)` group, so
      * each tab gets its own decorator instances. Return freshly `remember`ed
-     * decorators from it; sharing one `SaveableStateHolder` across tabs would
-     * make the same route open in two tabs share a single saved-state slot.
+     * decorators from it.
      */
     @Composable
     fun rememberDecoratedEntries(
@@ -245,10 +250,11 @@ class MainShellNavState(
         val decoratedByTab =
             backStacks.mapValues { (tab, stack) ->
                 key(tab) {
+                    val keys = stack.toList()
+                    val scoped = remember(keys, entryProvider) { scopedEntries(keys, entryProvider) }
                     rememberDecoratedNavEntries(
-                        backStack = stack,
+                        entries = scoped,
                         entryDecorators = entryDecorators(),
-                        entryProvider = entryProvider,
                     )
                 }
             }
@@ -351,5 +357,47 @@ fun rememberMainShellNavState(
             topLevelKeyState = topLevelKeyState,
             backStacks = backStacks,
         )
+    }
+}
+
+/**
+ * Builds one tab's [NavEntry] list from its stack [keys], giving every
+ * sub-route a `contentKey` that is unique across the whole shell.
+ *
+ * - The tab root (index 0) keeps the `contentKey` its `entry<…>` registration
+ *   produced. Top-level keys are unique by construction, and
+ *   `ActiveTabScopedSceneStrategy` finds the active tab's segment by that key.
+ * - Every other entry gets `<own contentKey>|tab=<root contentKey>|n=<occurrence>`,
+ *   where `occurrence` counts earlier equal keys among the tab's sub-routes.
+ *   The tab part separates the same route on two tabs; the occurrence part
+ *   separates `[X, Y, X]` on one tab.
+ *
+ * The occurrence index, rather than the stack position, keeps a key stable
+ * when [MainShellNavState.replaceTop] removes the entry beneath it. The result
+ * is a `String` built only from the stack contents, so it is saveable and comes
+ * out identical after process death.
+ */
+internal fun scopedEntries(
+    keys: List<NavKey>,
+    entryProvider: (NavKey) -> NavEntry<NavKey>,
+): List<NavEntry<NavKey>> {
+    if (keys.isEmpty()) return emptyList()
+    val root = entryProvider(keys.first())
+    val seen = HashMap<NavKey, Int>()
+    return keys.mapIndexed { index, key ->
+        if (index == 0) {
+            root
+        } else {
+            val entry = entryProvider(key)
+            val occurrence = seen.getOrElse(key) { 0 }
+            seen[key] = occurrence + 1
+            NavEntry(
+                key = key,
+                contentKey = "${entry.contentKey}|tab=${root.contentKey}|n=$occurrence",
+                metadata = entry.metadata,
+            ) {
+                entry.Content()
+            }
+        }
     }
 }
