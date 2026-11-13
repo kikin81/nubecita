@@ -3,6 +3,7 @@ package net.kikin.nubecita.core.common.navigation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -11,7 +12,10 @@ import androidx.compose.runtime.saveable.rememberSerializable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.navigation3.runtime.NavBackStack
+import androidx.navigation3.runtime.NavEntry
+import androidx.navigation3.runtime.NavEntryDecorator
 import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.rememberDecoratedNavEntries
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.serialization.NavKeySerializer
 import androidx.savedstate.compose.serialization.serializers.MutableStateSerializer
@@ -36,12 +40,16 @@ import androidx.savedstate.compose.serialization.serializers.MutableStateSeriali
  *    defer to system back. [removeLast] returns `false` in this case;
  *    every other case returns `true`.
  *
- * The [backStack] property is the flattened view that the inner
- * `NavDisplay` reads. It always contains the start tab's full stack, and
- * — when the active tab is not the start route — appends the active
- * tab's full stack on top. Equivalent to the recipe's "stacks in use"
- * concatenation; populated lazily by the mutation methods so Compose
- * snapshot observation in `NavDisplay` sees the correct value.
+ * The [backStack] property is the flattened view of the keys on display. It
+ * always contains the start tab's full stack, and — when the active tab is
+ * not the start route — appends the active tab's full stack on top.
+ * Equivalent to the recipe's "stacks in use" concatenation; populated by the
+ * mutation methods so Compose snapshot observation sees the correct value.
+ *
+ * The inner `NavDisplay` does **not** take [backStack] directly. It takes
+ * [rememberDecoratedEntries], which yields the same sequence as decorated
+ * entries while keeping every tab's entry state (ViewModels, saved state)
+ * alive for the tabs that are currently off screen.
  *
  * # Construction & lifecycle
  *
@@ -207,6 +215,48 @@ class MainShellNavState(
             }
             // At the start tab's home → nothing left to pop.
             else -> false
+        }
+    }
+
+    /**
+     * The decorated [NavEntry] list for `NavDisplay(entries = …)`, in the same
+     * order as [backStack]: the start tab's entries, then the active tab's when
+     * it isn't the start route.
+     *
+     * Every tab's stack is decorated on **every** composition, not only the
+     * stacks currently displayed. Navigation 3 clears an entry's decorator state
+     * (its `ViewModelStore` and `rememberSaveable` values) once its key is gone
+     * from the list being decorated, so decorating just the flattened
+     * [backStack] wiped a tab's screens each time the user left it — the keys
+     * came back on return, the ViewModels and scroll positions did not
+     * (nubecita-owmt.2). Decorating per tab keeps that state for as long as the
+     * entry is on its own tab's stack, and still clears it on a real pop.
+     *
+     * [entryDecorators] is invoked once per tab, inside a `key(tab)` group, so
+     * each tab gets its own decorator instances. Return freshly `remember`ed
+     * decorators from it; sharing one `SaveableStateHolder` across tabs would
+     * make the same route open in two tabs share a single saved-state slot.
+     */
+    @Composable
+    fun rememberDecoratedEntries(
+        entryProvider: (NavKey) -> NavEntry<NavKey>,
+        entryDecorators: @Composable () -> List<NavEntryDecorator<NavKey>>,
+    ): List<NavEntry<NavKey>> {
+        val decoratedByTab =
+            backStacks.mapValues { (tab, stack) ->
+                key(tab) {
+                    rememberDecoratedNavEntries(
+                        backStack = stack,
+                        entryDecorators = entryDecorators(),
+                        entryProvider = entryProvider,
+                    )
+                }
+            }
+        val active = topLevelKey
+        return if (active == startRoute) {
+            decoratedByTab.getValue(startRoute)
+        } else {
+            decoratedByTab.getValue(startRoute) + decoratedByTab.getValue(active)
         }
     }
 
