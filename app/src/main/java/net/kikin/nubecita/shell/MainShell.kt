@@ -28,7 +28,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -371,73 +370,54 @@ fun MainShell(modifier: Modifier = Modifier) {
             layoutType = layoutType,
             modifier = modifier,
         ) {
-            // `key(isTwoPane)`: force a fresh inner `NavDisplay` subtree when the layout
-            // crosses the two-pane ↔ single-pane boundary. Keyed on the list-detail
-            // directive's `maxHorizontalPartitions` (the exact input the scene strategy
-            // uses to decide two-pane vs decline), NOT the raw width class — so a foldable
-            // whose posture forces two panes at a sub-Medium width still re-keys correctly.
+            // The inner `NavDisplay` is deliberately NOT wrapped in a `key(...)` on the pane
+            // count. `MainActivity` handles rotation and fold via `configChanges` (no Activity
+            // recreation — required for PiP), so a one-pane ↔ two-pane crossing happens inside
+            // this composition and entry state simply carries across it.
             //
-            // `MainActivity` handles rotation via `configChanges=orientation|screenSize`
-            // (no Activity recreation — required for PiP + state retention), so a
-            // portrait→landscape→portrait rotation collapses the Feed list-detail scene
-            // from two-pane back to single-pane *within the same composition*. The
-            // nav3-adaptive `ListDetailSceneStrategy` (1.3.0-rc01) correctly re-decides
-            // single-pane (`calculateScene` returns null at Compact) but does NOT dispose
-            // the stale two-pane `ThreePaneScaffoldScene`: its list-pane composition stays
-            // alive, detached, pinned at the landscape list-pane width (~604px) with a
-            // frozen `LazyListState.layoutInfo`. The Feed's pagination trigger
-            // (`lastVisible > size - PREFETCH_DISTANCE`) can then never fire again —
-            // infinite scroll dies (nubecita-bm14).
-            //
-            // Re-keying on the pane count discards the stale scene and rebuilds the active
-            // tab's scene fresh on the boundary crossing. Per-entry ViewModelStores (via
-            // `rememberViewModelStoreNavEntryDecorator`) and saved scroll position (via
-            // `rememberSaveable`) survive the key — nav3 retains entry state outside this
-            // local composition — so no feed reload or scroll loss is user-visible.
-            // Remove once a fixed adaptive-navigation3 release disposes the collapsed
-            // pane's scene on its own.
+            // A `key(isTwoPane)` used to sit here as a workaround for nubecita-bm14: on
+            // adaptive-navigation3 1.3.0-rc01 the collapsed two-pane scene was not disposed and
+            // left the Feed list pinned at the old list-pane width. Re-keying discarded the
+            // stale scene, but it also disposed the entry decorators, and the ViewModel
+            // decorator clears every store when it leaves composition — so each fold, unfold
+            // or boundary-crossing rotation rebuilt every screen from scratch (nubecita-owmt.3).
+            // On adaptive-navigation3 1.3.0 / navigation3 1.2.1 the stale scene no longer
+            // reproduces (fold and rotation round trips leave the list at full width and
+            // scrolling), so the workaround is gone. If bm14 ever resurfaces, do not bring the
+            // key back around the decorators.
             Box(modifier = Modifier.fillMaxSize()) {
-                val isTwoPane = listDetailDirective.maxHorizontalPartitions > 1
-                key(isTwoPane) {
-                    // Decorate every tab's stack, not just the displayed one, so a tab's
-                    // ViewModels and saved state survive while the user is on another tab
-                    // (nubecita-owmt.2) — see `MainShellNavState.rememberDecoratedEntries`.
-                    //
-                    // SceneSetupNavEntryDecorator is internal in nav3-ui — NavDisplay applies
-                    // it itself. Supply only the public decorators required for hiltViewModel()
-                    // and saved state to work inside NavEntries.
-                    //
-                    // These MUST be created INSIDE `key(isTwoPane)`, not hoisted above it.
-                    // Hoisting a single shared SaveableStateHolder crashes on the boundary
-                    // crossing: `key()` composes the new NavDisplay subtree before disposing the
-                    // old one, so both briefly call `SaveableStateProvider("Feed")` on the same
-                    // holder → `IllegalArgumentException: Key Feed was used multiple times`.
-                    val entries =
-                        mainShellNavState.rememberDecoratedEntries(
-                            entryProvider = mainShellEntryProvider,
-                            entryDecorators = {
-                                listOf(
-                                    rememberSaveableStateHolderNavEntryDecorator(),
-                                    rememberViewModelStoreNavEntryDecorator(),
-                                )
-                            },
-                        )
-                    NavDisplay(
-                        entries = entries,
-                        onBack = { mainShellNavState.removeLast() },
-                        // The list-detail strategy is scoped to the active tab's segment
-                        // so a tab switch doesn't render the previous tab's detail entry
-                        // next to the new tab's list (nubecita-xqp7 / nubecita-s1f3).
-                        // Overlay (dialog) strategy stays first.
-                        sceneStrategies =
+                // Decorate every tab's stack, not just the displayed one, so a tab's
+                // ViewModels and saved state survive while the user is on another tab
+                // (nubecita-owmt.2) — see `MainShellNavState.rememberDecoratedEntries`.
+                //
+                // SceneSetupNavEntryDecorator is internal in nav3-ui — NavDisplay applies
+                // it itself. Supply only the public decorators required for hiltViewModel()
+                // and saved state to work inside NavEntries.
+                val entries =
+                    mainShellNavState.rememberDecoratedEntries(
+                        entryProvider = mainShellEntryProvider,
+                        entryDecorators = {
                             listOf(
-                                dialogStrategy,
-                                ActiveTabScopedSceneStrategy(sceneStrategy) {
-                                    mainShellNavState.topLevelKey
-                                },
-                            ),
+                                rememberSaveableStateHolderNavEntryDecorator(),
+                                rememberViewModelStoreNavEntryDecorator(),
+                            )
+                        },
                     )
-                }
+                NavDisplay(
+                    entries = entries,
+                    onBack = { mainShellNavState.removeLast() },
+                    // The list-detail strategy is scoped to the active tab's segment
+                    // so a tab switch doesn't render the previous tab's detail entry
+                    // next to the new tab's list (nubecita-xqp7 / nubecita-s1f3).
+                    // Overlay (dialog) strategy stays first.
+                    sceneStrategies =
+                        listOf(
+                            dialogStrategy,
+                            ActiveTabScopedSceneStrategy(sceneStrategy) {
+                                mainShellNavState.topLevelKey
+                            },
+                        ),
+                )
                 SnackbarHost(
                     hostState = shellSnackbarHostState,
                     modifier =
