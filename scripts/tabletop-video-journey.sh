@@ -188,5 +188,6 @@ assert_flat "flat (after)"
 
 adb logcat -d -t 400 | grep -E "FATAL EXCEPTION|AndroidRuntime: .*$PKG" && fail "crash in logcat"
 cleanup
+rm -rf "$TMP" # the dump, screenshot and logcat are only worth keeping when a run fails
 echo "JOURNEY_OK position flat ${POS_FLAT}s -> tabletop ${POS_TABLETOP}s -> skip back ${POS_REWOUND}s -> flat ${POS}s"
 echo "           surface: $SURFACE_FLAT"
