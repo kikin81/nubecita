@@ -129,6 +129,45 @@ class MainShellPersistenceTest {
     }
 
     /**
+     * A one-shot result set by a sub-route must still reach its consumer if
+     * the process is killed in between (nubecita-owmt.5). Before this the
+     * results map was plain in-memory state and came back empty.
+     */
+    @Test
+    fun pendingResult_survivesStateRestoration() {
+        val tester = StateRestorationTester(composeTestRule)
+        val stateRef = AtomicReference<MainShellNavState>()
+
+        tester.setContent {
+            val state =
+                rememberMainShellNavState(
+                    startRoute = Feed,
+                    topLevelRoutes = listOf(Feed, Search),
+                )
+            SideEffect { stateRef.set(state) }
+            Text(
+                text = "count=${state.peekResult("count")} flag=${state.peekResult("flag")}",
+                modifier = Modifier.testTag("results"),
+            )
+        }
+
+        composeTestRule.runOnIdle {
+            stateRef.get().setResult("count", 3)
+            stateRef.get().setResult("flag", true)
+        }
+        composeTestRule.onNodeWithTag("results").assertTextEquals("count=3 flag=true")
+
+        tester.emulateSavedInstanceStateRestore()
+
+        composeTestRule.onNodeWithTag("results").assertTextEquals("count=3 flag=true")
+        // Still one-shot after restore.
+        composeTestRule.runOnIdle {
+            org.junit.Assert.assertEquals(3, stateRef.get().consumeResult("count"))
+            org.junit.Assert.assertNull(stateRef.get().consumeResult("count"))
+        }
+    }
+
+    /**
      * Verifies that `ListDetailSceneStrategy`'s pane state survives a
      * `medium → compact → medium` rotation round-trip when the back stack
      * is `[Feed]`. After both restorations the placeholder must be

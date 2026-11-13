@@ -57,7 +57,7 @@ fun MainNavigation(modifier: Modifier = Modifier) {
                 modifier = modifier,
                 backStack = navigator.backStack,
                 onBack = { navigator.goBack() },
-                // SceneSetupNavEntryDecorator is internal in nav3-ui 1.1.1 — NavDisplay applies
+                // SceneSetupNavEntryDecorator is internal in nav3-ui — NavDisplay applies
                 // it itself. We supply the two decorators that are public + required for
                 // hiltViewModel() inside NavEntries to work and for state to survive
                 // recomposition / configuration change.
