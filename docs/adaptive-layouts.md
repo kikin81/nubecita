@@ -205,8 +205,10 @@ without a second layout composable.
    none), rather than `Modifier.padding(innerPadding)` on the grid. Padding the
    grid moved the split 12dp off the fold on a Pixel Fold.
 3. **Aspect-fit under loose constraints.** `fillMaxSize().aspectRatio(r)` only
-   ever fits the width and overflows a cell that is wider than the content. In a
-   grid cell use `aspectRatio(r)` alone.
+   ever fits the width and overflows a cell that is wider than the content, and
+   a half-height row always is. In tabletop the player uses `aspectRatio(r)`
+   alone. Flat posture deliberately keeps the old chain so phones are untouched;
+   its crop in wide windows is tracked as `nubecita-b8ke`.
 4. **Controls get their own stacked config.** A half-height panel is too short
    for edge-pinned bands that share one cell, so `VideoPlayerChrome` is a nested
    grid: one cell when overlaid, three rows when `stacked`.

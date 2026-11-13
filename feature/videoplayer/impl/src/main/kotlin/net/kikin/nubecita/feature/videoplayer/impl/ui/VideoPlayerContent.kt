@@ -153,6 +153,19 @@ internal fun VideoPlayerContent(
                             Modifier
                                 .gridItem(areaId = VideoPlayerArea.Player, alignment = Alignment.Center)
                                 .padding(playerPadding)
+                                // Flat posture keeps the chain it has always had,
+                                // fillMaxSize().aspectRatio(), so every phone and
+                                // tablet lays the video out exactly as before. Under
+                                // those tight constraints aspectRatio only ever fits
+                                // the width, which crops a video in a window wider
+                                // than it is (nubecita-b8ke, left alone here on
+                                // purpose). The half-height tabletop row is always
+                                // wider than the video, so there the fill is dropped:
+                                // the cell's loose constraints let aspectRatio fit
+                                // inside it on either axis.
+                                .then(
+                                    if (isTabletop && state.aspectRatio != null) Modifier else Modifier.fillMaxSize(),
+                                )
                                 // Tag lives on the READY-state surface only (not the
                                 // root Box) so the screengrab journey's await fails
                                 // loudly on a resolver/playback error instead of
@@ -160,17 +173,9 @@ internal fun VideoPlayerContent(
                                 .testTag("video_player")
                                 .then(
                                     if (state.aspectRatio != null) {
-                                        // No fillMaxSize in front: the Grid cell
-                                        // hands down loose constraints, which lets
-                                        // aspectRatio fit INSIDE the cell on either
-                                        // axis. Under tight constraints it only
-                                        // ever fits the width and overflows a cell
-                                        // that is wider than the video (the
-                                        // half-height tabletop row, or a portrait
-                                        // clip in a landscape window).
                                         Modifier.aspectRatio(state.aspectRatio)
                                     } else {
-                                        Modifier.fillMaxSize()
+                                        Modifier
                                     },
                                 )
                                 // Report the video's on-screen bounds so the PiP enter
