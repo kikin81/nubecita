@@ -17,8 +17,10 @@ import androidx.compose.material3.VerticalDragHandle
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.WindowAdaptiveInfo
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
+import androidx.compose.material3.adaptive.layout.PaneExpansionAnchor
 import androidx.compose.material3.adaptive.layout.PaneScaffoldDirective
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth
+import androidx.compose.material3.adaptive.layout.rememberPaneExpansionState
 import androidx.compose.material3.adaptive.navigation.BackNavigationBehavior
 import androidx.compose.material3.adaptive.navigation3.rememberListDetailSceneStrategy
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
@@ -33,10 +35,13 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -262,6 +267,23 @@ fun MainShell(modifier: Modifier = Modifier) {
     // panel's live dp size, so a wide spatial panel gets two panes and a narrow one
     // gets one, with no XR-specific override.
     val listDetailDirective = calculateListDetailDirective(adaptiveInfo)
+    // Where the list/detail divider may rest, and where it starts. Without
+    // anchors the divider stops anywhere, so either pane could be dragged down
+    // to nothing; with them it snaps to a minimum list width, an even split, or
+    // a minimum detail width. The state is saveable, and a folded foldable
+    // keeps its unfolded anchors, so the chosen anchor survives a tab switch,
+    // a fold and process death (nubecita-e895).
+    val windowWidth =
+        with(LocalDensity.current) {
+            LocalWindowInfo.current.containerSize.width
+                .toDp()
+        }
+    val paneExpansion = remember(windowWidth) { calculateListDetailPaneExpansion(windowWidth) }
+    val paneExpansionState =
+        rememberPaneExpansionState(
+            anchors = paneExpansion.anchors,
+            initialAnchoredIndex = paneExpansion.initialAnchoredIndex,
+        )
     // Adaptive dialog overlay: any entry tagged with `adaptiveDialog()` metadata
     // (e.g. EditProfile) renders as a centered Dialog at Medium / Expanded and
     // full-screen at Compact. Listed BEFORE the list-detail strategy below —
@@ -281,11 +303,11 @@ fun MainShell(modifier: Modifier = Modifier) {
             // every back as "pop one entry", keeping previousScaffoldValue
             // non-null so the scene's own handler fires onBack() exactly once.
             backNavigationBehavior = BackNavigationBehavior.PopLatest,
-            // User-draggable divider between list and detail panes.
-            // `paneExpansionState = null` lets the scene strategy create a
-            // default expansion state internally. Visual handle follows the
-            // M3 sample: a `VerticalDragHandle` with `paneExpansionDraggable`
-            // wiring the touch target to the expansion state.
+            // User-draggable divider between list and detail panes, snapping
+            // to the anchors above. Visual handle follows the M3 sample: a
+            // `VerticalDragHandle` with `paneExpansionDraggable` wiring the
+            // touch target to the expansion state.
+            paneExpansionState = paneExpansionState,
             paneExpansionDragHandle = { state ->
                 val interactionSource = remember { MutableInteractionSource() }
                 VerticalDragHandle(
@@ -653,11 +675,58 @@ internal fun calculateListDetailDirective(adaptiveInfo: WindowAdaptiveInfo): Pan
     return baseDirective.copy(
         defaultPanePreferredWidth =
             when {
-                widthClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) -> 440.dp
+                widthClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) -> EXPANDED_LIST_PANE_WIDTH
                 widthClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) -> 412.dp
                 else -> baseDirective.defaultPanePreferredWidth
             },
     )
 }
+
+/** The list/detail divider's resting positions and the one it starts at. */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+internal data class ListDetailPaneExpansion(
+    val anchors: List<PaneExpansionAnchor>,
+    val initialAnchoredIndex: Int,
+)
+
+/**
+ * Calculates where the list/detail divider may rest for a window of [windowWidth].
+ *
+ * - Medium (600dp-840dp): an even split only. Two panes barely fit, so there
+ *   is no room for a narrower or wider list.
+ * - Expanded, below 1200dp (unfolded foldables, small tablets): minimum list,
+ *   even split, minimum detail — starting even. A fixed 440dp list would leave
+ *   the detail pane narrower than a phone here.
+ * - Compact (< 600dp): the same anchors as the row above. Nothing is split at
+ *   this width, but the expansion state drops a position that is missing from
+ *   the current anchors, so a folded foldable must keep its unfolded anchors
+ *   for the user's choice to survive a fold.
+ * - 1200dp and wider: the same, plus the 440dp list the directive prefers,
+ *   which stays the starting point so large tablets keep a wide detail pane.
+ */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+internal fun calculateListDetailPaneExpansion(windowWidth: Dp): ListDetailPaneExpansion {
+    val even = PaneExpansionAnchor.Proportion(0.5f)
+    val minList = PaneExpansionAnchor.Offset.fromStart(MIN_PANE_WIDTH)
+    val minDetail = PaneExpansionAnchor.Offset.fromEnd(MIN_PANE_WIDTH)
+    val isMedium =
+        windowWidth >= WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND.dp &&
+            windowWidth < WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND.dp
+    return when {
+        isMedium -> ListDetailPaneExpansion(anchors = listOf(even), initialAnchoredIndex = 0)
+        windowWidth < LARGE_WINDOW_WIDTH ->
+            ListDetailPaneExpansion(anchors = listOf(minList, even, minDetail), initialAnchoredIndex = 1)
+        else ->
+            ListDetailPaneExpansion(
+                anchors = listOf(minList, PaneExpansionAnchor.Offset.fromStart(EXPANDED_LIST_PANE_WIDTH), even, minDetail),
+                initialAnchoredIndex = 1,
+            )
+    }
+}
+
+/** Narrowest either pane may be dragged to; the M3 default pane width. */
+private val MIN_PANE_WIDTH = 360.dp
+private val EXPANDED_LIST_PANE_WIDTH = 440.dp
+private val LARGE_WINDOW_WIDTH = 1200.dp
 
 private fun List<OutgoingPost>.failedIds(): Set<String> = filter { it.status is OutgoingPostStatus.Failed }.mapTo(HashSet()) { it.localId }
