@@ -4,6 +4,7 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.benchmark.macro.junit4.BaselineProfileRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiDevice
@@ -47,15 +48,19 @@ import org.junit.runner.RunWith
  *    path. For full coverage, generate on a phone AND a tablet and let
  *    AGP merge the two profiles.
  *
- * Each post-startup step is defensive: a missing/renamed selector logs a
- * warning (tag `$TAG`) and the journey continues, so one flaky surface
- * never fails the whole multi-minute generation. Every step after the feed
- * scroll first returns to the Feed tab on the Following feed
- * ([returnToFeed]): a step that fails part-way leaves the app wherever it
- * got to — on a phone a sub-route hides the tab bar — and without that reset
- * every later step fails to find its tab. After a run, check
- * logcat for the line `"baseline journey coverage: …"` to see which
- * journeys actually ran (`ok`) vs were skipped.
+ * A step that fails is retried once, and the journey carries on through the
+ * remaining steps either way, so a single run names every step that is
+ * broken rather than only the first. Then the run **fails**: a profile is
+ * only as good as the journeys that fed it, and one generated with a step
+ * missing is indistinguishable from a complete one once it is a text file in
+ * `src/`. The failure message lists the skipped steps and why; logcat (tag
+ * `$TAG`) has a line per step with its timing, and a
+ * `"baseline journey coverage: …"` summary per iteration.
+ *
+ * Every step after the feed scroll first returns to the Feed tab on the
+ * Following feed ([returnToFeed]): a step that fails part-way leaves the app
+ * wherever it got to — on a phone a sub-route hides the tab bar — and without
+ * that reset every later step fails to find its tab.
  *
  * ## Pre-requisite: the bench device must be signed in
  *
@@ -106,7 +111,8 @@ class BaselineProfileGenerator {
             startActivityAndWait()
             awaitSignedInFeed(device)
 
-            val coverage = linkedMapOf<String, Boolean>()
+            // Step name → why it was skipped, or null if it ran.
+            val coverage = linkedMapOf<String, String?>()
 
             // 1. Feed scroll.
             coverage["feed_scroll"] = step("feed_scroll") { device.flingList(FEED_LIST_RES_ID) }
@@ -146,11 +152,14 @@ class BaselineProfileGenerator {
                     poster.click()
                     device.requireRes(VIDEO_FEED_RES_ID, FEED_WAIT_MS)
                     repeat(TRENDING_VIDEO_SWIPES) {
-                        device.requireRes(VIDEO_FEED_RES_ID).apply {
-                            setGestureMargin(device.displayWidth / 5)
-                            fling(Direction.UP)
-                        }
-                        device.waitForIdle()
+                        device.requireRes(VIDEO_FEED_RES_ID)
+                        // DOWN the feed, to the next video. This used to be
+                        // `fling(Direction.UP)`, which reads as "swipe up" but
+                        // names where the content goes — toward the previous
+                        // page, and from the first video there is none. The
+                        // journey sat on one clip for all three "swipes"
+                        // (nubecita-kfbr).
+                        device.flingRes(VIDEO_FEED_RES_ID, Direction.DOWN)
                         // Let the promoted clip actually start playing.
                         SystemClock.sleep(VIDEO_PLAY_MS)
                     }
@@ -195,9 +204,17 @@ class BaselineProfileGenerator {
                 step("search") {
                     device.returnToFeed()
                     check(device.tapDesc(TAB_SEARCH_DESC)) { "Search tab not found" }
-                    val input = device.requireRes(SEARCH_INPUT_RES_ID)
-                    input.click()
-                    input.text = "blue"
+                    device.requireRes(SEARCH_INPUT_RES_ID).click()
+                    // Found by focus, not by tag. The tap expands the bar into
+                    // its own window, and `testTagsAsResourceId` does not cross
+                    // a window boundary: the expanded field has no resource-id
+                    // at all, and the collapsed node it replaced goes stale.
+                    // Typing into that stale node is what threw on every
+                    // iteration but the first (nubecita-z1zh).
+                    val field =
+                        device.wait(Until.findObject(By.clazz(EDIT_TEXT_CLASS).focused(true)), SHORT_WAIT_MS)
+                            ?: error("the expanded search field did not take focus within ${SHORT_WAIT_MS}ms")
+                    field.text = "blue"
                     device.waitForIdle()
                     // Let the typeahead query + results list render (network-backed).
                     SystemClock.sleep(RESULTS_SETTLE_MS)
@@ -241,8 +258,15 @@ class BaselineProfileGenerator {
             Log.i(
                 TAG,
                 "baseline journey coverage: " +
-                    coverage.entries.joinToString { "${it.key}=${if (it.value) "ok" else "SKIPPED"}" },
+                    coverage.entries.joinToString { "${it.key}=${if (it.value == null) "ok" else "SKIPPED"}" },
             )
+            val skipped = coverage.filterValues { it != null }
+            check(skipped.isEmpty()) {
+                "Baseline journey steps skipped in iteration $iteration: " +
+                    skipped.entries.joinToString { "${it.key} (${it.value})" } +
+                    ". A profile from this run would lack them, so none is produced. " +
+                    "Each attempt is in logcat under the '$TAG' tag."
+            }
         }
 }
 
@@ -283,6 +307,34 @@ private const val RESULTS_SETTLE_MS: Long = 2_000
 private const val TRENDING_VIDEO_SWIPES: Int = 3
 private const val VIDEO_PLAY_MS: Long = 1_500
 private const val MAX_BACK_PRESSES: Int = 4
+
+/** What a Compose text field reports as its class to accessibility. */
+private const val EDIT_TEXT_CLASS: String = "android.widget.EditText"
+
+/** Tries per journey step: the failures seen in practice are one-offs that pass on a second go. */
+private const val STEP_ATTEMPTS: Int = 2
+
+/**
+ * `UiObject2.fling`'s own default speed, so a fling here travels as far and
+ * lands on the same rows as the call it replaces.
+ */
+private const val FLING_SPEED_DP_PER_SECOND: Int = 7_500
+
+/** `UiDevice.swipe` injects one move per step, 5ms apart. */
+private const val SWIPE_STEP_MS: Int = 5
+
+/**
+ * How long a fling's landing rows get to load before the journey moves on.
+ *
+ * The five-second stall this replaces was dead time for the gesture, but on a
+ * real account the rows a fling lands on are still fetching their images and
+ * video when it ends. A second keeps some of that slack.
+ *
+ * Not shown to matter on the bench flavor, where every asset is local: the
+ * generated rule set was the same to within run-to-run noise with and without
+ * it (55,984 vs 55,932 rules in common with the previous profile).
+ */
+private const val FLING_SETTLE_MS: Long = 1_000
 
 /**
  * Hard sign-in gate (shared by both tests). A `false` from `device.wait`
@@ -325,18 +377,35 @@ private fun UiDevice.returnToFeed() {
     requireRes(FEED_LIST_RES_ID, FEED_WAIT_MS)
 }
 
-/** Run [block]; on any failure log it and report `false` (journey continues). */
+/**
+ * Run [block] and return why it failed, or `null` if it ran.
+ *
+ * A failure is retried once before it counts: every step but the first opens
+ * with [returnToFeed], so a second attempt starts from a known place. Either
+ * way this returns rather than throws, and the caller fails the run once the
+ * whole journey has been walked.
+ */
 private inline fun step(
     name: String,
     block: () -> Unit,
-): Boolean =
-    try {
-        block()
-        true
-    } catch (t: Throwable) {
-        Log.w(TAG, "journey step '$name' skipped: ${t.message}")
-        false
+): String? {
+    var failure: Throwable? = null
+    repeat(STEP_ATTEMPTS) { attempt ->
+        val startedAt = SystemClock.elapsedRealtime()
+        try {
+            block()
+            val attemptNote = if (attempt > 0) " (attempt ${attempt + 1})" else ""
+            Log.i(TAG, "journey step '$name' ok in ${SystemClock.elapsedRealtime() - startedAt}ms$attemptNote")
+            return null
+        } catch (t: Throwable) {
+            failure = t
+            // The throwable itself, not its message: UiAutomator's
+            // StaleObjectException has none, and "skipped: null" explains nothing.
+            Log.w(TAG, "journey step '$name' failed (attempt ${attempt + 1} of $STEP_ATTEMPTS)", t)
+        }
     }
+    return failure.toString()
+}
 
 private fun UiDevice.awaitRes(
     resId: String,
@@ -387,20 +456,48 @@ private fun UiDevice.pullToRefresh(resId: String) {
     SystemClock.sleep(PULL_REFRESH_SETTLE_MS)
 }
 
-/** Fling a list down then back up (re-finding the node between flings). */
+/** Fling a list down then back up. */
 private fun UiDevice.flingList(resId: String) {
-    awaitRes(resId)?.apply {
-        // Keep the gesture off the screen edges so it isn't swallowed by the
-        // system back / navigation gestures.
-        setGestureMargin(displayWidth / 5)
-        fling(Direction.DOWN)
+    flingRes(resId, Direction.DOWN)
+    flingRes(resId, Direction.UP)
+}
+
+/**
+ * Fling the scrollable [resId] so that it shows what lies in [direction]:
+ * `DOWN` moves on through the content, `UP` goes back toward the start.
+ *
+ * A raw swipe rather than `UiObject2.fling`. That call waits for an
+ * accessibility event saying the scroll reached its end, or five seconds, and
+ * a Compose list does not send one — so every fling cost a flat five seconds
+ * of an app sitting idle. With eleven of them that was 57 of a 104-second
+ * iteration (nubecita-kfbr). [waitForIdle] returns as soon as the scroll
+ * events stop instead, and [FLING_SETTLE_MS] then gives the rows it landed on
+ * time to load.
+ */
+private fun UiDevice.flingRes(
+    resId: String,
+    direction: Direction,
+) {
+    val bounds = awaitRes(resId)?.visibleBounds ?: return
+    // Keep the gesture off the screen edges so it isn't swallowed by the
+    // system back / navigation gestures.
+    val margin = displayWidth / 5
+    val top = bounds.top + margin
+    val bottom = bounds.bottom - margin
+    if (bottom <= top) return
+    val x = bounds.centerX()
+    val density =
+        InstrumentationRegistry
+            .getInstrumentation()
+            .context.resources.displayMetrics.density
+    val swipeMs = (bottom - top) * 1_000 / (FLING_SPEED_DP_PER_SECOND * density)
+    val steps = (swipeMs / SWIPE_STEP_MS).toInt().coerceAtLeast(2)
+    when (direction) {
+        // The finger travels the other way from the content it reveals.
+        Direction.DOWN -> swipe(x, bottom, x, top, steps)
+        Direction.UP -> swipe(x, top, x, bottom, steps)
+        else -> error("flingRes only flings vertically, not $direction")
     }
     waitForIdle()
-    awaitRes(resId)?.apply {
-        // Freshly-resolved node — the DOWN fling's gesture inset doesn't carry
-        // over, so re-apply it or the UP fling gets eaten by system gesture-nav.
-        setGestureMargin(displayWidth / 5)
-        fling(Direction.UP)
-    }
-    waitForIdle()
+    SystemClock.sleep(FLING_SETTLE_MS)
 }

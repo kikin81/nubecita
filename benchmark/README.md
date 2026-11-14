@@ -196,9 +196,10 @@ produce materially different profiles:
   `BaselineProfileGenerator`'s KDoc for the diagnostic message).
   Sign in again before **every** run: the test task uninstalls the app
   when it finishes, so a session never carries over to the next regen.
-  After the run, check the `baseline journey coverage: …` logcat line
-  (in `build/outputs/androidTest-results/connected/nonMinifiedRelease/`)
-  and don't commit a profile whose journeys came back `SKIPPED`.
+  A journey step that still fails after one retry **fails the run** and
+  names the step, so a profile that is missing a journey is never written.
+  The per-step timings and the `baseline journey coverage: …` summary are in
+  logcat (in `build/outputs/androidTest-results/connected/nonMinifiedRelease/`).
 
 - **`bench` — the default; validation only.** The deterministic offline
   path (fake repos, fake `SignedIn`, mock feed). No sign-in needed and it
