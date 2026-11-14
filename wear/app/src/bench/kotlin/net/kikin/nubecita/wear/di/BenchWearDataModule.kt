@@ -4,12 +4,14 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.wearcontract.WearPostAction
 import net.kikin.nubecita.wear.bench.BenchScenario
 import net.kikin.nubecita.wear.bench.BenchScenarios
@@ -116,12 +118,15 @@ internal class BenchWatchActionRepository
             val record = if (kind.on && kind != PostActionKind.BOOKMARK) "at://did:plc:nubecitabench/${kind.wire}/$id" else null
             val pending = WatchPendingActionEntity(actionId = "bench-$id", accountDid = accountDid, postUri = action.postUri, kind = kind.wire, createdAtMs = id)
             val confirmed = pending.copy(confirmed = true, recordUri = record, completedAtMs = id)
-            if (BenchScenarios.current.value == BenchScenario.SlowActions) {
-                actions.update { it + pending }
-                delay(BenchScenario.SLOW_MS)
-                actions.update { all -> all.map { if (it.actionId == pending.actionId) confirmed else it } }
-            } else {
-                actions.update { it + confirmed }
+            // Runs to its end even when the caller is cancelled, as the real store does.
+            withContext(NonCancellable) {
+                if (BenchScenarios.current.value == BenchScenario.SlowActions) {
+                    actions.update { it + pending }
+                    delay(BenchScenario.SLOW_MS)
+                    actions.update { all -> all.map { if (it.actionId == pending.actionId) confirmed else it } }
+                } else {
+                    actions.update { it + confirmed }
+                }
             }
         }
     }
@@ -142,7 +147,9 @@ internal class BenchPostedPosts
 /**
  * Bench flavor: a post shows "Posting…" for [POSTING_MS], then joins the top
  * of the Following feed, in memory. In the failing scenario it ends as "Not
- * posted" instead, and so does a retry. Nothing reaches Bluesky.
+ * posted" instead, and so does a retry. Nothing reaches Bluesky. A post runs
+ * to its end even when the caller is cancelled, as the real store does, so
+ * leaving the app never strands it at "Posting…".
  */
 @Singleton
 internal class BenchWatchPostActionRepository
@@ -158,16 +165,17 @@ internal class BenchWatchPostActionRepository
         override suspend fun post(
             accountDid: String,
             text: String,
-        ) {
+        ) = withContext(NonCancellable) {
             val id = "bench-post-${next++}"
             rows.update { it + WatchPendingPostEntity(actionId = id, accountDid = accountDid, text = text, createdAtMs = next) }
             settle(id)
         }
 
-        override suspend fun retry(actionId: String) {
-            rows.update { all -> all.map { if (it.actionId == actionId) it.copy(status = WatchPendingPostEntity.STATUS_SENDING) else it } }
-            settle(actionId)
-        }
+        override suspend fun retry(actionId: String) =
+            withContext(NonCancellable) {
+                rows.update { all -> all.map { if (it.actionId == actionId) it.copy(status = WatchPendingPostEntity.STATUS_SENDING) else it } }
+                settle(actionId)
+            }
 
         private suspend fun settle(actionId: String) {
             delay(POSTING_MS)

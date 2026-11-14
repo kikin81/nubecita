@@ -4,11 +4,13 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withContext
 import net.kikin.nubecita.wear.bench.BenchScenario
 import net.kikin.nubecita.wear.bench.BenchScenarios
 import net.kikin.nubecita.wear.data.WatchDmActionRepository
@@ -118,7 +120,9 @@ internal class BenchWatchDmRepository
 /**
  * Bench flavor: replies and reactions show as sent at once, in memory. The
  * slow scenario keeps them "Sending…" first, and the failing scenario ends
- * them (and every retry) as "Not sent". Nothing reaches Bluesky.
+ * them (and every retry) as "Not sent". Nothing reaches Bluesky. A send runs
+ * to its end even when the caller is cancelled, as the real store does, so
+ * leaving the screen never strands a row at "Sending…".
  */
 @Singleton
 internal class BenchWatchDmActionRepository
@@ -142,10 +146,11 @@ internal class BenchWatchDmActionRepository
             emoji: String,
         ) = add(accountDid, convoId, WatchPendingDmEntity.KIND_REACT, emoji, messageId)
 
-        override suspend fun retry(actionId: String) {
-            setStatus(actionId, WatchPendingDmEntity.STATUS_SENDING)
-            settle(actionId)
-        }
+        override suspend fun retry(actionId: String) =
+            withContext(NonCancellable) {
+                setStatus(actionId, WatchPendingDmEntity.STATUS_SENDING)
+                settle(actionId)
+            }
 
         private suspend fun add(
             accountDid: String,
@@ -153,7 +158,7 @@ internal class BenchWatchDmActionRepository
             kind: String,
             text: String,
             target: String?,
-        ) {
+        ) = withContext(NonCancellable) {
             val id = next++
             val actionId = "bench-dm-$id"
             val instant = BenchScenarios.current.value.let { it != BenchScenario.SlowActions && it != BenchScenario.DmFails }
