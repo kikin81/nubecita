@@ -322,6 +322,9 @@ private const val TRENDING_VIDEO_SWIPES: Int = 3
 private const val VIDEO_PLAY_MS: Long = 1_500
 private const val MAX_BACK_PRESSES: Int = 4
 
+/** How far below a nav item its icon can sit. */
+private const val TAB_ICON_MAX_DEPTH: Int = 3
+
 /** How long a tab tap or a back press gets to bring the feed into view before the next move. */
 private const val NAV_SETTLE_WAIT_MS: Long = 2_000
 
@@ -412,8 +415,11 @@ private fun UiDevice.returnToFeed() {
         // a sub-route — so on a wide window, where the rail stays up over the
         // sub-route, it only cost a timed-out wait before every back press.
         // The selected state is on the item, not on the icon that carries the
-        // tab's description, hence the parent match.
-        val feedTabSelected = hasObject(By.selected(true).hasChild(By.desc(TAB_FEED_DESC)))
+        // tab's description. Today the icon is the item's direct child, but a
+        // badge or ripple box can nest it deeper, so it is matched as a near
+        // descendant — bounded, so only the tab item itself can match.
+        val feedTabSelected =
+            hasObject(By.selected(true).hasDescendant(By.desc(TAB_FEED_DESC), TAB_ICON_MAX_DEPTH))
         val tappedFeedTab = !feedTabSelected && hasObject(By.desc(TAB_FEED_DESC)) && tapDesc(TAB_FEED_DESC)
         if (tappedFeedTab && awaitRes(FEED_LIST_RES_ID, NAV_SETTLE_WAIT_MS) != null) break
         if (backPresses == MAX_BACK_PRESSES) error("feed not reachable after $MAX_BACK_PRESSES back presses")
