@@ -150,7 +150,6 @@ class BaselineProfileGenerator {
                     poster.click()
                     device.requireRes(VIDEO_FEED_RES_ID, FEED_WAIT_MS)
                     repeat(TRENDING_VIDEO_SWIPES) {
-                        device.requireRes(VIDEO_FEED_RES_ID)
                         // DOWN the feed, to the next video. This used to be
                         // `fling(Direction.UP)`, which reads as "swipe up" but
                         // names where the content goes — toward the previous
@@ -323,8 +322,8 @@ private const val TRENDING_VIDEO_SWIPES: Int = 3
 private const val VIDEO_PLAY_MS: Long = 1_500
 private const val MAX_BACK_PRESSES: Int = 4
 
-/** How long a tap on the Feed tab gets to bring the feed back before back is tried instead. */
-private const val TAB_SWITCH_WAIT_MS: Long = 2_000
+/** How long a tab tap or a back press gets to bring the feed into view before the next move. */
+private const val NAV_SETTLE_WAIT_MS: Long = 2_000
 
 /** Slow enough to be a drag: a fling would overshoot and bounce the chip row. */
 private const val CHIP_ROW_SWIPE_STEPS: Int = 40
@@ -408,12 +407,25 @@ private fun awaitSignedInFeed(device: UiDevice) {
 private fun UiDevice.returnToFeed() {
     var backPresses = 0
     while (!hasObject(By.res(FEED_LIST_RES_ID))) {
-        val tappedFeedTab = hasObject(By.desc(TAB_FEED_DESC)) && tapDesc(TAB_FEED_DESC)
-        if (tappedFeedTab && awaitRes(FEED_LIST_RES_ID, TAB_SWITCH_WAIT_MS) != null) break
+        // Only a Feed tab that is not already selected. Tapping the selected
+        // one is a re-tap — it scrolls the feed to the top and does not leave
+        // a sub-route — so on a wide window, where the rail stays up over the
+        // sub-route, it only cost a timed-out wait before every back press.
+        // The selected state is on the item, not on the icon that carries the
+        // tab's description, hence the parent match.
+        val feedTabSelected = hasObject(By.selected(true).hasChild(By.desc(TAB_FEED_DESC)))
+        val tappedFeedTab = !feedTabSelected && hasObject(By.desc(TAB_FEED_DESC)) && tapDesc(TAB_FEED_DESC)
+        if (tappedFeedTab && awaitRes(FEED_LIST_RES_ID, NAV_SETTLE_WAIT_MS) != null) break
         if (backPresses == MAX_BACK_PRESSES) error("feed not reachable after $MAX_BACK_PRESSES back presses")
         pressBack()
         waitForIdle()
         backPresses++
+        // Waited for, not just checked. The screen behind is still animating
+        // in when `waitForIdle` returns, and a look straight away finds no
+        // feed — so the next back press leaves the app from the very screen
+        // it was looking for. The tap-and-wait on the Feed tab used to cover
+        // this by accident; skipping a selected tab took the cover away.
+        if (awaitRes(FEED_LIST_RES_ID, NAV_SETTLE_WAIT_MS) != null) break
     }
     selectFollowingFeed()
     requireRes(FEED_LIST_RES_ID, FEED_WAIT_MS)
@@ -496,23 +508,30 @@ private inline fun step(
     var failure: Throwable? = null
     repeat(STEP_ATTEMPTS) { attempt ->
         val startedAt = SystemClock.elapsedRealtime()
-        try {
-            block()
+        // A failed step, not a failed process: exceptions, and assertions too
+        // even though they are Errors — otherwise one would end the journey
+        // before the other steps had been walked. Any other Error (out of
+        // memory, a blown stack) is not something a retry answers and is not
+        // caught. No coroutines run in here, so there is no cancellation to
+        // keep cooperative.
+        val caught =
+            try {
+                block()
+                null
+            } catch (e: Exception) {
+                e
+            } catch (e: AssertionError) {
+                e
+            }
+        if (caught == null) {
             val attemptNote = if (attempt > 0) " (attempt ${attempt + 1})" else ""
             Log.i(TAG, "journey step '$name' ok in ${SystemClock.elapsedRealtime() - startedAt}ms$attemptNote")
             return null
-        } catch (t: Throwable) {
-            // A failed step, not a failed process. An assertion is the first
-            // kind even though it is an Error, so `catch (e: Exception)` would
-            // let one end the journey before the other steps had been walked.
-            // Anything else that is an Error — out of memory, a blown stack —
-            // is not something a retry answers, and goes up as it is.
-            if (t is Error && t !is AssertionError) throw t
-            failure = t
-            // The throwable itself, not its message: UiAutomator's
-            // StaleObjectException has none, and "skipped: null" explains nothing.
-            Log.w(TAG, "journey step '$name' failed (attempt ${attempt + 1} of $STEP_ATTEMPTS)", t)
         }
+        failure = caught
+        // The throwable itself, not its message: UiAutomator's
+        // StaleObjectException has none, and "skipped: null" explains nothing.
+        Log.w(TAG, "journey step '$name' failed (attempt ${attempt + 1} of $STEP_ATTEMPTS)", caught)
     }
     return failure.toString()
 }
@@ -746,11 +765,13 @@ private fun UiDevice.flingRes(
         awaitNotNull { leading(resId)?.boundsOrNull() }
             ?: error("nothing to fling: '$resId' did not appear within ${SHORT_WAIT_MS}ms")
     // Keep the gesture off the screen edges so it isn't swallowed by the
-    // system back / navigation gestures.
-    val margin = displayWidth / 5
+    // system back / navigation gestures — scaled down for a short list, such
+    // as a comments list with one comment in it, which a fixed margin would
+    // swallow whole and the fling would quietly not happen.
+    val margin = (displayWidth / 5).coerceAtMost(bounds.height() / 5)
     val top = bounds.top + margin
     val bottom = bounds.bottom - margin
-    if (bottom <= top) return
+    check(bottom > top) { "nothing to fling: '$resId' has no height on screen ($bounds)" }
     val x = bounds.centerX()
     val density =
         InstrumentationRegistry
