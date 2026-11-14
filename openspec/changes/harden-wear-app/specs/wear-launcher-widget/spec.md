@@ -43,8 +43,12 @@ Each tappable area of the surface SHALL be at least 48dp in both dimensions in e
 - **THEN** Home and New post are each at least 48dp tall
 
 ### Requirement: Picker previews are generated from the surface
-The picker preview image for each declared container SHALL be rendered from the surface's own layout at that container's rectangular size, and a test SHALL fail when the shipped image differs from the rendered one.
+The picker preview image for each declared container SHALL be rendered from the surface's own layout at that container's rectangular size, and a test SHALL fail when the shipped image is not byte-identical to the committed reference image of that preview. The test SHALL compare the two committed files and SHALL NOT render anything, so its result does not depend on the machine it runs on.
 
 #### Scenario: Layout changes without a new preview
-- **WHEN** the large layout changes and the shipped preview image is not regenerated
+- **WHEN** the large layout's reference image is regenerated and the shipped preview image is not updated
 - **THEN** a test fails
+
+#### Scenario: Same result on every machine
+- **WHEN** the test runs on a developer machine and on CI with the same committed files
+- **THEN** it gives the same result on both

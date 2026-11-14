@@ -70,7 +70,7 @@ No WorkManager job with a `CONNECTED` constraint is added. It would be constrain
 Rejected actions still revert silently (decision 9 of `add-wear-os-app`); only transient failures change.
 
 ### D12. Content-addressed images on the watch
-Image files are named by content digest in one directory per account. An existing file is neither loaded from the Data Layer nor rewritten; unreferenced files are pruned after the database switch. If `Asset` does not expose a usable digest, the phone adds a stable key (the source URL's hash) to the post mapping — an additive contract field, still major version 1.
+Image files are named by content digest in one directory per account. An existing file is neither loaded from the Data Layer nor rewritten; unreferenced files are pruned after the database switch. If `Asset` does not expose a usable digest, the phone adds a stable key to the post mapping: a SHA-256 digest of the source URL, never a 32-bit hash, so two images cannot share a file. It is an additive contract field, still major version 1.
 
 ### D13. Widget session state comes from the watch's own store
 The widget reads signed-in state from a value the ingester writes when a session snapshot arrives, not from a Play services call during render. `withTimeoutOrNull` remains as a floor. The document background branches on the container type: black for the tile form (required for tiles), a themed surface for widget containers.
@@ -89,6 +89,7 @@ The watch database keeps its destructive fallback for synced copies. The three p
 - **Baseline churn across the stack** → A4 and A8 are isolated; fixes are batched per branch; `gh stack sync` runs before every push after the bot commits.
 - **The bench flavor hides production data bugs** → B's children carry unit tests against the real ingester and DAOs and one paired-device pass; this is called out in the definition of done.
 - **A skipped republish could hide a real change if the comparison is wrong** → the comparison covers every field the watch renders; a unit test mutates each field in turn.
+- **The phone's session load fails or never completes when a watch action arrives** → the action is left queued and retried from the next wake point (D11); it is never answered as another account's. No timer is added: it is the same session refresh the widget and DM workers already await.
 - **The "started" marker could strand an action if the phone dies mid-send** → the marker carries a timestamp; a marker older than the action's expiry is treated as failed.
 - **Requirements added here sit beside unarchived ones with the same capability names** → archive `add-wear-launcher-widget` and `add-wear-os-app` first; when archiving this change, read the other changes' requirement blocks for the capabilities listed in the proposal and reconcile "Pull on open…" with D10.
 

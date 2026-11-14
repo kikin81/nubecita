@@ -25,11 +25,15 @@ The watch SHALL NOT send a sync request more often than once per cooldown window
 - **THEN** no sync request is sent
 
 ### Requirement: The phone resolves its session before answering the watch
-When a watch action or sync request arrives while the phone app's session has not finished loading, the phone SHALL wait for it to load before deciding which account the request belongs to.
+When a watch action or sync request arrives while the phone app's session has not finished loading, the phone SHALL wait for it to load before deciding which account the request belongs to. If the session cannot be determined, the phone SHALL NOT answer the request as belonging to another account: a watch action stays queued and is tried again the next time the phone is awake for watch sync.
 
 #### Scenario: Action wakes a cold phone process
 - **WHEN** a like from the watch starts the phone app's process
 - **THEN** the like is performed for the signed-in account and is not rejected as belonging to another account
+
+#### Scenario: Session cannot be determined
+- **WHEN** a like from the watch arrives and the phone cannot load its session
+- **THEN** the like is left queued without a result, and the watch keeps showing it as pending
 
 ### Requirement: Watch actions are an identified token-refresh caller
 Network calls the phone makes on behalf of a watch action SHALL be attributed to a watch-action caller in token-refresh telemetry, not left untagged.

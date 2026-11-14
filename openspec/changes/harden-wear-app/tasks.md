@@ -90,7 +90,7 @@ Three epics, each landed as one `gh stack` (one PR per group, in order): **A** `
 ## 19. Small container and previews (nubecita-8ynp.2)
 
 - [ ] 19.1 Add the SMALL container as one tappable Messages row and switch previews to the all-sizes providers for squircle, round and rectangular; verify a render test for the small container, all six shape and size baselines, and the widget journey in both sizes.
-- [ ] 19.2 Generate the 448×168 and 464×288 picker images and a 400×400 tile preview from the previews and add a test that the shipped images match; verify the test fails when a shipped image is altered, and add signed-out, none, never-synced and 99+ widget-form baselines in es-419 and pt-BR.
+- [ ] 19.2 Generate the 448×168 and 464×288 picker images and a 400×400 tile preview from the previews' CI-generated reference images and add a JVM test that each shipped image is byte-identical to its committed reference (two committed files, nothing rendered in the test); verify the test fails when a shipped image is altered, and add signed-out, none, never-synced and 99+ widget-form baselines in es-419 and pt-BR.
 
 ## 20. Complication (nubecita-8ynp.3)
 

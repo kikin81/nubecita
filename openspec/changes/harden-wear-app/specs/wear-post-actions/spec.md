@@ -35,9 +35,13 @@ When the phone cannot complete a watch action because it has no connectivity, it
 - **WHEN** the phone is interrupted after starting to send a watch reply and later retries leftover actions
 - **THEN** the reply is not sent a second time
 
-### Requirement: A pending action cannot lock a control forever
-When a pending action has neither a queued request nor a result, the watch SHALL clear it: a toggle returns to its synced state, and a reply or post is shown as failed with retry.
+### Requirement: An orphaned pending action is cleared
+When a pending action has neither a queued request nor a result, the watch SHALL clear it: a toggle returns to its synced state, and a reply or post is shown as failed with retry. A pending action whose request is still queued is not orphaned: it SHALL stay pending until the phone answers. Likes, reposts and bookmarks do not expire; replies and posts keep their one-hour expiry.
 
 #### Scenario: An action lost in transit
 - **WHEN** the watch app opens and finds a pending like with no queued request and no result
 - **THEN** the like control is enabled again and shows the synced state
+
+#### Scenario: A like queued while the phone is away
+- **WHEN** a like has been queued for a day because the phone was unreachable, and the phone returns
+- **THEN** the like was shown as pending throughout and is delivered once
