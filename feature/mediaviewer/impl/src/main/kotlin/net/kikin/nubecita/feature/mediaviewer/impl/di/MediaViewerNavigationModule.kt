@@ -16,6 +16,7 @@ import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.mediaviewer.api.MediaViewerRoute
 import net.kikin.nubecita.feature.mediaviewer.impl.MediaViewerScreen
 import net.kikin.nubecita.feature.mediaviewer.impl.MediaViewerViewModel
+import net.kikin.nubecita.feature.mediaviewer.impl.mediaViewerTransitionMetadata
 
 /**
  * Provides the `@OuterShell`-qualified `EntryProviderInstaller` that
@@ -47,7 +48,7 @@ internal object MediaViewerNavigationModule {
     @OuterShell
     fun provideMediaViewerEntries(): EntryProviderInstaller =
         {
-            entry<MediaViewerRoute> { route ->
+            entry<MediaViewerRoute>(metadata = mediaViewerTransitionMetadata()) { route ->
                 val navigator = LocalAppNavigator.current
                 val viewModel =
                     hiltViewModel<MediaViewerViewModel, MediaViewerViewModel.Factory>(
