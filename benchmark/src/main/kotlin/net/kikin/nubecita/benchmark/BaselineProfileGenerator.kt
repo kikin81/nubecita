@@ -502,6 +502,12 @@ private inline fun step(
             Log.i(TAG, "journey step '$name' ok in ${SystemClock.elapsedRealtime() - startedAt}ms$attemptNote")
             return null
         } catch (t: Throwable) {
+            // A failed step, not a failed process. An assertion is the first
+            // kind even though it is an Error, so `catch (e: Exception)` would
+            // let one end the journey before the other steps had been walked.
+            // Anything else that is an Error — out of memory, a blown stack —
+            // is not something a retry answers, and goes up as it is.
+            if (t is Error && t !is AssertionError) throw t
             failure = t
             // The throwable itself, not its message: UiAutomator's
             // StaleObjectException has none, and "skipped: null" explains nothing.
@@ -734,8 +740,11 @@ private fun UiDevice.flingRes(
     resId: String,
     direction: Direction,
 ) {
-    awaitRes(resId) ?: return
-    val bounds = leading(resId)?.boundsOrNull() ?: return
+    // Fails rather than returns: a fling that quietly does nothing is a
+    // journey step that passes without having scrolled anything.
+    val bounds =
+        awaitNotNull { leading(resId)?.boundsOrNull() }
+            ?: error("nothing to fling: '$resId' did not appear within ${SHORT_WAIT_MS}ms")
     // Keep the gesture off the screen edges so it isn't swallowed by the
     // system back / navigation gestures.
     val margin = displayWidth / 5
