@@ -86,6 +86,7 @@ class BaselineProfileGenerator {
     fun generateStartupProfile() =
         baselineProfileRule.collect(
             packageName = TARGET_PACKAGE,
+            maxIterations = MAX_PROFILE_ITERATIONS,
             includeInStartupProfile = true,
         ) {
             pressHome()
@@ -98,6 +99,7 @@ class BaselineProfileGenerator {
     fun generateJourneyProfile() =
         baselineProfileRule.collect(
             packageName = TARGET_PACKAGE,
+            maxIterations = MAX_PROFILE_ITERATIONS,
             includeInStartupProfile = false,
         ) {
             pressHome()
@@ -245,6 +247,23 @@ class BaselineProfileGenerator {
 }
 
 private const val TAG: String = "BaselineJourney"
+
+/**
+ * Upper bound on how many times `collect` re-runs a profile block.
+ *
+ * The library default is 15, and `collect` only stops sooner when consecutive
+ * iterations dump an identical rule set. The journey never does — seven
+ * surfaces, video playback and fixed sleeps do not produce the same rules
+ * twice — so the default was not a ceiling, it was the run length: all 15
+ * iterations, every time, which made every second added to the journey cost
+ * fifteen. On the nightly emulator that was 29 of the generate step's 39
+ * minutes (nubecita-8gq8).
+ *
+ * The profile accumulates across iterations rather than being replaced, so
+ * fewer of them can only drop rules for code that turns hot late. Compare the
+ * rule counts against the previous profile when regenerating the shipped one.
+ */
+private const val MAX_PROFILE_ITERATIONS: Int = 5
 private const val SHORT_WAIT_MS: Long = 5_000
 private const val FEED_WAIT_MS: Long = 15_000
 
