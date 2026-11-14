@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- Bench only: reads the scenario from MainActivity's launch intent (BenchScenario). -->
+        <provider
+            android:name=".bench.BenchScenarioProvider"
+            android:authorities="${applicationId}.benchscenario"
+            android:exported="false" />
+    </application>
+
+</manifest>
