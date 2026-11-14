@@ -14,6 +14,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -161,6 +162,33 @@ internal fun PostFeedList(
     val leadingItems = (if (header != null) 1 else 0) + outgoingPosts.size
     if (anchoring != null) {
         RememberReadingPosition(listState = listState, items = items, leadingItems = leadingItems, anchoring = anchoring)
+    }
+    // A header can arrive after the rows: the Discover carousel loads on its
+    // own request, and usually loses that race to the posts. It is inserted
+    // above the first visible row, and LazyListState follows that row's key
+    // into the new layout — so a list resting at the top ends up one row down
+    // with the header parked above the viewport, there but unseen until the
+    // reader scrolls up (nubecita-3duc).
+    //
+    // So a list that was resting at the top stays at the top. Only that one: a
+    // reader who has scrolled is looking at something, and a header arriving
+    // above them is not a reason to take it away.
+    //
+    // A SideEffect rather than a LaunchedEffect because of when each runs. This
+    // one runs as the composition that adds the header is applied, before that
+    // composition is measured — the last moment `listState` still describes the
+    // list without the header. A LaunchedEffect body runs after the measure,
+    // by which time the list has already followed the key and "was it at the
+    // top?" can no longer be told apart from "is it one row down?".
+    val hasHeader = header != null
+    val headerArrival = remember { HeaderArrival(hadHeader = hasHeader) }
+    SideEffect {
+        val arrived = hasHeader && !headerArrival.hadHeader
+        headerArrival.hadHeader = hasHeader
+        if (arrived && listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0) {
+            // Overrides the key-following for the next measure only.
+            listState.requestScrollToItem(0)
+        }
     }
 
     // Videos on posts shown as CONTEXT — a reply cluster's root and parent,
@@ -599,6 +627,16 @@ internal fun PostFeedList(
         }
     }
 }
+
+/**
+ * Whether the list had a header the last time it composed, so the composition
+ * that first adds one can be told from every later one. Plain mutable state on
+ * purpose: it is written from a `SideEffect` and never read during composition,
+ * so there is nothing for a snapshot state to notify.
+ */
+private class HeaderArrival(
+    var hadHeader: Boolean,
+)
 
 /**
  * What a surface needs to keep a reader's place: where to restore to, a way to
