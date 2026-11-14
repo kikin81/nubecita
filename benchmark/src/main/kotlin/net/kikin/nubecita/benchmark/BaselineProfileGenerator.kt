@@ -91,7 +91,6 @@ class BaselineProfileGenerator {
     fun generateStartupProfile() =
         baselineProfileRule.collect(
             packageName = TARGET_PACKAGE,
-            maxIterations = MAX_PROFILE_ITERATIONS,
             includeInStartupProfile = true,
         ) {
             pressHome()
@@ -104,7 +103,7 @@ class BaselineProfileGenerator {
     fun generateJourneyProfile() =
         baselineProfileRule.collect(
             packageName = TARGET_PACKAGE,
-            maxIterations = MAX_PROFILE_ITERATIONS,
+            maxIterations = MAX_JOURNEY_ITERATIONS,
             includeInStartupProfile = false,
         ) {
             pressHome()
@@ -273,7 +272,7 @@ class BaselineProfileGenerator {
 private const val TAG: String = "BaselineJourney"
 
 /**
- * Upper bound on how many times `collect` re-runs a profile block.
+ * Upper bound on how many times `collect` re-runs the journey.
  *
  * The library default is 15, and `collect` only stops sooner when consecutive
  * iterations dump an identical rule set. The journey never does — seven
@@ -286,8 +285,12 @@ private const val TAG: String = "BaselineJourney"
  * The profile accumulates across iterations rather than being replaced, so
  * fewer of them can only drop rules for code that turns hot late. Compare the
  * rule counts against the previous profile when regenerating the shipped one.
+ *
+ * The startup profile keeps the default on purpose. Its iterations are a cold
+ * start each, about ten seconds, so there is nothing to save by cutting them
+ * short — and against the real network it was still changing after five.
  */
-private const val MAX_PROFILE_ITERATIONS: Int = 5
+private const val MAX_JOURNEY_ITERATIONS: Int = 5
 private const val SHORT_WAIT_MS: Long = 5_000
 private const val FEED_WAIT_MS: Long = 15_000
 
