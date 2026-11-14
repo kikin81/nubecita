@@ -1,11 +1,15 @@
 package net.kikin.nubecita.benchmark
 
+import android.graphics.Rect
 import android.os.SystemClock
 import android.util.Log
 import androidx.benchmark.macro.junit4.BaselineProfileRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.Direction
+import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
@@ -47,15 +51,19 @@ import org.junit.runner.RunWith
  *    path. For full coverage, generate on a phone AND a tablet and let
  *    AGP merge the two profiles.
  *
- * Each post-startup step is defensive: a missing/renamed selector logs a
- * warning (tag `$TAG`) and the journey continues, so one flaky surface
- * never fails the whole multi-minute generation. Every step after the feed
- * scroll first returns to the Feed tab on the Following feed
- * ([returnToFeed]): a step that fails part-way leaves the app wherever it
- * got to — on a phone a sub-route hides the tab bar — and without that reset
- * every later step fails to find its tab. After a run, check
- * logcat for the line `"baseline journey coverage: …"` to see which
- * journeys actually ran (`ok`) vs were skipped.
+ * A step that fails is retried once, and the journey carries on through the
+ * remaining steps either way, so a single run names every step that is
+ * broken rather than only the first. Then the run **fails**: a profile is
+ * only as good as the journeys that fed it, and one generated with a step
+ * missing is indistinguishable from a complete one once it is a text file in
+ * `src/`. The failure message lists the skipped steps and why; logcat (tag
+ * `$TAG`) has a line per step with its timing, and a
+ * `"baseline journey coverage: …"` summary per iteration.
+ *
+ * Every step after the feed scroll first returns to the Feed tab on the
+ * Following feed ([returnToFeed]): a step that fails part-way leaves the app
+ * wherever it got to — on a phone a sub-route hides the tab bar — and without
+ * that reset every later step fails to find its tab.
  *
  * ## Pre-requisite: the bench device must be signed in
  *
@@ -105,7 +113,8 @@ class BaselineProfileGenerator {
             startActivityAndWait()
             awaitSignedInFeed(device)
 
-            val coverage = linkedMapOf<String, Boolean>()
+            // Step name → why it was skipped, or null if it ran.
+            val coverage = linkedMapOf<String, String?>()
 
             // 1. Feed scroll.
             coverage["feed_scroll"] = step("feed_scroll") { device.flingList(FEED_LIST_RES_ID) }
@@ -114,11 +123,7 @@ class BaselineProfileGenerator {
             coverage["post_detail"] =
                 step("post_detail") {
                     device.returnToFeed()
-                    // The tagged body text, not a coordinate: a blind tap into a
-                    // card can land on the action row and like or repost on the
-                    // signed-in account.
-                    device.requireRes(POST_CARD_BODY_RES_ID).click()
-                    device.requireRes(POST_DETAIL_LIST_RES_ID, FEED_WAIT_MS)
+                    device.openAPost()
                     device.flingList(POST_DETAIL_LIST_RES_ID)
                     device.pressBack()
                     device.requireRes(FEED_LIST_RES_ID)
@@ -128,7 +133,7 @@ class BaselineProfileGenerator {
             coverage["trending_videos"] =
                 step("trending_videos") {
                     device.returnToFeed()
-                    check(device.tapText(FEED_DISCOVER_CHIP_TEXT)) { "Discover chip not found" }
+                    check(device.tapFeedChip(FEED_DISCOVER_CHIP_TEXT)) { "Discover chip not found" }
                     // The carousel heads the Discover list, so it is never
                     // scrolled out of reach — when it is missing it simply has
                     // no data. Selecting Discover asks the trending source to
@@ -145,28 +150,33 @@ class BaselineProfileGenerator {
                     poster.click()
                     device.requireRes(VIDEO_FEED_RES_ID, FEED_WAIT_MS)
                     repeat(TRENDING_VIDEO_SWIPES) {
-                        device.requireRes(VIDEO_FEED_RES_ID).apply {
-                            setGestureMargin(device.displayWidth / 5)
-                            fling(Direction.UP)
-                        }
-                        device.waitForIdle()
+                        // DOWN the feed, to the next video. This used to be
+                        // `fling(Direction.UP)`, which reads as "swipe up" but
+                        // names where the content goes — toward the previous
+                        // page, and from the first video there is none. The
+                        // journey sat on one clip for all three "swipes"
+                        // (nubecita-kfbr).
+                        device.flingRes(VIDEO_FEED_RES_ID, Direction.DOWN)
                         // Let the promoted clip actually start playing.
                         SystemClock.sleep(VIDEO_PLAY_MS)
                     }
                     device.requireRes(VIDEO_FEED_RAIL_REPLY_RES_ID).click()
-                    // Wait on the comments list, NOT the docked pill. The pill
-                    // was picked as "the sheet's one unconditional element",
-                    // but on device it does not render in this sheet at all —
-                    // there is empty space where it should sit — so waiting on
-                    // it skipped this whole leg every time (nubecita-09n0).
+                    // The comments are a bottom sheet on a narrow window and a
+                    // side pane on a wide one, and no single element is in
+                    // both. The sheet has the drag handle and — on device —
+                    // never renders the docked pill (nubecita-09n0); the pane
+                    // has the pill and no handle. Gating on the handle alone
+                    // failed this leg on every unfolded foldable.
                     //
-                    // Gate on the drag handle, which IS unconditional, and only
-                    // then give the list a short wait: a video with no comments
-                    // never composes the list, so waiting the full timeout on it
-                    // first would stall every such video for the whole 15s.
-                    check(device.wait(Until.hasObject(By.desc(SHEET_DRAG_HANDLE_DESC)), FEED_WAIT_MS)) {
-                        "comments sheet did not open"
-                    }
+                    // Not the comments list either: a video with no comments
+                    // never composes one, so it only gets a short wait below.
+                    check(
+                        device.awaitAny(
+                            FEED_WAIT_MS,
+                            By.desc(SHEET_DRAG_HANDLE_DESC),
+                            By.res(DOCKED_COMMENT_PILL_RES_ID),
+                        ),
+                    ) { "comments did not open as a sheet or as a side pane" }
                     device.awaitRes(POST_COMMENTS_LIST_RES_ID, SHORT_WAIT_MS)
                     SystemClock.sleep(RESULTS_SETTLE_MS)
                     if (device.hasObject(By.res(POST_COMMENTS_LIST_RES_ID))) {
@@ -183,9 +193,16 @@ class BaselineProfileGenerator {
                     device.returnToFeed()
                     check(device.tapDesc(TAB_YOU_DESC)) { "You tab not found" }
                     device.requireRes(PROFILE_LIST_RES_ID)
-                    device.tapText("Replies")
-                    device.tapText("Media")
-                    device.tapText("Posts")
+                    // The tab row sits under the profile header and scrolls
+                    // with it. On a short window — a foldable in landscape —
+                    // the header fills the screen and the row is at or below
+                    // the bottom edge, where a tap does not land.
+                    device.scrollIntoReach(PROFILE_LIST_RES_ID, PROFILE_TABS.first())
+                    // Checked: an unchecked miss here was a silent five-second
+                    // wait per tab, and a profile with no tab switch in it.
+                    PROFILE_TABS.forEach { tab ->
+                        check(device.tapTextIn(PROFILE_LIST_RES_ID, tab)) { "profile tab '$tab' not found" }
+                    }
                     device.flingList(PROFILE_LIST_RES_ID)
                 }
 
@@ -194,9 +211,16 @@ class BaselineProfileGenerator {
                 step("search") {
                     device.returnToFeed()
                     check(device.tapDesc(TAB_SEARCH_DESC)) { "Search tab not found" }
-                    val input = device.requireRes(SEARCH_INPUT_RES_ID)
-                    input.click()
-                    input.text = "blue"
+                    device.requireRes(SEARCH_INPUT_RES_ID).click()
+                    // Found by focus, not by tag. The tap expands the bar into
+                    // its own window, and `testTagsAsResourceId` does not cross
+                    // a window boundary: the expanded field has no resource-id
+                    // at all, and the collapsed node it replaced goes stale.
+                    // Typing into that stale node is what threw on every
+                    // iteration but the first (nubecita-z1zh).
+                    check(device.typeInto("blue") { device.findObject(By.clazz(EDIT_TEXT_CLASS).focused(true)) }) {
+                        "the expanded search field could not be typed into"
+                    }
                     device.waitForIdle()
                     // Let the typeahead query + results list render (network-backed).
                     SystemClock.sleep(RESULTS_SETTLE_MS)
@@ -223,16 +247,20 @@ class BaselineProfileGenerator {
                 step("composer") {
                     device.returnToFeed()
                     check(device.tapDesc(COMPOSE_FAB_DESC)) { "Compose FAB not found" }
-                    val field = device.requireRes(COMPOSER_TEXT_FIELD_RES_ID)
+                    val field =
+                        device.awaitComposerField()
+                            ?: error("composer text field did not appear within ${SHORT_WAIT_MS}ms")
                     field.click()
-                    field.text = "gm"
+                    check(device.typeInto("gm") { device.findComposerField() }) {
+                        "the composer field could not be typed into"
+                    }
                     device.waitForIdle()
                     device.pressBack() // dismiss IME (or close composer if no IME shown)
                     // On devices without a soft IME (headless CI / hardware
                     // keyboard) the first back already closed the composer, so
                     // only back out again if the field is still up — otherwise
                     // we'd navigate out of Feed and exit the app.
-                    if (device.hasObject(By.res(COMPOSER_TEXT_FIELD_RES_ID))) {
+                    if (device.findComposerField() != null) {
                         device.pressBack() // close the composer
                     }
                 }
@@ -240,8 +268,15 @@ class BaselineProfileGenerator {
             Log.i(
                 TAG,
                 "baseline journey coverage: " +
-                    coverage.entries.joinToString { "${it.key}=${if (it.value) "ok" else "SKIPPED"}" },
+                    coverage.entries.joinToString { "${it.key}=${if (it.value == null) "ok" else "SKIPPED"}" },
             )
+            val skipped = coverage.filterValues { it != null }
+            check(skipped.isEmpty()) {
+                "Baseline journey steps skipped in iteration $iteration: " +
+                    skipped.entries.joinToString { "${it.key} (${it.value})" } +
+                    ". A profile from this run would lack them, so none is produced. " +
+                    "Each attempt is in logcat under the '$TAG' tag."
+            }
         }
 }
 
@@ -287,6 +322,58 @@ private const val TRENDING_VIDEO_SWIPES: Int = 3
 private const val VIDEO_PLAY_MS: Long = 1_500
 private const val MAX_BACK_PRESSES: Int = 4
 
+/** How far below a nav item its icon can sit. */
+private const val TAB_ICON_MAX_DEPTH: Int = 3
+
+/** How long a tab tap or a back press gets to bring the feed into view before the next move. */
+private const val NAV_SETTLE_WAIT_MS: Long = 2_000
+
+/** Slow enough to be a drag: a fling would overshoot and bounce the chip row. */
+private const val CHIP_ROW_SWIPE_STEPS: Int = 40
+
+private const val POLL_MS: Long = 100
+
+private const val TYPE_ATTEMPTS: Int = 3
+
+/** The profile's tabs, in the order the journey visits them — ending back on Posts. */
+private val PROFILE_TABS: List<String> = listOf("Replies", "Media", "Posts")
+
+private const val MAX_REACH_SCROLLS: Int = 4
+
+/** How many posts [openAPost] tries before giving up. */
+private const val MAX_POST_CANDIDATES: Int = 4
+
+private const val POST_OPEN_WAIT_MS: Long = 8_000
+private const val REACH_SWIPE_STEPS: Int = 60
+
+/** What a Compose text field reports as its class to accessibility. */
+private const val EDIT_TEXT_CLASS: String = "android.widget.EditText"
+
+/** Tries per journey step: the failures seen in practice are one-offs that pass on a second go. */
+private const val STEP_ATTEMPTS: Int = 2
+
+/**
+ * `UiObject2.fling`'s own default speed, so a fling here travels as far and
+ * lands on the same rows as the call it replaces.
+ */
+private const val FLING_SPEED_DP_PER_SECOND: Int = 7_500
+
+/** `UiDevice.swipe` injects one move per step, 5ms apart. */
+private const val SWIPE_STEP_MS: Int = 5
+
+/**
+ * How long a fling's landing rows get to load before the journey moves on.
+ *
+ * The five-second stall this replaces was dead time for the gesture, but on a
+ * real account the rows a fling lands on are still fetching their images and
+ * video when it ends. A second keeps some of that slack.
+ *
+ * Not shown to matter on the bench flavor, where every asset is local: the
+ * generated rule set was the same to within run-to-run noise with and without
+ * it (55,984 vs 55,932 rules in common with the previous profile).
+ */
+private const val FLING_SETTLE_MS: Long = 1_000
+
 /**
  * Hard sign-in gate (shared by both tests). A `false` from `device.wait`
  * means the cold-start path did not reach the signed-in feed — almost
@@ -306,40 +393,167 @@ private fun awaitSignedInFeed(device: UiDevice) {
 
 /**
  * Get back to the Feed tab showing the Following feed, from wherever the last
- * step left the app. Taps the Feed tab when the tab bar is up (on another tab,
- * or already on Feed); otherwise presses back to leave a sub-route, sheet or the
- * vertical video feed. Never presses back once the tab bar is visible — on the
- * Feed tab that would exit the app.
+ * step left the app.
+ *
+ * The Feed tab is tapped if it can be seen, and then back is pressed until the
+ * feed list is on screen. Both halves are needed. A bottom bar is hidden by a
+ * sub-route, so there the tab cannot be tapped until back has been pressed;
+ * a wide window's rail stays up over a sub-route, so there tapping the tab
+ * changes nothing and only back gets out. The earlier version took a visible
+ * tab to mean "already at the tab's root", which is only true of a bottom bar
+ * — on an unfolded foldable it left the vertical video feed up and every
+ * later step failed looking for the feed underneath it.
+ *
+ * Back is never pressed while the feed list is visible: from the Feed tab's
+ * root it would leave the app.
  */
 private fun UiDevice.returnToFeed() {
-    for (attempt in 0..MAX_BACK_PRESSES) {
-        if (hasObject(By.desc(TAB_FEED_DESC))) {
-            check(tapDesc(TAB_FEED_DESC)) { "Feed tab not found" }
-            break
-        }
-        if (attempt == MAX_BACK_PRESSES) error("tab bar not reachable after $MAX_BACK_PRESSES back presses")
+    var backPresses = 0
+    while (!hasObject(By.res(FEED_LIST_RES_ID))) {
+        // Only a Feed tab that is not already selected. Tapping the selected
+        // one is a re-tap — it scrolls the feed to the top and does not leave
+        // a sub-route — so on a wide window, where the rail stays up over the
+        // sub-route, it only cost a timed-out wait before every back press.
+        // The selected state is on the item, not on the icon that carries the
+        // tab's description. Today the icon is the item's direct child, but a
+        // badge or ripple box can nest it deeper, so it is matched as a near
+        // descendant — bounded, so only the tab item itself can match.
+        val feedTabSelected =
+            hasObject(By.selected(true).hasDescendant(By.desc(TAB_FEED_DESC), TAB_ICON_MAX_DEPTH))
+        val tappedFeedTab = !feedTabSelected && hasObject(By.desc(TAB_FEED_DESC)) && tapDesc(TAB_FEED_DESC)
+        if (tappedFeedTab && awaitRes(FEED_LIST_RES_ID, NAV_SETTLE_WAIT_MS) != null) break
+        if (backPresses == MAX_BACK_PRESSES) error("feed not reachable after $MAX_BACK_PRESSES back presses")
         pressBack()
         waitForIdle()
+        backPresses++
+        // Waited for, not just checked. The screen behind is still animating
+        // in when `waitForIdle` returns, and a look straight away finds no
+        // feed — so the next back press leaves the app from the very screen
+        // it was looking for. The tap-and-wait on the Feed tab used to cover
+        // this by accident; skipping a selected tab took the cover away.
+        if (awaitRes(FEED_LIST_RES_ID, NAV_SETTLE_WAIT_MS) != null) break
     }
-    requireRes(FEED_LIST_RES_ID, FEED_WAIT_MS)
-    // The selected feed is persisted; restore Following (a no-op tap if it is
-    // already selected).
-    tapText(FEED_FOLLOWING_CHIP_TEXT)
+    selectFollowingFeed()
     requireRes(FEED_LIST_RES_ID, FEED_WAIT_MS)
 }
 
-/** Run [block]; on any failure log it and report `false` (journey continues). */
+/**
+ * Put the feed back on Following. The selected feed is persisted, so a journey
+ * that leaves Discover selected changes what every later step — and the next
+ * cold start, including the startup-profile capture — opens on.
+ *
+ * The chip is not always there to tap: selecting a feed scrolls the chip row
+ * to it, and with a few pinned feeds that pushes Following off the leading
+ * edge. The row is dragged back to its start first. Before this, a missing
+ * chip was a silent no-op after a five-second wait, and the rest of the
+ * journey ran on Discover.
+ */
+private fun UiDevice.selectFollowingFeed() {
+    revealChipRow()
+    if (findFeedChip(FEED_FOLLOWING_CHIP_TEXT) == null) {
+        val chip = findFeedChip(FEED_DISCOVER_CHIP_TEXT)?.visibleCenter
+        val list = findObject(By.res(FEED_LIST_RES_ID))?.boundsOrNull()
+        if (chip != null && list != null) {
+            swipe(chip.x, chip.y, list.right - displayWidth / 10, chip.y, CHIP_ROW_SWIPE_STEPS)
+            waitForIdle()
+        }
+    }
+    check(tapFeedChip(FEED_FOLLOWING_CHIP_TEXT)) { "Following chip not found, so the feed could not be put back on it" }
+}
+
+/**
+ * A feed chip, by its label — and only a chip.
+ *
+ * Matching the label anywhere on screen is not safe on a real account. In a
+ * two-pane window the detail pane can be showing someone's profile, and the
+ * follow button on a profile you follow reads "Following": a bare text match
+ * can land on that and unfollow them. A chip is told apart by where it is —
+ * in the row above the feed list, within the feed's own pane.
+ */
+private fun UiDevice.findFeedChip(text: String): UiObject2? {
+    val list = findObject(By.res(FEED_LIST_RES_ID))?.boundsOrNull() ?: return null
+    return findObjects(By.text(text)).firstOrNull { candidate ->
+        val bounds = candidate.boundsOrNull() ?: return@firstOrNull false
+        bounds.bottom <= list.top && bounds.centerX() in list.left..list.right
+    }
+}
+
+/**
+ * Bring the chip row back if a scroll has tucked it away. It leaves with the
+ * feed scrolling down and returns with any scroll up, so a short drag the
+ * other way is enough — and without it every chip lookup after a fling down
+ * the feed finds nothing.
+ */
+private fun UiDevice.revealChipRow() {
+    if (findFeedChip(FEED_FOLLOWING_CHIP_TEXT) != null || findFeedChip(FEED_DISCOVER_CHIP_TEXT) != null) return
+    val list = findObject(By.res(FEED_LIST_RES_ID))?.boundsOrNull() ?: return
+    val x = list.centerX()
+    swipe(x, list.centerY(), x, list.centerY() + displayHeight / 8, REACH_SWIPE_STEPS)
+    waitForIdle()
+}
+
+private fun UiDevice.tapFeedChip(text: String): Boolean {
+    val chip = awaitNotNull { findFeedChip(text) } ?: return false
+    chip.click()
+    waitForIdle()
+    return true
+}
+
+/**
+ * Run [block] and return why it failed, or `null` if it ran.
+ *
+ * A failure is retried once before it counts: every step but the first opens
+ * with [returnToFeed], so a second attempt starts from a known place. Either
+ * way this returns rather than throws, and the caller fails the run once the
+ * whole journey has been walked.
+ */
 private inline fun step(
     name: String,
     block: () -> Unit,
-): Boolean =
-    try {
-        block()
-        true
-    } catch (t: Throwable) {
-        Log.w(TAG, "journey step '$name' skipped: ${t.message}")
-        false
+): String? {
+    var failure: Throwable? = null
+    repeat(STEP_ATTEMPTS) { attempt ->
+        val startedAt = SystemClock.elapsedRealtime()
+        // A failed step, not a failed process: exceptions, and assertions too
+        // even though they are Errors — otherwise one would end the journey
+        // before the other steps had been walked. Any other Error (out of
+        // memory, a blown stack) is not something a retry answers and is not
+        // caught. No coroutines run in here, so there is no cancellation to
+        // keep cooperative.
+        val caught =
+            try {
+                block()
+                null
+            } catch (e: Exception) {
+                e
+            } catch (e: AssertionError) {
+                e
+            }
+        if (caught == null) {
+            val attemptNote = if (attempt > 0) " (attempt ${attempt + 1})" else ""
+            Log.i(TAG, "journey step '$name' ok in ${SystemClock.elapsedRealtime() - startedAt}ms$attemptNote")
+            return null
+        }
+        failure = caught
+        // The throwable itself, not its message: UiAutomator's
+        // StaleObjectException has none, and "skipped: null" explains nothing.
+        Log.w(TAG, "journey step '$name' failed (attempt ${attempt + 1} of $STEP_ATTEMPTS)", caught)
     }
+    return failure.toString()
+}
+
+/** Wait until any of [selectors] matches; `false` if none does within [timeoutMs]. */
+private fun UiDevice.awaitAny(
+    timeoutMs: Long,
+    vararg selectors: BySelector,
+): Boolean {
+    val deadline = SystemClock.uptimeMillis() + timeoutMs
+    while (true) {
+        if (selectors.any { hasObject(it) }) return true
+        if (SystemClock.uptimeMillis() >= deadline) return false
+        SystemClock.sleep(POLL_MS)
+    }
+}
 
 private fun UiDevice.awaitRes(
     resId: String,
@@ -353,15 +567,154 @@ private fun UiDevice.requireRes(
     awaitRes(resId, timeoutMs)
         ?: error("expected resource-id '$resId' did not appear within ${timeoutMs}ms")
 
-private fun UiDevice.tapDesc(desc: String): Boolean {
-    val obj = wait(Until.findObject(By.desc(desc)), SHORT_WAIT_MS) ?: return false
-    obj.click()
+/**
+ * Open a post's detail from the feed.
+ *
+ * Always inside the tagged body text, never a blind coordinate: a tap anywhere
+ * else in a card can land on the action row and like or repost on the
+ * signed-in account.
+ *
+ * No point inside the text is reliably "the post", though. On a real timeline
+ * the centre can be a hashtag, mention or link, which opens something else —
+ * a post ending in a block of hashtags sent the journey to a hashtag screen.
+ * The edges are worse: the first line's start is inside the avatar's touch
+ * target and its top is inside the author row's, and both open a profile.
+ *
+ * So the tap goes to the centre, which is right for most posts, and a post
+ * that does not open is passed over for the next one down, scrolling for more
+ * when the screen runs out. Posts under the top of the list are skipped: the
+ * list draws behind the chip row, and the new-posts pill floats there.
+ */
+private fun UiDevice.openAPost() {
+    requireRes(POST_CARD_BODY_RES_ID)
+    var onScreenIndex = 0
+    repeat(MAX_POST_CANDIDATES) {
+        var bodies = tappablePostBodies()
+        if (onScreenIndex >= bodies.size) {
+            flingRes(FEED_LIST_RES_ID, Direction.DOWN)
+            bodies = tappablePostBodies()
+            onScreenIndex = 0
+        }
+        val body = bodies.getOrNull(onScreenIndex++) ?: return@repeat
+        click(body.centerX(), body.centerY())
+        if (awaitRes(POST_DETAIL_LIST_RES_ID, POST_OPEN_WAIT_MS) != null) return
+        returnToFeed()
+    }
+    error("none of $MAX_POST_CANDIDATES posts opened its detail within ${POST_OPEN_WAIT_MS}ms")
+}
+
+/** Post bodies in the feed's own pane (a post open in the detail pane has bodies too), clear of the top overlays. */
+private fun UiDevice.tappablePostBodies(): List<Rect> {
+    val list = requireRes(FEED_LIST_RES_ID).boundsOrNull() ?: return emptyList()
+    val clearOfOverlays = list.top + displayHeight / 10
+    return findObjects(By.res(POST_CARD_BODY_RES_ID))
+        .mapNotNull { it.boundsOrNull() }
+        .filter { list.contains(it) && it.top >= clearOfOverlays }
+}
+
+/**
+ * The composer's text field, whichever way the composer is presented.
+ *
+ * Full-screen on a narrow window, where the field carries its tag. A dialog on
+ * a wide one — its own window, so `testTagsAsResourceId` never reaches it and
+ * the field has no resource-id at all. It is the only text field on screen
+ * either way.
+ */
+private fun UiDevice.findComposerField(): UiObject2? = findObject(By.res(COMPOSER_TEXT_FIELD_RES_ID)) ?: findObject(By.clazz(EDIT_TEXT_CLASS))
+
+private fun UiDevice.awaitComposerField(): UiObject2? = awaitNotNull { findComposerField() }
+
+/**
+ * This node's bounds, or `null` if it has left the screen since it was found.
+ *
+ * A node is a snapshot. A list that is still loading or settling replaces its
+ * rows between the lookup and the read, and reading a replaced one throws —
+ * which is not "the step failed", only "look again".
+ */
+private fun UiObject2.boundsOrNull(): Rect? =
+    try {
+        visibleBounds
+    } catch (_: StaleObjectException) {
+        null
+    }
+
+/**
+ * Type [text] into the field [find] returns, looking it up again if it goes
+ * stale between being found and being typed into.
+ */
+private fun UiDevice.typeInto(
+    text: String,
+    find: () -> UiObject2?,
+): Boolean {
+    repeat(TYPE_ATTEMPTS) {
+        val field = awaitNotNull(find) ?: return false
+        try {
+            field.text = text
+            return true
+        } catch (_: StaleObjectException) {
+            waitForIdle()
+        }
+    }
+    return false
+}
+
+/** Poll [find] until it returns something, or give up after [SHORT_WAIT_MS]. */
+private inline fun <T : Any> awaitNotNull(find: () -> T?): T? {
+    val deadline = SystemClock.uptimeMillis() + SHORT_WAIT_MS
+    while (true) {
+        find()?.let { return it }
+        if (SystemClock.uptimeMillis() >= deadline) return null
+        SystemClock.sleep(POLL_MS)
+    }
+}
+
+/**
+ * The [resId] node furthest to the leading side. In a two-pane window the same
+ * screen can be up twice — your own profile in the list pane, someone else's in
+ * the detail pane — and the journey means the one it navigated to.
+ */
+private fun UiDevice.leading(resId: String): UiObject2? = findObjects(By.res(resId)).filter { it.boundsOrNull() != null }.minByOrNull { it.boundsOrNull()?.left ?: Int.MAX_VALUE }
+
+/** [text] inside the [listResId] the journey navigated to, not a same-named label somewhere else on screen. */
+private fun UiDevice.findTextIn(
+    listResId: String,
+    text: String,
+): UiObject2? {
+    val list = leading(listResId)?.boundsOrNull() ?: return null
+    return findObjects(By.text(text)).firstOrNull { candidate -> candidate.boundsOrNull()?.let(list::contains) == true }
+}
+
+private fun UiDevice.tapTextIn(
+    listResId: String,
+    text: String,
+): Boolean {
+    val target = awaitNotNull { findTextIn(listResId, text) } ?: return false
+    target.click()
     waitForIdle()
     return true
 }
 
-private fun UiDevice.tapText(text: String): Boolean {
-    val obj = wait(Until.findObject(By.text(text)), SHORT_WAIT_MS) ?: return false
+/**
+ * Scroll the list [listResId] until [text] sits clear of its bottom edge, where
+ * it can be tapped. Does nothing when it already does.
+ */
+private fun UiDevice.scrollIntoReach(
+    listResId: String,
+    text: String,
+) {
+    repeat(MAX_REACH_SCROLLS) {
+        val list = leading(listResId)?.boundsOrNull() ?: return
+        val target = findTextIn(listResId, text)?.boundsOrNull()
+        if (target != null && target.bottom <= list.bottom - displayHeight / 8) return
+        // A quarter of the list, slowly: a drag, so it stops where it is let go.
+        val x = list.centerX()
+        swipe(x, list.centerY() + list.height() / 8, x, list.centerY() - list.height() / 8, REACH_SWIPE_STEPS)
+        waitForIdle()
+    }
+}
+
+private fun UiDevice.tapDesc(desc: String): Boolean {
+    val obj = wait(Until.findObject(By.desc(desc)), SHORT_WAIT_MS) ?: return false
     obj.click()
     waitForIdle()
     return true
@@ -390,20 +743,54 @@ private fun UiDevice.pullToRefresh(resId: String) {
     SystemClock.sleep(PULL_REFRESH_SETTLE_MS)
 }
 
-/** Fling a list down then back up (re-finding the node between flings). */
+/** Fling a list down then back up. */
 private fun UiDevice.flingList(resId: String) {
-    awaitRes(resId)?.apply {
-        // Keep the gesture off the screen edges so it isn't swallowed by the
-        // system back / navigation gestures.
-        setGestureMargin(displayWidth / 5)
-        fling(Direction.DOWN)
+    flingRes(resId, Direction.DOWN)
+    flingRes(resId, Direction.UP)
+}
+
+/**
+ * Fling the scrollable [resId] so that it shows what lies in [direction]:
+ * `DOWN` moves on through the content, `UP` goes back toward the start.
+ *
+ * A raw swipe rather than `UiObject2.fling`. That call waits for an
+ * accessibility event saying the scroll reached its end, or five seconds, and
+ * a Compose list does not send one — so every fling cost a flat five seconds
+ * of an app sitting idle. With eleven of them that was 57 of a 104-second
+ * iteration (nubecita-kfbr). [waitForIdle] returns as soon as the scroll
+ * events stop instead, and [FLING_SETTLE_MS] then gives the rows it landed on
+ * time to load.
+ */
+private fun UiDevice.flingRes(
+    resId: String,
+    direction: Direction,
+) {
+    // Fails rather than returns: a fling that quietly does nothing is a
+    // journey step that passes without having scrolled anything.
+    val bounds =
+        awaitNotNull { leading(resId)?.boundsOrNull() }
+            ?: error("nothing to fling: '$resId' did not appear within ${SHORT_WAIT_MS}ms")
+    // Keep the gesture off the screen edges so it isn't swallowed by the
+    // system back / navigation gestures — scaled down for a short list, such
+    // as a comments list with one comment in it, which a fixed margin would
+    // swallow whole and the fling would quietly not happen.
+    val margin = (displayWidth / 5).coerceAtMost(bounds.height() / 5)
+    val top = bounds.top + margin
+    val bottom = bounds.bottom - margin
+    check(bottom > top) { "nothing to fling: '$resId' has no height on screen ($bounds)" }
+    val x = bounds.centerX()
+    val density =
+        InstrumentationRegistry
+            .getInstrumentation()
+            .context.resources.displayMetrics.density
+    val swipeMs = (bottom - top) * 1_000 / (FLING_SPEED_DP_PER_SECOND * density)
+    val steps = (swipeMs / SWIPE_STEP_MS).toInt().coerceAtLeast(2)
+    when (direction) {
+        // The finger travels the other way from the content it reveals.
+        Direction.DOWN -> swipe(x, bottom, x, top, steps)
+        Direction.UP -> swipe(x, top, x, bottom, steps)
+        else -> error("flingRes only flings vertically, not $direction")
     }
     waitForIdle()
-    awaitRes(resId)?.apply {
-        // Freshly-resolved node — the DOWN fling's gesture inset doesn't carry
-        // over, so re-apply it or the UP fling gets eaten by system gesture-nav.
-        setGestureMargin(displayWidth / 5)
-        fling(Direction.UP)
-    }
-    waitForIdle()
+    SystemClock.sleep(FLING_SETTLE_MS)
 }

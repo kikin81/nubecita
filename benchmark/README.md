@@ -181,24 +181,37 @@ produce materially different profiles:
   a ~weekly cadence**, not CI:
 
   ```bash
-  ./gradlew :app:generateProductionReleaseBaselineProfile -PbaselineProfileEnvironment=production \
-    -Pandroid.testInstrumentationRunnerArguments.class=net.kikin.nubecita.benchmark.BaselineProfileGenerator
+  ANDROID_SERIAL=<serial> ./gradlew :app:generateProductionReleaseBaselineProfile \
+    -PbaselineProfileEnvironment=production \
+    -Pandroid.testInstrumentationRunnerArguments.class=net.kikin.nubecita.benchmark.BaselineProfileGenerator \
+    -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
   ```
 
-  Keep the `class=` filter: without it the task also runs the startup,
-  scroll and video benchmarks, which reinstall the app and wipe its data —
-  and the OAuth session with it.
+  `ANDROID_SERIAL` pins the run to one device. Without it Gradle installs
+  on **every** connected device, and since the app id is shared, that
+  replaces whatever build is on each of them.
 
-  Pre-requisite — **the device must be signed in** on the
-  `productionNonMinifiedRelease` build before the run. The generator
-  waits for `feed_list` and fails fast if the cold-start path routes
-  Splash → Login instead of Splash → MainShell (see
-  `BaselineProfileGenerator`'s KDoc for the diagnostic message).
-  Sign in again before **every** run: the test task uninstalls the app
-  when it finishes, so a session never carries over to the next regen.
-  After the run, check the `baseline journey coverage: …` logcat line
-  (in `build/outputs/androidTest-results/connected/nonMinifiedRelease/`)
-  and don't commit a profile whose journeys came back `SKIPPED`.
+  `leaveApksInstalledAfterRun` keeps the app — and the OAuth session in it —
+  on the device when the task finishes. Without it the task uninstalls the
+  app at the end, so every run, including one that failed in its first
+  minute, costs a fresh sign-in.
+
+  Pre-requisite — **the device must be signed in** before the run, on any
+  build signed with the same certificate as `productionNonMinifiedRelease`
+  (a local debug build is). The generator waits for `feed_list` and fails
+  fast if the cold-start path routes Splash → Login instead of
+  Splash → MainShell (see `BaselineProfileGenerator`'s KDoc for the
+  diagnostic message).
+
+  Verified on a phone-shaped window and on an unfolded foldable (two panes,
+  nav rail, comments as a side pane, composer as a dialog). Roughly eleven
+  minutes on a Galaxy Z Fold: five journey iterations, then up to fifteen
+  cold starts for the startup profile.
+
+  A journey step that still fails after one retry **fails the run** and
+  names the step, so a profile that is missing a journey is never written.
+  The per-step timings and the `baseline journey coverage: …` summary are in
+  logcat (in `build/outputs/androidTest-results/connected/nonMinifiedRelease/`).
 
 - **`bench` — the default; validation only.** The deterministic offline
   path (fake repos, fake `SignedIn`, mock feed). No sign-in needed and it
