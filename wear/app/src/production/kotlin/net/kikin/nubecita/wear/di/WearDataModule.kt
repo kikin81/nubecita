@@ -20,6 +20,8 @@ import net.kikin.nubecita.wear.data.WatchDmActionRepository
 import net.kikin.nubecita.wear.data.WatchDmRepository
 import net.kikin.nubecita.wear.data.WatchFeedRepository
 import net.kikin.nubecita.wear.data.WatchPostActionRepository
+import net.kikin.nubecita.wear.data.sync.DataLayerWatchSync
+import net.kikin.nubecita.wear.data.sync.WatchSync
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -47,4 +49,7 @@ internal interface WearDataModule {
 
     @Binds
     fun bindPhoneActionSupport(impl: CapabilityPhoneActionSupport): PhoneActionSupport
+
+    @Binds
+    fun bindWatchSync(impl: DataLayerWatchSync): WatchSync
 }

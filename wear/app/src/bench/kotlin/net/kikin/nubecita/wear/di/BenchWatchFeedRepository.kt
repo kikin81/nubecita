@@ -8,10 +8,13 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.wearcontract.WearFeedKey
 import net.kikin.nubecita.wear.R
+import net.kikin.nubecita.wear.bench.BENCH_ACCOUNT
+import net.kikin.nubecita.wear.bench.BenchScenario
+import net.kikin.nubecita.wear.bench.BenchScenarios
 import net.kikin.nubecita.wear.data.WatchFeedRepository
 import net.kikin.nubecita.wear.data.db.WatchFeedEntity
 import net.kikin.nubecita.wear.data.db.WatchPostEntity
@@ -19,9 +22,10 @@ import java.io.File
 import javax.inject.Inject
 
 /**
- * Bench flavor: a fixed, fictional feed for Play Store screenshots, with no
- * phone or Data Layer. Images ship as raw resources and are copied to files
- * once, because the real store hands the UI file paths.
+ * Bench flavor: a fixed, fictional feed for Play Store screenshots and
+ * journeys, with no phone or Data Layer. Images ship as raw resources and are
+ * copied to files once, because the real store hands the UI file paths.
+ * Whatever was posted from the watch this process leads the Following feed.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -34,14 +38,14 @@ internal class BenchWatchFeedRepository
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
+        private val posted: BenchPostedPosts,
     ) : WatchFeedRepository {
         override fun feeds(accountDid: String): Flow<List<WatchFeedEntity>> =
-            flow {
-                emit(
-                    listOf(
-                        WatchFeedEntity(accountDid, WearFeedKey.FOLLOWING, null, UPDATED_AT),
-                        WatchFeedEntity(accountDid, PHOTOS_KEY, "Morning Photos", UPDATED_AT),
-                    ),
+            BenchScenarios.current.map { scenario ->
+                if (scenario == BenchScenario.NoFeeds) return@map emptyList()
+                listOf(
+                    WatchFeedEntity(accountDid, WearFeedKey.FOLLOWING, null, UPDATED_AT),
+                    WatchFeedEntity(accountDid, PHOTOS_KEY, "Morning Photos", UPDATED_AT),
                 )
             }
 
@@ -49,11 +53,14 @@ internal class BenchWatchFeedRepository
             accountDid: String,
             feedKey: String,
         ): Flow<List<WatchPostEntity>> =
-            flow {
+            posted.posts.map { mine ->
                 val files = images()
-                val posts = if (feedKey == PHOTOS_KEY) photos(files) else following(files)
-                emit(posts.mapIndexed { index, post -> post.copy(accountDid = accountDid, feedKey = feedKey, position = index) })
+                val posts = if (feedKey == PHOTOS_KEY) photos(files) else own(mine) + following(files)
+                posts.mapIndexed { index, post -> post.copy(accountDid = accountDid, feedKey = feedKey, position = index) }
             }
+
+        // Newest first; the id is the post's place in the process, so it is stable as more arrive.
+        private fun own(mine: List<BenchPostedPosts.Posted>) = mine.mapIndexed { index, posted -> post("own$index", "Nubecita", BENCH_ACCOUNT.handle, null, posted.text, 0).copy(createdAtMs = posted.atMs) }.asReversed()
 
         private suspend fun images(): Map<Int, String> =
             withContext(Dispatchers.IO) {

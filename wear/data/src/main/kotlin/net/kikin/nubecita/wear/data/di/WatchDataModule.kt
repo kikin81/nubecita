@@ -17,11 +17,9 @@ import net.kikin.nubecita.wear.data.db.WatchDmActionDao
 import net.kikin.nubecita.wear.data.db.WatchDmDao
 import net.kikin.nubecita.wear.data.db.WatchFeedDao
 import net.kikin.nubecita.wear.data.db.WatchPostActionDao
-import net.kikin.nubecita.wear.data.sync.DataLayerWatchSync
 import net.kikin.nubecita.wear.data.sync.DmSyncObserver
 import net.kikin.nubecita.wear.data.sync.FileWatchImageStore
 import net.kikin.nubecita.wear.data.sync.WatchImageStore
-import net.kikin.nubecita.wear.data.sync.WatchSync
 import javax.inject.Singleton
 
 @Module
@@ -62,15 +60,12 @@ internal interface WatchDataBindsModule {
     fun bindWatchImageStore(impl: FileWatchImageStore): WatchImageStore
 
     @Binds
-    fun bindWatchSync(impl: DataLayerWatchSync): WatchSync
-
-    @Binds
     fun bindWatchActionSender(impl: DataLayerWatchActionSender): WatchActionSender
 
     /** Told when synced DMs change; the Wear app contributes the complication updater. */
     @Multibinds
     fun dmSyncObservers(): Set<DmSyncObserver>
 
-    // WatchFeedRepository, WatchActionRepository, WatchDmRepository and WatchPostActionRepository are bound by the Wear app per flavor: Room in
-    // production, fixtures in bench (Play Store screenshots).
+    // WatchFeedRepository, WatchActionRepository, WatchDmRepository, WatchPostActionRepository and WatchSync are bound by the Wear app per
+    // flavor: Room and the Data Layer in production, fixtures and a no-op in bench (Play Store screenshots, journeys).
 }

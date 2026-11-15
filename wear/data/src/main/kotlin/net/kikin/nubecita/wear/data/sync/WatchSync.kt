@@ -25,9 +25,10 @@ interface WatchSync {
     suspend fun catchUp()
 }
 
-internal class DataLayerWatchSync
+/** Production catch-up over the Data Layer. Bound by the Wear app's production flavor (bench binds a no-op). */
+class DataLayerWatchSync
     @Inject
-    constructor(
+    internal constructor(
         @param:ApplicationContext private val context: Context,
         private val ingester: WatchSyncIngester,
     ) : WatchSync {
