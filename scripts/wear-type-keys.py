@@ -30,9 +30,11 @@ def keys(serial: str) -> dict[str, tuple[str, str]]:
     def walk(node: object) -> None:
         if isinstance(node, dict):
             label = node.get("content-desc") or ""
-            center = node.get("center")
-            if center:
-                x, y = center.strip("[]").split(",")
+            # "[x,y]". A node with anything else is skipped, so a bad dump ends
+            # in the "no key on screen" message below instead of a traceback.
+            parts = [part.strip() for part in (node.get("center") or "").strip("[]").split(",")]
+            if len(parts) == 2 and all(part.isdigit() for part in parts):
+                x, y = parts
                 if len(label) == 1 and label.isalpha():
                     found.setdefault(label.lower(), (x, y))
                 elif label.startswith("Space"):
