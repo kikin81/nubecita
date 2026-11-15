@@ -108,17 +108,23 @@ purpose rather than quietly showing the happy path. The list lives in
 
 In every scenario a new post shows "Posting…" for 10 seconds before it settles.
 
-### Launch actions
+### Launch targets
 
-The complication and the launcher widget open the app with an action, on a new
-and cleared task. To do the same by hand, replace the `-a … -c …` pair above:
+The complication and the launcher widget open the app at a target, on a new and
+cleared task. They send the launcher's own intent with the target in an extra,
+so to do the same by hand add the flags and the extra to the start above:
 
 ```bash
-adb -s emulator-5554 shell am start -n net.kikin.nubecita/net.kikin.nubecita.wear.MainActivity -a net.kikin.nubecita.wear.action.OPEN_FEED -f 0x10008000 --es scenario default
+adb -s emulator-5554 shell am start -n net.kikin.nubecita/net.kikin.nubecita.wear.MainActivity -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -f 0x10008000 --es net.kikin.nubecita.wear.extra.LAUNCH_TARGET feed --es scenario default
 ```
 
-The actions are `OPEN_FEED`, `OPEN_MESSAGES` and `NEW_POST`, all under
-`net.kikin.nubecita.wear.action.`.
+The targets are `feed`, `messages`, `new_post` and `landing`.
+
+Keep the intent launcher-shaped when you add a new way into the app. Android
+compares a launcher start with the intent that created the task, ignoring
+extras. When they differ (another action, a missing category, a data URI) it
+puts a second `MainActivity` on top of the task instead of returning to it
+(`nubecita-z9s4.12`). `LaunchIntentTest` guards this.
 
 ## Driving the watch
 

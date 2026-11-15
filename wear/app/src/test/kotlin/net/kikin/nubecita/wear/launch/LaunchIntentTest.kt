@@ -7,6 +7,7 @@ import androidx.test.core.app.ApplicationProvider
 import net.kikin.nubecita.wear.MainActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -28,17 +29,40 @@ class LaunchIntentTest {
     fun eachTargetOpensMainActivityInAFreshTask() {
         val expected =
             mapOf(
-                WearLaunchTarget.Feed to MainActivity.ACTION_OPEN_FEED,
-                WearLaunchTarget.Messages to MainActivity.ACTION_OPEN_MESSAGES,
-                WearLaunchTarget.NewPost to MainActivity.ACTION_NEW_POST,
+                WearLaunchTarget.Landing to "landing",
+                WearLaunchTarget.Feed to "feed",
+                WearLaunchTarget.Messages to "messages",
+                WearLaunchTarget.NewPost to "new_post",
             )
-        expected.forEach { (target, action) ->
+        expected.forEach { (target, extra) ->
             val intent = shadowOf(launchIntent(context, target)).savedIntent
 
             assertEquals(MainActivity::class.java.name, intent.component?.className)
-            assertEquals(action, intent.action)
+            assertEquals(extra, intent.getStringExtra(EXTRA_LAUNCH_TARGET))
             val freshTask = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             assertEquals("$target flags", freshTask, intent.flags and freshTask)
+        }
+    }
+
+    @Test
+    fun eachTargetRoundTripsThroughItsExtra() {
+        WearLaunchTarget.entries.forEach { target ->
+            val intent = shadowOf(launchIntent(context, target)).savedIntent
+
+            assertEquals(target, launchTargetOf(intent.getStringExtra(EXTRA_LAUNCH_TARGET), intent.action, restoring = false))
+        }
+    }
+
+    @Test
+    fun everyTargetIsShapedLikeTheLauncherIntent() {
+        // Android compares a launcher start with the intent that created the
+        // task. When they differ it puts a second MainActivity on top.
+        val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setClass(context, MainActivity::class.java)
+
+        WearLaunchTarget.entries.forEach { target ->
+            val intent = shadowOf(launchIntent(context, target)).savedIntent
+
+            assertTrue("$target: $intent", intent.filterEquals(launcher))
         }
     }
 
