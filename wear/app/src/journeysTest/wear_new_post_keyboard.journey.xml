@@ -1,0 +1,48 @@
+<journey name="Wear - New Post by Keyboard">
+  <description>
+    Verifies writing a post on the watch: the text is typed on the Wear keyboard, reviewed,
+    changed, posted, shown as "Posting…" at the top of the feed and then stays there as a
+    normal post. Also covers a post that fails and is retried, and a phone that cannot post.
+
+    Run on a round Wear OS emulator with the bench build. Start with the app stopped. Type
+    by tapping the on-screen keys: text injected with "adb shell input text" is shown by the
+    Wear keyboard but never returned to the app (see docs/wear-testing.md). The bench build
+    holds a post for 10 seconds before it settles; "post_fails" makes it fail.
+  </description>
+  <actions>
+    <action>Launch Nubecita on the watch with the bench scenario "default"</action>
+    <action>Tap New post</action>
+    <action>Verify that the system text input screen is shown with the label "New post"</action>
+    <action>Tap the keyboard choice</action>
+    <action>Type "hello watch" by tapping the on-screen keys</action>
+    <action>Verify that the keyboard's text field reads "Hello watch"</action>
+    <action>Tap the keyboard's Send key</action>
+    <action>Verify that a review screen titled "New post" shows the text "Hello watch", the count "11 / 300", and the buttons Change and Post</action>
+    <action>Verify that the clock at the top of the screen does not overlap the title</action>
+    <action>Tap Change</action>
+    <action>Verify that the system text input screen is shown again</action>
+    <action>Tap the keyboard choice, type "second try" by tapping the on-screen keys, and tap the keyboard's Send key</action>
+    <action>Verify that the review screen shows the text "Second try" and the count "10 / 300", and no longer shows "Hello watch"</action>
+    <action>Tap Post</action>
+    <action>Verify that the feed "Following" is shown with "Second try" at the top, marked "Posting…"</action>
+    <action>Wait 12 seconds</action>
+    <action>Verify that "Second try" is still the first post in the feed, now by Nubecita with the time "now" and without "Posting…"</action>
+    <action>Swipe right from the left edge of the screen to go back</action>
+    <action>Verify that the landing screen is shown, not the review screen</action>
+    <action>Tap Home</action>
+    <action>Verify that "Second try" is still the first post in the feed</action>
+    <action>Launch Nubecita on the watch with the bench scenario "post_fails"</action>
+    <action>Tap New post, tap the keyboard choice, type "will fail" by tapping the on-screen keys, tap the keyboard's Send key, and tap Post</action>
+    <action>Verify that the feed shows "Will fail" at the top, marked "Posting…"</action>
+    <action>Wait 12 seconds</action>
+    <action>Verify that "Will fail" shows "Not posted — tap to retry"</action>
+    <action>Tap "Will fail"</action>
+    <action>Verify that "Will fail" shows "Posting…" again</action>
+    <action>Wait 12 seconds</action>
+    <action>Verify that "Will fail" shows "Not posted — tap to retry" and appears only once in the feed</action>
+    <action>Launch Nubecita on the watch with the bench scenario "no_posting"</action>
+    <action>Verify that the landing screen shows New post as unavailable</action>
+    <action>Tap New post</action>
+    <action>Verify that the landing screen is still shown and no text input screen opened</action>
+  </actions>
+</journey>

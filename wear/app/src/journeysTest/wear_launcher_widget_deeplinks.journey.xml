@@ -1,0 +1,48 @@
+<journey name="Wear - Launcher Widget Deep Links">
+  <description>
+    Verifies the launcher widget (shown as a tile on watches without widgets): it shows the
+    unread message count and its three targets open Messages, Home and New post. Each
+    target starts a fresh back stack over the landing screen, so going back lands on the
+    landing screen and then leaves the app, wherever the app was before.
+
+    Run on a round Wear OS emulator with the bench build. Start with the app stopped and
+    the Nubecita widget added to the watch; docs/wear-testing.md has the commands that add
+    and show it. A bench scenario stays for the life of the process, so the widget keeps
+    showing it after the app is closed with back.
+  </description>
+  <actions>
+    <action>Launch Nubecita on the watch with the bench scenario "default", then go back until the app closes</action>
+    <action>Show the Nubecita widget</action>
+    <action>Verify that the widget shows three targets: Messages with "2 new", Home and New post</action>
+    <action>Tap Home on the widget</action>
+    <action>Verify that Nubecita opens on the feed "Following"</action>
+    <action>Swipe right from the left edge of the screen to go back</action>
+    <action>Verify that the landing screen is shown</action>
+    <action>Swipe right from the left edge of the screen to go back</action>
+    <action>Verify that the widget is shown again</action>
+    <action>Tap Messages on the widget</action>
+    <action>Verify that Nubecita opens on the conversation list titled "Messages"</action>
+    <action>Tap the conversation with Ana Ruiz</action>
+    <action>Verify that the thread with Ana Ruiz is shown</action>
+    <action>Show the Nubecita widget</action>
+    <action>Tap Home on the widget</action>
+    <action>Verify that Nubecita shows the feed "Following", not the thread with Ana Ruiz</action>
+    <action>Swipe right from the left edge of the screen to go back</action>
+    <action>Verify that the landing screen is shown, not the thread or the conversation list</action>
+    <action>Swipe right from the left edge of the screen to go back</action>
+    <action>Verify that Nubecita is no longer on screen</action>
+    <action>Show the Nubecita widget</action>
+    <action>Tap New post on the widget</action>
+    <action>Verify that the system text input screen is shown with the label "New post"</action>
+    <action>Swipe right from the left edge of the screen to go back</action>
+    <action>Verify that the landing screen is shown</action>
+    <action>Launch Nubecita on the watch with the bench scenario "no_conversations", then go back until the app closes</action>
+    <action>Show the Nubecita widget</action>
+    <action>Verify that the widget shows "No new messages" and no count</action>
+    <action>Launch Nubecita on the watch with the bench scenario "signed_out", then go back until the app closes</action>
+    <action>Show the Nubecita widget</action>
+    <action>Verify that the widget reads "Sign in on your phone" and does not offer Messages, Home or New post</action>
+    <action>Tap the widget</action>
+    <action>Verify that Nubecita opens on "Sign in on your phone" with an "Open on phone" button, and not on a feed</action>
+  </actions>
+</journey>

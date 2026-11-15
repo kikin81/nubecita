@@ -1,0 +1,30 @@
+<journey name="Wear - Launch and Landing">
+  <description>
+    Verifies that the watch app opens on its landing screen and that each of the three
+    entry points (Home, Messages, New post) opens its destination and comes back to the
+    landing screen, and that going back from the landing screen leaves the app.
+
+    Run on a round Wear OS emulator with the bench build (no phone, fictional data).
+    Start with the app stopped. Commands for every step are in docs/wear-testing.md.
+  </description>
+  <actions>
+    <action>Launch Nubecita on the watch with the bench scenario "default"</action>
+    <action>Verify that the landing screen is shown with the title "Nubecita" and three buttons: Home, Messages and New post</action>
+    <action>Verify that the Messages button shows an unread count of 2</action>
+    <action>Verify that the clock at the top of the screen is visible and does not overlap the title</action>
+    <action>Tap Home</action>
+    <action>Verify that the feed is shown with the header "Following" and a post by Ana Ruiz</action>
+    <action>Swipe right from the left edge of the screen to go back</action>
+    <action>Verify that the landing screen is shown</action>
+    <action>Tap Messages</action>
+    <action>Verify that the conversation list is shown with the title "Messages" and a conversation with Ana Ruiz</action>
+    <action>Swipe right from the left edge of the screen to go back</action>
+    <action>Verify that the landing screen is shown</action>
+    <action>Tap New post</action>
+    <action>Verify that the system text input screen is shown with the label "New post" and the voice and keyboard choices</action>
+    <action>Swipe right from the left edge of the screen to go back</action>
+    <action>Verify that the landing screen is shown</action>
+    <action>Swipe right from the left edge of the screen to go back</action>
+    <action>Verify that Nubecita is no longer on screen</action>
+  </actions>
+</journey>

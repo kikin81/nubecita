@@ -1,0 +1,41 @@
+<journey name="Wear - Gate and Empty States">
+  <description>
+    Verifies every state in which the watch has nothing to show yet: no phone app, an
+    iPhone, signed out on the phone, a watch app too old for the phone, no feed synced,
+    messages never synced and no conversations. Each must explain itself and offer the one
+    action that helps, with the whole message readable inside the round screen.
+
+    Run on a round Wear OS emulator with the bench build. Each state is a bench scenario
+    passed when the app is launched (see docs/wear-testing.md). A scenario stays for the
+    life of the process, so stop the app before each launch.
+  </description>
+  <actions>
+    <action>Launch Nubecita on the watch with the bench scenario "phone_app_missing"</action>
+    <action>Verify that the screen reads "Get Nubecita on your phone" with an explanation and an "Install on phone" button, and that no landing screen is shown</action>
+    <action>Verify that the title, the explanation and the button are all readable, with nothing cut by the edge of the round screen or covered by the clock, scrolling if the screen scrolls</action>
+    <action>Launch Nubecita on the watch with the bench scenario "iphone"</action>
+    <action>Verify that the screen reads "Needs an Android phone" with an explanation and no button</action>
+    <action>Launch Nubecita on the watch with the bench scenario "signed_out"</action>
+    <action>Verify that the screen reads "Sign in on your phone" with an explanation and an "Open on phone" button</action>
+    <action>Tap "Open on phone"</action>
+    <action>Verify that a confirmation that the request was sent to the phone is shown and then closes by itself, leaving the "Sign in on your phone" screen</action>
+    <action>Launch Nubecita on the watch with the bench scenario "update_required"</action>
+    <action>Verify that the screen reads "Update Nubecita" with an explanation that the watch app must be updated</action>
+    <action>Launch Nubecita on the watch with the bench scenario "no_feeds"</action>
+    <action>Verify that the landing screen is shown</action>
+    <action>Tap Home</action>
+    <action>Verify that the screen reads "No feed yet" with an explanation, and shows no feed header and no posts</action>
+    <action>Launch Nubecita on the watch with the bench scenario "dms_not_synced"</action>
+    <action>Verify that the landing screen shows Messages without an unread count and as unavailable</action>
+    <action>Tap Messages</action>
+    <action>Verify that the landing screen is still shown</action>
+    <action>Launch Nubecita on the watch with the bench scenario "dms_not_synced" and the launch action that opens Messages</action>
+    <action>Verify that the screen titled "Messages" explains that messages show up after the phone checks for new ones</action>
+    <action>Launch Nubecita on the watch with the bench scenario "no_conversations"</action>
+    <action>Verify that the landing screen shows Messages without an unread count</action>
+    <action>Tap Messages</action>
+    <action>Verify that the screen titled "Messages" reads "No conversations yet."</action>
+    <action>Launch Nubecita on the watch with the bench scenario "default"</action>
+    <action>Verify that the landing screen is shown with Home, Messages with an unread count of 2, and New post</action>
+  </actions>
+</journey>

@@ -1,0 +1,56 @@
+<journey name="Wear - Swipe Dismiss Back Stack">
+  <description>
+    Verifies the back stack rules of the watch app. Swipe-to-dismiss always pops exactly one
+    screen, a screen the user finished with (the reply picker, a review screen) is never
+    shown again on the way back, and the feed and thread keep their scroll position under
+    the screen that was on top of them.
+
+    Run on a round Wear OS emulator with the bench build. Start with the app stopped. Type
+    by tapping the on-screen keys (see docs/wear-testing.md).
+  </description>
+  <actions>
+    <action>Launch Nubecita on the watch with the bench scenario "default"</action>
+    <action>Tap Home</action>
+    <action>Scroll down with the rotary crown until the post by Cleo Marsh that begins "The lake was perfectly still" is in the middle of the screen, and record which post is in the middle</action>
+    <action>Tap the post by Cleo Marsh</action>
+    <action>Verify that the post by Cleo Marsh is shown on its own screen</action>
+    <action>Scroll down to the Like, Repost and Bookmark controls and tap Repost</action>
+    <action>Verify that a dialog asks "Repost this?"</action>
+    <action>Swipe right from the left edge of the screen</action>
+    <action>Verify that the dialog is gone and the post by Cleo Marsh is still shown</action>
+    <action>Swipe right from the left edge of the screen</action>
+    <action>Verify that the feed is shown with the recorded post still in the middle of the screen</action>
+    <action>Scroll up to the top of the feed and tap the feed header</action>
+    <action>Verify that the list titled "Feeds" is shown</action>
+    <action>Swipe right from the left edge of the screen</action>
+    <action>Verify that the feed header still reads "Following"</action>
+    <action>Swipe right from the left edge of the screen</action>
+    <action>Verify that the landing screen is shown</action>
+    <action>Tap Messages and tap the conversation "Weekend Trip"</action>
+    <action>Verify that the thread is shown with its newest message, "I'll bring snacks."</action>
+    <action>Tap Reply</action>
+    <action>Verify that the reply screen with quick replies is shown</action>
+    <action>Swipe right from the left edge of the screen</action>
+    <action>Verify that the thread is shown with "I'll bring snacks." still its newest message</action>
+    <action>Tap Reply and tap "Speak or type"</action>
+    <action>Verify that the system text input screen is shown</action>
+    <action>Swipe right from the left edge of the screen</action>
+    <action>Verify that the reply screen with quick replies is shown</action>
+    <action>Tap "Speak or type", tap the keyboard choice, type "ok" by tapping the on-screen keys, and tap the keyboard's Send key</action>
+    <action>Verify that the review screen titled "Your reply" shows the text "Ok"</action>
+    <action>Swipe right from the left edge of the screen</action>
+    <action>Verify that the reply screen with quick replies is shown and no message was sent</action>
+    <action>Tap "Thanks!"</action>
+    <action>Verify that the thread is shown with the bubble "Thanks!" after "I'll bring snacks."</action>
+    <action>Swipe right from the left edge of the screen</action>
+    <action>Verify that the conversation list is shown</action>
+    <action>Swipe right from the left edge of the screen</action>
+    <action>Verify that the landing screen is shown</action>
+    <action>Tap New post, tap the keyboard choice, type "back test" by tapping the on-screen keys, and tap the keyboard's Send key</action>
+    <action>Verify that the review screen titled "New post" is shown</action>
+    <action>Swipe right from the left edge of the screen</action>
+    <action>Verify that the landing screen is shown and nothing was posted</action>
+    <action>Swipe right from the left edge of the screen</action>
+    <action>Verify that Nubecita is no longer on screen</action>
+  </actions>
+</journey>
