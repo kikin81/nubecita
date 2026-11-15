@@ -2,15 +2,17 @@
 
 Three epics, each landed as one `gh stack` (one PR per group, in order): **A** `nubecita-z9s4` (groups 1–11), **B** `nubecita-8x3y` (groups 12–17), **C** `nubecita-8ynp` (groups 18–21). Audit evidence with file and line is in each bd issue. Every group also meets the definition of done in `docs/wear-testing.md` (written in group 2): flavored lint and unit tests, a bench build installed to the emulator by serial, baselines from the `update-baselines` bot, and the journeys for the touched area.
 
+Epic A's first two groups landed as standalone PRs to `main` instead (#1206, then the journeys PR), by the maintainer's choice on 2026-11-14; both are `chore`/`test` and cut no release. Decide per group whether the rest stack.
+
 ## 1. Bench scenarios (nubecita-z9s4.1)
 
-- [ ] 1.1 Add a bench-only scenario holder set from a `MainActivity` launch extra and read by the `Bench*` fakes (session, phone status, capabilities, feeds, DMs, post and DM outcomes, action delay); verify a new JVM test parses every scenario name and rejects an unknown one, and that `src/production` has no reference to it (`git grep`).
-- [ ] 1.2 Keep a posted text at the top of the bench Following feed (pending for at least 10 s, then posted) and stop bench from calling the real Data Layer on resume; verify on the emulator that each scenario shows its screen via `am start … --es scenario <name>` and that `WearMarketingScreenshotJourney` still compiles (`:wear:app:compileBenchDebugAndroidTestKotlin`).
+- [x] 1.1 Add a bench-only scenario holder set from a `MainActivity` launch extra and read by the `Bench*` fakes (session, phone status, capabilities, feeds, DMs, post and DM outcomes, action delay); verify a new JVM test parses every scenario name and rejects an unknown one, and that `src/production` has no reference to it (`git grep`).
+- [x] 1.2 Keep a posted text at the top of the bench Following feed (pending for at least 10 s, then posted) and stop bench from calling the real Data Layer on resume; verify on the emulator that each scenario shows its screen via `am start … --es scenario <name>` and that `WearMarketingScreenshotJourney` still compiles (`:wear:app:compileBenchDebugAndroidTestKotlin`).
 
 ## 2. Journeys and definition of done (nubecita-z9s4.2)
 
-- [ ] 2.1 Add `wear/app/src/journeysTest/` with the nine journeys (launch and landing, feed browse, post actions, messages and quick reply, new post by keyboard, widget deep links, swipe-dismiss back stack, screen-off state retention, gate states); verify each is evaluated on `Wear_OS_Large_Round` with the bench build and its result file is attached to the PR, with any failing step filed as a bug.
-- [ ] 2.2 Write `docs/wear-testing.md` (device pass commands, AVD recipe for small round Wear OS 7 and a Wear OS 6 image, launch actions and scenarios, key-tap text entry, definition of done) and link it from `CLAUDE.md`; verify every documented command runs as written against the emulator serial.
+- [x] 2.1 Add `wear/app/src/journeysTest/` with the nine journeys (launch and landing, feed browse, post actions, messages and quick reply, new post by keyboard, widget deep links, swipe-dismiss back stack, screen-off state retention, gate states); verify each is evaluated on `Wear_OS_Large_Round` with the bench build and its result file is attached to the PR, with any failing step filed as a bug.
+- [x] 2.2 Write `docs/wear-testing.md` (device pass commands, AVD recipe for small round Wear OS 7 and a Wear OS 6 image, launch actions and scenarios, key-tap text entry, definition of done) and link it from `CLAUDE.md`; verify every documented command runs as written against the emulator serial.
 
 ## 3. CI and dependency guardrails (nubecita-z9s4.3)
 

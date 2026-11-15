@@ -417,6 +417,10 @@ Regeneration rewrites **every** baseline in the module, and on macOS most come b
 
 Feature modules that ship UI-touching tasks MUST include `@Preview` annotations and screenshot tests alongside unit tests. Add `run-instrumented` label to the PR if the task also needs instrumented tests.
 
+#### Wear OS
+
+Any change under `wear/`, `core/wear-contract/` or `core/wear-sync/` follows `docs/wear-testing.md`: the device pass on a Wear emulator with the `bench` build (install by serial, never a Gradle `install…` task), the bench scenarios that reach every watch state without a phone (`--es scenario <name>`), the journeys in `wear/app/src/journeysTest/`, and the definition of done for a Wear PR. Two traps it covers: `adb shell input text` never reaches the app on a watch (use `scripts/wear-type-keys.py`), and a test launch must be launcher-shaped (`-a android.intent.action.MAIN -c android.intent.category.LAUNCHER`) or reopening from the launcher stacks a second activity.
+
 ### CI jobs
 
 | Job | Trigger | What it runs |

@@ -1,0 +1,54 @@
+<journey name="Wear - Messages and Quick Reply">
+  <description>
+    Verifies reading conversations and answering from the watch: the conversation list, a
+    thread that opens on its newest message, a canned quick reply, a typed reply that is
+    reviewed before it is sent, a reaction, a slow send that shows "Sending…" and a failed
+    send that can be retried.
+
+    Run on a round Wear OS emulator with the bench build. Start with the app stopped. Type
+    by tapping the on-screen keys: text injected with "adb shell input text" is shown by the
+    Wear keyboard but never returned to the app (see docs/wear-testing.md). The
+    "slow_actions" scenario holds a send for 15 seconds; "dm_fails" fails every send after
+    2 seconds.
+  </description>
+  <actions>
+    <action>Launch Nubecita on the watch with the bench scenario "default"</action>
+    <action>Tap Messages</action>
+    <action>Verify that the list is titled "Messages" and its first conversation is Ana Ruiz, marked unread, with the preview "Perfect, I'll bring coffee."</action>
+    <action>Verify that the clock at the top of the screen does not overlap the title</action>
+    <action>Scroll down with the rotary crown until the conversation "Weekend Trip" is in the middle of the screen</action>
+    <action>Verify that its preview reads "You: I'll bring snacks."</action>
+    <action>Scroll up to the top of the list and tap the conversation with Ana Ruiz</action>
+    <action>Verify that the thread shows the newest message, "Perfect, I'll bring coffee.", fully visible, and that a Reply button is visible</action>
+    <action>Tap Reply</action>
+    <action>Verify that the reply screen offers "Speak or type" and the quick replies "On my way" and "Sounds good"</action>
+    <action>Tap "Sounds good"</action>
+    <action>Verify that the thread is shown again and that the bubble "Sounds good" is fully visible with the status "Sent"</action>
+    <action>Verify that the Reply button is visible below the new bubble without scrolling</action>
+    <action>Tap the message "Perfect, I'll bring coffee."</action>
+    <action>Verify that a choice of reaction emoji is shown</action>
+    <action>Tap the first emoji</action>
+    <action>Verify that the thread is shown again and the reaction appears on the message "Perfect, I'll bring coffee."</action>
+    <action>Scroll down to the Reply button and tap it, then tap "Speak or type"</action>
+    <action>Verify that the system text input screen is shown with the label "Your reply"</action>
+    <action>Tap the keyboard choice, type "see you" by tapping the on-screen keys, and tap the keyboard's Send key</action>
+    <action>Verify that a review screen titled "Your reply" shows the text "See you", a character count, and the buttons Change and Send</action>
+    <action>Tap Send</action>
+    <action>Verify that the thread is shown again with the bubble "See you" and the status "Sent"</action>
+    <action>Swipe right from the left edge of the screen to go back</action>
+    <action>Verify that the conversation list is shown, not the reply screen or the review screen</action>
+    <action>Launch Nubecita on the watch with the bench scenario "slow_actions"</action>
+    <action>Tap Messages, tap the conversation with Ana Ruiz, tap Reply and tap "On my way"</action>
+    <action>Verify that the bubble "On my way" shows the status "Sending…"</action>
+    <action>Wait 15 seconds</action>
+    <action>Verify that the bubble "On my way" shows the status "Sent"</action>
+    <action>Launch Nubecita on the watch with the bench scenario "dm_fails"</action>
+    <action>Tap Messages, tap the conversation with Ana Ruiz, tap Reply and tap "Running late"</action>
+    <action>Wait 3 seconds</action>
+    <action>Verify that the bubble "Running late" shows "Not sent — tap to retry"</action>
+    <action>Tap the bubble "Running late"</action>
+    <action>Verify that the bubble shows "Sending…"</action>
+    <action>Wait 3 seconds</action>
+    <action>Verify that the bubble shows "Not sent — tap to retry" again and appears only once in the thread</action>
+  </actions>
+</journey>

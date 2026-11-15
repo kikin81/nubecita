@@ -1,0 +1,54 @@
+<journey name="Wear - State Retention Across Screen Off">
+  <description>
+    Verifies that the watch app is exactly where the user left it after the screen turns
+    off and on, after leaving to the watch face and coming back, and after the system kills
+    the app's process in the background: same screen, same scroll position, same typed text.
+
+    The last steps open the app from the launcher widget and then from the launcher, which
+    must come back to the same screen too, not start a second copy of the app on top.
+
+    Run on a round Wear OS emulator with the bench build. Start with the app stopped and
+    the Nubecita widget added to the watch. docs/wear-testing.md has the commands for
+    screen off and on, the watch face, opening from the launcher, killing the background
+    process and showing the widget. Type by tapping the on-screen keys.
+  </description>
+  <actions>
+    <action>Launch Nubecita on the watch with the bench scenario "default"</action>
+    <action>Tap Home</action>
+    <action>Scroll down with the rotary crown until the post by Cleo Marsh that begins "The lake was perfectly still" is in the middle of the screen</action>
+    <action>Turn the screen off, wait 5 seconds, and turn the screen on</action>
+    <action>Verify that the feed is shown with the post by Cleo Marsh still in the middle of the screen</action>
+    <action>Tap the post by Cleo Marsh and scroll down to the Like, Repost and Bookmark controls</action>
+    <action>Tap Bookmark</action>
+    <action>Verify that Bookmark is off</action>
+    <action>Turn the screen off, wait 5 seconds, and turn the screen on</action>
+    <action>Verify that the post by Cleo Marsh is shown, scrolled to its controls, with Bookmark off</action>
+    <action>Go to the watch face, then open Nubecita again from the launcher</action>
+    <action>Verify that the post by Cleo Marsh is shown, not the landing screen</action>
+    <action>Swipe right from the left edge of the screen to go back</action>
+    <action>Verify that the feed is shown with the post by Cleo Marsh in the middle of the screen</action>
+    <action>Swipe right from the left edge of the screen to go back</action>
+    <action>Tap Messages and tap the conversation "Weekend Trip"</action>
+    <action>Verify that the thread is shown with its newest message, "I'll bring snacks."</action>
+    <action>Turn the screen off, wait 5 seconds, and turn the screen on</action>
+    <action>Verify that the thread is still shown with its newest message, "I'll bring snacks."</action>
+    <action>Swipe right from the left edge of the screen twice to return to the landing screen</action>
+    <action>Tap New post, tap the keyboard choice, type "keep me" by tapping the on-screen keys, and tap the keyboard's Send key</action>
+    <action>Verify that the review screen shows the text "Keep me"</action>
+    <action>Turn the screen off, wait 5 seconds, and turn the screen on</action>
+    <action>Verify that the review screen still shows the text "Keep me" with the buttons Change and Post</action>
+    <action>Go to the watch face, kill the app's background process, then open Nubecita again from the launcher</action>
+    <action>Verify that the review screen still shows the text "Keep me"</action>
+    <action>Swipe right from the left edge of the screen to go back</action>
+    <action>Verify that the landing screen is shown</action>
+    <action>Swipe right from the left edge of the screen to close the app, then show the Nubecita widget</action>
+    <action>Tap Home on the widget and then tap the first post, by Ana Ruiz</action>
+    <action>Verify that the post by Ana Ruiz is shown on its own screen</action>
+    <action>Go to the watch face, then open Nubecita again from the launcher</action>
+    <action>Verify that the post by Ana Ruiz is shown, not the landing screen</action>
+    <action>Swipe right from the left edge of the screen to go back</action>
+    <action>Verify that the feed "Following" is shown</action>
+    <action>Swipe right from the left edge of the screen twice</action>
+    <action>Verify that Nubecita is no longer on screen</action>
+  </actions>
+</journey>

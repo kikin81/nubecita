@@ -1,0 +1,40 @@
+<journey name="Wear - Feed Browse">
+  <description>
+    Verifies that the feed can be read from top to bottom with the rotary crown, that every
+    kind of card (text, image, video, repost, long name) is fully readable inside the round
+    screen, and that switching to another feed and back keeps the choice.
+
+    Run on a round Wear OS emulator with the bench build. Start with the app stopped.
+    Scroll with the rotary crown one notch at a time; commands are in docs/wear-testing.md.
+  </description>
+  <actions>
+    <action>Launch Nubecita on the watch with the bench scenario "default"</action>
+    <action>Tap Home</action>
+    <action>Verify that the feed header reads "Following" and the first card shows Ana Ruiz, a relative time, the start of the text "Golden hour from the pier tonight" and an image</action>
+    <action>Verify that the clock at the top of the screen does not overlap the feed header</action>
+    <action>Scroll down one notch at a time with the rotary crown until the post by Cleo Marsh that begins "The lake was perfectly still" is in the middle of the screen</action>
+    <action>Verify that the card in the middle of the screen shows its author, its time and its text without being cut by the edge of the round screen</action>
+    <action>Scroll down one notch at a time until the post that begins "Anyone else read on their watch now?" is in the middle of the screen</action>
+    <action>Verify that the card shows a line that begins "Reposted by @ben" above the author Ana Ruiz</action>
+    <action>Scroll down one notch at a time until the post that begins "City lights from the train home" is in the middle of the screen</action>
+    <action>Verify that the card shows a visible mark that its media is a video, not only an image</action>
+    <action>Scroll down until the feed does not move any further</action>
+    <action>Verify that the last card, by "depths of wikipedia with a long display name", is fully inside the screen with its text and image readable and nothing cut by the bottom edge</action>
+    <action>Scroll up until the feed does not move any further</action>
+    <action>Verify that the feed header "Following" is visible again</action>
+    <action>Tap the feed header</action>
+    <action>Verify that a list titled "Feeds" shows Following and Morning Photos, with Following marked as the current feed</action>
+    <action>Tap Morning Photos</action>
+    <action>Verify that the feed header reads "Morning Photos" and the first card is by Cleo Marsh with the text "First light over the hills."</action>
+    <action>Tap the first card</action>
+    <action>Verify that the post by Cleo Marsh is shown on its own screen</action>
+    <action>Swipe right from the left edge of the screen to go back</action>
+    <action>Verify that the feed header still reads "Morning Photos"</action>
+    <action>Swipe right from the left edge of the screen to go back</action>
+    <action>Verify that the landing screen is shown</action>
+    <action>Tap Home</action>
+    <action>Verify that the feed header still reads "Morning Photos"</action>
+    <action>Tap the feed header and then tap Following</action>
+    <action>Verify that the feed header reads "Following" and the first card is by Ana Ruiz</action>
+  </actions>
+</journey>

@@ -1,0 +1,53 @@
+<journey name="Wear - Post Actions">
+  <description>
+    Verifies like, repost and bookmark on a post: each control shows its state, the counts
+    follow, repost asks first, the state survives leaving and reopening the post, a slow
+    action shows as pending and ignores a second tap, and the controls are not offered when
+    the phone cannot run actions. Also covers "Open on phone".
+
+    Run on a round Wear OS emulator with the bench build. Start with the app stopped. The
+    first post in the bench feed (Ana Ruiz) starts liked with 128 likes, not reposted and not
+    bookmarked. The "slow_actions" scenario holds every action for 15 seconds.
+  </description>
+  <actions>
+    <action>Launch Nubecita on the watch with the bench scenario "default"</action>
+    <action>Tap Home and then tap the first post, by Ana Ruiz</action>
+    <action>Verify that the post screen shows Ana Ruiz, how long ago it was posted, the full text "Golden hour from the pier tonight. Worth the cold hands." and its image</action>
+    <action>Verify that the clock at the top of the screen does not overlap the author line</action>
+    <action>Scroll down with the rotary crown until the Like, Repost and Bookmark controls are visible</action>
+    <action>Verify that the counts read 128 likes, that Like is on, and that Repost and Bookmark are off</action>
+    <action>Tap Like</action>
+    <action>Verify that Like is off and the counts read 127 likes</action>
+    <action>Tap Like</action>
+    <action>Verify that Like is on and the counts read 128 likes</action>
+    <action>Tap Bookmark</action>
+    <action>Verify that Bookmark is on</action>
+    <action>Tap Repost</action>
+    <action>Verify that a dialog asks "Repost this?" with a way to dismiss and a way to confirm</action>
+    <action>Swipe right from the left edge of the screen to dismiss the dialog</action>
+    <action>Verify that the post screen is shown, Repost is still off and the counts read 0 reposts</action>
+    <action>Tap Repost and confirm in the dialog</action>
+    <action>Verify that Repost is on and the counts read 1 repost</action>
+    <action>Swipe right from the left edge of the screen to go back</action>
+    <action>Verify that the feed is shown</action>
+    <action>Tap the first post, by Ana Ruiz, and scroll down to the controls</action>
+    <action>Verify that Like, Repost and Bookmark are all on</action>
+    <action>Tap Repost</action>
+    <action>Verify that Repost turns off without a dialog and the counts read 0 reposts</action>
+    <action>Tap Bookmark</action>
+    <action>Verify that Bookmark is off</action>
+    <action>Scroll down until the "Open on phone" button is fully visible and tap it</action>
+    <action>Verify that a confirmation that the post was sent to the phone is shown and then closes by itself, leaving the post screen</action>
+    <action>Launch Nubecita on the watch with the bench scenario "slow_actions"</action>
+    <action>Tap Home, tap the second post, by Ben Okafor, and scroll down to the controls</action>
+    <action>Tap Like</action>
+    <action>Verify that Like shows as on at once</action>
+    <action>Tap Like again within 5 seconds</action>
+    <action>Verify that Like is still on</action>
+    <action>Wait 15 seconds</action>
+    <action>Verify that Like is on and the counts read 43 likes</action>
+    <action>Launch Nubecita on the watch with the bench scenario "no_actions"</action>
+    <action>Tap Home, tap the first post, by Ana Ruiz, and scroll down to the end of the post</action>
+    <action>Verify that the counts and the "Open on phone" button are shown and that Like, Repost and Bookmark are not offered</action>
+  </actions>
+</journey>
