@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import dagger.hilt.android.AndroidEntryPoint
+import net.kikin.nubecita.wear.launch.EXTRA_LAUNCH_TARGET
 import net.kikin.nubecita.wear.launch.launchTargetOf
 
 @AndroidEntryPoint
@@ -15,18 +16,17 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         // Only on a fresh launch: a recreated activity restores its own back stack.
-        val launchTarget = launchTargetOf(intent?.action, restoring = savedInstanceState != null)
+        val launchTarget = launchTargetOf(intent?.getStringExtra(EXTRA_LAUNCH_TARGET), intent?.action, restoring = savedInstanceState != null)
         setContent { NubecitaWearApp(launchTarget = launchTarget) }
     }
 
     companion object {
-        /** Opens straight to the conversation list (the unread-DMs complication's and launcher widget's tap). */
+        // Launch actions of earlier versions. Nothing sends them any more: the
+        // complication and the launcher widget now name the target in an extra
+        // (see launchIntent). They are still read, because a PendingIntent
+        // handed out before an update keeps working after it.
         const val ACTION_OPEN_MESSAGES = "net.kikin.nubecita.wear.action.OPEN_MESSAGES"
-
-        /** Opens straight to the feed (the launcher widget's Home). */
         const val ACTION_OPEN_FEED = "net.kikin.nubecita.wear.action.OPEN_FEED"
-
-        /** Opens straight into the New post text input (the launcher widget's New post). */
         const val ACTION_NEW_POST = "net.kikin.nubecita.wear.action.NEW_POST"
     }
 }
