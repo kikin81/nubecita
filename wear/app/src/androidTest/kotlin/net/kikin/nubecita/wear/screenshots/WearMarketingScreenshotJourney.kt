@@ -94,14 +94,15 @@ class WearMarketingScreenshotJourney {
         val tile = ComponentName(context, LauncherWidgetService::class.java).flattenToString()
         // Drop any copy a previous run left behind, so the tile is added fresh at a known index.
         debugSurface("remove-tile --ecn component $tile")
-        val added = debugSurface("add-tile --ecn component $tile")
-        val index =
-            INDEX
-                .find(added)
-                ?.groupValues
-                ?.get(1)
-                ?.toInt() ?: error("add-tile failed: $added")
         try {
+            // Inside the try, so the tile is removed again even if its index can't be read.
+            val added = debugSurface("add-tile --ecn component $tile")
+            val index =
+                INDEX
+                    .find(added)
+                    ?.groupValues
+                    ?.get(1)
+                    ?.toInt() ?: error("add-tile failed: $added")
             showTile(index)
             // The full-screen tile with the bench's unread count. A partial-height Wear OS 7
             // watch shows the short widget card instead, which has no tile container: use a
