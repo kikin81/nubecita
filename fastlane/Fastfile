@@ -692,5 +692,9 @@ platform :android do
     Dir.glob(File.join(shots, "*.png")).each do |path|
       File.rename(path, path.sub(/_\d{6,}\.png\z/, ".png"))
     end
+    # screengrab's local preview page (gitignored) links the timestamped
+    # names; point it at the renamed files so it still shows them.
+    preview = File.expand_path("metadata/android/screenshots.html", __dir__)
+    File.write(preview, File.read(preview).gsub(%r{(wearScreenshots/[^"/]+?)_\d{6,}\.png}, '\1.png')) if File.exist?(preview)
   end
 end
