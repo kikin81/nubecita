@@ -2,6 +2,7 @@ package net.kikin.nubecita.wear.screenshots
 
 import android.content.ComponentName
 import android.os.SystemClock
+import android.util.Log
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -117,8 +118,12 @@ class WearMarketingScreenshotJourney {
         } finally {
             // Leave the watch's tiles as they were. Best effort: a failure here must not
             // mask the assertion that failed above.
-            debugSurface("remove-tile --ecn component $tile")
-            goToWatchFace()
+            try {
+                debugSurface("remove-tile --ecn component $tile")
+                goToWatchFace()
+            } catch (e: Exception) {
+                Log.w(TAG, "Couldn't remove the launcher tile after capturing it", e)
+            }
         }
     }
 
@@ -172,6 +177,7 @@ class WearMarketingScreenshotJourney {
         private const val SWIPE_STEPS = 40
         private const val SETTLE_MS = 1_000L
         private const val SYSUI = "com.google.android.clockwork.sysui"
+        private const val TAG = "WearScreenshotJourney"
 
         /** The bench repository's unread DM count, which the tile shows. */
         private const val BENCH_UNREAD = 2
