@@ -13,7 +13,6 @@ import net.kikin.nubecita.wear.MainActivity
 import net.kikin.nubecita.wear.R
 import net.kikin.nubecita.wear.widget.LauncherWidgetService
 import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
 import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.ClassRule
@@ -115,7 +114,8 @@ class WearMarketingScreenshotJourney {
             SystemClock.sleep(SETTLE_MS)
             Screengrab.screenshot("06_tile")
         } finally {
-            // Leave the watch's tiles as they were.
+            // Leave the watch's tiles as they were. Best effort: a failure here must not
+            // mask the assertion that failed above.
             debugSurface("remove-tile --ecn component $tile")
             goToWatchFace()
         }
@@ -128,7 +128,7 @@ class WearMarketingScreenshotJourney {
      */
     private fun showTile(index: Int) {
         if (DEBUG_SURFACE_OK in debugSurface("show-tile --ei index $index")) return
-        goToWatchFace()
+        assertTrue("watch face never showed", goToWatchFace())
         repeat(index + 1) {
             device.swipe(device.displayWidth * 9 / 10, device.displayHeight / 2, device.displayWidth / 10, device.displayHeight / 2, SWIPE_STEPS)
             device.waitForIdle()
@@ -137,16 +137,16 @@ class WearMarketingScreenshotJourney {
 
     /**
      * Home toggles between the watch face and the app launcher, so press it
-     * until the watch face shows with no tile over it.
+     * until the watch face shows with no tile over it. False if it never does.
      */
-    private fun goToWatchFace() {
+    private fun goToWatchFace(): Boolean {
         repeat(3) {
             device.pressHome()
             device.waitForIdle()
             SystemClock.sleep(SETTLE_MS)
-            if (device.hasObject(By.res(SYSUI, "watchface_overlay_container")) && !device.hasObject(By.res(SYSUI, "carousel_tile_container"))) return
+            if (device.hasObject(By.res(SYSUI, "watchface_overlay_container")) && !device.hasObject(By.res(SYSUI, "carousel_tile_container"))) return true
         }
-        fail("watch face never showed")
+        return false
     }
 
     /** Sends a Wear debug-surface operation as the shell user and returns `am`'s output. */
