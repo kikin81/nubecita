@@ -659,6 +659,17 @@ platform :android do
     # framing step: Play rejects framed / masked Wear screenshots (WO-G5), so
     # the raw 1:1 captures in images/wearScreenshots/ are the listing images
     # (and are committed; see .gitignore).
+    #
+    # Six captures: 01_feed … 05_reply inside the app, then 06_tile, the
+    # launcher tile (WO-G5 recommends one when the app offers Tiles). The
+    # system tile host draws that one, not the app, so the journey adds the
+    # tile with the Wear debug-surface broadcast (add-tile), swipes to it
+    # (Wear OS 7 has no show-tile), captures the host's screen and removes the
+    # tile again, leaving the watch's tiles as they were. It shows the bench's
+    # 2 unread DMs. Use a watch that shows
+    # full-screen tiles (the Wear OS Large Round emulator, 454x454): on a
+    # partial-height Wear OS 7 watch the host shows the short widget card
+    # instead, and the tile step fails rather than capture it.
     gradle(task: ":wear:app:assembleBenchDebug")
     gradle(task: ":wear:app:assembleBenchDebugAndroidTest")
     capture_android_screenshots(
