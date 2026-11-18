@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794901720442,
+  "lastUpdate": 1794987361617,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -3901,6 +3901,70 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 542,
             "range": "+/- 2%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "7cf39f0ad7284f6b8f4b88ae569795566b15d98c",
+          "message": "docs(changelog): call the Wear tile \"tarjeta\" in the es-419 notes (#1211)",
+          "timestamp": "2026-11-16T19:43:36Z",
+          "url": "https://github.com/kikin81/nubecita/commit/7cf39f0ad7284f6b8f4b88ae569795566b15d98c"
+        },
+        "date": 1794987358540,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 112,
+            "range": "+/- 7.5%",
+            "unit": "frames"
+          },
+          {
+            "name": "PostCommentsSheetBenchmark.dragAndScrollCommentsSheetOverVideoPlayback / frameCount",
+            "value": 346,
+            "range": "+/- 1.4%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 937.962,
+            "range": "+/- 4.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 875.924,
+            "range": "+/- 6.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 758.263,
+            "range": "+/- 19.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 777.968,
+            "range": "+/- 10.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 903,
+            "range": "+/- 0.7%",
             "unit": "frames"
           }
         ]
