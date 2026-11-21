@@ -4,7 +4,7 @@ package net.kikin.nubecita.wear.widget
 
 import android.annotation.SuppressLint
 import android.content.Context
-import androidx.compose.remote.creation.compose.action.pendingIntentAction
+import androidx.compose.remote.creation.compose.action.rememberPendingIntentAction
 import androidx.compose.remote.creation.compose.capture.RemoteImageVector
 import androidx.compose.remote.creation.compose.capture.vectorResource
 import androidx.compose.remote.creation.compose.layout.RemoteAlignment
@@ -23,10 +23,11 @@ import androidx.compose.remote.creation.compose.modifier.padding
 import androidx.compose.remote.creation.compose.modifier.size
 import androidx.compose.remote.creation.compose.state.rc
 import androidx.compose.remote.creation.compose.state.rdp
+import androidx.compose.remote.creation.compose.state.rf
 import androidx.compose.remote.creation.compose.state.rs
+import androidx.compose.remote.creation.compose.text.RemoteTextOverflow
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.glance.wear.GlanceWearWidget
 import androidx.glance.wear.WearWidgetBrush
 import androidx.glance.wear.WearWidgetData
@@ -167,14 +168,14 @@ internal fun LauncherWidgetContent(
             // Wear OS 7 emulator's host clipped the pills' outer edges (the weights
             // didn't leave room for the gaps); with padding they render whole.
             if (!model.signedIn) {
-                SignInCard(labels.signIn, RemoteModifier.fillMaxWidth().weight(1f))
+                SignInCard(labels.signIn, RemoteModifier.fillMaxWidth().weight(1f.rf))
                 return@RemoteColumn
             }
-            RemoteRow(modifier = RemoteModifier.fillMaxWidth().weight(1f)) {
-                MessagesCard(model, labels, RemoteModifier.weight(MESSAGES_WEIGHT).fillMaxHeight())
-                RemoteColumn(modifier = RemoteModifier.weight(1f).fillMaxHeight().padding(start = GAP.rdp)) {
-                    Pill(R.drawable.ic_home, labels.home, WearLaunchTarget.Feed, RemoteModifier.weight(1f).fillMaxWidth().padding(bottom = (GAP / 2).rdp))
-                    Pill(R.drawable.ic_edit, labels.newPost, WearLaunchTarget.NewPost, RemoteModifier.weight(1f).fillMaxWidth().padding(top = (GAP / 2).rdp))
+            RemoteRow(modifier = RemoteModifier.fillMaxWidth().weight(1f.rf)) {
+                MessagesCard(model, labels, RemoteModifier.weight(MESSAGES_WEIGHT.rf).fillMaxHeight())
+                RemoteColumn(modifier = RemoteModifier.weight(1f.rf).fillMaxHeight().padding(start = GAP.rdp)) {
+                    Pill(R.drawable.ic_home, labels.home, WearLaunchTarget.Feed, RemoteModifier.weight(1f.rf).fillMaxWidth().padding(bottom = (GAP / 2).rdp))
+                    Pill(R.drawable.ic_edit, labels.newPost, WearLaunchTarget.NewPost, RemoteModifier.weight(1f.rf).fillMaxWidth().padding(top = (GAP / 2).rdp))
                 }
             }
         }
@@ -198,7 +199,7 @@ private fun MessagesCard(
             modifier
                 .clip(RemoteMaterialTheme.shapes.large)
                 .background(colors.primaryContainer)
-                .clickable(pendingIntentAction { ctx -> launchIntent(ctx, WearLaunchTarget.Messages) }),
+                .clickable(rememberPendingIntentAction { ctx -> launchIntent(ctx, WearLaunchTarget.Messages) }),
         contentAlignment = RemoteAlignment.CenterStart,
     ) {
         // Inset the text, not the card, so the card's colour fills its whole slot.
@@ -215,7 +216,7 @@ private fun MessagesCard(
                 style = if (model.hasUnread) RemoteMaterialTheme.typography.displaySmall else RemoteMaterialTheme.typography.labelSmall,
                 // "No new messages" wraps; a count is one line.
                 maxLines = if (model.hasUnread) 1 else 3,
-                overflow = TextOverflow.Ellipsis,
+                overflow = RemoteTextOverflow.Ellipsis,
             )
             labels.messagesCaption?.let { caption ->
                 RemoteText(
@@ -223,7 +224,7 @@ private fun MessagesCard(
                     color = colors.onPrimaryContainer,
                     style = RemoteMaterialTheme.typography.labelSmall,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    overflow = RemoteTextOverflow.Ellipsis,
                 )
             }
         }
@@ -243,7 +244,7 @@ private fun SignInCard(
             modifier
                 .clip(RemoteMaterialTheme.shapes.large)
                 .background(colors.primaryContainer)
-                .clickable(pendingIntentAction { ctx -> launchIntent(ctx, WearLaunchTarget.Landing) }),
+                .clickable(rememberPendingIntentAction { ctx -> launchIntent(ctx, WearLaunchTarget.Landing) }),
         contentAlignment = RemoteAlignment.Center,
     ) {
         RemoteText(
@@ -252,7 +253,7 @@ private fun SignInCard(
             color = colors.onPrimaryContainer,
             style = RemoteMaterialTheme.typography.titleSmall,
             maxLines = 3,
-            overflow = TextOverflow.Ellipsis,
+            overflow = RemoteTextOverflow.Ellipsis,
         )
     }
 }
@@ -272,7 +273,7 @@ private fun Pill(
             modifier
                 .clip(RemoteMaterialTheme.shapes.large)
                 .background(colors.primary)
-                .clickable(pendingIntentAction { ctx -> launchIntent(ctx, target) }),
+                .clickable(rememberPendingIntentAction { ctx -> launchIntent(ctx, target) }),
         contentAlignment = RemoteAlignment.Center,
     ) {
         RemoteIcon(

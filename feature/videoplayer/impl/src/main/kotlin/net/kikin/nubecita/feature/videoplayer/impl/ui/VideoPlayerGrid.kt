@@ -1,8 +1,7 @@
-@file:OptIn(ExperimentalGridApi::class, ExperimentalMediaQueryApi::class)
+@file:OptIn(ExperimentalMediaQueryApi::class)
 
 package net.kikin.nubecita.feature.videoplayer.impl.ui
 
-import androidx.compose.foundation.layout.ExperimentalGridApi
 import androidx.compose.foundation.layout.GridConfigurationScope
 import androidx.compose.foundation.layout.GridTrackSize
 import androidx.compose.runtime.Composable
@@ -10,7 +9,6 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.ComposeUiFlags
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.ExperimentalMediaQueryApi
-import androidx.compose.ui.UiMediaScope
 import androidx.compose.ui.mediaQuery
 import androidx.compose.ui.unit.dp
 
@@ -146,4 +144,4 @@ internal fun isTabletopPosture(): Boolean {
  */
 @Composable
 @ReadOnlyComposable
-internal fun queryTabletopPosture(): Boolean = mediaQuery { windowPosture == UiMediaScope.Posture.Tabletop }
+internal fun queryTabletopPosture(): Boolean = mediaQuery { windowPosture.isTabletop }

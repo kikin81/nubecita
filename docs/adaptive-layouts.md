@@ -185,7 +185,7 @@ without a second layout composable.
   a recomposition. An `if (tabletop) A() else B()` branch would dispose and
   recreate the `PlayerSurface`; this never does. Verified on device: same
   SurfaceFlinger layer, no activity lifecycle events, position keeps advancing.
-- Posture comes from `mediaQuery { windowPosture == UiMediaScope.Posture.Tabletop }`,
+- Posture comes from `mediaQuery { windowPosture.isTabletop }`,
   read **in composition** by the stateful screen (`isTabletopPosture()`) and
   passed down as a `Boolean`. Never call `mediaQuery` inside the
   `Grid(config = { ... })` block, and keep it out of stateless `*Content`
@@ -226,10 +226,11 @@ position and the surface identity.
 
 ## Versioning note
 
-`Grid` and `mediaQuery` are **experimental in Compose 1.12** (`ExperimentalGridApi`,
-`ExperimentalMediaQueryApi`, and the `ComposeUiFlags` opt-in above). On a Compose
-BOM bump, re-check `VideoPlayerGrid.kt` against the in-artifact `Grid.kt` /
-`MediaQuery.kt`, drop the opt-ins and the flag once they are no longer needed,
+`Grid` is stable as of **Compose 1.13**; `mediaQuery` is still experimental there
+(`ExperimentalMediaQueryApi`, plus the `ComposeUiFlags` opt-in above). 1.13 also replaced
+`UiMediaScope.Posture` with `UiMediaScope.WindowPosture`, a list of folds with `isTabletop` /
+`isFlat`. On a Compose BOM bump, re-check `VideoPlayerGrid.kt` against the in-artifact
+`Grid.kt` / `MediaQuery.kt`, drop the opt-in and the flag once they are no longer needed,
 and re-run the tabletop journey.
 
 
