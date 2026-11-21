@@ -47,6 +47,15 @@ interface ProfileRepository {
     suspend fun fetchHeader(actor: String): Result<ProfileHeaderWithViewer>
 
     /**
+     * The last fetched header for [actor] (a DID or handle) from the local
+     * cache, mapped with the viewer's current moderation prefs, or null when
+     * nothing is cached. No network. Callers render it, then [fetchHeader].
+     * Defaults to null so implementations without a cache (the bench fake)
+     * simply always load from their source.
+     */
+    suspend fun cachedHeader(actor: String): ProfileHeaderWithViewer? = null
+
+    /**
      * Resolve a profile's verifier DIDs to display-ready [VerifierUi]s via
      * `app.bsky.actor.getProfiles`, pairing each resolved profile with its
      * ref's verification date. DIDs the appview doesn't return (deleted /
