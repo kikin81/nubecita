@@ -175,4 +175,17 @@
     <string name="profile_stats_following">%1$s Following</string>
     <string name="profile_stats_followers_click_label">See followers</string>
     <string name="profile_stats_following_click_label">See who they follow</string>
+    <string name="edit_profile_pronouns_label">Pronouns</string>
+    <string name="edit_profile_pronouns_placeholder">Add your pronouns</string>
+    <string name="edit_profile_pronouns_edit_action">Edit pronouns</string>
+    <string name="edit_pronouns_title">Edit pronouns</string>
+    <string name="edit_pronouns_helper">Your pronouns show next to your handle on your profile.</string>
+    <string name="edit_pronouns_done">Done</string>
+    <string name="edit_pronouns_remove">Remove pronouns</string>
+    <!-- Pronoun quick picks, localized: the saved value is exactly what was picked. -->
+    <string-array name="edit_profile_pronoun_presets">
+        <item>she/her</item>
+        <item>he/him</item>
+        <item>they/them</item>
+    </string-array>
 </resources>
