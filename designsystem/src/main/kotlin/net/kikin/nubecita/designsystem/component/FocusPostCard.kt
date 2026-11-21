@@ -119,7 +119,8 @@ fun FocusPostCard(
         )
         Spacer(Modifier.height(12.dp))
         FocusTimestamp(post = post, zoneId = zoneId)
-        val counts = post.stats.focusCounts()
+        // Remembered: the card recomposes on every like / repost tap animation.
+        val counts = remember(post.stats) { post.stats.focusCounts() }
         if (counts.isNotEmpty()) {
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
             FocusCountsRow(counts)
@@ -144,7 +145,9 @@ private fun FocusHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            NubecitaAvatar(model = post.author.avatarUrl, contentDescription = post.author.displayName)
+            // Decorative here: the name is right beside it in the same tap target,
+            // so a description would make TalkBack read the name twice.
+            NubecitaAvatar(model = post.author.avatarUrl, contentDescription = null)
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
