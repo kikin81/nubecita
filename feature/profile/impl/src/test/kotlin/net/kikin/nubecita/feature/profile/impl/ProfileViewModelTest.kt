@@ -123,6 +123,50 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun `Edit and Follow are inert while the header is only from cache`() =
+        runTest(mainDispatcher.dispatcher) {
+            // A cached header can be stale: editing would write stale fields
+            // back, and following could duplicate or orphan a follow record.
+            val own =
+                FakeProfileRepository().apply {
+                    cachedHeaderResult = ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)
+                    headerGate = kotlinx.coroutines.CompletableDeferred()
+                }
+            val ownVm = newVm(repo = own)
+            advanceUntilIdle()
+            assertTrue(ownVm.uiState.value.isShowingCachedHeader)
+            ownVm.effects.test {
+                ownVm.handleEvent(ProfileEvent.EditTapped)
+                advanceUntilIdle()
+                expectNoEvents()
+            }
+
+            val other =
+                FakeProfileRepository().apply {
+                    cachedHeaderResult = ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.NotFollowing(isPending = false))
+                    headerGate = kotlinx.coroutines.CompletableDeferred()
+                }
+            val otherVm = newVm(repo = other, route = Profile(handle = "alice.bsky.social"))
+            advanceUntilIdle()
+            otherVm.handleEvent(ProfileEvent.FollowTapped)
+            advanceUntilIdle()
+            assertEquals(0, other.followCalls.get(), "no follow write from a cached relationship")
+        }
+
+    @Test
+    fun `a fresh header clears the cached flag`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository().apply {
+                    cachedHeaderResult = ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)
+                }
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+
+            assertEquals(false, vm.uiState.value.isShowingCachedHeader)
+        }
+
+    @Test
     fun `a transient failure after a cached header keeps the header and emits ShowError`() =
         runTest(mainDispatcher.dispatcher) {
             val repo =

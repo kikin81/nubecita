@@ -103,6 +103,23 @@ internal class DefaultProfileRepositoryHeaderCacheTest {
             assertNull(newRepo { okJson(PROFILE_JSON) }.cachedHeader("nobody.test"))
         }
 
+    @Test
+    fun `a cache write failure does not fail the fetch`() =
+        runTest {
+            cache.failWrites = true
+            val repo = newRepo { okJson(PROFILE_JSON) }
+
+            assertTrue(repo.fetchHeader("alice.test").isSuccess, "the cache is a speed layer; its failure must not fail the load")
+        }
+
+    @Test
+    fun `a cache read failure reads as a miss`() =
+        runTest {
+            cache.failReads = true
+
+            assertNull(newRepo { okJson(PROFILE_JSON) }.cachedHeader("alice.test"))
+        }
+
     // ---------- harness ----------
 
     private val cachedAlice =
@@ -116,10 +133,13 @@ internal class DefaultProfileRepositoryHeaderCacheTest {
     private class FakeProfileCache : ProfileCache {
         val stored = mutableMapOf<String, ProfileViewDetailed>()
         val removed = mutableListOf<String>()
+        var failWrites = false
+        var failReads = false
 
-        override suspend fun read(actor: String): ProfileViewDetailed? = stored.values.firstOrNull { it.did.raw == actor || it.handle.raw == actor }
+        override suspend fun read(actor: String): ProfileViewDetailed? = if (failReads) throw IllegalStateException("disk I/O") else stored.values.firstOrNull { it.did.raw == actor || it.handle.raw == actor }
 
         override suspend fun write(profile: ProfileViewDetailed) {
+            if (failWrites) throw IllegalStateException("disk full")
             stored[profile.did.raw] = profile
         }
 

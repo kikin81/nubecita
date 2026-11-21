@@ -250,6 +250,9 @@ internal class ProfileViewModel
                 ProfileEvent.FollowTapped -> onFollowTapped()
                 ProfileEvent.HeroMuteTapped -> onHeroMuteTapped()
                 ProfileEvent.EditTapped -> {
+                    // Never edit from a cached header: the form would save its
+                    // stale fields back over newer ones.
+                    if (uiState.value.isShowingCachedHeader) return
                     // Only open the editor once the header has loaded. Navigating
                     // with a null header would open an EMPTY form, and a Save
                     // would write those blanks back, clearing the real name/bio.
@@ -414,17 +417,22 @@ internal class ProfileViewModel
                 // Room; the fetch below always follows and replaces it. Only on
                 // a first load — a refresh already has a header up.
                 if (uiState.value.header == null) {
-                    repository.cachedHeader(actor)?.let { cached -> applyHeader(cached) }
+                    repository.cachedHeader(actor)?.let { cached ->
+                        applyHeader(cached)
+                        setState { copy(isShowingCachedHeader = true) }
+                    }
                 }
                 repository
                     .fetchHeader(actor)
-                    .onSuccess { result -> applyHeader(result) }
-                    .onFailure { throwable ->
+                    .onSuccess { result ->
+                        applyHeader(result)
+                        setState { copy(isShowingCachedHeader = false) }
+                    }.onFailure { throwable ->
                         val error = throwable.toProfileError()
                         when {
                             // The profile is gone: never leave it up from cache.
                             throwable.isDefinitiveProfileGone() ->
-                                setState { copy(header = null, headerError = error) }
+                                setState { copy(header = null, headerError = error, isShowingCachedHeader = false) }
                             // Transient failure over a header already on screen
                             // (cached or a previous load): keep it, say so.
                             uiState.value.header != null -> Unit
@@ -864,6 +872,9 @@ internal class ProfileViewModel
          *   propagates to the next frame.
          */
         private fun onFollowTapped() {
+            // A cached relationship may be stale: following could duplicate a
+            // record, unfollowing could delete the wrong one.
+            if (uiState.value.isShowingCachedHeader) return
             val current = uiState.value.viewerRelationship
             if (current.isPending) return
             when (current) {

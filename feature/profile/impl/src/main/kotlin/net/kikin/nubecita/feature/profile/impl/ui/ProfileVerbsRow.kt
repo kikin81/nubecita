@@ -57,6 +57,8 @@ internal fun ProfileVerbsRow(
     onMute: () -> Unit,
     onOverflowAction: (StubbedAction) -> Unit,
     modifier: Modifier = Modifier,
+    /** False while the header is only from cache: Edit / Follow can't act on stale data. */
+    actionsEnabled: Boolean = true,
 ) {
     Row(
         modifier =
@@ -69,6 +71,7 @@ internal fun ProfileVerbsRow(
         if (ownProfile) {
             FilledTonalButton(
                 onClick = onEdit,
+                enabled = actionsEnabled,
                 modifier = Modifier.weight(1f),
             ) {
                 Text(stringResource(R.string.profile_action_edit))
@@ -77,6 +80,7 @@ internal fun ProfileVerbsRow(
             FollowVerbButton(
                 viewerRelationship = viewerRelationship,
                 onFollow = onFollow,
+                enabled = actionsEnabled,
                 modifier = Modifier.weight(1f),
             )
             if (canMessage) {
@@ -101,10 +105,11 @@ internal fun ProfileVerbsRow(
 private fun RowScope.FollowVerbButton(
     viewerRelationship: ViewerRelationship,
     onFollow: () -> Unit,
+    enabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val isFollowing = viewerRelationship is ViewerRelationship.Following
-    val enabled = !viewerRelationship.isPending
+    val enabled = enabled && !viewerRelationship.isPending
     if (isFollowing) {
         FilledTonalButton(
             onClick = onFollow,
