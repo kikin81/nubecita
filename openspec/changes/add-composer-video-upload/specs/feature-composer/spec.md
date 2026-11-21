@@ -199,7 +199,3 @@ An attached video SHALL likewise take the single media slot, and MAY combine wit
 #### Scenario: A video may coexist with a quote
 - **WHEN** the composer has a quote attached and the user attaches a video
 - **THEN** both are kept, and the post is published as record-with-media
-
-#### Scenario: A video may coexist with a quote
-- **WHEN** the composer has a quote attached and the user attaches a video
-- **THEN** both are kept, and the post is published as record-with-media
