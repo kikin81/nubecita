@@ -17,6 +17,7 @@ import net.kikin.nubecita.core.posting.OutgoingPost
 import net.kikin.nubecita.core.posting.OutgoingPostStatus
 import net.kikin.nubecita.core.posting.OutgoingPostStore
 import net.kikin.nubecita.core.posting.PostDraft
+import net.kikin.nubecita.core.postinteractions.FollowRepository
 import net.kikin.nubecita.core.postinteractions.InteractionEffect
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
@@ -28,6 +29,7 @@ import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ThreadItem
 import net.kikin.nubecita.data.models.ViewerStateUi
+import net.kikin.nubecita.designsystem.component.FocusFollowState
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.search.api.Hashtag
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -43,6 +45,133 @@ import kotlin.time.Instant
 internal class PostDetailViewModelTest {
     @RegisterExtension
     val mainDispatcher = MainDispatcherExtension()
+
+    @Test
+    fun `follow toggle is hidden while the thread shows from cache`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeRepo(producer = { kotlinx.coroutines.awaitCancellation() }, cached = focusBy())
+            val vm = newVm(repo)
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            assertEquals(FocusFollowState.Hidden, vm.uiState.value.focusFollow.state)
+        }
+
+    @Test
+    fun `follow toggle shows Follow for an author the viewer does not follow`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(FakeRepo(results = listOf(Result.success(focusBy()))))
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            assertEquals(FocusFollowState.NotFollowing, vm.uiState.value.focusFollow.state)
+        }
+
+    @Test
+    fun `follow toggle is hidden for an already-followed author, an own post, and a blocked author`() =
+        runTest(mainDispatcher.dispatcher) {
+            for (items in listOf(focusBy(followUri = "at://f"), focusBy(isOwnPost = true), focusBy(blocked = true))) {
+                val vm = newVm(FakeRepo(results = listOf(Result.success(items))))
+                vm.handleEvent(PostDetailEvent.Load)
+                advanceUntilIdle()
+                assertEquals(FocusFollowState.Hidden, vm.uiState.value.focusFollow.state)
+            }
+        }
+
+    @Test
+    fun `tapping Follow flips optimistically, then stores the follow uri`() =
+        runTest(mainDispatcher.dispatcher) {
+            val follows = FakeFollowRepository().apply { gate = kotlinx.coroutines.CompletableDeferred() }
+            val vm = newVm(FakeRepo(results = listOf(Result.success(focusBy()))), followRepository = follows)
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            vm.handleEvent(PostDetailEvent.FocusFollowTapped)
+            advanceUntilIdle()
+            assertEquals(FocusFollowState.Following, vm.uiState.value.focusFollow.state)
+            assertTrue(vm.uiState.value.focusFollow.isPending)
+
+            follows.gate?.complete(Unit)
+            advanceUntilIdle()
+            assertEquals(listOf("did:plc:author"), follows.followed)
+            assertEquals("at://did:plc:me/app.bsky.graph.follow/new", vm.uiState.value.focusFollow.followUri)
+            assertEquals(false, vm.uiState.value.focusFollow.isPending)
+        }
+
+    @Test
+    fun `a failed follow rolls back and emits ShowError`() =
+        runTest(mainDispatcher.dispatcher) {
+            val follows = FakeFollowRepository(followResult = Result.failure(java.io.IOException("offline")))
+            val vm = newVm(FakeRepo(results = listOf(Result.success(focusBy()))), followRepository = follows)
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.FocusFollowTapped)
+                advanceUntilIdle()
+                assertTrue(awaitItem() is PostDetailEffect.ShowError)
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(FocusFollowState.NotFollowing, vm.uiState.value.focusFollow.state)
+        }
+
+    @Test
+    fun `a tap while a follow is pending is ignored`() =
+        runTest(mainDispatcher.dispatcher) {
+            val follows = FakeFollowRepository().apply { gate = kotlinx.coroutines.CompletableDeferred() }
+            val vm = newVm(FakeRepo(results = listOf(Result.success(focusBy()))), followRepository = follows)
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            vm.handleEvent(PostDetailEvent.FocusFollowTapped)
+            advanceUntilIdle()
+            vm.handleEvent(PostDetailEvent.FocusFollowTapped)
+            advanceUntilIdle()
+
+            assertEquals(1, follows.followed.size)
+            assertTrue(follows.unfollowed.isEmpty())
+        }
+
+    @Test
+    fun `tapping Following unfollows`() =
+        runTest(mainDispatcher.dispatcher) {
+            val follows = FakeFollowRepository()
+            val vm = newVm(FakeRepo(results = listOf(Result.success(focusBy()))), followRepository = follows)
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+            vm.handleEvent(PostDetailEvent.FocusFollowTapped)
+            advanceUntilIdle()
+
+            vm.handleEvent(PostDetailEvent.FocusFollowTapped)
+            advanceUntilIdle()
+
+            assertEquals(listOf("at://did:plc:me/app.bsky.graph.follow/new"), follows.unfollowed)
+            assertEquals(FocusFollowState.NotFollowing, vm.uiState.value.focusFollow.state)
+        }
+
+    @Test
+    fun `after an in-session follow a refresh keeps the toggle visible as Following`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm =
+                newVm(
+                    FakeRepo(
+                        results =
+                            listOf(
+                                Result.success(focusBy()),
+                                Result.success(focusBy(followUri = "at://did:plc:me/app.bsky.graph.follow/new")),
+                            ),
+                    ),
+                )
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+            vm.handleEvent(PostDetailEvent.FocusFollowTapped)
+            advanceUntilIdle()
+
+            vm.handleEvent(PostDetailEvent.Refresh)
+            advanceUntilIdle()
+
+            assertEquals(FocusFollowState.Following, vm.uiState.value.focusFollow.state)
+        }
 
     @Test
     fun `Load renders the cached thread, then replaces it with the fresh one`() =
@@ -1156,6 +1285,7 @@ internal class PostDetailViewModelTest {
         muteRepository: MuteRepository = FakeMuteRepository(),
         postInteractionsCache: PostInteractionsCache = FakePostInteractionsCache(),
         outgoingPostStore: OutgoingPostStore = FakeOutgoingPostStore(),
+        followRepository: FollowRepository = FakeFollowRepository(),
     ): PostDetailViewModel =
         PostDetailViewModel(
             route = PostDetailRoute(postUri = focusUri),
@@ -1164,6 +1294,7 @@ internal class PostDetailViewModelTest {
             handler = handler,
             muteRepository = muteRepository,
             outgoingPostStore = outgoingPostStore,
+            followRepository = followRepository,
             // The ViewModel only exposes the store to the screen; nothing here
             // reads it, so a relaxed mock is the whole contract.
             translations = mockk(relaxed = true),
@@ -1208,6 +1339,43 @@ internal class PostDetailViewModelTest {
             viewer = ViewerStateUi(canViewerReply = canViewerReply, isAuthorMutedByViewer = isAuthorMutedByViewer),
             repostedBy = null,
         )
+
+    private class FakeFollowRepository(
+        var followResult: Result<String> = Result.success("at://did:plc:me/app.bsky.graph.follow/new"),
+        var unfollowResult: Result<Unit> = Result.success(Unit),
+    ) : FollowRepository {
+        var gate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+        val followed = mutableListOf<String>()
+        val unfollowed = mutableListOf<String>()
+
+        override suspend fun follow(subjectDid: String): Result<String> {
+            followed += subjectDid
+            gate?.await()
+            return followResult
+        }
+
+        override suspend fun unfollow(followUri: String): Result<Unit> {
+            unfollowed += followUri
+            gate?.await()
+            return unfollowResult
+        }
+    }
+
+    private fun focusBy(
+        followUri: String? = null,
+        isOwnPost: Boolean = false,
+        blocked: Boolean = false,
+    ): ImmutableList<ThreadItem> {
+        val base = samplePost("at://focus", authorDid = "did:plc:author")
+        return persistentListOf(
+            ThreadItem.Focus(
+                base.copy(
+                    author = base.author.copy(viewerFollowUri = followUri),
+                    viewer = base.viewer.copy(isOwnPost = isOwnPost, isAuthorBlockedByViewer = blocked),
+                ),
+            ),
+        )
+    }
 
     private class FakeRepo(
         results: List<Result<ImmutableList<ThreadItem>>> = emptyList(),

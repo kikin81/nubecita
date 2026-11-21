@@ -10,6 +10,7 @@ import net.kikin.nubecita.core.common.mvi.UiState
 import net.kikin.nubecita.data.models.OutgoingPostUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ThreadItem
+import net.kikin.nubecita.designsystem.component.FocusFollowState
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 
 /**
@@ -45,7 +46,23 @@ internal data class PostDetailState(
      * that must not act on stale data — the focus Follow toggle — stays off.
      */
     val isShowingCache: Boolean = false,
+    /** The focused post's Follow toggle. Decided only by fresh (network) data. */
+    val focusFollow: FocusFollowUi = FocusFollowUi(),
 ) : UiState
+
+/**
+ * The focus Follow toggle: what it shows, the viewer's follow-record URI (to
+ * unfollow), whether a write is in flight, and whether the viewer followed
+ * from this screen — which keeps the toggle up as "Following" across
+ * refreshes instead of disappearing mid-read.
+ */
+@Immutable
+internal data class FocusFollowUi(
+    val state: FocusFollowState = FocusFollowState.Hidden,
+    val followUri: String? = null,
+    val isPending: Boolean = false,
+    val followedInSession: Boolean = false,
+)
 
 /**
  * The focused post once the thread has loaded, or `null` before a focus row
@@ -148,6 +165,9 @@ internal sealed interface PostDetailEvent : UiEvent {
 
     /** Pull-to-refresh; re-fetches the thread for the same focus URI. */
     data object Refresh : PostDetailEvent
+
+    /** The focus header's Follow / Following toggle was tapped. */
+    data object FocusFollowTapped : PostDetailEvent
 
     /** Re-run the initial load after a [PostDetailLoadStatus.InitialError]. */
     data object Retry : PostDetailEvent

@@ -53,8 +53,9 @@ enum class FocusFollowState { Hidden, NotFollowing, Following }
 /**
  * The focused post at the top of a post-detail thread.
  *
- * No container: it sits on the screen canvas with a single 16dp gutter so the
- * body and media get the full width. Emphasis comes from layout and type
+ * No container: it sits on the screen canvas with a single 20dp gutter — the
+ * same inset as the [PostCard]s above and below it, so avatars line up down
+ * the thread — and the body and media get the full width. Emphasis comes from layout and type
  * rather than a card — a two-line header (name, then `@handle · pronouns`),
  * a body one step larger than [PostCard]'s, the absolute date and time, and a
  * counts row — followed by the same action row every [PostCard] uses.
@@ -86,7 +87,7 @@ fun FocusPostCard(
     onToggleTranslation: () -> Unit = {},
     zoneId: ZoneId = ZoneId.systemDefault(),
 ) {
-    Column(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+    Column(modifier = modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) {
         FocusHeader(post = post, followState = followState, onFollowToggle = onFollowToggle, callbacks = callbacks)
         Spacer(Modifier.height(12.dp))
         val shown = translation as? PostTranslationUi.Shown
