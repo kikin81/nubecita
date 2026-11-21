@@ -444,6 +444,8 @@ internal class ProfileViewModel
         }
 
         private fun applyHeader(result: ProfileHeaderWithViewer) {
+            val previousRef = uiState.value.header?.pinnedPost
+            val replacingCached = uiState.value.isShowingCachedHeader
             setState {
                 copy(
                     header = result.header,
@@ -451,7 +453,18 @@ internal class ProfileViewModel
                         if (ownProfile) ViewerRelationship.Self else result.viewerRelationship,
                 )
             }
-            resolvePinnedPost(result.header.pinnedPost)
+            // The fresh header replacing a cached one usually points at the same
+            // pinned post: don't cancel and refetch a resolve that's loaded or in
+            // flight. A failed resolve (nothing loaded, nothing running) still
+            // retries, and an ordinary refresh still refetches.
+            val ref = result.header.pinnedPost
+            val sameRefSettled =
+                replacingCached &&
+                    ref != null &&
+                    ref == previousRef &&
+                    !uiState.value.ownProfile &&
+                    (uiState.value.pinnedPost?.id == ref.uri || pinnedPostResolveJob?.isActive == true)
+            if (!sameRefSettled) resolvePinnedPost(ref)
         }
 
         /**

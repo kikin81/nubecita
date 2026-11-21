@@ -2762,6 +2762,40 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun pinnedPost_cachedThenFreshHeaderWithTheSameRef_resolvesOnce() =
+        runTest(mainDispatcher.dispatcher) {
+            // The cached header starts the resolve; a fresh header pointing at the
+            // same pinned post must not cancel and restart it.
+            val pinned = samplePostUi(id = "at://did:plc:alice/app.bsky.feed.post/pinned", cid = "bafypinned")
+            val ref = PinnedPostRef(uri = pinned.id, cid = pinned.cid)
+            val calls =
+                java.util.concurrent.atomic
+                    .AtomicInteger(0)
+            val postRepo =
+                mockk<PostRepository> {
+                    coEvery { getPost(pinned.id) } coAnswers {
+                        calls.incrementAndGet()
+                        Result.success(pinned)
+                    }
+                }
+            val repo =
+                headerWithPinned(ref).apply {
+                    cachedHeaderResult = ProfileHeaderWithViewer(SAMPLE_HEADER.copy(pinnedPost = ref), ViewerRelationship.None)
+                    headerGate = kotlinx.coroutines.CompletableDeferred()
+                }
+
+            val vm = newVm(repo = repo, route = Profile(handle = "alice.bsky.social"), postRepository = postRepo)
+            advanceUntilIdle()
+            assertEquals(pinned, vm.uiState.value.pinnedPost, "the cached header resolves the pinned post")
+
+            repo.headerGate?.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals(1, calls.get(), "the same ref from the fresh header must not refetch")
+            assertEquals(pinned, vm.uiState.value.pinnedPost)
+        }
+
+    @Test
     fun pinnedPostRef_danglingOrDeleted_leavesPinnedNull() =
         runTest(mainDispatcher.dispatcher) {
             // getPost fails (post deleted / not found) — the pinned slot is omitted, not a crash.
