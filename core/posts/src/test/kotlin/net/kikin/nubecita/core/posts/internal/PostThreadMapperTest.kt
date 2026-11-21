@@ -19,6 +19,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import net.kikin.nubecita.core.database.model.ThreadSnapshotKind
 import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.data.models.ThreadItem
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -305,6 +306,62 @@ internal class PostThreadMapperTest {
         assertEquals(2, items.size)
         assertTrue(items[0] is ThreadItem.Focus)
         assertTrue(items[1] is ThreadItem.Reply, "a hard-filtered reply must stay in the thread")
+    }
+
+    @Test
+    fun `raw entries carry kind, uri and depth in thread order`() {
+        val thread =
+            threadViewPost(
+                uri = "at://focus",
+                text = "focus",
+                parent = threadViewPost(uri = "at://parent", text = "parent"),
+                replies =
+                    listOf(
+                        threadViewPost(
+                            uri = "at://r1",
+                            text = "r1",
+                            replies = listOf(threadViewPost(uri = "at://r1c1", text = "r1c1")),
+                        ),
+                        notFoundPost(uri = "at://gone"),
+                    ),
+            )
+
+        val raw = thread.toRawThreadEntries()
+
+        assertEquals(
+            listOf(
+                Triple(ThreadSnapshotKind.ANCESTOR, "at://parent", 0),
+                Triple(ThreadSnapshotKind.FOCUS, "at://focus", 0),
+                Triple(ThreadSnapshotKind.REPLY, "at://r1", 1),
+                Triple(ThreadSnapshotKind.REPLY, "at://r1c1", 2),
+                Triple(ThreadSnapshotKind.NOT_FOUND, "at://gone", 1),
+            ),
+            raw.map { Triple(it.kind, it.uri, it.depth) },
+        )
+    }
+
+    @Test
+    fun `raw entries keep the wire post and its labels, so moderation can be re-applied later`() {
+        val thread = threadViewPost(uri = "at://focus", text = "focus", labels = labels("nudity"))
+
+        val focus = thread.toRawThreadEntries().single()
+
+        assertEquals(
+            "nudity",
+            focus.post
+                ?.labels
+                ?.single()
+                ?.`val`,
+        )
+    }
+
+    @Test
+    fun `raw blocked entry carries the blocked author`() {
+        val raw = blockedPost(uri = "at://blocked").toRawThreadEntries().single()
+
+        assertEquals(ThreadSnapshotKind.BLOCKED, raw.kind)
+        assertEquals("did:plc:blocked", raw.authorDid)
+        assertEquals(null, raw.post)
     }
 
     // ---------- fixture helpers ----------

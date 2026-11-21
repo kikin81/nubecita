@@ -25,6 +25,7 @@ dependencies {
 
     implementation(project(":core:auth"))
     implementation(project(":core:common"))
+    implementation(project(":core:database"))
     implementation(project(":core:feed-mapping"))
     // ModerationPreferencesRepository + applyModeration — cover (never drop)
     // NSFW media in the post-detail thread.
@@ -37,6 +38,7 @@ dependencies {
     implementation(project(":core:profile"))
     implementation(libs.atproto.models)
     implementation(libs.atproto.runtime)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.timber)
