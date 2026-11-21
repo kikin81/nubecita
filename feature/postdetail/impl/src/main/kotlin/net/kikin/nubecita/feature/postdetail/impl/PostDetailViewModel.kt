@@ -8,6 +8,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.kikin81.atproto.runtime.XrpcError
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -237,6 +238,23 @@ internal class PostDetailViewModel
             if (status != PostDetailLoadStatus.Idle && status !is PostDetailLoadStatus.InitialError) return
             setState { copy(loadStatus = PostDetailLoadStatus.InitialLoading) }
             viewModelScope.launch {
+                // Cache-first: the last-seen thread (or the focus alone, from
+                // the feed's cache) renders immediately; the fetch below always
+                // follows and replaces it. Projected through the in-memory
+                // interactions cache but NOT seeded into it — a stale snapshot
+                // must not pin an old like/repost over the fresh wire state.
+                postThreadRepository.cachedPostThread(route.postUri)?.let { cached ->
+                    val snapshot = postInteractionsCache.state.value
+                    if (!cached.focusIsDeleted(snapshot)) {
+                        setState {
+                            copy(
+                                items = cached.applyInteractions(snapshot),
+                                loadStatus = PostDetailLoadStatus.Refreshing,
+                                isShowingCache = true,
+                            )
+                        }
+                    }
+                }
                 postThreadRepository
                     .getPostThread(uri = route.postUri)
                     .onSuccess { items ->
@@ -246,7 +264,11 @@ internal class PostDetailViewModel
                         // NotFound to the user — there's nothing renderable.
                         if (items.isEmpty()) {
                             setState {
-                                copy(loadStatus = PostDetailLoadStatus.InitialError(PostDetailError.NotFound))
+                                copy(
+                                    items = persistentListOf(),
+                                    isShowingCache = false,
+                                    loadStatus = PostDetailLoadStatus.InitialError(PostDetailError.NotFound),
+                                )
                             }
                         } else {
                             postInteractionsCache.seed(
@@ -271,12 +293,27 @@ internal class PostDetailViewModel
                                 copy(
                                     items = items.applyInteractions(snapshot),
                                     loadStatus = PostDetailLoadStatus.Idle,
+                                    isShowingCache = false,
                                 )
                             }
                         }
                     }.onFailure { throwable ->
-                        setState {
-                            copy(loadStatus = PostDetailLoadStatus.InitialError(throwable.toPostDetailError()))
+                        val error = throwable.toPostDetailError()
+                        if (uiState.value.isShowingCache && error != PostDetailError.NotFound) {
+                            // Transient failure over a cached thread: keep reading
+                            // it (still marked as cache) and say the refresh failed.
+                            setState { copy(loadStatus = PostDetailLoadStatus.Idle) }
+                            sendEffect(PostDetailEffect.ShowError(error))
+                        } else {
+                            // Includes NotFound over a cached thread: a gone post
+                            // must not stay up from cache.
+                            setState {
+                                copy(
+                                    items = persistentListOf(),
+                                    isShowingCache = false,
+                                    loadStatus = PostDetailLoadStatus.InitialError(error),
+                                )
+                            }
                         }
                     }
             }
