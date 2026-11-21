@@ -12,11 +12,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
 import net.kikin.nubecita.designsystem.component.NubecitaAvatar
+import net.kikin.nubecita.feature.composer.impl.R
 
 /**
  * Shared "full-post" presentation for the composer's reply and quote context
@@ -36,6 +38,7 @@ internal fun ComposerContextPostBody(
     text: String,
     thumbnailUrl: String?,
     modifier: Modifier = Modifier,
+    pronouns: String? = null,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -60,8 +63,15 @@ internal fun ComposerContextPostBody(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(weight = 1f, fill = false),
                 )
+                // Pronouns share the handle line and ellipsize first; the name
+                // keeps priority over both.
                 Text(
-                    text = "@$handle",
+                    text =
+                        if (pronouns == null) {
+                            "@$handle"
+                        } else {
+                            stringResource(R.string.composer_context_handle_pronouns, handle, pronouns)
+                        },
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,

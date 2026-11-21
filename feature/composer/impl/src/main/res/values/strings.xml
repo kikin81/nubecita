@@ -179,4 +179,6 @@
     <string name="composer_video_error_processing">Bluesky couldn\'t process this video. Try a different clip.</string>
     <string name="composer_video_error_network">Connection lost. Try again.</string>
     <string name="composer_alt_editor_field_label_video">Describe this video</string>
+    <!-- Reply/quote context card: the author handle line with their pronouns. -->
+    <string name="composer_context_handle_pronouns">\@%1$s · %2$s</string>
 </resources>
