@@ -37,6 +37,9 @@ as needed", and land the whole thing as **one `gh stack`** (one epic, one releas
 - Tappable counts (likers / reposters / quoters lists).
 - Shared-element transitions from feed card → focused post.
 - Avatar image caching — Coil's disk cache already covers it (user confirmed).
+- Cache-first video comments sheet (`PostCommentsViewModel`). The cache-first
+  thread read is an **additional** `PostThreadRepository` method, so the sheet keeps
+  the network-only `getPostThread` untouched. Follow-up: `nubecita-olug`.
 - Offline mode as a product feature; caches are a speed layer that always revalidates.
 
 ## Anti-goals
@@ -207,6 +210,8 @@ I'm a sucker for a nice font…            ← one type step above reply body
 - Cache aggressively with Room; migrations as needed; fold in `nubecita-dwmf`.
 - Avatars: Coil is sufficient; no work.
 - Ship as one epic / one `gh stack`.
+- Cache-first threads cover post detail only; the comments sheet follows later
+  (`nubecita-olug`).
 
 ## Calls made by the designer (correct any)
 
