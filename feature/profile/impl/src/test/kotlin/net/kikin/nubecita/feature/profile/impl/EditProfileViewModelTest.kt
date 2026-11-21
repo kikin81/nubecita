@@ -247,6 +247,22 @@ class EditProfileViewModelTest {
     }
 
     @Test
+    fun save_withUntouchedPronouns_leavesTheRecordKeyAlone() =
+        runTest {
+            // Sending the route's pronouns back would overwrite a newer value
+            // set elsewhere since the editor opened; null leaves the key alone.
+            val repo = FakeProfileRepository()
+            val vm = viewModel(EditProfile(displayName = "Alice", pronouns = "he/him"), repo)
+            vm.handleEvent(EditProfileEvent.DisplayNameChanged("Alicia"))
+            vm.effects.test {
+                vm.handleEvent(EditProfileEvent.SaveTapped)
+                assertEquals(EditProfileEffect.NavigateBack, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(null, repo.lastPronouns)
+        }
+
+    @Test
     fun save_passesPronouns_andWhitespaceOnlyAsRemoval() =
         runTest {
             val repo = FakeProfileRepository()

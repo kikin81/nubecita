@@ -333,7 +333,9 @@ internal class EditProfileViewModel
                         avatar = state.avatar.toImageChange(),
                         banner = state.banner.toImageChange(),
                         links = state.toLinksChange(),
-                        pronouns = state.pronouns,
+                        // Only an edited value is written; null leaves the record's
+                        // key as it is now, not as it was when the editor opened.
+                        pronouns = state.pronouns.takeIf { it != initialPronouns },
                     ).onSuccess {
                         // Keep isSaving = true; the screen pops on NavigateBack.
                         sendEffect(EditProfileEffect.NavigateBack)
