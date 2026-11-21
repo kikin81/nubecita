@@ -17,10 +17,12 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.database.NubecitaDatabase
 import net.kikin.nubecita.core.database.dao.CachedPostDao
+import net.kikin.nubecita.core.database.dao.CachedProfileDao
 import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
+import net.kikin.nubecita.core.database.dao.ThreadSnapshotDao
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.data.models.AuthorUi
@@ -255,6 +257,8 @@ internal open class DefaultFeedRepository
         private val transactionRunner: FeedCacheTransactionRunner,
         private val feedRefresher: FeedRefresher,
         private val feedCatchUp: FeedCatchUp,
+        private val cachedProfileDao: CachedProfileDao,
+        private val threadSnapshotDao: ThreadSnapshotDao,
     ) : FeedRepository {
         /**
          * The [RemoteMediator] for [feedKey]. Extracted as an `open` seam so a
@@ -511,6 +515,12 @@ internal open class DefaultFeedRepository
                 cachedPostDao.clearAccount(accountDid)
                 partitionStateDao.clearAccount(accountDid)
                 remoteKeyDao.clearAccount(accountDid)
+                // The profile and post-detail thread caches are not feed grains,
+                // but they hold the same kind of per-account content (another
+                // viewer's relationships, post bodies). This is the account-purge
+                // hub the eviction coordinator already calls, so they clear here.
+                cachedProfileDao.clearAccount(accountDid)
+                threadSnapshotDao.clearAccount(accountDid)
             }
         }
     }
