@@ -33,6 +33,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -321,11 +324,15 @@ private fun PronounsField(
     onClick: () -> Unit,
 ) {
     val actionLabel = stringResource(R.string.edit_profile_pronouns_edit_action)
+    val label = stringResource(R.string.edit_profile_pronouns_label)
+    val spokenValue = pronouns.ifEmpty { stringResource(R.string.edit_profile_pronouns_placeholder) }
     Box(modifier = Modifier.fillMaxWidth()) {
         OutlinedTextField(
             value = pronouns,
             onValueChange = {},
-            modifier = Modifier.fillMaxWidth(),
+            // The field is display-only; screen readers get one node — the
+            // overlay button below — instead of a dead edit box plus a button.
+            modifier = Modifier.fillMaxWidth().clearAndSetSemantics {},
             readOnly = true,
             enabled = enabled,
             singleLine = true,
@@ -337,7 +344,8 @@ private fun PronounsField(
             modifier =
                 Modifier
                     .matchParentSize()
-                    .clickable(enabled = enabled, role = Role.Button, onClickLabel = actionLabel, onClick = onClick),
+                    .clickable(enabled = enabled, role = Role.Button, onClickLabel = actionLabel, onClick = onClick)
+                    .semantics { contentDescription = "$label, $spokenValue" },
         )
     }
 }
