@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795160329075,
+  "lastUpdate": 1795246696365,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -4093,6 +4093,70 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 711,
             "range": "+/- 1.2%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "dd55a0b252559188e4a14ee9f3c9e3e46709cef9",
+          "message": "ci(release): 1.382.5\n\n## [1.382.5](https://github.com/kikin81/nubecita/compare/v1.382.4...v1.382.5) (2026-11-21)\n\n### Miscellaneous\n\n* **wear:** capture the launcher tile as the 6th Wear store screenshot ([#1210](https://github.com/kikin81/nubecita/issues/1210)) ([060250c](https://github.com/kikin81/nubecita/commit/060250c694d5c9cb094b1aa258f5372fdee3849e)), closes [#1181](https://github.com/kikin81/nubecita/issues/1181)\n* **deps:** update pre-commit hook @fission-ai/openspec to v2 ([#1207](https://github.com/kikin81/nubecita/issues/1207)) ([38266eb](https://github.com/kikin81/nubecita/commit/38266eb3f1641326706d093d3c797614add0ad82))\n\n### Documentation\n\n* **changelog:** call the Wear tile \"tarjeta\" in the es-419 notes ([#1211](https://github.com/kikin81/nubecita/issues/1211)) ([7cf39f0](https://github.com/kikin81/nubecita/commit/7cf39f0ad7284f6b8f4b88ae569795566b15d98c))\n\n### Bug Fixes\n\n* **deps:** update dependency com.revenuecat.purchases:purchases to v11.3.0 ([#1197](https://github.com/kikin81/nubecita/issues/1197)) ([9e879f0](https://github.com/kikin81/nubecita/commit/9e879f07413fc2053c6403a0ef4081363704cbaa))",
+          "timestamp": "2026-11-21T07:23:21Z",
+          "url": "https://github.com/kikin81/nubecita/commit/dd55a0b252559188e4a14ee9f3c9e3e46709cef9"
+        },
+        "date": 1795246695070,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 112,
+            "range": "+/- 1.7%",
+            "unit": "frames"
+          },
+          {
+            "name": "PostCommentsSheetBenchmark.dragAndScrollCommentsSheetOverVideoPlayback / frameCount",
+            "value": 338,
+            "range": "+/- 4.5%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1189.451,
+            "range": "+/- 4.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1094.628,
+            "range": "+/- 3.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 833.328,
+            "range": "+/- 13.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 867.372,
+            "range": "+/- 11.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 742,
+            "range": "+/- 1.7%",
             "unit": "frames"
           }
         ]
