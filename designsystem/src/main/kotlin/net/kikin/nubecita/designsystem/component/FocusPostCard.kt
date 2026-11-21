@@ -19,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -207,26 +208,30 @@ private fun FocusTimestamp(
 private fun FocusCountsRow(counts: List<Pair<FocusCountKind, Int>>) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         counts.forEach { (kind, count) ->
-            val number = rememberCompactCount(count.toLong())
-            // The number lives inside the localized string (word order and
-            // plural rules are per-locale); bold it where it lands.
-            val full = pluralStringResource(kind.pluralRes, count, number)
-            val start = full.indexOf(number)
-            Text(
-                text =
-                    buildAnnotatedString {
-                        append(full)
-                        if (start >= 0) {
-                            addStyle(
-                                SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface),
-                                start,
-                                start + number.length,
-                            )
-                        }
-                    },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // Keyed by kind: the list grows and shrinks as counts cross zero, and
+            // each entry's remembered state must stay with its own kind.
+            key(kind) {
+                val number = rememberCompactCount(count.toLong())
+                // The number lives inside the localized string (word order and
+                // plural rules are per-locale); bold it where it lands.
+                val full = pluralStringResource(kind.pluralRes, count, number)
+                val start = full.indexOf(number)
+                Text(
+                    text =
+                        buildAnnotatedString {
+                            append(full)
+                            if (start >= 0) {
+                                addStyle(
+                                    SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface),
+                                    start,
+                                    start + number.length,
+                                )
+                            }
+                        },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
