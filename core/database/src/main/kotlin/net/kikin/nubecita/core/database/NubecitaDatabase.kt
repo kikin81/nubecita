@@ -15,6 +15,7 @@ import net.kikin.nubecita.core.database.dao.SavedFeedDao
 import net.kikin.nubecita.core.database.dao.TranslationDao
 import net.kikin.nubecita.core.database.model.ActorEntity
 import net.kikin.nubecita.core.database.model.CachedPostEntity
+import net.kikin.nubecita.core.database.model.CachedProfileEntity
 import net.kikin.nubecita.core.database.model.FeedItemEntity
 import net.kikin.nubecita.core.database.model.FeedItemMemberEntity
 import net.kikin.nubecita.core.database.model.FeedPartitionStateEntity
@@ -22,6 +23,8 @@ import net.kikin.nubecita.core.database.model.FeedPostEntity
 import net.kikin.nubecita.core.database.model.FeedRemoteKeyEntity
 import net.kikin.nubecita.core.database.model.RecentSearchEntity
 import net.kikin.nubecita.core.database.model.SavedFeedEntity
+import net.kikin.nubecita.core.database.model.ThreadSnapshotEntity
+import net.kikin.nubecita.core.database.model.ThreadSnapshotItemEntity
 import net.kikin.nubecita.core.database.model.TranslationEntity
 import net.kikin.nubecita.core.database.util.InstantConverter
 
@@ -42,6 +45,9 @@ import net.kikin.nubecita.core.database.util.InstantConverter
  * anchor yet reads exactly like one the reader has never scrolled. v11 adds
  * `fill_next_position` to [FeedRemoteKeyEntity] — one nullable column, by
  * `@AutoMigration(10 → 11)`; a row without it reads as "no fill in progress".
+ * v12 adds the profile cache ([CachedProfileEntity]) and post-detail thread
+ * snapshots ([ThreadSnapshotEntity] + [ThreadSnapshotItemEntity]) — three new
+ * tables, additive, via `@AutoMigration(11 → 12)`; both start empty.
  *
  * Schema export is on; generated JSON is committed under
  * `core/database/schemas/`. Every schema bump must commit the new
@@ -61,8 +67,11 @@ import net.kikin.nubecita.core.database.util.InstantConverter
         FeedRemoteKeyEntity::class,
         SavedFeedEntity::class,
         TranslationEntity::class,
+        CachedProfileEntity::class,
+        ThreadSnapshotEntity::class,
+        ThreadSnapshotItemEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = BootstrapEntityDrop::class),
@@ -74,6 +83,7 @@ import net.kikin.nubecita.core.database.util.InstantConverter
         AutoMigration(from = 8, to = 9),
         AutoMigration(from = 9, to = 10),
         AutoMigration(from = 10, to = 11),
+        AutoMigration(from = 11, to = 12),
     ],
 )
 @TypeConverters(InstantConverter::class)
