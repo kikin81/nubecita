@@ -197,3 +197,22 @@ private fun ProfileHeroTrustedVerifierScreenshot() {
         }
     }
 }
+
+// Pronouns sit on the handle line, de-emphasised like the handle itself.
+@PreviewTest
+@Preview(name = "hero-with-pronouns-light", showBackground = true)
+@Preview(name = "hero-with-pronouns-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ProfileHeroWithPronounsScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            ProfileHero(
+                header = SAMPLE_HEADER.copy(pronouns = "he/him"),
+                headerError = null,
+                showSupporterBadge = false,
+                onRetryHeader = {},
+                onVerificationBadgeClick = {},
+            )
+        }
+    }
+}

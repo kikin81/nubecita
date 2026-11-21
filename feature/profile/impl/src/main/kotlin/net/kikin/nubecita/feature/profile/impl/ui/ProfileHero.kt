@@ -34,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import net.kikin.nubecita.data.models.VerifiedBadge
@@ -222,12 +223,41 @@ private fun ProfileHeroLoaded(
                     }
                 }
             }
-            Text(
-                text = "@${header.handle}",
-                style = MaterialTheme.extendedTypography.handle,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            val pronouns = header.pronouns
+            if (pronouns == null) {
+                Text(
+                    text = "@${header.handle}",
+                    style = MaterialTheme.extendedTypography.handle,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                // Pronouns share the handle line (as in the official client),
+                // in the same de-emphasised style. The handle keeps priority:
+                // pronouns take what's left and ellipsize first.
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "@${header.handle}",
+                        style = MaterialTheme.extendedTypography.handle,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    // Weighted (not filling), so it is measured after the
+                    // handle and gets only the width the handle leaves.
+                    Text(
+                        text = pronouns,
+                        style = MaterialTheme.extendedTypography.handle,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                }
+            }
 
             if (header.followsYou) {
                 Spacer(Modifier.height(4.dp))
