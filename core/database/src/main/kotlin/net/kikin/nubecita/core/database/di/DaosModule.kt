@@ -7,12 +7,14 @@ import dagger.hilt.components.SingletonComponent
 import net.kikin.nubecita.core.database.NubecitaDatabase
 import net.kikin.nubecita.core.database.dao.ActorDao
 import net.kikin.nubecita.core.database.dao.CachedPostDao
+import net.kikin.nubecita.core.database.dao.CachedProfileDao
 import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
 import net.kikin.nubecita.core.database.dao.RecentSearchDao
 import net.kikin.nubecita.core.database.dao.SavedFeedDao
+import net.kikin.nubecita.core.database.dao.ThreadSnapshotDao
 import net.kikin.nubecita.core.database.dao.TranslationDao
 
 /**
@@ -49,4 +51,10 @@ internal object DaosModule {
 
     @Provides
     fun providesTranslationDao(database: NubecitaDatabase): TranslationDao = database.translationDao()
+
+    @Provides
+    fun providesCachedProfileDao(database: NubecitaDatabase): CachedProfileDao = database.cachedProfileDao()
+
+    @Provides
+    fun providesThreadSnapshotDao(database: NubecitaDatabase): ThreadSnapshotDao = database.threadSnapshotDao()
 }
