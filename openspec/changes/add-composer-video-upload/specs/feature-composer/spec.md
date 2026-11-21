@@ -94,15 +94,60 @@ When a post is submitted with an attached video whose upload reached `Ready`, th
 - **WHEN** a post has a ready video and a quoted post
 - **THEN** the wire embed is `app.bsky.embed.recordWithMedia` whose media is the video
 
+### Requirement: Picker results route by MIME type
+
+The reducer SHALL route the picker result by MIME type: `video/*` URIs populate the video slot (at most one, subject to the mutual-exclusion rule), and all other URIs populate `attachments` under the existing cap. When a multi-select returns a video alongside images, the reducer SHALL accept the first video and drop the images, because the two cannot coexist in one post.
+
+#### Scenario: A picked video routes to the video slot
+
+- **WHEN** the picker returns a single URI whose MIME type is `video/mp4`
+- **THEN** `state.video` becomes non-null and `state.attachments` is unchanged
+
+#### Scenario: A mixed multi-select keeps the video and drops the images
+
+- **WHEN** the picker returns one video URI and two image URIs
+- **THEN** `state.video` is populated from the video URI and `state.attachments` remains empty
+
+### Requirement: Discarding picked media is never silent
+
+Dropping picked or already-attached media SHALL NOT be silent. The composer SHALL surface a `ComposerEffect` explaining that a post carries either one video or up to four images, never both. A user who selected six items and sees one appear has been given no way to distinguish a deliberate constraint from a bug, and the same message serves the reverse case (attaching a video that clears existing photos).
+
+#### Scenario: Dropping media explains itself
+
+- **WHEN** a picker result or a new video attachment causes existing media to be discarded
+- **THEN** a `ComposerEffect` is emitted stating that a post carries either one video or up to four images, never both
+
+### Requirement: An attached video excludes all other media
+
+An attached video SHALL be mutually exclusive with photo attachments, with a KLIPY item, and with an auto-detected link card, and SHALL be limited to one per post — `app.bsky.embed.video` accepts a single blob and the lexicon provides no multi-video form. Attaching a video SHALL clear any existing photos, KLIPY item, or link card; while a video is attached, the photo, KLIPY, and link-card entry points SHALL be disabled and no link card SHALL be auto-detected.
+
+#### Scenario: Attaching a video clears other media
+- **WHEN** the composer has photo attachments or a KLIPY item or a link card, and the user attaches a video
+- **THEN** the photos, KLIPY item, and link card are cleared and only the video remains
+
+#### Scenario: An attached video blocks the other media entry points
+- **WHEN** the composer has a video attached
+- **THEN** the photo picker, KLIPY picker, and link-card auto-detection are all disabled
+
+#### Scenario: Only one video may be attached
+- **WHEN** the composer has a video attached and the picker returns another video
+- **THEN** the newly picked video replaces the existing one rather than being added alongside it
+
+### Requirement: Removing a video restores link-card detection
+
+Removing the video SHALL restore link-card auto-detection for a URL still present in the text, mirroring the existing images-cleared-the-card behavior.
+
+#### Scenario: Removing the video restores link-card detection
+- **WHEN** a link card was cleared by attaching a video, and the user removes the video while the URL is still in the text
+- **THEN** the card is re-detected and restored automatically
+
 ## MODIFIED Requirements
 
 ### Requirement: Image attachments cap at 4 and use the system photo picker
 
-The system SHALL allow up to 4 image attachments per composition. Attachments MUST be added via `androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia` configured with `maxItems = 4 - state.attachments.size` so the picker reflects the *remaining* capacity rather than the absolute cap. When the remaining capacity is `1`, the screen SHALL fall back to single-pick (`ActivityResultContracts.PickVisualMedia`) because `PickMultipleVisualMedia` rejects `maxItems < 2`. Because `rememberLauncherForActivityResult` captures the contract at registration time, the launcher Composable MUST be wrapped in a `key(remainingCapacity) { … }` block so the registration is refreshed when capacity changes. The "Add image" affordance MUST be hidden or disabled when `state.attachments.size == 4`. The reducer MUST defensively cap at 4 even if the picker returns more URIs. Removing an attachment MUST be possible from the attachment chip strip.
+The system SHALL allow up to 4 image attachments per composition using `PickMultipleVisualMedia` configured with `maxItems = 4 - state.attachments.size` (falling back to `PickVisualMedia` when remaining capacity is 1). The Add Image affordance MUST be disabled when `attachments.size == 4`. The reducer MUST defensively cap attachments at 4.
 
-The picker's media-type filter SHALL be `PickVisualMedia.ImageAndVideo` rather than images-only, so a single entry point serves both media kinds. The reducer SHALL route the picker result by MIME type: `video/*` URIs populate the video slot (at most one, subject to the mutual-exclusion rule), and all other URIs populate `attachments` under the existing cap. When a multi-select returns a video alongside images, the reducer SHALL accept the first video and drop the images, because the two cannot coexist in one post.
-
-Dropping the images SHALL NOT be silent. The composer SHALL surface a `ComposerEffect` explaining that a post carries either one video or up to four images, never both. A user who selected six items and sees one appear has been given no way to distinguish a deliberate constraint from a bug, and the same message serves the reverse case (attaching a video that clears existing photos).
+The picker's media-type filter SHALL be `PickVisualMedia.ImageAndVideo` rather than images-only, so a single entry point serves both media kinds.
 
 #### Scenario: Picker invocation respects the cap
 
@@ -129,26 +174,11 @@ Dropping the images SHALL NOT be silent. The composer SHALL surface a `ComposerE
 - **WHEN** the media picker is launched from an empty composer
 - **THEN** it is configured with `PickVisualMedia.ImageAndVideo`
 
-#### Scenario: A picked video routes to the video slot
-
-- **WHEN** the picker returns a single URI whose MIME type is `video/mp4`
-- **THEN** `state.video` becomes non-null and `state.attachments` is unchanged
-
-#### Scenario: A mixed multi-select keeps the video and drops the images
-
-- **WHEN** the picker returns one video URI and two image URIs
-- **THEN** `state.video` is populated from the video URI and `state.attachments` remains empty
-
-#### Scenario: Dropping media explains itself
-
-- **WHEN** a picker result or a new video attachment causes existing media to be discarded
-- **THEN** a `ComposerEffect` is emitted stating that a post carries either one video or up to four images, never both
-
 ### Requirement: One embed per post
 
 A post carries exactly one media embed, so the composer SHALL treat a picked KLIPY item (GIF or sticker) as mutually exclusive with photo attachments, SHALL have it replace an auto-detected link-card embed (they share the single external-embed slot), and MAY combine it with a quote (published as `app.bsky.embed.recordWithMedia`).
 
-An attached video SHALL be mutually exclusive with photo attachments, with a KLIPY item, and with an auto-detected link card, and SHALL be limited to one per post — `app.bsky.embed.video` accepts a single blob and the lexicon provides no multi-video form. Attaching a video SHALL clear any existing photos, KLIPY item, or link card; while a video is attached, the photo, KLIPY, and link-card entry points SHALL be disabled and no link card SHALL be auto-detected. Removing the video SHALL restore link-card auto-detection for a URL still present in the text, mirroring the existing images-cleared-the-card behavior. A video MAY combine with a quote.
+An attached video SHALL likewise take the single media slot, and MAY combine with a quote.
 
 #### Scenario: Photos block the KLIPY entry point
 - **WHEN** the composer already has photo attachments
@@ -166,21 +196,9 @@ An attached video SHALL be mutually exclusive with photo attachments, with a KLI
 - **WHEN** the composer has a quote attached and the user picks a KLIPY item
 - **THEN** both are kept, and the post is published as record-with-media
 
-#### Scenario: Attaching a video clears other media
-- **WHEN** the composer has photo attachments or a KLIPY item or a link card, and the user attaches a video
-- **THEN** the photos, KLIPY item, and link card are cleared and only the video remains
-
-#### Scenario: An attached video blocks the other media entry points
-- **WHEN** the composer has a video attached
-- **THEN** the photo picker, KLIPY picker, and link-card auto-detection are all disabled
-
-#### Scenario: Only one video may be attached
-- **WHEN** the composer has a video attached and the picker returns another video
-- **THEN** the newly picked video replaces the existing one rather than being added alongside it
-
-#### Scenario: Removing the video restores link-card detection
-- **WHEN** a link card was cleared by attaching a video, and the user removes the video while the URL is still in the text
-- **THEN** the card is re-detected and restored automatically
+#### Scenario: A video may coexist with a quote
+- **WHEN** the composer has a quote attached and the user attaches a video
+- **THEN** both are kept, and the post is published as record-with-media
 
 #### Scenario: A video may coexist with a quote
 - **WHEN** the composer has a quote attached and the user attaches a video
