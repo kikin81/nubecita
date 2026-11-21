@@ -212,7 +212,9 @@ internal fun EditProfileScreenContent(
 
     val pronounsSheet = state.pronounsSheet
     if (pronounsSheet != null) {
-        val presets = stringArrayResource(R.array.edit_profile_pronoun_presets).toImmutableList()
+        val presetArray = stringArrayResource(R.array.edit_profile_pronoun_presets)
+        // Converted once per resource, not on every keystroke in the sheet.
+        val presets = remember(presetArray) { presetArray.toImmutableList() }
         EditPronounsSheet(
             state = pronounsSheet,
             presets = presets,
