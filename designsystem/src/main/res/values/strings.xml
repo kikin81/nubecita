@@ -176,4 +176,25 @@
     <string name="language_picker_search_label">Search</string>
     <string name="language_picker_done">Done</string>
     <string name="language_picker_cancel">Cancel</string>
+    <!-- Post-detail focused post (FocusPostCard): handle line with pronouns,
+         the Follow toggle, and the counts row labels (number rendered bold before). -->
+    <string name="focus_post_handle_pronouns">\@%1$s · %2$s</string>
+    <string name="focus_post_follow">Follow</string>
+    <string name="focus_post_following">Following</string>
+    <plurals name="focus_post_reposts">
+        <item quantity="one">repost</item>
+        <item quantity="other">reposts</item>
+    </plurals>
+    <plurals name="focus_post_quotes">
+        <item quantity="one">quote</item>
+        <item quantity="other">quotes</item>
+    </plurals>
+    <plurals name="focus_post_likes">
+        <item quantity="one">like</item>
+        <item quantity="other">likes</item>
+    </plurals>
+    <plurals name="focus_post_saves">
+        <item quantity="one">save</item>
+        <item quantity="other">saves</item>
+    </plurals>
 </resources>

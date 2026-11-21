@@ -34,6 +34,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -344,13 +345,14 @@ private fun AuthorLine(
 }
 
 @Composable
-private fun BodyText(
+internal fun BodyText(
     text: String,
     facets: kotlinx.collections.immutable.ImmutableList<Facet>,
     authorHandle: String,
     onFacetTap: (FacetTarget) -> Unit,
     bodyMatch: String? = null,
     shimmering: Boolean = false,
+    style: TextStyle = MaterialTheme.typography.bodyLarge,
 ) {
     val annotated =
         rememberTappableBlueskyAnnotatedString(
@@ -370,7 +372,7 @@ private fun BodyText(
         )
     Text(
         text = withHighlight,
-        style = MaterialTheme.typography.bodyLarge,
+        style = style,
         modifier =
             Modifier
                 .testTag(PostCardTestTags.BODY)
@@ -391,7 +393,7 @@ private fun BodyText(
  * one tap away is part of being honest about what they are reading.
  */
 @Composable
-private fun TranslationFooter(
+internal fun TranslationFooter(
     translation: PostTranslationUi,
     onTranslate: () -> Unit,
     onToggle: () -> Unit,
@@ -695,7 +697,7 @@ internal fun buildTappableBlueskyAnnotatedString(
 private fun String.isHttpUri(): Boolean = startsWith("http://", ignoreCase = true) || startsWith("https://", ignoreCase = true)
 
 @Composable
-private fun EmbedSlot(
+internal fun EmbedSlot(
     embed: EmbedUi,
     callbacks: PostCallbacks,
     videoEmbedSlot: (@Composable (EmbedUi.Video, cover: MediaCover?) -> Unit)?,
@@ -821,7 +823,7 @@ private fun EmbedSlot(
 }
 
 @Composable
-private fun ActionRow(
+internal fun ActionRow(
     post: PostUi,
     callbacks: PostCallbacks,
     animateLikeTap: Boolean,

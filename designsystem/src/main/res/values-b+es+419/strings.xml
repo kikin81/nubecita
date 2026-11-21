@@ -92,4 +92,29 @@
     <string name="language_picker_search_label">Buscar</string>
     <string name="language_picker_done">Listo</string>
     <string name="language_picker_cancel">Cancelar</string>
+    <!-- Post-detail focused post (FocusPostCard): handle line with pronouns,
+         the Follow toggle, and the counts row labels (number rendered bold before). -->
+    <string name="focus_post_handle_pronouns">\@%1$s · %2$s</string>
+    <string name="focus_post_follow">Seguir</string>
+    <string name="focus_post_following">Siguiendo</string>
+    <plurals name="focus_post_reposts">
+        <item quantity="one">republicación</item>
+        <item quantity="many">republicaciones</item>
+        <item quantity="other">republicaciones</item>
+    </plurals>
+    <plurals name="focus_post_quotes">
+        <item quantity="one">cita</item>
+        <item quantity="many">citas</item>
+        <item quantity="other">citas</item>
+    </plurals>
+    <plurals name="focus_post_likes">
+        <item quantity="one">me gusta</item>
+        <item quantity="many">me gusta</item>
+        <item quantity="other">me gusta</item>
+    </plurals>
+    <plurals name="focus_post_saves">
+        <item quantity="one">guardado</item>
+        <item quantity="many">guardados</item>
+        <item quantity="other">guardados</item>
+    </plurals>
 </resources>
