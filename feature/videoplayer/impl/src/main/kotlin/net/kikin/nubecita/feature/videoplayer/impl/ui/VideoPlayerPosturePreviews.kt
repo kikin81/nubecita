@@ -25,7 +25,7 @@ import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerState
  * throws here, so this implements the whole interface instead.
  */
 internal class PreviewUiMediaScope(
-    override val windowPosture: UiMediaScope.Posture,
+    override val windowPosture: UiMediaScope.WindowPosture,
     override val windowWidth: Dp,
     override val windowHeight: Dp,
 ) : UiMediaScope {
@@ -36,6 +36,21 @@ internal class PreviewUiMediaScope(
     override val viewingDistance: UiMediaScope.ViewingDistance = UiMediaScope.ViewingDistance.Near
 }
 
+/** No fold crosses the window: a slab phone, or a foldable opened flat. */
+internal fun flatWindowPosture(): UiMediaScope.WindowPosture = UiMediaScope.WindowPosture(folds = emptyList())
+
+/** One horizontal, half-opened fold across the window, which is what tabletop posture is. */
+internal fun tabletopWindowPosture(): UiMediaScope.WindowPosture =
+    UiMediaScope.WindowPosture(
+        folds =
+            listOf(
+                UiMediaScope.WindowFold(
+                    state = UiMediaScope.FoldState.HalfOpened,
+                    orientation = UiMediaScope.FoldOrientation.Horizontal,
+                ),
+            ),
+    )
+
 /**
  * Renders the Ready player under a simulated window posture. The posture goes
  * through [queryTabletopPosture], the same `mediaQuery` call the screen makes
@@ -44,7 +59,7 @@ internal class PreviewUiMediaScope(
  */
 @Composable
 internal fun VideoPlayerPosturePreview(
-    posture: UiMediaScope.Posture,
+    posture: UiMediaScope.WindowPosture,
     windowWidth: Dp = POSTURE_PREVIEW_WIDTH_DP.dp,
     windowHeight: Dp = POSTURE_PREVIEW_HEIGHT_DP.dp,
 ) {
@@ -97,7 +112,7 @@ internal const val POSTURE_PREVIEW_HEIGHT_DP = 700
 )
 @Composable
 private fun VideoPlayerFlatPosturePreview() {
-    VideoPlayerPosturePreview(posture = UiMediaScope.Posture.Flat)
+    VideoPlayerPosturePreview(posture = flatWindowPosture())
 }
 
 // A flip-style foldable (flex mode): the fold is horizontal with the phone
@@ -115,7 +130,7 @@ internal const val FLIP_PREVIEW_HEIGHT_DP = 800
 @Composable
 private fun VideoPlayerTabletopFlipPosturePreview() {
     VideoPlayerPosturePreview(
-        posture = UiMediaScope.Posture.Tabletop,
+        posture = tabletopWindowPosture(),
         windowWidth = FLIP_PREVIEW_WIDTH_DP.dp,
         windowHeight = FLIP_PREVIEW_HEIGHT_DP.dp,
     )
@@ -129,5 +144,5 @@ private fun VideoPlayerTabletopFlipPosturePreview() {
 )
 @Composable
 private fun VideoPlayerTabletopPosturePreview() {
-    VideoPlayerPosturePreview(posture = UiMediaScope.Posture.Tabletop)
+    VideoPlayerPosturePreview(posture = tabletopWindowPosture())
 }

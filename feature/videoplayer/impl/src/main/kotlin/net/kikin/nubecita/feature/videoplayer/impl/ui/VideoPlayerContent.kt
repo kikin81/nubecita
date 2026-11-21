@@ -1,5 +1,4 @@
 @file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-@file:OptIn(ExperimentalGridApi::class)
 
 package net.kikin.nubecita.feature.videoplayer.impl.ui
 
@@ -10,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.ExperimentalGridApi
 import androidx.compose.foundation.layout.Grid
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio

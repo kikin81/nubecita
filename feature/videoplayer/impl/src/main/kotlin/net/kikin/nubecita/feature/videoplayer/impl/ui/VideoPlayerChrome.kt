@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalGridApi::class)
-
 package net.kikin.nubecita.feature.videoplayer.impl.ui
 
 import androidx.compose.animation.core.Animatable
@@ -12,7 +10,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalGridApi
 import androidx.compose.foundation.layout.Grid
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets

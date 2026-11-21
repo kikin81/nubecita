@@ -4,7 +4,6 @@ import android.content.res.Configuration
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.ExperimentalMediaQueryApi
-import androidx.compose.ui.UiMediaScope
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
@@ -216,7 +215,7 @@ private fun VideoPlayerContentErrorScreenshot() {
 @Preview(name = "posture-flat", showBackground = true, widthDp = POSTURE_PREVIEW_WIDTH_DP, heightDp = POSTURE_PREVIEW_HEIGHT_DP)
 @Composable
 private fun VideoPlayerFlatPostureScreenshot() {
-    VideoPlayerPosturePreview(posture = UiMediaScope.Posture.Flat)
+    VideoPlayerPosturePreview(posture = flatWindowPosture())
 }
 
 @OptIn(ExperimentalMediaQueryApi::class)
@@ -224,7 +223,7 @@ private fun VideoPlayerFlatPostureScreenshot() {
 @Preview(name = "posture-tabletop", showBackground = true, widthDp = POSTURE_PREVIEW_WIDTH_DP, heightDp = POSTURE_PREVIEW_HEIGHT_DP)
 @Composable
 private fun VideoPlayerTabletopPostureScreenshot() {
-    VideoPlayerPosturePreview(posture = UiMediaScope.Posture.Tabletop)
+    VideoPlayerPosturePreview(posture = tabletopWindowPosture())
 }
 
 // Flex mode on a flip-style foldable: the narrowest, shortest tabletop panel.
@@ -235,7 +234,7 @@ private fun VideoPlayerTabletopPostureScreenshot() {
 @Composable
 private fun VideoPlayerTabletopFlipPostureScreenshot() {
     VideoPlayerPosturePreview(
-        posture = UiMediaScope.Posture.Tabletop,
+        posture = tabletopWindowPosture(),
         windowWidth = FLIP_PREVIEW_WIDTH_DP.dp,
         windowHeight = FLIP_PREVIEW_HEIGHT_DP.dp,
     )
