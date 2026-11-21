@@ -163,12 +163,18 @@ I'm a sucker for a nice font…            ← one type step above reply body
 - **`thread_snapshot`** + **`thread_snapshot_item`** — snapshot PK
   `(account_did, focus_uri)` with `fetched_at`, `last_opened_at`; items PK
   `(account_did, focus_uri, position)` with `kind` (ancestor/focus/reply/blocked/
-  not_found) and `post_uri`, posts themselves stored in `cached_post` (its
-  documented role as the single post store). Cap: 50 snapshots per account by
-  `last_opened_at`.
+  not_found), `post_uri`, and `depth` (replies' nesting level), posts themselves
+  stored in `cached_post` (its documented role as the single post store). The
+  snapshot is the **mapper's flattened output**, not the raw response; on read,
+  the *current* moderation preferences, mutes and viewer DID are re-applied to the
+  cached posts, so a cached thread never shows something the viewer has since
+  hidden. Cap: 50 snapshots per account by `last_opened_at`.
 - `CachedPostDao.deleteUnreferenced` gains a `NOT EXISTS` clause for
   `thread_snapshot_item` so thread posts aren't collected out from under a
-  snapshot, and snapshot eviction runs before post GC.
+  snapshot. Snapshot eviction runs on snapshot write (in the thread repository),
+  followed by a `deleteUnreferenced` pass, independent of the feed cache's trim.
+- Both new tables are cleared by the existing sign-out / account-switch path
+  (`FeedCacheEvictionCoordinator` → `clearAccount`).
 
 ### Cache-first read paths
 
@@ -177,6 +183,16 @@ I'm a sucker for a nice font…            ← one type step above reply body
   renders cached header immediately (no shimmer), keeps its existing error effect
   if the refresh fails while a cached header is shown (snackbar, not error screen).
   Tabs unchanged.
+- **Refresh failures are classified.** A transient failure (network, 5xx,
+  timeout) keeps the cached view and shows a snackbar. A definitive answer
+  (profile not found / deactivated / taken down, or a block now in either
+  direction; a thread whose focus is now `NotFound`/`Blocked`) **deletes the cached
+  row or snapshot** and shows today's error / blocked state. A dead profile or
+  thread is never kept up from cache.
+- **Follow state is never taken from Room.** On the focused post the Follow
+  toggle is decided by the fresh `getPostThread` emission only; while rendering
+  from cache the toggle is absent (the two-line header reserves its height, so
+  nothing jumps vertically when it appears).
 - **Post detail:** on open, emit the snapshot if one exists; else if
   `cached_post` has the focus URI, emit `[Focus]` alone with replies loading; else
   today's loading state. Then `getPostThread` → write snapshot + posts in one
@@ -202,6 +218,12 @@ I'm a sucker for a nice font…            ← one type step above reply body
 - Wire-blob profile cache; one v11→v12 migration for both new tables; caps 200
   profiles / 50 threads per account.
 - `nubecita-dwmf` closed as absorbed into the new epic.
+- Refresh failures split transient (keep cache + snackbar) vs definitive (drop
+  cached row/snapshot, show error/blocked state).
+- Follow toggle visibility comes from fresh network data only, never Room.
+- Thread snapshots store the mapper's flattened output (+ `depth`) and re-apply
+  current moderation on read; snapshot eviction runs on write, independent of
+  the feed cache trim.
 
 ## Delivery: stack order (bottom → top)
 
