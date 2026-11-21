@@ -60,6 +60,13 @@ internal class AuthorProfileMapperTest {
     }
 
     @Test
+    fun `pronouns map trimmed, blank maps to null`() {
+        assertEquals("he/him", sampleView(pronouns = " he/him ").toProfileHeaderUi().pronouns)
+        assertNull(sampleView(pronouns = "  ").toProfileHeaderUi().pronouns)
+        assertNull(sampleView(pronouns = null).toProfileHeaderUi().pronouns)
+    }
+
+    @Test
     fun `null-or-blank bio maps to null`() {
         assertNull(sampleView(description = null).toProfileHeaderUi().bio)
         assertNull(sampleView(description = "").toProfileHeaderUi().bio)
@@ -435,6 +442,7 @@ internal class AuthorProfileMapperTest {
         viewer: ViewerState? = null,
         associated: ProfileAssociated? = null,
         links: List<ProfileLinkView>? = null,
+        pronouns: String? = null,
     ): ProfileViewDetailed =
         ProfileViewDetailed(
             did = Did(did),
@@ -451,5 +459,6 @@ internal class AuthorProfileMapperTest {
             viewer = viewer,
             associated = associated,
             links = links,
+            pronouns = pronouns,
         )
 }

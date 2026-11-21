@@ -41,4 +41,9 @@ data class ParentPostUi(
      * tapped reply (the PostCard CTA is the primary gate; this is defensive).
      */
     val canViewerReply: Boolean = true,
+    /**
+     * The author's free-form pronouns, trimmed, or `null` when unset or blank.
+     * Shown after the display name on the reply-parent card.
+     */
+    val pronouns: String? = null,
 )
