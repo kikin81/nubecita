@@ -17,6 +17,15 @@ import androidx.compose.runtime.Stable
  *
  * `verifiedBadge` is the account's verification tier derived from the wire
  * `verificationState`; `VerifiedBadge.None` (the default) renders no badge.
+ *
+ * `pronouns` is the profile's free-form pronouns text
+ * (`app.bsky.actor.profile#pronouns`), trimmed, or null when unset or blank.
+ * Only surfaces that show pronouns (the post-detail focus, profile hero,
+ * composer reply parent) read it.
+ *
+ * `viewerFollowUri` is the signed-in viewer's `app.bsky.graph.follow` record
+ * URI for this author (`viewer.following`), or null when the viewer doesn't
+ * follow them. Unfollowing needs the URI, not just a boolean.
  */
 @Stable
 public data class AuthorUi(
@@ -25,4 +34,6 @@ public data class AuthorUi(
     val displayName: String,
     val avatarUrl: String?,
     val verifiedBadge: VerifiedBadge = VerifiedBadge.None,
+    val pronouns: String? = null,
+    val viewerFollowUri: String? = null,
 )

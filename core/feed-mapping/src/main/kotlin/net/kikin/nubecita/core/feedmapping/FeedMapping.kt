@@ -174,7 +174,15 @@ fun ProfileViewBasic.toAuthorUi(): AuthorUi =
         displayName = displayName?.takeIf { it.isNotBlank() } ?: handle.raw,
         avatarUrl = avatar?.raw,
         verifiedBadge = verification.toVerifiedBadge(),
+        pronouns = pronouns.toDisplayPronouns(),
+        viewerFollowUri = viewer?.following?.raw,
     )
+
+/**
+ * The wire `pronouns` text, trimmed, or null when unset or blank — a blank
+ * string must not render as an empty "· " after a handle.
+ */
+fun String?.toDisplayPronouns(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
 
 /**
  * Project a [ProfileView] (the actor shape on
@@ -190,6 +198,8 @@ fun ProfileView.toAuthorUi(): AuthorUi =
         displayName = displayName?.takeIf { it.isNotBlank() } ?: handle.raw,
         avatarUrl = avatar?.raw,
         verifiedBadge = verification.toVerifiedBadge(),
+        pronouns = pronouns.toDisplayPronouns(),
+        viewerFollowUri = viewer?.following?.raw,
     )
 
 /**
