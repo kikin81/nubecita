@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.profile.impl
 
 import app.cash.turbine.test
+import io.github.kikin81.atproto.runtime.XrpcError
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -88,6 +89,72 @@ internal class ProfileViewModelTest {
             assertEquals(1, repo.tabCalls[ProfileTab.Replies]?.get())
             assertEquals(1, repo.tabCalls[ProfileTab.Media]?.get())
             assertEquals(1, repo.tabCalls[ProfileTab.Likes]?.get(), "own profile MUST eager-load the Likes tab")
+        }
+
+    @Test
+    fun `a cached header renders before the network header arrives`() =
+        runTest(mainDispatcher.dispatcher) {
+            val cached = SAMPLE_HEADER.copy(displayName = "Cached Alice", pronouns = "she/her")
+            val repo =
+                FakeProfileRepository().apply {
+                    cachedHeaderResult = ProfileHeaderWithViewer(cached, ViewerRelationship.None)
+                    headerGate = kotlinx.coroutines.CompletableDeferred()
+                }
+            val vm = newVm(repo = repo, route = Profile(handle = "alice.bsky.social"))
+            advanceUntilIdle()
+
+            assertEquals(
+                "Cached Alice",
+                vm.uiState.value.header
+                    ?.displayName,
+                "cached header MUST render while the fetch is in flight",
+            )
+            assertNull(vm.uiState.value.headerError)
+
+            repo.headerGate?.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals(
+                SAMPLE_HEADER.displayName,
+                vm.uiState.value.header
+                    ?.displayName,
+                "the fresh header MUST replace the cached one",
+            )
+        }
+
+    @Test
+    fun `a transient failure after a cached header keeps the header and emits ShowError`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(headerWithViewerResult = Result.failure(IOException("offline"))).apply {
+                    cachedHeaderResult = ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)
+                }
+            val vm = newVm(repo = repo, route = Profile(handle = "alice.bsky.social"))
+
+            vm.effects.test {
+                advanceUntilIdle()
+                assertTrue(awaitItem() is ProfileEffect.ShowError)
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertNotNull(vm.uiState.value.header, "a cached header MUST stay up through a transient failure")
+            assertNull(vm.uiState.value.headerError, "no error screen over a cached header")
+        }
+
+    @Test
+    fun `a definitive gone failure after a cached header shows the error state`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.failure(XrpcError("AccountDeactivated", "Account is deactivated", 400)),
+                ).apply {
+                    cachedHeaderResult = ProfileHeaderWithViewer(SAMPLE_HEADER, ViewerRelationship.None)
+                }
+            val vm = newVm(repo = repo, route = Profile(handle = "alice.bsky.social"))
+            advanceUntilIdle()
+
+            assertNull(vm.uiState.value.header, "a gone profile MUST NOT stay up from cache")
+            assertNotNull(vm.uiState.value.headerError)
         }
 
     @Test
@@ -3033,6 +3100,15 @@ internal class ProfileViewModelTest {
         suspend fun emitOwnProfileUpdate() = _ownProfileUpdates.emit(Unit)
 
         val headerCalls = AtomicInteger(0)
+
+        /** What [cachedHeader] returns — a header from the local cache, or null. */
+        var cachedHeaderResult: ProfileHeaderWithViewer? = null
+
+        /** When set, [fetchHeader] suspends until this completes. */
+        var headerGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+
+        override suspend fun cachedHeader(actor: String): ProfileHeaderWithViewer? = cachedHeaderResult
+
         val tabCalls: Map<ProfileTab, AtomicInteger> =
             ProfileTab.entries.associateWith { AtomicInteger(0) }
         val lastTabCursor: MutableMap<ProfileTab, String?> = mutableMapOf()
@@ -3065,6 +3141,7 @@ internal class ProfileViewModelTest {
 
         override suspend fun fetchHeader(actor: String): Result<ProfileHeaderWithViewer> {
             headerCalls.incrementAndGet()
+            headerGate?.await()
             return headerWithViewerResult
         }
 

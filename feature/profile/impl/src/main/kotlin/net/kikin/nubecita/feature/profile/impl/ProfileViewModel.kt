@@ -43,9 +43,11 @@ import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.profile.api.ProfileConnections
 import net.kikin.nubecita.feature.profile.api.ProfileConnectionsTab
 import net.kikin.nubecita.feature.profile.impl.data.ConnectionFollowStore
+import net.kikin.nubecita.feature.profile.impl.data.ProfileHeaderWithViewer
 import net.kikin.nubecita.feature.profile.impl.data.ProfileRepository
 import net.kikin.nubecita.feature.profile.impl.data.ProfileTabPage
 import net.kikin.nubecita.feature.profile.impl.data.dedupeByKey
+import net.kikin.nubecita.feature.profile.impl.data.isDefinitiveProfileGone
 import net.kikin.nubecita.feature.search.api.Hashtag
 import net.kikin.nubecita.feature.videos.api.VideoFeed
 import java.io.IOException
@@ -408,23 +410,40 @@ internal class ProfileViewModel
         private fun launchHeaderLoad(actor: String) {
             viewModelScope.launch {
                 setState { copy(headerError = null) }
+                // Cache-first: a profile opened before renders immediately from
+                // Room; the fetch below always follows and replaces it. Only on
+                // a first load — a refresh already has a header up.
+                if (uiState.value.header == null) {
+                    repository.cachedHeader(actor)?.let { cached -> applyHeader(cached) }
+                }
                 repository
                     .fetchHeader(actor)
-                    .onSuccess { result ->
-                        setState {
-                            copy(
-                                header = result.header,
-                                viewerRelationship =
-                                    if (ownProfile) ViewerRelationship.Self else result.viewerRelationship,
-                            )
-                        }
-                        resolvePinnedPost(result.header.pinnedPost)
-                    }.onFailure { throwable ->
+                    .onSuccess { result -> applyHeader(result) }
+                    .onFailure { throwable ->
                         val error = throwable.toProfileError()
-                        setState { copy(headerError = error) }
+                        when {
+                            // The profile is gone: never leave it up from cache.
+                            throwable.isDefinitiveProfileGone() ->
+                                setState { copy(header = null, headerError = error) }
+                            // Transient failure over a header already on screen
+                            // (cached or a previous load): keep it, say so.
+                            uiState.value.header != null -> Unit
+                            else -> setState { copy(headerError = error) }
+                        }
                         sendEffect(ProfileEffect.ShowError(error))
                     }
             }
+        }
+
+        private fun applyHeader(result: ProfileHeaderWithViewer) {
+            setState {
+                copy(
+                    header = result.header,
+                    viewerRelationship =
+                        if (ownProfile) ViewerRelationship.Self else result.viewerRelationship,
+                )
+            }
+            resolvePinnedPost(result.header.pinnedPost)
         }
 
         /**
