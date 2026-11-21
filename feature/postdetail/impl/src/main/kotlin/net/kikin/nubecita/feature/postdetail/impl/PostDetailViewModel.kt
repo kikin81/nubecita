@@ -335,7 +335,13 @@ internal class PostDetailViewModel
                         // Preserve the prior items and stay on Idle — the
                         // user can keep reading what they had.
                         if (items.isEmpty()) {
-                            setState { copy(loadStatus = PostDetailLoadStatus.Idle) }
+                            if (uiState.value.isShowingCache) {
+                                // What's on screen is a cached copy of a post
+                                // that's now gone — it must not stay readable.
+                                showGone(PostDetailError.NotFound)
+                            } else {
+                                setState { copy(loadStatus = PostDetailLoadStatus.Idle) }
+                            }
                         } else {
                             postInteractionsCache.seed(
                                 items.mapNotNull { item ->
@@ -359,14 +365,31 @@ internal class PostDetailViewModel
                                 copy(
                                     items = items.applyInteractions(snapshot),
                                     loadStatus = PostDetailLoadStatus.Idle,
+                                    isShowingCache = false,
                                 )
                             }
                         }
                     }.onFailure { throwable ->
-                        // Preserve items on refresh failure; surface as a snackbar.
-                        setState { copy(loadStatus = PostDetailLoadStatus.Idle) }
-                        sendEffect(PostDetailEffect.ShowError(throwable.toPostDetailError()))
+                        val error = throwable.toPostDetailError()
+                        if (uiState.value.isShowingCache && error == PostDetailError.NotFound) {
+                            showGone(error)
+                        } else {
+                            // Preserve items on refresh failure; surface as a snackbar.
+                            setState { copy(loadStatus = PostDetailLoadStatus.Idle) }
+                            sendEffect(PostDetailEffect.ShowError(error))
+                        }
                     }
+            }
+        }
+
+        /** Clears a thread that is gone (cached or not) and shows the error state. */
+        private fun showGone(error: PostDetailError) {
+            setState {
+                copy(
+                    items = persistentListOf(),
+                    isShowingCache = false,
+                    loadStatus = PostDetailLoadStatus.InitialError(error),
+                )
             }
         }
 

@@ -77,7 +77,16 @@ internal class DefaultPostThreadRepository
 
         override suspend fun cachedPostThread(uri: String): ImmutableList<ThreadItem>? =
             withContext(dispatcher) {
-                val raw = snapshotStore.read(uri) ?: snapshotStore.readFocusOnly(uri) ?: return@withContext null
+                // A cache that can't be read is a miss, never a crash.
+                val raw =
+                    try {
+                        snapshotStore.read(uri) ?: snapshotStore.readFocusOnly(uri)
+                    } catch (cancellation: CancellationException) {
+                        throw cancellation
+                    } catch (error: Exception) {
+                        Timber.tag(TAG).w(error, "Thread snapshot read failed: %s", error.javaClass.name)
+                        null
+                    } ?: return@withContext null
                 raw.toThreadItems(moderationPreferences.prefs.value, viewerDid()).takeIf { items -> items.isNotEmpty() }
             }
 

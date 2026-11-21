@@ -121,6 +121,56 @@ internal class PostDetailViewModelTest {
         }
 
     @Test
+    fun `a refresh that finds a cached thread's post gone clears it and shows NotFound`() =
+        runTest(mainDispatcher.dispatcher) {
+            val cached = persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost("at://focus")))
+            val repo =
+                FakeRepo(
+                    results =
+                        listOf(
+                            Result.failure(java.io.IOException("offline")),
+                            Result.failure(
+                                io.github.kikin81.atproto.runtime
+                                    .XrpcError("NotFound", "Post not found", 400),
+                            ),
+                        ),
+                    cached = cached,
+                )
+            val vm = newVm(repo)
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            vm.handleEvent(PostDetailEvent.Refresh)
+            advanceUntilIdle()
+
+            assertTrue(
+                vm.uiState.value.items
+                    .isEmpty(),
+                "a deleted post MUST NOT stay readable from cache",
+            )
+            assertEquals(PostDetailLoadStatus.InitialError(PostDetailError.NotFound), vm.uiState.value.loadStatus)
+        }
+
+    @Test
+    fun `a successful refresh after a cached thread clears isShowingCache`() =
+        runTest(mainDispatcher.dispatcher) {
+            val cached = persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost("at://focus")))
+            val repo =
+                FakeRepo(
+                    results = listOf(Result.failure(java.io.IOException("offline")), Result.success(cached)),
+                    cached = cached,
+                )
+            val vm = newVm(repo)
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            vm.handleEvent(PostDetailEvent.Refresh)
+            advanceUntilIdle()
+
+            assertEquals(false, vm.uiState.value.isShowingCache)
+        }
+
+    @Test
     fun `a focus-only cache renders the focus alone`() =
         runTest(mainDispatcher.dispatcher) {
             val focusOnly = persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost("at://focus")))

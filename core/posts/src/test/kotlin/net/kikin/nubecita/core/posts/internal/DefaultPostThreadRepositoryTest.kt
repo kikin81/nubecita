@@ -119,6 +119,14 @@ internal class DefaultPostThreadRepositoryTest {
         }
 
     @Test
+    fun `a snapshot read failure reads as a miss, not a crash`() =
+        runTest {
+            coEvery { store.read(FOCUS) } throws IllegalStateException("disk I/O")
+
+            assertNull(repo(MockEngine { error("no network") }).cachedPostThread(FOCUS))
+        }
+
+    @Test
     fun `cachedPostThread with nothing cached is null`() =
         runTest {
             coEvery { store.read(FOCUS) } returns null
