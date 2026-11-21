@@ -407,6 +407,48 @@ class DefaultProfileRepositoryUpdateProfileTest {
         }
 
     @Test
+    fun pronouns_setsKey() =
+        runTest {
+            val body = putBodyFor(existing = """{"displayName":"name"}""", pronouns = "he/him")
+            assertTrue(body.contains("\"pronouns\":\"he/him\""), "pronouns not written: $body")
+        }
+
+    @Test
+    fun blankPronouns_dropsKey() =
+        runTest {
+            val body = putBodyFor(existing = """{"displayName":"name","pronouns":"they/them"}""", pronouns = "  ")
+            assertFalse(body.contains("\"pronouns\""), "blank pronouns must drop the key: $body")
+        }
+
+    private suspend fun putBodyFor(
+        existing: String,
+        pronouns: String?,
+    ): String {
+        val putBody = CompletableDeferred<String>()
+        val (_, repo) =
+            newRepo(signedIn = true) { request ->
+                when {
+                    request.isGetRecord() -> okJson(getRecordJson(cid = "bafcid", value = existing))
+                    request.isPutRecord() -> {
+                        putBody.complete(request.body.toBodyString())
+                        okJson(putRecordJson(cid = "bafnew"))
+                    }
+                    else -> error("Unexpected request: ${request.url}")
+                }
+            }
+        val result =
+            repo.updateProfile(
+                displayName = "name",
+                description = null,
+                avatar = ImageChange.Unchanged,
+                banner = ImageChange.Unchanged,
+                pronouns = pronouns,
+            )
+        assertTrue(result.isSuccess, "expected success, got: ${result.exceptionOrNull()}")
+        return putBody.await()
+    }
+
+    @Test
     fun blankDisplayName_dropsKey() =
         runTest {
             val putBody = CompletableDeferred<String>()

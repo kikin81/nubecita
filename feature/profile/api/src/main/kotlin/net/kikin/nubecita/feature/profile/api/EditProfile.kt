@@ -25,4 +25,5 @@ data class EditProfile(
     val description: String? = null,
     val avatarUrl: String? = null,
     val bannerUrl: String? = null,
+    val pronouns: String? = null,
 ) : NavKey

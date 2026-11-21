@@ -167,6 +167,102 @@ class EditProfileViewModelTest {
         }
 
     @Test
+    fun pronounsRowTapped_opensSheetSeededWithCurrentPronouns() {
+        val vm = viewModel(EditProfile(pronouns = "he/him"))
+        vm.handleEvent(EditProfileEvent.PronounsRowTapped)
+        assertEquals(PronounsSheetState(input = "he/him", graphemes = 6), vm.uiState.value.pronounsSheet)
+    }
+
+    @Test
+    fun presetTapped_fillsInput() {
+        val vm = viewModel(EditProfile())
+        vm.handleEvent(EditProfileEvent.PronounsRowTapped)
+        vm.handleEvent(EditProfileEvent.PronounPresetTapped("they/them"))
+        assertEquals(
+            "they/them",
+            vm.uiState.value.pronounsSheet
+                ?.input,
+        )
+    }
+
+    @Test
+    fun done_copiesInputToPronouns_closesSheet_andMarksDirty() {
+        val vm = viewModel(EditProfile())
+        vm.handleEvent(EditProfileEvent.PronounsRowTapped)
+        vm.handleEvent(EditProfileEvent.PronounsInputChanged("she/her"))
+        vm.handleEvent(EditProfileEvent.PronounsDone)
+        val state = vm.uiState.value
+        assertEquals("she/her", state.pronouns)
+        assertEquals(null, state.pronounsSheet)
+        assertTrue(state.isDirty)
+    }
+
+    @Test
+    fun remove_clearsPronouns_andClosesSheet() {
+        val vm = viewModel(EditProfile(pronouns = "he/him"))
+        vm.handleEvent(EditProfileEvent.PronounsRowTapped)
+        vm.handleEvent(EditProfileEvent.PronounsRemoved)
+        assertEquals("", vm.uiState.value.pronouns)
+        assertEquals(null, vm.uiState.value.pronounsSheet)
+        assertTrue(vm.uiState.value.isDirty)
+    }
+
+    @Test
+    fun dismiss_discardsInput() {
+        val vm = viewModel(EditProfile(pronouns = "he/him"))
+        vm.handleEvent(EditProfileEvent.PronounsRowTapped)
+        vm.handleEvent(EditProfileEvent.PronounsInputChanged("xe/xem"))
+        vm.handleEvent(EditProfileEvent.PronounsSheetDismissed)
+        assertEquals("he/him", vm.uiState.value.pronouns)
+        assertEquals(null, vm.uiState.value.pronounsSheet)
+        assertFalse(vm.uiState.value.isDirty)
+    }
+
+    @Test
+    fun overLimitInput_isOverLimit_andDoneIsIgnored() {
+        val vm = viewModel(EditProfile())
+        vm.handleEvent(EditProfileEvent.PronounsRowTapped)
+        vm.handleEvent(EditProfileEvent.PronounsInputChanged("a".repeat(21)))
+        assertTrue(
+            vm.uiState.value.pronounsSheet!!
+                .isOverLimit,
+        )
+        vm.handleEvent(EditProfileEvent.PronounsDone)
+        assertEquals("", vm.uiState.value.pronouns)
+        assertTrue(vm.uiState.value.pronounsSheet != null, "Done over the limit MUST keep the sheet open")
+    }
+
+    @Test
+    fun pronounsInput_countsGraphemesNotChars() {
+        val vm = viewModel(EditProfile())
+        vm.handleEvent(EditProfileEvent.PronounsRowTapped)
+        // 🎉 is 2 UTF-16 units but 1 grapheme: 7 chars, 6 graphemes. (Not a ZWJ
+        // sequence — the JVM's BreakIterator splits those; see GraphemeCounter.)
+        vm.handleEvent(EditProfileEvent.PronounsInputChanged("\uD83C\uDF89 they"))
+        assertEquals(
+            6,
+            vm.uiState.value.pronounsSheet
+                ?.graphemes,
+        )
+    }
+
+    @Test
+    fun save_passesPronouns_andWhitespaceOnlyAsRemoval() =
+        runTest {
+            val repo = FakeProfileRepository()
+            val vm = viewModel(EditProfile(pronouns = "he/him"), repo)
+            vm.handleEvent(EditProfileEvent.PronounsRowTapped)
+            vm.handleEvent(EditProfileEvent.PronounsInputChanged("   "))
+            vm.handleEvent(EditProfileEvent.PronounsDone)
+            vm.effects.test {
+                vm.handleEvent(EditProfileEvent.SaveTapped)
+                assertEquals(EditProfileEffect.NavigateBack, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals("", repo.lastPronouns)
+        }
+
+    @Test
     fun save_swapConflict_emitsShowError_andResetsSaving() =
         runTest {
             val repo = FakeProfileRepository(Result.failure(ProfileUpdateError.SwapConflict))
@@ -533,6 +629,7 @@ class EditProfileViewModelTest {
         var lastDescription: String? = null
         var lastAvatar: ImageChange? = null
         var lastBanner: ImageChange? = null
+        var lastPronouns: String? = null
 
         override suspend fun updateProfile(
             displayName: String?,
@@ -540,8 +637,10 @@ class EditProfileViewModelTest {
             avatar: ImageChange,
             banner: ImageChange,
             links: LinksChange,
+            pronouns: String?,
         ): Result<Unit> {
             updateCalls++
+            lastPronouns = pronouns
             lastLinks = links
             lastDisplayName = displayName
             lastDescription = description

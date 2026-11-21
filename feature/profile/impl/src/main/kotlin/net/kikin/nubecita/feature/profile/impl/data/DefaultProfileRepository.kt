@@ -228,6 +228,7 @@ internal class DefaultProfileRepository
             avatar: ImageChange,
             banner: ImageChange,
             links: LinksChange,
+            pronouns: String?,
         ): Result<Unit> =
             withContext(dispatcher) {
                 // Explicit try/catch (not runCatching) so cancellation
@@ -264,6 +265,7 @@ internal class DefaultProfileRepository
                                     description = description,
                                     avatar = avatar,
                                     banner = banner,
+                                    pronouns = pronouns,
                                 ).toMutableMap()
                             // Links: write link records BEFORE the profile so the
                             // profile never points at a record that doesn't exist yet.
@@ -532,7 +534,7 @@ internal class DefaultProfileRepository
         /**
          * Builds the record to write: a copy of [existing] with only the
          * managed keys overridden. Everything else (pinnedPost, labels,
-         * createdAt, pronouns, unknown future keys) is preserved
+         * createdAt, pronouns when not edited, unknown future keys) is preserved
          * byte-for-byte. On the create path `$type` is stamped so the
          * fresh record is a valid `app.bsky.actor.profile`.
          */
@@ -544,6 +546,7 @@ internal class DefaultProfileRepository
             description: String?,
             avatar: ImageChange,
             banner: ImageChange,
+            pronouns: String?,
         ): JsonObject {
             val merged = existing.toMutableMap()
 
@@ -555,6 +558,8 @@ internal class DefaultProfileRepository
             mergeText(merged, KEY_DESCRIPTION, description)
             mergeImage(merged, KEY_AVATAR, avatar, repo)
             mergeImage(merged, KEY_BANNER, banner, repo)
+            // Null = not edited: the key stays as fetched. Otherwise blank removes it.
+            if (pronouns != null) mergeText(merged, KEY_PRONOUNS, pronouns.trim())
 
             return JsonObject(merged)
         }
@@ -649,6 +654,7 @@ internal class DefaultProfileRepository
             const val KEY_DESCRIPTION = "description"
             const val KEY_AVATAR = "avatar"
             const val KEY_BANNER = "banner"
+            const val KEY_PRONOUNS = "pronouns"
             const val KEY_LINKS = "links"
 
             const val LINK_NSID = "app.bsky.actor.link"

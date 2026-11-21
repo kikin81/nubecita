@@ -92,6 +92,27 @@ internal class ProfileViewModelTest {
         }
 
     @Test
+    fun `EditTapped carries the header's pronouns into the editor route`() =
+        runTest(mainDispatcher.dispatcher) {
+            // The editor always writes its pronouns back; a route without them
+            // would erase the user's pronouns on any unrelated edit.
+            val repo =
+                FakeProfileRepository(
+                    headerWithViewerResult =
+                        Result.success(ProfileHeaderWithViewer(SAMPLE_HEADER.copy(pronouns = "he/him"), ViewerRelationship.None)),
+                )
+            val vm = newVm(repo = repo)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(ProfileEvent.EditTapped)
+                val effect = awaitItem() as ProfileEffect.NavigateTo
+                assertEquals("he/him", (effect.key as net.kikin.nubecita.feature.profile.api.EditProfile).pronouns)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `a cached header renders before the network header arrives`() =
         runTest(mainDispatcher.dispatcher) {
             val cached = SAMPLE_HEADER.copy(displayName = "Cached Alice", pronouns = "she/her")
@@ -3298,6 +3319,7 @@ internal class ProfileViewModelTest {
             avatar: net.kikin.nubecita.feature.profile.impl.data.ImageChange,
             banner: net.kikin.nubecita.feature.profile.impl.data.ImageChange,
             links: net.kikin.nubecita.feature.profile.impl.data.LinksChange,
+            pronouns: String?,
         ): Result<Unit> = Result.success(Unit)
 
         override suspend fun fetchOwnLinks(): Result<List<net.kikin.nubecita.feature.profile.impl.data.EditableProfileLink>> = Result.success(emptyList())

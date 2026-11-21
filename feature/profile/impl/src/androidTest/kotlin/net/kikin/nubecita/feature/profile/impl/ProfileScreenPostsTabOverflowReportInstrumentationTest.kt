@@ -142,6 +142,7 @@ class ProfileScreenPostsTabOverflowReportInstrumentationTest {
                     avatar: ImageChange,
                     banner: ImageChange,
                     links: net.kikin.nubecita.feature.profile.impl.data.LinksChange,
+                    pronouns: String?,
                 ): Result<Unit> = Result.success(Unit)
 
                 override suspend fun fetchOwnLinks(): Result<List<net.kikin.nubecita.feature.profile.impl.data.EditableProfileLink>> = Result.success(emptyList())

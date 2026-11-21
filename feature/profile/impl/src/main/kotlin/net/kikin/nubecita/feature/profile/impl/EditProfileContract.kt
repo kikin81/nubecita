@@ -19,6 +19,20 @@ internal const val MAX_DISPLAY_NAME_GRAPHEMES = 64
 /** `app.bsky.actor.profile` description limit (graphemes). */
 internal const val MAX_DESCRIPTION_GRAPHEMES = 256
 
+/** `app.bsky.actor.profile#pronouns` limit (graphemes). */
+internal const val MAX_PRONOUNS_GRAPHEMES = 20
+
+/**
+ * The open pronouns sheet: the draft [input] and its grapheme count. The draft
+ * only becomes the profile's pronouns on Done; dismissing discards it.
+ */
+internal data class PronounsSheetState(
+    val input: String = "",
+    val graphemes: Int = 0,
+) {
+    val isOverLimit: Boolean get() = graphemes > MAX_PRONOUNS_GRAPHEMES
+}
+
 /** Which profile image a pick / crop / remove targets. */
 internal enum class ImageSlotKind { Avatar, Banner }
 
@@ -118,6 +132,10 @@ internal data class EditProfileViewState(
     val linksStatus: LinksLoadStatus = LinksLoadStatus.Loading,
     /** Non-null while the add / edit link form is open. */
     val linkEditor: LinkEditorState? = null,
+    /** The profile's pronouns as edited; empty means none (the key is removed on save). */
+    val pronouns: String = "",
+    /** Non-null while the pronouns sheet is open. */
+    val pronounsSheet: PronounsSheetState? = null,
 ) : UiState {
     /** Links can be edited only once loaded, below the cap, and with no save in flight. */
     val canEditLinks: Boolean get() = linksStatus == LinksLoadStatus.Loaded && !isSaving
@@ -132,6 +150,26 @@ internal data class EditProfileViewState(
 }
 
 internal sealed interface EditProfileEvent : UiEvent {
+    /** The Pronouns row was tapped: open the sheet on the current value. */
+    data object PronounsRowTapped : EditProfileEvent
+
+    data class PronounsInputChanged(
+        val value: String,
+    ) : EditProfileEvent
+
+    /** A preset chip (she/her, he/him, …) was tapped: it replaces the draft. */
+    data class PronounPresetTapped(
+        val value: String,
+    ) : EditProfileEvent
+
+    /** Done: the trimmed draft becomes the pronouns (ignored over the limit). */
+    data object PronounsDone : EditProfileEvent
+
+    /** Remove pronouns: clears them and closes the sheet. */
+    data object PronounsRemoved : EditProfileEvent
+
+    data object PronounsSheetDismissed : EditProfileEvent
+
     data class DisplayNameChanged(
         val value: String,
     ) : EditProfileEvent
