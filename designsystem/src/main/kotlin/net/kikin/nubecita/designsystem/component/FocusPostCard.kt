@@ -29,7 +29,6 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -205,13 +204,21 @@ private fun FocusCountsRow(counts: List<Pair<FocusCountKind, Int>>) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         counts.forEach { (kind, count) ->
             val number = rememberCompactCount(count.toLong())
-            val label = pluralStringResource(kind.pluralRes, count)
+            // The number lives inside the localized string (word order and
+            // plural rules are per-locale); bold it where it lands.
+            val full = pluralStringResource(kind.pluralRes, count, number)
+            val start = full.indexOf(number)
             Text(
                 text =
                     buildAnnotatedString {
-                        withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)) { append(number) }
-                        append(" ")
-                        append(label)
+                        append(full)
+                        if (start >= 0) {
+                            addStyle(
+                                SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface),
+                                start,
+                                start + number.length,
+                            )
+                        }
                     },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
