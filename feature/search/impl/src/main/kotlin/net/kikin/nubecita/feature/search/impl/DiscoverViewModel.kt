@@ -130,6 +130,7 @@ internal class DiscoverViewModel
                     sendEffect(DiscoverEffect.NavigateToFeed(event.uri, event.displayName))
                 is DiscoverEvent.OnAccountDismissed -> onAccountDismissed(event.did)
                 is DiscoverEvent.OnTrendTapped -> onTrendTapped(event.trend)
+                DiscoverEvent.OnTrendsExpansionToggled -> setState { copy(trendsExpanded = !trendsExpanded) }
             }
         }
 

@@ -2,12 +2,10 @@ package net.kikin.nubecita.feature.search.impl
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.input.TextFieldState
@@ -35,11 +33,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
@@ -53,9 +48,8 @@ import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.search.api.Search
 import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
 import net.kikin.nubecita.feature.search.impl.data.SearchTab
-import net.kikin.nubecita.feature.search.impl.ui.DiscoverSections
+import net.kikin.nubecita.feature.search.impl.ui.DiscoverLanding
 import net.kikin.nubecita.feature.search.impl.ui.PostFiltersSheet
-import net.kikin.nubecita.feature.search.impl.ui.RecentSearchChipStrip
 
 /**
  * Stateful Search tab home. Hoists [SearchViewModel] and [DiscoverViewModel]
@@ -180,12 +174,9 @@ internal fun SearchScreen(
  * [SearchBarSection] (the collapsed pill + the expanded typing overlay)
  * followed by a body branched on [phase]:
  *
- *  - [SearchPhase.Discover]: a [NubecitaPullToRefreshBox] wrapping a
- *    [LazyColumn] with:
- *    — [RecentSearchChipStrip] when there are recents,
- *    — [DiscoverSections] (accounts carousel + feeds carousel) when
- *      the respective sections are [DiscoverSectionStatus.Loaded],
- *    — an empty-state hint when all sections are empty/error and no recents.
+ *  - [SearchPhase.Discover]: a [NubecitaPullToRefreshBox] wrapping
+ *    [DiscoverLanding]: recents, the Trending list, then (phones only) the
+ *      accounts and feeds carousels, or an empty-state hint when nothing loads.
  *  - [SearchPhase.Results]: [SecondaryTabRow] + [HorizontalPager] hosting
  *    [SearchPostsScreen] / [SearchActorsScreen] / [SearchFeedsScreen].
  *
@@ -306,8 +297,9 @@ internal fun SearchScreenContent(
     // load (before any content exists) — initial loads use the existing
     // section-status Idle → Loading → Loaded lifecycle without showing a spinner.
     var isDiscoverRefreshing by remember { mutableStateOf(false) }
-    LaunchedEffect(discoverState.accountsStatus, discoverState.feedsStatus) {
-        if (discoverState.accountsStatus != DiscoverSectionStatus.Loading &&
+    LaunchedEffect(discoverState.trendsStatus, discoverState.accountsStatus, discoverState.feedsStatus) {
+        if (discoverState.trendsStatus != DiscoverSectionStatus.Loading &&
+            discoverState.accountsStatus != DiscoverSectionStatus.Loading &&
             discoverState.feedsStatus != DiscoverSectionStatus.Loading
         ) {
             isDiscoverRefreshing = false
@@ -348,17 +340,6 @@ internal fun SearchScreenContent(
                         currentOnDiscoverEvent(DiscoverEvent.OnAppear)
                     }
 
-                    val showEmptyHint =
-                        (
-                            discoverState.accountsStatus is DiscoverSectionStatus.Empty ||
-                                discoverState.accountsStatus is DiscoverSectionStatus.Error
-                        ) &&
-                            (
-                                discoverState.feedsStatus is DiscoverSectionStatus.Empty ||
-                                    discoverState.feedsStatus is DiscoverSectionStatus.Error
-                            ) &&
-                            recentSearches.isEmpty()
-
                     NubecitaPullToRefreshBox(
                         isRefreshing = isDiscoverRefreshing,
                         onRefresh = {
@@ -370,40 +351,15 @@ internal fun SearchScreenContent(
                                 .weight(1f)
                                 .fillMaxWidth(),
                     ) {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                        ) {
-                            if (recentSearches.isNotEmpty()) {
-                                item(key = "recents") {
-                                    RecentSearchChipStrip(
-                                        items = recentSearches,
-                                        onChipTap = onChipTap,
-                                        onChipRemove = onChipRemove,
-                                        onClearAll = onClearAll,
-                                    )
-                                }
-                            }
-                            if (discoverState.accountsStatus == DiscoverSectionStatus.Loaded ||
-                                discoverState.feedsStatus == DiscoverSectionStatus.Loaded
-                            ) {
-                                item(key = "discover_sections") {
-                                    DiscoverSections(
-                                        state = discoverState,
-                                        onEvent = onDiscoverEvent,
-                                    )
-                                }
-                            }
-                            if (showEmptyHint) {
-                                item(key = "empty_hint") {
-                                    DiscoverEmptyHint(
-                                        modifier =
-                                            Modifier
-                                                .fillParentMaxSize()
-                                                .padding(horizontal = 32.dp),
-                                    )
-                                }
-                            }
-                        }
+                        DiscoverLanding(
+                            state = discoverState,
+                            recentSearches = recentSearches,
+                            onChipTap = onChipTap,
+                            onChipRemove = onChipRemove,
+                            onClearAll = onClearAll,
+                            onEvent = onDiscoverEvent,
+                            showCards = !isAtLeastMedium,
+                        )
                     }
                 }
                 is SearchPhase.Results -> {
@@ -478,25 +434,6 @@ internal fun SearchScreenContent(
                 onDismiss = { onEvent(SearchEvent.FilterSheetOpenChanged(false)) },
             )
         }
-    }
-}
-
-/**
- * Empty-state hint shown when the Discover body has no accounts, no feeds,
- * and no recent searches. Prompts the user to pull to refresh.
- */
-@Composable
-private fun DiscoverEmptyHint(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = stringResource(R.string.discover_empty_hint),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
     }
 }
 

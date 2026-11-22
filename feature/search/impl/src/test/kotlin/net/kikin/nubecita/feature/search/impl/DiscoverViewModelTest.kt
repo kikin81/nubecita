@@ -886,6 +886,36 @@ internal class DiscoverViewModelTest {
         }
 
     @Test
+    fun `show more expands and show less collapses`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = buildVm(suggestionsRepo = FakeExploreRepository(trendsResult = Result.success(listOf(trendFixture()))))
+            vm.handleEvent(DiscoverEvent.OnAppear)
+            advanceUntilIdle()
+            assertFalse(vm.uiState.value.trendsExpanded)
+
+            vm.handleEvent(DiscoverEvent.OnTrendsExpansionToggled)
+            assertTrue(vm.uiState.value.trendsExpanded)
+
+            vm.handleEvent(DiscoverEvent.OnTrendsExpansionToggled)
+            assertFalse(vm.uiState.value.trendsExpanded)
+        }
+
+    @Test
+    fun `the expanded flag survives a content refresh`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = buildVm(suggestionsRepo = FakeExploreRepository(trendsResult = Result.success(listOf(trendFixture()))))
+            vm.handleEvent(DiscoverEvent.OnAppear)
+            advanceUntilIdle()
+            vm.handleEvent(DiscoverEvent.OnTrendsExpansionToggled)
+
+            vm.handleEvent(DiscoverEvent.OnRefresh)
+            advanceUntilIdle()
+
+            assertTrue(vm.uiState.value.trendsExpanded)
+            assertEquals(DiscoverSectionStatus.Loaded, vm.uiState.value.trendsStatus)
+        }
+
+    @Test
     fun `two instances over one repository show the same content`() =
         runTest(mainDispatcher.dispatcher) {
             val repo =
