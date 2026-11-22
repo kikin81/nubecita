@@ -4,6 +4,7 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -64,12 +65,14 @@ fun HighlightedText(
         ),
 ) {
     val annotated =
-        buildAnnotatedString {
-            append(text)
-            ranges.forEach { range ->
-                val start = range.first.coerceAtLeast(0)
-                val end = (range.last + 1).coerceAtMost(text.length)
-                if (start < end) addStyle(highlightStyle, start, end)
+        remember(text, ranges, highlightStyle) {
+            buildAnnotatedString {
+                append(text)
+                ranges.forEach { range ->
+                    val start = range.first.coerceAtLeast(0)
+                    val end = (range.last + 1).coerceAtMost(text.length)
+                    if (start < end) addStyle(highlightStyle, start, end)
+                }
             }
         }
     Text(text = annotated, modifier = modifier, style = style, maxLines = maxLines, overflow = overflow)

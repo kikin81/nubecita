@@ -380,15 +380,16 @@ internal fun BodyText(
             onFacetTap = onFacetTap,
             authorHandle = authorHandle,
         )
+    val highlightBackground = MaterialTheme.colorScheme.primaryContainer
+    val highlightColor = MaterialTheme.colorScheme.onPrimaryContainer
+    // Two full-text lowercase() passes: computed once per input, not on every composition.
     val withHighlight =
-        annotated.withMatchHighlight(
-            match = bodyMatch,
-            highlightStyle =
-                SpanStyle(
-                    background = MaterialTheme.colorScheme.primaryContainer,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                ),
-        )
+        remember(annotated, bodyMatch, highlightBackground, highlightColor) {
+            annotated.withMatchHighlight(
+                match = bodyMatch,
+                highlightStyle = SpanStyle(background = highlightBackground, color = highlightColor),
+            )
+        }
     // The thread pill rides in an inline slot after the last word, so it wraps
     // with the text. With no position the string and the (empty) inline map are
     // exactly what this Text was given before the pill existed.
