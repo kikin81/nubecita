@@ -16,75 +16,70 @@ import net.kikin.nubecita.core.analytics.InteractFeed
 import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
-import net.kikin.nubecita.core.postinteractions.FollowRepository
-import net.kikin.nubecita.feature.search.impl.data.SuggestionsRepository
+import net.kikin.nubecita.feature.search.impl.data.ExploreRepository
+import net.kikin.nubecita.feature.search.impl.data.FollowOutcome
+import net.kikin.nubecita.feature.search.impl.data.FollowOverlay
+import net.kikin.nubecita.feature.search.impl.data.FollowToggle
+import net.kikin.nubecita.feature.search.impl.data.TrendLink
+import net.kikin.nubecita.feature.search.impl.data.TrendUi
+import net.kikin.nubecita.feature.search.impl.data.parseTrendLink
+import net.kikin.nubecita.feature.search.impl.data.withFollowOverride
 import javax.inject.Inject
 
 /**
- * Presenter for the Discover tab — suggested accounts and suggested feeds
- * with lazy per-feed preview strips.
+ * Presenter for the Search tab's Explore content — trending topics, suggested
+ * accounts and suggested feeds with lazy per-feed preview strips.
+ *
+ * This is a PROJECTION of [ExploreRepository.content], which holds the data once per
+ * process: a second instance of this ViewModel (the second pane on a wide window) shows
+ * the same content and cannot disagree with the first. What the repository does not hold
+ * is layered on here, on every projection:
+ *  - the viewer's follow actions, from [FollowOverlay] (the one source of follow state,
+ *    shared with the People tab);
+ *  - which feeds are pinned, from [PinnedFeedsRepository.observePinnedFeeds] (the source
+ *    of truth), plus this ViewModel's own pin taps until the stream confirms them.
  *
  * ## Section loading
- * Both sections load concurrently on [DiscoverEvent.OnAppear]. Each section
- * is independent: an accounts error does not mask the feeds section. Load-once
- * semantics apply: a [DiscoverSectionStatus.Loaded] section is skipped on
- * subsequent appearances. [DiscoverSectionStatus.Error] and
- * [DiscoverSectionStatus.Empty] sections auto-retry on the next
- * [DiscoverEvent.OnAppear]. [DiscoverEvent.OnRefresh] unconditionally reloads
- * both sections.
- *
- * ## Pin toggle
- * [DiscoverEvent.OnPinTapped] optimistically flips [DiscoverFeedUi.feed.isPinned]
- * in state, then calls [PinnedFeedsRepository.pinFeed] or
- * [PinnedFeedsRepository.unpinFeed]. Analytics ([InteractFeed]) fires on
- * success. On failure the flag is flipped back on the CURRENT state (targeted
- * rollback — no snapshot clobber). Rapid concurrent taps on the same URI are
- * dropped via an in-flight job guard. Mirrors [FeedPinViewModel]'s approach
- * but scoped per-URI across a list.
- *
- * The `isPinned` flag is also seeded reactively from
- * [PinnedFeedsRepository.observePinnedFeeds] so that changes made on other
- * surfaces (Feed tab, another screen) reflect here immediately.
+ * [DiscoverEvent.OnAppear] asks the repository to load; it loads only the sections that
+ * are not [DiscoverSectionStatus.Loaded] and shares an in-flight load with any other
+ * caller. Sections are independent: one failing does not mask the others.
+ * [DiscoverEvent.OnRefresh] forces a reload of every section.
  *
  * ## Follow toggle
- * [DiscoverEvent.OnFollowTapped] optimistically flips
- * [SuggestedAccountUi.isFollowing], then calls [FollowRepository.follow] or
- * [FollowRepository.unfollow]. Analytics ([InteractActor]) fires on success.
- * On failure the flag is reverted on the CURRENT state. Rapid concurrent taps
- * on the same DID are dropped. Mirrors [ProfileViewModel]'s follow handler.
+ * [DiscoverEvent.OnFollowTapped] goes through the shared [FollowToggle]: optimistic
+ * override, repository call, rollback on failure. Analytics ([InteractActor]) fires on
+ * success; a failure emits [DiscoverEffect.ShowError]. Rapid taps on the same DID are dropped.
  *
- * ## Lazy preview
- * [DiscoverEvent.OnFeedCardVisible] triggers a one-shot
- * [SuggestionsRepository.getFeedPreview] fetch for the given URI. Subsequent
- * calls for the same URI are no-ops once the fetch has started or completed —
- * [FeedPreviewStatus] is the cache sentinel.
+ * ## Pin toggle
+ * [DiscoverEvent.OnPinTapped] flips the pin optimistically, then calls
+ * [PinnedFeedsRepository.pinFeed] / [PinnedFeedsRepository.unpinFeed]. Analytics
+ * ([InteractFeed]) fires on success; on failure the flip is undone and
+ * [DiscoverEffect.ShowError] is emitted. Rapid taps on the same URI are dropped.
+ *
+ * ## Trend tap
+ * [DiscoverEvent.OnTrendTapped] opens a feed trend's feed (resolving a handle to a DID
+ * first), searches a search trend's query, and otherwise — an unknown link, a starter
+ * pack, or a handle that does not resolve — searches the trend's display name.
  *
  * ## Session-local account dismissal
- * Dismissed DIDs are stored in [dismissedDids] (ViewModel-scoped, not in
- * [DiscoverState]) and filtered from the accounts list on every load so
- * a pull-to-refresh does not resurface dismissed cards.
+ * [DiscoverEvent.OnAccountDismissed] asks the repository to drop the account, so every
+ * instance agrees and a refresh does not resurface it.
  */
 @HiltViewModel
 internal class DiscoverViewModel
     @Inject
     constructor(
-        private val suggestionsRepository: SuggestionsRepository,
-        private val followRepository: FollowRepository,
+        private val exploreRepository: ExploreRepository,
+        private val followToggle: FollowToggle,
+        private val followOverlay: FollowOverlay,
         private val pinnedFeedsRepository: PinnedFeedsRepository,
         private val analytics: AnalyticsClient,
     ) : MviViewModel<DiscoverState, DiscoverEvent, DiscoverEffect>(DiscoverState()) {
-        /**
-         * Latest set of pinned feed URIs from [PinnedFeedsRepository.observePinnedFeeds].
-         * Used in [loadFeeds] to seed [DiscoverFeedUi.feed.isPinned] at load time
-         * without needing the flow to re-emit after the feed list lands.
-         *
-         * Plain var (not StateFlow) — only written in the observer collector and read
-         * in [loadFeeds]; never collected as a flow.
-         */
+        /** Latest pinned feed URIs from [PinnedFeedsRepository.observePinnedFeeds]. */
         private var currentPinnedUris: Set<String> = emptySet()
 
-        /** In-flight follow/unfollow jobs keyed by DID — drops rapid concurrent taps. */
-        private val activeFollowJobs = mutableMapOf<String, Job>()
+        /** This ViewModel's pin taps that the pinned-feeds stream has not confirmed yet (uri → pinned). */
+        private val optimisticPins = mutableMapOf<String, Boolean>()
 
         /** In-flight pin/unpin jobs keyed by feed URI — drops rapid concurrent taps. */
         private val activePinJobs = mutableMapOf<String, Job>()
@@ -95,37 +90,24 @@ internal class DiscoverViewModel
          */
         private val activePreviewJobs = mutableMapOf<String, Job>()
 
-        /** Tracks the most-recently-launched accounts load (for cancel-and-restart on refresh). */
-        private var accountsLoadJob: Job? = null
-
-        /** Tracks the most-recently-launched feeds load (for cancel-and-restart on refresh). */
-        private var feedsLoadJob: Job? = null
-
-        /** DIDs dismissed this session — persists for the ViewModel lifetime. */
-        private val dismissedDids = mutableSetOf<String>()
+        /** The most-recently-launched section load (cancel-and-restart on refresh). */
+        private var loadJob: Job? = null
 
         init {
-            // Observe pinned feeds and (a) update currentPinnedUris for use in loadFeeds,
-            // (b) reactively update isPinned on the already-loaded feeds list.
+            exploreRepository.content
+                .onEach { project() }
+                .launchIn(viewModelScope)
+            followOverlay.overrides
+                .onEach { project() }
+                .launchIn(viewModelScope)
             pinnedFeedsRepository
                 .observePinnedFeeds()
                 .map { result -> result.feeds.map { it.uri }.toSet() }
                 .onEach { uris ->
                     currentPinnedUris = uris
-                    setState {
-                        copy(
-                            feeds =
-                                feeds
-                                    .map { discoverFeed ->
-                                        val pinned = discoverFeed.feed.uri in uris
-                                        if (discoverFeed.feed.isPinned != pinned) {
-                                            discoverFeed.copy(feed = discoverFeed.feed.copy(isPinned = pinned))
-                                        } else {
-                                            discoverFeed
-                                        }
-                                    }.toImmutableList(),
-                        )
-                    }
+                    // The stream now says what a tap asked for: drop the tap's own say-so.
+                    optimisticPins.entries.removeAll { (uri, pinned) -> (uri in uris) == pinned }
+                    project()
                 }.launchIn(viewModelScope)
         }
 
@@ -141,6 +123,37 @@ internal class DiscoverViewModel
                 is DiscoverEvent.OnFeedTapped ->
                     sendEffect(DiscoverEffect.NavigateToFeed(event.uri, event.displayName))
                 is DiscoverEvent.OnAccountDismissed -> onAccountDismissed(event.did)
+                is DiscoverEvent.OnTrendTapped -> onTrendTapped(event.trend)
+            }
+        }
+
+        /**
+         * Rebuilds the state from the repository's content with the follow overlay and the
+         * pin state laid over it. Idempotent, so it runs after every source changes and
+         * synchronously after this ViewModel's own optimistic writes.
+         */
+        private fun project() {
+            val content = exploreRepository.content.value
+            val overrides = followOverlay.current()
+            setState {
+                copy(
+                    trends = content.trends,
+                    trendsStatus = content.trendsStatus,
+                    accounts = content.accounts.map { it.withFollowOverride(overrides) }.toImmutableList(),
+                    accountsStatus = content.accountsStatus,
+                    feeds =
+                        content.feeds
+                            .map { discoverFeed ->
+                                val uri = discoverFeed.feed.uri
+                                val pinned = optimisticPins[uri] ?: (uri in currentPinnedUris)
+                                if (discoverFeed.feed.isPinned != pinned) {
+                                    discoverFeed.copy(feed = discoverFeed.feed.copy(isPinned = pinned))
+                                } else {
+                                    discoverFeed
+                                }
+                            }.toImmutableList(),
+                    feedsStatus = content.feedsStatus,
+                )
             }
         }
 
@@ -150,79 +163,16 @@ internal class DiscoverViewModel
 
         private fun onAppear() {
             val state = uiState.value
-            if (state.accountsStatus.needsLoad()) {
-                accountsLoadJob?.cancel()
-                accountsLoadJob = viewModelScope.launch { loadAccounts() }
-            }
-            if (state.feedsStatus.needsLoad()) {
-                feedsLoadJob?.cancel()
-                feedsLoadJob = viewModelScope.launch { loadFeeds() }
-            }
+            val needsLoad =
+                state.trendsStatus.needsLoad() || state.accountsStatus.needsLoad() || state.feedsStatus.needsLoad()
+            if (!needsLoad) return
+            loadJob?.cancel()
+            loadJob = viewModelScope.launch { exploreRepository.load() }
         }
 
         private fun onRefresh() {
-            accountsLoadJob?.cancel()
-            accountsLoadJob = viewModelScope.launch { loadAccounts() }
-            feedsLoadJob?.cancel()
-            feedsLoadJob = viewModelScope.launch { loadFeeds() }
-        }
-
-        private suspend fun loadAccounts() {
-            setState { copy(accountsStatus = DiscoverSectionStatus.Loading) }
-            suggestionsRepository
-                .getSuggestedAccounts()
-                .onSuccess { list ->
-                    val filtered = list.filter { it.did !in dismissedDids }
-                    if (filtered.isEmpty()) {
-                        setState { copy(accountsStatus = DiscoverSectionStatus.Empty) }
-                    } else {
-                        setState {
-                            copy(
-                                accounts = filtered.toImmutableList(),
-                                accountsStatus = DiscoverSectionStatus.Loaded,
-                            )
-                        }
-                    }
-                }.onFailure {
-                    setState { copy(accountsStatus = DiscoverSectionStatus.Error) }
-                }
-        }
-
-        private suspend fun loadFeeds() {
-            setState { copy(feedsStatus = DiscoverSectionStatus.Loading) }
-            suggestionsRepository
-                .getSuggestedFeeds()
-                .onSuccess { list ->
-                    if (list.isEmpty()) {
-                        setState { copy(feedsStatus = DiscoverSectionStatus.Empty) }
-                    } else {
-                        // Seed isPinned from the latest pinned-feeds observer value so
-                        // the UI shows the correct pin state immediately on first render,
-                        // even before the observer has a chance to re-emit.
-                        val pinnedUris = currentPinnedUris
-                        setState {
-                            // Preserve any already-loaded preview data so a pull-to-refresh
-                            // does not discard previews for feeds that haven't changed URIs.
-                            // New URIs (not in the prior list) start at Idle as normal.
-                            val priorByUri = feeds.associateBy { it.feed.uri }
-                            copy(
-                                feeds =
-                                    list
-                                        .map { feedUi ->
-                                            val prior = priorByUri[feedUi.uri]
-                                            DiscoverFeedUi(
-                                                feed = feedUi.copy(isPinned = feedUi.uri in pinnedUris),
-                                                preview = prior?.preview,
-                                                previewStatus = prior?.previewStatus ?: FeedPreviewStatus.Idle,
-                                            )
-                                        }.toImmutableList(),
-                                feedsStatus = DiscoverSectionStatus.Loaded,
-                            )
-                        }
-                    }
-                }.onFailure {
-                    setState { copy(feedsStatus = DiscoverSectionStatus.Error) }
-                }
+            loadJob?.cancel()
+            loadJob = viewModelScope.launch { exploreRepository.load(force = true) }
         }
 
         // -------------------------------------------------------------------------
@@ -230,79 +180,26 @@ internal class DiscoverViewModel
         // -------------------------------------------------------------------------
 
         private fun onFollowTapped(did: String) {
-            if (activeFollowJobs[did]?.isActive == true) return
-
             val account = uiState.value.accounts.find { it.did == did } ?: return
-
-            if (account.isFollowing) {
-                val followUri = account.followUri ?: return
-                // Optimistic flip: unfollow
-                setState {
-                    copy(
-                        accounts =
-                            accounts
-                                .map { if (it.did == did) it.copy(isFollowing = false, followUri = null) else it }
-                                .toImmutableList(),
-                    )
-                }
-                activeFollowJobs[did] =
-                    viewModelScope.launch {
-                        followRepository
-                            .unfollow(followUri)
-                            .onSuccess {
-                                analytics.log(InteractActor(ActorAction.Unfollow, PostSurface.Explore))
-                            }.onFailure {
-                                // Targeted rollback: flip back on CURRENT state
-                                setState {
-                                    copy(
-                                        accounts =
-                                            accounts
-                                                .map { if (it.did == did) it.copy(isFollowing = true, followUri = followUri) else it }
-                                                .toImmutableList(),
-                                    )
-                                }
-                                sendEffect(DiscoverEffect.ShowError("Failed to unfollow"))
-                            }
+            val started =
+                followToggle.toggle(
+                    scope = viewModelScope,
+                    did = did,
+                    isFollowing = account.isFollowing,
+                    followUri = account.followUri,
+                ) { outcome ->
+                    when (outcome) {
+                        FollowOutcome.Followed ->
+                            analytics.log(InteractActor(ActorAction.Follow, PostSurface.Explore))
+                        FollowOutcome.Unfollowed ->
+                            analytics.log(InteractActor(ActorAction.Unfollow, PostSurface.Explore))
+                        FollowOutcome.FollowFailed -> sendEffect(DiscoverEffect.ShowError("Failed to follow"))
+                        FollowOutcome.UnfollowFailed -> sendEffect(DiscoverEffect.ShowError("Failed to unfollow"))
                     }
-            } else {
-                // Optimistic flip: follow (followUri will be set on success)
-                setState {
-                    copy(
-                        accounts =
-                            accounts
-                                .map { if (it.did == did) it.copy(isFollowing = true) else it }
-                                .toImmutableList(),
-                    )
                 }
-                activeFollowJobs[did] =
-                    viewModelScope.launch {
-                        followRepository
-                            .follow(did)
-                            .onSuccess { newFollowUri ->
-                                // Commit the returned follow record URI
-                                setState {
-                                    copy(
-                                        accounts =
-                                            accounts
-                                                .map { if (it.did == did) it.copy(isFollowing = true, followUri = newFollowUri) else it }
-                                                .toImmutableList(),
-                                    )
-                                }
-                                analytics.log(InteractActor(ActorAction.Follow, PostSurface.Explore))
-                            }.onFailure {
-                                // Targeted rollback
-                                setState {
-                                    copy(
-                                        accounts =
-                                            accounts
-                                                .map { if (it.did == did) it.copy(isFollowing = false, followUri = null) else it }
-                                                .toImmutableList(),
-                                    )
-                                }
-                                sendEffect(DiscoverEffect.ShowError("Failed to follow"))
-                            }
-                    }
-            }
+            // The optimistic override is written already; show it now rather than when
+            // the overlay's collector next runs.
+            if (started) project()
         }
 
         // -------------------------------------------------------------------------
@@ -315,15 +212,8 @@ internal class DiscoverViewModel
             val feedUi = uiState.value.feeds.find { it.feed.uri == uri } ?: return
             val wasPinned = feedUi.feed.isPinned
 
-            // Optimistic flip
-            setState {
-                copy(
-                    feeds =
-                        feeds
-                            .map { if (it.feed.uri == uri) it.copy(feed = it.feed.copy(isPinned = !wasPinned)) else it }
-                            .toImmutableList(),
-                )
-            }
+            optimisticPins[uri] = !wasPinned
+            project()
 
             activePinJobs[uri] =
                 viewModelScope.launch {
@@ -342,15 +232,8 @@ internal class DiscoverViewModel
                                 ),
                             )
                         }.onFailure {
-                            // Targeted rollback on CURRENT state — no snapshot clobber
-                            setState {
-                                copy(
-                                    feeds =
-                                        feeds
-                                            .map { if (it.feed.uri == uri) it.copy(feed = it.feed.copy(isPinned = wasPinned)) else it }
-                                            .toImmutableList(),
-                                )
-                            }
+                            optimisticPins.remove(uri)
+                            project()
                             sendEffect(DiscoverEffect.ShowError("Failed to ${if (wasPinned) "unpin" else "pin"} feed"))
                         }
                 }
@@ -362,54 +245,14 @@ internal class DiscoverViewModel
 
         private fun onFeedCardVisible(uri: String) {
             // Synchronous in-flight guard: drops rapid duplicate visibility events (e.g. carousel
-            // snapshotFlow re-emitting on layout changes) before setState has a chance to flip
+            // snapshotFlow re-emitting on layout changes) before the repository has flipped
             // previewStatus away from Idle.
             if (activePreviewJobs[uri]?.isActive == true) return
             val feedUi = uiState.value.feeds.find { it.feed.uri == uri } ?: return
             // Idle is the only state that triggers a fetch.
             if (feedUi.previewStatus != FeedPreviewStatus.Idle) return
 
-            setState {
-                copy(
-                    feeds =
-                        feeds
-                            .map { if (it.feed.uri == uri) it.copy(previewStatus = FeedPreviewStatus.Loading) else it }
-                            .toImmutableList(),
-                )
-            }
-
-            activePreviewJobs[uri] =
-                viewModelScope.launch {
-                    suggestionsRepository
-                        .getFeedPreview(uri)
-                        .onSuccess { posts ->
-                            setState {
-                                copy(
-                                    feeds =
-                                        feeds
-                                            .map {
-                                                if (it.feed.uri == uri) {
-                                                    it.copy(
-                                                        preview = posts.toImmutableList(),
-                                                        previewStatus = FeedPreviewStatus.Loaded,
-                                                    )
-                                                } else {
-                                                    it
-                                                }
-                                            }.toImmutableList(),
-                                )
-                            }
-                        }.onFailure {
-                            setState {
-                                copy(
-                                    feeds =
-                                        feeds
-                                            .map { if (it.feed.uri == uri) it.copy(previewStatus = FeedPreviewStatus.Error) else it }
-                                            .toImmutableList(),
-                                )
-                            }
-                        }
-                }
+            activePreviewJobs[uri] = viewModelScope.launch { exploreRepository.loadFeedPreview(uri) }
         }
 
         // -------------------------------------------------------------------------
@@ -417,7 +260,32 @@ internal class DiscoverViewModel
         // -------------------------------------------------------------------------
 
         private fun onAccountDismissed(did: String) {
-            dismissedDids.add(did)
-            setState { copy(accounts = accounts.filter { it.did != did }.toImmutableList()) }
+            exploreRepository.dismissAccount(did)
+            project()
+        }
+
+        // -------------------------------------------------------------------------
+        // Trend tap
+        // -------------------------------------------------------------------------
+
+        private fun onTrendTapped(trend: TrendUi) {
+            when (val link = parseTrendLink(trend.link)) {
+                is TrendLink.Feed ->
+                    viewModelScope.launch {
+                        exploreRepository
+                            .resolveDid(link.actor)
+                            .onSuccess { did ->
+                                sendEffect(
+                                    DiscoverEffect.NavigateToFeed(
+                                        uri = "at://$did/app.bsky.feed.generator/${link.rkey}",
+                                        displayName = trend.displayName,
+                                    ),
+                                )
+                            }.onFailure { sendEffect(DiscoverEffect.SubmitSearch(trend.displayName)) }
+                    }
+                is TrendLink.Search -> sendEffect(DiscoverEffect.SubmitSearch(link.query))
+                // Starter packs open in their own screen in a later change; until then, search the name.
+                is TrendLink.StarterPack, TrendLink.Unknown -> sendEffect(DiscoverEffect.SubmitSearch(trend.displayName))
+            }
         }
     }

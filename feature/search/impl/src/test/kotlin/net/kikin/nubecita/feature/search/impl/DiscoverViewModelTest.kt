@@ -2,7 +2,12 @@ package net.kikin.nubecita.feature.search.impl
 
 import app.cash.turbine.test
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.analytics.ActorAction
@@ -10,12 +15,19 @@ import net.kikin.nubecita.core.analytics.FeedAction
 import net.kikin.nubecita.core.analytics.InteractActor
 import net.kikin.nubecita.core.analytics.InteractFeed
 import net.kikin.nubecita.core.analytics.PostSurface
+import net.kikin.nubecita.core.auth.SessionState
+import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
+import net.kikin.nubecita.feature.search.impl.data.ExploreContent
+import net.kikin.nubecita.feature.search.impl.data.ExploreRepository
 import net.kikin.nubecita.feature.search.impl.data.FeedPreviewPostUi
+import net.kikin.nubecita.feature.search.impl.data.FollowOverlay
+import net.kikin.nubecita.feature.search.impl.data.FollowToggle
 import net.kikin.nubecita.feature.search.impl.data.SuggestedAccountUi
 import net.kikin.nubecita.feature.search.impl.data.SuggestedFeedUi
-import net.kikin.nubecita.feature.search.impl.data.SuggestionsRepository
+import net.kikin.nubecita.feature.search.impl.data.TrendUi
+import net.kikin.nubecita.feature.search.impl.data.signedIn
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -31,7 +43,7 @@ import org.junit.jupiter.api.extension.RegisterExtension
  * control. All tests call `advanceUntilIdle()` to flush coroutines.
  *
  * Fakes:
- * - [FakeSuggestionsRepository] — configurable success/failure results for
+ * - [FakeExploreRepository] — configurable success/failure results for
  *   account, feed and preview calls.
  * - [FakeFollowRepository] — configurable follow/unfollow outcomes + call logs.
  * - [FakePinnedFeedsRepository] — [MutableStateFlow]-backed pinned-feeds
@@ -46,10 +58,19 @@ internal class DiscoverViewModelTest {
     private val analytics = RecordingAnalyticsClient()
 
     private fun buildVm(
-        suggestionsRepo: FakeSuggestionsRepository = FakeSuggestionsRepository(),
+        suggestionsRepo: FakeExploreRepository = FakeExploreRepository(),
         followRepo: FakeFollowRepository = FakeFollowRepository(),
         pinnedRepo: FakePinnedFeedsRepository = FakePinnedFeedsRepository(),
-    ): DiscoverViewModel = DiscoverViewModel(suggestionsRepo, followRepo, pinnedRepo, analytics)
+    ): DiscoverViewModel {
+        val sessions =
+            object : SessionStateProvider {
+                override val state = MutableStateFlow<SessionState>(signedIn("did:plc:me"))
+
+                override suspend fun refresh() = Unit
+            }
+        val overlay = FollowOverlay(CoroutineScope(SupervisorJob() + mainDispatcher.dispatcher), sessions)
+        return DiscoverViewModel(suggestionsRepo, FollowToggle(followRepo, overlay), overlay, pinnedRepo, analytics)
+    }
 
     // -------------------------------------------------------------------------
     // Section loading — OnAppear
@@ -59,7 +80,7 @@ internal class DiscoverViewModelTest {
     fun `onAppear loads both sections concurrently and both are Loaded`() =
         runTest(mainDispatcher.dispatcher) {
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(listOf(accountFixture())),
                     feedsResult = Result.success(listOf(feedFixture())),
                 )
@@ -78,7 +99,7 @@ internal class DiscoverViewModelTest {
     fun `onAppear with loaded section skips re-fetch`() =
         runTest(mainDispatcher.dispatcher) {
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(listOf(accountFixture())),
                     feedsResult = Result.success(listOf(feedFixture())),
                 )
@@ -99,7 +120,7 @@ internal class DiscoverViewModelTest {
     fun `onAppear with error accounts section retries on re-appear`() =
         runTest(mainDispatcher.dispatcher) {
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.failure(java.io.IOException("network")),
                     feedsResult = Result.success(listOf(feedFixture())),
                 )
@@ -124,7 +145,7 @@ internal class DiscoverViewModelTest {
     fun `onAppear with empty accounts section retries on re-appear`() =
         runTest(mainDispatcher.dispatcher) {
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(emptyList()),
                     feedsResult = Result.success(listOf(feedFixture())),
                 )
@@ -147,7 +168,7 @@ internal class DiscoverViewModelTest {
     fun `onRefresh unconditionally reloads both sections`() =
         runTest(mainDispatcher.dispatcher) {
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(listOf(accountFixture())),
                     feedsResult = Result.success(listOf(feedFixture())),
                 )
@@ -170,7 +191,7 @@ internal class DiscoverViewModelTest {
     fun `independent section failure does not mask other section`() =
         runTest(mainDispatcher.dispatcher) {
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.failure(java.io.IOException("network")),
                     feedsResult = Result.success(listOf(feedFixture())),
                 )
@@ -198,7 +219,7 @@ internal class DiscoverViewModelTest {
             val newFollowUri = "at://did:plc:me/app.bsky.graph.follow/new"
             val account = accountFixture(did = did, isFollowing = false)
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(listOf(account)),
                     feedsResult = Result.success(emptyList()),
                 )
@@ -236,7 +257,7 @@ internal class DiscoverViewModelTest {
             val did = "did:plc:alice"
             val account = accountFixture(did = did, isFollowing = false)
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(listOf(account)),
                     feedsResult = Result.success(emptyList()),
                 )
@@ -270,7 +291,7 @@ internal class DiscoverViewModelTest {
             val followUri = "at://did:plc:me/app.bsky.graph.follow/existing"
             val account = accountFixture(did = did, isFollowing = true, followUri = followUri)
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(listOf(account)),
                     feedsResult = Result.success(emptyList()),
                 )
@@ -309,7 +330,7 @@ internal class DiscoverViewModelTest {
             val followUri = "at://did:plc:me/app.bsky.graph.follow/existing"
             val account = accountFixture(did = did, isFollowing = true, followUri = followUri)
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(listOf(account)),
                     feedsResult = Result.success(emptyList()),
                 )
@@ -341,7 +362,7 @@ internal class DiscoverViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val did = "did:plc:alice"
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(listOf(accountFixture(did = did, isFollowing = false))),
                     feedsResult = Result.success(emptyList()),
                 )
@@ -373,7 +394,7 @@ internal class DiscoverViewModelTest {
             val uri = "at://did:plc:f1/app.bsky.feed.generator/test"
             val feed = feedFixture(uri = uri, isPinned = false)
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(emptyList()),
                     feedsResult = Result.success(listOf(feed)),
                 )
@@ -406,7 +427,7 @@ internal class DiscoverViewModelTest {
             val uri = "at://did:plc:f1/app.bsky.feed.generator/test"
             val feed = feedFixture(uri = uri, isPinned = false)
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(emptyList()),
                     feedsResult = Result.success(listOf(feed)),
                 )
@@ -441,7 +462,7 @@ internal class DiscoverViewModelTest {
             val uri = "at://did:plc:f1/app.bsky.feed.generator/test"
             val feed = feedFixture(uri = uri, isPinned = false) // API value; repo is source of truth
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(emptyList()),
                     feedsResult = Result.success(listOf(feed)),
                 )
@@ -476,7 +497,7 @@ internal class DiscoverViewModelTest {
             val uri = "at://did:plc:f1/app.bsky.feed.generator/test"
             val feed = feedFixture(uri = uri, isPinned = false) // API value; repo is source of truth
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(emptyList()),
                     feedsResult = Result.success(listOf(feed)),
                 )
@@ -512,7 +533,7 @@ internal class DiscoverViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val uri = "at://did:plc:f1/app.bsky.feed.generator/test"
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(emptyList()),
                     feedsResult = Result.success(listOf(feedFixture(uri = uri, isPinned = false))),
                 )
@@ -546,7 +567,7 @@ internal class DiscoverViewModelTest {
                     thumbnailUrl = null,
                 )
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(emptyList()),
                     feedsResult = Result.success(listOf(feedFixture(uri = uri))),
                     previewResult = Result.success(listOf(previewPost)),
@@ -571,7 +592,7 @@ internal class DiscoverViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val uri = "at://did:plc:f1/app.bsky.feed.generator/test"
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(emptyList()),
                     feedsResult = Result.success(listOf(feedFixture(uri = uri))),
                     previewResult =
@@ -611,7 +632,7 @@ internal class DiscoverViewModelTest {
                     thumbnailUrl = null,
                 )
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(emptyList()),
                     feedsResult = Result.success(listOf(feedFixture(uri = uri))),
                     previewResult = Result.success(listOf(previewPost)),
@@ -654,7 +675,7 @@ internal class DiscoverViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val uri = "at://did:plc:f1/app.bsky.feed.generator/test"
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(emptyList()),
                     feedsResult = Result.success(listOf(feedFixture(uri = uri))),
                     previewResult = Result.failure(java.io.IOException("net")),
@@ -685,7 +706,7 @@ internal class DiscoverViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val uri = "at://did:plc:f1/app.bsky.feed.generator/test"
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(emptyList()),
                     feedsResult = Result.success(listOf(feedFixture(uri = uri))),
                     previewResult = Result.success(listOf(FeedPreviewPostUi("a.bsky.social", null, "post", null))),
@@ -714,7 +735,7 @@ internal class DiscoverViewModelTest {
     fun `onRefresh cancels in-flight section load and does not issue concurrent redundant requests`() =
         runTest(mainDispatcher.dispatcher) {
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(listOf(accountFixture())),
                     feedsResult = Result.success(listOf(feedFixture())),
                 )
@@ -744,7 +765,7 @@ internal class DiscoverViewModelTest {
             val keepDid = "did:plc:keep"
             val dismissDid = "did:plc:dismiss"
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult =
                         Result.success(
                             listOf(
@@ -778,7 +799,7 @@ internal class DiscoverViewModelTest {
             val keepDid = "did:plc:keep"
             val dismissDid = "did:plc:dismiss"
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult =
                         Result.success(
                             listOf(
@@ -844,6 +865,143 @@ internal class DiscoverViewModelTest {
         }
 
     // -------------------------------------------------------------------------
+    // Trends
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `onAppear projects the trends section`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeExploreRepository(trendsResult = Result.success(listOf(trendFixture())))
+            val vm = buildVm(suggestionsRepo = repo)
+
+            vm.handleEvent(DiscoverEvent.OnAppear)
+            advanceUntilIdle()
+
+            assertEquals(DiscoverSectionStatus.Loaded, vm.uiState.value.trendsStatus)
+            assertEquals(
+                listOf(trendFixture()),
+                vm.uiState.value.trends
+                    .toList(),
+            )
+        }
+
+    @Test
+    fun `two instances over one repository show the same content`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeExploreRepository(
+                    trendsResult = Result.success(listOf(trendFixture())),
+                    accountsResult = Result.success(listOf(accountFixture(did = "did:plc:a"), accountFixture(did = "did:plc:b"))),
+                    feedsResult = Result.success(listOf(feedFixture())),
+                )
+            val first = buildVm(suggestionsRepo = repo)
+            val second = buildVm(suggestionsRepo = repo)
+
+            first.handleEvent(DiscoverEvent.OnAppear)
+            advanceUntilIdle()
+            first.handleEvent(DiscoverEvent.OnAccountDismissed("did:plc:a"))
+            advanceUntilIdle()
+
+            assertEquals(first.uiState.value, second.uiState.value)
+            assertEquals(
+                listOf("did:plc:b"),
+                second.uiState.value.accounts
+                    .map { it.did },
+            )
+        }
+
+    @Test
+    fun `a feed trend navigates to at did generator rkey`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeExploreRepository()
+            val vm = buildVm(suggestionsRepo = repo)
+
+            vm.effects.test {
+                vm.handleEvent(DiscoverEvent.OnTrendTapped(trendFixture(link = "/profile/did:plc:abc/feed/xyz", displayName = "Eclipse")))
+                advanceUntilIdle()
+
+                assertEquals(DiscoverEffect.NavigateToFeed("at://did:plc:abc/app.bsky.feed.generator/xyz", "Eclipse"), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `a handle trend resolves first`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeExploreRepository(resolveResult = { Result.success("did:plc:resolved") })
+            val vm = buildVm(suggestionsRepo = repo)
+
+            vm.effects.test {
+                vm.handleEvent(DiscoverEvent.OnTrendTapped(trendFixture(link = "/profile/bsky.app/feed/xyz", displayName = "Eclipse")))
+                advanceUntilIdle()
+
+                assertEquals(
+                    DiscoverEffect.NavigateToFeed("at://did:plc:resolved/app.bsky.feed.generator/xyz", "Eclipse"),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(listOf("bsky.app"), repo.resolveCalls)
+        }
+
+    @Test
+    fun `a failed resolve submits the display name`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeExploreRepository(resolveResult = { Result.failure(java.io.IOException("no")) })
+            val vm = buildVm(suggestionsRepo = repo)
+
+            vm.effects.test {
+                vm.handleEvent(DiscoverEvent.OnTrendTapped(trendFixture(link = "/profile/bsky.app/feed/xyz", displayName = "Eclipse")))
+                advanceUntilIdle()
+
+                assertEquals(DiscoverEffect.SubmitSearch("Eclipse"), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `an unknown link submits the display name`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = buildVm()
+
+            vm.effects.test {
+                vm.handleEvent(DiscoverEvent.OnTrendTapped(trendFixture(link = "/hashtag/x", displayName = "Eclipse")))
+                advanceUntilIdle()
+
+                assertEquals(DiscoverEffect.SubmitSearch("Eclipse"), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `a search link submits its query`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = buildVm()
+
+            vm.effects.test {
+                vm.handleEvent(DiscoverEvent.OnTrendTapped(trendFixture(link = "/search?q=lunar%20eclipse", displayName = "Eclipse")))
+                advanceUntilIdle()
+
+                assertEquals(DiscoverEffect.SubmitSearch("lunar eclipse"), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `a starter-pack link submits the display name`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = buildVm()
+
+            vm.effects.test {
+                vm.handleEvent(DiscoverEvent.OnTrendTapped(trendFixture(link = "/starter-pack/alice.test/3k", displayName = "Eclipse")))
+                advanceUntilIdle()
+
+                assertEquals(DiscoverEffect.SubmitSearch("Eclipse"), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    // -------------------------------------------------------------------------
     // PinnedFeeds observer seeds isPinned on load
     // -------------------------------------------------------------------------
 
@@ -853,7 +1011,7 @@ internal class DiscoverViewModelTest {
             val pinnedUri = "at://did:plc:f1/app.bsky.feed.generator/pinned"
             val unpinnedUri = "at://did:plc:f2/app.bsky.feed.generator/unpinned"
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(emptyList()),
                     feedsResult =
                         Result.success(
@@ -885,7 +1043,7 @@ internal class DiscoverViewModelTest {
         runTest(mainDispatcher.dispatcher) {
             val uri = "at://did:plc:f1/app.bsky.feed.generator/test"
             val suggestionsRepo =
-                FakeSuggestionsRepository(
+                FakeExploreRepository(
                     accountsResult = Result.success(emptyList()),
                     feedsResult = Result.success(listOf(feedFixture(uri = uri, isPinned = false))),
                 )
@@ -921,31 +1079,93 @@ internal class DiscoverViewModelTest {
 // Fakes
 // =============================================================================
 
-private class FakeSuggestionsRepository(
+private class FakeExploreRepository(
+    var trendsResult: Result<List<TrendUi>> = Result.success(emptyList()),
     var accountsResult: Result<List<SuggestedAccountUi>> = Result.success(emptyList()),
     var feedsResult: Result<List<SuggestedFeedUi>> = Result.success(emptyList()),
     var previewResult: Result<List<FeedPreviewPostUi>> = Result.success(emptyList()),
-) : SuggestionsRepository {
+    var resolveResult: (String) -> Result<String> = { Result.success(it) },
+) : ExploreRepository {
+    private val state = MutableStateFlow(ExploreContent())
+    private val dismissed = mutableSetOf<String>()
+
+    override val content: StateFlow<ExploreContent> = state
+
+    var trendCallCount = 0
     var accountCallCount = 0
     var feedCallCount = 0
     val previewCallUris = mutableListOf<String>()
+    val resolveCalls = mutableListOf<String>()
 
-    override suspend fun getSuggestedAccounts(limit: Int): Result<List<SuggestedAccountUi>> {
-        accountCallCount++
-        return accountsResult
+    override suspend fun load(force: Boolean) {
+        if (force || state.value.trendsStatus != DiscoverSectionStatus.Loaded) {
+            trendCallCount++
+            trendsResult.fold(
+                onSuccess = { list ->
+                    state.update {
+                        it.copy(
+                            trends = list.toImmutableList(),
+                            trendsStatus = if (list.isEmpty()) DiscoverSectionStatus.Empty else DiscoverSectionStatus.Loaded,
+                        )
+                    }
+                },
+                onFailure = { state.update { it.copy(trendsStatus = DiscoverSectionStatus.Error) } },
+            )
+        }
+        if (force || state.value.accountsStatus != DiscoverSectionStatus.Loaded) {
+            accountCallCount++
+            accountsResult.fold(
+                onSuccess = { list ->
+                    val visible = list.filter { it.did !in dismissed }
+                    state.update {
+                        it.copy(
+                            accounts = visible.toImmutableList(),
+                            accountsStatus = if (visible.isEmpty()) DiscoverSectionStatus.Empty else DiscoverSectionStatus.Loaded,
+                        )
+                    }
+                },
+                onFailure = { state.update { it.copy(accountsStatus = DiscoverSectionStatus.Error) } },
+            )
+        }
+        if (force || state.value.feedsStatus != DiscoverSectionStatus.Loaded) {
+            feedCallCount++
+            feedsResult.fold(
+                onSuccess = { list ->
+                    state.update { current ->
+                        val priorByUri = current.feeds.associateBy { it.feed.uri }
+                        current.copy(
+                            feeds = list.map { priorByUri[it.uri] ?: DiscoverFeedUi(feed = it) }.toImmutableList(),
+                            feedsStatus = if (list.isEmpty()) DiscoverSectionStatus.Empty else DiscoverSectionStatus.Loaded,
+                        )
+                    }
+                },
+                onFailure = { state.update { it.copy(feedsStatus = DiscoverSectionStatus.Error) } },
+            )
+        }
     }
 
-    override suspend fun getSuggestedFeeds(limit: Int): Result<List<SuggestedFeedUi>> {
-        feedCallCount++
-        return feedsResult
-    }
-
-    override suspend fun getFeedPreview(
-        feedUri: String,
-        limit: Int,
-    ): Result<List<FeedPreviewPostUi>> {
+    override suspend fun loadFeedPreview(feedUri: String) {
         previewCallUris += feedUri
-        return previewResult
+
+        fun update(transform: (DiscoverFeedUi) -> DiscoverFeedUi) =
+            state.update { current ->
+                current.copy(feeds = current.feeds.map { if (it.feed.uri == feedUri) transform(it) else it }.toImmutableList())
+            }
+        update { it.copy(previewStatus = FeedPreviewStatus.Loading) }
+        previewResult.fold(
+            onSuccess = { posts -> update { it.copy(preview = posts.toImmutableList(), previewStatus = FeedPreviewStatus.Loaded) } },
+            onFailure = { update { it.copy(previewStatus = FeedPreviewStatus.Error) } },
+        )
+    }
+
+    override fun dismissAccount(did: String) {
+        dismissed += did
+        state.update { it.copy(accounts = it.accounts.filter { account -> account.did != did }.toImmutableList()) }
+    }
+
+    override suspend fun resolveDid(actor: String): Result<String> {
+        resolveCalls += actor
+        return resolveResult(actor)
     }
 }
 
@@ -968,6 +1188,19 @@ private fun accountFixture(
         followUri = followUri,
         mutualsCount = 0,
         mutualAvatarUrls = persistentListOf(),
+    )
+
+private fun trendFixture(
+    link: String = "/profile/did:plc:abc/feed/xyz",
+    displayName: String = "Trend",
+): TrendUi =
+    TrendUi(
+        topic = "topic",
+        displayName = displayName,
+        link = link,
+        category = null,
+        postCount = 10L,
+        isHot = false,
     )
 
 private fun feedFixture(
