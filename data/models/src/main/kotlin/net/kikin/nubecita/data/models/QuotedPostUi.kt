@@ -37,4 +37,6 @@ public data class QuotedPostUi(
     val text: String,
     val facets: ImmutableList<Facet>,
     val embed: QuotedEmbedUi,
+    /** Where the quoted post sits in its author's thread, when the server said. */
+    val threadPosition: ThreadPositionUi? = null,
 )

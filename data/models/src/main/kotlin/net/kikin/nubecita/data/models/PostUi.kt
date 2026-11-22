@@ -73,4 +73,10 @@ public data class PostUi(
      * none of which care about language — stay untouched.
      */
     val langs: ImmutableList<String> = persistentListOf(),
+    /**
+     * Where this post sits in its author's thread, or null when the server
+     * did not say. Only feed entries, quoted records and thread items carry
+     * the numbering, so a post read from search or notifications has none.
+     */
+    val threadPosition: ThreadPositionUi? = null,
 )

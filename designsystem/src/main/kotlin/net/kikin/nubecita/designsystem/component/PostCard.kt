@@ -62,6 +62,7 @@ import net.kikin.nubecita.data.models.PostTranslationUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.QuotedPostUi
+import net.kikin.nubecita.data.models.ThreadPositionUi
 import net.kikin.nubecita.data.models.VerifiedBadge
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
@@ -204,6 +205,7 @@ fun PostCard(
                         onFacetTap = callbacks.onFacetTap,
                         bodyMatch = bodyMatch,
                         shimmering = translation is PostTranslationUi.InProgress,
+                        threadPosition = post.threadPosition,
                     )
                     if (translation != null) {
                         Spacer(Modifier.height(8.dp))
@@ -353,6 +355,7 @@ internal fun BodyText(
     bodyMatch: String? = null,
     shimmering: Boolean = false,
     style: TextStyle = MaterialTheme.typography.bodyLarge,
+    threadPosition: ThreadPositionUi? = null,
 ) {
     val annotated =
         rememberTappableBlueskyAnnotatedString(
@@ -370,9 +373,15 @@ internal fun BodyText(
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 ),
         )
+    // The thread pill rides in an inline slot after the last word, so it wraps
+    // with the text. With no position the string and the (empty) inline map are
+    // exactly what this Text was given before the pill existed.
+    val spokenPosition =
+        threadPosition?.let { stringResource(R.string.thread_position_a11y, it.index, it.count) }
     Text(
-        text = withHighlight,
+        text = if (spokenPosition != null) withHighlight.withThreadPositionSlot(spokenPosition) else withHighlight,
         style = style,
+        inlineContent = rememberThreadPositionInlineContent(threadPosition),
         modifier =
             Modifier
                 .testTag(PostCardTestTags.BODY)
