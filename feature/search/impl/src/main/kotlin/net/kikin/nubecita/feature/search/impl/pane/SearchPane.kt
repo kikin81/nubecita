@@ -18,14 +18,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.feature.feed.api.FeedView
+import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.search.impl.DiscoverEffect
 import net.kikin.nubecita.feature.search.impl.DiscoverEvent
 import net.kikin.nubecita.feature.search.impl.DiscoverViewModel
+import net.kikin.nubecita.feature.search.impl.R
 
 /**
  * The Search tab's second pane on Medium/Expanded windows, shown until something is opened
@@ -57,6 +60,31 @@ internal fun SearchPane(
 
     LaunchedEffect(discoverViewModel) {
         discoverViewModel.handleEvent(DiscoverEvent.OnAppear)
+    }
+    val followErrorMsg = stringResource(R.string.search_follow_error)
+    val unfollowErrorMsg = stringResource(R.string.search_unfollow_error)
+    val pinErrorMsg = stringResource(R.string.search_pin_error)
+    val unpinErrorMsg = stringResource(R.string.search_unpin_error)
+    LaunchedEffect(viewModel, navState, snackbarHostState) {
+        viewModel.effects.collect { effect ->
+            when (effect) {
+                // replaceTop, as the Posts tab does: a post already open in the detail pane is
+                // swapped for the tapped one, so back returns to the Summary and not to a stack
+                // of threads. At the tab's home it degrades to a plain push.
+                is SearchPaneEffect.NavigateToPost -> navState.replaceTop(PostDetailRoute(postUri = effect.uri))
+                is SearchPaneEffect.NavigateToProfile -> navState.add(Profile(handle = effect.handle))
+                is SearchPaneEffect.NavigateToFeed ->
+                    navState.add(FeedView(feedUri = effect.uri, displayName = effect.displayName))
+                is SearchPaneEffect.FollowFailed -> {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(if (effect.wasUnfollow) unfollowErrorMsg else followErrorMsg)
+                }
+                is SearchPaneEffect.PinFailed -> {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(if (effect.wasUnpin) unpinErrorMsg else pinErrorMsg)
+                }
+            }
+        }
     }
     LaunchedEffect(discoverViewModel, navState, snackbarHostState) {
         discoverViewModel.effects.collect { effect ->
@@ -107,8 +135,7 @@ internal fun SearchPane(
         containerColor = MaterialTheme.colorScheme.surface,
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
-        // Task 12 renders the search summary for SearchPaneMode.Summary; until then both modes
-        // show the Explore content, each on its own list state.
+        // Explore and the Summary each render on their own list state (see `listState` above).
         // The list's viewport starts below the status bar / cutout and inside the side cutouts
         // (container padding), so scrolled rows are clipped there instead of passing under the
         // status-bar icons; only the bottom inset stays as content padding so the last row can
@@ -126,18 +153,31 @@ internal fun SearchPane(
         ) {
             // The pane's own width decides the feed columns (the user can drag the divider).
             val feedColumns = feedColumnsFor(maxWidth)
-            ExplorePaneContent(
-                state = discoverState,
-                feedColumns = feedColumns,
-                feedsExpanded = paneState.feedsExpanded,
-                accountsExpanded = paneState.accountsExpanded,
-                onDiscoverEvent = onDiscoverEvent,
-                onToggleFeeds = onToggleFeeds,
-                onToggleAccounts = onToggleAccounts,
-                listState = listState,
-                contentPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding()),
-                modifier = Modifier.fillMaxSize(),
-            )
+            val contentPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding())
+            when (val mode = paneState.mode) {
+                SearchPaneMode.Explore ->
+                    ExplorePaneContent(
+                        state = discoverState,
+                        feedColumns = feedColumns,
+                        feedsExpanded = paneState.feedsExpanded,
+                        accountsExpanded = paneState.accountsExpanded,
+                        onDiscoverEvent = onDiscoverEvent,
+                        onToggleFeeds = onToggleFeeds,
+                        onToggleAccounts = onToggleAccounts,
+                        listState = listState,
+                        contentPadding = contentPadding,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                is SearchPaneMode.Summary ->
+                    SummaryPaneContent(
+                        summary = mode,
+                        viewerDid = paneState.viewerDid,
+                        onEvent = onPaneEvent,
+                        listState = listState,
+                        contentPadding = contentPadding,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+            }
         }
     }
 }

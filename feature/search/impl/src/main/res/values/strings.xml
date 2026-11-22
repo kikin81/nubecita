@@ -247,4 +247,23 @@
     <string name="explore_pane_error_message">Couldn\'t load suggestions.</string>
     <string name="explore_pane_nothing_message">Nothing to suggest right now</string>
     <string name="explore_pane_retry">Retry</string>
+
+    <!-- Summary pane (wide windows): the submitted search in brief. -->
+    <string name="summary_pane_results_for">Results for</string>
+    <string name="summary_pane_count_line">Posts: about %1$s · %2$s</string>
+    <string name="summary_pane_edit_filters">Edit filters</string>
+    <string name="summary_pane_remove_filter">Remove filter: %1$s</string>
+    <string name="summary_pane_top_post_title">Top post</string>
+    <string name="summary_pane_top_post_description">Open the post by %1$s</string>
+    <string name="summary_pane_post_counts">Replies %1$s · Reposts %2$s · Likes %3$s</string>
+    <string name="summary_pane_people_title">People</string>
+    <string name="summary_pane_feeds_title">Feeds</string>
+    <string name="summary_pane_see_all">See all</string>
+    <string name="summary_pane_see_all_people_description">See all people</string>
+    <string name="summary_pane_see_all_feeds_description">See all feeds</string>
+    <string name="summary_pane_posts_error">Couldn\'t load posts.</string>
+    <string name="summary_pane_people_error">Couldn\'t load people.</string>
+    <string name="summary_pane_feeds_error">Couldn\'t load feeds.</string>
+    <string name="summary_pane_retry">Retry</string>
+    <string name="summary_pane_no_results">No results for \"%1$s\"</string>
 </resources>
