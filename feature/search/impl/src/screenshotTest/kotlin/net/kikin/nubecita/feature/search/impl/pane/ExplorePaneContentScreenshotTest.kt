@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.search.impl.pane
 
 import android.content.res.Configuration
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -62,6 +63,12 @@ private val BOTH_FAILED =
         accountsStatus = DiscoverSectionStatus.Error,
     )
 
+private val ALL_EMPTY =
+    DiscoverState(
+        feedsStatus = DiscoverSectionStatus.Empty,
+        accountsStatus = DiscoverSectionStatus.Empty,
+    )
+
 /** Three feeds and three accounts: the last row of each grid has one cell and an empty spacer. */
 private val ODD =
     DiscoverState(
@@ -78,16 +85,20 @@ private fun PaneFixture(
     accountsExpanded: Boolean = false,
 ) {
     NubecitaCanvasPreviewTheme {
-        ExplorePaneContent(
-            state = state,
-            feedsExpanded = feedsExpanded,
-            accountsExpanded = accountsExpanded,
-            onDiscoverEvent = {},
-            onToggleFeeds = {},
-            onToggleAccounts = {},
-            listState = remember { LazyListState() },
-            modifier = Modifier,
-        )
+        // Like the real pane: the measured width decides the feed columns.
+        BoxWithConstraints {
+            ExplorePaneContent(
+                state = state,
+                feedColumns = feedColumnsFor(maxWidth),
+                feedsExpanded = feedsExpanded,
+                accountsExpanded = accountsExpanded,
+                onDiscoverEvent = {},
+                onToggleFeeds = {},
+                onToggleAccounts = {},
+                listState = remember { LazyListState() },
+                modifier = Modifier,
+            )
+        }
     }
 }
 
@@ -126,3 +137,16 @@ private fun ExplorePaneRetryScreenshot() = PaneFixture(BOTH_FAILED)
 @Preview(name = "explore-pane-odd-700-light", widthDp = 700, heightDp = 1000, showBackground = true)
 @Composable
 private fun ExplorePaneOddScreenshot() = PaneFixture(ODD)
+
+@PreviewTest
+@Preview(name = "explore-pane-empty-480-light", widthDp = 480, heightDp = 300, showBackground = true)
+@Preview(name = "explore-pane-empty-700-light", widthDp = 700, heightDp = 300, showBackground = true)
+@Composable
+private fun ExplorePaneEmptyScreenshot() = PaneFixture(ALL_EMPTY)
+
+// The feed-column threshold: one column at 599dp, two at 600dp.
+@PreviewTest
+@Preview(name = "explore-pane-loaded-599-light", widthDp = 599, heightDp = 1000, showBackground = true)
+@Preview(name = "explore-pane-loaded-600-light", widthDp = 600, heightDp = 1000, showBackground = true)
+@Composable
+private fun ExplorePaneThresholdScreenshot() = PaneFixture(LOADED)

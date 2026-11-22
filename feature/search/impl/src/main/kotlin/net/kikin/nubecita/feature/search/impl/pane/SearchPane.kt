@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.search.impl.pane
 
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.MaterialTheme
@@ -73,8 +74,11 @@ internal fun SearchPane(
     // Keyed by mode so switching mode never reuses the other mode's position.
     val target =
         if (paneState.mode is SearchPaneMode.Summary) ScrollTarget.Summary else ScrollTarget.Explore
+    // The Summary's list is also keyed on the searched query and filters, so a new search starts
+    // at the top instead of keeping the old list's scroll (and later overwriting the reset).
+    val listKey = paneState.summaryKey.takeIf { target == ScrollTarget.Summary }
     val listState =
-        remember(target) {
+        remember(target, listKey) {
             val saved = if (target == ScrollTarget.Summary) paneState.summaryScroll else paneState.exploreScroll
             LazyListState(saved.index, saved.offset)
         }
@@ -84,6 +88,7 @@ internal fun SearchPane(
                 SearchPaneEvent.ScrollSaved(
                     position = ScrollPosition(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset),
                     target = target,
+                    summaryKey = listKey,
                 ),
             )
         }
@@ -99,16 +104,21 @@ internal fun SearchPane(
     ) { innerPadding ->
         // Task 12 renders the search summary for SearchPaneMode.Summary; until then both modes
         // show the Explore content, each on its own list state.
-        ExplorePaneContent(
-            state = discoverState,
-            feedsExpanded = paneState.feedsExpanded,
-            accountsExpanded = paneState.accountsExpanded,
-            onDiscoverEvent = onDiscoverEvent,
-            onToggleFeeds = onToggleFeeds,
-            onToggleAccounts = onToggleAccounts,
-            listState = listState,
-            contentPadding = innerPadding,
-            modifier = Modifier.fillMaxSize(),
-        )
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            // The pane's own width decides the feed columns (the user can drag the divider).
+            val feedColumns = feedColumnsFor(maxWidth)
+            ExplorePaneContent(
+                state = discoverState,
+                feedColumns = feedColumns,
+                feedsExpanded = paneState.feedsExpanded,
+                accountsExpanded = paneState.accountsExpanded,
+                onDiscoverEvent = onDiscoverEvent,
+                onToggleFeeds = onToggleFeeds,
+                onToggleAccounts = onToggleAccounts,
+                listState = listState,
+                contentPadding = innerPadding,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }

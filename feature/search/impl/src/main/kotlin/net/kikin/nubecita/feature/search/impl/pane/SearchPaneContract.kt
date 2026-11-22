@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
 import net.kikin.nubecita.feature.search.impl.data.SubmittedSearch
 
 /** A lazy list's scroll position, as the two numbers `LazyListState` is created from. */
@@ -25,6 +26,16 @@ internal sealed interface SearchPaneMode {
     ) : SearchPaneMode
 }
 
+/**
+ * What the Summary's scroll position belongs to: the searched query and filters. It does not
+ * change with the selected result tab, the filter-sheet flag or a re-submit of the same text.
+ */
+@Immutable
+internal data class SummaryKey(
+    val query: String,
+    val filters: PostSearchFilters,
+)
+
 /** Which mode's scroll position a [SearchPaneEvent.ScrollSaved] belongs to. */
 internal enum class ScrollTarget { Explore, Summary }
 
@@ -40,6 +51,8 @@ internal data class SearchPaneState(
     val mode: SearchPaneMode = SearchPaneMode.Explore,
     val exploreScroll: ScrollPosition = ScrollPosition(),
     val summaryScroll: ScrollPosition = ScrollPosition(),
+    /** The key [summaryScroll] belongs to; null in Explore. The Summary's list state is keyed on it. */
+    val summaryKey: SummaryKey? = null,
     /** Whether the suggested-feeds grid shows every loaded feed instead of the first few. */
     val feedsExpanded: Boolean = false,
     /** Whether the people grid shows every loaded account instead of the first few. */
@@ -57,6 +70,12 @@ internal sealed interface SearchPaneEvent : UiEvent {
     data class ScrollSaved(
         val position: ScrollPosition,
         val target: ScrollTarget? = null,
+        /**
+         * For a Summary list: the key it was created for. A save whose key is no longer the
+         * current one is dropped, so a list replaced because the search changed cannot undo
+         * the reset.
+         */
+        val summaryKey: SummaryKey? = null,
     ) : SearchPaneEvent
 
     data object FeedsExpansionToggled : SearchPaneEvent

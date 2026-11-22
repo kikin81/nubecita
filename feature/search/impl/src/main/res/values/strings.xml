@@ -245,5 +245,6 @@
     <string name="explore_pane_feeds_title">Suggested feeds</string>
     <string name="explore_pane_people_title">People to follow</string>
     <string name="explore_pane_error_message">Couldn\'t load suggestions.</string>
+    <string name="explore_pane_nothing_message">Nothing to suggest right now</string>
     <string name="explore_pane_retry">Retry</string>
 </resources>

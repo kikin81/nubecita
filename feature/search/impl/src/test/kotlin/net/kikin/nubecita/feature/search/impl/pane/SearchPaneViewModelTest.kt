@@ -164,4 +164,57 @@ internal class SearchPaneViewModelTest {
             assertEquals(false, vm.uiState.value.feedsExpanded)
             assertTrue(vm.uiState.value.accountsExpanded)
         }
+
+    @Test
+    fun `the summary key changes with the query and with the filters but not with the selected tab`() =
+        runTest {
+            val vm = buildVm()
+            advanceUntilIdle()
+            assertEquals(null, vm.uiState.value.summaryKey)
+
+            store.submit("kotlin", fromRecent = false)
+            advanceUntilIdle()
+            val first = vm.uiState.value.summaryKey
+            assertEquals("kotlin", first?.query)
+
+            store.selectTab(SearchTab.PEOPLE)
+            store.setFilterSheetOpen(true)
+            advanceUntilIdle()
+            assertEquals(first, vm.uiState.value.summaryKey)
+
+            store.submit("kotlin", fromRecent = false)
+            advanceUntilIdle()
+            assertEquals(first, vm.uiState.value.summaryKey)
+
+            store.updateFilters { it.copy(media = MediaFilter.HAS_MEDIA) }
+            advanceUntilIdle()
+            val afterFilter = vm.uiState.value.summaryKey
+            assertTrue(afterFilter != first)
+
+            store.submit("compose", fromRecent = false)
+            advanceUntilIdle()
+            assertTrue(vm.uiState.value.summaryKey != afterFilter)
+
+            store.clear()
+            advanceUntilIdle()
+            assertEquals(null, vm.uiState.value.summaryKey)
+        }
+
+    @Test
+    fun `a summary scroll save for a stale key is ignored`() =
+        runTest {
+            val vm = buildVm()
+            store.submit("kotlin", fromRecent = false)
+            advanceUntilIdle()
+            val staleKey = vm.uiState.value.summaryKey
+            store.submit("compose", fromRecent = false)
+            advanceUntilIdle()
+
+            // The old list leaving composition after the search changed must not undo the reset.
+            vm.handleEvent(SearchPaneEvent.ScrollSaved(ScrollPosition(9, 9), ScrollTarget.Summary, staleKey))
+            assertEquals(ScrollPosition(), vm.uiState.value.summaryScroll)
+
+            vm.handleEvent(SearchPaneEvent.ScrollSaved(ScrollPosition(4, 2), ScrollTarget.Summary, vm.uiState.value.summaryKey))
+            assertEquals(ScrollPosition(4, 2), vm.uiState.value.summaryScroll)
+        }
 }

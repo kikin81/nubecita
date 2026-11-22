@@ -5,7 +5,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import net.kikin.nubecita.core.common.mvi.MviViewModel
-import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
 import net.kikin.nubecita.feature.search.impl.data.SubmittedSearch
 import net.kikin.nubecita.feature.search.impl.data.SubmittedSearchStore
 import javax.inject.Inject
@@ -28,9 +27,6 @@ internal class SearchPaneViewModel
     constructor(
         store: SubmittedSearchStore,
     ) : MviViewModel<SearchPaneState, SearchPaneEvent, SearchPaneEffect>(SearchPaneState()) {
-        /** The (query, filters) the Summary scroll position belongs to; null when nothing is searched. */
-        private var scrollKey: Pair<String, PostSearchFilters>? = null
-
         init {
             store.submitted
                 .onEach { search -> onSubmittedChanged(search) }
@@ -46,19 +42,21 @@ internal class SearchPaneViewModel
         }
 
         private fun onSubmittedChanged(search: SubmittedSearch?) {
-            val key = search?.let { it.query to it.filters }
-            val keyChanged = key != scrollKey
-            scrollKey = key
+            val key = search?.let { SummaryKey(it.query, it.filters) }
             setState {
                 copy(
                     mode = if (search == null) SearchPaneMode.Explore else SearchPaneMode.Summary(search),
-                    summaryScroll = if (keyChanged) ScrollPosition() else summaryScroll,
+                    summaryScroll = if (key != summaryKey) ScrollPosition() else summaryScroll,
+                    summaryKey = key,
                 )
             }
         }
 
         private fun onScrollSaved(event: SearchPaneEvent.ScrollSaved) {
             setState {
+                if (event.target == ScrollTarget.Summary && event.summaryKey != null && event.summaryKey != summaryKey) {
+                    return@setState this
+                }
                 val target =
                     event.target
                         ?: if (mode is SearchPaneMode.Summary) ScrollTarget.Summary else ScrollTarget.Explore

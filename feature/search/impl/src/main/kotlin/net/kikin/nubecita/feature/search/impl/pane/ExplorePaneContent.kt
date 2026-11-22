@@ -3,10 +3,13 @@ package net.kikin.nubecita.feature.search.impl.pane
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -31,6 +34,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
 import net.kikin.nubecita.designsystem.component.shimmer
@@ -44,12 +48,48 @@ import net.kikin.nubecita.feature.search.impl.ui.SuggestedFeedCard
 /** How many cards a section shows before its "Show more" button. */
 internal const val EXPLORE_COLLAPSED_COUNT = 4
 
-private const val COLUMNS = 2
+private const val PEOPLE_COLUMNS = 2
+
+/** The pane width from which the feed cards go two to a row. */
+private val TWO_FEED_COLUMNS_MIN_WIDTH = 600.dp
 private const val PLACEHOLDER_ROWS = 2
 private const val FEED_ROW_KEY_PREFIX = "feeds:row:"
 private val GRID_EDGE = 16.dp
 private val GRID_GAP = 12.dp
 private val PLACEHOLDER_CELL_HEIGHT = 148.dp
+
+/** Feed cards need about 270dp each to keep their name readable: two columns from 600dp, else one. */
+internal fun feedColumnsFor(paneWidth: Dp): Int = if (paneWidth >= TWO_FEED_COLUMNS_MIN_WIDTH) 2 else 1
+
+/** What the pane body shows. */
+internal enum class ExploreBody {
+    /** Sections (loaded cards or loading placeholders); a failed or empty section is just hidden. */
+    Content,
+
+    /** Every section failed. */
+    Retry,
+
+    /** Nothing failed to the point of being everything, but nothing is there to suggest. */
+    Nothing,
+}
+
+internal fun exploreBodyFor(
+    feedsStatus: DiscoverSectionStatus,
+    feedsHaveItems: Boolean,
+    accountsStatus: DiscoverSectionStatus,
+    accountsHaveItems: Boolean,
+): ExploreBody {
+    val phases =
+        listOf(
+            feedsStatus.sectionPhase(feedsHaveItems),
+            accountsStatus.sectionPhase(accountsHaveItems),
+        )
+    return when {
+        phases.any { it == SectionPhase.Content || it == SectionPhase.Loading } -> ExploreBody.Content
+        phases.all { it == SectionPhase.Failed } -> ExploreBody.Retry
+        else -> ExploreBody.Nothing
+    }
+}
 
 /**
  * The Explore pane: suggested feeds, then people to follow, each a two-column grid built
@@ -57,8 +97,10 @@ private val PLACEHOLDER_CELL_HEIGHT = 148.dp
  * carousel, so nothing is clipped at the pane edge).
  *
  * A section shows placeholder cells while it loads and is hidden when it came back empty
- * or failed; when neither section has anything to show or is still loading, a single retry
- * state replaces both. Each section shows [EXPLORE_COLLAPSED_COUNT] cards plus a "Show
+ * or failed. When every section failed a single retry state replaces both; when nothing
+ * failed outright but there is nothing to suggest, a one-line message does.
+ * [feedColumns] is the number of feed cards per row (people are always two): the caller
+ * measures the pane once and passes it down. Each section shows [EXPLORE_COLLAPSED_COUNT] cards plus a "Show
  * more" button that expands it in place.
  *
  * Stateless: [listState] and the expansion flags are owned by the caller, which keeps them
@@ -67,6 +109,7 @@ private val PLACEHOLDER_CELL_HEIGHT = 148.dp
 @Composable
 internal fun ExplorePaneContent(
     state: DiscoverState,
+    feedColumns: Int,
     feedsExpanded: Boolean,
     accountsExpanded: Boolean,
     onDiscoverEvent: (DiscoverEvent) -> Unit,
@@ -82,7 +125,13 @@ internal fun ExplorePaneContent(
 
     val feedsPhase = state.feedsStatus.sectionPhase(hasItems = state.feeds.isNotEmpty())
     val accountsPhase = state.accountsStatus.sectionPhase(hasItems = state.accounts.isNotEmpty())
-    val showRetry = feedsPhase == SectionPhase.Hidden && accountsPhase == SectionPhase.Hidden
+    val body =
+        exploreBodyFor(
+            state.feedsStatus,
+            state.feeds.isNotEmpty(),
+            state.accountsStatus,
+            state.accounts.isNotEmpty(),
+        )
 
     val shownFeeds = if (feedsExpanded) state.feeds else state.feeds.take(EXPLORE_COLLAPSED_COUNT)
     val shownAccounts = if (accountsExpanded) state.accounts else state.accounts.take(EXPLORE_COLLAPSED_COUNT)
@@ -107,7 +156,7 @@ internal fun ExplorePaneContent(
                 firstUris.forEach { firstUri ->
                     val start = feeds.indexOfFirst { it.feed.uri == firstUri }
                     if (start >= 0) {
-                        feeds.subList(start, minOf(start + COLUMNS, feeds.size)).forEach {
+                        feeds.subList(start, minOf(start + feedColumns, feeds.size)).forEach {
                             currentOnEvent(DiscoverEvent.OnFeedCardVisible(it.feed.uri))
                         }
                     }
@@ -120,16 +169,27 @@ internal fun ExplorePaneContent(
         contentPadding = contentPadding,
         modifier = modifier,
     ) {
-        if (showRetry) {
+        if (body == ExploreBody.Retry) {
             item(key = "explore:retry", contentType = "retry") {
                 ExploreRetry(
                     onRetry = { currentOnEvent(DiscoverEvent.OnRefresh) },
                     modifier = Modifier.fillParentMaxWidth(),
                 )
             }
+        } else if (body == ExploreBody.Nothing) {
+            item(key = "explore:nothing", contentType = "nothing") {
+                Text(
+                    text = stringResource(R.string.explore_pane_nothing_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillParentMaxWidth().padding(horizontal = 32.dp, vertical = 48.dp),
+                )
+            }
         } else {
             gridSection(
                 keyPrefix = "feeds",
+                columns = feedColumns,
                 title = feedsTitle,
                 phase = feedsPhase,
                 shown = shownFeeds,
@@ -145,11 +205,12 @@ internal fun ExplorePaneContent(
                         currentOnEvent(DiscoverEvent.OnFeedTapped(discoverFeed.feed.uri, discoverFeed.feed.displayName))
                     },
                     onPinClick = { currentOnEvent(DiscoverEvent.OnPinTapped(discoverFeed.feed.uri)) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
             gridSection(
                 keyPrefix = "accounts",
+                columns = PEOPLE_COLUMNS,
                 title = peopleTitle,
                 phase = accountsPhase,
                 shown = shownAccounts,
@@ -164,20 +225,21 @@ internal fun ExplorePaneContent(
                     onAccountClick = { currentOnEvent(DiscoverEvent.OnAccountTapped(did = account.did, handle = account.handle)) },
                     onFollowClick = { currentOnEvent(DiscoverEvent.OnFollowTapped(did = account.did)) },
                     onDismissClick = { currentOnEvent(DiscoverEvent.OnAccountDismissed(did = account.did)) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
         }
     }
 }
 
-private enum class SectionPhase { Content, Loading, Hidden }
+private enum class SectionPhase { Content, Loading, Failed, Empty }
 
 private fun DiscoverSectionStatus.sectionPhase(hasItems: Boolean): SectionPhase =
     when {
         this == DiscoverSectionStatus.Loaded && hasItems -> SectionPhase.Content
         this == DiscoverSectionStatus.Idle || this == DiscoverSectionStatus.Loading -> SectionPhase.Loading
-        else -> SectionPhase.Hidden
+        this == DiscoverSectionStatus.Error -> SectionPhase.Failed
+        else -> SectionPhase.Empty
     }
 
 /**
@@ -189,6 +251,7 @@ private fun DiscoverSectionStatus.sectionPhase(hasItems: Boolean): SectionPhase 
  */
 private fun <T> LazyListScope.gridSection(
     keyPrefix: String,
+    columns: Int,
     title: String,
     phase: SectionPhase,
     shown: List<T>,
@@ -199,7 +262,7 @@ private fun <T> LazyListScope.gridSection(
     rowKeyPrefix: String,
     cell: @Composable (T) -> Unit,
 ) {
-    if (phase == SectionPhase.Hidden) return
+    if (phase == SectionPhase.Failed || phase == SectionPhase.Empty) return
     item(key = "$keyPrefix:header", contentType = "header") { SectionHeading(title) }
     if (phase == SectionPhase.Loading) {
         items(
@@ -208,24 +271,26 @@ private fun <T> LazyListScope.gridSection(
             contentType = { "placeholder-row" },
         ) {
             GridRow {
-                repeat(COLUMNS) { PlaceholderCell(Modifier.weight(1f)) }
+                repeat(columns) { PlaceholderCell(Modifier.weight(1f)) }
             }
         }
         return
     }
-    val rows = shown.chunked(COLUMNS)
+    val rows = shown.chunked(columns)
     items(
         count = rows.size,
         key = { index -> rowKeyPrefix + itemKey(rows[index].first()) },
         contentType = { "$keyPrefix-row" },
     ) { index ->
         val row = rows[index]
-        GridRow {
-            Box(Modifier.weight(1f)) { cell(row[0]) }
-            if (row.size > 1) {
-                Box(Modifier.weight(1f)) { cell(row[1]) }
-            } else {
-                Spacer(Modifier.weight(1f))
+        // Cells of a row share the taller one's height (the cards stretch to it).
+        GridRow(equalHeight = columns > 1) {
+            repeat(columns) { column ->
+                if (column < row.size) {
+                    Box(Modifier.weight(1f).fillMaxHeight()) { cell(row[column]) }
+                } else {
+                    Spacer(Modifier.weight(1f))
+                }
             }
         }
     }
@@ -244,12 +309,14 @@ private fun <T> LazyListScope.gridSection(
 @Composable
 private fun GridRow(
     modifier: Modifier = Modifier,
+    equalHeight: Boolean = false,
     content: @Composable RowScope.() -> Unit,
 ) {
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
+                .then(if (equalHeight) Modifier.height(IntrinsicSize.Max) else Modifier)
                 .padding(horizontal = GRID_EDGE, vertical = GRID_GAP / 2),
         horizontalArrangement = Arrangement.spacedBy(GRID_GAP),
         content = content,
