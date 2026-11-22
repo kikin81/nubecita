@@ -26,6 +26,7 @@ import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchActorsRepository
 import net.kikin.nubecita.feature.search.impl.data.FollowOverlay
 import net.kikin.nubecita.feature.search.impl.data.FollowOverride
+import net.kikin.nubecita.feature.search.impl.data.FollowToggle
 import net.kikin.nubecita.feature.search.impl.data.actorFixture
 import net.kikin.nubecita.feature.search.impl.data.signedIn
 import net.kikin.nubecita.feature.search.impl.data.testSearchFirstPages
@@ -59,7 +60,7 @@ class SearchActorsViewModelTest {
         }
     private val overlay = FollowOverlay(CoroutineScope(SupervisorJob() + testDispatcher), sessionProvider)
 
-    private fun newVm(follow: FollowRepository = followRepo) = SearchActorsViewModel(repo, firstPages, follow, overlay, sessionProvider, analytics)
+    private fun newVm(follow: FollowRepository = followRepo) = SearchActorsViewModel(repo, firstPages, FollowToggle(follow, overlay), overlay, sessionProvider, analytics)
 
     private val firstPages = testSearchFirstPages(CoroutineScope(SupervisorJob() + testDispatcher), actors = repo)
 
@@ -691,7 +692,7 @@ class SearchActorsViewModelTest {
             vm.handleEvent(SearchActorsEvent.FollowTapped("did:plc:sci"))
             runCurrent()
 
-            assertFalse(overlay.overrides.value.containsKey("did:plc:sci"))
+            assertFalse(overlay.current().containsKey("did:plc:sci"))
         }
 
     @Test
