@@ -99,7 +99,7 @@ The Posts tab SHALL let the user narrow results by sort, author relationship (an
 
 ### Requirement: Filters are reachable from a chip row and a full sheet
 
-The Posts tab SHALL show one horizontally scrolling chip row in a fixed order: a control that opens the full filter sheet and shows the number of active filters, then sort, Following, Media, Video, Language and Date. Chips SHALL keep their position when toggled. A chip with a chosen value SHALL show that value as its label and render as selected. The full filter sheet SHALL offer every filter, a reset action, and a confirm action, and SHALL be openable whichever results tab is selected.
+The Posts tab SHALL show one horizontally scrolling chip row in a fixed order: a control that opens the filter sheet and shows the active-filter count, then sort, Following, Media, Video, Language and Date. Chips SHALL keep their position when toggled. A chip with a chosen value SHALL show it as its label and render as selected. The filter sheet SHALL offer every filter, a reset and a confirm action, and SHALL open from any results tab.
 
 #### Scenario: One-tap filter
 
