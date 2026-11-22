@@ -124,6 +124,30 @@ class FollowToggleTest {
             assertTrue(repo.unfollowCallUris.isEmpty())
         }
 
+    @Test
+    fun `a settled tap is forgotten, so the next tap on the same account is accepted`() =
+        runTest {
+            val repo = FakeFollowRepository(followResult = Result.success("at://follow/new"))
+            val (toggle, _) = newSut(repo)
+            val scope = tapScope()
+
+            assertTrue(toggle.toggle(scope, "did:plc:a", isFollowing = false, followUri = null) {})
+            runCurrent()
+
+            assertTrue(toggle.inFlightTaps().isEmpty(), "a finished tap must not stay in the in-flight map")
+            assertTrue(toggle.toggle(scope, "did:plc:a", isFollowing = true, followUri = "at://follow/new") {})
+            runCurrent()
+            assertEquals(listOf("at://follow/new"), repo.unfollowCallUris)
+            assertTrue(toggle.inFlightTaps().isEmpty())
+        }
+
+    /** The private in-flight map, read reflectively so the class exposes nothing for the test. */
+    private fun FollowToggle.inFlightTaps(): Map<*, *> =
+        FollowToggle::class.java
+            .getDeclaredField("activeJobs")
+            .apply { isAccessible = true }
+            .get(this) as Map<*, *>
+
     /** A repository whose calls stay suspended until the test completes them. */
     private class SuspendedFollowRepository : FollowRepository {
         val follow = CompletableDeferred<Result<String>>()
