@@ -61,6 +61,7 @@
     <string name="media_warning_cat_suggestive">Sexualmente sugerente</string>
     <string name="media_warning_cat_graphic">Contenido gráfico</string>
     <string name="media_warning_cat_nudity">Desnudez no sexual</string>
+    <string name="media_warning_settings">Configuración de filtros de contenido</string>
     <string name="verification_badge_verified_description">Cuenta verificada</string>
     <string name="verification_badge_trusted_verifier_description">Verificador de confianza</string>
     <string name="postcard_action_delete_post">Eliminar publicación</string>

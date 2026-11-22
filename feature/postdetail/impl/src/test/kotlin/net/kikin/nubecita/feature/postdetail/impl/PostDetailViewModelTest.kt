@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.postdetail.impl
 
 import app.cash.turbine.test
 import io.github.kikin81.atproto.runtime.XrpcError
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -9,11 +10,14 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.actors.MuteRepository
 import net.kikin.nubecita.core.auth.NoSessionException
+import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
+import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.core.posting.OutgoingPost
 import net.kikin.nubecita.core.posting.OutgoingPostStatus
 import net.kikin.nubecita.core.posting.OutgoingPostStore
@@ -33,6 +37,7 @@ import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.component.FocusFollowState
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.search.api.Hashtag
+import net.kikin.nubecita.feature.settings.api.ContentFilters
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -612,6 +617,47 @@ internal class PostDetailViewModelTest {
 
                 assertEquals(PostDetailEffect.NavigateTo(Hashtag("Kotlin", "alice.bsky.social")), awaitItem())
             }
+        }
+
+    @Test
+    fun `OnContentFiltersTapped emits NavigateTo the Content filters settings route`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(FakeRepo())
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.OnContentFiltersTapped)
+
+                assertEquals(PostDetailEffect.NavigateTo(ContentFilters), awaitItem())
+            }
+        }
+
+    @Test
+    fun `changing content filters re-fetches the thread so media covers follow the new prefs`() =
+        runTest(mainDispatcher.dispatcher) {
+            val prefs = MutableStateFlow(ModerationPrefs.DEFAULT)
+            val repo =
+                OrderedRepo(ordered = listOf(Result.success(orderedThread()), Result.success(orderedThread())))
+            val vm = newVm(repo, moderationPrefs = prefs)
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+            assertEquals(1, repo.orderedCalls)
+
+            prefs.value = ModerationPrefs.DEFAULT.copy(adultContentEnabled = true)
+            advanceUntilIdle()
+
+            assertEquals(2, repo.orderedCalls)
+            assertEquals(PostDetailLoadStatus.Idle, vm.uiState.value.loadStatus)
+        }
+
+    @Test
+    fun `the current content filters at creation do not trigger a re-fetch`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = OrderedRepo(ordered = listOf(Result.success(orderedThread())))
+            val vm = newVm(repo)
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            assertEquals(1, repo.orderedCalls)
         }
 
     @Test
@@ -1439,6 +1485,7 @@ internal class PostDetailViewModelTest {
         postInteractionsCache: PostInteractionsCache = FakePostInteractionsCache(),
         outgoingPostStore: OutgoingPostStore = FakeOutgoingPostStore(),
         followRepository: FollowRepository = FakeFollowRepository(),
+        moderationPrefs: MutableStateFlow<ModerationPrefs> = MutableStateFlow(ModerationPrefs.DEFAULT),
     ): PostDetailViewModel =
         PostDetailViewModel(
             route = PostDetailRoute(postUri = focusUri),
@@ -1448,6 +1495,8 @@ internal class PostDetailViewModelTest {
             muteRepository = muteRepository,
             outgoingPostStore = outgoingPostStore,
             followRepository = followRepository,
+            moderationPreferences =
+                mockk<ModerationPreferencesRepository> { every { prefs } returns moderationPrefs },
             // The ViewModel only exposes the store to the screen; nothing here
             // reads it, so a relaxed mock is the whole contract.
             translations = mockk(relaxed = true),

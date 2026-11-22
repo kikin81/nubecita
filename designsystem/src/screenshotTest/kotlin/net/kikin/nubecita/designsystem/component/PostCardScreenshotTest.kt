@@ -192,6 +192,28 @@ private fun PostCardImageRevealedScreenshot() {
     PostCard(post = coveredImagePost(), isMediaRevealed = true)
 }
 
+// A host that wires the content-filters link (post detail): once the viewer
+// reveals warned media, the settings link sits under it.
+private val contentFiltersCallbacks = PostCallbacks(onOpenContentFilters = {})
+
+@PreviewTest
+@Preview(name = "image-revealed-settings-link-light", showBackground = true)
+@Preview(name = "image-revealed-settings-link-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
+@Composable
+private fun PostCardImageRevealedSettingsLinkScreenshot() {
+    PostCard(post = coveredImagePost(), callbacks = contentFiltersCallbacks, isMediaRevealed = true)
+}
+
+@PreviewTest
+@Preview(name = "image-covered-overridable-settings-link-light", showBackground = true)
+@PreviewWrapper(NubecitaComponentPreview::class)
+@Composable
+private fun PostCardImageCoveredOverridableSettingsLinkScreenshot() {
+    // Overridable cover: only "Show anyway" on the cover — no link until revealed.
+    PostCard(post = coveredImagePost(), callbacks = contentFiltersCallbacks, isMediaRevealed = false)
+}
+
 // Multi-image carousel coverage. Two fixtures lock the carousel branch
 // behavior post-m28.5.2:
 //
