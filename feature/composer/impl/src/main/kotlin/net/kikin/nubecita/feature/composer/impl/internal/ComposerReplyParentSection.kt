@@ -103,6 +103,7 @@ private fun ComposerReplyParentCard(post: ParentPostUi) {
         handle = post.authorHandle,
         text = post.text,
         thumbnailUrl = post.thumbnailUrl,
+        pronouns = post.pronouns,
         modifier =
             Modifier
                 .padding(horizontal = 12.dp, vertical = 10.dp)

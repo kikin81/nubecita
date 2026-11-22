@@ -360,6 +360,47 @@ private fun ComposerScreenReplyModeLoadedScreenshot() {
     }
 }
 
+// The reply parent's pronouns share the handle line: "@handle · pronouns".
+@PreviewTest
+@Preview(name = "reply-mode-parent-pronouns-light", showBackground = true)
+@Composable
+private fun ComposerScreenReplyModeParentPronounsScreenshot() {
+    val parentRef = StrongRef(uri = AtUri("at://did:plc:cameron/app.bsky.feed.post/abc"), cid = Cid("bafabc"))
+    NubecitaCanvasPreviewTheme {
+        ComposerScreenContent(
+            state =
+                ComposerState(
+                    author = PREVIEW_AUTHOR,
+                    replyToUri = parentRef.uri.raw,
+                    replyParentLoad =
+                        ParentLoadStatus.Loaded(
+                            ParentPostUi(
+                                parentRef = parentRef,
+                                rootRef = parentRef,
+                                authorHandle = "cameron.bsky.social",
+                                authorDisplayName = "Cameron Banga",
+                                text = "Please repost this post for science!",
+                                pronouns = "He / Him",
+                            ),
+                        ),
+                ),
+            textFieldState = remember { TextFieldState() },
+            snackbarHostState = remember { SnackbarHostState() },
+            onSubmit = {},
+            onCloseClick = {},
+            onAddImageClick = {},
+            onRemoveAttachment = {},
+            onSuggestionClick = {},
+            deviceLocaleTag = "en-US",
+            onRetryParentLoad = {},
+            onRetryQuoteLoad = {},
+            onRemoveQuote = {},
+            onLanguageChipClick = {},
+            onAudienceChipClick = {},
+        )
+    }
+}
+
 @PreviewTest
 @Preview(name = "with-images-light", showBackground = true)
 @Preview(name = "with-images-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
