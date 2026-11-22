@@ -34,6 +34,7 @@ import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.QuotedEmbedUi
 import net.kikin.nubecita.data.models.QuotedPostUi
+import net.kikin.nubecita.data.models.ThreadPositionUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.data.models.toVerifiedBadge
 import kotlin.time.Instant
@@ -342,6 +343,7 @@ fun RecordViewRecord.toEmbedUiRecord(): EmbedUi.Record? {
                 text = rec.text,
                 facets = rec.facets.valueOrEmpty().toImmutableList(),
                 embed = embeds?.firstOrNull().toQuotedEmbedUi(),
+                threadPosition = ThreadPositionUi.of(index = opThreadPostIndex, count = opThreadPostCount),
             ),
     )
 }

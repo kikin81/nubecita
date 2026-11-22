@@ -5,6 +5,7 @@ import io.github.kikin81.atproto.app.bsky.feed.ReasonRepost
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.core.feedmapping.applyModeration
+import net.kikin.nubecita.core.feedmapping.threadPositionOrNull
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.data.models.EmbedUi
@@ -82,7 +83,13 @@ private fun FeedViewPost.toPostTabItemOrNull(
             ?: return null
     val repost = reason as? ReasonRepost
     val repostedBy = repost?.by?.let { it.displayName ?: it.handle.raw }
-    val postUi = if (repostedBy != null) core.copy(repostedBy = repostedBy) else core
+    val threadPosition = threadPositionOrNull()
+    val postUi =
+        if (repostedBy != null || threadPosition != null) {
+            core.copy(repostedBy = repostedBy, threadPosition = threadPosition)
+        } else {
+            core
+        }
     return TabItemUi.Post(postUi, reposterDid = repost?.by?.did?.raw)
 }
 
