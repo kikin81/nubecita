@@ -45,6 +45,145 @@ internal class PostDetailViewModelTest {
     val mainDispatcher = MainDispatcherExtension()
 
     @Test
+    fun `Load renders the cached thread, then replaces it with the fresh one`() =
+        runTest(mainDispatcher.dispatcher) {
+            val cached = persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost("at://focus", text = "cached")))
+            val fresh = persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost("at://focus", text = "fresh")))
+            val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+            val repo =
+                FakeRepo(
+                    producer = {
+                        gate.await()
+                        Result.success(fresh)
+                    },
+                    cached = cached,
+                )
+            val vm = newVm(repo)
+
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            assertEquals(cached, vm.uiState.value.items, "cached thread MUST render while the fetch is in flight")
+            assertTrue(vm.uiState.value.isShowingCache)
+
+            gate.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals(fresh, vm.uiState.value.items)
+            assertEquals(false, vm.uiState.value.isShowingCache)
+            assertEquals(PostDetailLoadStatus.Idle, vm.uiState.value.loadStatus)
+        }
+
+    @Test
+    fun `a transient failure after a cached thread keeps it and emits ShowError`() =
+        runTest(mainDispatcher.dispatcher) {
+            val cached = persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost("at://focus")))
+            val repo = FakeRepo(results = listOf(Result.failure(java.io.IOException("offline"))), cached = cached)
+            val vm = newVm(repo)
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.Load)
+                advanceUntilIdle()
+                val effect = awaitItem()
+                assertTrue(effect is PostDetailEffect.ShowError, "expected ShowError, got $effect")
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(cached, vm.uiState.value.items)
+            assertEquals(PostDetailLoadStatus.Idle, vm.uiState.value.loadStatus)
+        }
+
+    @Test
+    fun `a NotFound failure after a cached thread shows the NotFound state`() =
+        runTest(mainDispatcher.dispatcher) {
+            val cached = persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost("at://focus")))
+            val repo =
+                FakeRepo(
+                    results =
+                        listOf(
+                            Result.failure(
+                                io.github.kikin81.atproto.runtime
+                                    .XrpcError("NotFound", "Post not found", 400),
+                            ),
+                        ),
+                    cached = cached,
+                )
+            val vm = newVm(repo)
+
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            assertEquals(PostDetailLoadStatus.InitialError(PostDetailError.NotFound), vm.uiState.value.loadStatus)
+            assertTrue(
+                vm.uiState.value.items
+                    .isEmpty(),
+                "a gone thread MUST NOT stay up from cache",
+            )
+        }
+
+    @Test
+    fun `a refresh that finds a cached thread's post gone clears it and shows NotFound`() =
+        runTest(mainDispatcher.dispatcher) {
+            val cached = persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost("at://focus")))
+            val repo =
+                FakeRepo(
+                    results =
+                        listOf(
+                            Result.failure(java.io.IOException("offline")),
+                            Result.failure(
+                                io.github.kikin81.atproto.runtime
+                                    .XrpcError("NotFound", "Post not found", 400),
+                            ),
+                        ),
+                    cached = cached,
+                )
+            val vm = newVm(repo)
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            vm.handleEvent(PostDetailEvent.Refresh)
+            advanceUntilIdle()
+
+            assertTrue(
+                vm.uiState.value.items
+                    .isEmpty(),
+                "a deleted post MUST NOT stay readable from cache",
+            )
+            assertEquals(PostDetailLoadStatus.InitialError(PostDetailError.NotFound), vm.uiState.value.loadStatus)
+        }
+
+    @Test
+    fun `a successful refresh after a cached thread clears isShowingCache`() =
+        runTest(mainDispatcher.dispatcher) {
+            val cached = persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost("at://focus")))
+            val repo =
+                FakeRepo(
+                    results = listOf(Result.failure(java.io.IOException("offline")), Result.success(cached)),
+                    cached = cached,
+                )
+            val vm = newVm(repo)
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            vm.handleEvent(PostDetailEvent.Refresh)
+            advanceUntilIdle()
+
+            assertEquals(false, vm.uiState.value.isShowingCache)
+        }
+
+    @Test
+    fun `a focus-only cache renders the focus alone`() =
+        runTest(mainDispatcher.dispatcher) {
+            val focusOnly = persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost("at://focus")))
+            val repo = FakeRepo(producer = { kotlinx.coroutines.awaitCancellation() }, cached = focusOnly)
+            val vm = newVm(repo)
+
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            assertEquals(focusOnly, vm.uiState.value.items)
+        }
+
+    @Test
     fun `initial Load success populates items and returns to Idle`() =
         runTest(mainDispatcher.dispatcher) {
             val items = persistentListOf<ThreadItem>(ThreadItem.Focus(samplePost("at://focus")))
@@ -1073,7 +1212,10 @@ internal class PostDetailViewModelTest {
     private class FakeRepo(
         results: List<Result<ImmutableList<ThreadItem>>> = emptyList(),
         private val producer: (suspend (uri: String) -> Result<ImmutableList<ThreadItem>>)? = null,
+        private val cached: ImmutableList<ThreadItem>? = null,
     ) : PostThreadRepository {
+        override suspend fun cachedPostThread(uri: String): ImmutableList<ThreadItem>? = cached
+
         private val queue = ArrayDeque(results)
         val invocations = mutableListOf<String>()
 

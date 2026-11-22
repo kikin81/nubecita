@@ -3,7 +3,9 @@ package net.kikin.nubecita.core.posts.internal
 import io.github.kikin81.atproto.app.bsky.feed.FeedService
 import io.github.kikin81.atproto.app.bsky.feed.GetPostThreadRequest
 import io.github.kikin81.atproto.runtime.AtUri
+import io.github.kikin81.atproto.runtime.XrpcError
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.auth.SessionState
@@ -23,6 +25,7 @@ internal class DefaultPostThreadRepository
         private val xrpcClientProvider: XrpcClientProvider,
         private val moderationPreferences: ModerationPreferencesRepository,
         private val sessionStateProvider: SessionStateProvider,
+        private val snapshotStore: ThreadSnapshotStore,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : PostThreadRepository {
         override suspend fun getPostThread(uri: String): Result<ImmutableList<ThreadItem>> =
@@ -33,12 +36,23 @@ internal class DefaultPostThreadRepository
                         FeedService(client).getPostThread(
                             GetPostThreadRequest(uri = AtUri(uri)),
                         )
+                    val raw = response.thread.toRawThreadEntries()
                     // Cover (never drop) warned media against the cached prefs +
                     // viewer DID — post-detail keeps every post in the thread.
-                    val prefs = moderationPreferences.prefs.value
-                    val viewerDid = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
-                    response.thread.toThreadItems(prefs, viewerDid)
+                    val items = raw.toThreadItems(moderationPreferences.prefs.value, viewerDid())
+                    // Write-through: a readable thread replaces its snapshot; one
+                    // whose focus is now blocked / not found drops it, so a dead
+                    // thread never renders from cache.
+                    cacheSafely {
+                        if (items.any { it is ThreadItem.Focus }) {
+                            snapshotStore.write(uri, raw)
+                        } else {
+                            snapshotStore.remove(uri)
+                        }
+                    }
+                    items
                 }.onFailure { throwable ->
+                    if (throwable.isPostGone()) cacheSafely { snapshotStore.remove(uri) }
                     // Mirrors the diagnostic logging convention in
                     // :feature:feed:impl/data/DefaultFeedRepository — emits the
                     // throwable's javaClass.name so the Unknown-error VM branch
@@ -61,7 +75,42 @@ internal class DefaultPostThreadRepository
                 }
             }
 
+        override suspend fun cachedPostThread(uri: String): ImmutableList<ThreadItem>? =
+            withContext(dispatcher) {
+                // A cache that can't be read is a miss, never a crash.
+                val raw =
+                    try {
+                        snapshotStore.read(uri) ?: snapshotStore.readFocusOnly(uri)
+                    } catch (cancellation: CancellationException) {
+                        throw cancellation
+                    } catch (error: Exception) {
+                        Timber.tag(TAG).w(error, "Thread snapshot read failed: %s", error.javaClass.name)
+                        null
+                    } ?: return@withContext null
+                raw.toThreadItems(moderationPreferences.prefs.value, viewerDid()).takeIf { items -> items.isNotEmpty() }
+            }
+
+        /**
+         * The snapshot cache is a speed layer: a storage failure is logged and
+         * swallowed so it never turns a successful fetch into an error.
+         */
+        private suspend fun cacheSafely(block: suspend () -> Unit) {
+            try {
+                block()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                Timber.tag(TAG).w(error, "Thread snapshot cache write failed: %s", error.javaClass.name)
+            }
+        }
+
+        private fun viewerDid(): String? = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
+
+        /** A definitive "this post is gone" answer — the same test post-detail uses for its NotFound state. */
+        private fun Throwable.isPostGone(): Boolean = this is XrpcError && (errorName.equals("NotFound", ignoreCase = true) || status == HTTP_NOT_FOUND)
+
         private companion object {
             const val TAG = "PostThreadRepository"
+            const val HTTP_NOT_FOUND = 404
         }
     }

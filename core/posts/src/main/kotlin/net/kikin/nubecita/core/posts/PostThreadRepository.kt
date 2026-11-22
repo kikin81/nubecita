@@ -19,4 +19,15 @@ import net.kikin.nubecita.data.models.ThreadItem
  */
 public interface PostThreadRepository {
     public suspend fun getPostThread(uri: String): Result<ImmutableList<ThreadItem>>
+
+    /**
+     * The last-seen thread for [uri] from the local cache — the full snapshot,
+     * or the focus alone when only the post itself is cached (e.g. from the
+     * feed) — mapped with the viewer's current moderation prefs. Null when
+     * nothing is cached. No network: callers render it, then [getPostThread].
+     *
+     * Defaults to null so implementations without a cache (the bench fake)
+     * always load from their source.
+     */
+    public suspend fun cachedPostThread(uri: String): ImmutableList<ThreadItem>? = null
 }

@@ -39,6 +39,12 @@ internal data class PostDetailState(
      * under their parent until a load includes them.
      */
     val outgoingReplies: ImmutableList<OutgoingPostUi> = persistentListOf(),
+    /**
+     * True while [items] came from the local cache and no network result has
+     * replaced them yet (including after a transient refresh failure). Anything
+     * that must not act on stale data — the focus Follow toggle — stays off.
+     */
+    val isShowingCache: Boolean = false,
 ) : UiState
 
 /**
