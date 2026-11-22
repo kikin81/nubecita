@@ -28,12 +28,13 @@ internal sealed interface TrendLink {
 private const val WEB_HOST_PREFIX = "https://bsky.app"
 
 /**
- * Reads a trend's `link`: `/profile/{actor}/feed/{rkey}`, `/starter-pack/{actor}/{rkey}`
+ * Total: server-supplied text never makes this throw; whatever cannot be read is
+ * [TrendLink.Unknown]. Reads a trend's `link`: `/profile/{actor}/feed/{rkey}`, `/starter-pack/{actor}/{rkey}`
  * or `/search?q=…`. An absolute `https://bsky.app` prefix, a trailing slash and extra
  * query parameters are tolerated; anything else is [TrendLink.Unknown].
  */
 internal fun parseTrendLink(link: String): TrendLink {
-    val relative = link.removePrefix(WEB_HOST_PREFIX)
+    val relative = link.removePrefix(WEB_HOST_PREFIX).substringBefore('#')
     val path = relative.substringBefore('?').trimEnd('/')
     val query = relative.substringAfter('?', missingDelimiterValue = "")
     val segments = path.split('/')
@@ -55,5 +56,13 @@ private fun searchQuery(queryString: String): String? =
         .split('&')
         .firstOrNull { it.startsWith("q=") }
         ?.removePrefix("q=")
-        ?.let { URLDecoder.decode(it, "UTF-8") }
+        ?.let { decodeOrNull(it) }
         ?.takeIf { it.isNotBlank() }
+
+/** Percent-decodes [raw]; null for a malformed escape (which makes the decoder throw). */
+private fun decodeOrNull(raw: String): String? =
+    try {
+        URLDecoder.decode(raw, "UTF-8")
+    } catch (_: IllegalArgumentException) {
+        null
+    }

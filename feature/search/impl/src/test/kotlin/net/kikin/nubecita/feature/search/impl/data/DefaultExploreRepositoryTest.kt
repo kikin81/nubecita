@@ -136,6 +136,37 @@ class DefaultExploreRepositoryTest {
         }
 
     @Test
+    fun `a forced load during an unforced one still refetches loaded sections`() =
+        runTest {
+            var failFeeds = true
+            var gate: CompletableDeferred<Unit>? = null
+            val seen = mutableListOf<String>()
+            val (_, repo) =
+                newRepo {
+                    seen += it.url.encodedPath
+                    if ("getSuggestedFeeds" in it.url.toString()) {
+                        if (failFeeds) throw IOException("x")
+                        gate?.await()
+                    }
+                    route(it)
+                }
+            repo.load()
+            assertEquals(3, seen.size)
+
+            failFeeds = false
+            gate = CompletableDeferred()
+            val unforced = async { repo.load() }
+            testScheduler.runCurrent()
+            val forced = async { repo.load(force = true) }
+            testScheduler.runCurrent()
+            gate.complete(Unit)
+            listOf(unforced, forced).awaitAll()
+
+            // 3 initial + 1 feeds retry (unforced) + 3 forced.
+            assertEquals(7, seen.size, seen.toString())
+        }
+
+    @Test
     fun `a load once loaded is a no-op until forced`() =
         runTest {
             val (engine, repo) = newRepo { route(it) }

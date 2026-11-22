@@ -911,6 +911,42 @@ internal class DiscoverViewModelTest {
         }
 
     @Test
+    fun `content reset by an account change is reloaded without a new OnAppear`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                FakeExploreRepository(
+                    trendsResult = Result.success(listOf(trendFixture())),
+                    accountsResult = Result.success(listOf(accountFixture())),
+                    feedsResult = Result.success(listOf(feedFixture())),
+                )
+            val vm = buildVm(suggestionsRepo = repo)
+            vm.handleEvent(DiscoverEvent.OnAppear)
+            advanceUntilIdle()
+            assertEquals(1, repo.accountCallCount)
+
+            repo.resetForAccountChange()
+            advanceUntilIdle()
+
+            assertEquals(2, repo.accountCallCount, "reloaded once")
+            assertEquals(DiscoverSectionStatus.Loaded, vm.uiState.value.accountsStatus)
+            assertEquals(DiscoverSectionStatus.Loaded, vm.uiState.value.trendsStatus)
+        }
+
+    @Test
+    fun `a reset before the first OnAppear does not load by itself`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeExploreRepository(accountsResult = Result.success(listOf(accountFixture())))
+            val vm = buildVm(suggestionsRepo = repo)
+            advanceUntilIdle()
+
+            repo.resetForAccountChange()
+            advanceUntilIdle()
+
+            assertEquals(0, repo.accountCallCount)
+            assertEquals(DiscoverSectionStatus.Idle, vm.uiState.value.accountsStatus)
+        }
+
+    @Test
     fun `a feed trend navigates to at did generator rkey`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeExploreRepository()
@@ -1156,6 +1192,12 @@ private class FakeExploreRepository(
             onSuccess = { posts -> update { it.copy(preview = posts.toImmutableList(), previewStatus = FeedPreviewStatus.Loaded) } },
             onFailure = { update { it.copy(previewStatus = FeedPreviewStatus.Error) } },
         )
+    }
+
+    /** What the real repository does when the signed-in account changes. */
+    fun resetForAccountChange() {
+        dismissed.clear()
+        state.value = ExploreContent()
     }
 
     override fun dismissAccount(did: String) {

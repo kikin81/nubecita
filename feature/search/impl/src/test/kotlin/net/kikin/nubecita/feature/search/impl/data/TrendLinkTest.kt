@@ -75,4 +75,17 @@ class TrendLinkTest {
     fun `a query string does not change a feed link`() {
         assertEquals(TrendLink.Feed("did:plc:abc", "xyz"), parseTrendLink("/profile/did:plc:abc/feed/xyz?ref=x"))
     }
+
+    @Test
+    fun `a malformed percent escape is Unknown rather than a crash`() {
+        assertEquals(TrendLink.Unknown, parseTrendLink("/search?q=%"))
+        assertEquals(TrendLink.Unknown, parseTrendLink("/search?q=%zz"))
+        assertEquals(TrendLink.Unknown, parseTrendLink("/search?q=%E0%A4%A"))
+    }
+
+    @Test
+    fun `a link with a fragment ignores the fragment`() {
+        assertEquals(TrendLink.Feed("did:plc:abc", "xyz"), parseTrendLink("/profile/did:plc:abc/feed/xyz#top"))
+        assertEquals(TrendLink.Search("a"), parseTrendLink("/search?q=a#frag"))
+    }
 }

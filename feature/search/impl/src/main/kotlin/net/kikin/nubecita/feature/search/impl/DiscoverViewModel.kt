@@ -90,6 +90,12 @@ internal class DiscoverViewModel
          */
         private val activePreviewJobs = mutableMapOf<String, Job>()
 
+        /** Whether this ViewModel has been shown ([DiscoverEvent.OnAppear]) and so wants content. */
+        private var appeared = false
+
+        /** Whether the last projection saw every section Idle — one reload per transition to that. */
+        private var wasAllIdle = false
+
         /** The most-recently-launched section load (cancel-and-restart on refresh). */
         private var loadJob: Job? = null
 
@@ -134,6 +140,14 @@ internal class DiscoverViewModel
          */
         private fun project() {
             val content = exploreRepository.content.value
+            // The content went back to Idle (the account changed) under a screen that stays
+            // composed: nothing will send OnAppear again, so ask for the content now.
+            val allIdle =
+                content.trendsStatus == DiscoverSectionStatus.Idle &&
+                    content.feedsStatus == DiscoverSectionStatus.Idle &&
+                    content.accountsStatus == DiscoverSectionStatus.Idle
+            val reloadNeeded = allIdle && !wasAllIdle && appeared
+            wasAllIdle = allIdle
             val overrides = followOverlay.current()
             setState {
                 copy(
@@ -155,6 +169,7 @@ internal class DiscoverViewModel
                     feedsStatus = content.feedsStatus,
                 )
             }
+            if (reloadNeeded) startLoad(force = false)
         }
 
         // -------------------------------------------------------------------------
@@ -162,17 +177,19 @@ internal class DiscoverViewModel
         // -------------------------------------------------------------------------
 
         private fun onAppear() {
+            appeared = true
             val state = uiState.value
             val needsLoad =
                 state.trendsStatus.needsLoad() || state.accountsStatus.needsLoad() || state.feedsStatus.needsLoad()
             if (!needsLoad) return
-            loadJob?.cancel()
-            loadJob = viewModelScope.launch { exploreRepository.load() }
+            startLoad(force = false)
         }
 
-        private fun onRefresh() {
+        private fun onRefresh() = startLoad(force = true)
+
+        private fun startLoad(force: Boolean) {
             loadJob?.cancel()
-            loadJob = viewModelScope.launch { exploreRepository.load(force = true) }
+            loadJob = viewModelScope.launch { exploreRepository.load(force) }
         }
 
         // -------------------------------------------------------------------------

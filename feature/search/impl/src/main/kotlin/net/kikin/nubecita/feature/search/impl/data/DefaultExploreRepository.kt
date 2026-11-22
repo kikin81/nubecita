@@ -94,6 +94,7 @@ internal class DefaultExploreRepository
         private val mutableContent = MutableStateFlow(ExploreContent())
         private var epoch = 0
         private var inFlight: Deferred<Unit>? = null
+        private var inFlightForced = false
         private val dismissedDids = mutableSetOf<String>()
 
         override val content: StateFlow<ExploreContent> = mutableContent.asStateFlow()
@@ -137,16 +138,39 @@ internal class DefaultExploreRepository
         }
 
         override suspend fun load(force: Boolean) {
-            val work =
+            while (true) {
+                val running: Deferred<Unit>?
+                val runningIsForced: Boolean
+                val started: Deferred<Unit>?
                 synchronized(lock) {
-                    val running = inFlight?.takeIf { it.isActive }
-                    when {
-                        running != null -> running
-                        !force && mutableContent.value.isFullyLoaded() -> null
-                        else -> startLoad(force).also { inFlight = it }
-                    }
+                    running = inFlight?.takeIf { it.isActive }
+                    runningIsForced = inFlightForced
+                    started =
+                        when {
+                            running != null -> null
+                            !force && mutableContent.value.isFullyLoaded() -> null
+                            else ->
+                                startLoad(force).also {
+                                    inFlight = it
+                                    inFlightForced = force
+                                }
+                        }
                 }
-            work?.await()
+                when {
+                    started != null -> {
+                        started.await()
+                        return
+                    }
+                    running == null -> return
+                    // Someone else's load covers this caller, unless it is a forced caller meeting
+                    // an unforced load (which skips loaded sections): wait it out, then go again.
+                    !force || runningIsForced -> {
+                        running.await()
+                        return
+                    }
+                    else -> running.await()
+                }
+            }
         }
 
         private fun ExploreContent.isFullyLoaded(): Boolean =
