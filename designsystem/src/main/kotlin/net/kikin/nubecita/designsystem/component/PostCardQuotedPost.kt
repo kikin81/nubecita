@@ -16,6 +16,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -151,8 +152,12 @@ private fun QuotedBodyText(quotedPost: QuotedPostUi) {
     val annotated = rememberBlueskyAnnotatedString(text = quotedPost.text, facets = quotedPost.facets)
     val position = quotedPost.threadPosition
     val spokenPosition = position?.let { stringResource(R.string.thread_position_a11y, it.index, it.count) }
+    val body =
+        remember(annotated, spokenPosition) {
+            if (spokenPosition != null) annotated.withThreadPositionSlot(spokenPosition) else annotated
+        }
     Text(
-        text = if (spokenPosition != null) annotated.withThreadPositionSlot(spokenPosition) else annotated,
+        text = body,
         style = MaterialTheme.typography.bodyMedium,
         inlineContent = rememberThreadPositionInlineContent(position),
     )

@@ -628,7 +628,7 @@ private fun LoadedThread(
         ) {
             for ((rowIndex, threadItem) in items.withIndex()) {
                 val line = connectors[rowIndex]
-                item(key = threadItem.key) {
+                item(key = threadItem.key, contentType = threadItem.rowContentType()) {
                     when (val item = threadItem) {
                         is ThreadItem.Ancestor -> {
                             val (videoSlot, quotedVideoSlot) =
@@ -761,6 +761,21 @@ private fun LoadedThread(
 }
 
 private const val THREAD_TRAILING_SPACE_KEY = "thread-trailing-space"
+
+/**
+ * Which rows may reuse each other's composition as the list scrolls: post
+ * cards with post cards, and so on. The thread mixes five kinds of row, and
+ * without this a recycled slot would be rebuilt from scratch on every change
+ * of kind.
+ */
+private fun ThreadItem.rowContentType(): String =
+    when (this) {
+        is ThreadItem.Ancestor, is ThreadItem.Reply -> "post"
+        is ThreadItem.Focus -> "focus"
+        is ThreadItem.MoreParents, is ThreadItem.MoreReplies, ThreadItem.OtherReplies -> "read-more"
+        is ThreadItem.Blocked -> "blocked"
+        is ThreadItem.NotFound -> "not-found"
+    }
 
 /**
  * Builds the parent + quoted `VideoPosterEmbed` slot lambdas for one

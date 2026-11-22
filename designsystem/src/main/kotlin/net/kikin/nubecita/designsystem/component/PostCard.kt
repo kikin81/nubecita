@@ -378,8 +378,12 @@ internal fun BodyText(
     // exactly what this Text was given before the pill existed.
     val spokenPosition =
         threadPosition?.let { stringResource(R.string.thread_position_a11y, it.index, it.count) }
+    val body =
+        remember(withHighlight, spokenPosition) {
+            if (spokenPosition != null) withHighlight.withThreadPositionSlot(spokenPosition) else withHighlight
+        }
     Text(
-        text = if (spokenPosition != null) withHighlight.withThreadPositionSlot(spokenPosition) else withHighlight,
+        text = body,
         style = style,
         inlineContent = rememberThreadPositionInlineContent(threadPosition),
         modifier =

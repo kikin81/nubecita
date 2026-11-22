@@ -63,11 +63,34 @@ internal class ThreadPinningTest {
 
     // ---------- room under a short thread ----------
 
+    /** Stands in for a laid-out list row (`LazyListItemInfo`). */
+    private data class Row(
+        val index: Int,
+        val key: Any,
+        val size: Int,
+    )
+
     private fun row(
         index: Int,
         key: String,
         size: Int,
-    ) = ThreadRowInfo(index = index, key = key, size = size)
+    ) = Row(index = index, key = key, size = size)
+
+    private fun trailingSpaceToPinFocus(
+        visible: List<Row>,
+        focusKey: Any,
+        lastContentIndex: Int,
+        viewportContentHeight: Int,
+    ): Int? =
+        trailingSpaceToPinFocus(
+            visible = visible,
+            focusKey = focusKey,
+            lastContentIndex = lastContentIndex,
+            viewportContentHeight = viewportContentHeight,
+            indexOf = { it.index },
+            keyOf = { it.key },
+            sizeOf = { it.size },
+        )
 
     @Test
     fun `nothing is known until the list has laid out`() {

@@ -26,7 +26,7 @@ private val GutterX = 40.dp
 private val RowHorizontalPadding = 20.dp
 private val AvatarSlotWidth = 40.dp
 private val LineGap = 14.dp
-private val RowMinHeight = 44.dp
+private val RowMinHeight = 48.dp
 
 /**
  * A row that continues a thread the list holds only part of: "Read more

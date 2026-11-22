@@ -42,13 +42,6 @@ internal data class PinnedThread(
     val trailingSpacePx: Int,
 )
 
-/** One laid-out list row, as far as the pinning arithmetic cares. */
-internal data class ThreadRowInfo(
-    val index: Int,
-    val key: Any,
-    val size: Int,
-)
-
 /** How many rows sit above the opened post; 0 when it leads, or when there is none. */
 internal fun List<ThreadItem>.leadingRowCount(): Int = indexOfFirst { it is ThreadItem.Focus }.coerceAtLeast(0)
 
@@ -62,25 +55,44 @@ internal fun List<ThreadItem>.rowsToDisplay(leadingRowsShown: Boolean): List<Thr
  * The room to add under the thread so the opened post can sit at the top of
  * the viewport, or null while the list has not laid anything out yet.
  *
- * [visible] are the rows on screen, [lastContentIndex] the index of the last
- * real row (the spacer itself comes after it and is never counted), and
- * [viewportContentHeight] the viewport minus the list's content padding.
+ * [visible] are the rows on screen, read through [indexOf] / [keyOf] /
+ * [sizeOf]; [lastContentIndex] is the index of the last real row (the spacer
+ * itself comes after it and is never counted), and [viewportContentHeight]
+ * the viewport minus the list's content padding.
  *
  * It is 0 whenever nothing needs propping up: the rows from the opened post
  * down already fill the viewport, they run on past it, or the opened post is
  * not on screen at all.
  */
-internal fun trailingSpaceToPinFocus(
-    visible: List<ThreadRowInfo>,
+internal inline fun <T> trailingSpaceToPinFocus(
+    visible: List<T>,
     focusKey: Any,
     lastContentIndex: Int,
     viewportContentHeight: Int,
+    indexOf: (T) -> Int,
+    keyOf: (T) -> Any,
+    sizeOf: (T) -> Int,
 ): Int? {
     if (visible.isEmpty()) return null
-    val focus = visible.firstOrNull { it.key == focusKey } ?: return 0
-    val tail = visible.filter { it.index in focus.index..lastContentIndex }
-    if (tail.isEmpty() || tail.last().index < lastContentIndex) return 0
-    return (viewportContentHeight - tail.sumOf { it.size }).coerceAtLeast(0)
+    // One indexed pass and no intermediate collections: this runs inside a
+    // snapshotFlow over the list's layout info, so on every scroll frame.
+    var focusSeen = false
+    var tailHeight = 0
+    var lastTailIndex = -1
+    for (i in visible.indices) {
+        val row = visible[i]
+        if (!focusSeen) {
+            if (keyOf(row) != focusKey) continue
+            focusSeen = true
+        }
+        val index = indexOf(row)
+        if (index <= lastContentIndex) {
+            tailHeight += sizeOf(row)
+            lastTailIndex = index
+        }
+    }
+    if (!focusSeen || lastTailIndex < lastContentIndex) return 0
+    return (viewportContentHeight - tailHeight).coerceAtLeast(0)
 }
 
 /**
@@ -114,11 +126,14 @@ internal fun rememberPinnedThread(
             snapshotFlow {
                 val info = listState.layoutInfo
                 trailingSpaceToPinFocus(
-                    visible = info.visibleItemsInfo.map { ThreadRowInfo(index = it.index, key = it.key, size = it.size) },
+                    visible = info.visibleItemsInfo,
                     focusKey = focusKey,
                     // The spacer is the last row; the one before it is the last real one.
                     lastContentIndex = info.totalItemsCount - 2,
                     viewportContentHeight = info.viewportSize.height - info.beforeContentPadding - info.afterContentPadding,
+                    indexOf = { it.index },
+                    keyOf = { it.key },
+                    sizeOf = { it.size },
                 )
             }.filterNotNull()
                 .distinctUntilChanged()
