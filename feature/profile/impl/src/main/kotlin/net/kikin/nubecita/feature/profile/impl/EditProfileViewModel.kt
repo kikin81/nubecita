@@ -52,6 +52,7 @@ internal class EditProfileViewModel
                 descriptionGraphemes = GraphemeCounter.count(route.description.orEmpty()),
                 avatar = ImageSlot.Original(route.avatarUrl),
                 banner = ImageSlot.Original(route.bannerUrl),
+                pronouns = route.pronouns.orEmpty(),
             ),
         ) {
         @AssistedFactory
@@ -63,6 +64,7 @@ internal class EditProfileViewModel
         private val initialDescription = route.description.orEmpty()
         private val initialAvatar: ImageSlot = ImageSlot.Original(route.avatarUrl)
         private val initialBanner: ImageSlot = ImageSlot.Original(route.bannerUrl)
+        private val initialPronouns = route.pronouns.orEmpty()
 
         /** The links as loaded — the dirty-check baseline and the save diff's "original". */
         private var initialLinks: ImmutableList<EditableProfileLink> = persistentListOf()
@@ -76,6 +78,42 @@ internal class EditProfileViewModel
 
         override fun handleEvent(event: EditProfileEvent) {
             when (event) {
+                EditProfileEvent.PronounsRowTapped ->
+                    setState { copy(pronounsSheet = pronounsSheetFor(pronouns)) }
+
+                is EditProfileEvent.PronounsInputChanged ->
+                    setState { copy(pronounsSheet = pronounsSheet?.let { pronounsSheetFor(event.value) }) }
+
+                is EditProfileEvent.PronounPresetTapped ->
+                    setState { copy(pronounsSheet = pronounsSheet?.let { pronounsSheetFor(event.value) }) }
+
+                EditProfileEvent.PronounsDone ->
+                    setState {
+                        val sheet = pronounsSheet
+                        if (sheet == null || sheet.isOverLimit) {
+                            this
+                        } else {
+                            val next = sheet.input.trim()
+                            copy(
+                                pronouns = next,
+                                pronounsSheet = null,
+                                isDirty = dirty(displayName, description, avatar, banner, links, next),
+                            )
+                        }
+                    }
+
+                EditProfileEvent.PronounsRemoved ->
+                    setState {
+                        copy(
+                            pronouns = "",
+                            pronounsSheet = null,
+                            isDirty = dirty(displayName, description, avatar, banner, links, ""),
+                        )
+                    }
+
+                EditProfileEvent.PronounsSheetDismissed ->
+                    setState { copy(pronounsSheet = null) }
+
                 is EditProfileEvent.DisplayNameChanged ->
                     setState {
                         copy(
@@ -295,6 +333,9 @@ internal class EditProfileViewModel
                         avatar = state.avatar.toImageChange(),
                         banner = state.banner.toImageChange(),
                         links = state.toLinksChange(),
+                        // Only an edited value is written; null leaves the record's
+                        // key as it is now, not as it was when the editor opened.
+                        pronouns = state.pronouns.takeIf { it != initialPronouns },
                     ).onSuccess {
                         // Keep isSaving = true; the screen pops on NavigateBack.
                         sendEffect(EditProfileEffect.NavigateBack)
@@ -305,6 +346,8 @@ internal class EditProfileViewModel
             }
         }
 
+        private fun pronounsSheetFor(input: String) = PronounsSheetState(input = input, graphemes = GraphemeCounter.count(input))
+
         /** A receiver function so reducers stay pure functions of the state being reduced. */
         private fun EditProfileViewState.dirty(
             displayName: String,
@@ -312,8 +355,10 @@ internal class EditProfileViewModel
             avatar: ImageSlot,
             banner: ImageSlot,
             links: List<EditableProfileLink>,
+            pronouns: String = this.pronouns,
         ): Boolean =
             displayName != initialDisplayName ||
+                pronouns != initialPronouns ||
                 description != initialDescription ||
                 avatar != initialAvatar ||
                 banner != initialBanner ||

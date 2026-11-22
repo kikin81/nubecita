@@ -117,6 +117,9 @@ interface ProfileRepository {
      * only after the profile write succeeds deletes records it no longer
      * references (a failed delete doesn't fail the save).
      *
+     * [pronouns]: null leaves the record's `pronouns` key untouched; blank
+     * removes it; anything else sets it.
+     *
      * On failure, returns a [ProfileUpdateError] through `Result`'s
      * exception channel.
      */
@@ -126,6 +129,7 @@ interface ProfileRepository {
         avatar: ImageChange,
         banner: ImageChange,
         links: LinksChange = LinksChange.Unchanged,
+        pronouns: String? = null,
     ): Result<Unit>
 
     /**

@@ -1,7 +1,9 @@
 package net.kikin.nubecita.feature.profile.impl
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,10 +30,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.image.CropImage
 import net.kikin.nubecita.core.image.CropShape
@@ -40,6 +48,7 @@ import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
+import net.kikin.nubecita.feature.profile.impl.ui.EditPronounsSheet
 
 /**
  * Stateful own-profile edit screen (text-first slice). Owns the
@@ -201,6 +210,22 @@ internal fun EditProfileScreenContent(
         LinkEditorDialog(editor = linkEditor, onEvent = onEvent)
     }
 
+    val pronounsSheet = state.pronounsSheet
+    if (pronounsSheet != null) {
+        val presetArray = stringArrayResource(R.array.edit_profile_pronoun_presets)
+        // Converted once per resource, not on every keystroke in the sheet.
+        val presets = remember(presetArray) { presetArray.toImmutableList() }
+        EditPronounsSheet(
+            state = pronounsSheet,
+            presets = presets,
+            onPreset = { onEvent(EditProfileEvent.PronounPresetTapped(it)) },
+            onInput = { onEvent(EditProfileEvent.PronounsInputChanged(it)) },
+            onDone = { onEvent(EditProfileEvent.PronounsDone) },
+            onRemove = { onEvent(EditProfileEvent.PronounsRemoved) },
+            onDismiss = { onEvent(EditProfileEvent.PronounsSheetDismissed) },
+        )
+    }
+
     if (state.showDiscardDialog) {
         DiscardChangesDialog(
             onConfirm = { onEvent(EditProfileEvent.DiscardConfirmed) },
@@ -279,7 +304,51 @@ internal fun EditProfileContent(
             },
         )
 
+        PronounsField(
+            pronouns = state.pronouns,
+            enabled = !state.isSaving,
+            onClick = { onEvent(EditProfileEvent.PronounsRowTapped) },
+        )
+
         EditProfileLinksSection(state = state, onEvent = onEvent)
+    }
+}
+
+/**
+ * A read-only field showing the current pronouns; tapping it opens the
+ * pronouns sheet. The click target is an overlay because a read-only text
+ * field consumes taps itself.
+ */
+@Composable
+private fun PronounsField(
+    pronouns: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val actionLabel = stringResource(R.string.edit_profile_pronouns_edit_action)
+    val label = stringResource(R.string.edit_profile_pronouns_label)
+    val spokenValue = pronouns.ifEmpty { stringResource(R.string.edit_profile_pronouns_placeholder) }
+    Box(modifier = Modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = pronouns,
+            onValueChange = {},
+            // The field is display-only; screen readers get one node — the
+            // overlay button below — instead of a dead edit box plus a button.
+            modifier = Modifier.fillMaxWidth().clearAndSetSemantics {},
+            readOnly = true,
+            enabled = enabled,
+            singleLine = true,
+            label = { Text(stringResource(R.string.edit_profile_pronouns_label)) },
+            placeholder = { Text(stringResource(R.string.edit_profile_pronouns_placeholder)) },
+            trailingIcon = { NubecitaIcon(name = NubecitaIconName.ChevronRight, contentDescription = null) },
+        )
+        Box(
+            modifier =
+                Modifier
+                    .matchParentSize()
+                    .clickable(enabled = enabled, role = Role.Button, onClickLabel = actionLabel, onClick = onClick)
+                    .semantics { contentDescription = "$label, $spokenValue" },
+        )
     }
 }
 

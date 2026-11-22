@@ -150,3 +150,25 @@ private fun EditProfileScreenSavingPreview() {
         )
     }
 }
+
+@PreviewTest
+@Preview(name = "edit-profile-with-pronouns-light", showBackground = true)
+@Preview(name = "edit-profile-with-pronouns-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun EditProfileWithPronounsPreview() {
+    NubecitaCanvasPreviewTheme {
+        EditProfileContent(
+            state =
+                EditProfileViewState(
+                    displayName = "Alice",
+                    description = "Coffee, Kotlin, and cloud-watching.",
+                    displayNameGraphemes = 5,
+                    descriptionGraphemes = 35,
+                    pronouns = "she/her",
+                ),
+            onEvent = {},
+            onPickAvatar = {},
+            onPickBanner = {},
+        )
+    }
+}

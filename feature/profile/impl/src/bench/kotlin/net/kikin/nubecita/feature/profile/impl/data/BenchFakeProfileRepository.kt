@@ -96,6 +96,7 @@ internal class BenchFakeProfileRepository
             avatar: ImageChange,
             banner: ImageChange,
             links: LinksChange,
+            pronouns: String?,
         ): Result<Unit> = Result.success(Unit)
 
         // Bench: the fixture's links as saved records so the editor's Links

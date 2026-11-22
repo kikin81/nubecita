@@ -266,6 +266,10 @@ internal class ProfileViewModel
                                     description = header.bio,
                                     avatarUrl = header.avatarUrl,
                                     bannerUrl = header.bannerUrl,
+                                    // Required, not cosmetic: the editor writes its
+                                    // pronouns back on save, so omitting them here
+                                    // would erase them on any unrelated edit.
+                                    pronouns = header.pronouns,
                                 ),
                             ),
                         )

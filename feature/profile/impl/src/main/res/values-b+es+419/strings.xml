@@ -150,4 +150,17 @@
     <string name="profile_stats_following">%1$s Siguiendo</string>
     <string name="profile_stats_followers_click_label">Ver seguidores</string>
     <string name="profile_stats_following_click_label">Ver a quién sigue</string>
+    <string name="edit_profile_pronouns_label">Pronombres</string>
+    <string name="edit_profile_pronouns_placeholder">Agrega tus pronombres</string>
+    <string name="edit_profile_pronouns_edit_action">Editar pronombres</string>
+    <string name="edit_pronouns_title">Editar pronombres</string>
+    <string name="edit_pronouns_helper">Tus pronombres aparecen junto a tu usuario en tu perfil.</string>
+    <string name="edit_pronouns_done">Listo</string>
+    <string name="edit_pronouns_remove">Quitar pronombres</string>
+    <!-- Pronoun quick picks, localized: the saved value is exactly what was picked. -->
+    <string-array name="edit_profile_pronoun_presets">
+        <item>ella</item>
+        <item>él</item>
+        <item>elle</item>
+    </string-array>
 </resources>
