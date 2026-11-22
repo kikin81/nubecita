@@ -63,6 +63,7 @@ class SearchActorsScreenInstrumentationTest {
                     SearchActorsScreen(
                         currentQuery = "alice",
                         fromRecent = false,
+                        submission = 1,
                         onClearQuery = {},
                         onShowAppendError = {},
                     )

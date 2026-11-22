@@ -7,6 +7,8 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
@@ -27,14 +29,16 @@ import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
 import net.kikin.nubecita.feature.search.impl.data.SearchFirstPages
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsRepository
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
+import net.kikin.nubecita.feature.search.impl.data.SubmittedSearch
+import net.kikin.nubecita.feature.search.impl.data.SubmittedSearchStore
 import javax.inject.Inject
 
 /**
- * Presenter for the Search Posts tab. Reactive on a
- * [MutableStateFlow] of [FetchKey] — the screen Composable's
- * `LaunchedEffect(parentState.currentQuery)` calls [setQuery] whenever
- * the parent `SearchViewModel` emits a new debounced query, and
- * `SortClicked` / `Retry` update the key from inside [handleEvent].
+ * Presenter for the Search Posts tab. Reactive on the submitted search: it
+ * combines [SubmittedSearchStore.submitted] with an internal retry token into
+ * a [FetchKey], so a new submit, a filter change and `Retry` each refetch,
+ * while anything the Posts tab does not fetch by (the selected tab, the filter
+ * sheet) does not.
  *
  * The init pipeline runs:
  *
@@ -43,21 +47,18 @@ import javax.inject.Inject
  *     .mapLatest { key -> if (blank) reset to Idle else runFirstPage(key) }
  *     .launchIn(viewModelScope)
  *
- * StateFlow's operator fusion already dedupes identical consecutive
- * values, so we skip an explicit `distinctUntilChanged()` (which the
- * compiler also flags as deprecated for StateFlow). `mapLatest` cancels
- * the prior in-flight fetch on a new key — the canonical pattern from
- * `:feature:composer:impl`'s `ComposerViewModel` typeahead path. Retry
- * bumps an internal incarnation token so the pipeline fires even when
- * query + sort haven't changed. The blank branch lives INSIDE
- * `mapLatest` (rather than upstream via `.filter`) so a blank emission
- * also cancels any in-flight `runFirstPage` and resets `loadStatus` to
- * `Idle` — without this, clearing the search field after a load would
+ * `combine` conflates and the key is a data class, so identical consecutive
+ * keys are skipped by `distinctUntilChanged`. `mapLatest` cancels the prior
+ * in-flight fetch on a new key — the canonical pattern from
+ * `:feature:composer:impl`'s `ComposerViewModel` typeahead path. The blank
+ * branch lives INSIDE `mapLatest` (rather than upstream via `.filter`) so a
+ * cleared search also cancels any in-flight `runFirstPage` and resets
+ * `loadStatus` to `Idle` — without this, ending the search after a load would
  * leave the stale `Loaded` (or `InitialLoading`) state visible.
  *
  * Does NOT inject the parent `SearchViewModel` — Hilt-injecting
- * ViewModels into each other is a smell. The screen Composable is the
- * orchestration seam.
+ * ViewModels into each other is a smell. The store is the seam: the sort
+ * toggle writes it ([SearchPostsEvent.SortClicked]) and this tab reads it.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -66,6 +67,7 @@ internal class SearchPostsViewModel
     constructor(
         private val repository: SearchPostsRepository,
         private val firstPages: SearchFirstPages,
+        private val submittedSearch: SubmittedSearchStore,
         private val analytics: AnalyticsClient,
         private val cache: PostInteractionsCache,
         private val handler: PostInteractionHandler,
@@ -80,15 +82,31 @@ internal class SearchPostsViewModel
         PostInteractionHandler by handler {
         private data class FetchKey(
             val query: String,
-            val sort: SearchPostsSort,
-            /** Bumps on [SearchPostsEvent.Retry] to force a re-emit when query+sort didn't change. */
-            val incarnation: Int,
+            val filters: PostSearchFilters,
+            /** The store's submission counter: re-submitting the same text is a new search. */
+            val submission: Int,
             /** Whether the query arrived via a recent-search tap (for search_perform). */
             val fromRecent: Boolean,
+            /** Bumps on [SearchPostsEvent.Retry] to force a re-emit when the search didn't change. */
+            val incarnation: Int,
         )
 
-        private val fetchKey =
-            MutableStateFlow(FetchKey(query = "", sort = SearchPostsSort.TOP, incarnation = 0, fromRecent = false))
+        /** Bumps on [SearchPostsEvent.Retry]. */
+        private val incarnation = MutableStateFlow(0)
+
+        private fun keyFor(
+            submitted: SubmittedSearch?,
+            incarnation: Int,
+        ) = FetchKey(
+            query = submitted?.query.orEmpty(),
+            filters = submitted?.filters ?: PostSearchFilters(),
+            submission = submitted?.submission ?: 0,
+            fromRecent = submitted?.fromRecent ?: false,
+            incarnation = incarnation,
+        )
+
+        /** The key as of right now, for the stale-completion guard in [loadMore]. */
+        private fun currentKey() = keyFor(submittedSearch.submitted.value, incarnation.value)
 
         init {
             // Bind the handler to the Search surface and this VM's scope.
@@ -111,9 +129,10 @@ internal class SearchPostsViewModel
                 }
             }
 
-            fetchKey
+            combine(submittedSearch.submitted, incarnation, ::keyFor)
+                .distinctUntilChanged()
                 .onEach { key ->
-                    setState { copy(currentQuery = key.query, sort = key.sort) }
+                    setState { copy(currentQuery = key.query, sort = key.filters.sort) }
                 }.mapLatest { key ->
                     if (key.query.isBlank()) {
                         // Reset to Idle on blank — covers initial state and
@@ -128,23 +147,14 @@ internal class SearchPostsViewModel
                 }.launchIn(viewModelScope)
         }
 
-        /** Called by the screen Composable from a `LaunchedEffect(parent.currentQuery)`. */
-        fun setQuery(
-            query: String,
-            fromRecent: Boolean = false,
-        ) {
-            fetchKey.update { it.copy(query = query, fromRecent = fromRecent) }
-        }
-
         override fun handleEvent(event: SearchPostsEvent) {
             when (event) {
                 SearchPostsEvent.LoadMore -> loadMore()
-                SearchPostsEvent.Retry ->
-                    fetchKey.update { it.copy(incarnation = it.incarnation + 1) }
+                SearchPostsEvent.Retry -> incarnation.update { it + 1 }
                 SearchPostsEvent.ClearQueryClicked ->
                     sendEffect(SearchPostsEffect.NavigateToClearQuery)
                 is SearchPostsEvent.SortClicked ->
-                    fetchKey.update { it.copy(sort = event.sort, incarnation = it.incarnation + 1) }
+                    submittedSearch.updateFilters { it.copy(sort = event.sort) }
                 is SearchPostsEvent.PostTapped ->
                     sendEffect(SearchPostsEffect.NavigateToPost(event.uri))
                 is SearchPostsEvent.OnAuthorTapped ->
@@ -157,14 +167,14 @@ internal class SearchPostsViewModel
         private suspend fun runFirstPage(key: FetchKey) {
             setState { copy(loadStatus = SearchPostsLoadStatus.InitialLoading) }
             firstPages
-                .posts(query = key.query, filters = PostSearchFilters(sort = key.sort))
+                .posts(query = key.query, filters = key.filters, submission = key.submission)
                 .onSuccess { page ->
                     // search_perform fires on a completed first-page search (incl.
                     // empty results); scope tracks the active Top/Latest sort. The
                     // query text is never attached.
                     analytics.log(
                         SearchPerform(
-                            scope = if (key.sort == SearchPostsSort.TOP) SearchScope.Top else SearchScope.Latest,
+                            scope = if (key.filters.sort == SearchPostsSort.TOP) SearchScope.Top else SearchScope.Latest,
                             fromRecent = key.fromRecent,
                         ),
                     )
@@ -206,19 +216,19 @@ internal class SearchPostsViewModel
 
             setState { copy(loadStatus = status.copy(isAppending = true)) }
             val cursor = status.nextCursor
-            val capturedKey = fetchKey.value
+            val capturedKey = currentKey()
             viewModelScope.launch {
                 repository
                     .searchPosts(
                         query = capturedKey.query,
-                        filters = PostSearchFilters(sort = capturedKey.sort),
+                        filters = capturedKey.filters,
                         cursor = cursor,
                     ).onSuccess { page ->
                         // Stale-completion guard: if the user changed sort or query
                         // (or hit Retry) while this append was in flight, the
                         // mapLatest pipeline has already moved the state on. Don't
                         // splice old-sort results onto a new-sort list.
-                        if (fetchKey.value != capturedKey) return@onSuccess
+                        if (currentKey() != capturedKey) return@onSuccess
                         cache.seed(page.items.map { it.post })
                         setState {
                             val current = loadStatus as? SearchPostsLoadStatus.Loaded ?: return@setState this
@@ -249,7 +259,7 @@ internal class SearchPostsViewModel
                         // Same stale guard for failures — a snackbar for the OLD
                         // sort's append failure would be confusing once the user is
                         // already looking at LATEST results.
-                        if (fetchKey.value != capturedKey) return@onFailure
+                        if (currentKey() != capturedKey) return@onFailure
                         val current = uiState.value.loadStatus as? SearchPostsLoadStatus.Loaded ?: return@onFailure
                         setState { copy(loadStatus = current.copy(isAppending = false)) }
                         sendEffect(SearchPostsEffect.ShowAppendError(throwable.toSearchPostsError()))

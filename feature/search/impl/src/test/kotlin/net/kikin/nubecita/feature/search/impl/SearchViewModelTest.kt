@@ -2,6 +2,9 @@ package net.kikin.nubecita.feature.search.impl
 
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.snapshots.Snapshot
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -17,8 +20,10 @@ import kotlinx.coroutines.test.setMain
 import net.kikin.nubecita.core.database.dao.RecentSearchDao
 import net.kikin.nubecita.core.database.model.RecentSearchEntity
 import net.kikin.nubecita.feature.search.impl.data.RecentSearchRepository
+import net.kikin.nubecita.feature.search.impl.data.SubmittedSearchStore
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -41,6 +46,7 @@ class SearchViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private val dao = FakeRecentSearchDao()
     private val repo = RecentSearchRepository(dao)
+    private val store = SubmittedSearchStore()
 
     @BeforeEach
     fun setUp() {
@@ -60,7 +66,7 @@ class SearchViewModelTest {
                 RecentSearchEntity("compose", Instant.fromEpochMilliseconds(1_000)),
             )
 
-            val vm = SearchViewModel(repo)
+            val vm = SearchViewModel(repo, store)
             runCurrent()
 
             assertEquals(
@@ -73,7 +79,7 @@ class SearchViewModelTest {
     @Test
     fun textFieldState_typing_updatesCurrentQuery_afterDebounce() =
         runTest {
-            val vm = SearchViewModel(repo)
+            val vm = SearchViewModel(repo, store)
             runCurrent()
 
             vm.textFieldState.setTextAndPlaceCursorAtEnd("kotlin")
@@ -97,7 +103,7 @@ class SearchViewModelTest {
     @Test
     fun submit_atomicallyFlipsPhaseToResults_beforeDebounceFires() =
         runTest {
-            val vm = SearchViewModel(repo)
+            val vm = SearchViewModel(repo, store)
             runCurrent()
             vm.textFieldState.setTextAndPlaceCursorAtEnd("kotlin")
             Snapshot.sendApplyNotifications()
@@ -108,21 +114,21 @@ class SearchViewModelTest {
             vm.handleEvent(SearchEvent.SubmitClicked)
             runCurrent()
 
-            assertEquals(SearchPhase.Results("kotlin"), vm.uiState.value.phase)
+            assertEquals(SearchPhase.Results("kotlin", submission = 1), vm.uiState.value.phase)
             assertEquals("kotlin", vm.uiState.value.currentQuery)
         }
 
     @Test
     fun typing_afterSubmit_keepsResultsBody_andUpdatesCurrentQuery() =
         runTest {
-            val vm = SearchViewModel(repo)
+            val vm = SearchViewModel(repo, store)
             runCurrent()
             vm.textFieldState.setTextAndPlaceCursorAtEnd("kotlin")
             Snapshot.sendApplyNotifications()
             advanceTimeBy(DEBOUNCE_MS + 1)
             vm.handleEvent(SearchEvent.SubmitClicked)
             runCurrent()
-            assertEquals(SearchPhase.Results("kotlin"), vm.uiState.value.phase)
+            assertEquals(SearchPhase.Results("kotlin", submission = 1), vm.uiState.value.phase)
 
             // User edits the field after submitting. The body keeps showing
             // the results for the last submitted query ("kotlin"); the live
@@ -132,14 +138,14 @@ class SearchViewModelTest {
             Snapshot.sendApplyNotifications()
             advanceTimeBy(DEBOUNCE_MS + 1)
 
-            assertEquals(SearchPhase.Results("kotlin"), vm.uiState.value.phase)
+            assertEquals(SearchPhase.Results("kotlin", submission = 1), vm.uiState.value.phase)
             assertEquals("kotli", vm.uiState.value.currentQuery)
         }
 
     @Test
     fun clearingField_returnsPhaseToDiscover_andResetsSubmittedQuery() =
         runTest {
-            val vm = SearchViewModel(repo)
+            val vm = SearchViewModel(repo, store)
             runCurrent()
             vm.textFieldState.setTextAndPlaceCursorAtEnd("kotlin")
             Snapshot.sendApplyNotifications()
@@ -166,7 +172,7 @@ class SearchViewModelTest {
     @Test
     fun recentChipTapped_flipsPhaseToResults() =
         runTest {
-            val vm = SearchViewModel(repo)
+            val vm = SearchViewModel(repo, store)
             runCurrent()
 
             vm.handleEvent(SearchEvent.RecentChipTapped("compose"))
@@ -174,13 +180,13 @@ class SearchViewModelTest {
 
             // A recent-chip tap flags the query as from-recent (threaded to
             // search_perform's from_recent).
-            assertEquals(SearchPhase.Results("compose", fromRecent = true), vm.uiState.value.phase)
+            assertEquals(SearchPhase.Results("compose", fromRecent = true, submission = 1), vm.uiState.value.phase)
         }
 
     @Test
     fun submitClicked_persistsCurrentNonBlankText() =
         runTest {
-            val vm = SearchViewModel(repo)
+            val vm = SearchViewModel(repo, store)
             runCurrent()
             vm.textFieldState.setTextAndPlaceCursorAtEnd("  kotlin  ")
             Snapshot.sendApplyNotifications()
@@ -195,7 +201,7 @@ class SearchViewModelTest {
     @Test
     fun submitClicked_blank_isNoOp() =
         runTest {
-            val vm = SearchViewModel(repo)
+            val vm = SearchViewModel(repo, store)
             runCurrent()
             vm.textFieldState.setTextAndPlaceCursorAtEnd("   ")
             Snapshot.sendApplyNotifications()
@@ -210,7 +216,7 @@ class SearchViewModelTest {
     @Test
     fun recentChipTapped_seedsTextField_andPersists() =
         runTest {
-            val vm = SearchViewModel(repo)
+            val vm = SearchViewModel(repo, store)
             runCurrent()
 
             vm.handleEvent(SearchEvent.RecentChipTapped("compose"))
@@ -231,7 +237,7 @@ class SearchViewModelTest {
                 RecentSearchEntity("kotlin", Instant.fromEpochMilliseconds(2_000)),
                 RecentSearchEntity("compose", Instant.fromEpochMilliseconds(1_000)),
             )
-            val vm = SearchViewModel(repo)
+            val vm = SearchViewModel(repo, store)
             runCurrent()
 
             vm.handleEvent(SearchEvent.RecentChipRemoved("compose"))
@@ -244,13 +250,129 @@ class SearchViewModelTest {
     fun clearAllRecentsClicked_delegatesToRepo() =
         runTest {
             dao.seed(RecentSearchEntity("kotlin", Instant.fromEpochMilliseconds(1_000)))
-            val vm = SearchViewModel(repo)
+            val vm = SearchViewModel(repo, store)
             runCurrent()
 
             vm.handleEvent(SearchEvent.ClearAllRecentsClicked)
             runCurrent()
 
             assertTrue(dao.snapshot().isEmpty())
+        }
+
+    @Test
+    fun `submit writes the store`() =
+        runTest {
+            val vm = SearchViewModel(repo, store)
+            runCurrent()
+            vm.textFieldState.setTextAndPlaceCursorAtEnd("kotlin")
+            Snapshot.sendApplyNotifications()
+            runCurrent()
+
+            vm.handleEvent(SearchEvent.SubmitClicked)
+            runCurrent()
+
+            assertEquals("kotlin", store.submitted.value?.query)
+            assertEquals(false, store.submitted.value?.fromRecent)
+
+            vm.handleEvent(SearchEvent.RecentChipTapped("compose"))
+            runCurrent()
+
+            assertEquals("compose", store.submitted.value?.query)
+            assertEquals(true, store.submitted.value?.fromRecent)
+        }
+
+    @Test
+    fun `submitting the same text again makes a new submission`() =
+        runTest {
+            val vm = SearchViewModel(repo, store)
+            runCurrent()
+            vm.textFieldState.setTextAndPlaceCursorAtEnd("kotlin")
+            Snapshot.sendApplyNotifications()
+            runCurrent()
+
+            vm.handleEvent(SearchEvent.SubmitClicked)
+            vm.handleEvent(SearchEvent.SubmitClicked)
+            runCurrent()
+
+            assertEquals(2, store.submitted.value?.submission)
+            assertEquals(SearchPhase.Results("kotlin", submission = 2), vm.uiState.value.phase)
+        }
+
+    @Test
+    fun `blanking the field clears the store`() =
+        runTest {
+            val vm = SearchViewModel(repo, store)
+            runCurrent()
+            vm.textFieldState.setTextAndPlaceCursorAtEnd("kotlin")
+            Snapshot.sendApplyNotifications()
+            advanceTimeBy(DEBOUNCE_MS + 1)
+            vm.handleEvent(SearchEvent.SubmitClicked)
+            runCurrent()
+
+            vm.textFieldState.setTextAndPlaceCursorAtEnd("")
+            Snapshot.sendApplyNotifications()
+            advanceTimeBy(DEBOUNCE_MS + 1)
+
+            assertNull(store.submitted.value)
+            assertEquals(SearchPhase.Discover, vm.uiState.value.phase)
+        }
+
+    @Test
+    fun `a new ViewModel clears a stale store`() =
+        runTest {
+            store.submit("stale", fromRecent = false)
+
+            val vm = SearchViewModel(repo, store)
+            runCurrent()
+
+            assertNull(store.submitted.value)
+            assertEquals(SearchPhase.Discover, vm.uiState.value.phase)
+        }
+
+    @Test
+    fun `onCleared clears the store`() =
+        runTest {
+            val owner = ViewModelStore()
+            val vm =
+                ViewModelProvider(
+                    owner,
+                    object : ViewModelProvider.Factory {
+                        @Suppress("UNCHECKED_CAST")
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T = SearchViewModel(repo, store) as T
+                    },
+                )[SearchViewModel::class.java]
+            runCurrent()
+            vm.textFieldState.setTextAndPlaceCursorAtEnd("kotlin")
+            Snapshot.sendApplyNotifications()
+            runCurrent()
+            vm.handleEvent(SearchEvent.SubmitClicked)
+            runCurrent()
+            assertEquals("kotlin", store.submitted.value?.query)
+
+            owner.clear()
+
+            assertNull(store.submitted.value)
+        }
+
+    @Test
+    fun `ClearSearch blanks the field and returns to Discover`() =
+        runTest {
+            val vm = SearchViewModel(repo, store)
+            runCurrent()
+            vm.textFieldState.setTextAndPlaceCursorAtEnd("kotlin")
+            Snapshot.sendApplyNotifications()
+            runCurrent()
+            vm.handleEvent(SearchEvent.SubmitClicked)
+            runCurrent()
+
+            vm.handleEvent(SearchEvent.ClearSearch)
+            runCurrent()
+
+            assertEquals("", vm.textFieldState.text.toString())
+            assertNull(store.submitted.value)
+            assertEquals(SearchPhase.Discover, vm.uiState.value.phase)
+            assertEquals("", vm.uiState.value.currentQuery)
+            assertEquals(true, vm.uiState.value.isQueryBlank)
         }
 
     private companion object {

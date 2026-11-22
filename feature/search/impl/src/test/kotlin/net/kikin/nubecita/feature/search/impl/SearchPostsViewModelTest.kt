@@ -18,8 +18,11 @@ import net.kikin.nubecita.core.analytics.SearchScope
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchPostsRepository
+import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsPage
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
+import net.kikin.nubecita.feature.search.impl.data.SearchTab
+import net.kikin.nubecita.feature.search.impl.data.SubmittedSearchStore
 import net.kikin.nubecita.feature.search.impl.data.searchPostFixture
 import net.kikin.nubecita.feature.search.impl.data.testSearchFirstPages
 import org.junit.jupiter.api.AfterEach
@@ -54,6 +57,15 @@ class SearchPostsViewModelTest {
     private val firstPages = testSearchFirstPages(CoroutineScope(SupervisorJob() + testDispatcher), posts = repo)
     private val cache = FakePostInteractionsCache()
     private val handler = FakePostInteractionHandler(cache)
+    private val store = SubmittedSearchStore()
+
+    /** Stands in for the Search screen: submits [query], or ends the search when blank. */
+    private fun search(
+        query: String,
+        fromRecent: Boolean = false,
+    ) {
+        if (query.isBlank()) store.clear() else store.submit(query, fromRecent)
+    }
 
     @BeforeEach
     fun setUp() {
@@ -65,7 +77,7 @@ class SearchPostsViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun buildVm() = SearchPostsViewModel(repo, firstPages, analytics, cache, handler, mockk(relaxed = true))
+    private fun buildVm() = SearchPostsViewModel(repo, firstPages, store, analytics, cache, handler, mockk(relaxed = true))
 
     @Test
     fun setQuery_blank_stateStaysIdle() =
@@ -86,7 +98,7 @@ class SearchPostsViewModelTest {
             repo.respond(query = "kotlin", cursor = null, sort = SearchPostsSort.LATEST, items = emptyList(), nextCursor = null)
 
             // Fresh (typed) search on the default Top sort.
-            vm.setQuery("kotlin", fromRecent = false)
+            search("kotlin", fromRecent = false)
             runCurrent()
             // Toggling the sort re-runs the search → a second search_perform in Latest scope.
             vm.handleEvent(SearchPostsEvent.SortClicked(SearchPostsSort.LATEST))
@@ -114,7 +126,7 @@ class SearchPostsViewModelTest {
                 nextCursor = "c2",
             )
 
-            vm.setQuery("kotlin")
+            search("kotlin")
             runCurrent()
 
             val status = vm.uiState.value.loadStatus
@@ -140,7 +152,7 @@ class SearchPostsViewModelTest {
                 nextCursor = null,
             )
 
-            vm.setQuery("kotlin")
+            search("kotlin")
             runCurrent()
 
             assertEquals(1, cache.seedCalls.get(), "cache.seed() must be called on first-page success")
@@ -156,7 +168,7 @@ class SearchPostsViewModelTest {
             repo.respond(query = "kotlin", cursor = null, sort = SearchPostsSort.TOP, items = page1, nextCursor = "c2")
             repo.respond(query = "kotlin", cursor = "c2", sort = SearchPostsSort.TOP, items = page2, nextCursor = null)
 
-            vm.setQuery("kotlin")
+            search("kotlin")
             runCurrent()
             val seedsAfterPage1 = cache.seedCalls.get()
 
@@ -181,7 +193,7 @@ class SearchPostsViewModelTest {
                 nextCursor = null,
             )
 
-            vm.setQuery("q")
+            search("q")
             runCurrent()
 
             // Emit a synthetic like into the cache (simulates a like from another surface).
@@ -231,7 +243,7 @@ class SearchPostsViewModelTest {
                 nextCursor = null,
             )
 
-            vm.setQuery("kotlin")
+            search("kotlin")
             runCurrent()
 
             val status = vm.uiState.value.loadStatus
@@ -278,7 +290,7 @@ class SearchPostsViewModelTest {
                 nextCursor = null,
             )
 
-            vm.setQuery("q")
+            search("q")
             runCurrent()
             vm.handleEvent(SearchPostsEvent.LoadMore)
             runCurrent()
@@ -328,7 +340,7 @@ class SearchPostsViewModelTest {
             val vm = buildVm()
             val hit = searchPostFixture("at://p1", "test")
             repo.respond(query = "q", cursor = null, sort = SearchPostsSort.TOP, items = listOf(hit), nextCursor = null)
-            vm.setQuery("q")
+            search("q")
             runCurrent()
 
             vm.onLike(hit.post)
@@ -377,7 +389,7 @@ class SearchPostsViewModelTest {
                 nextCursor = null,
             )
 
-            vm.setQuery("no-matches")
+            search("no-matches")
             runCurrent()
 
             assertEquals(SearchPostsLoadStatus.Empty, vm.uiState.value.loadStatus)
@@ -394,7 +406,7 @@ class SearchPostsViewModelTest {
                 throwable = IOException("disconnected"),
             )
 
-            vm.setQuery("kotlin")
+            search("kotlin")
             runCurrent()
 
             val status = vm.uiState.value.loadStatus
@@ -421,11 +433,11 @@ class SearchPostsViewModelTest {
                 nextCursor = null,
             )
 
-            vm.setQuery("ali")
+            search("ali")
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is SearchPostsLoadStatus.InitialLoading)
 
-            vm.setQuery("alic")
+            search("alic")
             runCurrent()
 
             // Late completion of the cancelled deferred must NOT clobber
@@ -475,7 +487,7 @@ class SearchPostsViewModelTest {
                 nextCursor = "c3",
             )
 
-            vm.setQuery("kotlin")
+            search("kotlin")
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is SearchPostsLoadStatus.Loaded)
 
@@ -505,7 +517,7 @@ class SearchPostsViewModelTest {
             repo.respond(query = "kotlin", cursor = null, sort = SearchPostsSort.TOP, items = page1, nextCursor = "c2")
             repo.respond(query = "kotlin", cursor = "c2", sort = SearchPostsSort.TOP, items = page2, nextCursor = null)
 
-            vm.setQuery("kotlin")
+            search("kotlin")
             runCurrent()
             vm.handleEvent(SearchPostsEvent.LoadMore)
             runCurrent()
@@ -538,7 +550,7 @@ class SearchPostsViewModelTest {
                 )
             repo.respond(query = "kotlin", cursor = null, sort = SearchPostsSort.TOP, items = page, nextCursor = null)
 
-            vm.setQuery("kotlin")
+            search("kotlin")
             runCurrent()
 
             val status = vm.uiState.value.loadStatus
@@ -559,7 +571,7 @@ class SearchPostsViewModelTest {
                 nextCursor = null, // endReached
             )
 
-            vm.setQuery("kotlin")
+            search("kotlin")
             runCurrent()
             val beforeCallCount = repo.callLog.size
 
@@ -583,7 +595,7 @@ class SearchPostsViewModelTest {
             // Gate the second-page fetch so isAppending stays true.
             repo.gate(query = "kotlin", cursor = "c2", sort = SearchPostsSort.TOP)
 
-            vm.setQuery("kotlin")
+            search("kotlin")
             runCurrent()
 
             vm.handleEvent(SearchPostsEvent.LoadMore)
@@ -621,7 +633,7 @@ class SearchPostsViewModelTest {
                 throwable = IOException("flap"),
             )
 
-            vm.setQuery("kotlin")
+            search("kotlin")
             runCurrent()
 
             vm.effects.test {
@@ -668,7 +680,7 @@ class SearchPostsViewModelTest {
                 repo.gate(query = "kotlin", cursor = "c2", sort = SearchPostsSort.TOP)
 
             // 1. Initial query → Loaded(TOP).
-            vm.setQuery("kotlin")
+            search("kotlin")
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is SearchPostsLoadStatus.Loaded)
 
@@ -740,7 +752,7 @@ class SearchPostsViewModelTest {
                 nextCursor = null,
             )
 
-            vm.setQuery("kotlin")
+            search("kotlin")
             runCurrent()
             val firstStatus = vm.uiState.value.loadStatus as SearchPostsLoadStatus.Loaded
             assertEquals(
@@ -777,7 +789,7 @@ class SearchPostsViewModelTest {
                 throwable = IOException("network"),
             )
 
-            vm.setQuery("kotlin")
+            search("kotlin")
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is SearchPostsLoadStatus.InitialError)
 
@@ -844,11 +856,11 @@ class SearchPostsViewModelTest {
                 nextCursor = null,
             )
 
-            vm.setQuery("kotlin")
+            search("kotlin")
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is SearchPostsLoadStatus.Loaded)
 
-            vm.setQuery("")
+            search("")
             runCurrent()
 
             assertEquals(SearchPostsLoadStatus.Idle, vm.uiState.value.loadStatus)
@@ -865,12 +877,12 @@ class SearchPostsViewModelTest {
             val vm = buildVm()
             val kotlinGate = repo.gate(query = "kotlin", cursor = null, sort = SearchPostsSort.TOP)
 
-            vm.setQuery("kotlin")
+            search("kotlin")
             runCurrent()
             assertEquals(SearchPostsLoadStatus.InitialLoading, vm.uiState.value.loadStatus)
 
             // User clears the field while the fetch is still in flight.
-            vm.setQuery("")
+            search("")
             runCurrent()
             assertEquals(SearchPostsLoadStatus.Idle, vm.uiState.value.loadStatus)
 
@@ -894,5 +906,71 @@ class SearchPostsViewModelTest {
                 vm.uiState.value.loadStatus,
                 "stale kotlin completion must not clobber Idle after the field was cleared",
             )
+        }
+
+    @Test
+    fun `a filter change refetches`() =
+        runTest {
+            val vm = buildVm()
+            search("kotlin")
+            runCurrent()
+            assertEquals(1, repo.callLog.size)
+
+            store.updateFilters { it.copy(followingOnly = true) }
+            runCurrent()
+
+            assertEquals(2, repo.callLog.size)
+            assertEquals(PostSearchFilters(followingOnly = true), repo.callLog.last().filters)
+            assertEquals("kotlin", vm.uiState.value.currentQuery)
+        }
+
+    @Test
+    fun `an unchanged search does not refetch`() =
+        runTest {
+            buildVm()
+            search("kotlin")
+            runCurrent()
+            assertEquals(1, repo.callLog.size)
+
+            // Same filters, same tab: nothing the Posts tab fetches by has changed.
+            store.updateFilters { it }
+            store.selectTab(SearchTab.PEOPLE)
+            store.setFilterSheetOpen(true)
+            runCurrent()
+
+            assertEquals(1, repo.callLog.size)
+        }
+
+    @Test
+    fun `resubmitting the same query refetches`() =
+        runTest {
+            buildVm()
+            search("kotlin")
+            runCurrent()
+            assertEquals(1, repo.callLog.size)
+
+            search("kotlin")
+            runCurrent()
+
+            assertEquals(2, repo.callLog.size)
+        }
+
+    @Test
+    fun `SortClicked updates the store's filters`() =
+        runTest {
+            val vm = buildVm()
+            search("kotlin")
+            runCurrent()
+
+            vm.handleEvent(SearchPostsEvent.SortClicked(SearchPostsSort.LATEST))
+            runCurrent()
+
+            assertEquals(
+                SearchPostsSort.LATEST,
+                store.submitted.value
+                    ?.filters
+                    ?.sort,
+            )
+            assertEquals(SearchPostsSort.LATEST, vm.uiState.value.sort)
         }
 }

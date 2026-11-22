@@ -29,6 +29,7 @@ import net.kikin.nubecita.feature.search.impl.ui.PeopleTabContent
 internal fun SearchActorsScreen(
     currentQuery: String,
     fromRecent: Boolean,
+    submission: Int,
     onClearQuery: () -> Unit,
     onShowAppendError: (SearchActorsError) -> Unit,
     modifier: Modifier = Modifier,
@@ -42,9 +43,10 @@ internal fun SearchActorsScreen(
     // Push the latest debounced query down to the VM. The VM
     // dedupes via StateFlow operator fusion on the FetchKey. Key on
     // fromRecent too so a same-query re-submit with a different origin
-    // (typed Search after a recent-chip tap) isn't logged stale.
-    LaunchedEffect(currentQuery, fromRecent) {
-        viewModel.setQuery(currentQuery, fromRecent = fromRecent)
+    // (typed Search after a recent-chip tap) isn't logged stale. A new `submission` is an explicit re-submit
+    // of the same text, which must fetch fresh.
+    LaunchedEffect(currentQuery, fromRecent, submission) {
+        viewModel.setQuery(currentQuery, fromRecent = fromRecent, submission = submission)
     }
 
     LaunchedEffect(Unit) {

@@ -22,6 +22,10 @@ import javax.inject.Singleton
  * [FirstPageCache] entry, so the network is hit once. Later pages go straight
  * to the repositories.
  *
+ * Every request carries the [net.kikin.nubecita.feature.search.impl.data.SubmittedSearch.submission]
+ * it belongs to and that is part of the cache key: an explicit submit is a new
+ * search even when the text is unchanged, so it fetches fresh.
+ *
  * Every cache is cleared when the signed-in account changes or signs out, so
  * one account's results never reach another. [version] bumps on every
  * refresh and clear, so an observer holding a page can tell it is stale.
@@ -45,11 +49,13 @@ internal class SearchFirstPages
             val did: String?,
             val query: String,
             val filters: PostSearchFilters,
+            val submission: Int,
         )
 
         private data class QueryKey(
             val did: String?,
             val query: String,
+            val submission: Int,
         )
 
         private val session = sessionStateProvider.state
@@ -84,34 +90,37 @@ internal class SearchFirstPages
         suspend fun posts(
             query: String,
             filters: PostSearchFilters,
+            submission: Int,
             refresh: Boolean = false,
         ): Result<SearchPostsPage> {
             val fetch: suspend () -> Result<SearchPostsPage> = {
                 postsRepository.searchPosts(query = query, filters = filters, cursor = null)
             }
-            val key = PostsKey(currentDid(), query, filters)
+            val key = PostsKey(currentDid(), query, filters, submission)
             return if (refresh) postCache.refresh(key, fetch).also { bump() } else postCache.get(key, fetch)
         }
 
         suspend fun people(
             query: String,
+            submission: Int,
             refresh: Boolean = false,
         ): Result<ActorSearchPage> {
             val fetch: suspend () -> Result<ActorSearchPage> = {
                 actorRepository.searchActors(query = query, cursor = null)
             }
-            val key = QueryKey(currentDid(), query)
+            val key = QueryKey(currentDid(), query, submission)
             return if (refresh) peopleCache.refresh(key, fetch).also { bump() } else peopleCache.get(key, fetch)
         }
 
         suspend fun feeds(
             query: String,
+            submission: Int,
             refresh: Boolean = false,
         ): Result<SearchFeedsPage> {
             val fetch: suspend () -> Result<SearchFeedsPage> = {
                 feedsRepository.searchFeeds(query = query, cursor = null)
             }
-            val key = QueryKey(currentDid(), query)
+            val key = QueryKey(currentDid(), query, submission)
             return if (refresh) feedCache.refresh(key, fetch).also { bump() } else feedCache.get(key, fetch)
         }
 

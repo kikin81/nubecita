@@ -52,9 +52,11 @@ internal class SearchFeedsViewModel
             val incarnation: Int,
             /** Whether the query arrived via a recent-search tap (for search_perform). */
             val fromRecent: Boolean,
+            /** The store's submission counter: an explicit re-submit of the same text is a new search. */
+            val submission: Int,
         )
 
-        private val fetchKey = MutableStateFlow(FetchKey(query = "", incarnation = 0, fromRecent = false))
+        private val fetchKey = MutableStateFlow(FetchKey(query = "", incarnation = 0, fromRecent = false, submission = 0))
 
         init {
             fetchKey
@@ -72,8 +74,9 @@ internal class SearchFeedsViewModel
         fun setQuery(
             query: String,
             fromRecent: Boolean = false,
+            submission: Int = 0,
         ) {
-            fetchKey.update { it.copy(query = query, fromRecent = fromRecent) }
+            fetchKey.update { it.copy(query = query, fromRecent = fromRecent, submission = submission) }
         }
 
         override fun handleEvent(event: SearchFeedsEvent) {
@@ -91,7 +94,7 @@ internal class SearchFeedsViewModel
         private suspend fun runFirstPage(key: FetchKey) {
             setState { copy(loadStatus = SearchFeedsLoadStatus.InitialLoading) }
             firstPages
-                .feeds(query = key.query)
+                .feeds(query = key.query, submission = key.submission)
                 .onSuccess { page ->
                     // view_feed fires when the Feeds-tab results load. These
                     // are custom generator feeds, so the bucket is Custom; the

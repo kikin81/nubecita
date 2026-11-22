@@ -488,4 +488,22 @@ class SearchActorsViewModelTest {
                 "stale alice completion must not clobber Idle after the field was cleared",
             )
         }
+
+    @Test
+    fun `resubmitting the same query refetches`() =
+        runTest {
+            val vm = SearchActorsViewModel(repo, firstPages, analytics)
+            vm.setQuery("alice", submission = 1)
+            runCurrent()
+            assertEquals(1, repo.callLog.size)
+
+            vm.setQuery("alice", submission = 1)
+            runCurrent()
+            assertEquals(1, repo.callLog.size, "the same submission is the same search")
+
+            vm.setQuery("alice", submission = 2)
+            runCurrent()
+
+            assertEquals(2, repo.callLog.size)
+        }
 }
