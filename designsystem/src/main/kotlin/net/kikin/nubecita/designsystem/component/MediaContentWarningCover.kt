@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
@@ -28,11 +29,17 @@ import net.kikin.nubecita.designsystem.R
  *
  * The decision is precomputed off the render path (`:core:moderation` →
  * `:core:feed-mapping`), so the cover does zero moderation work — it only draws.
+ *
+ * [onOpenSettings] is the "Content filter settings" link. `null` (the default)
+ * hides it, so surfaces that don't wire it render exactly as before. The link
+ * only navigates to the settings page; it never changes the viewer's atproto
+ * content preferences itself.
  */
 @Immutable
 public data class MediaCover(
     val warning: MediaContentWarning,
     val onReveal: () -> Unit,
+    val onOpenSettings: (() -> Unit)? = null,
 )
 
 /**
@@ -40,7 +47,8 @@ public data class MediaCover(
  * fill (NO runtime blur — that would cost a render pass per frame and defeat the
  * 120 Hz target) with the category and, when [MediaContentWarning.overridable],
  * a "Show anyway" button. When not overridable (the forced adult-gate-off hide),
- * no reveal affordance is shown.
+ * no reveal affordance is shown — the viewer's preference wins — but the
+ * settings link (when wired) still offers a way to change that preference.
  *
  * Callers overlay this at the media's natural size (e.g. `Modifier.matchParentSize()`
  * inside the media `Box`) and pass `model = null` to Coil so nothing is fetched
@@ -71,6 +79,14 @@ public fun MediaContentWarningCover(
         if (cover.warning.overridable) {
             FilledTonalButton(onClick = cover.onReveal) {
                 Text(stringResource(R.string.media_warning_show))
+            }
+        }
+        cover.onOpenSettings?.let { onOpenSettings ->
+            TextButton(onClick = onOpenSettings) {
+                Text(
+                    text = stringResource(R.string.media_warning_settings),
+                    textAlign = TextAlign.Center,
+                )
             }
         }
     }

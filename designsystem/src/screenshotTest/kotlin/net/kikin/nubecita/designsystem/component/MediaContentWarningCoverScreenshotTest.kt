@@ -23,6 +23,13 @@ private fun overridableCover() = MediaCover(MediaContentWarning(ContentWarningCa
 
 private fun nonOverridableCover() = MediaCover(MediaContentWarning(ContentWarningCategory.ADULT_CONTENT, overridable = false), onReveal = {})
 
+private fun nonOverridableCoverWithSettings() =
+    MediaCover(
+        MediaContentWarning(ContentWarningCategory.SEXUALLY_SUGGESTIVE, overridable = false),
+        onReveal = {},
+        onOpenSettings = {},
+    )
+
 private fun image(index: Int) =
     ImageUi(
         fullsizeUrl = "https://example.com/$index.jpg",
@@ -48,6 +55,29 @@ private fun MediaCoverOverridablePreview() {
 private fun MediaCoverNonOverridablePreview() {
     NubecitaTheme(dynamicColor = false) {
         MediaContentWarningCover(nonOverridableCover(), Modifier.size(320.dp, 200.dp))
+    }
+}
+
+@PreviewTest
+@Preview(name = "cover — non-overridable + settings link, light", showBackground = true)
+@Preview(name = "cover — non-overridable + settings link, dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "cover — non-overridable + settings link, es-419", showBackground = true, locale = "b+es+419")
+@Composable
+private fun MediaCoverNonOverridableWithSettingsPreview() {
+    NubecitaTheme(dynamicColor = false) {
+        MediaContentWarningCover(nonOverridableCoverWithSettings(), Modifier.size(320.dp, 200.dp))
+    }
+}
+
+@PreviewTest
+@Preview(name = "image wide 3-1 covered + settings link, light", showBackground = true)
+@Preview(name = "image wide 3-1 covered + settings link, es-419", showBackground = true, locale = "b+es+419")
+@Composable
+private fun ImageWideCoveredWithSettingsPreview() {
+    // The shortest cover the app draws: a 3:1 image (the clamp maximum). The
+    // settings link must fit in the reveal button's slot without clipping.
+    NubecitaTheme(dynamicColor = false) {
+        PostCardImageEmbed(items = persistentListOf(image(0).copy(aspectRatio = 3f)), cover = nonOverridableCoverWithSettings())
     }
 }
 

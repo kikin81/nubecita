@@ -277,6 +277,9 @@ internal fun PostDetailScreen(
                     viewModel.recordOverflowAction(action)
                     viewModel.handleEvent(PostDetailEvent.OnOverflowAction(post, action))
                 },
+                onOpenContentFilters = {
+                    viewModel.handleEvent(PostDetailEvent.OnContentFiltersTapped)
+                },
             )
         }
 

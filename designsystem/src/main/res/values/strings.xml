@@ -145,6 +145,9 @@
     <string name="media_warning_cat_suggestive">Sexually Suggestive</string>
     <string name="media_warning_cat_graphic">Graphic Media</string>
     <string name="media_warning_cat_nudity">Non-sexual Nudity</string>
+    <!-- Link on a media cover to the Content filters settings page. Navigates only;
+         it never changes the viewer's atproto content preferences in place. -->
+    <string name="media_warning_settings">Content filter settings</string>
     <string name="verification_badge_verified_description">Verified account</string>
     <string name="verification_badge_trusted_verifier_description">Trusted verifier</string>
     <string name="postcard_action_delete_post">Delete post</string>

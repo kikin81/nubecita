@@ -12,6 +12,9 @@ dependencies {
     implementation(project(":core:actors"))
     implementation(project(":core:analytics"))
     implementation(project(":core:auth"))
+    // ModerationPreferencesRepository — re-fetch the thread when the viewer
+    // changes content filters, so the media covers reflect the new choice.
+    implementation(project(":core:moderation"))
     implementation(project(":core:post-interactions"))
     // rememberPostInteractions + InteractionStrings — share/clipboard/coming-soon
     // snackbars and navigation for like / repost / report / block from PostCards
@@ -38,6 +41,8 @@ dependencies {
     // is tapped inside a thread post. Imports `:api` only; never `:impl`.
     implementation(project(":feature:profile:api"))
     implementation(project(":feature:search:api"))
+    // ContentFilters NavKey — the sensitive-media cover's settings link.
+    implementation(project(":feature:settings:api"))
     // VideoPlayerRoute NavKey — pushed onto the outer back stack when a
     // video embed inside a thread PostCard is tapped. Routes through the
     // outer Navigator (the route is `@OuterShell`-qualified) so the

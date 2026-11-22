@@ -286,6 +286,13 @@ internal sealed interface PostDetailEvent : UiEvent {
         val post: PostUi,
         val action: PostOverflowAction,
     ) : PostDetailEvent
+
+    /**
+     * The "Content filter settings" link on a sensitive-media cover was
+     * tapped. The VM emits [PostDetailEffect.NavigateTo] with the Content
+     * filters settings route — it never changes a preference itself.
+     */
+    data object OnContentFiltersTapped : PostDetailEvent
 }
 
 internal sealed interface PostDetailEffect : UiEffect {

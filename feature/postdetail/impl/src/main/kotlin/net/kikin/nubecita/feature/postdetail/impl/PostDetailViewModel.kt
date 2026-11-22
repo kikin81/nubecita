@@ -12,6 +12,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -20,6 +21,7 @@ import net.kikin.nubecita.core.actors.MuteRepository
 import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.auth.NoSessionException
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.posting.OutgoingPost
 import net.kikin.nubecita.core.posting.OutgoingPostStore
 import net.kikin.nubecita.core.posting.toUi
@@ -37,6 +39,7 @@ import net.kikin.nubecita.designsystem.component.FocusFollowState
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.search.api.Hashtag
+import net.kikin.nubecita.feature.settings.api.ContentFilters
 import java.io.IOException
 
 /**
@@ -68,6 +71,7 @@ internal class PostDetailViewModel
         private val handler: PostInteractionHandler,
         private val outgoingPostStore: OutgoingPostStore,
         private val followRepository: FollowRepository,
+        private val moderationPreferences: ModerationPreferencesRepository,
         /**
          * The app-wide translation store, for the screen's Compose layer.
          *
@@ -95,6 +99,17 @@ internal class PostDetailViewModel
             ) { outgoing, items -> outgoing.visibleIn(items) }
                 .distinctUntilChanged()
                 .onEach { visible -> setState { copy(outgoingReplies = visible) } }
+                .launchIn(viewModelScope)
+
+            // The thread's media covers are baked from the moderation prefs at
+            // load time. When the viewer changes them (typically via the cover's
+            // "Content filter settings" link, then back here), re-fetch so the
+            // covers reflect the new choice. drop(1) skips the current value —
+            // the initial load already used it. A StateFlow already conflates
+            // equal values, so no distinctUntilChanged is needed.
+            moderationPreferences.prefs
+                .drop(1)
+                .onEach { refresh() }
                 .launchIn(viewModelScope)
 
             // Mirror handler tap-markers into PostDetailState so PostDetailScreenContent
@@ -149,6 +164,7 @@ internal class PostDetailViewModel
                     sendEffect(PostDetailEffect.NavigateToPost(event.quotedPostUri))
                 is PostDetailEvent.OnAuthorTapped -> sendEffect(PostDetailEffect.NavigateToAuthor(event.authorDid))
                 is PostDetailEvent.TagTapped -> sendEffect(PostDetailEffect.NavigateTo(Hashtag(event.tag, event.author)))
+                PostDetailEvent.OnContentFiltersTapped -> sendEffect(PostDetailEffect.NavigateTo(ContentFilters))
                 PostDetailEvent.OnReplyClicked -> {
                     // The composer's parent context is the focus post. Gate on the
                     // same `showReplyFab` predicate the FAB uses: drop silently

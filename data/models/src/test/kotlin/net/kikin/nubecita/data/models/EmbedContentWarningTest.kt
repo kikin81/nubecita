@@ -55,4 +55,21 @@ class EmbedContentWarningTest {
         assertSame(EmbedUi.Empty, EmbedUi.Empty.withMediaContentWarning(warn))
         assertSame(unsupported, unsupported.withMediaContentWarning(warn))
     }
+
+    @Test
+    fun `mediaContentWarning reads every media variant and the media half of a quote`() {
+        for (media in listOf<EmbedUi.MediaEmbed>(EmbedUi.Images(persistentListOf(image())), video(), external(), gif())) {
+            assertEquals(warn, media.withContentWarning(warn).mediaContentWarning)
+            assertNull(media.mediaContentWarning)
+        }
+        val quote = EmbedUi.RecordWithMedia(record = EmbedUi.RecordUnavailable(EmbedUi.RecordUnavailable.Reason.NotFound), media = gif())
+        assertEquals(warn, quote.withMediaContentWarning(warn).mediaContentWarning)
+        assertNull(quote.mediaContentWarning)
+    }
+
+    @Test
+    fun `mediaContentWarning is null for embeds without a media slot`() {
+        assertNull(EmbedUi.Empty.mediaContentWarning)
+        assertNull(EmbedUi.Unsupported(typeUri = "app.bsky.embed.future").mediaContentWarning)
+    }
 }

@@ -15,6 +15,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -65,6 +66,8 @@ import net.kikin.nubecita.data.models.QuotedPostUi
 import net.kikin.nubecita.data.models.ThreadPositionUi
 import net.kikin.nubecita.data.models.VerifiedBadge
 import net.kikin.nubecita.data.models.ViewerStateUi
+import net.kikin.nubecita.data.models.mediaContentWarning
+import net.kikin.nubecita.data.models.video
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.R
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -240,6 +243,19 @@ fun PostCard(
                         isMediaRevealed = isMediaRevealed,
                         onRevealMedia = onRevealMedia,
                     )
+                    // The viewer revealed media their content filters warn about:
+                    // offer the settings page under it, so they can change the
+                    // preference rather than re-reveal every time. Navigates only —
+                    // never toggles a preference here.
+                    val onOpenContentFilters = callbacks.onOpenContentFilters
+                    if (isMediaRevealed &&
+                        onOpenContentFilters != null &&
+                        post.embed.hasRenderedMediaWarning(hasVideoSlot = videoEmbedSlot != null)
+                    ) {
+                        TextButton(onClick = onOpenContentFilters) {
+                            Text(stringResource(R.string.media_warning_settings))
+                        }
+                    }
                     Spacer(Modifier.height(8.dp))
                     ActionRow(
                         post = post,
@@ -728,7 +744,14 @@ internal fun EmbedSlot(
     // the poster never fetches while covered. The quoted record's OWN media is
     // not covered yet — quoted-post labels aren't moderated (deferred follow-up).
     val coverFor = { warning: MediaContentWarning? ->
-        warning.takeIf { !isMediaRevealed }?.let { MediaCover(it, onRevealMedia) }
+        warning.takeIf { !isMediaRevealed }?.let {
+            // The settings link takes the reveal button's place only on a cover
+            // that can't be revealed (the viewer's prefs hide it). An overridable
+            // cover keeps just "Show anyway" — the cover is sized to the media, and
+            // a wide image / link card is too short for two stacked buttons — and
+            // offers the link below the media once revealed instead.
+            MediaCover(it, onRevealMedia, onOpenSettings = if (it.overridable) null else callbacks.onOpenContentFilters)
+        }
     }
     when (embed) {
         EmbedUi.Empty -> Unit
@@ -834,6 +857,10 @@ internal fun EmbedSlot(
         }
     }
 }
+
+// True when the embed's own media carries a content warning AND that media is
+// actually on screen (a video only renders when the host supplied a slot).
+private fun EmbedUi.hasRenderedMediaWarning(hasVideoSlot: Boolean): Boolean = mediaContentWarning != null && (video == null || hasVideoSlot)
 
 @Composable
 internal fun ActionRow(

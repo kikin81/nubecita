@@ -89,6 +89,14 @@ data class PostCallbacks(
      * variant's snackbar for the matching RPC call.
      */
     val onOverflowAction: ((post: PostUi, action: PostOverflowAction) -> Unit)? = null,
+    /**
+     * The "Content filter settings" link on a sensitive-media cover was tapped.
+     * Hosts route it to the Content filters settings page — never toggle a
+     * preference in place; the viewer's atproto prefs stay the source of truth.
+     * `null` (the default) hides the link, same suppression pattern as
+     * [onQuotedPostTap] / [onOverflowAction].
+     */
+    val onOpenContentFilters: (() -> Unit)? = null,
 ) {
     public companion object {
         /**
