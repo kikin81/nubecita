@@ -50,8 +50,22 @@ dependencies {
     implementation(libs.atproto.runtime)
     implementation(libs.timber)
 
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+
     testImplementation(project(":core:testing"))
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
+
+    // Instrumentation test for the opened-post pin (ThreadPinning): it depends
+    // on how a real LazyColumn anchors its rows, which no JVM test can run.
+    // Runs in the nightly instrumented sweep. espresso-core is pinned as in
+    // every other feature module (compose-ui-test-junit4 otherwise pulls a
+    // stale transitive Espresso).
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.espresso.core)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.kotlinx.collections.immutable)
 }

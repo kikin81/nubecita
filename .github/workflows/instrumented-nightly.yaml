@@ -22,7 +22,7 @@
 #   nubecita-7fyv raised the parallelism.)
 # - `max-parallel: 6` keeps well under the GitHub-hosted concurrent-job cap (Free = 20)
 #   so the nightly doesn't starve other workflows; raise it for faster wall-clock if
-#   the plan's concurrency allows. Wall-clock ~= warmup + ceil(16 / max-parallel) waves
+#   the plan's concurrency allows. Wall-clock ~= warmup + ceil(17 / max-parallel) waves
 #   of the slowest leg (down from ~80 min sequential).
 #
 # It is informational: `fail-fast: false` so one red module doesn't cancel the rest,
@@ -133,6 +133,7 @@ jobs:
           - ":feature:moderation:impl"
           - ":feature:notifications:impl"
           - ":feature:onboarding:impl"
+          - ":feature:postdetail:impl"
           - ":feature:profile:impl"
           - ":feature:search:impl"
           - ":feature:settings:impl"

@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -123,6 +124,11 @@ internal fun rememberPinnedThread(
 
     if (hasLeadingRows && focusKey != null) {
         LaunchedEffect(listState, focusKey) {
+            // This effect starts in the same frame the rows changed, before
+            // the list has measured them: the layout info it would read now
+            // still describes the previous list, which may not even have the
+            // spacer row the arithmetic counts on. One frame later it does.
+            withFrameNanos { }
             snapshotFlow {
                 val info = listState.layoutInfo
                 trailingSpaceToPinFocus(
