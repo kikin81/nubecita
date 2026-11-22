@@ -37,6 +37,7 @@ internal class SearchFirstPages
         private val postsRepository: SearchPostsRepository,
         private val actorRepository: ActorRepository,
         private val feedsRepository: SearchFeedsRepository,
+        private val packsRepository: SearchStarterPacksRepository,
         @ApplicationScope scope: CoroutineScope,
         sessionStateProvider: SessionStateProvider,
     ) {
@@ -62,6 +63,7 @@ internal class SearchFirstPages
         private val postCache = FirstPageCache<PostsKey, SearchPostsPage>(scope)
         private val peopleCache = FirstPageCache<QueryKey, ActorSearchPage>(scope)
         private val feedCache = FirstPageCache<QueryKey, SearchFeedsPage>(scope)
+        private val packCache = FirstPageCache<QueryKey, SearchStarterPacksPage>(scope)
 
         private fun currentDid(): String? = (session.value as? SessionState.SignedIn)?.did
 
@@ -124,10 +126,23 @@ internal class SearchFirstPages
             return if (refresh) feedCache.refresh(key, fetch).also { bump() } else feedCache.get(key, fetch)
         }
 
+        suspend fun packs(
+            query: String,
+            submission: Int,
+            refresh: Boolean = false,
+        ): Result<SearchStarterPacksPage> {
+            val fetch: suspend () -> Result<SearchStarterPacksPage> = {
+                packsRepository.searchStarterPacks(query = query, cursor = null)
+            }
+            val key = QueryKey(currentDid(), query, submission)
+            return if (refresh) packCache.refresh(key, fetch).also { bump() } else packCache.get(key, fetch)
+        }
+
         private fun clear() {
             postCache.clear()
             peopleCache.clear()
             feedCache.clear()
+            packCache.clear()
             bump()
         }
 

@@ -17,6 +17,7 @@ class AnalyticsValidatorTest {
                 CreatePost(hasMedia = true, isReply = true, isQuote = true, hasExternal = true),
                 SearchPerform(SearchScope.Top, fromRecent = false),
                 SearchPerform(SearchScope.Feeds, fromRecent = true),
+                SearchPerform(SearchScope.Packs, fromRecent = false),
                 InteractActor(ActorAction.Follow, PostSurface.Profile),
                 InteractActor(ActorAction.Unfollow, PostSurface.Search),
                 Share(ShareMethod.ShareSheet, PostSurface.Feed),

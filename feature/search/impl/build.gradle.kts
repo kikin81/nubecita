@@ -64,6 +64,8 @@ dependencies {
     // back stack. The api module ships just the NavKey — :feature:search:impl
     // never depends on :impl, matching the Chats / Feed / Postdetail pattern.
     implementation(project(":feature:profile:api"))
+    // Tap-to-open a starter pack pushes StarterPack onto the MainShell back stack.
+    implementation(project(":feature:starterpack:api"))
     // Custom Tabs: tap an inline link in a post body → in-app browser
     // (same Custom Tab path as Feed / PostDetail).
     implementation(libs.androidx.browser)

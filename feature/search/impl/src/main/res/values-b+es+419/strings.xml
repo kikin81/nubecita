@@ -198,4 +198,27 @@
     <string name="summary_pane_feeds_error">No se pudieron cargar los feeds.</string>
     <string name="summary_pane_retry">Reintentar</string>
     <string name="summary_pane_no_results">Sin resultados para \"%1$s\"</string>
+
+    <string name="search_tab_packs">Paquetes</string>
+    <string name="search_packs_loading_content_description">Buscando paquetes de inicio</string>
+    <string name="search_packs_empty_title">Ningún paquete de inicio coincide con \"%1$s\"</string>
+    <string name="search_packs_empty_body">Prueba con otra palabra clave.</string>
+    <string name="search_packs_empty_clear">Borrar búsqueda</string>
+    <string name="search_packs_empty_icon_content_description">Sin paquetes de inicio coincidentes</string>
+    <string name="search_packs_error_network_title">Sin conexión</string>
+    <string name="search_packs_error_network_body">Revisa tu conexión e inténtalo de nuevo.</string>
+    <string name="search_packs_error_rate_limited_title">Más despacio</string>
+    <string name="search_packs_error_rate_limited_body">Has estado buscando mucho. Espera un momento e inténtalo de nuevo.</string>
+    <string name="search_packs_error_unknown_title">Algo salió mal</string>
+    <string name="search_packs_error_unknown_body">No pudimos cargar tu búsqueda. Inténtalo de nuevo.</string>
+    <string name="search_packs_error_retry">Reintentar</string>
+    <string name="search_packs_append_error_network">No se pudieron cargar más paquetes de inicio. Revisa tu conexión.</string>
+    <string name="search_packs_append_error_rate_limited">Más despacio: has estado buscando mucho.</string>
+    <string name="search_packs_append_error_unknown">No se pudieron cargar más paquetes de inicio. Inténtalo de nuevo.</string>
+    <string name="search_pack_byline">por @%1$s</string>
+    <string name="search_pack_content_desc">%1$s, por @%2$s</string>
+    <plurals name="search_pack_member_count">
+        <item quantity="one">%1$d persona</item>
+        <item quantity="other">%1$d personas</item>
+    </plurals>
 </resources>

@@ -26,6 +26,7 @@ import net.kikin.nubecita.feature.search.impl.data.DateFilter
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchActorsRepository
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchFeedsRepository
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchPostsRepository
+import net.kikin.nubecita.feature.search.impl.data.FakeSearchStarterPacksRepository
 import net.kikin.nubecita.feature.search.impl.data.FeedPinToggle
 import net.kikin.nubecita.feature.search.impl.data.MediaFilter
 import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
@@ -58,6 +59,7 @@ internal class SearchPaneViewModelTest {
     private val posts = FakeSearchPostsRepository()
     private val actors = FakeSearchActorsRepository()
     private val feeds = FakeSearchFeedsRepository()
+    private val packs = FakeSearchStarterPacksRepository()
     private val pinned = FakePinnedFeedsRepository()
     private val followRepo = FakeFollowRepository()
     private val session = MutableStateFlow<SessionState>(signedIn("did:plc:me"))
@@ -76,7 +78,7 @@ internal class SearchPaneViewModelTest {
         // Not `backgroundScope`: `advanceUntilIdle` does not run background tasks, and the shared
         // first pages and the follow call are real coroutines the tests wait for.
         val appScope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))
-        firstPages = SearchFirstPages(posts, actors, feeds, appScope, sessionProvider)
+        firstPages = SearchFirstPages(posts, actors, feeds, packs, appScope, sessionProvider)
         overlay = FollowOverlay(appScope, sessionProvider)
         return SearchPaneViewModel(
             store = store,

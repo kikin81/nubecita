@@ -165,4 +165,38 @@ class SearchPagerSyncTest {
         assertEquals(SearchTab.POSTS, d.store)
         assertEquals(listOf(SearchTab.PEOPLE, SearchTab.POSTS), d.actions.filterIsInstance<TabSyncAction.Report>().map { it.tab })
     }
+
+    @Test
+    fun `swiping through all four tabs reports each page in turn and a request scrolls back`() {
+        assertEquals(listOf(SearchTab.POSTS, SearchTab.PEOPLE, SearchTab.FEEDS, SearchTab.PACKS), SearchTab.entries.toList())
+        val d = Driver(SearchTab.POSTS)
+
+        d.settle(SearchTab.PEOPLE)
+        d.settle(SearchTab.FEEDS)
+        d.settle(SearchTab.PACKS)
+
+        assertEquals(SearchTab.PACKS, d.store)
+        assertEquals(
+            listOf(
+                TabSyncAction.Report(SearchTab.PEOPLE),
+                TabSyncAction.None,
+                TabSyncAction.Report(SearchTab.FEEDS),
+                TabSyncAction.None,
+                TabSyncAction.Report(SearchTab.PACKS),
+                TabSyncAction.None,
+            ),
+            d.actions,
+        )
+
+        // "See all" on the Summary's packs section, then a request back to People from the tab row.
+        d.actions.clear()
+        d.request(SearchTab.PEOPLE)
+        d.settle(SearchTab.PEOPLE)
+        assertEquals(listOf(TabSyncAction.ScrollTo(SearchTab.PEOPLE), TabSyncAction.None), d.actions)
+        d.actions.clear()
+        d.request(SearchTab.PACKS)
+        d.settle(SearchTab.PACKS)
+        assertEquals(listOf(TabSyncAction.ScrollTo(SearchTab.PACKS), TabSyncAction.None), d.actions)
+        assertEquals(TabSyncState(), d.state)
+    }
 }
