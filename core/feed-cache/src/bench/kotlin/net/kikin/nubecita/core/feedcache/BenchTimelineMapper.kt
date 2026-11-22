@@ -15,6 +15,7 @@ import net.kikin.nubecita.data.models.ImageUi
 import net.kikin.nubecita.data.models.MediaContentWarning
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.ThreadPositionUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.data.models.withMediaContentWarning
 import timber.log.Timber
@@ -142,6 +143,7 @@ internal object BenchTimelineMapper {
             repostedBy = repostedBy,
             threadRootUri = threadRootUri,
             langs = langs.toImmutableList(),
+            threadPosition = ThreadPositionUi.of(index = threadIndex?.toLong(), count = threadCount?.toLong()),
         )
 
     private fun BenchAuthorDto.toAuthorUi(): AuthorUi =

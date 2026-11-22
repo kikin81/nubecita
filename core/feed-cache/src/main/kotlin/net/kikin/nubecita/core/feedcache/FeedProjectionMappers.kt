@@ -9,6 +9,7 @@ import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.ThreadPositionUi
 
 /**
  * Rehydrates a persisted projection row back into the [FeedItemUi] it was
@@ -48,10 +49,18 @@ fun FeedItemEntity.toFeedItemUi(
 
     val ordered = members.sortedBy { it.ordinal }
     val stored = ordered.map { postsByUri[it.uri] }
+    // The post store has no thread numbering; it comes back from the member row.
+    val positions = ordered.map { ThreadPositionUi.of(index = it.opThreadIndex?.toLong(), count = it.opThreadCount?.toLong()) }
+
+    fun readableAt(slot: Int): PostUi? {
+        val post = stored.getOrNull(slot)?.readable(viewerDid, prefs) ?: return null
+        val position = positions.getOrNull(slot) ?: return post
+        return post.copy(threadPosition = position)
+    }
 
     return when (variant) {
         VARIANT_SINGLE -> {
-            val post = stored.firstOrNull()?.readable(viewerDid, prefs) ?: return null
+            val post = readableAt(0) ?: return null
             FeedItemUi.Single(post = post, suppressedReplyCount = suppressedReplyCount)
         }
         VARIANT_CLUSTER -> {
@@ -59,9 +68,9 @@ fun FeedItemEntity.toFeedItemUi(
             // item unrenderable as a cluster; a partial cluster would be a
             // card with a hole in it, so the row is skipped instead.
             if (ordered.size < 3) return null
-            val root = stored[0]?.readable(viewerDid, prefs) ?: return null
-            val parent = stored[1]?.readable(viewerDid, prefs) ?: return null
-            val leaf = stored[2]?.readable(viewerDid, prefs) ?: return null
+            val root = readableAt(0) ?: return null
+            val parent = readableAt(1) ?: return null
+            val leaf = readableAt(2) ?: return null
             FeedItemUi.ReplyCluster(
                 root = root,
                 parent = parent,
@@ -71,7 +80,7 @@ fun FeedItemEntity.toFeedItemUi(
             )
         }
         VARIANT_CHAIN -> {
-            val posts = stored.mapNotNull { it?.readable(viewerDid, prefs) }
+            val posts = stored.indices.mapNotNull { readableAt(it) }
             // A chain is defined by having more than one post; if moderation or
             // a missing row leaves one, it is a Single, not a one-link chain.
             when (posts.size) {

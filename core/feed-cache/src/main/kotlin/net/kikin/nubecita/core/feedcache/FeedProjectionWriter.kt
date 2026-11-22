@@ -22,6 +22,8 @@ import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.FeedViewPrefs
+import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.ThreadPositionUi
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -441,7 +443,8 @@ internal class FeedProjectionWriter
             val members = ArrayList<FeedItemMemberEntity>(items.size * 2)
             items.forEachIndexed { index, item ->
                 val position = positionOf(index)
-                val uris = item.memberUris()
+                val memberPosts = item.members()
+                val uris = memberPosts.map { it.first }
                 rows +=
                     FeedItemEntity(
                         accountDid = feedKey.accountDid,
@@ -458,7 +461,7 @@ internal class FeedProjectionWriter
                         threadRootUri = item.threadRootId(),
                         hasEllipsis = (item as? FeedItemUi.ReplyCluster)?.hasEllipsis,
                     )
-                uris.forEachIndexed { ordinal, uri ->
+                memberPosts.forEachIndexed { ordinal, (uri, threadPosition) ->
                     members +=
                         FeedItemMemberEntity(
                             accountDid = feedKey.accountDid,
@@ -467,6 +470,8 @@ internal class FeedProjectionWriter
                             position = position,
                             ordinal = ordinal,
                             uri = uri,
+                            opThreadIndex = threadPosition?.index,
+                            opThreadCount = threadPosition?.count,
                         )
                 }
             }
@@ -475,15 +480,21 @@ internal class FeedProjectionWriter
         }
     }
 
-/** The item's posts in render order — what [FeedItemMemberEntity] rows record. */
-private fun FeedItemUi.memberUris(): List<String> =
+/**
+ * The item's posts in render order, each with its thread position — what
+ * [FeedItemMemberEntity] rows record. The position rides on the member because
+ * the read path rebuilds each post from the post store, which has no numbering.
+ */
+private fun FeedItemUi.members(): List<Pair<String, ThreadPositionUi?>> =
     when (this) {
-        is FeedItemUi.Single -> listOf(post.id)
-        is FeedItemUi.ReplyCluster -> listOf(root.id, parent.id, leaf.id)
-        is FeedItemUi.SelfThreadChain -> posts.map { it.id }
-        is FeedItemUi.Blocked -> listOf(uri)
-        is FeedItemUi.NotFound -> listOf(uri)
+        is FeedItemUi.Single -> listOf(post.asMember())
+        is FeedItemUi.ReplyCluster -> listOf(root.asMember(), parent.asMember(), leaf.asMember())
+        is FeedItemUi.SelfThreadChain -> posts.map { it.asMember() }
+        is FeedItemUi.Blocked -> listOf(uri to null)
+        is FeedItemUi.NotFound -> listOf(uri to null)
     }
+
+private fun PostUi.asMember(): Pair<String, ThreadPositionUi?> = id to threadPosition
 
 private fun FeedItemUi.variantName(): String =
     when (this) {

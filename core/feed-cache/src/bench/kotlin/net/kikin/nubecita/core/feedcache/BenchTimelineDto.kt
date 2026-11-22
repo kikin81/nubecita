@@ -135,6 +135,14 @@ internal data class BenchPostDto(
      * nothing, which is the case only language identification reaches.
      */
     val langs: List<String> = emptyList(),
+    /**
+     * This post's 1-based place in its author's thread and the thread's
+     * length — what the server sends as `opThreadPostIndex` /
+     * `opThreadPostCount`. A fixture has no server to number it, so a post that
+     * should show the thread pill states both.
+     */
+    val threadIndex: Int? = null,
+    val threadCount: Int? = null,
 )
 
 @Serializable

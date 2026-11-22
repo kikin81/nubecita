@@ -19,6 +19,7 @@ import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.model.FeedItemEntity
+import net.kikin.nubecita.core.database.model.FeedItemMemberEntity
 import net.kikin.nubecita.core.database.model.FeedPartitionStateEntity
 import net.kikin.nubecita.core.feeds.FeedViewPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
@@ -545,4 +546,52 @@ internal class FeedProjectionWriterTest {
         assertEquals(false, FeedType.DISCOVER.isFollowScoped)
         assertEquals(false, FeedType.CUSTOM.isFollowScoped)
     }
+
+    @Test
+    fun `the projection stores each member's thread position`() =
+        runTest {
+            prefs(hideReplies = false)
+            val members = slot<List<FeedItemMemberEntity>>()
+            coEvery { feedItemDao.upsertMembers(capture(members)) } returns Unit
+
+            writer().writeRefresh(
+                FeedKey.following("did:plc:me"),
+                listOf(numberedEntry("at://p/1", index = 1, count = 5), topLevelEntry("at://p/2")),
+            )
+
+            val byUri = members.captured.associateBy { it.uri }
+            assertEquals(1 to 5, byUri.getValue("at://p/1").let { it.opThreadIndex to it.opThreadCount })
+            assertEquals(null to null, byUri.getValue("at://p/2").let { it.opThreadIndex to it.opThreadCount })
+        }
+
+    @Test
+    fun `a stored entry round-trips its thread numbering through the context blob`() {
+        // A numbered thread root has no reason and no reply, so the numbering
+        // is the only thing in its blob — and a local re-projection that lost
+        // it would strip the pill from every cached thread.
+        val wire = numberedEntry("at://p/1", index = 3, count = 5)
+        val key = FeedKey.following("did:plc:me")
+        val envelope = wire.toFeedPostEntity(key, position = 0)
+        val post = wire.toCachedPosts(key).first { it.uri == envelope.uri }
+
+        val rebuilt = envelope.toFeedViewPostOrNull(post)
+
+        assertEquals(3L to 5L, rebuilt?.opThreadPostIndex to rebuilt?.opThreadPostCount)
+    }
+}
+
+/** A top-level entry the server numbered as part of its author's thread. */
+private fun numberedEntry(
+    uri: String,
+    index: Int,
+    count: Int,
+): FeedViewPost {
+    val wire =
+        buildJsonObject {
+            put("\$type", "app.bsky.feed.defs#feedViewPost")
+            put("post", postJson(uri))
+            put("opThreadPostIndex", index)
+            put("opThreadPostCount", count)
+        }
+    return writerJson.decodeFromJsonElement(FeedViewPost.serializer(), wire)
 }

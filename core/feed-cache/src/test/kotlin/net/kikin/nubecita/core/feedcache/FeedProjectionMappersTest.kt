@@ -10,6 +10,7 @@ import net.kikin.nubecita.core.database.model.FeedItemEntity
 import net.kikin.nubecita.core.database.model.FeedItemMemberEntity
 import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.data.models.FeedItemUi
+import net.kikin.nubecita.data.models.ThreadPositionUi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
@@ -228,5 +229,36 @@ internal class FeedProjectionMappersTest {
     @Test
     fun `an unrecognized variant yields null`() {
         assertNull(rehydrate(item("something-new", "at://p1", listOf("at://p1")), listOf(storedPost("at://p1"))))
+    }
+
+    @Test
+    fun `each member post gets the thread position stored on its row`() {
+        val uris = listOf("at://root", "at://parent", "at://leaf")
+        val (entity, members) = item("cluster", "at://leaf", uris)
+        val numbered =
+            members.mapIndexed { i, member -> member.copy(opThreadIndex = i + 1, opThreadCount = 5) }
+
+        val cluster = assertInstanceOf(FeedItemUi.ReplyCluster::class.java, rehydrate(entity to numbered, uris.map(::storedPost)))
+
+        assertEquals(ThreadPositionUi(index = 1, count = 5), cluster.root.threadPosition)
+        assertEquals(ThreadPositionUi(index = 2, count = 5), cluster.parent.threadPosition)
+        assertEquals(ThreadPositionUi(index = 3, count = 5), cluster.leaf.threadPosition)
+    }
+
+    @Test
+    fun `a row written before positions were stored reads as a post without one`() {
+        val result = rehydrate(item("single", "at://p1", listOf("at://p1")), listOf(storedPost("at://p1")))
+
+        assertNull(assertInstanceOf(FeedItemUi.Single::class.java, result).post.threadPosition)
+    }
+
+    @Test
+    fun `an out-of-range stored position reads as no position`() {
+        val (entity, members) = item("single", "at://p1", listOf("at://p1"))
+        val bad = members.map { it.copy(opThreadIndex = 7, opThreadCount = 5) }
+
+        val result = rehydrate(entity to bad, listOf(storedPost("at://p1")))
+
+        assertNull(assertInstanceOf(FeedItemUi.Single::class.java, result).post.threadPosition)
     }
 }

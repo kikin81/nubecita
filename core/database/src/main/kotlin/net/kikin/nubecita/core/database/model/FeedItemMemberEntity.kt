@@ -35,4 +35,13 @@ data class FeedItemMemberEntity(
     val position: Int,
     val ordinal: Int,
     val uri: String,
+    /**
+     * This post's 1-based place in its author's thread and the thread's length,
+     * as the server reported them for this feed entry; both null when it did
+     * not. They live on the member row rather than on `cached_post` because the
+     * numbering comes with the feed entry, not with the post, and the post
+     * store is shared with writers that never see it.
+     */
+    @ColumnInfo(name = "op_thread_index") val opThreadIndex: Int? = null,
+    @ColumnInfo(name = "op_thread_count") val opThreadCount: Int? = null,
 )
