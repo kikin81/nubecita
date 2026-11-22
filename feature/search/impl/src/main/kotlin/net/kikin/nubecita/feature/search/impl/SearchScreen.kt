@@ -370,7 +370,16 @@ internal fun SearchScreenContent(
                     // so a fresh search never inherits the previous pager page.
                     val pagerState = rememberPagerState(initialPage = selectedTab.ordinal, pageCount = { SearchTab.entries.size })
                     val currentOnEvent by rememberUpdatedState(onEvent)
+                    // Who last wrote the stored tab, so the pager can tell its own report coming back
+                    // from a write by the second pane's "See all".
+                    val tabSync = remember(pagerState) { PagerTabSync() }
                     LaunchedEffect(selectedTab, pagerState) {
+                        if (isOutsideWrite(selectedTab.ordinal, tabSync.lastReportedPage)) {
+                            tabSync.outsideWrite = true
+                        } else {
+                            // The echo of the pager's own report: consumed.
+                            tabSync.lastReportedPage = null
+                        }
                         if (shouldFollowTab(selectedTab.ordinal, pagerState.targetPage, pagerState.isScrollInProgress)) {
                             pagerState.animateScrollToPage(selectedTab.ordinal)
                         }
@@ -379,8 +388,19 @@ internal fun SearchScreenContent(
                     LaunchedEffect(pagerState) {
                         snapshotFlow { pagerState.currentPage to pagerState.isScrollInProgress }
                             .collect { (page, scrolling) ->
-                                if (shouldReportSettledPage(page, currentSelectedTab.ordinal, scrolling)) {
-                                    currentOnEvent(SearchEvent.TabSelected(SearchTab.entries[page]))
+                                if (scrolling) return@collect
+                                val storeTab = currentSelectedTab.ordinal
+                                when (settleAction(page, storeTab, tabSync.outsideWrite)) {
+                                    SettleAction.None -> {
+                                        tabSync.outsideWrite = false
+                                        tabSync.lastReportedPage = null
+                                    }
+                                    // A tab written while the pager was scrolling wins: go there now.
+                                    SettleAction.ScrollToStore -> pagerState.animateScrollToPage(storeTab)
+                                    SettleAction.ReportPage -> {
+                                        tabSync.lastReportedPage = page
+                                        currentOnEvent(SearchEvent.TabSelected(SearchTab.entries[page]))
+                                    }
                                 }
                             }
                     }

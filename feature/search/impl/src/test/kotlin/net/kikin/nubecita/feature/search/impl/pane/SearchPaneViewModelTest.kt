@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.search.impl.pane
 
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -12,11 +13,13 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import net.kikin.nubecita.core.actors.ActorSearchPage
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.feature.search.impl.FakeFollowRepository
 import net.kikin.nubecita.feature.search.impl.FakePinnedFeedsRepository
+import net.kikin.nubecita.feature.search.impl.data.DateFilter
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchActorsRepository
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchFeedsRepository
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchPostsRepository
@@ -25,8 +28,10 @@ import net.kikin.nubecita.feature.search.impl.data.FollowOverlay
 import net.kikin.nubecita.feature.search.impl.data.FollowOverride
 import net.kikin.nubecita.feature.search.impl.data.FollowToggle
 import net.kikin.nubecita.feature.search.impl.data.MediaFilter
+import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
 import net.kikin.nubecita.feature.search.impl.data.ReplyFilter
 import net.kikin.nubecita.feature.search.impl.data.SearchFirstPages
+import net.kikin.nubecita.feature.search.impl.data.SearchPostsPage
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
 import net.kikin.nubecita.feature.search.impl.data.SearchTab
 import net.kikin.nubecita.feature.search.impl.data.SubmittedSearchStore
@@ -42,6 +47,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
+import java.io.IOException
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 internal class SearchPaneViewModelTest {
@@ -378,7 +384,7 @@ internal class SearchPaneViewModelTest {
         }
 
     @Test
-    fun `a result for an old key is dropped`() =
+    fun `a result for an old key never reaches the new search`() =
         runTest {
             // The first search never answers until the second has been shown.
             val oldPosts = posts.gate("kotlin", null, SearchPostsSort.TOP)
@@ -393,9 +399,9 @@ internal class SearchPaneViewModelTest {
 
             oldPosts.complete(
                 Result.success(
-                    net.kikin.nubecita.feature.search.impl.data.SearchPostsPage(
+                    SearchPostsPage(
                         items =
-                            kotlinx.collections.immutable.persistentListOf(searchPostFixture("at://p/kotlin", "old")),
+                            persistentListOf(searchPostFixture("at://p/kotlin", "old")),
                         nextCursor = null,
                         hitsTotal = 999,
                     ),
@@ -403,8 +409,8 @@ internal class SearchPaneViewModelTest {
             )
             oldPeople.complete(
                 Result.success(
-                    net.kikin.nubecita.core.actors.ActorSearchPage(
-                        items = kotlinx.collections.immutable.persistentListOf(actorFixture("did:plc:kotlin")),
+                    ActorSearchPage(
+                        items = persistentListOf(actorFixture("did:plc:kotlin")),
                         nextCursor = null,
                     ),
                 ),
@@ -480,6 +486,88 @@ internal class SearchPaneViewModelTest {
         }
 
     @Test
+    fun `a search whose first pages are already cached ends with all three sections loaded`() =
+        runTest {
+            respondPosts("kotlin", "at://p/1")
+            val vm = buildVm()
+            store.submit("kotlin", fromRecent = false)
+            advanceUntilIdle()
+
+            // A tab already loaded the next search: its pages are cached, so the pane's fetches
+            // return without suspending and can finish before the pane has even adopted the key.
+            respondPosts("compose", "at://p/compose")
+            actors.respond("compose", null, listOf(actorFixture("did:plc:compose")))
+            feeds.respond("compose", null, listOf(feedFixture(uri = "at://f/compose")))
+            val next = store.submitted.value!!.submission + 1
+            firstPages.posts("compose", PostSearchFilters(), next)
+            firstPages.people("compose", next)
+            firstPages.feeds("compose", next)
+            advanceUntilIdle()
+
+            store.submit("compose", fromRecent = false)
+            advanceUntilIdle()
+
+            val mode = summary(vm)
+            assertEquals(next, mode.search.submission)
+            assertEquals(SummarySectionStatus.Loaded, mode.postsStatus)
+            assertEquals(SummarySectionStatus.Loaded, mode.peopleStatus)
+            assertEquals(SummarySectionStatus.Loaded, mode.feedsStatus)
+            assertEquals("at://p/compose", mode.topPost?.post?.id)
+            assertEquals(listOf("did:plc:compose"), mode.people.map { it.did })
+            assertEquals(1, posts.callLog.count { it.query == "compose" })
+        }
+
+    @Test
+    fun `an account change clears the summary sections even if the re-read fails`() =
+        runTest {
+            respondPosts("kotlin", "at://p/1", hitsTotal = 5)
+            actors.respond("kotlin", null, listOf(actorFixture("did:plc:a")))
+            feeds.respond("kotlin", null, listOf(feedFixture(uri = "at://f/1")))
+            val vm = buildVm()
+            store.submit("kotlin", fromRecent = false)
+            advanceUntilIdle()
+            assertEquals(1, summary(vm).people.size)
+
+            // The next account's re-read fails everywhere.
+            posts.clearGate("kotlin", null, SearchPostsSort.TOP)
+            actors.clearGate("kotlin", null)
+            feeds.clearGate("kotlin", null)
+            posts.fail("kotlin", null, SearchPostsSort.TOP, IOException("offline"))
+            actors.fail("kotlin", null, IOException("offline"))
+            feeds.fail("kotlin", null, IOException("offline"))
+            session.value = signedIn("did:plc:other")
+            advanceUntilIdle()
+
+            val mode = summary(vm)
+            assertEquals(SummarySectionStatus.Error, mode.postsStatus)
+            assertEquals(SummarySectionStatus.Error, mode.peopleStatus)
+            assertEquals(SummarySectionStatus.Error, mode.feedsStatus)
+            assertNull(mode.topPost)
+            assertNull(mode.hitsTotal)
+            assertTrue(mode.people.isEmpty())
+            assertTrue(mode.feeds.isEmpty())
+        }
+
+    @Test
+    fun `a failed re-read for the same account keeps the loaded rows`() =
+        runTest {
+            actors.respond("kotlin", null, listOf(actorFixture("did:plc:a")))
+            val vm = buildVm()
+            store.submit("kotlin", fromRecent = false)
+            advanceUntilIdle()
+
+            // A tab's pull-to-refresh fails: the cache bumps its version, the pane re-reads and fails.
+            actors.clearGate("kotlin", null)
+            actors.fail("kotlin", null, IOException("offline"))
+            val search = store.submitted.value!!
+            firstPages.people(search.query, search.submission, refresh = true)
+            advanceUntilIdle()
+
+            assertEquals(SummarySectionStatus.Loaded, summary(vm).peopleStatus)
+            assertEquals(listOf("did:plc:a"), summary(vm).people.map { it.did })
+        }
+
+    @Test
     fun `an explicit re-submit of the same text is a new search`() =
         runTest {
             val vm = buildVm()
@@ -498,7 +586,7 @@ internal class SearchPaneViewModelTest {
     fun `one section failing leaves the others loaded and RetrySection reloads only it`() =
         runTest {
             respondPosts("kotlin", "at://p/1")
-            actors.fail("kotlin", null, java.io.IOException("offline"))
+            actors.fail("kotlin", null, IOException("offline"))
             feeds.respond("kotlin", null, listOf(feedFixture(uri = "at://f/1")))
             val vm = buildVm()
             store.submit("kotlin", fromRecent = false)
@@ -620,7 +708,7 @@ internal class SearchPaneViewModelTest {
     @Test
     fun `a failed follow flips the row back and tells the screen`() =
         runTest {
-            followRepo.followResult = Result.failure(java.io.IOException("offline"))
+            followRepo.followResult = Result.failure(IOException("offline"))
             actors.respond("kotlin", null, listOf(actorFixture("did:plc:a")))
             val vm = buildVm()
             store.submit("kotlin", fromRecent = false)
@@ -675,7 +763,7 @@ internal class SearchPaneViewModelTest {
     @Test
     fun `a failed pin flips the row back and tells the screen`() =
         runTest {
-            pinned.pinResult = Result.failure(java.io.IOException("offline"))
+            pinned.pinResult = Result.failure(IOException("offline"))
             feeds.respond("kotlin", null, listOf(feedFixture(uri = "at://f/1")))
             val vm = buildVm()
             store.submit("kotlin", fromRecent = false)
@@ -722,7 +810,7 @@ internal class SearchPaneViewModelTest {
                 media = MediaFilter.VIDEO_ONLY,
                 replies = ReplyFilter.HIDE,
                 language = "en",
-                date = net.kikin.nubecita.feature.search.impl.data.DateFilter.PastWeek,
+                date = DateFilter.PastWeek,
             )
         assertEquals(
             listOf(
@@ -741,13 +829,13 @@ internal class SearchPaneViewModelTest {
     @Test
     fun `removing a filter puts only that filter back to its default`() {
         val filters =
-            net.kikin.nubecita.feature.search.impl.data.PostSearchFilters(
+            PostSearchFilters(
                 sort = SearchPostsSort.LATEST,
                 followingOnly = true,
                 media = MediaFilter.VIDEO_ONLY,
                 replies = ReplyFilter.ONLY,
                 language = "en",
-                date = net.kikin.nubecita.feature.search.impl.data.DateFilter.PastDay,
+                date = DateFilter.PastDay,
             )
         for (filter in filters.activeSummaryFilters()) {
             val removed = filters.without(filter)

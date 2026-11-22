@@ -39,8 +39,9 @@ import net.kikin.nubecita.feature.search.impl.R
  * composition. What must survive (scroll positions, "Show more" toggles) lives in
  * [SearchPaneViewModel].
  *
- * Follow and pin go through the pane's [DiscoverViewModel] exactly as on the landing.
- * Its effects are collected here: navigation goes to [LocalMainShellNavState] (provided by
+ * In Explore mode, follow and pin go through the pane's [DiscoverViewModel] exactly as on the
+ * landing; in Summary mode the rows' follow, pin and navigation go through [SearchPaneViewModel].
+ * Both ViewModels' effects are collected here: navigation goes to [LocalMainShellNavState] (provided by
  * `MainShell` around the whole `NavDisplay`, so it is in scope in the slot), and errors
  * show in the pane's own snackbar host because the shell's host is not exposed to content.
  */

@@ -48,8 +48,10 @@ import javax.inject.Inject
  * tabs do, keyed by the store's (query, filters, submission) so the pane and a tab of the same
  * search share one request. Posts depend on the filters; people and feeds do not, so a filter
  * change reloads the posts section only. A section re-reads when [SearchFirstPages.version]
- * moves (a tab refreshed, or the session changed), without going back to Loading. Every result
- * is applied only if the pane is still showing the search it was requested for.
+ * moves (a tab refreshed, or the session changed), without going back to Loading, and a failed
+ * re-read keeps the rows it had; but when the signed-in account changes the sections are
+ * cleared first, so a failed re-read shows Error and never the previous account's rows. A new
+ * search cancels the requests of the old one.
  *
  * Follow and pin go through the primitives the People and Feeds tabs use ([FollowToggle] over
  * [FollowOverlay], [FeedPinToggle] over the pinned-feeds stream), so the three surfaces agree.
@@ -83,6 +85,13 @@ internal class SearchPaneViewModel
 
         private fun SubmittedSearch.postsKey() = PostsKey(query, filters, submission)
 
+        /**
+         * A section's request key, taken from the search the pane's state currently shows (the one
+         * [onSubmittedChanged] adopted), never straight from the store: a section can then never
+         * see a key before its header and results have been reset for it.
+         */
+        private fun <K : Any> adopted(key: (SubmittedSearch) -> K): Flow<K?> = uiState.map { state -> (state.mode as? SearchPaneMode.Summary)?.let { key(it.search) } }.distinctUntilChanged()
+
         private fun SubmittedSearch.queryKey() = QueryKey(query, submission)
 
         private val retries = SummarySection.entries.associateWith { MutableStateFlow(0) }
@@ -97,7 +106,7 @@ internal class SearchPaneViewModel
             sessionStateProvider.state
                 .map { (it as? SessionState.SignedIn)?.did }
                 .distinctUntilChanged()
-                .onEach { did -> setState { copy(viewerDid = did) } }
+                .onEach { did -> onViewerChanged(did) }
                 .launchIn(viewModelScope)
             followOverlay.overrides
                 .onEach { overrides ->
@@ -113,8 +122,7 @@ internal class SearchPaneViewModel
 
             loadSection(
                 section = SummarySection.Posts,
-                key = store.submitted.map { it?.postsKey() }.distinctUntilChanged(),
-                isCurrent = { summary, key -> summary.search.postsKey() == key },
+                key = adopted { it.postsKey() },
                 fetch = { key -> firstPages.posts(key.query, key.filters, key.submission) },
                 onLoaded = { page ->
                     copy(hitsTotal = page.hitsTotal, topPost = page.items.firstOrNull(), postsStatus = SummarySectionStatus.Loaded)
@@ -123,8 +131,7 @@ internal class SearchPaneViewModel
             )
             loadSection(
                 section = SummarySection.People,
-                key = store.submitted.map { it?.queryKey() }.distinctUntilChanged(),
-                isCurrent = { summary, key -> summary.search.queryKey() == key },
+                key = adopted { it.queryKey() },
                 fetch = { key -> firstPages.people(key.query, key.submission) },
                 onLoaded = { page ->
                     val overrides = followOverlay.current()
@@ -141,8 +148,7 @@ internal class SearchPaneViewModel
             )
             loadSection(
                 section = SummarySection.Feeds,
-                key = store.submitted.map { it?.queryKey() }.distinctUntilChanged(),
-                isCurrent = { summary, key -> summary.search.queryKey() == key },
+                key = adopted { it.queryKey() },
                 fetch = { key -> firstPages.feeds(key.query, key.submission) },
                 onLoaded = { page ->
                     copy(
@@ -180,29 +186,59 @@ internal class SearchPaneViewModel
         /**
          * Runs one section: whenever its [key] changes, [SearchFirstPages.version] moves or the
          * section is retried, [fetch] the first page and apply it with [onLoaded] / [onFailed].
-         * `mapLatest` cancels a superseded request; [isCurrent] drops a result whose key is no
-         * longer the one on screen (the pane may have moved to another search while it was
-         * landing). Resetting to Loading on a new key is done where the new key is adopted
+         * The key comes from the adopted state ([adopted]), and `mapLatest` cancels a superseded
+         * request, so a result for an old key does not reach the screen. (An explicit key check on
+         * apply was removed: no test could reach a case where it, and not the cancellation, was what
+         * kept an old result out.) Resetting to Loading on a new key is done where the new key is adopted
          * ([onSubmittedChanged]), in the same state change that swaps the header, so a section
          * never shows one search's results under another's header.
          */
         private fun <K : Any, P> loadSection(
             section: SummarySection,
             key: Flow<K?>,
-            isCurrent: (SearchPaneMode.Summary, K) -> Boolean,
             fetch: suspend (K) -> Result<P>,
             onLoaded: SearchPaneMode.Summary.(P) -> SearchPaneMode.Summary,
             onFailed: SearchPaneMode.Summary.() -> SearchPaneMode.Summary,
         ) {
-            combine(key, firstPages.version, retries.getValue(section)) { current, _, _ -> current }
+            // The account is part of the trigger: after an account change the sections reload even
+            // when nothing else moved ([onViewerChanged] has already reset them).
+            combine(key, firstPages.version, retries.getValue(section), uiState.map { it.viewerDid }.distinctUntilChanged()) { current, _, _, _ -> current }
                 .mapLatest { current ->
                     if (current == null) return@mapLatest
                     val result = fetch(current)
-                    updateSummary(requires = { isCurrent(it, current) }) {
+                    updateSummary {
                         result.fold(onSuccess = { onLoaded(it) }, onFailure = { onFailed() })
                     }
                 }.launchIn(viewModelScope)
         }
+
+        /**
+         * The signed-in account changed: whatever the Summary shows belongs to the previous account
+         * (people with their follow state, feeds with their pins), so every section goes back to
+         * Loading with its rows cleared. The reload then fails into Error rather than into the old
+         * rows. A failed re-read for the SAME account keeps its rows ([afterFailure]).
+         */
+        private fun onViewerChanged(did: String?) {
+            setState {
+                if (did == viewerDid) return@setState this
+                val summary = mode as? SearchPaneMode.Summary
+                copy(
+                    viewerDid = did,
+                    mode = summary?.cleared() ?: mode,
+                )
+            }
+        }
+
+        private fun SearchPaneMode.Summary.cleared() =
+            copy(
+                hitsTotal = null,
+                topPost = null,
+                people = persistentListOf(),
+                feeds = persistentListOf(),
+                postsStatus = SummarySectionStatus.Loading,
+                peopleStatus = SummarySectionStatus.Loading,
+                feedsStatus = SummarySectionStatus.Loading,
+            )
 
         private fun retry(section: SummarySection) {
             updateSummary {
@@ -215,14 +251,12 @@ internal class SearchPaneViewModel
             retries.getValue(section).update { it + 1 }
         }
 
-        /** Rewrites the Summary on the CURRENT state; a no-op in Explore or when [requires] is false. */
+        /** Rewrites the Summary on the CURRENT state; a no-op in Explore. */
         private fun updateSummary(
-            requires: (SearchPaneMode.Summary) -> Boolean = { true },
             transform: SearchPaneMode.Summary.() -> SearchPaneMode.Summary,
         ) {
             setState {
                 val summary = mode as? SearchPaneMode.Summary ?: return@setState this
-                if (!requires(summary)) return@setState this
                 copy(mode = summary.transform())
             }
         }
