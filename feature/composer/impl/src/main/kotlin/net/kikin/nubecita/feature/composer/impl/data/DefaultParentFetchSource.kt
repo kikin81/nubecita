@@ -146,6 +146,7 @@ internal class DefaultParentFetchSource
                 authorDisplayName = author.displayName?.takeIf { it.isNotBlank() },
                 text = record.text,
                 avatarUrl = author.avatar?.raw,
+                pronouns = author.pronouns?.trim()?.takeIf { it.isNotEmpty() },
                 thumbnailUrl =
                     (embed as? ImagesView)
                         ?.images

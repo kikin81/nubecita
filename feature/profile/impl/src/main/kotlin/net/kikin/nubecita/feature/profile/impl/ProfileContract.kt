@@ -253,6 +253,11 @@ data class ProfileHeaderUi(
      */
     val pinnedPost: PinnedPostRef? = null,
     /**
+     * The profile's free-form pronouns (`app.bsky.actor.profile#pronouns`),
+     * trimmed, or null when unset or blank. Rendered next to the handle.
+     */
+    val pronouns: String? = null,
+    /**
      * Whether the signed-in viewer is allowed to send this user a DM.
      * Derived in the mapper from `associated.chat.allowIncoming` and
      * `viewer.followedBy`. When `false`, the Message button is hidden

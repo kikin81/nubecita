@@ -259,6 +259,22 @@ class DefaultParentFetchSourceTest {
             assertEquals(null, result.getOrNull()!!.authorDisplayName)
         }
 
+    @Test
+    fun fetchParent_mapsAuthorPronouns() =
+        runTest {
+            val (_, source) = newSource { _ -> okJson(threadResponseTopLevel(pronouns = "she/her")) }
+
+            assertEquals("she/her", source.fetchParent(targetUri).getOrNull()!!.pronouns)
+        }
+
+    @Test
+    fun fetchParent_blankPronouns_normalizesToNull() =
+        runTest {
+            val (_, source) = newSource { _ -> okJson(threadResponseTopLevel(pronouns = "  ")) }
+
+            assertEquals(null, source.fetchParent(targetUri).getOrNull()!!.pronouns)
+        }
+
     // ---------- harness ----------
 
     private fun MockRequestHandleScope.okJson(json: String): HttpResponseData =
@@ -294,8 +310,13 @@ class DefaultParentFetchSourceTest {
      * target IS the thread root — `record.reply` is absent on the
      * wire).
      */
-    private fun threadResponseTopLevel(displayName: String? = "Alice"): String {
-        val displayNameField = displayName?.let { ",\"displayName\":\"$it\"" } ?: ""
+    private fun threadResponseTopLevel(
+        displayName: String? = "Alice",
+        pronouns: String? = null,
+    ): String {
+        val displayNameField =
+            (displayName?.let { ",\"displayName\":\"$it\"" } ?: "") +
+                (pronouns?.let { ",\"pronouns\":\"$it\"" } ?: "")
         return """
             {
               "thread": {

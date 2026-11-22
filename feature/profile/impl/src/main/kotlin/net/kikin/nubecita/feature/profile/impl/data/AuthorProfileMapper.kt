@@ -7,6 +7,7 @@ import io.github.kikin81.atproto.app.bsky.actor.ViewerState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import net.kikin.nubecita.core.feedmapping.toDisplayPronouns
 import net.kikin.nubecita.core.feedmapping.toModerationLabels
 import net.kikin.nubecita.core.moderation.ContentModerator
 import net.kikin.nubecita.core.moderation.MediaModerationDecision
@@ -64,6 +65,7 @@ internal fun ProfileViewDetailed.toProfileHeaderUi(
         followersCount = followersCount ?: 0L,
         followsCount = followsCount ?: 0L,
         pinnedPost = pinnedPost?.let { PinnedPostRef(uri = it.uri.raw, cid = it.cid.raw) },
+        pronouns = pronouns.toDisplayPronouns(),
         canMessage = canViewerMessage(associated, viewer),
         followsYou = viewer?.followedBy != null,
         viewerModeration = viewer.toViewerModerationState(),
