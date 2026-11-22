@@ -48,6 +48,12 @@ internal data class PostDetailState(
     val isShowingCache: Boolean = false,
     /** The focused post's Follow toggle. Decided only by fresh (network) data. */
     val focusFollow: FocusFollowUi = FocusFollowUi(),
+    /**
+     * The "show more replies" row was tapped and its replies are on their way.
+     * Independent of [loadStatus]: the thread stays fully readable, and can
+     * even be refreshed, while this is true.
+     */
+    val isLoadingOtherReplies: Boolean = false,
 ) : UiState
 
 /**
@@ -194,6 +200,19 @@ internal sealed interface PostDetailEvent : UiEvent {
         val tag: String,
         val author: String?,
     ) : PostDetailEvent
+
+    /** "Read more replies" under [postUri]: open that post, where the rest of its replies are. */
+    data class OnMoreRepliesTapped(
+        val postUri: String,
+    ) : PostDetailEvent
+
+    /** "Read earlier posts" above [postUri]: open that post, where its parents are. */
+    data class OnMoreParentsTapped(
+        val postUri: String,
+    ) : PostDetailEvent
+
+    /** "Show more replies": load the replies the thread read left out, in place. */
+    data object OnOtherRepliesTapped : PostDetailEvent
 
     /**
      * Tap on the floating reply composer FAB. Resolves the focus URI

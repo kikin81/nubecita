@@ -6,9 +6,11 @@ import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -36,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -75,6 +78,7 @@ import net.kikin.nubecita.designsystem.component.NubecitaWavyProgressIndicator
 import net.kikin.nubecita.designsystem.component.OutgoingPostCard
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.component.PostCard
+import net.kikin.nubecita.designsystem.component.ThreadReadMore
 import net.kikin.nubecita.designsystem.component.VideoPosterEmbed
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
@@ -394,6 +398,16 @@ internal fun PostDetailScreen(
         )
     AutoTranslateOffer(translations)
 
+    val onMoreReplies =
+        remember(viewModel) {
+            { postUri: String -> viewModel.handleEvent(PostDetailEvent.OnMoreRepliesTapped(postUri)) }
+        }
+    val onMoreParents =
+        remember(viewModel) {
+            { postUri: String -> viewModel.handleEvent(PostDetailEvent.OnMoreParentsTapped(postUri)) }
+        }
+    val onOtherReplies = remember(viewModel) { { viewModel.handleEvent(PostDetailEvent.OnOtherRepliesTapped) } }
+
     PostDetailScreenContent(
         state = state,
         snackbarHostState = snackbarHostState,
@@ -411,6 +425,9 @@ internal fun PostDetailScreen(
         listState = listState,
         translations = translations,
         onFocusFollowToggle = onFocusFollowToggle,
+        onMoreReplies = onMoreReplies,
+        onMoreParents = onMoreParents,
+        onOtherReplies = onOtherReplies,
     )
 }
 
@@ -436,10 +453,19 @@ internal fun PostDetailScreenContent(
     listState: LazyListState = rememberLazyListState(),
     translations: PostTranslationsHandle? = null,
     onFocusFollowToggle: () -> Unit = {},
+    onMoreReplies: (postUri: String) -> Unit = {},
+    onMoreParents: (postUri: String) -> Unit = {},
+    onOtherReplies: () -> Unit = {},
+    // Previews and screenshot fixtures capture one frame; without this they
+    // would never show the posts above the focus. See [rememberPinnedThread].
+    showAncestorsImmediately: Boolean = false,
 ) {
-    // The LazyColumn renders `items` 1:1 up to the focus (outgoing replies only
-    // follow the focus or a reply), so this index IS the lazy-list index.
-    val focusIndex = remember(state.items) { state.items.indexOfFirst { it is ThreadItem.Focus } }
+    // The opened post is pinned to the top: the rows above it join the list
+    // only once it has been laid out. `thread.rows` is what the list renders.
+    val thread = rememberPinnedThread(state.items, listState, showAncestorsImmediately)
+    // The LazyColumn renders the rows 1:1 up to the focus (outgoing replies
+    // only follow the focus or a reply), so this index IS the lazy-list index.
+    val focusIndex = remember(thread.rows) { thread.rows.indexOfFirst { it is ThreadItem.Focus } }
 
     Scaffold(
         modifier = modifier,
@@ -497,7 +523,12 @@ internal fun PostDetailScreenContent(
             PostDetailLoadStatus.Refreshing,
             ->
                 LoadedThread(
-                    items = state.items,
+                    items = thread.rows,
+                    trailingSpacePx = if (thread.hasTrailingSpacer) thread.trailingSpacePx else null,
+                    isLoadingOtherReplies = state.isLoadingOtherReplies,
+                    onMoreReplies = onMoreReplies,
+                    onMoreParents = onMoreParents,
+                    onOtherReplies = onOtherReplies,
                     outgoingReplies = state.outgoingReplies,
                     onRetryOutgoing = onRetryOutgoing,
                     onDiscardOutgoing = onDiscardOutgoing,
@@ -539,6 +570,12 @@ private fun LoadedThread(
     translations: PostTranslationsHandle? = null,
     focusFollowState: FocusFollowState = FocusFollowState.Hidden,
     onFocusFollowToggle: () -> Unit = {},
+    // Null when the list needs no trailing spacer row at all.
+    trailingSpacePx: Int? = null,
+    isLoadingOtherReplies: Boolean = false,
+    onMoreReplies: (postUri: String) -> Unit = {},
+    onMoreParents: (postUri: String) -> Unit = {},
+    onOtherReplies: () -> Unit = {},
 ) {
     // Per-thread reveal state for covered (NSFW-labelled) media. Post-detail
     // covers (never drops) warned media, so every ancestor / focus / reply
@@ -571,6 +608,10 @@ private fun LoadedThread(
         }
     // Each outgoing reply renders directly under its parent row.
     val outgoingByParent = remember(outgoingReplies) { outgoingReplies.groupBy { it.replyToUri } }
+    // Where the thread line runs between rows. Computed from the rows as
+    // rendered, so a row is only ever joined to a neighbour that is on screen.
+    val connectors = remember(items) { items.connectorFlags() }
+    val density = LocalDensity.current
     NubecitaPullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
@@ -585,7 +626,8 @@ private fun LoadedThread(
             state = listState,
             contentPadding = mergedContentPadding,
         ) {
-            for (threadItem in items) {
+            for ((rowIndex, threadItem) in items.withIndex()) {
+                val line = connectors[rowIndex]
                 item(key = threadItem.key) {
                     when (val item = threadItem) {
                         is ThreadItem.Ancestor -> {
@@ -593,6 +635,8 @@ private fun LoadedThread(
                                 rememberThreadPostVideoSlots(item.post, onVideoTap)
                             PostCard(
                                 post = item.post,
+                                connectAbove = line.above,
+                                connectBelow = line.below,
                                 callbacks = callbacks,
                                 onImageClick = { index -> onPostImageClick(item.post.id, index) },
                                 onQuotedImageClick = onQuotedImageClick,
@@ -619,6 +663,7 @@ private fun LoadedThread(
                             Column {
                                 FocusPostCard(
                                     post = item.post,
+                                    connectAbove = line.above,
                                     followState = focusFollowState,
                                     onFollowToggle = onFocusFollowToggle,
                                     callbacks = callbacks,
@@ -642,6 +687,8 @@ private fun LoadedThread(
                                 rememberThreadPostVideoSlots(item.post, onVideoTap)
                             PostCard(
                                 post = item.post,
+                                connectAbove = line.above,
+                                connectBelow = line.below,
                                 callbacks = callbacks,
                                 onImageClick = { index -> onPostImageClick(item.post.id, index) },
                                 onQuotedImageClick = onQuotedImageClick,
@@ -666,12 +713,27 @@ private fun LoadedThread(
                             // path, so [NotFoundPostCard] never carries a CTA.
                             BlockedPostCard(onUnblock = null)
                         is ThreadItem.NotFound -> NotFoundPostCard()
-                        // Rendered in the ordered-thread change that follows
-                        // (nubecita-hpl8.5); nothing emits them into this screen yet.
-                        is ThreadItem.MoreParents,
-                        is ThreadItem.MoreReplies,
-                        ThreadItem.OtherReplies,
-                        -> Unit
+                        // The three rows that continue a thread the server
+                        // returned only in part. The first two open the post
+                        // they name; the last loads its replies in place.
+                        is ThreadItem.MoreParents ->
+                            ThreadReadMore(
+                                label = stringResource(R.string.postdetail_read_earlier_posts),
+                                onClick = { onMoreParents(item.postUri) },
+                                connectBelow = line.below,
+                            )
+                        is ThreadItem.MoreReplies ->
+                            ThreadReadMore(
+                                label = stringResource(R.string.postdetail_read_more_replies),
+                                onClick = { onMoreReplies(item.postUri) },
+                                connectAbove = line.above,
+                            )
+                        ThreadItem.OtherReplies ->
+                            ThreadReadMore(
+                                label = stringResource(R.string.postdetail_show_more_replies),
+                                onClick = onOtherReplies,
+                                isLoading = isLoadingOtherReplies,
+                            )
                     }
                 }
                 outgoingByParent[threadItem.parentPostId()]?.forEach { reply ->
@@ -686,9 +748,19 @@ private fun LoadedThread(
                     }
                 }
             }
+            if (trailingSpacePx != null) {
+                // Room under a short thread, so the opened post can sit at the
+                // top of the viewport with the earlier posts above the fold.
+                // Always the last row: the pinning arithmetic counts on it.
+                item(key = THREAD_TRAILING_SPACE_KEY, contentType = "trailing-space") {
+                    Spacer(Modifier.height(with(density) { trailingSpacePx.toDp() }))
+                }
+            }
         }
     }
 }
+
+private const val THREAD_TRAILING_SPACE_KEY = "thread-trailing-space"
 
 /**
  * Builds the parent + quoted `VideoPosterEmbed` slot lambdas for one
@@ -876,6 +948,7 @@ private fun PostDetailScreenPreviewHost(state: PostDetailState) {
             onBack = {},
             onRetry = {},
             onRefresh = {},
+            showAncestorsImmediately = true,
         )
     }
 }

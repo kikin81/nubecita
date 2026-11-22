@@ -26,4 +26,7 @@
     <string name="postdetail_snackbar_overflow_mute_thread_coming_soon">Silenciar thread — em breve</string>
     <string name="postdetail_snackbar_overflow_unmute_thread_coming_soon">Reativar som da thread — em breve</string>
     <string name="postdetail_snackbar_text_copied">Texto copiado</string>
+    <string name="postdetail_read_more_replies">Ler mais respostas</string>
+    <string name="postdetail_read_earlier_posts">Ler posts anteriores</string>
+    <string name="postdetail_show_more_replies">Mostrar mais respostas</string>
 </resources>

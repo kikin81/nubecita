@@ -26,4 +26,7 @@
     <string name="postdetail_snackbar_overflow_mute_thread_coming_soon">Silenciar hilo — próximamente</string>
     <string name="postdetail_snackbar_overflow_unmute_thread_coming_soon">Dejar de silenciar hilo — próximamente</string>
     <string name="postdetail_snackbar_text_copied">Texto copiado</string>
+    <string name="postdetail_read_more_replies">Leer más respuestas</string>
+    <string name="postdetail_read_earlier_posts">Leer publicaciones anteriores</string>
+    <string name="postdetail_show_more_replies">Mostrar más respuestas</string>
 </resources>

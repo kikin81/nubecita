@@ -18,6 +18,7 @@ import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostTranslationUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ThreadItem
+import net.kikin.nubecita.data.models.ThreadPositionUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.component.PostCallbacks
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
@@ -318,6 +319,81 @@ private fun PostDetailScreenMultiImageCarouselAtFocusScreenshot() {
     }
 }
 
+// ---------- an author thread, in order ----------
+
+/**
+ * Opened at post 3 of 5: posts 1 and 2 above, joined down into the opened
+ * post; 4 and 5 below, joined to each other; then someone else's reply. No line
+ * leaves the opened post, and every thread post carries its position.
+ */
+@PreviewTest
+@Preview(name = "author-thread-opened-mid-light", showBackground = true, heightDp = 1400)
+@Preview(name = "author-thread-opened-mid-dark", showBackground = true, heightDp = 1400, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostDetailScreenAuthorThreadScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        PostDetailScreenScreenshotHost(
+            state =
+                PostDetailState(
+                    items =
+                        persistentListOf(
+                            ThreadItem.Ancestor(post = threadPost(1)),
+                            ThreadItem.Ancestor(post = threadPost(2)),
+                            ThreadItem.Focus(post = threadPost(3)),
+                            ThreadItem.Reply(post = threadPost(4), depth = 1),
+                            ThreadItem.Reply(post = threadPost(5), depth = 2),
+                            ThreadItem.Reply(post = fixturePost("reply-1", text = "Someone else's reply to the opened post."), depth = 1),
+                        ),
+                    loadStatus = PostDetailLoadStatus.Idle,
+                ),
+        )
+    }
+}
+
+/**
+ * A thread the server returned in part: earlier posts cut above, the author's
+ * thread cut below, and replies left out. One row for each way on.
+ */
+@PreviewTest
+@Preview(name = "partial-thread-rows-light", showBackground = true, heightDp = 1400)
+@Preview(name = "partial-thread-rows-dark", showBackground = true, heightDp = 1400, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PostDetailScreenPartialThreadScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        PostDetailScreenScreenshotHost(state = PostDetailState(items = partialThread(), loadStatus = PostDetailLoadStatus.Idle))
+    }
+}
+
+@PreviewTest
+@Preview(name = "partial-thread-loading-other-replies-light", showBackground = true, heightDp = 1400)
+@Composable
+private fun PostDetailScreenLoadingOtherRepliesScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        PostDetailScreenScreenshotHost(
+            state = PostDetailState(items = partialThread(), loadStatus = PostDetailLoadStatus.Idle, isLoadingOtherReplies = true),
+        )
+    }
+}
+
+private fun threadPost(index: Int): PostUi =
+    fixturePost("thread-$index", text = "Post $index of the author's thread.").let { post ->
+        post.copy(
+            author = post.author.copy(did = "did:plc:fixture-thread", handle = "threadauthor.bsky.social", displayName = "Thread Author"),
+            threadPosition = ThreadPositionUi(index = index, count = 5),
+        )
+    }
+
+private fun partialThread(): ImmutableList<ThreadItem> =
+    persistentListOf(
+        ThreadItem.MoreParents(postUri = "post-thread-2"),
+        ThreadItem.Ancestor(post = threadPost(2)),
+        ThreadItem.Focus(post = threadPost(3)),
+        ThreadItem.Reply(post = threadPost(4), depth = 1),
+        ThreadItem.MoreReplies(postUri = "post-thread-4", count = 1, depth = 1),
+        ThreadItem.Reply(post = fixturePost("reply-1", text = "Someone else's reply to the opened post."), depth = 1),
+        ThreadItem.OtherReplies,
+    )
+
 @Composable
 private fun PostDetailScreenScreenshotHost(
     state: PostDetailState,
@@ -336,6 +412,9 @@ private fun PostDetailScreenScreenshotHost(
             onRetry = {},
             onRefresh = {},
             translations = translations,
+            // One frame is all a screenshot gets, so the posts above the focus
+            // are shown at once instead of after the focus has been placed.
+            showAncestorsImmediately = true,
         )
     }
 }

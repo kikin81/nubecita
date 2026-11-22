@@ -6,6 +6,7 @@ import io.mockk.mockk
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -1277,6 +1278,158 @@ internal class PostDetailViewModelTest {
         }
 
     // ---------- helpers ----------
+
+    // ---------- the ordered thread read ----------
+
+    private fun orderedThread(): ImmutableList<ThreadItem> =
+        persistentListOf(
+            ThreadItem.Focus(samplePost("at://focus")),
+            ThreadItem.Reply(samplePost("at://r1"), depth = 1),
+            ThreadItem.MoreReplies(postUri = "at://r1", count = 3, depth = 1),
+            ThreadItem.OtherReplies,
+        )
+
+    private fun otherReplies(vararg ids: String): Result<ImmutableList<ThreadItem>> = Result.success(ids.map { ThreadItem.Reply(samplePost(it), depth = 1) }.toImmutableList())
+
+    private fun PostDetailViewModel.rowKeys(): List<String> = uiState.value.items.map { it.key }
+
+    @Test
+    fun `load and refresh read the ordered thread, never the older read`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = OrderedRepo(ordered = listOf(Result.success(orderedThread()), Result.success(orderedThread())))
+            val vm = newVm(repo)
+
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+            vm.handleEvent(PostDetailEvent.Refresh)
+            advanceUntilIdle()
+
+            assertEquals(2, repo.orderedCalls)
+            assertEquals(orderedThread().map { it.key }, vm.rowKeys())
+        }
+
+    @Test
+    fun `tapping a read-more row opens the post it names`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = newVm(OrderedRepo(ordered = listOf(Result.success(orderedThread()))))
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.OnMoreRepliesTapped(postUri = "at://r1"))
+                assertEquals(PostDetailEffect.NavigateToPost("at://r1"), awaitItem())
+                vm.handleEvent(PostDetailEvent.OnMoreParentsTapped(postUri = "at://top"))
+                assertEquals(PostDetailEffect.NavigateToPost("at://top"), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `show more replies puts the loaded replies where the row was`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = OrderedRepo(ordered = listOf(Result.success(orderedThread())), others = { otherReplies("at://o1", "at://o2") })
+            val vm = newVm(repo)
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            vm.handleEvent(PostDetailEvent.OnOtherRepliesTapped)
+            advanceUntilIdle()
+
+            assertEquals(listOf("focus:at://focus", "reply:at://r1", "morereplies:at://r1", "reply:at://o1", "reply:at://o2"), vm.rowKeys())
+            assertEquals(false, vm.uiState.value.isLoadingOtherReplies)
+            assertEquals(listOf("at://focus"), repo.otherCalls)
+        }
+
+    @Test
+    fun `a left-out reply that is already on screen is not added twice`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = OrderedRepo(ordered = listOf(Result.success(orderedThread())), others = { otherReplies("at://r1", "at://o1", "at://o1") })
+            val vm = newVm(repo)
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            vm.handleEvent(PostDetailEvent.OnOtherRepliesTapped)
+            advanceUntilIdle()
+
+            val keys = vm.rowKeys()
+            assertEquals(listOf("focus:at://focus", "reply:at://r1", "morereplies:at://r1", "reply:at://o1"), keys)
+            assertEquals(keys.size, keys.toSet().size)
+        }
+
+    @Test
+    fun `a failed load of the left-out replies keeps the row and reports the error`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = OrderedRepo(ordered = listOf(Result.success(orderedThread())), others = { Result.failure(java.io.IOException("offline")) })
+            val vm = newVm(repo)
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            vm.effects.test {
+                vm.handleEvent(PostDetailEvent.OnOtherRepliesTapped)
+                advanceUntilIdle()
+                val effect = awaitItem()
+                assertTrue(effect is PostDetailEffect.ShowError, "expected ShowError, got $effect")
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(orderedThread().map { it.key }, vm.rowKeys())
+            assertEquals(false, vm.uiState.value.isLoadingOtherReplies)
+        }
+
+    @Test
+    fun `the row shows as loading while the left-out replies are fetched, and a second tap asks once`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = OrderedRepo(ordered = listOf(Result.success(orderedThread())), others = { kotlinx.coroutines.awaitCancellation() })
+            val vm = newVm(repo)
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+
+            vm.handleEvent(PostDetailEvent.OnOtherRepliesTapped)
+            vm.handleEvent(PostDetailEvent.OnOtherRepliesTapped)
+            advanceUntilIdle()
+
+            assertEquals(true, vm.uiState.value.isLoadingOtherReplies)
+            assertEquals(1, repo.otherCalls.size)
+        }
+
+    @Test
+    fun `a refresh brings the show-more-replies row back`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo =
+                OrderedRepo(
+                    ordered = listOf(Result.success(orderedThread()), Result.success(orderedThread())),
+                    others = { otherReplies("at://o1") },
+                )
+            val vm = newVm(repo)
+            vm.handleEvent(PostDetailEvent.Load)
+            advanceUntilIdle()
+            vm.handleEvent(PostDetailEvent.OnOtherRepliesTapped)
+            advanceUntilIdle()
+
+            vm.handleEvent(PostDetailEvent.Refresh)
+            advanceUntilIdle()
+
+            assertEquals(orderedThread().map { it.key }, vm.rowKeys())
+        }
+
+    /** A repository whose ordered read is the only one that may be called. */
+    private class OrderedRepo(
+        ordered: List<Result<ImmutableList<ThreadItem>>>,
+        private val others: suspend () -> Result<ImmutableList<ThreadItem>> = { error("unexpected getOtherReplies call") },
+    ) : PostThreadRepository {
+        private val queue = ArrayDeque(ordered)
+        var orderedCalls = 0
+        val otherCalls = mutableListOf<String>()
+
+        override suspend fun getPostThread(uri: String): Result<ImmutableList<ThreadItem>> = error("post detail must not call the older getPostThread($uri)")
+
+        override suspend fun getOrderedThread(uri: String): Result<ImmutableList<ThreadItem>> {
+            orderedCalls += 1
+            return queue.removeFirstOrNull() ?: error("unexpected getOrderedThread($uri) call")
+        }
+
+        override suspend fun getOtherReplies(uri: String): Result<ImmutableList<ThreadItem>> {
+            otherCalls += uri
+            return others()
+        }
+    }
 
     private fun newVm(
         repo: PostThreadRepository,
