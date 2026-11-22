@@ -30,7 +30,8 @@ data class ThreadSnapshotEntity(
 /**
  * One position in a [ThreadSnapshotEntity]. [kind] is a [ThreadSnapshotKind]
  * constant; [postUri] names the `cached_post` row holding the body (a
- * blocked / not-found slot has no body, only its URI). [depth] is the reply
+ * blocked / not-found slot has no body, only its URI, and the other-replies
+ * marker borrows the focus URI). [depth] is the reply
  * nesting level (0 for ancestors and the focus). [authorDid] is set only for
  * a blocked slot, which renders its author.
  */
@@ -47,6 +48,17 @@ data class ThreadSnapshotItemEntity(
     @ColumnInfo(name = "post_uri") val postUri: String,
     val depth: Int,
     @ColumnInfo(name = "author_did") val authorDid: String?,
+    /**
+     * What the ordered thread read adds to a position, all null on a row
+     * written before it existed (or by the older read): the server's 1-based
+     * place of this post in its author's thread and that thread's length, how
+     * many of its replies the response left out, and whether its parent chain
+     * was cut above it.
+     */
+    @ColumnInfo(name = "op_thread_index") val opThreadIndex: Int? = null,
+    @ColumnInfo(name = "op_thread_count") val opThreadCount: Int? = null,
+    @ColumnInfo(name = "more_replies") val moreReplies: Int? = null,
+    @ColumnInfo(name = "more_parents") val moreParents: Boolean? = null,
 )
 
 /** Values of [ThreadSnapshotItemEntity.kind]. */
@@ -56,4 +68,10 @@ object ThreadSnapshotKind {
     const val REPLY = "reply"
     const val BLOCKED = "blocked"
     const val NOT_FOUND = "notfound"
+
+    /**
+     * A body-less trailing row: the server holds replies it left out of this
+     * thread (muted, or hidden by threadgate) and they can be asked for.
+     */
+    const val OTHER_REPLIES = "other_replies"
 }

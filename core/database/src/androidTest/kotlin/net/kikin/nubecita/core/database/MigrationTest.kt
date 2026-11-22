@@ -530,4 +530,26 @@ internal class MigrationTest {
 
         db.close()
     }
+
+    @Test
+    fun migrate13To14_addsTheOrderedThreadColumns_andKeepsExistingSnapshots() {
+        // Additive: four nullable columns. A snapshot written before the
+        // upgrade reads as a plain thread until its next refresh replaces it.
+        helper.createDatabase(dbName, 13).use { db ->
+            db.execSQL(
+                "INSERT INTO thread_snapshot_item (account_did, focus_uri, position, kind, post_uri, depth) " +
+                    "VALUES ('did:plc:t', 'at://did:plc:a/app.bsky.feed.post/1', 0, 'focus', 'at://did:plc:a/app.bsky.feed.post/1', 0)",
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 14, true)
+
+        db.query("SELECT kind, op_thread_index, op_thread_count, more_replies, more_parents FROM thread_snapshot_item").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("focus", c.getString(0))
+            for (column in 1..4) assertTrue(c.isNull(column))
+        }
+
+        db.close()
+    }
 }

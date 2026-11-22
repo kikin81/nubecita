@@ -1,0 +1,547 @@
+{
+ "thread": [
+  {
+   "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op1",
+   "depth": 0,
+   "value": {
+    "$type": "app.bsky.unspecced.defs#threadItemPost",
+    "post": {
+     "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op1",
+     "cid": "bafyreifakecid000000000000000000000000000000000",
+     "author": {
+      "did": "did:plc:op000000000000000000000",
+      "handle": "op.test"
+     },
+     "record": {
+      "$type": "app.bsky.feed.post",
+      "text": "post op1",
+      "createdAt": "2026-04-26T12:00:00Z"
+     },
+     "indexedAt": "2026-04-26T12:00:00Z"
+    },
+    "moreParents": false,
+    "moreReplies": 0,
+    "opThread": true,
+    "hiddenByThreadgate": false,
+    "mutedByViewer": false,
+    "opThreadPostIndex": 1,
+    "opThreadPostCount": 40
+   }
+  },
+  {
+   "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op2",
+   "depth": 1,
+   "value": {
+    "$type": "app.bsky.unspecced.defs#threadItemPost",
+    "post": {
+     "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op2",
+     "cid": "bafyreifakecid000000000000000000000000000000000",
+     "author": {
+      "did": "did:plc:op000000000000000000000",
+      "handle": "op.test"
+     },
+     "record": {
+      "$type": "app.bsky.feed.post",
+      "text": "post op2",
+      "createdAt": "2026-04-26T12:00:00Z"
+     },
+     "indexedAt": "2026-04-26T12:00:00Z"
+    },
+    "moreParents": false,
+    "moreReplies": 0,
+    "opThread": true,
+    "hiddenByThreadgate": false,
+    "mutedByViewer": false,
+    "opThreadPostIndex": 2,
+    "opThreadPostCount": 40
+   }
+  },
+  {
+   "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op3",
+   "depth": 2,
+   "value": {
+    "$type": "app.bsky.unspecced.defs#threadItemPost",
+    "post": {
+     "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op3",
+     "cid": "bafyreifakecid000000000000000000000000000000000",
+     "author": {
+      "did": "did:plc:op000000000000000000000",
+      "handle": "op.test"
+     },
+     "record": {
+      "$type": "app.bsky.feed.post",
+      "text": "post op3",
+      "createdAt": "2026-04-26T12:00:00Z"
+     },
+     "indexedAt": "2026-04-26T12:00:00Z"
+    },
+    "moreParents": false,
+    "moreReplies": 2,
+    "opThread": true,
+    "hiddenByThreadgate": false,
+    "mutedByViewer": false,
+    "opThreadPostIndex": 3,
+    "opThreadPostCount": 40
+   }
+  },
+  {
+   "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op4",
+   "depth": 3,
+   "value": {
+    "$type": "app.bsky.unspecced.defs#threadItemPost",
+    "post": {
+     "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op4",
+     "cid": "bafyreifakecid000000000000000000000000000000000",
+     "author": {
+      "did": "did:plc:op000000000000000000000",
+      "handle": "op.test"
+     },
+     "record": {
+      "$type": "app.bsky.feed.post",
+      "text": "post op4",
+      "createdAt": "2026-04-26T12:00:00Z"
+     },
+     "indexedAt": "2026-04-26T12:00:00Z"
+    },
+    "moreParents": false,
+    "moreReplies": 11,
+    "opThread": true,
+    "hiddenByThreadgate": false,
+    "mutedByViewer": false,
+    "opThreadPostIndex": 4,
+    "opThreadPostCount": 40
+   }
+  },
+  {
+   "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op5",
+   "depth": 4,
+   "value": {
+    "$type": "app.bsky.unspecced.defs#threadItemPost",
+    "post": {
+     "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op5",
+     "cid": "bafyreifakecid000000000000000000000000000000000",
+     "author": {
+      "did": "did:plc:op000000000000000000000",
+      "handle": "op.test"
+     },
+     "record": {
+      "$type": "app.bsky.feed.post",
+      "text": "post op5",
+      "createdAt": "2026-04-26T12:00:00Z"
+     },
+     "indexedAt": "2026-04-26T12:00:00Z"
+    },
+    "moreParents": false,
+    "moreReplies": 2,
+    "opThread": true,
+    "hiddenByThreadgate": false,
+    "mutedByViewer": false,
+    "opThreadPostIndex": 5,
+    "opThreadPostCount": 40
+   }
+  },
+  {
+   "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op6",
+   "depth": 5,
+   "value": {
+    "$type": "app.bsky.unspecced.defs#threadItemPost",
+    "post": {
+     "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op6",
+     "cid": "bafyreifakecid000000000000000000000000000000000",
+     "author": {
+      "did": "did:plc:op000000000000000000000",
+      "handle": "op.test"
+     },
+     "record": {
+      "$type": "app.bsky.feed.post",
+      "text": "post op6",
+      "createdAt": "2026-04-26T12:00:00Z"
+     },
+     "indexedAt": "2026-04-26T12:00:00Z"
+    },
+    "moreParents": false,
+    "moreReplies": 5,
+    "opThread": true,
+    "hiddenByThreadgate": false,
+    "mutedByViewer": false,
+    "opThreadPostIndex": 6,
+    "opThreadPostCount": 40
+   }
+  },
+  {
+   "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op7",
+   "depth": 6,
+   "value": {
+    "$type": "app.bsky.unspecced.defs#threadItemPost",
+    "post": {
+     "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op7",
+     "cid": "bafyreifakecid000000000000000000000000000000000",
+     "author": {
+      "did": "did:plc:op000000000000000000000",
+      "handle": "op.test"
+     },
+     "record": {
+      "$type": "app.bsky.feed.post",
+      "text": "post op7",
+      "createdAt": "2026-04-26T12:00:00Z"
+     },
+     "indexedAt": "2026-04-26T12:00:00Z"
+    },
+    "moreParents": false,
+    "moreReplies": 1,
+    "opThread": true,
+    "hiddenByThreadgate": false,
+    "mutedByViewer": false,
+    "opThreadPostIndex": 7,
+    "opThreadPostCount": 40
+   }
+  },
+  {
+   "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op8",
+   "depth": 7,
+   "value": {
+    "$type": "app.bsky.unspecced.defs#threadItemPost",
+    "post": {
+     "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op8",
+     "cid": "bafyreifakecid000000000000000000000000000000000",
+     "author": {
+      "did": "did:plc:op000000000000000000000",
+      "handle": "op.test"
+     },
+     "record": {
+      "$type": "app.bsky.feed.post",
+      "text": "post op8",
+      "createdAt": "2026-04-26T12:00:00Z"
+     },
+     "indexedAt": "2026-04-26T12:00:00Z"
+    },
+    "moreParents": false,
+    "moreReplies": 8,
+    "opThread": true,
+    "hiddenByThreadgate": false,
+    "mutedByViewer": false,
+    "opThreadPostIndex": 8,
+    "opThreadPostCount": 40
+   }
+  },
+  {
+   "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op9",
+   "depth": 8,
+   "value": {
+    "$type": "app.bsky.unspecced.defs#threadItemPost",
+    "post": {
+     "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op9",
+     "cid": "bafyreifakecid000000000000000000000000000000000",
+     "author": {
+      "did": "did:plc:op000000000000000000000",
+      "handle": "op.test"
+     },
+     "record": {
+      "$type": "app.bsky.feed.post",
+      "text": "post op9",
+      "createdAt": "2026-04-26T12:00:00Z"
+     },
+     "indexedAt": "2026-04-26T12:00:00Z"
+    },
+    "moreParents": false,
+    "moreReplies": 2,
+    "opThread": true,
+    "hiddenByThreadgate": false,
+    "mutedByViewer": false,
+    "opThreadPostIndex": 9,
+    "opThreadPostCount": 40
+   }
+  },
+  {
+   "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op10",
+   "depth": 9,
+   "value": {
+    "$type": "app.bsky.unspecced.defs#threadItemPost",
+    "post": {
+     "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op10",
+     "cid": "bafyreifakecid000000000000000000000000000000000",
+     "author": {
+      "did": "did:plc:op000000000000000000000",
+      "handle": "op.test"
+     },
+     "record": {
+      "$type": "app.bsky.feed.post",
+      "text": "post op10",
+      "createdAt": "2026-04-26T12:00:00Z"
+     },
+     "indexedAt": "2026-04-26T12:00:00Z"
+    },
+    "moreParents": false,
+    "moreReplies": 12,
+    "opThread": true,
+    "hiddenByThreadgate": false,
+    "mutedByViewer": false,
+    "opThreadPostIndex": 10,
+    "opThreadPostCount": 40
+   }
+  },
+  {
+   "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op11",
+   "depth": 10,
+   "value": {
+    "$type": "app.bsky.unspecced.defs#threadItemPost",
+    "post": {
+     "uri": "at://did:plc:op000000000000000000000/app.bsky.feed.post/op11",
+     "cid": "bafyreifakecid000000000000000000000000000000000",
+     "author": {
+      "did": "did:plc:op000000000000000000000",
+      "handle": "op.test"
+     },
+     "record": {
+      "$type": "app.bsky.feed.post",
+      "text": "post op11",
+      "createdAt": "2026-04-26T12:00:00Z"
+     },
+     "indexedAt": "2026-04-26T12:00:00Z"
+    },
+    "moreParents": false,
+    "moreReplies": 9,
+    "opThread": true,
+    "hiddenByThreadgate": false,
+    "mutedByViewer": false,
+    "opThreadPostIndex": 11,
+    "opThreadPostCount": 40
+   }
+  },
+  {
+   "uri": "at://did:plc:reply0000000000000000001/app.bsky.feed.post/r1",
+   "depth": 1,
+   "value": {
+    "$type": "app.bsky.unspecced.defs#threadItemPost",
+    "post": {
+     "uri": "at://did:plc:reply0000000000000000001/app.bsky.feed.post/r1",
+     "cid": "bafyreifakecid000000000000000000000000000000000",
+     "author": {
+      "did": "did:plc:reply0000000000000000001",
+      "handle": "reply000.test"
+     },
+     "record": {
+      "$type": "app.bsky.feed.post",
+      "text": "post r1",
+      "createdAt": "2026-04-26T12:00:00Z"
+     },
+     "indexedAt": "2026-04-26T12:00:00Z"
+    },
+    "moreParents": false,
+    "moreReplies": 0,
+    "opThread": false,
+    "hiddenByThreadgate": false,
+    "mutedByViewer": false
+   }
+  },
+  {
+   "uri": "at://did:plc:reply0000000000000000002/app.bsky.feed.post/r2",
+   "depth": 1,
+   "value": {
+    "$type": "app.bsky.unspecced.defs#threadItemPost",
+    "post": {
+     "uri": "at://did:plc:reply0000000000000000002/app.bsky.feed.post/r2",
+     "cid": "bafyreifakecid000000000000000000000000000000000",
+     "author": {
+      "did": "did:plc:reply0000000000000000002",
+      "handle": "reply000.test"
+     },
+     "record": {
+      "$type": "app.bsky.feed.post",
+      "text": "post r2",
+      "createdAt": "2026-04-26T12:00:00Z"
+     },
+     "indexedAt": "2026-04-26T12:00:00Z"
+    },
+    "moreParents": false,
+    "moreReplies": 1,
+    "opThread": false,
+    "hiddenByThreadgate": false,
+    "mutedByViewer": false
+   }
+  },
+  {
+   "uri": "at://did:plc:reply0000000000000000003/app.bsky.feed.post/r2a",
+   "depth": 2,
+   "value": {
+    "$type": "app.bsky.unspecced.defs#threadItemPost",
+    "post": {
+     "uri": "at://did:plc:reply0000000000000000003/app.bsky.feed.post/r2a",
+     "cid": "bafyreifakecid000000000000000000000000000000000",
+     "author": {
+      "did": "did:plc:reply0000000000000000003",
+      "handle": "reply000.test"
+     },
+     "record": {
+      "$type": "app.bsky.feed.post",
+      "text": "post r2a",
+      "createdAt": "2026-04-26T12:00:00Z"
+     },
+     "indexedAt": "2026-04-26T12:00:00Z"
+    },
+    "moreParents": false,
+    "moreReplies": 0,
+    "opThread": false,
+    "hiddenByThreadgate": false,
+    "mutedByViewer": false
+   }
+  },
+  {
+   "uri": "at://did:plc:reply0000000000000000004/app.bsky.feed.post/r3",
+   "depth": 1,
+   "value": {
+    "$type": "app.bsky.unspecced.defs#threadItemPost",
+    "post": {
+     "uri": "at://did:plc:reply0000000000000000004/app.bsky.feed.post/r3",
+     "cid": "bafyreifakecid000000000000000000000000000000000",
+     "author": {
+      "did": "did:plc:reply0000000000000000004",
+      "handle": "reply000.test"
+     },
+     "record": {
+      "$type": "app.bsky.feed.post",
+      "text": "post r3",
+      "createdAt": "2026-04-26T12:00:00Z"
+     },
+     "indexedAt": "2026-04-26T12:00:00Z"
+    },
+    "moreParents": false,
+    "moreReplies": 1,
+    "opThread": false,
+    "hiddenByThreadgate": false,
+    "mutedByViewer": false
+   }
+  },
+  {
+   "uri": "at://did:plc:reply0000000000000000005/app.bsky.feed.post/r3a",
+   "depth": 2,
+   "value": {
+    "$type": "app.bsky.unspecced.defs#threadItemPost",
+    "post": {
+     "uri": "at://did:plc:reply0000000000000000005/app.bsky.feed.post/r3a",
+     "cid": "bafyreifakecid000000000000000000000000000000000",
+     "author": {
+      "did": "did:plc:reply0000000000000000005",
+      "handle": "reply000.test"
+     },
+     "record": {
+      "$type": "app.bsky.feed.post",
+      "text": "post r3a",
+      "createdAt": "2026-04-26T12:00:00Z"
+     },
+     "indexedAt": "2026-04-26T12:00:00Z"
+    },
+    "moreParents": false,
+    "moreReplies": 0,
+    "opThread": false,
+    "hiddenByThreadgate": false,
+    "mutedByViewer": false
+   }
+  },
+  {
+   "uri": "at://did:plc:reply0000000000000000004/app.bsky.feed.post/r3b",
+   "depth": 3,
+   "value": {
+    "$type": "app.bsky.unspecced.defs#threadItemPost",
+    "post": {
+     "uri": "at://did:plc:reply0000000000000000004/app.bsky.feed.post/r3b",
+     "cid": "bafyreifakecid000000000000000000000000000000000",
+     "author": {
+      "did": "did:plc:reply0000000000000000004",
+      "handle": "reply000.test"
+     },
+     "record": {
+      "$type": "app.bsky.feed.post",
+      "text": "post r3b",
+      "createdAt": "2026-04-26T12:00:00Z"
+     },
+     "indexedAt": "2026-04-26T12:00:00Z"
+    },
+    "moreParents": false,
+    "moreReplies": 1,
+    "opThread": false,
+    "hiddenByThreadgate": false,
+    "mutedByViewer": false
+   }
+  },
+  {
+   "uri": "at://did:plc:reply0000000000000000005/app.bsky.feed.post/r3c",
+   "depth": 4,
+   "value": {
+    "$type": "app.bsky.unspecced.defs#threadItemPost",
+    "post": {
+     "uri": "at://did:plc:reply0000000000000000005/app.bsky.feed.post/r3c",
+     "cid": "bafyreifakecid000000000000000000000000000000000",
+     "author": {
+      "did": "did:plc:reply0000000000000000005",
+      "handle": "reply000.test"
+     },
+     "record": {
+      "$type": "app.bsky.feed.post",
+      "text": "post r3c",
+      "createdAt": "2026-04-26T12:00:00Z"
+     },
+     "indexedAt": "2026-04-26T12:00:00Z"
+    },
+    "moreParents": false,
+    "moreReplies": 1,
+    "opThread": false,
+    "hiddenByThreadgate": false,
+    "mutedByViewer": false
+   }
+  },
+  {
+   "uri": "at://did:plc:reply0000000000000000005/app.bsky.feed.post/r3d",
+   "depth": 5,
+   "value": {
+    "$type": "app.bsky.unspecced.defs#threadItemPost",
+    "post": {
+     "uri": "at://did:plc:reply0000000000000000005/app.bsky.feed.post/r3d",
+     "cid": "bafyreifakecid000000000000000000000000000000000",
+     "author": {
+      "did": "did:plc:reply0000000000000000005",
+      "handle": "reply000.test"
+     },
+     "record": {
+      "$type": "app.bsky.feed.post",
+      "text": "post r3d",
+      "createdAt": "2026-04-26T12:00:00Z"
+     },
+     "indexedAt": "2026-04-26T12:00:00Z"
+    },
+    "moreParents": false,
+    "moreReplies": 0,
+    "opThread": false,
+    "hiddenByThreadgate": false,
+    "mutedByViewer": false
+   }
+  },
+  {
+   "uri": "at://did:plc:reply0000000000000000006/app.bsky.feed.post/r4",
+   "depth": 1,
+   "value": {
+    "$type": "app.bsky.unspecced.defs#threadItemPost",
+    "post": {
+     "uri": "at://did:plc:reply0000000000000000006/app.bsky.feed.post/r4",
+     "cid": "bafyreifakecid000000000000000000000000000000000",
+     "author": {
+      "did": "did:plc:reply0000000000000000006",
+      "handle": "reply000.test"
+     },
+     "record": {
+      "$type": "app.bsky.feed.post",
+      "text": "post r4",
+      "createdAt": "2026-04-26T12:00:00Z"
+     },
+     "indexedAt": "2026-04-26T12:00:00Z"
+    },
+    "moreParents": false,
+    "moreReplies": 0,
+    "opThread": false,
+    "hiddenByThreadgate": false,
+    "mutedByViewer": false
+   }
+  }
+ ],
+ "hasOtherReplies": true
+}

@@ -2,12 +2,16 @@ package net.kikin.nubecita.core.posts.internal
 
 import io.github.kikin81.atproto.app.bsky.feed.FeedService
 import io.github.kikin81.atproto.app.bsky.feed.GetPostThreadRequest
+import io.github.kikin81.atproto.app.bsky.unspecced.GetPostThreadOtherV2Request
+import io.github.kikin81.atproto.app.bsky.unspecced.GetPostThreadV2Request
+import io.github.kikin81.atproto.app.bsky.unspecced.UnspeccedService
 import io.github.kikin81.atproto.runtime.AtUri
 import io.github.kikin81.atproto.runtime.XrpcError
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerializationException
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
@@ -75,6 +79,77 @@ internal class DefaultPostThreadRepository
                 }
             }
 
+        override suspend fun getOrderedThread(uri: String): Result<ImmutableList<ThreadItem>> =
+            withContext(dispatcher) {
+                val ordered =
+                    runCatchingCancellable {
+                        val client = xrpcClientProvider.authenticated()
+                        val response =
+                            UnspeccedService(client).getPostThreadV2(
+                                GetPostThreadV2Request(
+                                    anchor = AtUri(uri),
+                                    above = true,
+                                    below = ORDERED_BELOW,
+                                    branchingFactor = ORDERED_BRANCHING_FACTOR,
+                                    sort = ORDERED_SORT,
+                                ),
+                            )
+                        val raw = response.toRawThreadEntries()
+                        val items = raw.toThreadItems(moderationPreferences.prefs.value, viewerDid())
+                        // Same write-through rule as the v1 read: a readable
+                        // thread replaces its snapshot, a dead one drops it.
+                        cacheSafely {
+                            if (items.any { it is ThreadItem.Focus }) {
+                                snapshotStore.write(uri, raw)
+                            } else {
+                                snapshotStore.remove(uri)
+                            }
+                        }
+                        items
+                    }
+                val failure = ordered.exceptionOrNull() ?: return@withContext ordered
+                if (failure.isOrderedReadUnusable()) {
+                    // The endpoint is experimental upstream. When it stops
+                    // answering in a shape this build can read, the thread still
+                    // opens, through the read it replaced, without thread
+                    // positions. Never silently: this line is how lexicon drift
+                    // in the SDK gets noticed.
+                    Timber.tag(TAG).e(
+                        failure,
+                        "getPostThreadV2(rkey=%s) is unusable (%s); falling back to getPostThread",
+                        uri.substringAfterLast('/'),
+                        failure.javaClass.name,
+                    )
+                    return@withContext getPostThread(uri)
+                }
+                if (failure.isPostGone()) cacheSafely { snapshotStore.remove(uri) }
+                Timber.tag(TAG).w(
+                    failure,
+                    "getPostThreadV2(rkey=%s) failed: %s",
+                    uri.substringAfterLast('/'),
+                    failure.javaClass.name,
+                )
+                ordered
+            }
+
+        override suspend fun getOtherReplies(uri: String): Result<ImmutableList<ThreadItem>> =
+            withContext(dispatcher) {
+                runCatchingCancellable {
+                    val client = xrpcClientProvider.authenticated()
+                    UnspeccedService(client)
+                        .getPostThreadOtherV2(GetPostThreadOtherV2Request(anchor = AtUri(uri)))
+                        .toRawThreadEntries()
+                        .toThreadItems(moderationPreferences.prefs.value, viewerDid())
+                }.onFailure { throwable ->
+                    Timber.tag(TAG).w(
+                        throwable,
+                        "getPostThreadOtherV2(rkey=%s) failed: %s",
+                        uri.substringAfterLast('/'),
+                        throwable.javaClass.name,
+                    )
+                }
+            }
+
         override suspend fun cachedPostThread(uri: String): ImmutableList<ThreadItem>? =
             withContext(dispatcher) {
                 // A cache that can't be read is a miss, never a crash.
@@ -109,8 +184,36 @@ internal class DefaultPostThreadRepository
         /** A definitive "this post is gone" answer — the same test post-detail uses for its NotFound state. */
         private fun Throwable.isPostGone(): Boolean = this is XrpcError && (errorName.equals("NotFound", ignoreCase = true) || status == HTTP_NOT_FOUND)
 
+        /**
+         * Whether the ordered read failed in a way that means "this endpoint is
+         * not usable from this build" rather than "this request failed": a
+         * response that does not decode, or a server that does not know the
+         * method or rejects how it was called. A connectivity failure, an auth
+         * failure and a post that is gone are none of those, and are returned
+         * as they are.
+         */
+        private fun Throwable.isOrderedReadUnusable(): Boolean =
+            when (this) {
+                is SerializationException -> true
+                is XrpcError ->
+                    status == HTTP_NOT_IMPLEMENTED ||
+                        UNUSABLE_ERROR_NAMES.any { it.equals(errorName, ignoreCase = true) } ||
+                        (status == HTTP_NOT_FOUND && !errorName.equals("NotFound", ignoreCase = true))
+                else -> false
+            }
+
         private companion object {
             const val TAG = "PostThreadRepository"
             const val HTTP_NOT_FOUND = 404
+            const val HTTP_NOT_IMPLEMENTED = 501
+
+            // The official client's linear-view request. These are the values
+            // the server is exercised with, which matters for an endpoint that
+            // may change without notice.
+            const val ORDERED_BELOW = 10L
+            const val ORDERED_BRANCHING_FACTOR = 1L
+            const val ORDERED_SORT = "top"
+
+            val UNUSABLE_ERROR_NAMES = setOf("MethodNotImplemented", "XRPCNotSupported", "InvalidRequest")
         }
     }

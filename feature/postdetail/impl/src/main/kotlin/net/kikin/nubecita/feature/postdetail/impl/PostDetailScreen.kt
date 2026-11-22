@@ -666,12 +666,12 @@ private fun LoadedThread(
                             // path, so [NotFoundPostCard] never carries a CTA.
                             BlockedPostCard(onUnblock = null)
                         is ThreadItem.NotFound -> NotFoundPostCard()
-                        is ThreadItem.Fold -> {
-                            // m28.5.1 mapper does not emit Fold; leaving the case
-                            // explicit here so the exhaustive-when stays compile-
-                            // checked. m28.5.2's visual treatment will render a
-                            // "View more" affordance here.
-                        }
+                        // Rendered in the ordered-thread change that follows
+                        // (nubecita-hpl8.5); nothing emits them into this screen yet.
+                        is ThreadItem.MoreParents,
+                        is ThreadItem.MoreReplies,
+                        ThreadItem.OtherReplies,
+                        -> Unit
                     }
                 }
                 outgoingByParent[threadItem.parentPostId()]?.forEach { reply ->

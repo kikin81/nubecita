@@ -1,6 +1,7 @@
 package net.kikin.nubecita.core.posts
 
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.data.models.ThreadItem
 
 /**
@@ -30,4 +31,25 @@ public interface PostThreadRepository {
      * always load from their source.
      */
     public suspend fun cachedPostThread(uri: String): ImmutableList<ThreadItem>? = null
+
+    /**
+     * Post detail's read: the thread in the server's own order, with the
+     * author's thread first under each post, thread positions on its posts and
+     * read-more rows where the response was cut
+     * (`app.bsky.unspecced.getPostThreadV2`).
+     *
+     * That endpoint is experimental upstream, so an implementation falls back
+     * to [getPostThread] when it stops answering in a shape this app can read;
+     * the thread then opens without positions. Defaults to [getPostThread] for
+     * implementations that only have that read.
+     */
+    public suspend fun getOrderedThread(uri: String): Result<ImmutableList<ThreadItem>> = getPostThread(uri)
+
+    /**
+     * The replies [getOrderedThread] leaves out of the thread for [uri] —
+     * muted accounts, replies hidden by the author — as [ThreadItem.Reply]
+     * rows. Asked for only when the thread ends in [ThreadItem.OtherReplies].
+     * Never cached.
+     */
+    public suspend fun getOtherReplies(uri: String): Result<ImmutableList<ThreadItem>> = Result.success(persistentListOf())
 }

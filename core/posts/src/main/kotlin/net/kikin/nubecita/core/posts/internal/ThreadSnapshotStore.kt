@@ -50,11 +50,22 @@ internal class ThreadSnapshotStore
                         .associateBy { it.uri }
                 val entries =
                     items.mapNotNull { item ->
+                        val entry =
+                            RawThreadEntry(
+                                kind = item.kind,
+                                uri = item.postUri,
+                                depth = item.depth,
+                                authorDid = item.authorDid,
+                                opThreadIndex = item.opThreadIndex,
+                                opThreadCount = item.opThreadCount,
+                                moreReplies = item.moreReplies ?: 0,
+                                moreParents = item.moreParents ?: false,
+                            )
                         if (!item.hasBody()) {
-                            RawThreadEntry(item.kind, item.postUri, item.depth, authorDid = item.authorDid)
+                            entry
                         } else {
                             // A body evicted from the post store just drops its slot.
-                            posts[item.postUri]?.decode()?.let { RawThreadEntry(item.kind, item.postUri, item.depth, post = it) }
+                            posts[item.postUri]?.decode()?.let { entry.copy(post = it) }
                         }
                     }
                 if (entries.none { it.kind == ThreadSnapshotKind.FOCUS }) return@withContext null
@@ -96,6 +107,12 @@ internal class ThreadSnapshotStore
                             postUri = entry.uri,
                             depth = entry.depth,
                             authorDid = entry.authorDid,
+                            opThreadIndex = entry.opThreadIndex,
+                            opThreadCount = entry.opThreadCount,
+                            // Null rather than 0 / false for "nothing was cut", so a
+                            // v1-shaped row is the same row it always was.
+                            moreReplies = entry.moreReplies.takeIf { it > 0 },
+                            moreParents = entry.moreParents.takeIf { it },
                         )
                     },
                 )
@@ -115,7 +132,7 @@ internal class ThreadSnapshotStore
 
         private fun accountDid(): String? = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did
 
-        private fun ThreadSnapshotItemEntity.hasBody(): Boolean = kind != ThreadSnapshotKind.BLOCKED && kind != ThreadSnapshotKind.NOT_FOUND
+        private fun ThreadSnapshotItemEntity.hasBody(): Boolean = kind !in BODYLESS_KINDS
 
         private fun CachedPostEntity.decode(): PostView? {
             val blob = postBlob ?: return null
@@ -130,6 +147,9 @@ internal class ThreadSnapshotStore
         private companion object {
             const val TAG = "ThreadSnapshotStore"
             const val MAX_SNAPSHOTS = 50
+
+            /** Kinds that are a position in the thread but not a post with a stored body. */
+            val BODYLESS_KINDS = setOf(ThreadSnapshotKind.BLOCKED, ThreadSnapshotKind.NOT_FOUND, ThreadSnapshotKind.OTHER_REPLIES)
         }
     }
 
