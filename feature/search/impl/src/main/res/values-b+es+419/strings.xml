@@ -172,4 +172,10 @@
     <string name="trending_hot_label">En auge</string>
     <string name="trending_post_count">%1$s publicaciones</string>
     <string name="trending_row_content_desc">Tendencia número %1$d, %2$s</string>
+
+    <!-- Search second pane — Explore -->
+    <string name="explore_pane_feeds_title">Feeds sugeridos</string>
+    <string name="explore_pane_people_title">Personas para seguir</string>
+    <string name="explore_pane_error_message">No se pudieron cargar las sugerencias.</string>
+    <string name="explore_pane_retry">Reintentar</string>
 </resources>
