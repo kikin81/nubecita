@@ -79,9 +79,9 @@ CI still runs on every PR in the stack, unchanged.
 | `:<module>:updateDebugScreenshotTestDefaultTestSuite` | `:<module>:updateProductionDebugScreenshotTestDefaultTestSuite` |
 | `:<module>:testDebugScreenshotTestDefaultTestSuite` | `:<module>:testProductionDebugScreenshotTestDefaultTestSuite` |
 
-**Which modules are flavored is NOT predictable from the module path** — it does not follow the `:core:*` / `:feature:*` split in either direction. A module is flavored **iff its `build.gradle.kts` applies `nubecita.android.flavors`**, which per that plugin's contract is exactly the modules shipping a `src/bench/` source set (a network-free parallel implementation for the offline `:app:benchBenchmarkRelease` build). Everything else stays single-variant and picks up `production` transitively via `missingDimensionStrategy`. `nubecita.android.feature` does **not** imply flavors — all 18 `:feature:*:impl` modules apply it, but only 6 are flavored.
+**Which modules are flavored is NOT predictable from the module path** — it does not follow the `:core:*` / `:feature:*` split in either direction. A module is flavored **iff its `build.gradle.kts` applies `nubecita.android.flavors`**, which per that plugin's contract is exactly the modules shipping a `src/bench/` source set (a network-free parallel implementation for the offline `:app:benchBenchmarkRelease` build). Everything else stays single-variant and picks up `production` transitively via `missingDimensionStrategy`. `nubecita.android.feature` does **not** imply flavors — all 19 `:feature:*:impl` modules apply it, but only 7 are flavored.
 
-As of 2026-10-31 that is 6 of 18 `:feature:*:impl` modules (`chats`, `composer`, `feed`, `notifications`, `profile`, `search`) and 17 of 31 `:core:*` modules — so most feature modules take the *plain* names while over half of `:core:*` takes the *flavored* ones. `:designsystem` and `:data:models` are unflavored; `:app` and `:benchmark` declare the dimension through their own convention plugins.
+As of 2026-11-22 that is 7 of 19 `:feature:*:impl` modules (`chats`, `composer`, `feed`, `notifications`, `profile`, `search`, `starterpack`) and 17 of 31 `:core:*` modules — so most feature modules take the *plain* names while over half of `:core:*` takes the *flavored* ones. `:designsystem` and `:data:models` are unflavored; `:app` and `:benchmark` declare the dimension through their own convention plugins.
 
 Don't infer it — check:
 
@@ -90,7 +90,7 @@ git grep -l nubecita.android.flavors -- '*/build.gradle.kts'   # every flavored 
 git grep -l nubecita.android.flavors -- <module-directory>     # just this one (no output = unflavored)
 ```
 
-`<module-directory>` is a slash path (`feature/chats/impl`), not a Gradle path (`:feature:chats:impl`). Use `git grep`, not `grep -r`: it skips `build/` output, which otherwise floods the result with generated copies. Ignore `build-logic/convention` in the repo-wide list — it *registers* the plugin rather than applying it, so it is not itself a flavored module (24 hits, 23 flavored modules). `./gradlew :<module>:tasks --all | grep -i unittest` is the slower confirmation.
+`<module-directory>` is a slash path (`feature/chats/impl`), not a Gradle path (`:feature:chats:impl`). Use `git grep`, not `grep -r`: it skips `build/` output, which otherwise floods the result with generated copies. Ignore `build-logic/convention` in the repo-wide list — it *registers* the plugin rather than applying it, so it is not itself a flavored module (25 hits, 24 flavored modules). `./gradlew :<module>:tasks --all | grep -i unittest` is the slower confirmation.
 
 The two failure modes read differently: an unflavored module rejects a flavored name with `task 'testProductionDebugUnitTest' not found in project`, while a flavored module rejects the plain name with `is ambiguous`.
 
@@ -198,7 +198,7 @@ core/
   common/                MVI base, navigation qualifiers, coroutine dispatchers, time utils
   database/              Room database, entities, DAOs, migrations
   feed-mapping/          atproto wire types → UI model mappers (PostUi, EmbedUi, AuthorUi)
-  post-interactions/     like / repost / follow primitives
+  post-interactions/     like / repost / follow primitives; also the shared follow state (`FollowOverlay`, `FollowToggle`)
   posting/               post-creation domain (ComposerError, ComposerAttachment)
   posts/                 post fetching repositories
   preferences/           DataStore preferences (non-encrypted, user settings)
@@ -222,7 +222,8 @@ feature/
   paywall/{api,impl}     custom Compose Nubecita Pro paywall (plan picker, purchase/restore)
   postdetail/{api,impl}  thread view (ancestors + focus + replies)
   profile/{api,impl}     user profile with hero + Posts/Replies/Media tabs
-  search/{api,impl}      search with typeahead, posts/people/feeds tabs, and recent search
+  search/{api,impl}      search with typeahead, posts/people/feeds/packs tabs, post filters, Trending + Explore landing, and recent search
+  starterpack/{api,impl} starter pack screen (members, follow all) opened from search results and the Explore pane
   settings/{api,impl}    settings screen
   videoplayer/{api,impl} inline video player
   videos/{api,impl}      vertical trending video feed
@@ -282,6 +283,10 @@ The exception is bounded:
 
 Reference implementation: `:feature:feed:impl/FeedViewModel` (PR1 of epic nubecita-58dy — post-detail and profile migrate in later PRs of the same epic).
 
+#### Shared search state
+
+Two `:feature:search:impl` singletons tie the Search screen and its second pane together: `SubmittedSearchStore` holds only *what was searched* (query and filters) and is the one way the screen and the pane communicate (no event bus); `SearchFirstPages` shares first-page requests between the result tabs and the pane so the same query is fetched once.
+
 ### Tab re-tap / scroll-to-top convention
 
 `MainShell` provides `LocalTabReTapSignal` — a `CompositionLocal<SharedFlow<Unit>>`. Any feature screen that wants to respond to a tab re-tap (scroll to top, etc.) reads this local and launches a `collectLatest` in a `LaunchedEffect`. **ViewModels do not observe this signal** — it terminates at the screen Composable only, because scroll state is a Compose runtime concern, not a VM state field.
@@ -327,7 +332,11 @@ A screen inside `MainShell` keeps its ViewModels and `rememberSaveable` state fo
 - Don't wrap the inner `NavDisplay` or its entry decorators in a `key(...)` keyed on window size; the ViewModel decorator clears all stores when it leaves composition.
 - Sub-routes get a tab- and occurrence-scoped `contentKey` (`scopedEntries`), so the same route on two tabs is two screens. Tab roots keep their registered key.
 
-After touching `MainShell`, `MainShellNavState` or a scene strategy, run the `tab_state_retention` and `pane_boundary_state_retention` journeys in `app/src/journeysTest/` on a foldable.
+After touching `MainShell`, `MainShellNavState` or a scene strategy, run the `tab_state_retention` and `pane_boundary_state_retention` journeys in `app/src/journeysTest/` on a foldable. Search's second pane has its own: `search_second_pane` (wide window) and `search_filters` (any width); `SearchScrollBenchmark` in `:benchmark` measures scrolling of the results list and the Explore and Summary panes (`./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest` with the bench build; the two pane tests skip on a phone).
+
+### The list-detail `detailPlaceholder` slot
+
+A list entry's `ListDetailSceneStrategy.listPane(detailPlaceholder = …)` content is composed **outside** the list entry, so its scoping differs from a normal screen's. `hiltViewModel()` there is scoped to the logged-in shell entry: it survives tab switches, fold / unfold and detail pushes. `rememberSaveable` there is lost whenever the placeholder leaves composition (a detail pushed over it, a fold to one pane). State that must survive — scroll position, expanded flags — lives in the ViewModel, not in `rememberSaveable`. Reference implementation: `:feature:search:impl` `pane/SearchPane.kt`.
 
 ### Design system conventions
 
