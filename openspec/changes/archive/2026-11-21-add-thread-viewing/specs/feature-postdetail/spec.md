@@ -4,7 +4,7 @@
 
 ### Requirement: `ThreadItem` is the sealed projection of a thread response
 
-The system SHALL expose sealed `ThreadItem` with variants `Ancestor(post: PostUi)`, `Focus(post: PostUi)`, `Reply(post: PostUi, depth: Int)`, `MoreParents(postUri)`, `MoreReplies(postUri, count, depth)`, `OtherReplies`, `Blocked(uri, authorDid)`, and `NotFound(uri)`. The mapper MUST produce at most one `Focus`, zero or more `Ancestor`s, and zero or more `Reply`s, preserving blocked and missing posts, and MUST never produce two items with the same key.
+The system SHALL expose sealed `ThreadItem` with variants `Ancestor(post: PostUi)`, `Focus(post: PostUi)`, `Reply(post: PostUi, depth: Int)`, `MoreParents(postUri: String)`, `MoreReplies(postUri: String, count: Int, depth: Int)`, `OtherReplies`, `Blocked(uri: String, authorDid: String)`, and `NotFound(uri: String)`. The mapper MUST produce at most one `Focus` and any number of `Ancestor`s and `Reply`s, preserving blocked and missing posts, and MUST never produce two items with the same key.
 
 #### Scenario: Mapper produces one Focus per thread response
 
