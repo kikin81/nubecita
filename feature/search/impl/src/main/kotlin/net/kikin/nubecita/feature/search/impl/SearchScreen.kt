@@ -117,9 +117,14 @@ internal fun SearchScreen(
         remember(navState) { { handle: String -> navState.add(Profile(handle = handle)) } }
 
     // Snackbar state hoisted to this level so both SearchScreenContent's per-tab
-    // error handlers AND the discover-effect ShowError can share a single host.
+    // error handlers AND the discover follow / pin errors can share a single host.
     val snackbarHostState = remember { SnackbarHostState() }
     val snackScope = rememberCoroutineScope()
+
+    val followErrorMsg = stringResource(R.string.search_follow_error)
+    val unfollowErrorMsg = stringResource(R.string.search_unfollow_error)
+    val pinErrorMsg = stringResource(R.string.search_pin_error)
+    val unpinErrorMsg = stringResource(R.string.search_unpin_error)
 
     // Collect Discover VM effects: nav → MainShellNavState, error → snackbar.
     LaunchedEffect(Unit) {
@@ -136,10 +141,15 @@ internal fun SearchScreen(
                     viewModel.textFieldState.setTextAndPlaceCursorAtEnd(effect.query)
                     viewModel.handleEvent(SearchEvent.SubmitClicked)
                 }
-                is DiscoverEffect.ShowError ->
+                is DiscoverEffect.FollowFailed ->
                     snackScope.launch {
                         snackbarHostState.currentSnackbarData?.dismiss()
-                        snackbarHostState.showSnackbar(effect.message)
+                        snackbarHostState.showSnackbar(if (effect.wasUnfollow) unfollowErrorMsg else followErrorMsg)
+                    }
+                is DiscoverEffect.PinFailed ->
+                    snackScope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(if (effect.wasUnpin) unpinErrorMsg else pinErrorMsg)
                     }
             }
         }

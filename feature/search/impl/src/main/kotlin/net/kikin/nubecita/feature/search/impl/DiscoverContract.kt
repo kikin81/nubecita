@@ -143,7 +143,7 @@ internal sealed interface DiscoverEvent : UiEvent {
      * Optimistically toggles [SuggestedAccountUi.isFollowing] in state, then
      * calls the appropriate [net.kikin.nubecita.core.postinteractions.FollowRepository]
      * method. On success fires analytics. On failure reverts the flag and emits
-     * [DiscoverEffect.ShowError]. Concurrent taps on the same [did] are dropped.
+     * [DiscoverEffect.FollowFailed]. Concurrent taps on the same [did] are dropped.
      */
     data class OnFollowTapped(
         val did: String,
@@ -156,7 +156,7 @@ internal sealed interface DiscoverEvent : UiEvent {
      * [net.kikin.nubecita.core.feeds.PinnedFeedsRepository.pinFeed] or
      * [net.kikin.nubecita.core.feeds.PinnedFeedsRepository.unpinFeed].
      * On success fires analytics. On failure reverts the flag on the CURRENT
-     * state (targeted flip, not snapshot clobber) and emits [DiscoverEffect.ShowError].
+     * state (targeted flip, not snapshot clobber) and emits [DiscoverEffect.PinFailed].
      * Concurrent taps on the same [uri] are dropped.
      */
     data class OnPinTapped(
@@ -235,8 +235,19 @@ internal sealed interface DiscoverEffect : UiEffect {
         val query: String,
     ) : DiscoverEffect
 
-    /** Non-sticky error — the screen surfaces this as a transient snackbar. */
-    data class ShowError(
-        val message: String,
+    /**
+     * A follow ([wasUnfollow] false) or unfollow ([wasUnfollow] true) failed and was rolled
+     * back. The screen shows a transient snackbar from its own localized strings.
+     */
+    data class FollowFailed(
+        val wasUnfollow: Boolean,
+    ) : DiscoverEffect
+
+    /**
+     * A pin ([wasUnpin] false) or unpin ([wasUnpin] true) failed and was rolled back. The
+     * screen shows a transient snackbar from its own localized strings.
+     */
+    data class PinFailed(
+        val wasUnpin: Boolean,
     ) : DiscoverEffect
 }

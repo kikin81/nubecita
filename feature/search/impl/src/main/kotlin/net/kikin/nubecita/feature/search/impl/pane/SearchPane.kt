@@ -102,10 +102,15 @@ internal fun SearchPane(
                 is DiscoverEffect.NavigateToPack -> navState.add(StarterPack(uri = effect.uri))
                 // Only a trend tap emits this, and the pane shows no trends (they live in the list pane).
                 is DiscoverEffect.SubmitSearch -> Unit
-                is DiscoverEffect.ShowError ->
+                is DiscoverEffect.FollowFailed ->
                     launch {
                         snackbarHostState.currentSnackbarData?.dismiss()
-                        snackbarHostState.showSnackbar(effect.message)
+                        snackbarHostState.showSnackbar(if (effect.wasUnfollow) unfollowErrorMsg else followErrorMsg)
+                    }
+                is DiscoverEffect.PinFailed ->
+                    launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(if (effect.wasUnpin) unpinErrorMsg else pinErrorMsg)
                     }
             }
         }
