@@ -117,4 +117,5 @@
         <item quantity="many">%1$s guardados</item>
         <item quantity="other">%1$s guardados</item>
     </plurals>
+    <string name="thread_position_a11y">Publicación %1$d de %2$d</string>
 </resources>

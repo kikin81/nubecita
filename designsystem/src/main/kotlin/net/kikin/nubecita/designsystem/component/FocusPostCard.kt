@@ -99,6 +99,7 @@ fun FocusPostCard(
             onFacetTap = callbacks.onFacetTap,
             shimmering = translation is PostTranslationUi.InProgress,
             style = MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp, lineHeight = 26.sp),
+            threadPosition = post.threadPosition,
         )
         if (translation != null) {
             Spacer(Modifier.height(8.dp))

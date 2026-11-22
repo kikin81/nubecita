@@ -149,7 +149,13 @@ private fun QuotedAuthorLine(quotedPost: QuotedPostUi) {
 @Composable
 private fun QuotedBodyText(quotedPost: QuotedPostUi) {
     val annotated = rememberBlueskyAnnotatedString(text = quotedPost.text, facets = quotedPost.facets)
-    Text(text = annotated, style = MaterialTheme.typography.bodyMedium)
+    val position = quotedPost.threadPosition
+    val spokenPosition = position?.let { stringResource(R.string.thread_position_a11y, it.index, it.count) }
+    Text(
+        text = if (spokenPosition != null) annotated.withThreadPositionSlot(spokenPosition) else annotated,
+        style = MaterialTheme.typography.bodyMedium,
+        inlineContent = rememberThreadPositionInlineContent(position),
+    )
 }
 
 /**
