@@ -8,6 +8,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -76,6 +77,49 @@ class BenchTimelineFixtureTest {
             .forEach { (index, _) ->
                 assertTrue(index >= HERO_FOLD, "gallery post at $index is inside the hero fold")
             }
+    }
+
+    @Test
+    fun `the fixture carries one numbered author thread, below the hero fold`() {
+        // The thread pill has nothing to draw offline unless a fixture post
+        // says where it sits. One thread appears twice, as it would in a real
+        // timeline: its first post on its own, and a later post as a cluster.
+        val items = allItems()
+        val opener =
+            items.single { it.typeName() == "Single" && it.slotId("post").endsWith("/benchthread1") }
+        val cluster =
+            items.single { it.typeName() == "ReplyCluster" && it.slotId("post").endsWith("/benchthread3") }
+
+        assertTrue(items.indexOf(opener) >= HERO_FOLD, "the numbered thread is inside the hero fold")
+        assertEquals(1 to 5, opener.slotNumbering("post"))
+        assertEquals(
+            listOf(1 to 5, 2 to 5, 3 to 5),
+            listOf("root", "parent", "post").map { cluster.slotNumbering(it) },
+        )
+    }
+
+    private fun JsonElement.typeName(): String? = jsonObject["type"]?.jsonPrimitive?.content
+
+    private fun JsonElement.slotId(slot: String): String =
+        jsonObject[slot]
+            ?.jsonObject
+            ?.get("id")
+            ?.jsonPrimitive
+            ?.content
+            .orEmpty()
+
+    private fun JsonElement.slotNumbering(slot: String): Pair<Int?, Int?> {
+        val post = jsonObject[slot]?.jsonObject
+        return post
+            ?.get("threadIndex")
+            ?.jsonPrimitive
+            ?.content
+            ?.toIntOrNull() to
+            post
+                ?.get("threadCount")
+                ?.jsonPrimitive
+                ?.content
+                ?.toIntOrNull()
     }
 
     // The first [HERO_FOLD] feed items — what a01Feed captures un-scrolled.

@@ -49,7 +49,9 @@ import net.kikin.nubecita.core.database.util.InstantConverter
  * `@AutoMigration(10 → 11)`; a row without it reads as "no fill in progress".
  * v12 adds the profile cache ([CachedProfileEntity]) and post-detail thread
  * snapshots ([ThreadSnapshotEntity] + [ThreadSnapshotItemEntity]) — three new
- * tables, additive, via `@AutoMigration(11 → 12)`; both start empty.
+ * tables, additive, via `@AutoMigration(11 → 12)`; both start empty. v13 adds
+ * `feed_item_member`'s nullable `op_thread_index` / `op_thread_count`, additive,
+ * via `@AutoMigration(12 → 13)`; an existing row reads as "no thread position".
  *
  * Schema export is on; generated JSON is committed under
  * `core/database/schemas/`. Every schema bump must commit the new
@@ -73,7 +75,7 @@ import net.kikin.nubecita.core.database.util.InstantConverter
         ThreadSnapshotEntity::class,
         ThreadSnapshotItemEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = BootstrapEntityDrop::class),
@@ -86,6 +88,7 @@ import net.kikin.nubecita.core.database.util.InstantConverter
         AutoMigration(from = 9, to = 10),
         AutoMigration(from = 10, to = 11),
         AutoMigration(from = 11, to = 12),
+        AutoMigration(from = 12, to = 13),
     ],
 )
 @TypeConverters(InstantConverter::class)

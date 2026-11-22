@@ -506,4 +506,28 @@ internal class MigrationTest {
 
         db.close()
     }
+
+    @Test
+    fun migrate12To13_addsTheThreadPosition_andKeepsExistingMembers() {
+        // Additive: two nullable columns. A member written before the upgrade
+        // reads as "no thread position" and gets one the next time its feed
+        // is projected.
+        helper.createDatabase(dbName, 12).use { db ->
+            db.execSQL(
+                "INSERT INTO feed_item_member (account_did, feed_type, feed_uri, position, ordinal, uri) " +
+                    "VALUES ('did:plc:t', 'FOLLOWING', '', 0, 0, 'at://did:plc:a/app.bsky.feed.post/1')",
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 13, true)
+
+        db.query("SELECT uri, op_thread_index, op_thread_count FROM feed_item_member").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("at://did:plc:a/app.bsky.feed.post/1", c.getString(0))
+            assertTrue(c.isNull(1))
+            assertTrue(c.isNull(2))
+        }
+
+        db.close()
+    }
 }

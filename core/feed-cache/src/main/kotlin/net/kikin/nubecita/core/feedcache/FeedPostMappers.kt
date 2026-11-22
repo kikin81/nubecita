@@ -146,10 +146,17 @@ fun CachedPostEntity.toPostViewOrNull(): PostView? {
 private fun FeedViewPost.repostedByDisplay(): String? = (reason as? ReasonRepost)?.by?.let { it.displayName ?: it.handle.raw }
 
 /**
- * This entry's own wire fields — `reason` and `reply` — as a JSON object, or
- * null when it carries neither.
+ * The entry-level fields a stored entry keeps: its `reason`, its `reply`, and
+ * the thread numbering the server gave it. All of them describe the entry
+ * rather than the post, so none of them can be recovered from the post store.
+ */
+private val ENTRY_CONTEXT_KEYS = listOf("reason", "reply", "opThreadPostIndex", "opThreadPostCount")
+
+/**
+ * This entry's own wire fields — `reason`, `reply` and its thread numbering —
+ * as a JSON object, or null when it carries none of them.
  *
- * Taken by re-encoding the entry and keeping those two keys, rather than
+ * Taken by re-encoding the entry and keeping those keys, rather than
  * hand-building them: the values go out through the same serializers that read
  * them back, so an open-union variant this client does not model still
  * round-trips instead of being silently flattened.
@@ -161,8 +168,7 @@ private fun FeedViewPost.entryContextBlob(): String? {
     val encoded = CacheJson.encodeToJsonElement(FeedViewPost.serializer(), this).jsonObject
     val context =
         buildJsonObject {
-            encoded["reason"]?.let { put("reason", it) }
-            encoded["reply"]?.let { put("reply", it) }
+            ENTRY_CONTEXT_KEYS.forEach { key -> encoded[key]?.let { put(key, it) } }
         }
     return if (context.isEmpty()) null else CacheJson.encodeToString(JsonObject.serializer(), context)
 }

@@ -326,6 +326,44 @@
   {
    "type": "Single",
    "post": {
+    "id": "at://did:plc:carmen0000000000000000000/app.bsky.feed.post/benchthread1",
+    "cid": "bafyreibenchthread1",
+    "author": {
+     "did": "did:plc:carmen0000000000000000000",
+     "handle": "carmen.codes",
+     "displayName": "Carmen Ortiz",
+     "avatarUrl": "file:///android_asset/img/avatars/carmen.jpg"
+    },
+    "createdAt": "2026-05-26T08:01:00Z",
+    "text": "a thread on what a week of profiling on a five-year-old phone taught me. short version: the slow parts were never where I guessed.",
+    "facets": [],
+    "embed": {
+     "type": "Empty"
+    },
+    "stats": {
+     "replyCount": 4,
+     "repostCount": 9,
+     "likeCount": 88,
+     "quoteCount": 0
+    },
+    "viewer": {
+     "isLikedByViewer": false,
+     "isRepostedByViewer": false,
+     "isFollowingAuthor": true,
+     "likeUri": null,
+     "repostUri": null,
+     "isAuthorMutedByViewer": false,
+     "isAuthorBlockedByViewer": false,
+     "isAuthorBlockingViewer": false
+    },
+    "repostedBy": null,
+    "threadIndex": 1,
+    "threadCount": 5
+   }
+  },
+  {
+   "type": "Single",
+   "post": {
     "id": "at://did:plc:galalice00000000000000000/app.bsky.feed.post/3kgallery01",
     "cid": "bafyreigallery010000000000000000000000000000000000000000000",
     "author": {
@@ -2259,6 +2297,117 @@
      "repostUri": null,
      "isBookmarkedByViewer": false
     }
+   }
+  },
+  {
+   "type": "ReplyCluster",
+   "hasEllipsis": false,
+   "root": {
+    "id": "at://did:plc:carmen0000000000000000000/app.bsky.feed.post/benchthread1",
+    "cid": "bafyreibenchthread1",
+    "author": {
+     "did": "did:plc:carmen0000000000000000000",
+     "handle": "carmen.codes",
+     "displayName": "Carmen Ortiz",
+     "avatarUrl": "file:///android_asset/img/avatars/carmen.jpg"
+    },
+    "createdAt": "2026-05-26T08:01:00Z",
+    "text": "a thread on what a week of profiling on a five-year-old phone taught me. short version: the slow parts were never where I guessed.",
+    "facets": [],
+    "embed": {
+     "type": "Empty"
+    },
+    "stats": {
+     "replyCount": 4,
+     "repostCount": 9,
+     "likeCount": 88,
+     "quoteCount": 0
+    },
+    "viewer": {
+     "isLikedByViewer": false,
+     "isRepostedByViewer": false,
+     "isFollowingAuthor": true,
+     "likeUri": null,
+     "repostUri": null,
+     "isAuthorMutedByViewer": false,
+     "isAuthorBlockedByViewer": false,
+     "isAuthorBlockingViewer": false
+    },
+    "repostedBy": null,
+    "threadIndex": 1,
+    "threadCount": 5
+   },
+   "parent": {
+    "id": "at://did:plc:carmen0000000000000000000/app.bsky.feed.post/benchthread2",
+    "cid": "bafyreibenchthread2",
+    "author": {
+     "did": "did:plc:carmen0000000000000000000",
+     "handle": "carmen.codes",
+     "displayName": "Carmen Ortiz",
+     "avatarUrl": "file:///android_asset/img/avatars/carmen.jpg"
+    },
+    "createdAt": "2026-05-26T08:02:00Z",
+    "text": "first surprise: startup. I was sure it was the database. it was a font being read from disk on the main thread, every single launch.",
+    "facets": [],
+    "embed": {
+     "type": "Empty"
+    },
+    "stats": {
+     "replyCount": 1,
+     "repostCount": 2,
+     "likeCount": 31,
+     "quoteCount": 0
+    },
+    "viewer": {
+     "isLikedByViewer": false,
+     "isRepostedByViewer": false,
+     "isFollowingAuthor": true,
+     "likeUri": null,
+     "repostUri": null,
+     "isAuthorMutedByViewer": false,
+     "isAuthorBlockedByViewer": false,
+     "isAuthorBlockingViewer": false
+    },
+    "repostedBy": null,
+    "threadRootUri": "at://did:plc:carmen0000000000000000000/app.bsky.feed.post/benchthread1",
+    "threadIndex": 2,
+    "threadCount": 5
+   },
+   "post": {
+    "id": "at://did:plc:carmen0000000000000000000/app.bsky.feed.post/benchthread3",
+    "cid": "bafyreibenchthread3",
+    "author": {
+     "did": "did:plc:carmen0000000000000000000",
+     "handle": "carmen.codes",
+     "displayName": "Carmen Ortiz",
+     "avatarUrl": "file:///android_asset/img/avatars/carmen.jpg"
+    },
+    "createdAt": "2026-05-26T08:03:00Z",
+    "text": "second: scrolling. the list itself was fine. one card measured its text twice per frame, and that alone cost us the frame budget.",
+    "facets": [],
+    "embed": {
+     "type": "Empty"
+    },
+    "stats": {
+     "replyCount": 3,
+     "repostCount": 3,
+     "likeCount": 40,
+     "quoteCount": 0
+    },
+    "viewer": {
+     "isLikedByViewer": false,
+     "isRepostedByViewer": false,
+     "isFollowingAuthor": true,
+     "likeUri": null,
+     "repostUri": null,
+     "isAuthorMutedByViewer": false,
+     "isAuthorBlockedByViewer": false,
+     "isAuthorBlockingViewer": false
+    },
+    "repostedBy": null,
+    "threadRootUri": "at://did:plc:carmen0000000000000000000/app.bsky.feed.post/benchthread1",
+    "threadIndex": 3,
+    "threadCount": 5
    }
   }
  ]
