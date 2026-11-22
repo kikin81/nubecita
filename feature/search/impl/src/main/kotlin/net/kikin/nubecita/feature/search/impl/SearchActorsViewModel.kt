@@ -135,47 +135,24 @@ internal class SearchActorsViewModel
         }
 
         /**
-         * Optimistic follow / unfollow through the shared [FollowToggle]: it writes the
-         * overlay, calls the repository and rolls the overlay back. Here the row on
-         * screen is flipped at once and, on failure, flipped back on the CURRENT state
-         * (a targeted rollback, never a snapshot restore) with a message for the
-         * screen. Analytics fires on success only.
+         * Optimistic follow / unfollow through the shared [FollowToggle]: the toggle owns what the
+         * row becomes (flip now, confirm, or flip back on failure); this keeps the analytics, which
+         * fire on success only, and the error message for the screen.
          */
         private fun onFollowTapped(did: String) {
             if (did == uiState.value.viewerDid) return
             val actor = loadedItems().find { it.did == did } ?: return
-            val wasFollowing = actor.isFollowing
-            val previousFollowUri = actor.followUri
-
-            val started =
-                followToggle.toggle(
-                    scope = viewModelScope,
-                    did = did,
-                    isFollowing = wasFollowing,
-                    followUri = previousFollowUri,
-                ) { outcome ->
-                    when (outcome) {
-                        FollowOutcome.Followed -> {
-                            updateActor(did) { it.copy(isFollowing = true, followUri = followOverlay[did]?.followUri) }
-                            analytics.log(InteractActor(ActorAction.Follow, PostSurface.Search))
-                        }
-                        FollowOutcome.Unfollowed ->
-                            analytics.log(InteractActor(ActorAction.Unfollow, PostSurface.Search))
-                        FollowOutcome.FollowFailed -> {
-                            updateActor(did) { it.copy(isFollowing = false, followUri = null) }
-                            sendEffect(SearchActorsEffect.FollowFailed(wasUnfollow = false))
-                        }
-                        FollowOutcome.UnfollowFailed -> {
-                            updateActor(did) { it.copy(isFollowing = true, followUri = previousFollowUri) }
-                            sendEffect(SearchActorsEffect.FollowFailed(wasUnfollow = true))
-                        }
-                    }
+            followToggle.toggleActor(
+                scope = viewModelScope,
+                actor = actor,
+                updateActor = { transform -> updateActor(did, transform) },
+            ) { outcome ->
+                when (outcome) {
+                    FollowOutcome.Followed -> analytics.log(InteractActor(ActorAction.Follow, PostSurface.Search))
+                    FollowOutcome.Unfollowed -> analytics.log(InteractActor(ActorAction.Unfollow, PostSurface.Search))
+                    FollowOutcome.FollowFailed -> sendEffect(SearchActorsEffect.FollowFailed(wasUnfollow = false))
+                    FollowOutcome.UnfollowFailed -> sendEffect(SearchActorsEffect.FollowFailed(wasUnfollow = true))
                 }
-            // The toggle has already written the optimistic override; show it now rather
-            // than when the overlay's collector next runs.
-            if (started) {
-                val overrides = followOverlay.current()
-                updateActor(did) { it.withFollowOverride(overrides) }
             }
         }
 

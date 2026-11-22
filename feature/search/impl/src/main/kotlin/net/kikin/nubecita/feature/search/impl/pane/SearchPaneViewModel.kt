@@ -229,41 +229,22 @@ internal class SearchPaneViewModel
 
         /**
          * Optimistic follow / unfollow through the shared [FollowToggle], as the People tab does:
-         * the row flips at once and, on a failure, flips back on the CURRENT state with a message
-         * for the screen. The viewer's own row has no Follow button, and a tap for it is ignored.
+         * the toggle owns what the row becomes; this keeps only the error message for the screen.
+         * The viewer's own row has no Follow button, and a tap for it is ignored.
          */
         private fun onFollowTapped(did: String) {
             if (did == uiState.value.viewerDid) return
             val actor = (uiState.value.mode as? SearchPaneMode.Summary)?.people?.find { it.did == did } ?: return
-            val wasFollowing = actor.isFollowing
-            val previousFollowUri = actor.followUri
-
-            val started =
-                followToggle.toggle(
-                    scope = viewModelScope,
-                    did = did,
-                    isFollowing = wasFollowing,
-                    followUri = previousFollowUri,
-                ) { outcome ->
-                    when (outcome) {
-                        FollowOutcome.Followed ->
-                            updateActor(did) { it.copy(isFollowing = true, followUri = followOverlay[did]?.followUri) }
-                        FollowOutcome.Unfollowed -> Unit
-                        FollowOutcome.FollowFailed -> {
-                            updateActor(did) { it.copy(isFollowing = false, followUri = null) }
-                            sendEffect(SearchPaneEffect.FollowFailed(wasUnfollow = false))
-                        }
-                        FollowOutcome.UnfollowFailed -> {
-                            updateActor(did) { it.copy(isFollowing = true, followUri = previousFollowUri) }
-                            sendEffect(SearchPaneEffect.FollowFailed(wasUnfollow = true))
-                        }
-                    }
+            followToggle.toggleActor(
+                scope = viewModelScope,
+                actor = actor,
+                updateActor = { transform -> updateActor(did, transform) },
+            ) { outcome ->
+                when (outcome) {
+                    FollowOutcome.FollowFailed -> sendEffect(SearchPaneEffect.FollowFailed(wasUnfollow = false))
+                    FollowOutcome.UnfollowFailed -> sendEffect(SearchPaneEffect.FollowFailed(wasUnfollow = true))
+                    FollowOutcome.Followed, FollowOutcome.Unfollowed -> Unit
                 }
-            // The toggle has already written the optimistic override; show it now rather
-            // than when the overlay's collector next runs.
-            if (started) {
-                val overrides = followOverlay.current()
-                updateActor(did) { it.withFollowOverride(overrides) }
             }
         }
 
