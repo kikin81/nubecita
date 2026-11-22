@@ -15,6 +15,7 @@ import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.SearchPerform
 import net.kikin.nubecita.core.analytics.SearchScope
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.feature.search.impl.data.SearchFirstPages
 import javax.inject.Inject
 
 /**
@@ -55,6 +56,7 @@ internal class SearchActorsViewModel
     @Inject
     constructor(
         private val repository: ActorRepository,
+        private val firstPages: SearchFirstPages,
         private val analytics: AnalyticsClient,
     ) : MviViewModel<SearchActorsState, SearchActorsEvent, SearchActorsEffect>(SearchActorsState()) {
         private data class FetchKey(
@@ -106,8 +108,8 @@ internal class SearchActorsViewModel
 
         private suspend fun runFirstPage(key: FetchKey) {
             setState { copy(loadStatus = SearchActorsLoadStatus.InitialLoading) }
-            repository
-                .searchActors(query = key.query, cursor = null)
+            firstPages
+                .people(query = key.query)
                 .onSuccess { page ->
                     // search_perform fires on a completed People search (incl. empty);
                     // the query text is never attached.

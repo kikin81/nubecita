@@ -19,6 +19,8 @@
     <string name="search_posts_error_network_body">Verifique sua conexão e tente de novo.</string>
     <string name="search_posts_error_rate_limited_title">Mais devagar</string>
     <string name="search_posts_error_rate_limited_body">Você buscou bastante. Aguarde um momento e tente de novo.</string>
+    <string name="search_posts_error_bad_query_title">Não é possível buscar isso</string>
+    <string name="search_posts_error_bad_query_body">Essa busca não é válida. Altere e tente de novo.</string>
     <string name="search_posts_error_unknown_title">Algo deu errado</string>
     <string name="search_posts_error_unknown_body">Não foi possível carregar sua busca. Tente de novo.</string>
     <string name="search_posts_error_retry">Tentar de novo</string>
@@ -27,6 +29,7 @@
     <string name="search_posts_sort_label">Ordenar por</string>
     <string name="search_posts_append_error_network">Não foi possível carregar mais posts. Verifique sua conexão.</string>
     <string name="search_posts_append_error_rate_limited">Mais devagar — você buscou bastante.</string>
+    <string name="search_posts_append_error_bad_query">Essa busca não é válida.</string>
     <string name="search_posts_append_error_unknown">Não foi possível carregar mais posts. Tente de novo.</string>
     <string name="search_people_loading_content_description">Buscando pessoas</string>
     <string name="search_people_empty_title">Nenhuma pessoa corresponde a \"%1$s\"</string>

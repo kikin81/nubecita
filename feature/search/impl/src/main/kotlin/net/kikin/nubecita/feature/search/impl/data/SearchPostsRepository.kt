@@ -4,7 +4,7 @@ import kotlinx.collections.immutable.ImmutableList
 import net.kikin.nubecita.data.models.FeedItemUi
 
 /**
- * `app.bsky.feed.searchPosts` fetch surface scoped to
+ * `app.bsky.feed.searchPostsV2` fetch surface scoped to
  * `:feature:search:impl`. Stateless — the caller (Search Posts tab VM
  * in `nubecita-vrba.6`) owns the cursor and re-issues calls for the
  * next page. Mirrors [net.kikin.nubecita.feature.feed.impl.data.FeedRepository]'s
@@ -18,9 +18,9 @@ import net.kikin.nubecita.data.models.FeedItemUi
 internal interface SearchPostsRepository {
     suspend fun searchPosts(
         query: String,
+        filters: PostSearchFilters,
         cursor: String?,
         limit: Int = SEARCH_POSTS_PAGE_LIMIT,
-        sort: SearchPostsSort = SearchPostsSort.TOP,
     ): Result<SearchPostsPage>
 
     /**
@@ -42,12 +42,13 @@ internal interface SearchPostsRepository {
 internal data class SearchPostsPage(
     val items: ImmutableList<FeedItemUi.Single>,
     val nextCursor: String?,
+    /** Total hits the server reports for the search; null when it does not say. */
+    val hitsTotal: Long? = null,
 )
 
 /**
- * Bluesky `searchPosts` sort modes. The lexicon accepts `"top"` and
- * `"latest"`; we serialise via `name.lowercase()` at the
- * [DefaultSearchPostsRepository] boundary. Default is [TOP] to match
+ * Search sort modes. `searchPostsV2` accepts `"top"` and `"recent"`; the
+ * mapping lives in [PostSearchFilters.toRequest]. Default is [TOP] to match
  * the official Bluesky client.
  */
 internal enum class SearchPostsSort { TOP, LATEST }

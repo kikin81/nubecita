@@ -201,6 +201,7 @@ internal fun SearchScreenContent(
     val postsNetworkMsg = stringResource(R.string.search_posts_append_error_network)
     val postsRateLimitedMsg = stringResource(R.string.search_posts_append_error_rate_limited)
     val postsUnknownMsg = stringResource(R.string.search_posts_append_error_unknown)
+    val postsBadQueryMsg = stringResource(R.string.search_posts_append_error_bad_query)
     val peopleNetworkMsg = stringResource(R.string.search_people_append_error_network)
     val peopleRateLimitedMsg = stringResource(R.string.search_people_append_error_rate_limited)
     val peopleUnknownMsg = stringResource(R.string.search_people_append_error_unknown)
@@ -208,12 +209,13 @@ internal fun SearchScreenContent(
     val feedsRateLimitedMsg = stringResource(R.string.search_feeds_append_error_rate_limited)
     val feedsUnknownMsg = stringResource(R.string.search_feeds_append_error_unknown)
     val onPostsAppendError =
-        remember(snackScope, snackbarHostState, postsNetworkMsg, postsRateLimitedMsg, postsUnknownMsg) {
+        remember(snackScope, snackbarHostState, postsNetworkMsg, postsRateLimitedMsg, postsUnknownMsg, postsBadQueryMsg) {
             { error: SearchPostsError ->
                 val message =
                     when (error) {
                         SearchPostsError.Network -> postsNetworkMsg
                         SearchPostsError.RateLimited -> postsRateLimitedMsg
+                        SearchPostsError.BadQuery -> postsBadQueryMsg
                         is SearchPostsError.Unknown -> postsUnknownMsg
                     }
                 snackScope.launch {

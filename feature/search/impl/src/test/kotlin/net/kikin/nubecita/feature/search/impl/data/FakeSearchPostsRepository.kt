@@ -51,6 +51,7 @@ internal class FakeSearchPostsRepository : SearchPostsRepository {
         val cursor: String?,
         val sort: SearchPostsSort,
         val limit: Int,
+        val filters: PostSearchFilters = PostSearchFilters(sort = sort),
     )
 
     private val gates = mutableMapOf<Key, CompletableDeferred<Result<SearchPostsPage>>>()
@@ -121,12 +122,12 @@ internal class FakeSearchPostsRepository : SearchPostsRepository {
 
     override suspend fun searchPosts(
         query: String,
+        filters: PostSearchFilters,
         cursor: String?,
         limit: Int,
-        sort: SearchPostsSort,
     ): Result<SearchPostsPage> {
-        callLog += Call(query = query, cursor = cursor, sort = sort, limit = limit)
-        val key = Key(query, cursor, sort)
+        callLog += Call(query = query, cursor = cursor, sort = filters.sort, limit = limit, filters = filters)
+        val key = Key(query, cursor, filters.sort)
         val deferred = gates[key]
         return deferred?.await() ?: fallback
     }
@@ -141,7 +142,7 @@ internal class FakeSearchPostsRepository : SearchPostsRepository {
         cursor: String?,
         limit: Int,
         sort: SearchPostsSort,
-    ): Result<SearchPostsPage> = searchPosts(query = hashtagKey(tag, author), cursor = cursor, limit = limit, sort = sort)
+    ): Result<SearchPostsPage> = searchPosts(query = hashtagKey(tag, author), filters = PostSearchFilters(sort = sort), cursor = cursor, limit = limit)
 }
 
 /** The fake's gate/log key for a hashtag request. */

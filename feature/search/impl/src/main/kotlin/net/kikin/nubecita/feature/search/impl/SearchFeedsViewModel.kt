@@ -17,6 +17,7 @@ import net.kikin.nubecita.core.analytics.SearchScope
 import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.feature.search.impl.data.SearchFeedsRepository
+import net.kikin.nubecita.feature.search.impl.data.SearchFirstPages
 import javax.inject.Inject
 
 /**
@@ -42,6 +43,7 @@ internal class SearchFeedsViewModel
     @Inject
     constructor(
         private val repository: SearchFeedsRepository,
+        private val firstPages: SearchFirstPages,
         private val analytics: AnalyticsClient,
     ) : MviViewModel<SearchFeedsState, SearchFeedsEvent, SearchFeedsEffect>(SearchFeedsState()) {
         private data class FetchKey(
@@ -88,8 +90,8 @@ internal class SearchFeedsViewModel
 
         private suspend fun runFirstPage(key: FetchKey) {
             setState { copy(loadStatus = SearchFeedsLoadStatus.InitialLoading) }
-            repository
-                .searchFeeds(query = key.query, cursor = null)
+            firstPages
+                .feeds(query = key.query)
                 .onSuccess { page ->
                     // view_feed fires when the Feeds-tab results load. These
                     // are custom generator feeds, so the bucket is Custom; the
