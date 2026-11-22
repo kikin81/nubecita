@@ -29,6 +29,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -43,6 +44,7 @@ import net.kikin.nubecita.feature.search.impl.DiscoverFeedUi
 import net.kikin.nubecita.feature.search.impl.DiscoverSectionStatus
 import net.kikin.nubecita.feature.search.impl.DiscoverState
 import net.kikin.nubecita.feature.search.impl.R
+import net.kikin.nubecita.feature.search.impl.SearchTestTags
 import net.kikin.nubecita.feature.search.impl.ui.StarterPackCard
 import net.kikin.nubecita.feature.search.impl.ui.SuggestedAccountCard
 import net.kikin.nubecita.feature.search.impl.ui.SuggestedFeedCard
@@ -190,7 +192,7 @@ internal fun ExplorePaneContent(
     LazyColumn(
         state = listState,
         contentPadding = contentPadding,
-        modifier = modifier,
+        modifier = modifier.testTag(SearchTestTags.EXPLORE_LIST),
     ) {
         if (body == ExploreBody.Retry) {
             item(key = "explore:retry", contentType = "retry") {

@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalLocale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -47,6 +48,7 @@ import net.kikin.nubecita.designsystem.component.shimmer
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.search.impl.R
+import net.kikin.nubecita.feature.search.impl.SearchTestTags
 import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
 import net.kikin.nubecita.feature.search.impl.data.ReplyFilter
 import net.kikin.nubecita.feature.search.impl.data.SearchTab
@@ -107,7 +109,7 @@ internal fun SummaryPaneContent(
     LazyColumn(
         state = listState,
         contentPadding = contentPadding,
-        modifier = modifier,
+        modifier = modifier.testTag(SearchTestTags.SUMMARY_LIST),
     ) {
         item(key = "summary:header", contentType = "header") {
             SummaryHeader(

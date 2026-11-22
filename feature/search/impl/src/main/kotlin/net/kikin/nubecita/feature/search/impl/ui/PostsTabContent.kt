@@ -35,6 +35,7 @@ import net.kikin.nubecita.designsystem.component.PostCard
 import net.kikin.nubecita.feature.search.impl.SearchPostsEvent
 import net.kikin.nubecita.feature.search.impl.SearchPostsLoadStatus
 import net.kikin.nubecita.feature.search.impl.SearchPostsState
+import net.kikin.nubecita.feature.search.impl.SearchTestTags
 import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
 
 /**
@@ -155,7 +156,7 @@ private fun LoadedBody(
         stateSaver = listSaver(save = { it.toList() }, restore = { it.toPersistentSet() }),
     ) { mutableStateOf(persistentSetOf<String>()) }
     LazyColumn(
-        modifier = modifier.fillMaxSize().testTag("search_posts_list"),
+        modifier = modifier.fillMaxSize().testTag(SearchTestTags.POSTS_LIST),
         state = listState,
     ) {
         items(items = items, key = { it.post.id }) { item ->
