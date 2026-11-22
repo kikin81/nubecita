@@ -20,13 +20,13 @@ import net.kikin.nubecita.core.analytics.SearchPerform
 import net.kikin.nubecita.core.analytics.SearchScope
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.postinteractions.FollowOverlay
+import net.kikin.nubecita.core.postinteractions.FollowOverride
 import net.kikin.nubecita.core.postinteractions.FollowRepository
+import net.kikin.nubecita.core.postinteractions.FollowToggle
 import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchActorsRepository
-import net.kikin.nubecita.feature.search.impl.data.FollowOverlay
-import net.kikin.nubecita.feature.search.impl.data.FollowOverride
-import net.kikin.nubecita.feature.search.impl.data.FollowToggle
 import net.kikin.nubecita.feature.search.impl.data.actorFixture
 import net.kikin.nubecita.feature.search.impl.data.seed
 import net.kikin.nubecita.feature.search.impl.data.signedIn

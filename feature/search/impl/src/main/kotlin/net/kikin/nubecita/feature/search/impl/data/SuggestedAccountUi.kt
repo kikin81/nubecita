@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.search.impl.data
 
 import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.ImmutableList
+import net.kikin.nubecita.core.postinteractions.FollowOverride
 
 /**
  * UI-ready projection of an `app.bsky.actor.defs#profileView` from the
@@ -30,3 +31,13 @@ internal data class SuggestedAccountUi(
     val mutualsCount: Int,
     val mutualAvatarUrls: ImmutableList<String>,
 )
+
+/** This suggested account with the viewer's own follow action applied, when there is one. */
+internal fun SuggestedAccountUi.withFollowOverride(overrides: Map<String, FollowOverride>): SuggestedAccountUi {
+    val override = overrides[did] ?: return this
+    return if (isFollowing == override.isFollowing && followUri == override.followUri) {
+        this
+    } else {
+        copy(isFollowing = override.isFollowing, followUri = override.followUri)
+    }
+}

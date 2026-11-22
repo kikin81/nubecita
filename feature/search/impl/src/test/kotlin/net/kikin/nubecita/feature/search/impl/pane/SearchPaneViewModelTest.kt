@@ -16,6 +16,9 @@ import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.actors.ActorSearchPage
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.postinteractions.FollowOverlay
+import net.kikin.nubecita.core.postinteractions.FollowOverride
+import net.kikin.nubecita.core.postinteractions.FollowToggle
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.feature.search.impl.FakeFollowRepository
 import net.kikin.nubecita.feature.search.impl.FakePinnedFeedsRepository
@@ -24,9 +27,6 @@ import net.kikin.nubecita.feature.search.impl.data.FakeSearchActorsRepository
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchFeedsRepository
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchPostsRepository
 import net.kikin.nubecita.feature.search.impl.data.FeedPinToggle
-import net.kikin.nubecita.feature.search.impl.data.FollowOverlay
-import net.kikin.nubecita.feature.search.impl.data.FollowOverride
-import net.kikin.nubecita.feature.search.impl.data.FollowToggle
 import net.kikin.nubecita.feature.search.impl.data.MediaFilter
 import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
 import net.kikin.nubecita.feature.search.impl.data.ReplyFilter

@@ -16,10 +16,11 @@ import net.kikin.nubecita.core.analytics.InteractFeed
 import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
+import net.kikin.nubecita.core.postinteractions.FollowOutcome
+import net.kikin.nubecita.core.postinteractions.FollowOverlay
+import net.kikin.nubecita.core.postinteractions.FollowToggle
+import net.kikin.nubecita.core.postinteractions.withFollowOverride
 import net.kikin.nubecita.feature.search.impl.data.ExploreRepository
-import net.kikin.nubecita.feature.search.impl.data.FollowOutcome
-import net.kikin.nubecita.feature.search.impl.data.FollowOverlay
-import net.kikin.nubecita.feature.search.impl.data.FollowToggle
 import net.kikin.nubecita.feature.search.impl.data.TrendLink
 import net.kikin.nubecita.feature.search.impl.data.TrendUi
 import net.kikin.nubecita.feature.search.impl.data.parseTrendLink

@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.search.impl.data
+package net.kikin.nubecita.core.postinteractions
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -6,14 +6,13 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
-import net.kikin.nubecita.core.postinteractions.FollowRepository
 import net.kikin.nubecita.data.models.ActorUi
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /** How a [FollowToggle.toggle] ended. The caller logs analytics and tells the screen. */
-internal enum class FollowOutcome {
+enum class FollowOutcome {
     Followed,
     Unfollowed,
     FollowFailed,
@@ -43,7 +42,7 @@ internal enum class FollowOutcome {
  * same account (from either surface) is dropped until the first settles.
  */
 @Singleton
-internal class FollowToggle
+class FollowToggle
     @Inject
     constructor(
         private val followRepository: FollowRepository,
@@ -143,7 +142,7 @@ internal class FollowToggle
  * [newFollowUri]), unfollowed (unchanged: the overlay already cleared it), or rolled back to the
  * state before the tap ([previousFollowUri] is the record URI the row carried).
  */
-internal fun ActorUi.afterFollowOutcome(
+fun ActorUi.afterFollowOutcome(
     outcome: FollowOutcome,
     previousFollowUri: String?,
     newFollowUri: String?,

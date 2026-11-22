@@ -18,11 +18,12 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
+import net.kikin.nubecita.core.postinteractions.FollowOutcome
+import net.kikin.nubecita.core.postinteractions.FollowOverlay
+import net.kikin.nubecita.core.postinteractions.FollowToggle
+import net.kikin.nubecita.core.postinteractions.withFollowOverride
 import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.feature.search.impl.data.FeedPinToggle
-import net.kikin.nubecita.feature.search.impl.data.FollowOutcome
-import net.kikin.nubecita.feature.search.impl.data.FollowOverlay
-import net.kikin.nubecita.feature.search.impl.data.FollowToggle
 import net.kikin.nubecita.feature.search.impl.data.PinOutcome
 import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
 import net.kikin.nubecita.feature.search.impl.data.SearchFirstPages

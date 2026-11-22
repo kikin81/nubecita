@@ -17,13 +17,13 @@ import net.kikin.nubecita.core.analytics.InteractFeed
 import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.postinteractions.FollowOverlay
+import net.kikin.nubecita.core.postinteractions.FollowToggle
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.feature.search.impl.data.ExploreContent
 import net.kikin.nubecita.feature.search.impl.data.ExploreRepository
 import net.kikin.nubecita.feature.search.impl.data.FeedPreviewPostUi
-import net.kikin.nubecita.feature.search.impl.data.FollowOverlay
-import net.kikin.nubecita.feature.search.impl.data.FollowToggle
 import net.kikin.nubecita.feature.search.impl.data.SuggestedAccountUi
 import net.kikin.nubecita.feature.search.impl.data.SuggestedFeedUi
 import net.kikin.nubecita.feature.search.impl.data.TrendUi

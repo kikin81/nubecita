@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.search.impl.data
+package net.kikin.nubecita.core.postinteractions
 
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
@@ -19,7 +19,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /** What the viewer has just done to one account, as the people results should show it. */
-internal data class FollowOverride(
+data class FollowOverride(
     val isFollowing: Boolean,
     val followUri: String?,
 )
@@ -40,7 +40,7 @@ internal data class FollowOverride(
  * in the window before the (asynchronous) clear on an account change has run.
  */
 @Singleton
-internal class FollowOverlay
+class FollowOverlay
     @Inject
     constructor(
         @ApplicationScope scope: CoroutineScope,
@@ -105,17 +105,7 @@ internal class FollowOverlay
     }
 
 /** This actor with the viewer's own follow action applied, when there is one. */
-internal fun ActorUi.withFollowOverride(overrides: Map<String, FollowOverride>): ActorUi {
-    val override = overrides[did] ?: return this
-    return if (isFollowing == override.isFollowing && followUri == override.followUri) {
-        this
-    } else {
-        copy(isFollowing = override.isFollowing, followUri = override.followUri)
-    }
-}
-
-/** This suggested account with the viewer's own follow action applied, when there is one. */
-internal fun SuggestedAccountUi.withFollowOverride(overrides: Map<String, FollowOverride>): SuggestedAccountUi {
+fun ActorUi.withFollowOverride(overrides: Map<String, FollowOverride>): ActorUi {
     val override = overrides[did] ?: return this
     return if (isFollowing == override.isFollowing && followUri == override.followUri) {
         this
