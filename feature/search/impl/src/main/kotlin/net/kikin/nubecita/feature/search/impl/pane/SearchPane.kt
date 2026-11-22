@@ -1,7 +1,11 @@
 package net.kikin.nubecita.feature.search.impl.pane
 
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -13,6 +17,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
@@ -104,7 +109,21 @@ internal fun SearchPane(
     ) { innerPadding ->
         // Task 12 renders the search summary for SearchPaneMode.Summary; until then both modes
         // show the Explore content, each on its own list state.
-        BoxWithConstraints(Modifier.fillMaxSize()) {
+        // The list's viewport starts below the status bar / cutout and inside the side cutouts
+        // (container padding), so scrolled rows are clipped there instead of passing under the
+        // status-bar icons; only the bottom inset stays as content padding so the last row can
+        // scroll clear of the navigation bar. `innerPadding` is the Scaffold's own (safeDrawing
+        // minus whatever the enclosing scaffold already consumed), applied exactly once.
+        val layoutDirection = LocalLayoutDirection.current
+        BoxWithConstraints(
+            Modifier
+                .fillMaxSize()
+                .padding(
+                    start = innerPadding.calculateStartPadding(layoutDirection),
+                    top = innerPadding.calculateTopPadding(),
+                    end = innerPadding.calculateEndPadding(layoutDirection),
+                ),
+        ) {
             // The pane's own width decides the feed columns (the user can drag the divider).
             val feedColumns = feedColumnsFor(maxWidth)
             ExplorePaneContent(
@@ -116,7 +135,7 @@ internal fun SearchPane(
                 onToggleFeeds = onToggleFeeds,
                 onToggleAccounts = onToggleAccounts,
                 listState = listState,
-                contentPadding = innerPadding,
+                contentPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding()),
                 modifier = Modifier.fillMaxSize(),
             )
         }

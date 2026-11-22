@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
 import net.kikin.nubecita.designsystem.component.shimmer
 import net.kikin.nubecita.feature.search.impl.DiscoverEvent
+import net.kikin.nubecita.feature.search.impl.DiscoverFeedUi
 import net.kikin.nubecita.feature.search.impl.DiscoverSectionStatus
 import net.kikin.nubecita.feature.search.impl.DiscoverState
 import net.kikin.nubecita.feature.search.impl.R
@@ -60,6 +61,20 @@ private val PLACEHOLDER_CELL_HEIGHT = 148.dp
 
 /** Feed cards need about 270dp each to keep their name readable: two columns from 600dp, else one. */
 internal fun feedColumnsFor(paneWidth: Dp): Int = if (paneWidth >= TWO_FEED_COLUMNS_MIN_WIDTH) 2 else 1
+
+/**
+ * The feeds whose cards are on screen: each visible row is identified by its first feed's uri
+ * and holds [columns] feeds (fewer on a last row with a single cell). Unknown uris are skipped.
+ */
+internal fun feedUrisInVisibleRows(
+    firstUris: List<String>,
+    columns: Int,
+    feeds: List<DiscoverFeedUi>,
+): List<String> =
+    firstUris.flatMap { firstUri ->
+        val start = feeds.indexOfFirst { it.feed.uri == firstUri }
+        if (start < 0) emptyList() else feeds.subList(start, minOf(start + columns, feeds.size)).map { it.feed.uri }
+    }
 
 /** What the pane body shows. */
 internal enum class ExploreBody {
@@ -139,6 +154,8 @@ internal fun ExplorePaneContent(
     // Feed cards load their preview posts when they scroll into view and settle. Keyed by the
     // first feed of each visible row; the row's second feed is read from the shown list.
     val currentShownFeeds by rememberUpdatedState(shownFeeds)
+    // Changes at runtime when the pane crosses the two-column width, so it must not be captured.
+    val currentFeedColumns by rememberUpdatedState(feedColumns)
     LaunchedEffect(listState) {
         snapshotFlow {
             if (listState.isScrollInProgress) {
@@ -152,14 +169,8 @@ internal fun ExplorePaneContent(
             }
         }.distinctUntilChanged()
             .collect { firstUris ->
-                val feeds = currentShownFeeds
-                firstUris.forEach { firstUri ->
-                    val start = feeds.indexOfFirst { it.feed.uri == firstUri }
-                    if (start >= 0) {
-                        feeds.subList(start, minOf(start + feedColumns, feeds.size)).forEach {
-                            currentOnEvent(DiscoverEvent.OnFeedCardVisible(it.feed.uri))
-                        }
-                    }
+                feedUrisInVisibleRows(firstUris, currentFeedColumns, currentShownFeeds).forEach {
+                    currentOnEvent(DiscoverEvent.OnFeedCardVisible(it))
                 }
             }
     }
