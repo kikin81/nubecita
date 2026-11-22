@@ -122,7 +122,7 @@ internal class SearchPaneViewModel
 
             loadSection(
                 section = SummarySection.Posts,
-                key = adopted { it.postsKey() },
+                keyOf = { it.postsKey() },
                 fetch = { key -> firstPages.posts(key.query, key.filters, key.submission) },
                 onLoaded = { page ->
                     copy(hitsTotal = page.hitsTotal, topPost = page.items.firstOrNull(), postsStatus = SummarySectionStatus.Loaded)
@@ -131,7 +131,7 @@ internal class SearchPaneViewModel
             )
             loadSection(
                 section = SummarySection.People,
-                key = adopted { it.queryKey() },
+                keyOf = { it.queryKey() },
                 fetch = { key -> firstPages.people(key.query, key.submission) },
                 onLoaded = { page ->
                     val overrides = followOverlay.current()
@@ -148,7 +148,7 @@ internal class SearchPaneViewModel
             )
             loadSection(
                 section = SummarySection.Feeds,
-                key = adopted { it.queryKey() },
+                keyOf = { it.queryKey() },
                 fetch = { key -> firstPages.feeds(key.query, key.submission) },
                 onLoaded = { page ->
                     copy(
@@ -184,30 +184,43 @@ internal class SearchPaneViewModel
         private fun SummarySectionStatus.afterFailure() = if (this == SummarySectionStatus.Loaded) this else SummarySectionStatus.Error
 
         /**
-         * Runs one section: whenever its [key] changes, [SearchFirstPages.version] moves or the
-         * section is retried, [fetch] the first page and apply it with [onLoaded] / [onFailed].
-         * The key comes from the adopted state ([adopted]), and `mapLatest` cancels a superseded
-         * request, so a result for an old key does not reach the screen. (An explicit key check on
-         * apply was removed: no test could reach a case where it, and not the cancellation, was what
-         * kept an old result out.) Resetting to Loading on a new key is done where the new key is adopted
+         * Runs one section: whenever its key changes, [SearchFirstPages.version] moves, the account
+         * changes or the section is retried, [fetch] the first page and apply it with [onLoaded] /
+         * [onFailed]. The key ([keyOf] of the adopted search) comes from the adopted state
+         * ([adopted]), never straight from the store, and a superseded request is cancelled by
+         * `mapLatest`.
+         *
+         * Cancellation is not enough on its own: the key collector is parked in `combine`'s `yield()`
+         * until a posted message runs, so a second search can be adopted before the first one's
+         * request is cancelled, and that request's page (an in-flight fetch shared with a tab) may
+         * resume in between. A result is therefore applied only if the search it was fetched for
+         * AND the viewer it was fetched under are still the adopted ones; otherwise it is dropped.
+         * Resetting to Loading on a new key is done where the new key is adopted
          * ([onSubmittedChanged]), in the same state change that swaps the header, so a section
          * never shows one search's results under another's header.
          */
         private fun <K : Any, P> loadSection(
             section: SummarySection,
-            key: Flow<K?>,
+            keyOf: (SubmittedSearch) -> K,
             fetch: suspend (K) -> Result<P>,
             onLoaded: SearchPaneMode.Summary.(P) -> SearchPaneMode.Summary,
             onFailed: SearchPaneMode.Summary.() -> SearchPaneMode.Summary,
         ) {
             // The account is part of the trigger: after an account change the sections reload even
             // when nothing else moved ([onViewerChanged] has already reset them).
-            combine(key, firstPages.version, retries.getValue(section), uiState.map { it.viewerDid }.distinctUntilChanged()) { current, _, _, _ -> current }
-                .mapLatest { current ->
+            combine(
+                adopted(keyOf),
+                firstPages.version,
+                retries.getValue(section),
+                uiState.map { it.viewerDid }.distinctUntilChanged(),
+            ) { current, _, _, did -> current to did }
+                .mapLatest { (current, did) ->
                     if (current == null) return@mapLatest
                     val result = fetch(current)
-                    updateSummary {
-                        result.fold(onSuccess = { onLoaded(it) }, onFailure = { onFailed() })
+                    setState {
+                        val summary = mode as? SearchPaneMode.Summary ?: return@setState this
+                        if (keyOf(summary.search) != current || viewerDid != did) return@setState this
+                        copy(mode = summary.run { result.fold(onSuccess = { onLoaded(it) }, onFailure = { onFailed() }) })
                     }
                 }.launchIn(viewModelScope)
         }

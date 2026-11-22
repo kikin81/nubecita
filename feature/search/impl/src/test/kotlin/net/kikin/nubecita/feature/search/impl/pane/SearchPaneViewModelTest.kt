@@ -49,7 +49,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import java.io.IOException
 
-@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 internal class SearchPaneViewModelTest {
     @RegisterExtension
     val mainDispatcher = MainDispatcherExtension()
@@ -422,6 +422,45 @@ internal class SearchPaneViewModelTest {
             assertEquals("at://p/compose", mode.topPost?.post?.id)
             assertNull(mode.hitsTotal)
             assertEquals(listOf("did:plc:compose"), mode.people.map { it.did })
+        }
+
+    @Test
+    fun `a page that arrives for the previous search after a new one was adopted is dropped`() =
+        runTest {
+            val oldPeople = actors.gate("kotlin", null)
+            val vm = buildVm()
+            store.submit("kotlin", fromRecent = false)
+            advanceUntilIdle()
+
+            // No scheduler advance between these: the old answer and the new search land in the same
+            // round of work, before the old request has been cancelled.
+            oldPeople.complete(Result.success(ActorSearchPage(persistentListOf(actorFixture("did:plc:kotlin")), null)))
+            actors.fail("compose", null, IOException("offline"))
+            store.submit("compose", fromRecent = false)
+            advanceUntilIdle()
+
+            val mode = summary(vm)
+            assertEquals("compose", mode.search.query)
+            assertEquals(SummarySectionStatus.Error, mode.peopleStatus)
+            assertTrue(mode.people.isEmpty())
+        }
+
+    @Test
+    fun `a page fetched under the previous account is dropped`() =
+        runTest {
+            val oldPeople = actors.gate("kotlin", null)
+            val vm = buildVm()
+            store.submit("kotlin", fromRecent = false)
+            advanceUntilIdle()
+
+            actors.clearGate("kotlin", null)
+            actors.fail("kotlin", null, IOException("offline"))
+            oldPeople.complete(Result.success(ActorSearchPage(persistentListOf(actorFixture("did:plc:previous")), null)))
+            session.value = signedIn("did:plc:other")
+            advanceUntilIdle()
+
+            assertEquals(SummarySectionStatus.Error, summary(vm).peopleStatus)
+            assertTrue(summary(vm).people.isEmpty())
         }
 
     @Test
