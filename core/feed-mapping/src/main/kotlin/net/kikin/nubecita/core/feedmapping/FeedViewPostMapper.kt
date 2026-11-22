@@ -131,10 +131,15 @@ fun FeedViewPost.toFeedItemUiOrNull(
     // author chain replies to post n − 1 and is rooted at post 1, so the
     // context posts' numbers follow exactly from the leaf's. A number the
     // server gave the context post directly, elsewhere in the page, wins.
+    //
+    // That chain is by one author by definition, so a context post by someone
+    // else can only mean the response is not what the lexicon describes. It is
+    // then left unnumbered rather than labelled as part of the leaf's thread.
     val leafPosition = leaf.threadPosition
+    val leafAuthor = leaf.author.did
     return FeedItemUi.ReplyCluster(
-        root = root.copy(threadPosition = numberedByUri[root.id] ?: leafPosition?.root()),
-        parent = parent.copy(threadPosition = numberedByUri[parent.id] ?: leafPosition?.parent()),
+        root = root.copy(threadPosition = numberedByUri[root.id] ?: leafPosition?.takeIf { root.author.did == leafAuthor }?.root()),
+        parent = parent.copy(threadPosition = numberedByUri[parent.id] ?: leafPosition?.takeIf { parent.author.did == leafAuthor }?.parent()),
         leaf = leaf,
         hasEllipsis = replyRef.hasEllipsisRelativeToRoot(rootAuthorDid = root.author.did),
     )

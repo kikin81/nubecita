@@ -74,6 +74,23 @@ internal class ThreadPositionMappingTest {
     }
 
     @Test
+    fun `a context post by another author is never numbered from the leaf`() {
+        // By the lexicon a numbered leaf sits in an unbroken chain by one
+        // author, so this should not arrive. If it does, another person's post
+        // must not be labelled as part of the leaf author's thread.
+        val foreignParent = decode(entry(rkey = "3", numbering = 3L to 5L, replyRoot = "1", replyParent = "2", parentAuthorDid = OTHER)).feed.toFeedItemsUi().single()
+        val foreignRoot = decode(entry(rkey = "3", numbering = 3L to 5L, replyRoot = "1", replyParent = "2", rootAuthorDid = OTHER)).feed.toFeedItemsUi().single()
+
+        val withForeignParent = assertInstanceOf(FeedItemUi.ReplyCluster::class.java, foreignParent)
+        assertNull(withForeignParent.parent.threadPosition)
+        assertEquals(ThreadPositionUi(index = 1, count = 5), withForeignParent.root.threadPosition)
+
+        val withForeignRoot = assertInstanceOf(FeedItemUi.ReplyCluster::class.java, foreignRoot)
+        assertNull(withForeignRoot.root.threadPosition)
+        assertEquals(ThreadPositionUi(index = 2, count = 5), withForeignRoot.parent.threadPosition)
+    }
+
+    @Test
     fun `self thread chain members keep their own numbers`() {
         val items =
             decode(
@@ -147,6 +164,7 @@ internal class ThreadPositionMappingTest {
         replyRoot: String? = null,
         replyParent: String? = null,
         parentAuthorDid: String = AUTHOR,
+        rootAuthorDid: String = AUTHOR,
         quotedNumbering: Pair<Long?, Long?>? = null,
     ): String {
         val reply =
@@ -155,7 +173,7 @@ internal class ThreadPositionMappingTest {
             } else {
                 """
                 "reply": {
-                  "root": ${postView(replyRoot, AUTHOR, typed = true)},
+                  "root": ${postView(replyRoot, rootAuthorDid, typed = true)},
                   "parent": ${postView(replyParent, parentAuthorDid, typed = true)}
                 },
                 """.trimIndent()
