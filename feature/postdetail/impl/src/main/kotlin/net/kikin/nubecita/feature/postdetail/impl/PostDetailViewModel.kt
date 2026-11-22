@@ -423,12 +423,14 @@ internal class PostDetailViewModel
                                         if (keep) add(row)
                                     }
                                 }
+                            val merged =
+                                buildList(items.size + fresh.size) {
+                                    for (row in items) {
+                                        if (row == ThreadItem.OtherReplies) addAll(fresh) else add(row)
+                                    }
+                                }
                             copy(
-                                items =
-                                    items
-                                        .flatMap { if (it == ThreadItem.OtherReplies) fresh else listOf(it) }
-                                        .toImmutableList()
-                                        .applyInteractions(snapshot),
+                                items = merged.toImmutableList().applyInteractions(snapshot),
                                 isLoadingOtherReplies = false,
                             )
                         }
