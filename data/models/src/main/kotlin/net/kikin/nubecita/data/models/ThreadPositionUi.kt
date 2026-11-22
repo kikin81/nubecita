@@ -19,13 +19,13 @@ public data class ThreadPositionUi(
     val count: Int,
 ) {
     /** The first post of the same thread. */
-    public fun root(): ThreadPositionUi? = of(index = 1, count = count.toLong())
+    public fun root(): ThreadPositionUi = ThreadPositionUi(index = 1, count = count)
 
     /**
      * The post this one replies to, or null for the first post. Exact rather
      * than a guess: post *n* of an unbroken chain replies to post *n − 1*.
      */
-    public fun parent(): ThreadPositionUi? = of(index = index - 1L, count = count.toLong())
+    public fun parent(): ThreadPositionUi? = if (index > 1) ThreadPositionUi(index = index - 1, count = count) else null
 
     public companion object {
         /**
