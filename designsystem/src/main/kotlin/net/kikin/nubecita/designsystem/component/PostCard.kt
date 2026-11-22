@@ -66,6 +66,8 @@ import net.kikin.nubecita.data.models.QuotedPostUi
 import net.kikin.nubecita.data.models.ThreadPositionUi
 import net.kikin.nubecita.data.models.VerifiedBadge
 import net.kikin.nubecita.data.models.ViewerStateUi
+import net.kikin.nubecita.data.models.mediaContentWarning
+import net.kikin.nubecita.data.models.video
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.R
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
@@ -748,7 +750,7 @@ internal fun EmbedSlot(
             // cover keeps just "Show anyway" — the cover is sized to the media, and
             // a wide image / link card is too short for two stacked buttons — and
             // offers the link below the media once revealed instead.
-            MediaCover(it, onRevealMedia, onOpenSettings = callbacks.onOpenContentFilters.takeIf { _ -> !it.overridable })
+            MediaCover(it, onRevealMedia, onOpenSettings = if (it.overridable) null else callbacks.onOpenContentFilters)
         }
     }
     when (embed) {
@@ -858,15 +860,7 @@ internal fun EmbedSlot(
 
 // True when the embed's own media carries a content warning AND that media is
 // actually on screen (a video only renders when the host supplied a slot).
-private fun EmbedUi.hasRenderedMediaWarning(hasVideoSlot: Boolean): Boolean {
-    val media =
-        when (this) {
-            is EmbedUi.MediaEmbed -> this
-            is EmbedUi.RecordWithMedia -> media
-            else -> return false
-        }
-    return media.contentWarning != null && (media !is EmbedUi.Video || hasVideoSlot)
-}
+private fun EmbedUi.hasRenderedMediaWarning(hasVideoSlot: Boolean): Boolean = mediaContentWarning != null && (video == null || hasVideoSlot)
 
 @Composable
 internal fun ActionRow(

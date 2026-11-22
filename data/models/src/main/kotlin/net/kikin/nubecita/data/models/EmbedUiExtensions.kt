@@ -83,6 +83,23 @@ public val EmbedUi.video: EmbedUi.Video?
         }
 
 /**
+ * The content warning the moderation layer baked onto this embed's own media
+ * slot, or `null` when none — the read side of [withMediaContentWarning].
+ *
+ * Reads a direct [EmbedUi.MediaEmbed] (images, gallery, video, external, gif)
+ * or the `media` half of an [EmbedUi.RecordWithMedia]. Record-shaped embeds
+ * return `null`: a quoted post's own media is not moderated here. Scoped to
+ * this embed's own media slot, exactly like [imageContainer] and [video].
+ */
+public val EmbedUi.mediaContentWarning: MediaContentWarning?
+    get() =
+        when (this) {
+            is EmbedUi.MediaEmbed -> contentWarning
+            is EmbedUi.RecordWithMedia -> media.contentWarning
+            else -> null
+        }
+
+/**
  * Returns a copy of this media embed with [warning] applied (pass `null` to
  * clear). Exhaustive over the [EmbedUi.MediaEmbed] variants, so a new media
  * kind becomes a compile error here. Each arm calls the variant's own `copy`,

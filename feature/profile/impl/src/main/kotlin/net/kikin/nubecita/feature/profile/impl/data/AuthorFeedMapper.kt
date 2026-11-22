@@ -9,8 +9,8 @@ import net.kikin.nubecita.core.feedmapping.threadPositionOrNull
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.data.models.EmbedUi
-import net.kikin.nubecita.data.models.MediaContentWarning
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.mediaContentWarning
 import net.kikin.nubecita.data.models.thumbOrFullsize
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
 import net.kikin.nubecita.feature.profile.impl.TabItemUi
@@ -104,7 +104,7 @@ private fun FeedViewPost.toMediaCellOrNull(
             ?: return null
     // The grid has no cover affordance, so a covered (warned-but-not-filtered)
     // post is dropped rather than shown as an uncovered thumbnail.
-    if (core.embed.mediaContentWarning() != null) return null
+    if (core.embed.mediaContentWarning != null) return null
     val thumb = core.embed.toMediaThumbUrlOrNull() ?: return null
     return TabItemUi.MediaCell(
         postUri = core.id,
@@ -113,18 +113,6 @@ private fun FeedViewPost.toMediaCellOrNull(
         reposterDid = (reason as? ReasonRepost)?.by?.did?.raw,
     )
 }
-
-/**
- * The content warning baked onto this embed's media slot by `applyModeration`,
- * or `null` when none. Reads the direct [EmbedUi.MediaEmbed] cover or the
- * `media` half of a [EmbedUi.RecordWithMedia].
- */
-private fun EmbedUi.mediaContentWarning(): MediaContentWarning? =
-    when (this) {
-        is EmbedUi.MediaEmbed -> contentWarning
-        is EmbedUi.RecordWithMedia -> media.contentWarning
-        else -> null
-    }
 
 /**
  * True when the embed surfaces a playable video — either as a direct

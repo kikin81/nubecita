@@ -105,10 +105,10 @@ internal class PostDetailViewModel
             // load time. When the viewer changes them (typically via the cover's
             // "Content filter settings" link, then back here), re-fetch so the
             // covers reflect the new choice. drop(1) skips the current value —
-            // the initial load already used it.
+            // the initial load already used it. A StateFlow already conflates
+            // equal values, so no distinctUntilChanged is needed.
             moderationPreferences.prefs
                 .drop(1)
-                .distinctUntilChanged()
                 .onEach { refresh() }
                 .launchIn(viewModelScope)
 
