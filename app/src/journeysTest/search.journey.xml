@@ -11,7 +11,7 @@
   </description>
   <actions>
     <action>Tap the Search tab on the main navigation bar</action>
-    <action>Verify that the search bar and the search landing (recent searches and the Trending list) are visible</action>
+    <action>Verify that the search bar and the Trending list are visible</action>
     <action>Type search query into the search input field and submit search</action>
     <action>Verify that search results are displayed</action>
     <action>Tap the People tab in search results</action>
@@ -21,6 +21,10 @@
     <action>Tap the Packs tab in search results</action>
     <action>Verify that starter pack results are visible</action>
     <action>Tap the Posts tab in search results</action>
+    <action>Tap the Media chip above the results</action>
+    <action>Verify that the Media chip is selected and the list of results is shorter</action>
+    <action>Tap the Media chip again</action>
+    <action>Verify that the Media chip is no longer selected</action>
     <action>Tap the first search result item to view details</action>
     <action>Verify that the detail screen is visible</action>
     <action>Press the system back button to return to search results</action>

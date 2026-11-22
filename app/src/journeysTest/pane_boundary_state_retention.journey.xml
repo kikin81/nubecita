@@ -11,14 +11,15 @@
   <actions>
     <action>Verify that the device is unfolded and the app shows the Home feed with a navigation rail</action>
     <action>Tap the Search tab on the main navigation</action>
-    <action>Type a search query into the search input field and submit the search</action>
-    <action>Verify that post search results are displayed in the list pane</action>
+    <action>Type a search query into the search input field</action>
+    <action>Submit the search</action>
+    <action>Verify that the list pane shows the Posts, People, Feeds and Packs tabs with post search results, and that the detail pane shows the search Summary</action>
     <action>Scroll the search results down slowly until the first result that was visible is off screen</action>
     <action>Verify that search results are displayed, and record the text of the topmost fully visible result</action>
     <action>Fold the device</action>
-    <action>Verify that the app shows a bottom navigation bar, that search results are displayed, and that the topmost fully visible result is the recorded one</action>
+    <action>Verify that the app shows a bottom navigation bar, that search results are displayed in a single pane, that the search bar is collapsed with no keyboard, and that the topmost fully visible result is the recorded one</action>
     <action>Unfold the device</action>
-    <action>Verify that the app shows a navigation rail, that search results are displayed in the list pane, and that the topmost fully visible result is the recorded one</action>
+    <action>Verify that the app shows a navigation rail, that search results are displayed in the list pane and the search Summary in the detail pane, that the search bar is collapsed with no keyboard, and that the topmost fully visible result is the recorded one</action>
     <action>Tap the topmost fully visible search result to open it in the detail pane</action>
     <action>Verify that the post detail is visible in the detail pane next to the search results</action>
     <action>Scroll the post detail down slowly until the focused post is off screen, if the thread is long enough to scroll</action>

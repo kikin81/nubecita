@@ -1,7 +1,7 @@
 <journey name="Navigation State Retention - Tab Switch">
   <description>
     Verifies that a top-level tab other than Home keeps its state while the user is on another
-    tab: the submitted search query, the loaded results, the scroll position, and any sub-route
+    tab: the submitted search query, the selected results tab, an active post filter, the loaded results, the scroll position, and any sub-route
     pushed onto that tab must all be exactly as the user left them. Leaving a tab must not
     rebuild its screens from scratch (nubecita-owmt.2).
 
@@ -10,14 +10,21 @@
   <actions>
     <action>Verify that the app is open on the Home feed</action>
     <action>Tap the Search tab on the main navigation</action>
-    <action>Type a search query into the search input field and submit the search</action>
+    <action>Type a search query into the search input field</action>
+    <action>Submit the search</action>
     <action>Verify that post search results are displayed, and record the search query shown in the search field</action>
+    <action>Tap the Media chip above the results</action>
+    <action>Verify that the Media chip is selected and the filters control shows 1</action>
     <action>Scroll the search results down slowly until the first result that was visible is off screen</action>
     <action>Verify that search results are displayed, and record the text of the topmost fully visible result</action>
+    <action>Tap the People tab in search results</action>
+    <action>Verify that account results are displayed, and record that the People tab is selected</action>
     <action>Tap the Chats tab on the main navigation</action>
     <action>Verify that the Chats screen is visible</action>
     <action>Tap the Search tab on the main navigation</action>
-    <action>Verify that the search field still shows the recorded query, that search results are displayed without a loading indicator, and that the topmost fully visible result is the recorded one</action>
+    <action>Verify that the search field still shows the recorded query, that the People tab is still selected and that account results are displayed without a loading indicator</action>
+    <action>Tap the Posts tab in search results</action>
+    <action>Verify that post results are displayed without a loading indicator, that the Media chip is still selected, that the filters control still shows 1, and that the topmost fully visible result is the recorded one</action>
     <action>Tap the topmost fully visible search result to open its detail screen</action>
     <action>Verify that the post detail screen is visible</action>
     <action>Tap the Notifications tab on the main navigation</action>

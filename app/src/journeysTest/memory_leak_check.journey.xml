@@ -28,7 +28,7 @@
     <action>Verify that the author's profile screen is visible</action>
     <action>Press the system back button</action>
     <action>Tap the Search tab</action>
-    <action>Verify that the search interface is visible</action>
+    <action>Verify that the search bar and the Trending list are visible</action>
     <action>Tap the Notifications tab</action>
     <action>Tap the Chats tab</action>
     <action>Tap the You tab</action>
