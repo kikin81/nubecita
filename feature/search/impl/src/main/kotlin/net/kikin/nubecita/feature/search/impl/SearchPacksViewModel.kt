@@ -89,7 +89,7 @@ internal class SearchPacksViewModel
                             SearchPacksLoadStatus.Empty
                         } else {
                             SearchPacksLoadStatus.Loaded(
-                                items = page.items,
+                                items = page.items.distinctBy { it.uri }.toImmutableList(),
                                 nextCursor = page.nextCursor,
                                 endReached = page.nextCursor == null,
                             )
@@ -115,8 +115,7 @@ internal class SearchPacksViewModel
                     .onSuccess { page ->
                         if (fetchKey.value != capturedKey) return@onSuccess
                         val current = uiState.value.loadStatus as? SearchPacksLoadStatus.Loaded ?: return@onSuccess
-                        val known = current.items.mapTo(HashSet()) { it.uri }
-                        val appended = (current.items + page.items.filter { it.uri !in known }).toImmutableList()
+                        val appended = (current.items + page.items).distinctBy { it.uri }.toImmutableList()
                         setState {
                             copy(
                                 loadStatus =

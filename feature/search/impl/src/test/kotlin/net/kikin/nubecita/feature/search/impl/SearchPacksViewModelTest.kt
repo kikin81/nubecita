@@ -318,4 +318,35 @@ class SearchPacksViewModelTest {
 
             assertEquals(2, repo.callLog.size)
         }
+
+    @Test
+    fun `a pack repeated in the first page shows once`() =
+        runTest {
+            val vm = newVm()
+            val a = packFixture(slug = "a")
+            repo.respond(query = "x", cursor = null, items = listOf(a, packFixture(slug = "b"), a), nextCursor = null)
+
+            vm.setQuery("x", submission = 1)
+            runCurrent()
+
+            val status = vm.uiState.value.loadStatus as SearchPacksLoadStatus.Loaded
+            assertEquals(listOf(a.uri, packFixture(slug = "b").uri), status.items.map { it.uri })
+        }
+
+    @Test
+    fun `a pack repeated inside the appended page shows once`() =
+        runTest {
+            val vm = newVm()
+            val c = packFixture(slug = "c")
+            repo.respond(query = "x", cursor = null, items = listOf(packFixture(slug = "a")), nextCursor = "c2")
+            repo.respond(query = "x", cursor = "c2", items = listOf(packFixture(slug = "a"), c, c), nextCursor = null)
+
+            vm.setQuery("x", submission = 1)
+            runCurrent()
+            vm.handleEvent(SearchPacksEvent.LoadMore)
+            runCurrent()
+
+            val status = vm.uiState.value.loadStatus as SearchPacksLoadStatus.Loaded
+            assertEquals(listOf(packFixture(slug = "a").uri, c.uri), status.items.map { it.uri })
+        }
 }

@@ -99,6 +99,43 @@ class DefaultExploreRepositoryTest {
         }
 
     @Test
+    fun `suggested accounts are de-duplicated by did, keeping the first`() =
+        runTest {
+            actorsBody =
+                """
+                {"actors": [
+                  {"did": "did:plc:a", "handle": "a.bsky.social", "displayName": "First A"},
+                  {"did": "did:plc:b", "handle": "b.bsky.social", "displayName": "B"},
+                  {"did": "did:plc:a", "handle": "a.bsky.social", "displayName": "Second A"}
+                ]}
+                """.trimIndent()
+            val (_, repo) = newRepo { route(it) }
+
+            repo.load()
+
+            assertEquals(
+                listOf("First A", "B"),
+                repo.content.value.accounts
+                    .map { it.displayName },
+            )
+        }
+
+    @Test
+    fun `suggested feeds are de-duplicated by uri, keeping the first`() =
+        runTest {
+            feedsBody = """{"feeds": [${feedJson("a", "First A")}, ${feedJson("b", "B")}, ${feedJson("a", "Second A")}]}"""
+            val (_, repo) = newRepo { route(it) }
+
+            repo.load()
+
+            assertEquals(
+                listOf("First A", "B"),
+                repo.content.value.feeds
+                    .map { it.feed.displayName },
+            )
+        }
+
+    @Test
     fun `a pack without a usable name is left out and an all-unusable payload is Empty`() =
         runTest {
             packsBody = packsJson(packJson("a", ""))
@@ -616,6 +653,13 @@ class DefaultExploreRepositoryTest {
         slug: String,
         name: String,
     ) = """{"uri": "at://did:plc:m7h/app.bsky.graph.starterpack/$slug", "cid": "bafyreigbqzmnwqk6larzrtakh4r2d7ojjw46a6yzfrgmzpr3af5c2hvbhu", "record": {"name": "$name"}, "creator": {"did": "did:plc:m7h", "handle": "x3nu.bsky.social"}, "indexedAt": "2025-02-26T06:24:41.554Z"}"""
+
+    private fun feedJson(
+        rkey: String,
+        name: String,
+    ) = """{"uri": "at://did:plc:gen/app.bsky.feed.generator/$rkey", "cid": "bafyreitest1", "did": "did:plc:gen",
+        "displayName": "$name", "indexedAt": "2026-01-01T00:00:00Z",
+        "creator": {"did": "did:plc:creator", "handle": "creator.bsky.social"}}"""
 
     private fun packsJson(vararg packs: String) = """{"recIdStr": "1", "starterPacks": [${packs.joinToString(",")}]}"""
 
