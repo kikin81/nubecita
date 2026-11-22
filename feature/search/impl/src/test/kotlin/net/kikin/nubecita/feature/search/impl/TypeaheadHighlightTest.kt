@@ -35,6 +35,18 @@ class TypeaheadHighlightTest {
     }
 
     @Test
+    fun `a query with a dot is matched against the full handle`() {
+        assertEquals(
+            listOf(0 until 10),
+            highlightRanges(text = "alice.bsky.social", query = "alice.bsky", isHandle = true),
+        )
+        assertEquals(
+            listOf(0 until 17),
+            highlightRanges(text = "alice.bsky.social", query = "alice.bsky.social", isHandle = true),
+        )
+    }
+
+    @Test
     fun `a query matching only the suffix highlights nothing`() {
         assertEquals(
             emptyList<IntRange>(),

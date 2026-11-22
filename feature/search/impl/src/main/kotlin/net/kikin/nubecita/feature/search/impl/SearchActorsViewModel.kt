@@ -2,11 +2,14 @@ package net.kikin.nubecita.feature.search.impl
 
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
@@ -18,10 +21,15 @@ import net.kikin.nubecita.core.analytics.InteractActor
 import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.analytics.SearchPerform
 import net.kikin.nubecita.core.analytics.SearchScope
+import net.kikin.nubecita.core.auth.SessionState
+import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.postinteractions.FollowRepository
 import net.kikin.nubecita.data.models.ActorUi
+import net.kikin.nubecita.feature.search.impl.data.FollowOverlay
+import net.kikin.nubecita.feature.search.impl.data.FollowOverride
 import net.kikin.nubecita.feature.search.impl.data.SearchFirstPages
+import net.kikin.nubecita.feature.search.impl.data.withFollowOverride
 import javax.inject.Inject
 
 /**
@@ -64,6 +72,8 @@ internal class SearchActorsViewModel
         private val repository: ActorRepository,
         private val firstPages: SearchFirstPages,
         private val followRepository: FollowRepository,
+        private val followOverlay: FollowOverlay,
+        private val sessionStateProvider: SessionStateProvider,
         private val analytics: AnalyticsClient,
     ) : MviViewModel<SearchActorsState, SearchActorsEvent, SearchActorsEffect>(SearchActorsState()) {
         private data class FetchKey(
@@ -82,6 +92,14 @@ internal class SearchActorsViewModel
         private val fetchKey = MutableStateFlow(FetchKey(query = "", incarnation = 0, fromRecent = false, submission = 0))
 
         init {
+            followOverlay.overrides
+                .onEach { overrides -> mapLoadedItems { it.withFollowOverride(overrides) } }
+                .launchIn(viewModelScope)
+            sessionStateProvider.state
+                .map { (it as? SessionState.SignedIn)?.did }
+                .distinctUntilChanged()
+                .onEach { did -> setState { copy(viewerDid = did) } }
+                .launchIn(viewModelScope)
             fetchKey
                 .onEach { key -> setState { copy(currentQuery = key.query) } }
                 .mapLatest { key ->
@@ -127,14 +145,16 @@ internal class SearchActorsViewModel
          * the screen. Analytics fires on success only.
          */
         private fun onFollowTapped(did: String) {
+            if (did == uiState.value.viewerDid) return
             if (activeFollowJobs[did]?.isActive == true) return
             val actor = loadedItems().find { it.did == did } ?: return
-            val priorFollowUri = actor.followUri
+            val previousOverride = followOverlay.overrides.value[did]
 
             if (actor.isFollowing) {
                 // An account known to be followed without its record URI cannot be unfollowed.
-                val followUri = priorFollowUri ?: return
+                val followUri = actor.followUri ?: return
                 updateActor(did) { it.copy(isFollowing = false, followUri = null) }
+                followOverlay.set(did, FollowOverride(isFollowing = false, followUri = null))
                 activeFollowJobs[did] =
                     viewModelScope.launch {
                         followRepository
@@ -143,23 +163,47 @@ internal class SearchActorsViewModel
                                 analytics.log(InteractActor(ActorAction.Unfollow, PostSurface.Search))
                             }.onFailure {
                                 updateActor(did) { it.copy(isFollowing = true, followUri = followUri) }
+                                restoreOverride(did, previousOverride)
                                 sendEffect(SearchActorsEffect.FollowFailed(wasUnfollow = true))
                             }
                     }
             } else {
                 updateActor(did) { it.copy(isFollowing = true) }
+                followOverlay.set(did, FollowOverride(isFollowing = true, followUri = null))
                 activeFollowJobs[did] =
                     viewModelScope.launch {
                         followRepository
                             .follow(did)
                             .onSuccess { newFollowUri ->
+                                followOverlay.set(did, FollowOverride(isFollowing = true, followUri = newFollowUri))
                                 updateActor(did) { it.copy(isFollowing = true, followUri = newFollowUri) }
                                 analytics.log(InteractActor(ActorAction.Follow, PostSurface.Search))
                             }.onFailure {
                                 updateActor(did) { it.copy(isFollowing = false, followUri = null) }
+                                restoreOverride(did, previousOverride)
                                 sendEffect(SearchActorsEffect.FollowFailed(wasUnfollow = false))
                             }
                     }
+            }
+        }
+
+        /** Puts the overlay back to what it held before the optimistic write, or drops the entry. */
+        private fun restoreOverride(
+            did: String,
+            previous: FollowOverride?,
+        ) {
+            if (previous != null) followOverlay.set(did, previous) else followOverlay.clear(did)
+        }
+
+        private fun List<ActorUi>.withOverlay(): ImmutableList<ActorUi> {
+            val overrides = followOverlay.overrides.value
+            return map { it.withFollowOverride(overrides) }.toImmutableList()
+        }
+
+        private fun mapLoadedItems(transform: (ActorUi) -> ActorUi) {
+            setState {
+                val status = loadStatus as? SearchActorsLoadStatus.Loaded ?: return@setState this
+                copy(loadStatus = status.copy(items = status.items.map(transform).toImmutableList()))
             }
         }
 
@@ -194,7 +238,7 @@ internal class SearchActorsViewModel
                             SearchActorsLoadStatus.Empty
                         } else {
                             SearchActorsLoadStatus.Loaded(
-                                items = page.items,
+                                items = page.items.withOverlay(),
                                 nextCursor = page.nextCursor,
                                 endReached = page.nextCursor == null,
                             )
@@ -227,7 +271,7 @@ internal class SearchActorsViewModel
                         // query results onto a new-query list.
                         if (fetchKey.value != capturedKey) return@onSuccess
                         val current = uiState.value.loadStatus as? SearchActorsLoadStatus.Loaded ?: return@onSuccess
-                        val appended = (current.items + page.items).toImmutableList()
+                        val appended = (current.items + page.items.withOverlay()).toImmutableList()
                         setState {
                             copy(
                                 loadStatus =

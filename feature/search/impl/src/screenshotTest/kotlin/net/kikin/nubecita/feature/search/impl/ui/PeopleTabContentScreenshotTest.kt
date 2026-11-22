@@ -140,3 +140,44 @@ private fun PeopleTabContentInitialErrorNetworkScreenshot() {
         }
     }
 }
+
+@PreviewTest
+@Preview(name = "people-tab-own-row-no-follow-light", showBackground = true)
+@Preview(name = "people-tab-own-row-no-follow-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun PeopleTabContentOwnRowScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            PeopleTabContent(
+                state =
+                    SearchActorsState(
+                        currentQuery = "sci",
+                        viewerDid = "did:plc:me",
+                        loadStatus =
+                            SearchActorsLoadStatus.Loaded(
+                                items =
+                                    persistentListOf(
+                                        ActorUi(
+                                            did = "did:plc:me",
+                                            handle = "science.bsky.social",
+                                            displayName = "Science Digest (you)",
+                                            avatarUrl = null,
+                                            bio = "The signed-in account: no Follow button.",
+                                        ),
+                                        ActorUi(
+                                            did = "did:plc:other",
+                                            handle = "scifi.bsky.social",
+                                            displayName = "Sci-Fi Daily",
+                                            avatarUrl = null,
+                                            bio = "Another account: Follow shown.",
+                                        ),
+                                    ),
+                                nextCursor = null,
+                                endReached = true,
+                            ),
+                    ),
+                onEvent = {},
+            )
+        }
+    }
+}

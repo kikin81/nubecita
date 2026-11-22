@@ -23,6 +23,8 @@ import net.kikin.nubecita.data.models.ActorUi
 internal data class SearchActorsState(
     val currentQuery: String = "",
     val loadStatus: SearchActorsLoadStatus = SearchActorsLoadStatus.Idle,
+    /** The signed-in account, whose own row offers no Follow button. Null when signed out. */
+    val viewerDid: String? = null,
 ) : UiState
 
 /**

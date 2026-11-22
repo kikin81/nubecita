@@ -64,6 +64,7 @@ internal fun PeopleTabContent(
                 items = status.items,
                 isAppending = status.isAppending,
                 currentQuery = state.currentQuery,
+                viewerDid = state.viewerDid,
                 listState = listState,
                 onEvent = onEvent,
                 modifier = modifier,
@@ -105,6 +106,7 @@ private fun LoadedBody(
     items: ImmutableList<ActorUi>,
     isAppending: Boolean,
     currentQuery: String,
+    viewerDid: String?,
     listState: LazyListState,
     onEvent: (SearchActorsEvent) -> Unit,
     modifier: Modifier = Modifier,
@@ -115,7 +117,9 @@ private fun LoadedBody(
                 actor = actor,
                 query = currentQuery,
                 onClick = { onEvent(SearchActorsEvent.ActorTapped(actor.handle)) },
-                onFollowClick = { onEvent(SearchActorsEvent.FollowTapped(actor.did)) },
+                // The viewer can't follow themselves: their own row offers no button.
+                onFollowClick =
+                    if (actor.did == viewerDid) null else ({ onEvent(SearchActorsEvent.FollowTapped(actor.did)) }),
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }

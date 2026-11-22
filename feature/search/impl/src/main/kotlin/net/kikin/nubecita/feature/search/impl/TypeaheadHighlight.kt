@@ -9,7 +9,8 @@ private const val DEFAULT_HANDLE_SUFFIX = ".bsky.social"
  * A handle ending in the default `.bsky.social` suffix is only searched in its
  * first label: every account on that host shares the suffix, so a query like
  * "al" lighting up the end of "social" says nothing about why the account
- * matched. A custom-domain handle, and any display name ([isHandle] false), is
+ * matched. A query that itself contains a dot is deliberately about the
+ * domain, so it is matched against the whole handle. A custom-domain handle, and any display name ([isHandle] false), is
  * searched in full.
  */
 internal fun highlightRanges(
@@ -20,7 +21,7 @@ internal fun highlightRanges(
     val needle = query.trim().lowercase()
     if (needle.isEmpty()) return emptyList()
     val searchable =
-        if (isHandle && text.endsWith(DEFAULT_HANDLE_SUFFIX, ignoreCase = true)) {
+        if (isHandle && '.' !in needle && text.endsWith(DEFAULT_HANDLE_SUFFIX, ignoreCase = true)) {
             text.substringBefore('.').length
         } else {
             text.length
