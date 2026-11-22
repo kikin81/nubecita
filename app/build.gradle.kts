@@ -377,6 +377,8 @@ dependencies {
     implementation(project(":feature:search:impl"))
     implementation(project(":feature:settings:api"))
     implementation(project(":feature:settings:impl"))
+    implementation(project(":feature:starterpack:api"))
+    implementation(project(":feature:starterpack:impl"))
     implementation(project(":feature:videoplayer:api"))
     implementation(project(":feature:videoplayer:impl"))
     implementation(project(":feature:videos:api"))

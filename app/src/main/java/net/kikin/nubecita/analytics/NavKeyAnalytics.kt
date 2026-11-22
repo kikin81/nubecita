@@ -49,6 +49,7 @@ import net.kikin.nubecita.feature.settings.api.Moderation
 import net.kikin.nubecita.feature.settings.api.Settings
 import net.kikin.nubecita.feature.settings.api.Translation
 import net.kikin.nubecita.feature.settings.api.WatchSettings
+import net.kikin.nubecita.feature.starterpack.api.StarterPack
 import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
 import net.kikin.nubecita.feature.videos.api.VideoFeed
 
@@ -111,6 +112,7 @@ internal fun NavKey.toAnalyticsScreenOrNull(): AnalyticsScreen? =
         is FeedView -> AnalyticsScreen.FeedView
         Feeds -> AnalyticsScreen.Feeds
         is Hashtag -> AnalyticsScreen.Hashtag
+        is StarterPack -> AnalyticsScreen.StarterPack
         is PaywallRoute -> AnalyticsScreen.Paywall
         BlockedAccounts -> AnalyticsScreen.BlockedAccounts
         SafetyAndReporting -> AnalyticsScreen.SafetyAndReporting

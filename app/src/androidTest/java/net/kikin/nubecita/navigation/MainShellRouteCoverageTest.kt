@@ -34,6 +34,7 @@ import net.kikin.nubecita.feature.settings.api.AboutLicenses
 import net.kikin.nubecita.feature.settings.api.ContentFilters
 import net.kikin.nubecita.feature.settings.api.Moderation
 import net.kikin.nubecita.feature.settings.api.Settings
+import net.kikin.nubecita.feature.starterpack.api.StarterPack
 import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -153,6 +154,7 @@ class MainShellRouteCoverageTest {
                 Block.forAccount(did = "did:plc:test", handle = "test.bsky.social"),
                 SafetyAndReporting,
                 Feeds,
+                StarterPack(uri = "at://did:plc:test/app.bsky.graph.starterpack/test"),
             )
 
         val OUTER_SHELL_ROUTES: List<NavKey> =
