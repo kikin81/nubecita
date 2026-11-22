@@ -46,13 +46,16 @@ internal class FeedPinToggle
         ): Boolean {
             if (activeJobs[uri]?.isActive == true) return false
             onOptimistic(!isPinned)
-            activeJobs[uri] =
+            val job =
                 scope.launch {
                     val result = if (isPinned) repository.unpinFeed(uri) else repository.pinFeed(uri)
                     result
                         .onSuccess { onOutcome(if (isPinned) PinOutcome.Unpinned else PinOutcome.Pinned) }
                         .onFailure { onOutcome(if (isPinned) PinOutcome.UnpinFailed else PinOutcome.PinFailed) }
                 }
+            activeJobs[uri] = job
+            // Registered after the put, so a job that already finished is still removed.
+            job.invokeOnCompletion { activeJobs.remove(uri, job) }
             return true
         }
     }
