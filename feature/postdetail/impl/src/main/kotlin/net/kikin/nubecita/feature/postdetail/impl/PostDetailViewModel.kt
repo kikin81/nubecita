@@ -23,6 +23,7 @@ import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.posting.OutgoingPost
 import net.kikin.nubecita.core.posting.OutgoingPostStore
 import net.kikin.nubecita.core.posting.toUi
+import net.kikin.nubecita.core.postinteractions.FollowRepository
 import net.kikin.nubecita.core.postinteractions.PostInteractionHandler
 import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
@@ -32,6 +33,7 @@ import net.kikin.nubecita.core.posttranslation.PostTranslations
 import net.kikin.nubecita.data.models.OutgoingPostUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ThreadItem
+import net.kikin.nubecita.designsystem.component.FocusFollowState
 import net.kikin.nubecita.designsystem.component.PostOverflowAction
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.search.api.Hashtag
@@ -65,6 +67,7 @@ internal class PostDetailViewModel
         private val muteRepository: MuteRepository,
         private val handler: PostInteractionHandler,
         private val outgoingPostStore: OutgoingPostStore,
+        private val followRepository: FollowRepository,
         /**
          * The app-wide translation store, for the screen's Compose layer.
          *
@@ -134,6 +137,7 @@ internal class PostDetailViewModel
                 is PostDetailEvent.RetryOutgoing -> outgoingPostStore.retry(event.localId)
                 is PostDetailEvent.DiscardOutgoing -> outgoingPostStore.discard(event.localId)
                 PostDetailEvent.Refresh -> refresh()
+                PostDetailEvent.FocusFollowTapped -> onFocusFollowTapped()
                 PostDetailEvent.Retry -> load()
                 is PostDetailEvent.OnPostTapped -> sendEffect(PostDetailEffect.NavigateToPost(event.postUri))
                 is PostDetailEvent.OnQuotedPostTapped ->
@@ -294,6 +298,7 @@ internal class PostDetailViewModel
                                     items = items.applyInteractions(snapshot),
                                     loadStatus = PostDetailLoadStatus.Idle,
                                     isShowingCache = false,
+                                    focusFollow = focusFollow.from(items),
                                 )
                             }
                         }
@@ -366,6 +371,7 @@ internal class PostDetailViewModel
                                     items = items.applyInteractions(snapshot),
                                     loadStatus = PostDetailLoadStatus.Idle,
                                     isShowingCache = false,
+                                    focusFollow = focusFollow.from(items),
                                 )
                             }
                         }
@@ -391,6 +397,64 @@ internal class PostDetailViewModel
                     loadStatus = PostDetailLoadStatus.InitialError(error),
                 )
             }
+        }
+
+        /**
+         * The Follow toggle for a FRESH thread (never a cached one — follow
+         * state is not trusted from Room). Hidden on the viewer's own post, a
+         * blocked relationship, or an author already followed when the screen
+         * loaded; an in-session follow stays up as is.
+         */
+        private fun FocusFollowUi.from(items: List<ThreadItem>): FocusFollowUi {
+            val focus = items.firstNotNullOfOrNull { (it as? ThreadItem.Focus)?.post } ?: return FocusFollowUi()
+            val viewer = focus.viewer
+            return when {
+                viewer.isOwnPost || viewer.isAuthorBlockedByViewer || viewer.isAuthorBlockingViewer -> FocusFollowUi()
+                followedInSession -> this
+                focus.author.viewerFollowUri != null -> FocusFollowUi(followUri = focus.author.viewerFollowUri)
+                else -> FocusFollowUi(state = FocusFollowState.NotFollowing)
+            }
+        }
+
+        private fun onFocusFollowTapped() {
+            val prior = uiState.value.focusFollow
+            if (prior.isPending || prior.state == FocusFollowState.Hidden) return
+            val authorDid =
+                uiState.value.focusPost
+                    ?.author
+                    ?.did ?: return
+            when (prior.state) {
+                FocusFollowState.NotFollowing -> {
+                    setState {
+                        copy(focusFollow = prior.copy(state = FocusFollowState.Following, isPending = true, followedInSession = true))
+                    }
+                    viewModelScope.launch {
+                        followRepository
+                            .follow(authorDid)
+                            .onSuccess { uri -> setState { copy(focusFollow = focusFollow.copy(followUri = uri, isPending = false)) } }
+                            .onFailure { throwable -> rollbackFollow(prior, throwable) }
+                    }
+                }
+                FocusFollowState.Following -> {
+                    val followUri = prior.followUri ?: return
+                    setState { copy(focusFollow = prior.copy(state = FocusFollowState.NotFollowing, isPending = true)) }
+                    viewModelScope.launch {
+                        followRepository
+                            .unfollow(followUri)
+                            .onSuccess { setState { copy(focusFollow = focusFollow.copy(followUri = null, isPending = false)) } }
+                            .onFailure { throwable -> rollbackFollow(prior, throwable) }
+                    }
+                }
+                FocusFollowState.Hidden -> Unit
+            }
+        }
+
+        private fun rollbackFollow(
+            prior: FocusFollowUi,
+            throwable: Throwable,
+        ) {
+            setState { copy(focusFollow = prior) }
+            sendEffect(PostDetailEffect.ShowError(throwable.toPostDetailError()))
         }
 
         private fun Throwable.toPostDetailError(): PostDetailError =

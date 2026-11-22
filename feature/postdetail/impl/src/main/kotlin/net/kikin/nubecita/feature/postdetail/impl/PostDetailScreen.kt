@@ -9,20 +9,18 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -68,6 +66,8 @@ import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.data.models.quotedRecord
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.BlockedPostCard
+import net.kikin.nubecita.designsystem.component.FocusFollowState
+import net.kikin.nubecita.designsystem.component.FocusPostCard
 import net.kikin.nubecita.designsystem.component.MediaCover
 import net.kikin.nubecita.designsystem.component.NotFoundPostCard
 import net.kikin.nubecita.designsystem.component.NubecitaPullToRefreshBox
@@ -278,6 +278,7 @@ internal fun PostDetailScreen(
 
     val onRetry = remember(viewModel) { { viewModel.handleEvent(PostDetailEvent.Retry) } }
     val onRefresh = remember(viewModel) { { viewModel.handleEvent(PostDetailEvent.Refresh) } }
+    val onFocusFollowToggle = remember(viewModel) { { viewModel.handleEvent(PostDetailEvent.FocusFollowTapped) } }
     val onReply =
         remember(viewModel, haptics) {
             {
@@ -409,6 +410,7 @@ internal fun PostDetailScreen(
         modifier = modifier,
         listState = listState,
         translations = translations,
+        onFocusFollowToggle = onFocusFollowToggle,
     )
 }
 
@@ -433,6 +435,7 @@ internal fun PostDetailScreenContent(
     // which also drives translation from it.
     listState: LazyListState = rememberLazyListState(),
     translations: PostTranslationsHandle? = null,
+    onFocusFollowToggle: () -> Unit = {},
 ) {
     // The LazyColumn renders `items` 1:1 up to the focus (outgoing replies only
     // follow the focus or a reply), so this index IS the lazy-list index.
@@ -509,6 +512,8 @@ internal fun PostDetailScreenContent(
                     lastLikeTapPostUri = state.lastLikeTapPostUri,
                     lastRepostTapPostUri = state.lastRepostTapPostUri,
                     translations = translations,
+                    focusFollowState = state.focusFollow.state,
+                    onFocusFollowToggle = onFocusFollowToggle,
                 )
         }
     }
@@ -532,6 +537,8 @@ private fun LoadedThread(
     lastLikeTapPostUri: String? = null,
     lastRepostTapPostUri: String? = null,
     translations: PostTranslationsHandle? = null,
+    focusFollowState: FocusFollowState = FocusFollowState.Hidden,
+    onFocusFollowToggle: () -> Unit = {},
 ) {
     // Per-thread reveal state for covered (NSFW-labelled) media. Post-detail
     // covers (never drops) warned media, so every ancestor / focus / reply
@@ -603,23 +610,17 @@ private fun LoadedThread(
                         is ThreadItem.Focus -> {
                             val (videoSlot, quotedVideoSlot) =
                                 rememberThreadPostVideoSlots(item.post, onVideoTap)
-                            Surface(
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                shape = RoundedCornerShape(FOCUS_CONTAINER_CORNER_RADIUS),
-                            ) {
-                                // Every thread PostCard (ancestor / focus / reply)
-                                // wires onImageClick + onQuotedImageClick so a tap
-                                // on any post's image opens the media viewer for
-                                // THAT post instead of bubbling to the card tap and
-                                // opening the post's detail (nubecita-5g71). The
-                                // callback carries item.post.id so the viewer
-                                // resolves the tapped post, not the focus.
-                                PostCard(
+                            // No container: the focus sits on the canvas with
+                            // one gutter; emphasis comes from FocusPostCard's
+                            // header, type and counts row. Every thread post
+                            // (ancestor / focus / reply) wires onImageClick +
+                            // onQuotedImageClick so a tap on any post's image
+                            // opens the viewer for THAT post (nubecita-5g71).
+                            Column {
+                                FocusPostCard(
                                     post = item.post,
+                                    followState = focusFollowState,
+                                    onFollowToggle = onFocusFollowToggle,
                                     callbacks = callbacks,
                                     onImageClick = { index -> onPostImageClick(item.post.id, index) },
                                     onQuotedImageClick = onQuotedImageClick,
@@ -633,6 +634,7 @@ private fun LoadedThread(
                                     onTranslate = { translations?.translate(item.post) },
                                     onToggleTranslation = { translations?.toggleOriginal(item.post.id) },
                                 )
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             }
                         }
                         is ThreadItem.Reply -> {
@@ -877,16 +879,6 @@ private fun PostDetailScreenPreviewHost(state: PostDetailState) {
         )
     }
 }
-
-/**
- * Container shape radius for the Focus Post per `add-postdetail-m3-expressive-treatment`
- * design Decision 1. 24dp gives an ~8dp visual breathing margin between
- * PostCard's internal 16dp text padding and the surface's rounded edge.
- * Risks-section fallback: if the corner clips PostCard's padding awkwardly
- * (e.g. on a wide-screen tablet split-pane), drop to 20dp before introducing
- * any custom drawing.
- */
-private val FOCUS_CONTAINER_CORNER_RADIUS = 24.dp
 
 /**
  * Stable `testTag` on the loaded thread's `LazyColumn`. Surfaced as a bare
