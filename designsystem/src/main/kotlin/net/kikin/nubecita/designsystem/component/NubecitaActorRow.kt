@@ -157,10 +157,15 @@ fun NubecitaActorRow(
                     )
                 if (handleHighlightRanges != null) {
                     // The ranges index the bare handle; the line shows it after a prefix.
-                    val prefix = handleText.indexOf(actor.handle).coerceAtLeast(0)
+                    val offset = handleOffsetIn(handleText, actor.handle)
                     HighlightedText(
                         text = handleText,
-                        ranges = handleHighlightRanges.map { (it.first + prefix)..(it.last + prefix) },
+                        ranges =
+                            if (offset == null) {
+                                emptyList()
+                            } else {
+                                handleHighlightRanges.map { (it.first + offset)..(it.last + offset) }
+                            },
                         style = handleStyle,
                     )
                 } else {
@@ -179,3 +184,13 @@ fun NubecitaActorRow(
 
 /** Keeps the compact row's avatar in proportion with its reduced type. */
 private val COMPACT_AVATAR_SIZE = 36.dp
+
+/**
+ * Where [handle] starts inside the formatted handle line [text], or null when it
+ * is not there. The handle is the end of that line, so the last occurrence is
+ * the right one even if a localized prefix happens to contain the same word.
+ */
+internal fun handleOffsetIn(
+    text: String,
+    handle: String,
+): Int? = text.lastIndexOf(handle).takeIf { it >= 0 }
