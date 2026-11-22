@@ -41,6 +41,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
@@ -79,7 +81,11 @@ internal fun SearchScreen(
     postsViewModel: SearchPostsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val postsState by postsViewModel.uiState.collectAsStateWithLifecycle()
+    // Only the estimate: collecting the whole Posts state would recompose this screen on every
+    // Posts emission (each page, each like).
+    val postsHitsTotal by remember(postsViewModel) {
+        postsViewModel.uiState.map { it.hitsTotal }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = postsViewModel.uiState.value.hitsTotal)
     val discoverState by discoverViewModel.uiState.collectAsStateWithLifecycle()
 
     val onEvent = remember(viewModel) { viewModel::handleEvent }
@@ -163,7 +169,7 @@ internal fun SearchScreen(
         selectedTab = state.selectedTab,
         filters = state.filters,
         isFilterSheetOpen = state.isFilterSheetOpen,
-        postsHitsTotal = postsState.hitsTotal,
+        postsHitsTotal = postsHitsTotal,
         recentSearches = state.recentSearches,
         onEvent = onEvent,
         onClearQueryRequest = onClearQueryRequest,

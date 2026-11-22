@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -49,12 +50,14 @@ internal fun ActorRow(
     onFollowClick: (() -> Unit)? = null,
 ) {
     val bio = actor.bio
+    // Remembered so the shared row sees the same list instance and can skip.
+    val handleRanges = remember(actor.handle, query) { highlightRanges(text = actor.handle, query = query, isHandle = true) }
     NubecitaActorRow(
         actor = actor,
         onClick = onClick,
         modifier = modifier,
         query = query,
-        handleHighlightRanges = highlightRanges(text = actor.handle, query = query, isHandle = true),
+        handleHighlightRanges = handleRanges,
         trailingContent =
             if (onFollowClick != null) {
                 { FollowButton(actor = actor, onClick = onFollowClick) }

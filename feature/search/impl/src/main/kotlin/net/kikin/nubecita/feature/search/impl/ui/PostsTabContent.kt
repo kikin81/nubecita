@@ -159,7 +159,7 @@ private fun LoadedBody(
         modifier = modifier.fillMaxSize().testTag(SearchTestTags.POSTS_LIST),
         state = listState,
     ) {
-        items(items = items, key = { it.post.id }) { item ->
+        items(items = items, key = { it.post.id }, contentType = { "post" }) { item ->
             PostCard(
                 post = item.post,
                 bodyMatch = currentQuery.takeIf { it.isNotBlank() },
@@ -176,7 +176,7 @@ private fun LoadedBody(
             )
         }
         if (isAppending) {
-            item("appending-indicator") {
+            item(key = "appending-indicator", contentType = "appending") {
                 Box(
                     modifier =
                         Modifier

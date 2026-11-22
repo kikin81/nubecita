@@ -112,7 +112,7 @@ private fun LoadedBody(
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(modifier = modifier.fillMaxSize(), state = listState) {
-        items(items = items, key = { it.did }) { actor ->
+        items(items = items, key = { it.did }, contentType = { "actor" }) { actor ->
             ActorRow(
                 actor = actor,
                 query = currentQuery,
@@ -124,7 +124,7 @@ private fun LoadedBody(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
         if (isAppending) {
-            item("appending-indicator") {
+            item(key = "appending-indicator", contentType = "appending") {
                 Box(
                     modifier =
                         Modifier
