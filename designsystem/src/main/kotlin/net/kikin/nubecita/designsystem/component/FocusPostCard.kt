@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalToggleButton
@@ -17,6 +16,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleButtonSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.key
@@ -177,11 +177,25 @@ private fun FocusHeader(
         }
         if (followState != FocusFollowState.Hidden) {
             val following = followState == FocusFollowState.Following
-            FilledTonalToggleButton(checked = following, onCheckedChange = { onFollowToggle() }) {
-                if (following) {
-                    NubecitaIcon(name = NubecitaIconName.Check, contentDescription = null)
-                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                }
+            // Extra Small (32dp) keeps the toggle subordinate to the author
+            // identity; the 48dp touch target is still enforced by the Surface.
+            FilledTonalToggleButton(
+                checked = following,
+                onCheckedChange = { onFollowToggle() },
+                buttonSize = ToggleButtonSize.ExtraSmall,
+                icon =
+                    if (following) {
+                        {
+                            NubecitaIcon(
+                                name = NubecitaIconName.Check,
+                                contentDescription = null,
+                                opticalSize = ButtonDefaults.ExtraSmallIconSize,
+                            )
+                        }
+                    } else {
+                        null
+                    },
+            ) {
                 Text(stringResource(if (following) R.string.focus_post_following else R.string.focus_post_follow))
             }
         }
