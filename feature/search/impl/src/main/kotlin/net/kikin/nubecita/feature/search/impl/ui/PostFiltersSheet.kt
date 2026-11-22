@@ -212,13 +212,14 @@ internal fun PostFiltersSheetContent(
             )
         }
 
+        val shown = shownHitsTotal(hitsTotal)
         Button(
             onClick = onDone,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(
-                if (hitsTotal != null) {
-                    stringResource(R.string.search_filter_sheet_show_count, rememberCompactCount(hitsTotal))
+                if (shown != null) {
+                    stringResource(R.string.search_filter_sheet_show_count, rememberCompactCount(shown))
                 } else {
                     stringResource(R.string.search_filter_sheet_show_results)
                 },

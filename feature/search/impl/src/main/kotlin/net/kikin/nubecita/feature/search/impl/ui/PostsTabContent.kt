@@ -35,10 +35,11 @@ import net.kikin.nubecita.designsystem.component.PostCard
 import net.kikin.nubecita.feature.search.impl.SearchPostsEvent
 import net.kikin.nubecita.feature.search.impl.SearchPostsLoadStatus
 import net.kikin.nubecita.feature.search.impl.SearchPostsState
+import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
 
 /**
  * Stateless body for the Posts tab. Branches on
- * [SearchPostsState.loadStatus]; renders the filter header (chips + count) above non-Idle
+ * [SearchPostsState.loadStatus]; pins the filter header (chips + count) above non-Idle
  * states; for Loaded uses a LazyColumn of PostCards with bodyMatch
  * highlighting; for Loaded + isAppending shows a bottom progress row.
  *
@@ -65,71 +66,72 @@ internal fun PostsTabContent(
     onOpenImage: (postUri: String, imageIndex: Int) -> Unit = { _, _ -> },
 ) {
     val currentOnEvent by rememberUpdatedState(onEvent)
+    val status = state.loadStatus
 
-    when (val status = state.loadStatus) {
-        SearchPostsLoadStatus.Idle ->
-            Box(modifier = modifier.fillMaxSize())
-        SearchPostsLoadStatus.InitialLoading ->
-            Column(modifier = modifier.fillMaxSize()) {
-                FilterHeader(state = state, hitsTotal = null, onEvent = onEvent)
-                PostsLoadingBody()
-            }
-        is SearchPostsLoadStatus.Loaded -> {
-            LoadedBody(
-                items = status.items,
-                isAppending = status.isAppending,
-                currentQuery = state.currentQuery,
-                state = state,
-                hitsTotal = status.hitsTotal,
-                listState = listState,
-                callbacks = callbacks,
-                tapMarkers = tapMarkers,
-                translations = translations,
-                onOpenImage = onOpenImage,
+    // One column for every state, with the filter header outside the `when`: the
+    // header keeps its place in the composition across Loading -> Loaded -> Empty,
+    // so the chip row's scroll position and open menus survive a filter change.
+    // It stays pinned above the body; Idle shows nothing, header included.
+    Column(modifier = modifier.fillMaxSize()) {
+        if (status !is SearchPostsLoadStatus.Idle) {
+            FilterHeader(
+                filters = state.filters,
+                hitsTotal = state.hitsTotal,
                 onEvent = onEvent,
-                modifier = modifier,
             )
-            // Pagination trigger — exactly once per threshold crossing.
-            // Drop `isAppending` from the LaunchedEffect key: the inner guard
-            // already enforces single-flight, and re-keying every time the
-            // flag flips tears down + restarts the snapshotFlow needlessly.
-            // `currentStatus` is the latest Loaded value at collect time so
-            // the inner read of endReached / isAppending stays fresh.
-            val currentStatus by rememberUpdatedState(status)
-            LaunchedEffect(listState) {
-                snapshotFlow {
-                    val lastVisible =
-                        listState.layoutInfo.visibleItemsInfo
-                            .lastOrNull()
-                            ?.index ?: 0
-                    lastVisible > currentStatus.items.size - PAGINATION_PREFETCH_DISTANCE
-                }.distinctUntilChanged()
-                    .collect { pastThreshold ->
-                        if (!pastThreshold) return@collect
-                        if (currentStatus.endReached || currentStatus.isAppending) return@collect
-                        currentOnEvent(SearchPostsEvent.LoadMore)
-                    }
-            }
         }
-        SearchPostsLoadStatus.Empty ->
-            Column(modifier = modifier.fillMaxSize()) {
-                FilterHeader(state = state, hitsTotal = null, onEvent = onEvent)
+        when (status) {
+            SearchPostsLoadStatus.Idle -> Box(modifier = Modifier.weight(1f).fillMaxWidth())
+            SearchPostsLoadStatus.InitialLoading -> PostsLoadingBody()
+            is SearchPostsLoadStatus.Loaded -> {
+                LoadedBody(
+                    items = status.items,
+                    isAppending = status.isAppending,
+                    currentQuery = state.currentQuery,
+                    listState = listState,
+                    callbacks = callbacks,
+                    tapMarkers = tapMarkers,
+                    translations = translations,
+                    onOpenImage = onOpenImage,
+                    modifier = Modifier.weight(1f),
+                )
+                // Pagination trigger — exactly once per threshold crossing.
+                // Drop `isAppending` from the LaunchedEffect key: the inner guard
+                // already enforces single-flight, and re-keying every time the
+                // flag flips tears down + restarts the snapshotFlow needlessly.
+                // `currentStatus` is the latest Loaded value at collect time so
+                // the inner read of endReached / isAppending stays fresh.
+                val currentStatus by rememberUpdatedState(status)
+                LaunchedEffect(listState) {
+                    snapshotFlow {
+                        val lastVisible =
+                            listState.layoutInfo.visibleItemsInfo
+                                .lastOrNull()
+                                ?.index ?: 0
+                        lastVisible > currentStatus.items.size - PAGINATION_PREFETCH_DISTANCE
+                    }.distinctUntilChanged()
+                        .collect { pastThreshold ->
+                            if (!pastThreshold) return@collect
+                            if (currentStatus.endReached || currentStatus.isAppending) return@collect
+                            currentOnEvent(SearchPostsEvent.LoadMore)
+                        }
+                }
+            }
+            SearchPostsLoadStatus.Empty ->
                 PostsEmptyBody(
                     currentQuery = state.currentQuery,
                     currentSort = state.sort,
                     onClearQuery = { onEvent(SearchPostsEvent.ClearQueryClicked) },
                     onToggleSort = { onEvent(SearchPostsEvent.SortClicked(it)) },
+                    modifier = Modifier.weight(1f),
                 )
-            }
-        is SearchPostsLoadStatus.InitialError ->
-            Column(modifier = modifier.fillMaxSize()) {
-                FilterHeader(state = state, hitsTotal = null, onEvent = onEvent)
+            is SearchPostsLoadStatus.InitialError ->
                 PostsInitialErrorBody(
                     error = status.error,
                     onRetry = { onEvent(SearchPostsEvent.Retry) },
                     modifier = Modifier.weight(1f),
                 )
-            }
+        }
     }
 }
 
@@ -138,14 +140,11 @@ private fun LoadedBody(
     items: ImmutableList<FeedItemUi.Single>,
     isAppending: Boolean,
     currentQuery: String,
-    state: SearchPostsState,
-    hitsTotal: Long?,
     listState: LazyListState,
     callbacks: PostCallbacks,
     tapMarkers: PostTapMarkers,
     translations: PostTranslationsHandle?,
     onOpenImage: (postUri: String, imageIndex: Int) -> Unit,
-    onEvent: (SearchPostsEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // Per-list reveal state for covered (NSFW-labelled) media — same shape as the
@@ -157,9 +156,6 @@ private fun LoadedBody(
         modifier = modifier.fillMaxSize().testTag("search_posts_list"),
         state = listState,
     ) {
-        item("filter-header") {
-            FilterHeader(state = state, hitsTotal = hitsTotal, onEvent = onEvent)
-        }
         items(items = items, key = { it.post.id }) { item ->
             PostCard(
                 post = item.post,
@@ -192,15 +188,15 @@ private fun LoadedBody(
     }
 }
 
-/** The filter row and count, wired to the VM; shown above every non-idle body. */
+/** The filter row and count, wired to the VM; pinned above every non-idle body. */
 @Composable
 private fun FilterHeader(
-    state: SearchPostsState,
+    filters: PostSearchFilters,
     hitsTotal: Long?,
     onEvent: (SearchPostsEvent) -> Unit,
 ) {
     PostsFilterHeader(
-        filters = state.filters,
+        filters = filters,
         hitsTotal = hitsTotal,
         onFiltersChange = { onEvent(SearchPostsEvent.FiltersChanged(it)) },
         onOpenSheet = { onEvent(SearchPostsEvent.OpenFilterSheetClicked) },

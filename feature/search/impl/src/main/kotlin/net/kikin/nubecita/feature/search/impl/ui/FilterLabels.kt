@@ -85,3 +85,9 @@ private fun languageDisplayName(
     val name = Locale.forLanguageTag(code).getDisplayLanguage(displayLocale)
     return name.ifBlank { code }.replaceFirstChar { it.titlecase(displayLocale) }
 }
+
+/**
+ * The count worth showing: positive only. The server's figure is an estimate
+ * and zero would read "about 0 posts", so null and zero both mean "show nothing".
+ */
+internal fun shownHitsTotal(hitsTotal: Long?): Long? = hitsTotal?.takeIf { it > 0 }

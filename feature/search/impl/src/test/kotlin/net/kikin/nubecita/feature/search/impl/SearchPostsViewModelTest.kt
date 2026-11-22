@@ -1052,21 +1052,98 @@ class SearchPostsViewModelTest {
             assertEquals(true, store.submitted.value?.isFilterSheetOpen)
         }
 
+    private fun respondWithCount(
+        query: String,
+        sort: SearchPostsSort,
+        hitsTotal: Long?,
+        empty: Boolean = false,
+    ) = repo.respond(
+        query = query,
+        cursor = null,
+        sort = sort,
+        items = if (empty) emptyList() else listOf(searchPostFixture(uri = "at://did:plc:fake/$query-$sort", text = query)),
+        hitsTotal = hitsTotal,
+    )
+
     @Test
-    fun `the first page's hitsTotal lands on Loaded`() =
+    fun `the first page's hitsTotal lands on the state`() =
         runTest {
             val vm = buildVm()
-            repo.respond(
-                query = "kotlin",
-                cursor = null,
-                sort = SearchPostsSort.TOP,
-                items = listOf(searchPostFixture(uri = "at://did:plc:fake/p1", text = "kotlin")),
-                hitsTotal = 1_240L,
-            )
+            respondWithCount("kotlin", SearchPostsSort.TOP, 1_240L)
 
             search("kotlin")
             runCurrent()
 
-            assertEquals(1_240L, (vm.uiState.value.loadStatus as SearchPostsLoadStatus.Loaded).hitsTotal)
+            assertEquals(1_240L, vm.uiState.value.hitsTotal)
+        }
+
+    @Test
+    fun `a filter change keeps the previous count until the new page lands`() =
+        runTest {
+            val vm = buildVm()
+            respondWithCount("kotlin", SearchPostsSort.TOP, 1_240L)
+            search("kotlin")
+            runCurrent()
+
+            // Gate the LATEST request so the reload stays in flight.
+            repo.gate("kotlin", null, SearchPostsSort.LATEST)
+            store.updateFilters { it.copy(sort = SearchPostsSort.LATEST) }
+            runCurrent()
+
+            assertEquals(SearchPostsLoadStatus.InitialLoading, vm.uiState.value.loadStatus)
+            assertEquals(1_240L, vm.uiState.value.hitsTotal)
+
+            respondWithCount("kotlin", SearchPostsSort.LATEST, 300L)
+            runCurrent()
+
+            assertEquals(300L, vm.uiState.value.hitsTotal)
+        }
+
+    @Test
+    fun `a new query drops the previous count at once`() =
+        runTest {
+            val vm = buildVm()
+            respondWithCount("kotlin", SearchPostsSort.TOP, 1_240L)
+            search("kotlin")
+            runCurrent()
+
+            repo.gate("compose", null, SearchPostsSort.TOP)
+            search("compose")
+            runCurrent()
+
+            assertEquals(SearchPostsLoadStatus.InitialLoading, vm.uiState.value.loadStatus)
+            assertEquals(null, vm.uiState.value.hitsTotal)
+        }
+
+    @Test
+    fun `an empty result clears the count`() =
+        runTest {
+            val vm = buildVm()
+            respondWithCount("kotlin", SearchPostsSort.TOP, 1_240L)
+            search("kotlin")
+            runCurrent()
+
+            respondWithCount("kotlin", SearchPostsSort.LATEST, 0L, empty = true)
+            store.updateFilters { it.copy(sort = SearchPostsSort.LATEST) }
+            runCurrent()
+
+            assertEquals(SearchPostsLoadStatus.Empty, vm.uiState.value.loadStatus)
+            assertEquals(null, vm.uiState.value.hitsTotal)
+        }
+
+    @Test
+    fun `a failed reload clears the count`() =
+        runTest {
+            val vm = buildVm()
+            respondWithCount("kotlin", SearchPostsSort.TOP, 1_240L)
+            search("kotlin")
+            runCurrent()
+
+            repo.fail(query = "kotlin", cursor = null, sort = SearchPostsSort.LATEST, throwable = IOException("down"))
+            store.updateFilters { it.copy(sort = SearchPostsSort.LATEST) }
+            runCurrent()
+
+            assertTrue(vm.uiState.value.loadStatus is SearchPostsLoadStatus.InitialError)
+            assertEquals(null, vm.uiState.value.hitsTotal)
         }
 }

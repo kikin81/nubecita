@@ -142,6 +142,8 @@ internal class SearchPostsViewModel
                     activeKey = key
                     setState {
                         copy(
+                            // A reload of the same query keeps the last count; a new query drops it.
+                            hitsTotal = hitsTotal.takeIf { currentQuery == key.query },
                             currentQuery = key.query,
                             sort = key.filters.sort,
                             filters = key.filters,
@@ -220,13 +222,20 @@ internal class SearchPostsViewModel
                                 items = deduped,
                                 nextCursor = page.nextCursor,
                                 endReached = page.nextCursor == null,
-                                hitsTotal = page.hitsTotal,
                             )
                         }
-                    setState { copy(loadStatus = nextStatus) }
+                    setState {
+                        copy(
+                            loadStatus = nextStatus,
+                            hitsTotal = page.hitsTotal.takeIf { nextStatus is SearchPostsLoadStatus.Loaded },
+                        )
+                    }
                 }.onFailure { throwable ->
                     setState {
-                        copy(loadStatus = SearchPostsLoadStatus.InitialError(throwable.toSearchPostsError()))
+                        copy(
+                            loadStatus = SearchPostsLoadStatus.InitialError(throwable.toSearchPostsError()),
+                            hitsTotal = null,
+                        )
                     }
                 }
         }

@@ -150,7 +150,7 @@ internal fun SearchScreen(
         selectedTab = state.selectedTab,
         filters = state.filters,
         isFilterSheetOpen = state.isFilterSheetOpen,
-        postsHitsTotal = (postsState.loadStatus as? SearchPostsLoadStatus.Loaded)?.hitsTotal,
+        postsHitsTotal = postsState.hitsTotal,
         recentSearches = state.recentSearches,
         onEvent = onEvent,
         onClearQueryRequest = onClearQueryRequest,

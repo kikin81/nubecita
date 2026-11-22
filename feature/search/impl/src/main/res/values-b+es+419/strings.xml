@@ -118,7 +118,11 @@
 
     <!-- 7d66.6: post filters + result count -->
     <string name="search_filter_row_sheet_description">Filtros</string>
-    <string name="search_filter_row_sheet_description_active">Filtros, %1$d activos</string>
+    <plurals name="search_filter_row_sheet_description_active">
+        <item quantity="one">Filtros, %1$d activo</item>
+        <item quantity="many">Filtros, %1$d activos</item>
+        <item quantity="other">Filtros, %1$d activos</item>
+    </plurals>
     <string name="search_filter_sort_description">Ordenar por: %1$s</string>
     <string name="search_filter_following">Siguiendo</string>
     <string name="search_filter_media">Multimedia</string>
@@ -136,7 +140,7 @@
     <string name="search_filter_date_range">%1$s – %2$s</string>
     <string name="search_filter_range_apply">Aplicar</string>
     <string name="search_filter_range_cancel">Cancelar</string>
-    <string name="search_posts_hits_total">Unas %1$s publicaciones</string>
+    <string name="search_posts_hits_total">Publicaciones: unas %1$s</string>
     <string name="search_filter_sheet_title">Filtros</string>
     <string name="search_filter_sheet_reset">Restablecer</string>
     <string name="search_filter_section_from">De</string>
@@ -148,6 +152,6 @@
     <string name="search_filter_replies_include">Incluir</string>
     <string name="search_filter_replies_hide">Ocultar respuestas</string>
     <string name="search_filter_replies_only">Solo respuestas</string>
-    <string name="search_filter_sheet_show_count">Mostrar unas %1$s publicaciones</string>
+    <string name="search_filter_sheet_show_count">Mostrar resultados (unos %1$s)</string>
     <string name="search_filter_sheet_show_results">Mostrar resultados</string>
 </resources>

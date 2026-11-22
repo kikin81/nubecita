@@ -32,6 +32,13 @@ internal data class SearchPostsState(
     /** Every filter of the submitted search, mirrored from the store; [sort] is its sort. */
     val filters: PostSearchFilters = PostSearchFilters(),
     val loadStatus: SearchPostsLoadStatus = SearchPostsLoadStatus.Idle,
+    /**
+     * The server's estimate of the total hits for [currentQuery], from the last
+     * first page that landed. Kept across a reload of the same query (a filter
+     * change) so the count does not flicker; cleared when the query changes or
+     * the reload ends in Empty or an error.
+     */
+    val hitsTotal: Long? = null,
 ) : UiState
 
 /**
@@ -58,8 +65,6 @@ internal sealed interface SearchPostsLoadStatus {
         val nextCursor: String?,
         val endReached: Boolean,
         val isAppending: Boolean = false,
-        /** The server's estimate of the total hits, from the first page; null when it gave none. */
-        val hitsTotal: Long? = null,
     ) : SearchPostsLoadStatus
 
     @Immutable

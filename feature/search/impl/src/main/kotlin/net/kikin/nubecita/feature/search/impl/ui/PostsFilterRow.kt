@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLocale
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -60,9 +61,7 @@ internal fun PostsFilterHeader(
             onFiltersChange = onFiltersChange,
             onOpenSheet = onOpenSheet,
         )
-        if (hitsTotal != null) {
-            PostsResultCount(hitsTotal = hitsTotal)
-        }
+        shownHitsTotal(hitsTotal)?.let { PostsResultCount(hitsTotal = it) }
     }
 }
 
@@ -157,7 +156,7 @@ private fun SheetChip(
 ) {
     val description =
         if (activeCount > 0) {
-            stringResource(R.string.search_filter_row_sheet_description_active, activeCount)
+            pluralStringResource(R.plurals.search_filter_row_sheet_description_active, activeCount, activeCount)
         } else {
             stringResource(R.string.search_filter_row_sheet_description)
         }

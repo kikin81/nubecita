@@ -129,4 +129,12 @@ class FilterLabelsTest {
 
         assertEquals(listOf("en"), choices.map { it.code })
     }
+
+    @Test
+    fun `the count is shown only when it is positive`() {
+        assertNull(shownHitsTotal(null))
+        assertNull(shownHitsTotal(0L))
+        assertEquals(1L, shownHitsTotal(1L))
+        assertEquals(1_240L, shownHitsTotal(1_240L))
+    }
 }

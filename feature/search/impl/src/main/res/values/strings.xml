@@ -187,7 +187,10 @@
 
     <!-- 7d66.6: post filters + result count -->
     <string name="search_filter_row_sheet_description">Filters</string>
-    <string name="search_filter_row_sheet_description_active">Filters, %1$d active</string>
+    <plurals name="search_filter_row_sheet_description_active">
+        <item quantity="one">Filters, %1$d active</item>
+        <item quantity="other">Filters, %1$d active</item>
+    </plurals>
     <string name="search_filter_sort_description">Sort by: %1$s</string>
     <string name="search_filter_following">Following</string>
     <string name="search_filter_media">Media</string>
@@ -205,7 +208,7 @@
     <string name="search_filter_date_range">%1$s – %2$s</string>
     <string name="search_filter_range_apply">Apply</string>
     <string name="search_filter_range_cancel">Cancel</string>
-    <string name="search_posts_hits_total">About %1$s posts</string>
+    <string name="search_posts_hits_total">Posts: about %1$s</string>
     <string name="search_filter_sheet_title">Filters</string>
     <string name="search_filter_sheet_reset">Reset</string>
     <string name="search_filter_section_from">From</string>
@@ -217,6 +220,6 @@
     <string name="search_filter_replies_include">Include</string>
     <string name="search_filter_replies_hide">Hide replies</string>
     <string name="search_filter_replies_only">Only replies</string>
-    <string name="search_filter_sheet_show_count">Show about %1$s posts</string>
+    <string name="search_filter_sheet_show_count">Show results (about %1$s)</string>
     <string name="search_filter_sheet_show_results">Show results</string>
 </resources>
