@@ -371,14 +371,18 @@ internal fun SearchScreenContent(
                     val pagerState = rememberPagerState(initialPage = selectedTab.ordinal, pageCount = { SearchTab.entries.size })
                     val currentOnEvent by rememberUpdatedState(onEvent)
                     LaunchedEffect(selectedTab, pagerState) {
-                        if (pagerState.currentPage != selectedTab.ordinal) {
+                        if (shouldFollowTab(selectedTab.ordinal, pagerState.targetPage, pagerState.isScrollInProgress)) {
                             pagerState.animateScrollToPage(selectedTab.ordinal)
                         }
                     }
+                    val currentSelectedTab by rememberUpdatedState(selectedTab)
                     LaunchedEffect(pagerState) {
-                        snapshotFlow { pagerState.settledPage }.collect { page ->
-                            currentOnEvent(SearchEvent.TabSelected(SearchTab.entries[page]))
-                        }
+                        snapshotFlow { pagerState.currentPage to pagerState.isScrollInProgress }
+                            .collect { (page, scrolling) ->
+                                if (shouldReportSettledPage(page, currentSelectedTab.ordinal, scrolling)) {
+                                    currentOnEvent(SearchEvent.TabSelected(SearchTab.entries[page]))
+                                }
+                            }
                     }
                     SearchResultsTabBar(
                         selectedTabIndex = pagerState.currentPage,
