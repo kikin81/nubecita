@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795246700429,
+  "lastUpdate": 1795333790834,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -4157,6 +4157,70 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 742,
             "range": "+/- 1.7%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "e5b78e778b52d72763237cf7c0f384d82254d92d",
+          "message": "ci(release): 1.384.1\n\n## [1.384.1](https://github.com/kikin81/nubecita/compare/v1.384.0...v1.384.1) (2026-11-22)\n\n### Bug Fixes\n\n* **designsystem:** shrink post-detail follow toggle to extra small ([#1232](https://github.com/kikin81/nubecita/issues/1232)) ([a60b093](https://github.com/kikin81/nubecita/commit/a60b093f790230ccecd28cced22c818fc64c18b2))",
+          "timestamp": "2026-11-22T06:59:10Z",
+          "url": "https://github.com/kikin81/nubecita/commit/e5b78e778b52d72763237cf7c0f384d82254d92d"
+        },
+        "date": 1795333788254,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 103,
+            "range": "+/- 4.2%",
+            "unit": "frames"
+          },
+          {
+            "name": "PostCommentsSheetBenchmark.dragAndScrollCommentsSheetOverVideoPlayback / frameCount",
+            "value": 688,
+            "range": "+/- 38.4%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1749.524,
+            "range": "+/- 13%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1490.1,
+            "range": "+/- 7.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1347.068,
+            "range": "+/- 29.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1133.809,
+            "range": "+/- 25.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 521,
+            "range": "+/- 1.8%",
             "unit": "frames"
           }
         ]
