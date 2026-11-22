@@ -9,6 +9,7 @@ import net.kikin.nubecita.data.models.ThreadPositionUi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -171,6 +172,30 @@ internal class PostThreadV2MapperTest {
             ).toRawThreadEntries().toThreadItems(ModerationPrefs.DEFAULT, viewerDid = null)
 
         assertEquals(listOf("focus:f", "reply:r1@1"), items.map { it.describe() })
+    }
+
+    @Test
+    fun `an anchor of a kind this app does not know makes the response unreadable`() {
+        // Skipping it would leave a thread with no opened post, which reads
+        // as "post not found" when the post is right there.
+        val response = response(other(0, "f", "threadItemFromTheFuture"), post(1, "r1", did = OTHER))
+
+        assertThrows(UnreadableOrderedThreadException::class.java) { response.toRawThreadEntries() }
+    }
+
+    @Test
+    fun `a post item whose shape has drifted is unreadable when it is the anchor`() {
+        // The SDK does not fail on a known item it cannot decode: it hands it
+        // back as an unknown one. `moreReplies` is required and missing here.
+        val drifted = post(0, "f").replace("\"moreReplies\": 0,", "")
+
+        assertThrows(UnreadableOrderedThreadException::class.java) { response(drifted).toRawThreadEntries() }
+    }
+
+    @Test
+    fun `a response with no anchor at all is unreadable`() {
+        assertThrows(UnreadableOrderedThreadException::class.java) { response().toRawThreadEntries() }
+        assertThrows(UnreadableOrderedThreadException::class.java) { response(post(1, "r1", did = OTHER)).toRawThreadEntries() }
     }
 
     @Test

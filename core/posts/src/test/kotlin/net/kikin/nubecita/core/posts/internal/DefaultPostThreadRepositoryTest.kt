@@ -205,6 +205,38 @@ internal class DefaultPostThreadRepositoryTest {
         }
 
     @Test
+    fun `a V2 response whose post items have drifted falls back to the v1 read and says so`() =
+        runTest {
+            // The shape the endpoint's "will change without notice" warning is
+            // about: the envelope still decodes, the item inside it does not.
+            val logs = mutableListOf<String>()
+            val tree =
+                object : Timber.Tree() {
+                    override fun log(
+                        priority: Int,
+                        tag: String?,
+                        message: String,
+                        t: Throwable?,
+                    ) {
+                        if (priority >= android.util.Log.WARN) logs += message
+                    }
+                }
+            Timber.plant(tree)
+            try {
+                val drifted = v2Json(v2Post(0, FOCUS).replace("\"moreReplies\":0,", ""))
+                val repo = repo(MockEngine { request -> if (request.isV2()) ok(drifted) else ok(THREAD_JSON) })
+
+                val items = repo.getOrderedThread(FOCUS).getOrThrow()
+
+                assertTrue(items.single() is ThreadItem.Focus)
+                assertTrue(logs.any { "getPostThreadV2" in it && "falling back" in it }, "logged: $logs")
+                coVerify(exactly = 0) { store.remove(any()) }
+            } finally {
+                Timber.uproot(tree)
+            }
+        }
+
+    @Test
     fun `a server that does not know V2 falls back to the v1 read`() =
         runTest {
             val repo =

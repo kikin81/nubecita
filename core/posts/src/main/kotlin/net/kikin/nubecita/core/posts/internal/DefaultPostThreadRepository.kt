@@ -187,14 +187,18 @@ internal class DefaultPostThreadRepository
         /**
          * Whether the ordered read failed in a way that means "this endpoint is
          * not usable from this build" rather than "this request failed": a
-         * response that does not decode, or a server that does not know the
-         * method or rejects how it was called. A connectivity failure, an auth
+         * response that does not decode, one whose anchor item the SDK could not
+         * read, or a server that does not know the method or rejects how it was
+         * called. A connectivity failure, an auth
          * failure and a post that is gone are none of those, and are returned
          * as they are.
          */
         private fun Throwable.isOrderedReadUnusable(): Boolean =
             when (this) {
                 is SerializationException -> true
+                // Decoded, but the SDK could not read the anchor item: drift
+                // inside the item union, which never surfaces as a decode error.
+                is UnreadableOrderedThreadException -> true
                 is XrpcError ->
                     status == HTTP_NOT_IMPLEMENTED ||
                         UNUSABLE_ERROR_NAMES.any { it.equals(errorName, ignoreCase = true) } ||

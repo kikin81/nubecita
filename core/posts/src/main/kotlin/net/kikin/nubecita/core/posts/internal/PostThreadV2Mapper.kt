@@ -7,8 +7,10 @@ import io.github.kikin81.atproto.app.bsky.unspecced.ThreadItemNoUnauthenticated
 import io.github.kikin81.atproto.app.bsky.unspecced.ThreadItemNotFound
 import io.github.kikin81.atproto.app.bsky.unspecced.ThreadItemPost
 import io.github.kikin81.atproto.runtime.OpenUnionMember
+import io.github.kikin81.atproto.runtime.UnknownOpenUnionMember
 import net.kikin.nubecita.core.database.model.ThreadSnapshotKind
 import net.kikin.nubecita.data.models.ThreadPositionUi
+import timber.log.Timber
 
 /**
  * Flattens `app.bsky.unspecced.getPostThreadV2` into [RawThreadEntry]s.
@@ -21,24 +23,57 @@ import net.kikin.nubecita.data.models.ThreadPositionUi
  *
  * A post the response carries twice keeps its first place: the list is keyed
  * by post, and a repeat would be a duplicate key further down. An item of a
- * kind this app does not model is skipped; the endpoint is experimental
- * upstream and a new kind must not cost the reader the rest of the thread.
+ * kind this app does not model is skipped (and logged); the endpoint is
+ * experimental upstream and a new kind must not cost the reader the rest of
+ * the thread.
+ *
+ * The anchor is the exception. The SDK does not fail on an item it cannot
+ * decode — a post whose shape has drifted comes back as an unknown kind, the
+ * same as a brand-new one — so "skip what is unknown" applied to the anchor
+ * would turn lexicon drift into a thread with no opened post, which the screen
+ * reads as "post not found". An unreadable or absent anchor therefore throws
+ * [UnreadableOrderedThreadException], and the repository falls back to the
+ * older thread read.
  *
  * `hasOtherReplies` becomes one trailing [ThreadSnapshotKind.OTHER_REPLIES]
  * entry, so the fact survives the snapshot cache with the thread it belongs to.
  */
 internal fun GetPostThreadV2Response.toRawThreadEntries(): List<RawThreadEntry> {
     val seen = HashSet<String>()
+    var skippedKinds: MutableSet<String>? = null
     val entries =
         thread.mapNotNull { item ->
             val uri = item.uri.raw
-            val entry = item.value.toRawThreadEntry(uri = uri, wireDepth = item.depth) ?: return@mapNotNull null
+            val entry = item.value.toRawThreadEntry(uri = uri, wireDepth = item.depth)
+            if (entry == null) {
+                if (item.depth == 0L) {
+                    throw UnreadableOrderedThreadException("the anchor is a thread item this build cannot read: ${item.value.kindName()}")
+                }
+                (skippedKinds ?: mutableSetOf<String>().also { skippedKinds = it }) += item.value.kindName()
+                return@mapNotNull null
+            }
             if (seen.add(uri)) entry else null
         }
+    // The server always returns the anchor, readable or as a tombstone. A
+    // response without one is not a thread this build understands.
+    if (thread.none { it.depth == 0L }) throw UnreadableOrderedThreadException("the response has no anchor item")
+    skippedKinds?.let { kinds ->
+        Timber.tag(TAG).w("getPostThreadV2 returned thread items this build cannot read; skipped kinds: %s", kinds.joinToString())
+    }
     if (!hasOtherReplies) return entries
     val focusUri = entries.firstOrNull { it.kind == ThreadSnapshotKind.FOCUS }?.uri ?: return entries
     return entries + RawThreadEntry(kind = ThreadSnapshotKind.OTHER_REPLIES, uri = focusUri, depth = 0)
 }
+
+/**
+ * The ordered thread read answered, but not with a thread this build can
+ * render: its anchor item is missing or of a kind the SDK could not decode.
+ */
+internal class UnreadableOrderedThreadException(
+    message: String,
+) : Exception(message)
+
+private const val TAG = "PostThreadV2Mapper"
 
 /**
  * The replies `getPostThreadV2` left out, as reply entries. The endpoint
@@ -52,6 +87,9 @@ internal fun GetPostThreadOtherV2Response.toRawThreadEntries(): List<RawThreadEn
         if (entry.kind == ThreadSnapshotKind.REPLY && seen.add(uri)) entry else null
     }
 }
+
+/** The wire `$type` of an item the SDK could not decode, for a log line. */
+private fun OpenUnionMember.kindName(): String = (this as? UnknownOpenUnionMember)?.type?.takeIf { it.isNotEmpty() } ?: this::class.simpleName.orEmpty()
 
 private fun OpenUnionMember.toRawThreadEntry(
     uri: String,
