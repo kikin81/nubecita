@@ -6,6 +6,7 @@ import net.kikin.nubecita.core.moderation.ContentLabel
 import net.kikin.nubecita.core.moderation.LabelVisibility
 import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.data.models.EmbedUi
+import net.kikin.nubecita.data.models.ThreadPositionUi
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
 import net.kikin.nubecita.feature.profile.impl.TabItemUi
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -221,6 +222,37 @@ internal class AuthorFeedMapperTest {
 
     // A single image post carrying one self-label. `labelValue` drives the
     // moderation decision against the prefs the test supplies.
+    @Test
+    fun `Posts tab carries the thread position the server put on the entry`() {
+        val feedJson =
+            """
+            {
+              "feed": [
+                {
+                  "opThreadPostIndex": 2,
+                  "opThreadPostCount": 5,
+                  "post": {
+                    "uri": "at://did:plc:bob/app.bsky.feed.post/t2",
+                    "cid": "cid-t2",
+                    "author": { "did": "did:plc:bob", "handle": "bob.bsky.social" },
+                    "indexedAt": "2026-06-02T12:00:00Z",
+                    "record": {
+                      "${'$'}type": "app.bsky.feed.post",
+                      "text": "second post of a thread",
+                      "createdAt": "2026-06-02T12:00:00Z"
+                    }
+                  }
+                }
+              ]
+            }
+            """.trimIndent()
+        val response = json.decodeFromString(GetAuthorFeedResponse.serializer(), feedJson)
+
+        val item = response.feed.toTabItems(ProfileTab.Posts, ModerationPrefs.DEFAULT, viewerDid = null).single()
+
+        assertEquals(ThreadPositionUi(index = 2, count = 5), (item as TabItemUi.Post).post.threadPosition)
+    }
+
     private fun labeledImagePostFeed(labelValue: String): String =
         """
         {

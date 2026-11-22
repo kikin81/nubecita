@@ -10,6 +10,7 @@ import kotlinx.collections.immutable.toImmutableList
 import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.ThreadPositionUi
 import timber.log.Timber
 
 /**
@@ -47,8 +48,34 @@ fun FeedViewPost.toPostUiOrNull(
     // dropFiltered = true: a hard-filtered timeline post is removed from the feed.
     val core = post.toModeratedPostUi(prefs, viewerDid, dropFiltered = true) ?: return null
     val repostedBy = (reason as? ReasonRepost)?.by?.let { it.displayName ?: it.handle.raw }
-    return if (repostedBy != null) core.copy(repostedBy = repostedBy) else core
+    val threadPosition = threadPositionOrNull()
+    return if (repostedBy != null || threadPosition != null) {
+        core.copy(repostedBy = repostedBy, threadPosition = threadPosition)
+    } else {
+        core
+    }
 }
+
+/**
+ * Where the server says this entry's post sits in its author's thread, or
+ * null. The numbering belongs to the feed entry, not to the post view, which
+ * is why it is read here rather than in `toPostUiCore`.
+ */
+fun FeedViewPost.threadPositionOrNull(): ThreadPositionUi? = ThreadPositionUi.of(index = opThreadPostIndex, count = opThreadPostCount)
+
+/**
+ * The positions the server gave to the posts of this page, by post URI.
+ *
+ * A feed entry numbers only its own post. When that post also shows up as the
+ * root or parent of another entry's reply cluster, the cluster uses this
+ * number rather than the one worked out from its leaf.
+ */
+fun List<FeedViewPost>.threadPositionsByUri(): Map<String, ThreadPositionUi> =
+    buildMap {
+        for (entry in this@threadPositionsByUri) {
+            entry.threadPositionOrNull()?.let { put(entry.post.uri.raw, it) }
+        }
+    }
 
 /**
  * Maps a [FeedViewPost] to the renderable [FeedItemUi] sealed type — the
@@ -73,6 +100,7 @@ fun FeedViewPost.toPostUiOrNull(
 fun FeedViewPost.toFeedItemUiOrNull(
     prefs: ModerationPrefs = ModerationPrefs.DEFAULT,
     viewerDid: String? = null,
+    numberedByUri: Map<String, ThreadPositionUi> = emptyMap(),
 ): FeedItemUi? {
     val leaf = toPostUiOrNull(prefs, viewerDid) ?: return null
     val replyRef = reply ?: return FeedItemUi.Single(leaf)
@@ -99,9 +127,14 @@ fun FeedViewPost.toFeedItemUiOrNull(
     val parent = parentPostView.toModeratedPostUi(prefs, viewerDid, dropFiltered = false) ?: return FeedItemUi.Single(leaf)
     val root = rootPostView.toModeratedPostUi(prefs, viewerDid, dropFiltered = false) ?: return FeedItemUi.Single(leaf)
 
+    // The entry numbers only its own post. A post at index n of an unbroken
+    // author chain replies to post n − 1 and is rooted at post 1, so the
+    // context posts' numbers follow exactly from the leaf's. A number the
+    // server gave the context post directly, elsewhere in the page, wins.
+    val leafPosition = leaf.threadPosition
     return FeedItemUi.ReplyCluster(
-        root = root,
-        parent = parent,
+        root = root.copy(threadPosition = numberedByUri[root.id] ?: leafPosition?.root()),
+        parent = parent.copy(threadPosition = numberedByUri[parent.id] ?: leafPosition?.parent()),
         leaf = leaf,
         hasEllipsis = replyRef.hasEllipsisRelativeToRoot(rootAuthorDid = root.author.did),
     )
@@ -161,6 +194,7 @@ fun List<FeedViewPost>.toFeedItemsUi(
 ): ImmutableList<FeedItemUi> {
     if (isEmpty()) return persistentListOf()
 
+    val numberedByUri = threadPositionsByUri()
     val out = mutableListOf<FeedItemUi>()
     val pendingChain = mutableListOf<PostUi>()
     var pendingChainPrev: FeedViewPost? = null
@@ -175,7 +209,7 @@ fun List<FeedViewPost>.toFeedItemsUi(
                 // reply context). The chain accumulator buffered the post
                 // hoping it would link to a successor; since it didn't,
                 // re-project from the wire to recover the canonical shape.
-                pendingChainPrev?.toFeedItemUiOrNull(prefs, viewerDid)?.let { out += it }
+                pendingChainPrev?.toFeedItemUiOrNull(prefs, viewerDid, numberedByUri)?.let { out += it }
             }
             else -> out += FeedItemUi.SelfThreadChain(posts = pendingChain.toImmutableList())
         }
