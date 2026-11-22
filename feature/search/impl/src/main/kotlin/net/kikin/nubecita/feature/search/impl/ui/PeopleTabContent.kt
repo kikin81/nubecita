@@ -115,6 +115,7 @@ private fun LoadedBody(
                 actor = actor,
                 query = currentQuery,
                 onClick = { onEvent(SearchActorsEvent.ActorTapped(actor.handle)) },
+                onFollowClick = { onEvent(SearchActorsEvent.FollowTapped(actor.did)) },
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }

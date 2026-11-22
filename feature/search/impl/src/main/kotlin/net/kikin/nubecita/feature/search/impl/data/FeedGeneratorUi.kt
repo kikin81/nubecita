@@ -19,6 +19,11 @@ import androidx.compose.runtime.Immutable
  * `avatarUrl` is nullable because feeds without a custom icon fall
  * back to `NubecitaAsyncImage`'s standard flat placeholder tile — the
  * same shape every other AsyncImage in the app degrades to.
+ *
+ * `isPinned` is false as mapped from the wire: whether the viewer pinned a feed
+ * is not on the generator view. The Feeds tab's presenter overlays it from
+ * `PinnedFeedsRepository.observePinnedFeeds()`, the same source the Discover
+ * tab seeds its pin state from.
  */
 @Immutable
 internal data class FeedGeneratorUi(
@@ -29,4 +34,5 @@ internal data class FeedGeneratorUi(
     val description: String?,
     val avatarUrl: String?,
     val likeCount: Long,
+    val isPinned: Boolean = false,
 )

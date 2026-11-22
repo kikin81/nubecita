@@ -4,6 +4,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.mapLatest
@@ -11,10 +12,15 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.actors.ActorRepository
+import net.kikin.nubecita.core.analytics.ActorAction
 import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.InteractActor
+import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.analytics.SearchPerform
 import net.kikin.nubecita.core.analytics.SearchScope
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.postinteractions.FollowRepository
+import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.feature.search.impl.data.SearchFirstPages
 import javax.inject.Inject
 
@@ -57,6 +63,7 @@ internal class SearchActorsViewModel
     constructor(
         private val repository: ActorRepository,
         private val firstPages: SearchFirstPages,
+        private val followRepository: FollowRepository,
         private val analytics: AnalyticsClient,
     ) : MviViewModel<SearchActorsState, SearchActorsEvent, SearchActorsEffect>(SearchActorsState()) {
         private data class FetchKey(
@@ -68,6 +75,9 @@ internal class SearchActorsViewModel
             /** The store's submission counter: an explicit re-submit of the same text is a new search. */
             val submission: Int,
         )
+
+        /** In-flight follow/unfollow jobs keyed by DID — drops rapid concurrent taps. */
+        private val activeFollowJobs = mutableMapOf<String, Job>()
 
         private val fetchKey = MutableStateFlow(FetchKey(query = "", incarnation = 0, fromRecent = false, submission = 0))
 
@@ -106,6 +116,68 @@ internal class SearchActorsViewModel
                     sendEffect(SearchActorsEffect.NavigateToClearQuery)
                 is SearchActorsEvent.ActorTapped ->
                     sendEffect(SearchActorsEffect.NavigateToProfile(event.handle))
+                is SearchActorsEvent.FollowTapped -> onFollowTapped(event.did)
+            }
+        }
+
+        /**
+         * Optimistic follow / unfollow, the same shape as `DiscoverViewModel`'s:
+         * flip first, call [FollowRepository], and on failure flip back on the
+         * CURRENT state (a targeted rollback, never a snapshot restore) and tell
+         * the screen. Analytics fires on success only.
+         */
+        private fun onFollowTapped(did: String) {
+            if (activeFollowJobs[did]?.isActive == true) return
+            val actor = loadedItems().find { it.did == did } ?: return
+            val priorFollowUri = actor.followUri
+
+            if (actor.isFollowing) {
+                // An account known to be followed without its record URI cannot be unfollowed.
+                val followUri = priorFollowUri ?: return
+                updateActor(did) { it.copy(isFollowing = false, followUri = null) }
+                activeFollowJobs[did] =
+                    viewModelScope.launch {
+                        followRepository
+                            .unfollow(followUri)
+                            .onSuccess {
+                                analytics.log(InteractActor(ActorAction.Unfollow, PostSurface.Search))
+                            }.onFailure {
+                                updateActor(did) { it.copy(isFollowing = true, followUri = followUri) }
+                                sendEffect(SearchActorsEffect.FollowFailed(wasUnfollow = true))
+                            }
+                    }
+            } else {
+                updateActor(did) { it.copy(isFollowing = true) }
+                activeFollowJobs[did] =
+                    viewModelScope.launch {
+                        followRepository
+                            .follow(did)
+                            .onSuccess { newFollowUri ->
+                                updateActor(did) { it.copy(isFollowing = true, followUri = newFollowUri) }
+                                analytics.log(InteractActor(ActorAction.Follow, PostSurface.Search))
+                            }.onFailure {
+                                updateActor(did) { it.copy(isFollowing = false, followUri = null) }
+                                sendEffect(SearchActorsEffect.FollowFailed(wasUnfollow = false))
+                            }
+                    }
+            }
+        }
+
+        private fun loadedItems(): List<ActorUi> = (uiState.value.loadStatus as? SearchActorsLoadStatus.Loaded)?.items.orEmpty()
+
+        /** Rewrites one row of the loaded list on the CURRENT state; a no-op when the list moved on. */
+        private fun updateActor(
+            did: String,
+            transform: (ActorUi) -> ActorUi,
+        ) {
+            setState {
+                val status = loadStatus as? SearchActorsLoadStatus.Loaded ?: return@setState this
+                copy(
+                    loadStatus =
+                        status.copy(
+                            items = status.items.map { if (it.did == did) transform(it) else it }.toImmutableList(),
+                        ),
+                )
             }
         }
 

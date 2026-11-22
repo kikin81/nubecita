@@ -66,8 +66,8 @@
     <string name="search_feeds_append_error_rate_limited">Más despacio: has estado buscando mucho.</string>
     <string name="search_feeds_append_error_unknown">No se pudieron cargar más feeds. Inténtalo de nuevo.</string>
     <plurals name="search_feeds_like_count">
-        <item quantity="one">%1$d Me gusta</item>
-        <item quantity="other">%1$d Me gusta</item>
+        <item quantity="one">%1$s Me gusta</item>
+        <item quantity="other">%1$s Me gusta</item>
     </plurals>
     <string name="search_feeds_row_byline_with_display_name">por %1$s (@%2$s)</string>
     <string name="search_feeds_row_byline_handle_only">por @%1$s</string>
@@ -154,4 +154,14 @@
     <string name="search_filter_replies_only">Solo respuestas</string>
     <string name="search_filter_sheet_show_count">Mostrar resultados (unos %1$s)</string>
     <string name="search_filter_sheet_show_results">Mostrar resultados</string>
+
+    <!-- 7d66.7: result-row polish — follow / pin buttons on People and Feeds rows -->
+    <string name="search_actor_follow_content_desc">Seguir a %1$s</string>
+    <string name="search_actor_unfollow_content_desc">Dejar de seguir a %1$s</string>
+    <string name="search_feed_pin_content_desc">Fijar %1$s</string>
+    <string name="search_feed_unpin_content_desc">Desfijar %1$s</string>
+    <string name="search_follow_error">No se pudo seguir. Inténtalo de nuevo.</string>
+    <string name="search_unfollow_error">No se pudo dejar de seguir. Inténtalo de nuevo.</string>
+    <string name="search_pin_error">No se pudo fijar el feed. Inténtalo de nuevo.</string>
+    <string name="search_unpin_error">No se pudo desfijar el feed. Inténtalo de nuevo.</string>
 </resources>

@@ -147,3 +147,105 @@ private fun ActorRowVerifiedLongNameScreenshot() {
         }
     }
 }
+
+private val SCIENCE_DIGEST =
+    ActorUi(
+        did = "did:plc:science",
+        handle = "science.bsky.social",
+        displayName = "Science Digest",
+        avatarUrl = null,
+        bio = "Daily papers, plainly explained.",
+    )
+
+@PreviewTest
+@Preview(name = "actor-row-bio-follow-light", showBackground = true)
+@Preview(name = "actor-row-bio-follow-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ActorRowBioFollowScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            ActorRow(actor = SCIENCE_DIGEST, query = "sci", onClick = {}, onFollowClick = {})
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "actor-row-following-light", showBackground = true)
+@Preview(name = "actor-row-following-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ActorRowFollowingScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            ActorRow(
+                actor = SCIENCE_DIGEST.copy(isFollowing = true, followUri = "at://did:plc:me/app.bsky.graph.follow/1"),
+                query = "sci",
+                onClick = {},
+                onFollowClick = {},
+            )
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "actor-row-no-bio-follow-light", showBackground = true)
+@Preview(name = "actor-row-no-bio-follow-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ActorRowNoBioFollowScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            // No bio: the row shows no empty line under the handle.
+            ActorRow(actor = SCIENCE_DIGEST.copy(bio = null), query = "sci", onClick = {}, onFollowClick = {})
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "actor-row-long-name-long-bio-light", showBackground = true)
+@Preview(name = "actor-row-long-name-long-bio-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ActorRowLongNameLongBioScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            ActorRow(
+                actor =
+                    SCIENCE_DIGEST.copy(
+                        displayName = "The Society For Slow And Careful Science Communication Worldwide",
+                        bio =
+                            "Daily papers, plainly explained, with a long enough bio that it cannot " +
+                                "fit on one line and has to ellipsize before the follow button.",
+                    ),
+                query = "",
+                onClick = {},
+                onFollowClick = {},
+            )
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "actor-row-bio-follow-es419", showBackground = true, locale = "b+es+419")
+@Preview(name = "actor-row-following-es419", showBackground = true, locale = "b+es+419")
+@Composable
+private fun ActorRowFollowEs419Screenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            ActorRow(actor = SCIENCE_DIGEST, query = "sci", onClick = {}, onFollowClick = {})
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "actor-row-suffix-not-highlighted-light", showBackground = true)
+@Composable
+private fun ActorRowSuffixNotHighlightedScreenshot() {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            // "al" is inside "social" as well as "alice": only the name part is highlighted.
+            ActorRow(
+                actor = SCIENCE_DIGEST.copy(handle = "alice.bsky.social", displayName = null, bio = null),
+                query = "al",
+                onClick = {},
+            )
+        }
+    }
+}

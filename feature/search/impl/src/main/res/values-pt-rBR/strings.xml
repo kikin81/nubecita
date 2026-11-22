@@ -66,8 +66,8 @@
     <string name="search_feeds_append_error_rate_limited">Mais devagar — você buscou bastante.</string>
     <string name="search_feeds_append_error_unknown">Não foi possível carregar mais feeds. Tente de novo.</string>
     <plurals name="search_feeds_like_count">
-        <item quantity="one">%1$d curtida</item>
-        <item quantity="other">%1$d curtidas</item>
+        <item quantity="one">%1$s curtida</item>
+        <item quantity="other">%1$s curtidas</item>
     </plurals>
     <string name="search_feeds_row_byline_with_display_name">por %1$s (@%2$s)</string>
     <string name="search_feeds_row_byline_handle_only">por @%1$s</string>
@@ -154,4 +154,14 @@
     <string name="search_filter_replies_only">Só respostas</string>
     <string name="search_filter_sheet_show_count">Mostrar resultados (cerca de %1$s)</string>
     <string name="search_filter_sheet_show_results">Mostrar resultados</string>
+
+    <!-- 7d66.7: result-row polish — follow / pin buttons on People and Feeds rows -->
+    <string name="search_actor_follow_content_desc">Seguir %1$s</string>
+    <string name="search_actor_unfollow_content_desc">Deixar de seguir %1$s</string>
+    <string name="search_feed_pin_content_desc">Fixar %1$s</string>
+    <string name="search_feed_unpin_content_desc">Desafixar %1$s</string>
+    <string name="search_follow_error">Não foi possível seguir. Tente novamente.</string>
+    <string name="search_unfollow_error">Não foi possível deixar de seguir. Tente novamente.</string>
+    <string name="search_pin_error">Não foi possível fixar o feed. Tente novamente.</string>
+    <string name="search_unpin_error">Não foi possível desafixar o feed. Tente novamente.</string>
 </resources>

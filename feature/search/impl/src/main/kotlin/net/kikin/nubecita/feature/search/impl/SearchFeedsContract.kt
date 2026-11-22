@@ -71,12 +71,31 @@ internal sealed interface SearchFeedsEvent : UiEvent {
         val uri: String,
         val displayName: String?,
     ) : SearchFeedsEvent
+
+    /**
+     * Pin toggle on a row. Optimistically flips [FeedGeneratorUi.isPinned],
+     * then pins or unpins through `PinnedFeedsRepository`; a failure rolls the
+     * flip back and emits [SearchFeedsEffect.PinFailed]. Concurrent taps on the
+     * same [uri] are dropped. Same mechanism as the Discover tab's
+     * `OnPinTapped`.
+     */
+    data class PinTapped(
+        val uri: String,
+    ) : SearchFeedsEvent
 }
 
 internal sealed interface SearchFeedsEffect : UiEffect {
     /** Snackbar-surface for append-time failures; existing results stay visible. */
     data class ShowAppendError(
         val error: SearchFeedsError,
+    ) : SearchFeedsEffect
+
+    /**
+     * A pin or unpin failed and the optimistic flip was rolled back.
+     * [wasUnpin] picks the snackbar copy.
+     */
+    data class PinFailed(
+        val wasUnpin: Boolean,
     ) : SearchFeedsEffect
 
     /**

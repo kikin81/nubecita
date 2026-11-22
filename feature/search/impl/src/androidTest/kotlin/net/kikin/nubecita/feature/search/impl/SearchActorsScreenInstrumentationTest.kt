@@ -1,7 +1,9 @@
 package net.kikin.nubecita.feature.search.impl
 
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -66,6 +68,7 @@ class SearchActorsScreenInstrumentationTest {
                         submission = 1,
                         onClearQuery = {},
                         onShowAppendError = {},
+                        snackbarHostState = remember { SnackbarHostState() },
                     )
                 }
             }

@@ -45,6 +45,37 @@ fun HighlightedText(
 }
 
 /**
+ * Renders [text] with [highlightStyle] applied to exactly [ranges] (end-inclusive
+ * [IntRange]s, as produced by a caller-owned matching rule). Out-of-bounds range
+ * ends are clamped, and an empty [ranges] renders [text] unstyled.
+ */
+@Composable
+fun HighlightedText(
+    text: String,
+    ranges: List<IntRange>,
+    modifier: Modifier = Modifier,
+    style: TextStyle = LocalTextStyle.current,
+    maxLines: Int = Int.MAX_VALUE,
+    overflow: TextOverflow = TextOverflow.Clip,
+    highlightStyle: SpanStyle =
+        SpanStyle(
+            background = MaterialTheme.colorScheme.primaryContainer,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+        ),
+) {
+    val annotated =
+        buildAnnotatedString {
+            append(text)
+            ranges.forEach { range ->
+                val start = range.first.coerceAtLeast(0)
+                val end = (range.last + 1).coerceAtMost(text.length)
+                if (start < end) addStyle(highlightStyle, start, end)
+            }
+        }
+    Text(text = annotated, modifier = modifier, style = style, maxLines = maxLines, overflow = overflow)
+}
+
+/**
  * Returns a new [AnnotatedString] with [highlightStyle] applied to every
  * case-insensitive occurrence of [match] in this string. When [match] is
  * null or blank, returns `this` unchanged. Preserves any existing styles

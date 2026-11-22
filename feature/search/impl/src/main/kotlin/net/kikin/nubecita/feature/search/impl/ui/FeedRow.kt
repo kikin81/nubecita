@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,8 +22,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import net.kikin.nubecita.core.common.text.rememberCompactCount
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
+import net.kikin.nubecita.designsystem.icon.NubecitaIcon
+import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.feature.search.impl.R
 import net.kikin.nubecita.feature.search.impl.data.FeedGeneratorUi
 
@@ -36,10 +40,14 @@ import net.kikin.nubecita.feature.search.impl.data.FeedGeneratorUi
  * display name) — both variants come from string resources so the row
  * localizes alongside the rest of the Search UI. Tertiary line:
  * description, capped at 2 lines. Trailing meta line: localized
- * "%d like(s)".
+ * "%s like(s)" with the count abbreviated (`14.2K`) the way post stats are.
+ * A Pin toggle sits at the end of the row, filled when [FeedGeneratorUi.isPinned].
  *
  * [onClick] opens the feed's [net.kikin.nubecita.feature.feed.api.FeedView]
- * screen. The tap target covers the full row width.
+ * screen; the row body is that one click target. [onPinClick] is the pin
+ * toggle's own target (48dp), so tapping it does not open the feed.
+ *
+ * Stateless: plain data and lambdas, reusable by the wide-window summary pane.
  *
  * No query-substring highlighting — the Feeds tab doesn't do it (see
  * [net.kikin.nubecita.feature.search.impl.SearchFeedsContract]'s KDoc).
@@ -48,6 +56,7 @@ import net.kikin.nubecita.feature.search.impl.data.FeedGeneratorUi
 internal fun FeedRow(
     feed: FeedGeneratorUi,
     onClick: () -> Unit,
+    onPinClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -106,12 +115,27 @@ internal fun FeedRow(
                 text =
                     pluralStringResource(
                         id = R.plurals.search_feeds_like_count,
-                        count = feed.likeCount.toInt().coerceAtLeast(0),
-                        feed.likeCount,
+                        count = feed.likeCount.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt(),
+                        rememberCompactCount(feed.likeCount),
                     ),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+        val pinDescription =
+            stringResource(
+                if (feed.isPinned) R.string.search_feed_unpin_content_desc else R.string.search_feed_pin_content_desc,
+                feed.displayName,
+            )
+        IconToggleButton(
+            checked = feed.isPinned,
+            onCheckedChange = { onPinClick() },
+        ) {
+            NubecitaIcon(
+                name = NubecitaIconName.Bookmark,
+                contentDescription = pinDescription,
+                filled = feed.isPinned,
             )
         }
     }
@@ -121,7 +145,7 @@ internal fun FeedRow(
 @Composable
 private fun FeedRowLightPreview() {
     NubecitaTheme {
-        FeedRow(feed = SAMPLE_FEED, onClick = {})
+        FeedRow(feed = SAMPLE_FEED, onClick = {}, onPinClick = {})
     }
 }
 
@@ -129,7 +153,15 @@ private fun FeedRowLightPreview() {
 @Composable
 private fun FeedRowDarkPreview() {
     NubecitaTheme {
-        FeedRow(feed = SAMPLE_FEED, onClick = {})
+        FeedRow(feed = SAMPLE_FEED, onClick = {}, onPinClick = {})
+    }
+}
+
+@Preview(name = "FeedRow — pinned", showBackground = true)
+@Composable
+private fun FeedRowPinnedPreview() {
+    NubecitaTheme {
+        FeedRow(feed = SAMPLE_FEED.copy(isPinned = true), onClick = {}, onPinClick = {})
     }
 }
 
@@ -137,7 +169,7 @@ private fun FeedRowDarkPreview() {
 @Composable
 private fun FeedRowNoCreatorDisplayNamePreview() {
     NubecitaTheme {
-        FeedRow(feed = SAMPLE_FEED.copy(creatorDisplayName = null, description = null), onClick = {})
+        FeedRow(feed = SAMPLE_FEED.copy(creatorDisplayName = null, description = null), onClick = {}, onPinClick = {})
     }
 }
 
