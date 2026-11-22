@@ -1,5 +1,6 @@
 package net.kikin.nubecita.core.posts.internal
 
+import android.util.Log
 import io.github.kikin81.atproto.app.bsky.feed.FeedService
 import io.github.kikin81.atproto.app.bsky.feed.GetPostThreadRequest
 import io.github.kikin81.atproto.app.bsky.unspecced.GetPostThreadOtherV2Request
@@ -30,6 +31,7 @@ internal class DefaultPostThreadRepository
         private val moderationPreferences: ModerationPreferencesRepository,
         private val sessionStateProvider: SessionStateProvider,
         private val snapshotStore: ThreadSnapshotStore,
+        private val orderedReadHealth: OrderedReadHealth,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : PostThreadRepository {
         override suspend fun getPostThread(uri: String): Result<ImmutableList<ThreadItem>> =
@@ -113,8 +115,13 @@ internal class DefaultPostThreadRepository
                     // answering in a shape this build can read, the thread still
                     // opens, through the read it replaced, without thread
                     // positions. Never silently: this line is how lexicon drift
-                    // in the SDK gets noticed.
-                    Timber.tag(TAG).e(
+                    // in the SDK gets noticed. The first one in a process is an
+                    // error (a non-fatal with a stack trace); while the endpoint
+                    // stays down every open lands here, and those are warnings
+                    // (breadcrumbs), so one outage is one report per process.
+                    val priority = if (orderedReadHealth.isFirstUnusableRead()) Log.ERROR else Log.WARN
+                    Timber.tag(TAG).log(
+                        priority,
                         failure,
                         "getPostThreadV2(rkey=%s) is unusable (%s); falling back to getPostThread",
                         uri.substringAfterLast('/'),

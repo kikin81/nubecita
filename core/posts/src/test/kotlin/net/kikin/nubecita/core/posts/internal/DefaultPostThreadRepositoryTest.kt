@@ -237,6 +237,39 @@ internal class DefaultPostThreadRepositoryTest {
         }
 
     @Test
+    fun `the first unusable V2 read is reported as an error and the ones after it as warnings`() =
+        runTest {
+            // An error becomes a Crashlytics non-fatal; a warning is a breadcrumb.
+            // While V2 is down every thread open falls back, and one non-fatal per
+            // process says so without spending the session's quota on repeats.
+            val priorities = mutableListOf<Int>()
+            val tree =
+                object : Timber.Tree() {
+                    override fun log(
+                        priority: Int,
+                        tag: String?,
+                        message: String,
+                        t: Throwable?,
+                    ) {
+                        if ("falling back" in message) priorities += priority
+                    }
+                }
+            Timber.plant(tree)
+            try {
+                val health = OrderedReadHealth()
+                val engine = MockEngine { request -> if (request.isV2()) ok("""{"thread":"not a list","hasOtherReplies":false}""") else ok(THREAD_JSON) }
+
+                // Two repository instances, as two screens would have: the repository is unscoped.
+                assertTrue(repo(engine, health).getOrderedThread(FOCUS).isSuccess)
+                assertTrue(repo(engine, health).getOrderedThread(FOCUS).isSuccess)
+
+                assertEquals(listOf(android.util.Log.ERROR, android.util.Log.WARN), priorities)
+            } finally {
+                Timber.uproot(tree)
+            }
+        }
+
+    @Test
     fun `a server that does not know V2 falls back to the v1 read`() =
         runTest {
             val repo =
@@ -360,36 +393,39 @@ internal class DefaultPostThreadRepositoryTest {
 
     private fun io.ktor.client.engine.mock.MockRequestHandleScope.ok(body: String) = respond(ByteReadChannel(body), HttpStatusCode.OK, headersOf("Content-Type", "application/json"))
 
-    private fun kotlinx.coroutines.test.TestScope.repo(engine: MockEngine) =
-        DefaultPostThreadRepository(
-            xrpcClientProvider =
-                object : XrpcClientProvider {
-                    override suspend fun authenticated(): XrpcClient = XrpcClient(baseUrl = "https://example.test", httpClient = HttpClient(engine))
-                },
-            moderationPreferences =
-                object : ModerationPreferencesRepository {
-                    override val prefs = MutableStateFlow(ModerationPrefs.DEFAULT)
+    private fun kotlinx.coroutines.test.TestScope.repo(
+        engine: MockEngine,
+        health: OrderedReadHealth = OrderedReadHealth(),
+    ) = DefaultPostThreadRepository(
+        orderedReadHealth = health,
+        xrpcClientProvider =
+            object : XrpcClientProvider {
+                override suspend fun authenticated(): XrpcClient = XrpcClient(baseUrl = "https://example.test", httpClient = HttpClient(engine))
+            },
+        moderationPreferences =
+            object : ModerationPreferencesRepository {
+                override val prefs = MutableStateFlow(ModerationPrefs.DEFAULT)
 
-                    override suspend fun refresh() = Unit
+                override suspend fun refresh() = Unit
 
-                    override fun resetToDefault() = Unit
+                override fun resetToDefault() = Unit
 
-                    override suspend fun setAdultContentEnabled(enabled: Boolean) = Unit
+                override suspend fun setAdultContentEnabled(enabled: Boolean) = Unit
 
-                    override suspend fun setVisibility(
-                        label: ContentLabel,
-                        visibility: LabelVisibility,
-                    ) = Unit
-                },
-            sessionStateProvider =
-                object : SessionStateProvider {
-                    override val state: StateFlow<SessionState> = MutableStateFlow(SessionState.SignedIn(handle = "me.test", did = "did:plc:me"))
+                override suspend fun setVisibility(
+                    label: ContentLabel,
+                    visibility: LabelVisibility,
+                ) = Unit
+            },
+        sessionStateProvider =
+            object : SessionStateProvider {
+                override val state: StateFlow<SessionState> = MutableStateFlow(SessionState.SignedIn(handle = "me.test", did = "did:plc:me"))
 
-                    override suspend fun refresh() = Unit
-                },
-            snapshotStore = store,
-            dispatcher = UnconfinedTestDispatcher(testScheduler),
-        )
+                override suspend fun refresh() = Unit
+            },
+        snapshotStore = store,
+        dispatcher = UnconfinedTestDispatcher(testScheduler),
+    )
 
     private companion object {
         const val FOCUS = "at://did:plc:author/app.bsky.feed.post/focus"
