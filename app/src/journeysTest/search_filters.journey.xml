@@ -1,0 +1,31 @@
+<journey name="Search - Post Filters">
+  <description>
+    Verifies the filter chip row on the Posts results: quick chips, the filters sheet, a date
+    preset, Reset, and that a new search starts without filters. Works on any window width.
+    Uses the offline bench build, where the fake search returns the same posts for any query
+    and the Media filter visibly narrows the list.
+  </description>
+  <actions>
+    <action>Tap the Search tab on the main navigation</action>
+    <action>Tap the search bar, type a search query and submit the search</action>
+    <action>Verify that the Posts tab shows a row of filter chips: a filters control, Sort, Following, Media, Video, Language and Date</action>
+    <action>Verify that the Posts, People, Feeds and Packs tabs are shown</action>
+    <action>Record the number of posts visible in the results list</action>
+    <action>Tap the Media chip</action>
+    <action>Verify that the list of results changed to fewer posts and that the Media chip is selected</action>
+    <action>Tap the filters control, the first chip in the row</action>
+    <action>Verify that the filters sheet is shown</action>
+    <action>Choose "Hide replies" in the filters sheet</action>
+    <action>Close the filters sheet</action>
+    <action>Verify that the filters control shows the number 2</action>
+    <action>Tap the Date chip</action>
+    <action>Choose one of the date presets from the menu</action>
+    <action>Verify that the Date chip now shows the name of the chosen preset</action>
+    <action>Tap the filters control and tap Reset in the filters sheet</action>
+    <action>Close the filters sheet</action>
+    <action>Verify that no filter chip is selected and that the filters control shows no number</action>
+    <action>Clear the search field</action>
+    <action>Type a different search query and submit the search</action>
+    <action>Verify that the Posts tab shows the filter chip row with no chip selected and the filters control shows no number</action>
+  </actions>
+</journey>
