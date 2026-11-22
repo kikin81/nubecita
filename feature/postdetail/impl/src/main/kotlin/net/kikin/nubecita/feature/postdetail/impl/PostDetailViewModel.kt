@@ -140,6 +140,11 @@ internal class PostDetailViewModel
                 PostDetailEvent.FocusFollowTapped -> onFocusFollowTapped()
                 PostDetailEvent.Retry -> load()
                 is PostDetailEvent.OnPostTapped -> sendEffect(PostDetailEffect.NavigateToPost(event.postUri))
+                // Both rows continue a thread the server returned in part, the
+                // same way: the post they name opens as its own thread.
+                is PostDetailEvent.OnMoreRepliesTapped -> sendEffect(PostDetailEffect.NavigateToPost(event.postUri))
+                is PostDetailEvent.OnMoreParentsTapped -> sendEffect(PostDetailEffect.NavigateToPost(event.postUri))
+                PostDetailEvent.OnOtherRepliesTapped -> loadOtherReplies()
                 is PostDetailEvent.OnQuotedPostTapped ->
                     sendEffect(PostDetailEffect.NavigateToPost(event.quotedPostUri))
                 is PostDetailEvent.OnAuthorTapped -> sendEffect(PostDetailEffect.NavigateToAuthor(event.authorDid))
@@ -260,7 +265,7 @@ internal class PostDetailViewModel
                     }
                 }
                 postThreadRepository
-                    .getPostThread(uri = route.postUri)
+                    .getOrderedThread(uri = route.postUri)
                     .onSuccess { items ->
                         // An empty list means the lexicon surface degraded the
                         // focus to either an Unknown open-union variant OR a
@@ -333,7 +338,7 @@ internal class PostDetailViewModel
             setState { copy(loadStatus = PostDetailLoadStatus.Refreshing) }
             viewModelScope.launch {
                 postThreadRepository
-                    .getPostThread(uri = route.postUri)
+                    .getOrderedThread(uri = route.postUri)
                     .onSuccess { items ->
                         // A refresh that returns an empty list means the
                         // post became unavailable since the previous fetch.
@@ -384,6 +389,54 @@ internal class PostDetailViewModel
                             setState { copy(loadStatus = PostDetailLoadStatus.Idle) }
                             sendEffect(PostDetailEffect.ShowError(error))
                         }
+                    }
+            }
+        }
+
+        /**
+         * Loads the replies the thread read left out and puts them where the
+         * "show more replies" row was.
+         *
+         * A reply already on screen is not added again — the list is keyed by
+         * post, and a duplicate key would crash it — and a "read more" row is
+         * kept only together with the reply it belongs to. A refresh brings
+         * the row back, collapsed, because it replaces the whole list.
+         */
+        private fun loadOtherReplies() {
+            val current = uiState.value
+            if (current.isLoadingOtherReplies || ThreadItem.OtherReplies !in current.items) return
+            setState { copy(isLoadingOtherReplies = true) }
+            viewModelScope.launch {
+                postThreadRepository
+                    .getOtherReplies(uri = route.postUri)
+                    .onSuccess { loaded ->
+                        postInteractionsCache.seed(loaded.mapNotNull { (it as? ThreadItem.Reply)?.post })
+                        val snapshot = postInteractionsCache.state.value
+                        setState {
+                            val shown = items.mapTo(HashSet()) { it.key }
+                            val fresh =
+                                buildList {
+                                    var keptReply = false
+                                    for (row in loaded) {
+                                        val keep = if (row is ThreadItem.MoreReplies) keptReply && shown.add(row.key) else shown.add(row.key)
+                                        if (row !is ThreadItem.MoreReplies) keptReply = keep
+                                        if (keep) add(row)
+                                    }
+                                }
+                            val merged =
+                                buildList(items.size + fresh.size) {
+                                    for (row in items) {
+                                        if (row == ThreadItem.OtherReplies) addAll(fresh) else add(row)
+                                    }
+                                }
+                            copy(
+                                items = merged.toImmutableList().applyInteractions(snapshot),
+                                isLoadingOtherReplies = false,
+                            )
+                        }
+                    }.onFailure { throwable ->
+                        setState { copy(isLoadingOtherReplies = false) }
+                        sendEffect(PostDetailEffect.ShowError(throwable.toPostDetailError()))
                     }
             }
         }

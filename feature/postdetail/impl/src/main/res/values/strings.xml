@@ -33,4 +33,9 @@
     <string name="postdetail_snackbar_overflow_mute_thread_coming_soon">Mute thread — coming soon</string>
     <string name="postdetail_snackbar_overflow_unmute_thread_coming_soon">Unmute thread — coming soon</string>
     <string name="postdetail_snackbar_text_copied">Text copied</string>
+
+    <!-- Rows that continue a thread the server returned only in part. -->
+    <string name="postdetail_read_more_replies">Read more replies</string>
+    <string name="postdetail_read_earlier_posts">Read earlier posts</string>
+    <string name="postdetail_show_more_replies">Show more replies</string>
 </resources>

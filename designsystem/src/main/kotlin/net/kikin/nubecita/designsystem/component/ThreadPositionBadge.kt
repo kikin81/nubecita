@@ -96,7 +96,7 @@ internal fun rememberThreadPositionInlineContent(position: ThreadPositionUi?): M
     val style = threadPositionTextStyle()
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
-    return remember(label, style, density) {
+    return remember(label, style, density, measurer) {
         val text = measurer.measure(text = label, style = style, maxLines = 1, softWrap = false)
         val placeholder =
             with(density) {

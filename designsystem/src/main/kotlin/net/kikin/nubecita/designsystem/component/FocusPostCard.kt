@@ -63,6 +63,9 @@ enum class FocusFollowState { Hidden, NotFollowing, Following }
  *
  * Replies keep rendering as [PostCard]; this composable is only the focus.
  *
+ * [connectAbove] draws the thread line from the post above into this post's
+ * avatar, for a focus that is not the first post of its thread.
+ *
  * [followState] drives an M3 Expressive tonal toggle on the header: hidden,
  * "Follow" (pill), or "Following" (checked shape). [zoneId] is a seam for
  * screenshot determinism; production uses the device zone.
@@ -87,8 +90,24 @@ fun FocusPostCard(
     onTranslate: () -> Unit = {},
     onToggleTranslation: () -> Unit = {},
     zoneId: ZoneId = ZoneId.systemDefault(),
+    connectAbove: Boolean = false,
 ) {
-    Column(modifier = modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) {
+    // The thread line from the post above runs into this post's avatar and
+    // stops there. Nothing is drawn downward: the body below the header is
+    // full width, so there is no gutter for a line to continue in.
+    val connector =
+        if (connectAbove) {
+            Modifier.threadConnector(
+                connectAbove = true,
+                connectBelow = false,
+                color = MaterialTheme.colorScheme.outlineVariant,
+                gutterX = 40.dp,
+                avatarTop = 6.dp,
+            )
+        } else {
+            Modifier
+        }
+    Column(modifier = modifier.fillMaxWidth().then(connector).padding(horizontal = 20.dp, vertical = 12.dp)) {
         FocusHeader(post = post, followState = followState, onFollowToggle = onFollowToggle, callbacks = callbacks)
         Spacer(Modifier.height(12.dp))
         val shown = translation as? PostTranslationUi.Shown
