@@ -29,6 +29,7 @@ import net.kikin.nubecita.feature.search.impl.DiscoverEffect
 import net.kikin.nubecita.feature.search.impl.DiscoverEvent
 import net.kikin.nubecita.feature.search.impl.DiscoverViewModel
 import net.kikin.nubecita.feature.search.impl.R
+import net.kikin.nubecita.feature.starterpack.api.StarterPack
 
 /**
  * The Search tab's second pane on Medium/Expanded windows, shown until something is opened
@@ -76,6 +77,7 @@ internal fun SearchPane(
                 is SearchPaneEffect.NavigateToProfile -> navState.add(Profile(handle = effect.handle))
                 is SearchPaneEffect.NavigateToFeed ->
                     navState.add(FeedView(feedUri = effect.uri, displayName = effect.displayName))
+                is SearchPaneEffect.NavigateToPack -> navState.add(StarterPack(uri = effect.uri))
                 is SearchPaneEffect.FollowFailed -> {
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(if (effect.wasUnfollow) unfollowErrorMsg else followErrorMsg)
@@ -93,6 +95,7 @@ internal fun SearchPane(
                 is DiscoverEffect.NavigateToProfile -> navState.add(Profile(handle = effect.handle))
                 is DiscoverEffect.NavigateToFeed ->
                     navState.add(FeedView(feedUri = effect.uri, displayName = effect.displayName))
+                is DiscoverEffect.NavigateToPack -> navState.add(StarterPack(uri = effect.uri))
                 // Only a trend tap emits this, and the pane shows no trends (they live in the list pane).
                 is DiscoverEffect.SubmitSearch -> Unit
                 is DiscoverEffect.ShowError -> {
@@ -130,6 +133,7 @@ internal fun SearchPane(
 
     val onToggleFeeds = remember(onPaneEvent) { { onPaneEvent(SearchPaneEvent.FeedsExpansionToggled) } }
     val onToggleAccounts = remember(onPaneEvent) { { onPaneEvent(SearchPaneEvent.AccountsExpansionToggled) } }
+    val onTogglePacks = remember(onPaneEvent) { { onPaneEvent(SearchPaneEvent.PacksExpansionToggled) } }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -162,9 +166,11 @@ internal fun SearchPane(
                         feedColumns = feedColumns,
                         feedsExpanded = paneState.feedsExpanded,
                         accountsExpanded = paneState.accountsExpanded,
+                        packsExpanded = paneState.packsExpanded,
                         onDiscoverEvent = onDiscoverEvent,
                         onToggleFeeds = onToggleFeeds,
                         onToggleAccounts = onToggleAccounts,
+                        onTogglePacks = onTogglePacks,
                         listState = listState,
                         contentPadding = contentPadding,
                         modifier = Modifier.fillMaxSize(),

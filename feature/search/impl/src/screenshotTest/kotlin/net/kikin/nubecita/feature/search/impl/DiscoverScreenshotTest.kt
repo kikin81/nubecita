@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.search.impl
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -9,6 +10,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
 import kotlinx.collections.immutable.persistentListOf
+import net.kikin.nubecita.data.models.StarterPackUiFixtures
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 import net.kikin.nubecita.feature.search.impl.ui.DISCOVER_ACCOUNTS_ONLY_STATE
 import net.kikin.nubecita.feature.search.impl.ui.DISCOVER_EMPTY_STATE
@@ -19,6 +21,7 @@ import net.kikin.nubecita.feature.search.impl.ui.SAMPLE_ACCOUNT_NO_MUTUALS
 import net.kikin.nubecita.feature.search.impl.ui.SAMPLE_ACCOUNT_WITH_MUTUALS
 import net.kikin.nubecita.feature.search.impl.ui.SAMPLE_FEED_LOADED
 import net.kikin.nubecita.feature.search.impl.ui.SAMPLE_FEED_LOADING
+import net.kikin.nubecita.feature.search.impl.ui.StarterPackCard
 import net.kikin.nubecita.feature.search.impl.ui.SuggestedAccountCard
 import net.kikin.nubecita.feature.search.impl.ui.SuggestedFeedCard
 
@@ -155,6 +158,51 @@ private fun DiscoverSectionsFeedsOnlyScreenshot() {
         DiscoverSections(
             state = DISCOVER_FEEDS_ONLY_STATE,
             onEvent = {},
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "discover-sections-with-packs-light", showBackground = true, heightDp = 900)
+@Preview(name = "discover-sections-with-packs-dark", showBackground = true, heightDp = 900, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun DiscoverSectionsWithPacksScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        DiscoverSections(
+            state =
+                DISCOVER_POPULATED_STATE.copy(
+                    starterPacks =
+                        persistentListOf(
+                            StarterPackUiFixtures.packWithAvatars(slug = "android", name = "Android developers", memberCount = 42),
+                            StarterPackUiFixtures.pack(slug = "science", name = "Science writers", memberCount = null),
+                            StarterPackUiFixtures.packWithAvatars(count = 2, slug = "indie", name = "Indie developers", memberCount = 7),
+                        ),
+                    starterPacksStatus = DiscoverSectionStatus.Loaded,
+                ),
+            onEvent = {},
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "starter-pack-card-full-light", showBackground = true, widthDp = 260)
+@Preview(name = "starter-pack-card-full-dark", showBackground = true, widthDp = 260, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun StarterPackCardFullScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        StarterPackCard(pack = StarterPackUiFixtures.packWithAvatars(), onClick = {}, modifier = Modifier.width(240.dp))
+    }
+}
+
+@PreviewTest
+@Preview(name = "starter-pack-card-bare-light", showBackground = true, widthDp = 260)
+@Composable
+private fun StarterPackCardBareScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        StarterPackCard(
+            pack = StarterPackUiFixtures.pack(memberCount = null, name = "A pack with a long name that needs two lines to be read"),
+            onClick = {},
+            modifier = Modifier.width(240.dp),
         )
     }
 }

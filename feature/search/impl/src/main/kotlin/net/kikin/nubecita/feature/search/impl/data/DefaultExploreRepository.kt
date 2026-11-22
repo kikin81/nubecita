@@ -4,6 +4,7 @@ import io.github.kikin81.atproto.app.bsky.actor.ProfileView
 import io.github.kikin81.atproto.app.bsky.feed.FeedService
 import io.github.kikin81.atproto.app.bsky.feed.GeneratorView
 import io.github.kikin81.atproto.app.bsky.feed.GetFeedRequest
+import io.github.kikin81.atproto.app.bsky.graph.StarterPackView
 import io.github.kikin81.atproto.app.bsky.unspecced.TrendView
 import io.github.kikin81.atproto.com.atproto.identity.IdentityService
 import io.github.kikin81.atproto.com.atproto.identity.ResolveHandleRequest
@@ -35,6 +36,7 @@ import net.kikin.nubecita.core.auth.viewerDidOrNull
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.core.common.coroutines.IoDispatcher
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
+import net.kikin.nubecita.core.feedmapping.toStarterPackUi
 import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.feature.search.impl.DiscoverFeedUi
 import net.kikin.nubecita.feature.search.impl.DiscoverSectionStatus
@@ -46,15 +48,16 @@ import javax.inject.Singleton
 /**
  * Production [ExploreRepository].
  *
- * Three of the four endpoints live in Bluesky's `unspecced` namespace, which has no
+ * Four of the five endpoints live in Bluesky's `unspecced` namespace, which has no
  * generated service in the SDK, so — like [DefaultSearchFeedsRepository] — they are
  * called through [XrpcClient.query] with the literal NSID and hand-written
  * `@Serializable` envelopes (private, below), reusing the generated [TrendView],
- * [GeneratorView] and [ProfileView] for the items:
+ * [GeneratorView], [ProfileView] and [StarterPackView] for the items:
  *
  *  - `app.bsky.unspecced.getTrends` (limit [TRENDS_LIMIT])
  *  - `app.bsky.unspecced.getSuggestedFeeds` (limit [FEEDS_LIMIT])
  *  - `app.bsky.unspecced.getSuggestedUsersForExplore` (limit [ACCOUNTS_LIMIT])
+ *  - `app.bsky.unspecced.getSuggestedStarterPacks` (limit [STARTER_PACKS_LIMIT])
  *
  * plus the generated `app.bsky.feed.getFeed` for a feed's preview strip and
  * `com.atproto.identity.resolveHandle` for [resolveDid].
@@ -176,7 +179,8 @@ internal class DefaultExploreRepository
         private fun ExploreContent.isFullyLoaded(): Boolean =
             trendsStatus == DiscoverSectionStatus.Loaded &&
                 feedsStatus == DiscoverSectionStatus.Loaded &&
-                accountsStatus == DiscoverSectionStatus.Loaded
+                accountsStatus == DiscoverSectionStatus.Loaded &&
+                starterPacksStatus == DiscoverSectionStatus.Loaded
 
         /** Called under [lock]. */
         private fun startLoad(force: Boolean): Deferred<Unit> {
@@ -184,12 +188,14 @@ internal class DefaultExploreRepository
             val loadTrends = force || before.trendsStatus != DiscoverSectionStatus.Loaded
             val loadFeeds = force || before.feedsStatus != DiscoverSectionStatus.Loaded
             val loadAccounts = force || before.accountsStatus != DiscoverSectionStatus.Loaded
+            val loadStarterPacks = force || before.starterPacksStatus != DiscoverSectionStatus.Loaded
             val token = Token(epoch, currentDid())
             mutableContent.update {
                 it.copy(
                     trendsStatus = if (loadTrends) DiscoverSectionStatus.Loading else it.trendsStatus,
                     feedsStatus = if (loadFeeds) DiscoverSectionStatus.Loading else it.feedsStatus,
                     accountsStatus = if (loadAccounts) DiscoverSectionStatus.Loading else it.accountsStatus,
+                    starterPacksStatus = if (loadStarterPacks) DiscoverSectionStatus.Loading else it.starterPacksStatus,
                 )
             }
             return scope.async {
@@ -197,6 +203,7 @@ internal class DefaultExploreRepository
                     if (loadTrends) launch { loadTrends(token) }
                     if (loadFeeds) launch { loadFeeds(token) }
                     if (loadAccounts) launch { loadAccounts(token) }
+                    if (loadStarterPacks) launch { loadStarterPacks(token) }
                 }
             }
         }
@@ -290,6 +297,33 @@ internal class DefaultExploreRepository
             }
         }
 
+        private suspend fun loadStarterPacks(token: Token) {
+            val result =
+                request("getSuggestedStarterPacks") { client ->
+                    client
+                        .query(
+                            nsid = NSID_SUGGESTED_STARTER_PACKS,
+                            params = LimitRequest(limit = STARTER_PACKS_LIMIT),
+                            paramsSerializer = LimitRequest.serializer(),
+                            responseSerializer = GetSuggestedStarterPacksResponse.serializer(),
+                        ).starterPacks
+                        .mapNotNull { it.toStarterPackUi() }
+                        .distinctBy { it.uri }
+                        .toImmutableList()
+                }
+            commit(token) { current ->
+                result.fold(
+                    onSuccess = { list ->
+                        current.copy(
+                            starterPacks = list,
+                            starterPacksStatus = if (list.isEmpty()) DiscoverSectionStatus.Empty else DiscoverSectionStatus.Loaded,
+                        )
+                    },
+                    onFailure = { current.copy(starterPacksStatus = DiscoverSectionStatus.Error) },
+                )
+            }
+        }
+
         override suspend fun loadFeedPreview(feedUri: String) {
             val token =
                 synchronized(lock) {
@@ -371,15 +405,17 @@ internal class DefaultExploreRepository
             const val NSID_TRENDS = "app.bsky.unspecced.getTrends"
             const val NSID_SUGGESTED_FEEDS = "app.bsky.unspecced.getSuggestedFeeds"
             const val NSID_SUGGESTED_USERS = "app.bsky.unspecced.getSuggestedUsersForExplore"
+            const val NSID_SUGGESTED_STARTER_PACKS = "app.bsky.unspecced.getSuggestedStarterPacks"
             const val TRENDS_LIMIT = 10L
             const val FEEDS_LIMIT = 8L
             const val ACCOUNTS_LIMIT = 12L
+            const val STARTER_PACKS_LIMIT = 6L
             const val PREVIEW_LIMIT = 3L
         }
     }
 
 /**
- * Hand-written mirror of the params block shared by the three `unspecced` queries
+ * Hand-written mirror of the params block shared by the four `unspecced` queries
  * (`limit` only; `getSuggestedUsersForExplore`'s optional `category` is never sent).
  */
 @Serializable
@@ -407,6 +443,12 @@ private data class GetSuggestedFeedsResponse(
 @Serializable
 private data class GetSuggestedUsersResponse(
     val actors: List<ProfileView>,
+    val recIdStr: String? = null,
+)
+
+@Serializable
+private data class GetSuggestedStarterPacksResponse(
+    val starterPacks: List<StarterPackView>,
     val recIdStr: String? = null,
 )
 

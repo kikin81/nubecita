@@ -221,4 +221,10 @@
         <item quantity="one">%1$d pessoa</item>
         <item quantity="other">%1$d pessoas</item>
     </plurals>
+
+    <string name="explore_pane_packs_title">Pacotes iniciais</string>
+    <string name="discover_packs_section_title">Pacotes iniciais</string>
+    <string name="summary_pane_packs_title">Pacotes iniciais</string>
+    <string name="summary_pane_see_all_packs_description">Ver todos os pacotes iniciais</string>
+    <string name="summary_pane_packs_error">Não foi possível carregar os pacotes iniciais.</string>
 </resources>

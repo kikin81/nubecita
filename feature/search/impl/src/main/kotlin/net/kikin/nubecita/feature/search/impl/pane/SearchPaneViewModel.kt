@@ -45,9 +45,9 @@ import javax.inject.Inject
  * The Summary's scroll position starts over whenever the searched query or filters change;
  * Explore's is kept across searches. Changing only the result tab keeps both.
  *
- * **Summary content.** The three sections read the same [SearchFirstPages] entries the result
+ * **Summary content.** The four sections read the same [SearchFirstPages] entries the result
  * tabs do, keyed by the store's (query, filters, submission) so the pane and a tab of the same
- * search share one request. Posts depend on the filters; people and feeds do not, so a filter
+ * search share one request. Posts depend on the filters; people, feeds and packs do not, so a filter
  * change reloads the posts section only. A section re-reads when [SearchFirstPages.version]
  * moves (a tab refreshed, or the session changed), without going back to Loading, and a failed
  * re-read keeps the rows it had; but when the signed-in account changes the sections are
@@ -78,7 +78,7 @@ internal class SearchPaneViewModel
             val submission: Int,
         )
 
-        /** What the people and feeds sections were requested for. */
+        /** What the people, feeds and packs sections were requested for. */
         private data class QueryKey(
             val query: String,
             val submission: Int,
@@ -163,6 +163,15 @@ internal class SearchPaneViewModel
                 },
                 onFailed = { copy(feedsStatus = feedsStatus.afterFailure()) },
             )
+            loadSection(
+                section = SummarySection.Packs,
+                keyOf = { it.queryKey() },
+                fetch = { key -> firstPages.packs(key.query, key.submission) },
+                onLoaded = { page ->
+                    copy(packs = page.items.take(SUMMARY_PACK_ROWS).toImmutableList(), packsStatus = SummarySectionStatus.Loaded)
+                },
+                onFailed = { copy(packsStatus = packsStatus.afterFailure()) },
+            )
         }
 
         override fun handleEvent(event: SearchPaneEvent) {
@@ -170,6 +179,7 @@ internal class SearchPaneViewModel
                 is SearchPaneEvent.ScrollSaved -> onScrollSaved(event)
                 SearchPaneEvent.FeedsExpansionToggled -> setState { copy(feedsExpanded = !feedsExpanded) }
                 SearchPaneEvent.AccountsExpansionToggled -> setState { copy(accountsExpanded = !accountsExpanded) }
+                SearchPaneEvent.PacksExpansionToggled -> setState { copy(packsExpanded = !packsExpanded) }
                 is SearchPaneEvent.FilterRemoved -> store.updateFilters { it.without(event.filter) }
                 SearchPaneEvent.EditFiltersClicked -> store.setFilterSheetOpen(true)
                 is SearchPaneEvent.SeeAllClicked -> store.selectTab(event.tab)
@@ -179,6 +189,7 @@ internal class SearchPaneViewModel
                 is SearchPaneEvent.FeedTapped -> sendEffect(SearchPaneEffect.NavigateToFeed(event.uri, event.displayName))
                 is SearchPaneEvent.FollowTapped -> onFollowTapped(event.did)
                 is SearchPaneEvent.PinTapped -> onPinTapped(event.uri)
+                is SearchPaneEvent.PackTapped -> sendEffect(SearchPaneEffect.NavigateToPack(event.uri))
             }
         }
 
@@ -249,9 +260,11 @@ internal class SearchPaneViewModel
                 topPost = null,
                 people = persistentListOf(),
                 feeds = persistentListOf(),
+                packs = persistentListOf(),
                 postsStatus = SummarySectionStatus.Loading,
                 peopleStatus = SummarySectionStatus.Loading,
                 feedsStatus = SummarySectionStatus.Loading,
+                packsStatus = SummarySectionStatus.Loading,
             )
 
         private fun retry(section: SummarySection) {
@@ -260,6 +273,7 @@ internal class SearchPaneViewModel
                     SummarySection.Posts -> copy(postsStatus = SummarySectionStatus.Loading)
                     SummarySection.People -> copy(peopleStatus = SummarySectionStatus.Loading)
                     SummarySection.Feeds -> copy(feedsStatus = SummarySectionStatus.Loading)
+                    SummarySection.Packs -> copy(packsStatus = SummarySectionStatus.Loading)
                 }
             }
             retries.getValue(section).update { it + 1 }
@@ -333,7 +347,7 @@ internal class SearchPaneViewModel
         /**
          * Adopts the store's search: the mode, the header and the scroll key, and puts every
          * section whose request key changed back to Loading with its old results cleared. Posts
-         * depend on the filters; people and feeds only on the query and submission, so a filter
+         * depend on the filters; people, feeds and packs only on the query and submission, so a filter
          * change leaves them as they are.
          */
         private fun onSubmittedChanged(search: SubmittedSearch?) {
@@ -353,8 +367,10 @@ internal class SearchPaneViewModel
                                 next.copy(
                                     people = persistentListOf(),
                                     feeds = persistentListOf(),
+                                    packs = persistentListOf(),
                                     peopleStatus = SummarySectionStatus.Loading,
                                     feedsStatus = SummarySectionStatus.Loading,
+                                    packsStatus = SummarySectionStatus.Loading,
                                 )
                         }
                         next

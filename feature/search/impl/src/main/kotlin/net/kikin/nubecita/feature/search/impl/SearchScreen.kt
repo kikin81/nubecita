@@ -52,6 +52,7 @@ import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
 import net.kikin.nubecita.feature.search.impl.data.SearchTab
 import net.kikin.nubecita.feature.search.impl.ui.DiscoverLanding
 import net.kikin.nubecita.feature.search.impl.ui.PostFiltersSheet
+import net.kikin.nubecita.feature.starterpack.api.StarterPack
 
 /**
  * Stateful Search tab home. Hoists [SearchViewModel] and [DiscoverViewModel]
@@ -130,6 +131,7 @@ internal fun SearchScreen(
                     navState.add(
                         FeedView(feedUri = effect.uri, displayName = effect.displayName),
                     )
+                is DiscoverEffect.NavigateToPack -> navState.add(StarterPack(uri = effect.uri))
                 is DiscoverEffect.SubmitSearch -> {
                     viewModel.textFieldState.setTextAndPlaceCursorAtEnd(effect.query)
                     viewModel.handleEvent(SearchEvent.SubmitClicked)

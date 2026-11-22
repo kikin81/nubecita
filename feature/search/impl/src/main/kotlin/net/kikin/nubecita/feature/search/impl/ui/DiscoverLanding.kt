@@ -68,7 +68,11 @@ internal fun DiscoverLanding(
             onTrendTap = onTrendTap,
         )
         if (showCards &&
-            (state.accountsStatus == DiscoverSectionStatus.Loaded || state.feedsStatus == DiscoverSectionStatus.Loaded)
+            (
+                state.accountsStatus == DiscoverSectionStatus.Loaded ||
+                    state.feedsStatus == DiscoverSectionStatus.Loaded ||
+                    state.starterPacksStatus == DiscoverSectionStatus.Loaded
+            )
         ) {
             item(key = "discover_sections", contentType = "discover_sections") {
                 DiscoverSections(state = state, onEvent = onEvent)
@@ -92,7 +96,14 @@ private fun DiscoverSectionStatus.isSettledWithoutContent(): Boolean = this is D
 /** Every section this layout shows came back empty or failed. */
 private fun DiscoverState.hasNothingToShow(showCards: Boolean): Boolean =
     trendsStatus.isSettledWithoutContent() &&
-        (!showCards || (accountsStatus.isSettledWithoutContent() && feedsStatus.isSettledWithoutContent()))
+        (
+            !showCards ||
+                (
+                    accountsStatus.isSettledWithoutContent() &&
+                        feedsStatus.isSettledWithoutContent() &&
+                        starterPacksStatus.isSettledWithoutContent()
+                )
+        )
 
 /**
  * Empty-state hint shown when the Discover body has nothing to show

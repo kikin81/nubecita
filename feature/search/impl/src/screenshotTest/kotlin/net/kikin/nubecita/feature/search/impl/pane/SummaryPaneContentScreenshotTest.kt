@@ -14,6 +14,7 @@ import net.kikin.nubecita.data.models.EmbedUi
 import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
+import net.kikin.nubecita.data.models.StarterPackUiFixtures
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 import net.kikin.nubecita.feature.search.impl.data.DateFilter
@@ -92,6 +93,17 @@ private val FULL =
         postsStatus = SummarySectionStatus.Loaded,
         peopleStatus = SummarySectionStatus.Loaded,
         feedsStatus = SummarySectionStatus.Loaded,
+        // Loaded and empty: hidden, so the sections that predate starter packs draw as they did.
+        packsStatus = SummarySectionStatus.Loaded,
+    )
+
+private val FULL_WITH_PACKS =
+    FULL.copy(
+        packs =
+            persistentListOf(
+                StarterPackUiFixtures.packWithAvatars(slug = "android", name = "Android developers", memberCount = 42),
+                StarterPackUiFixtures.pack(slug = "science", name = "Science writers and a name long enough to wrap onto a second line", memberCount = null),
+            ),
     )
 
 private val LOADED = SummarySectionStatus.Loaded
@@ -117,6 +129,23 @@ private fun SummaryFixture(summary: SearchPaneMode.Summary) {
 private fun SummaryPaneFullScreenshot() = SummaryFixture(FULL)
 
 @PreviewTest
+@Preview(name = "summary-pane-with-packs-480-light", widthDp = 480, heightDp = 1250, showBackground = true)
+@Preview(name = "summary-pane-with-packs-480-dark", widthDp = 480, heightDp = 1250, showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "summary-pane-with-packs-480-es419", widthDp = 480, heightDp = 1250, showBackground = true, locale = "b+es+419")
+@Composable
+private fun SummaryPaneWithPacksScreenshot() = SummaryFixture(FULL_WITH_PACKS)
+
+@PreviewTest
+@Preview(name = "summary-pane-packs-error-480-light", widthDp = 480, heightDp = 1000, showBackground = true)
+@Composable
+private fun SummaryPanePacksErrorScreenshot() = SummaryFixture(FULL.copy(packsStatus = SummarySectionStatus.Error))
+
+@PreviewTest
+@Preview(name = "summary-pane-only-packs-480-light", widthDp = 480, heightDp = 500, showBackground = true)
+@Composable
+private fun SummaryPaneOnlyPacksScreenshot() = SummaryFixture(FULL_WITH_PACKS.copy(topPost = null, people = persistentListOf(), feeds = persistentListOf()))
+
+@PreviewTest
 @Preview(name = "summary-pane-no-count-480-light", widthDp = 480, heightDp = 1000, showBackground = true)
 @Composable
 private fun SummaryPaneNoCountScreenshot() = SummaryFixture(FULL.copy(hitsTotal = null, search = search(filters = PostSearchFilters())))
@@ -136,6 +165,7 @@ private fun SummaryPaneNoResultsScreenshot() =
             postsStatus = LOADED,
             peopleStatus = LOADED,
             feedsStatus = LOADED,
+            packsStatus = LOADED,
         ),
     )
 

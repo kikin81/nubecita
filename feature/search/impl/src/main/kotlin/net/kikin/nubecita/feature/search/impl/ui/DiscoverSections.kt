@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -25,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.distinctUntilChanged
+import net.kikin.nubecita.data.models.StarterPackUi
 import net.kikin.nubecita.designsystem.preview.NubecitaCanvasPreviewTheme
 import net.kikin.nubecita.feature.search.impl.DiscoverEvent
 import net.kikin.nubecita.feature.search.impl.DiscoverFeedUi
@@ -36,11 +38,12 @@ import net.kikin.nubecita.feature.search.impl.data.SuggestedAccountUi
 import net.kikin.nubecita.feature.search.impl.data.SuggestedFeedUi
 
 /**
- * Renders the two horizontal [LazyRow] carousels for the Discover tab:
+ * Renders the horizontal [LazyRow] carousels for the Discover tab:
  *  1. **Suggested accounts** (hidden when [DiscoverState.accountsStatus] is
  *     not [DiscoverSectionStatus.Loaded] or the list is empty).
  *  2. **Discover feeds** (hidden when [DiscoverState.feedsStatus] is not
  *     [DiscoverSectionStatus.Loaded] or the list is empty).
+ *  3. **Starter packs** (hidden likewise), after the other two.
  *
  * Each section has a bold section-header label above the [LazyRow].
  *
@@ -79,6 +82,12 @@ internal fun DiscoverSections(
         if (state.feedsStatus == DiscoverSectionStatus.Loaded && state.feeds.isNotEmpty()) {
             FeedsSection(
                 feeds = state.feeds,
+                onEvent = onEvent,
+            )
+        }
+        if (state.starterPacksStatus == DiscoverSectionStatus.Loaded && state.starterPacks.isNotEmpty()) {
+            PacksSection(
+                packs = state.starterPacks,
                 onEvent = onEvent,
             )
         }
@@ -187,6 +196,39 @@ private fun FeedsSection(
         }
     }
 }
+
+@Composable
+private fun PacksSection(
+    packs: ImmutableList<StarterPackUi>,
+    onEvent: (DiscoverEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        DiscoverSectionHeader(
+            title = stringResource(R.string.discover_packs_section_title),
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.wrapContentHeight(),
+        ) {
+            items(
+                items = packs,
+                key = { it.uri },
+                contentType = { "pack" },
+            ) { pack ->
+                StarterPackCard(
+                    pack = pack,
+                    onClick = { onEvent(DiscoverEvent.OnPackTapped(pack.uri)) },
+                    modifier = Modifier.width(PACK_CARD_WIDTH),
+                )
+            }
+        }
+    }
+}
+
+private val PACK_CARD_WIDTH = 240.dp
 
 @Composable
 private fun DiscoverSectionHeader(
