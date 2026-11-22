@@ -81,7 +81,7 @@ CI still runs on every PR in the stack, unchanged.
 
 **Which modules are flavored is NOT predictable from the module path** — it does not follow the `:core:*` / `:feature:*` split in either direction. A module is flavored **iff its `build.gradle.kts` applies `nubecita.android.flavors`**, which per that plugin's contract is exactly the modules shipping a `src/bench/` source set (a network-free parallel implementation for the offline `:app:benchBenchmarkRelease` build). Everything else stays single-variant and picks up `production` transitively via `missingDimensionStrategy`. `nubecita.android.feature` does **not** imply flavors — all 19 `:feature:*:impl` modules apply it, but only 7 are flavored.
 
-As of 2026-11-22 that is 7 of 19 `:feature:*:impl` modules (`chats`, `composer`, `feed`, `notifications`, `profile`, `search`, `starterpack`) and 17 of 31 `:core:*` modules — so most feature modules take the *plain* names while over half of `:core:*` takes the *flavored* ones. `:designsystem` and `:data:models` are unflavored; `:app` and `:benchmark` declare the dimension through their own convention plugins.
+As of 2026-11-22 that is 7 of 19 `:feature:*:impl` modules (`chats`, `composer`, `feed`, `notifications`, `profile`, `search`, `starterpack`) and 17 of 34 `:core:*` modules — so most feature modules take the *plain* names while exactly half of `:core:*` takes the *flavored* ones, and neither split is a rule you can apply by path. `:designsystem` and `:data:models` are unflavored; `:app` and `:benchmark` declare the dimension through their own convention plugins.
 
 Don't infer it — check:
 
@@ -283,10 +283,6 @@ The exception is bounded:
 
 Reference implementation: `:feature:feed:impl/FeedViewModel` (PR1 of epic nubecita-58dy — post-detail and profile migrate in later PRs of the same epic).
 
-#### Shared search state
-
-Two `:feature:search:impl` singletons tie the Search screen and its second pane together: `SubmittedSearchStore` holds only *what was searched* (query and filters) and is the one way the screen and the pane communicate (no event bus); `SearchFirstPages` shares first-page requests between the result tabs and the pane so the same query is fetched once.
-
 ### Tab re-tap / scroll-to-top convention
 
 `MainShell` provides `LocalTabReTapSignal` — a `CompositionLocal<SharedFlow<Unit>>`. Any feature screen that wants to respond to a tab re-tap (scroll to top, etc.) reads this local and launches a `collectLatest` in a `LaunchedEffect`. **ViewModels do not observe this signal** — it terminates at the screen Composable only, because scroll state is a Compose runtime concern, not a VM state field.
@@ -332,11 +328,17 @@ A screen inside `MainShell` keeps its ViewModels and `rememberSaveable` state fo
 - Don't wrap the inner `NavDisplay` or its entry decorators in a `key(...)` keyed on window size; the ViewModel decorator clears all stores when it leaves composition.
 - Sub-routes get a tab- and occurrence-scoped `contentKey` (`scopedEntries`), so the same route on two tabs is two screens. Tab roots keep their registered key.
 
-After touching `MainShell`, `MainShellNavState` or a scene strategy, run the `tab_state_retention` and `pane_boundary_state_retention` journeys in `app/src/journeysTest/` on a foldable. Search's second pane has its own: `search_second_pane` (wide window) and `search_filters` (any width); `SearchScrollBenchmark` in `:benchmark` measures scrolling of the results list and the Explore and Summary panes (`./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest` with the bench build; the two pane tests skip on a phone).
+After touching `MainShell`, `MainShellNavState` or a scene strategy, run the `tab_state_retention` and `pane_boundary_state_retention` journeys in `app/src/journeysTest/` on a foldable. `search_second_pane` is the journey for the Search tab's second pane.
 
 ### The list-detail `detailPlaceholder` slot
 
 A list entry's `ListDetailSceneStrategy.listPane(detailPlaceholder = …)` content is composed **outside** the list entry, so its scoping differs from a normal screen's. `hiltViewModel()` there is scoped to the logged-in shell entry: it survives tab switches, fold / unfold and detail pushes. `rememberSaveable` there is lost whenever the placeholder leaves composition (a detail pushed over it, a fold to one pane). State that must survive — scroll position, expanded flags — lives in the ViewModel, not in `rememberSaveable`. Reference implementation: `:feature:search:impl` `pane/SearchPane.kt`.
+
+### Shared search state
+
+Two `:feature:search:impl` singletons tie the Search screen and its second pane together:
+- `SubmittedSearchStore` holds only *what was searched* (query and filters) and is the one way the screen and the pane communicate (no event bus).
+- `SearchFirstPages` shares first-page requests between the result tabs and the pane so the same query is fetched once.
 
 ### Design system conventions
 
@@ -399,6 +401,8 @@ Nubecita Pro is an auto-renewing Google Play subscription mediated by RevenueCat
 - **Tests** fake the boundary against the interfaces: `:core:billing`'s own JVM unit tests construct the in-memory `FakeEntitlementRepository` / `FakeBillingRepository` (in its `src/test` — not shared test-fixtures, so other modules can't reference them), while downstream feature tests mock `EntitlementRepository` / `BillingRepository` with MockK (drive `isPro` via a `MutableStateFlow`).
 
 ### Testing conventions
+
+Journeys in `app/src/journeysTest/` are plain-language steps run on a device: `search` (leak check, any width), `search_filters` (any width) and `search_second_pane` (wide window only) cover Search; run them after touching `:feature:search:impl`. `SearchScrollBenchmark` in `:benchmark` measures scrolling of the results list and the Explore and Summary panes; it needs a real device (`./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest`, bench flavor) and its two pane tests skip on a phone.
 
 #### Unit tests (`:core:testing`)
 
