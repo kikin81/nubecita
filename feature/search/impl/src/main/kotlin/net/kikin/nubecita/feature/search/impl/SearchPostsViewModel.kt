@@ -105,8 +105,15 @@ internal class SearchPostsViewModel
             incarnation = incarnation,
         )
 
-        /** The key as of right now, for the stale-completion guard in [loadMore]. */
-        private fun currentKey() = keyFor(submittedSearch.submitted.value, incarnation.value)
+        /**
+         * The key this ViewModel is showing: set by the pipeline as it starts
+         * handling a key. Pagination and its stale guards compare against this,
+         * never the store, which can be ahead of the pipeline.
+         */
+        private var activeKey: FetchKey? = null
+
+        /** The store's key as of right now. [loadMore] consults it only to see whether a reload is pending. */
+        private fun storeKey() = keyFor(submittedSearch.submitted.value, incarnation.value)
 
         init {
             // Bind the handler to the Search surface and this VM's scope.
@@ -132,7 +139,17 @@ internal class SearchPostsViewModel
             combine(submittedSearch.submitted, incarnation, ::keyFor)
                 .distinctUntilChanged()
                 .onEach { key ->
-                    setState { copy(currentQuery = key.query, sort = key.filters.sort) }
+                    activeKey = key
+                    setState {
+                        copy(
+                            currentQuery = key.query,
+                            sort = key.filters.sort,
+                            // The old results belong to the previous key; drop them now so
+                            // no pagination can run against them before the reload starts.
+                            loadStatus =
+                                if (key.query.isBlank()) SearchPostsLoadStatus.Idle else SearchPostsLoadStatus.InitialLoading,
+                        )
+                    }
                 }.mapLatest { key ->
                     if (key.query.isBlank()) {
                         // Reset to Idle on blank — covers initial state and
@@ -213,10 +230,13 @@ internal class SearchPostsViewModel
             if (status !is SearchPostsLoadStatus.Loaded) return
             if (status.endReached) return
             if (status.isAppending) return
+            val capturedKey = activeKey ?: return
+            // The store moved on and the pipeline has not caught up: it is about to
+            // reload, so this cursor belongs to the previous search.
+            if (storeKey() != capturedKey) return
 
             setState { copy(loadStatus = status.copy(isAppending = true)) }
             val cursor = status.nextCursor
-            val capturedKey = currentKey()
             viewModelScope.launch {
                 repository
                     .searchPosts(
@@ -228,7 +248,7 @@ internal class SearchPostsViewModel
                         // (or hit Retry) while this append was in flight, the
                         // mapLatest pipeline has already moved the state on. Don't
                         // splice old-sort results onto a new-sort list.
-                        if (currentKey() != capturedKey) return@onSuccess
+                        if (activeKey != capturedKey) return@onSuccess
                         cache.seed(page.items.map { it.post })
                         setState {
                             val current = loadStatus as? SearchPostsLoadStatus.Loaded ?: return@setState this
@@ -259,7 +279,7 @@ internal class SearchPostsViewModel
                         // Same stale guard for failures — a snackbar for the OLD
                         // sort's append failure would be confusing once the user is
                         // already looking at LATEST results.
-                        if (currentKey() != capturedKey) return@onFailure
+                        if (activeKey != capturedKey) return@onFailure
                         val current = uiState.value.loadStatus as? SearchPostsLoadStatus.Loaded ?: return@onFailure
                         setState { copy(loadStatus = current.copy(isAppending = false)) }
                         sendEffect(SearchPostsEffect.ShowAppendError(throwable.toSearchPostsError()))

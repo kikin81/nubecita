@@ -8,7 +8,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -972,5 +974,53 @@ class SearchPostsViewModelTest {
                     ?.sort,
             )
             assertEquals(SearchPostsSort.LATEST, vm.uiState.value.sort)
+        }
+
+    @Test
+    fun `a load more issued before the ViewModel processed a new search does not use the old cursor`() =
+        runTest {
+            // A queued dispatcher: the pipeline only reacts to the store when the scheduler runs.
+            Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+            val vm = buildVm()
+            repo.respond("a", null, SearchPostsSort.TOP, listOf(searchPostFixture("at://a1", "a1")), nextCursor = "old")
+            repo.respond("b", null, SearchPostsSort.TOP, listOf(searchPostFixture("at://b1", "b1")), nextCursor = null)
+            search("a")
+            advanceUntilIdle()
+            assertTrue(vm.uiState.value.loadStatus is SearchPostsLoadStatus.Loaded)
+
+            search("b")
+            vm.handleEvent(SearchPostsEvent.LoadMore)
+            advanceUntilIdle()
+
+            assertTrue(
+                repo.callLog.none { it.query == "b" && it.cursor == "old" },
+                "the old cursor must never be paired with the new query: ${repo.callLog}",
+            )
+            val status = vm.uiState.value.loadStatus as SearchPostsLoadStatus.Loaded
+            assertEquals(listOf("at://b1"), status.items.map { it.post.id })
+        }
+
+    @Test
+    fun `a stale append for the previous search is dropped`() =
+        runTest {
+            val vm = buildVm()
+            repo.respond("a", null, SearchPostsSort.TOP, listOf(searchPostFixture("at://a1", "a1")), nextCursor = "c2")
+            repo.respond("b", null, SearchPostsSort.TOP, listOf(searchPostFixture("at://b1", "b1")), nextCursor = null)
+            val appendGate = repo.gate("a", "c2", SearchPostsSort.TOP)
+            search("a")
+            runCurrent()
+            vm.handleEvent(SearchPostsEvent.LoadMore)
+            runCurrent()
+            assertTrue((vm.uiState.value.loadStatus as SearchPostsLoadStatus.Loaded).isAppending)
+
+            search("b")
+            runCurrent()
+            appendGate.complete(
+                Result.success(SearchPostsPage(persistentListOf(searchPostFixture("at://a2", "a2")), nextCursor = null)),
+            )
+            runCurrent()
+
+            val status = vm.uiState.value.loadStatus as SearchPostsLoadStatus.Loaded
+            assertEquals(listOf("at://b1"), status.items.map { it.post.id })
         }
 }
