@@ -1,10 +1,10 @@
 package net.kikin.nubecita.feature.search.impl.data
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -36,14 +36,28 @@ internal class SearchFirstPages
         @ApplicationScope scope: CoroutineScope,
         sessionStateProvider: SessionStateProvider,
     ) {
+        /**
+         * Every cache key carries the signed-in did (null when signed out) read
+         * at call time, so a page fetched for one account is never returned
+         * once the session has moved on, even before [clear] has run.
+         */
         private data class PostsKey(
+            val did: String?,
             val query: String,
             val filters: PostSearchFilters,
         )
 
+        private data class QueryKey(
+            val did: String?,
+            val query: String,
+        )
+
+        private val session = sessionStateProvider.state
         private val postCache = FirstPageCache<PostsKey, SearchPostsPage>(scope)
-        private val peopleCache = FirstPageCache<String, ActorSearchPage>(scope)
-        private val feedCache = FirstPageCache<String, SearchFeedsPage>(scope)
+        private val peopleCache = FirstPageCache<QueryKey, ActorSearchPage>(scope)
+        private val feedCache = FirstPageCache<QueryKey, SearchFeedsPage>(scope)
+
+        private fun currentDid(): String? = (session.value as? SessionState.SignedIn)?.did
 
         private val _version = MutableStateFlow(0)
 
@@ -51,14 +65,19 @@ internal class SearchFirstPages
         val version: StateFlow<Int> = _version
 
         init {
-            scope.launch {
-                // The first value is the account the app starts with; only a
-                // change after that invalidates anything.
-                sessionStateProvider.state
+            // The baseline is read now, and the collector starts undispatched,
+            // so a change between construction and the first collection is seen.
+            var knownDid = currentDid()
+            scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                session
                     .map { (it as? SessionState.SignedIn)?.did }
                     .distinctUntilChanged()
-                    .drop(1)
-                    .collect { clear() }
+                    .collect { did ->
+                        if (did != knownDid) {
+                            knownDid = did
+                            clear()
+                        }
+                    }
             }
         }
 
@@ -70,7 +89,7 @@ internal class SearchFirstPages
             val fetch: suspend () -> Result<SearchPostsPage> = {
                 postsRepository.searchPosts(query = query, filters = filters, cursor = null)
             }
-            val key = PostsKey(query, filters)
+            val key = PostsKey(currentDid(), query, filters)
             return if (refresh) postCache.refresh(key, fetch).also { bump() } else postCache.get(key, fetch)
         }
 
@@ -81,7 +100,8 @@ internal class SearchFirstPages
             val fetch: suspend () -> Result<ActorSearchPage> = {
                 actorRepository.searchActors(query = query, cursor = null)
             }
-            return if (refresh) peopleCache.refresh(query, fetch).also { bump() } else peopleCache.get(query, fetch)
+            val key = QueryKey(currentDid(), query)
+            return if (refresh) peopleCache.refresh(key, fetch).also { bump() } else peopleCache.get(key, fetch)
         }
 
         suspend fun feeds(
@@ -91,7 +111,8 @@ internal class SearchFirstPages
             val fetch: suspend () -> Result<SearchFeedsPage> = {
                 feedsRepository.searchFeeds(query = query, cursor = null)
             }
-            return if (refresh) feedCache.refresh(query, fetch).also { bump() } else feedCache.get(query, fetch)
+            val key = QueryKey(currentDid(), query)
+            return if (refresh) feedCache.refresh(key, fetch).also { bump() } else feedCache.get(key, fetch)
         }
 
         private fun clear() {

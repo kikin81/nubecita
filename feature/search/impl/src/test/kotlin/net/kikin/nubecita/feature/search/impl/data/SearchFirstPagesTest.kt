@@ -128,4 +128,28 @@ class SearchFirstPagesTest {
             pages.loadAllThree()
             assertEquals(1, posts.callLog.size)
         }
+
+    @Test
+    fun `a session change before the collector runs is not missed`() =
+        runTest {
+            val pages = newPages()
+            val before = pages.version.value
+
+            session.value = SessionState.SignedIn(handle = "b.test", did = "did:plc:b")
+            runCurrent()
+
+            assertEquals(before + 1, pages.version.value)
+        }
+
+    @Test
+    fun `a page cached for one did is not returned for another before the clear runs`() =
+        runTest {
+            val pages = newPages()
+            pages.posts("q", PostSearchFilters())
+
+            session.value = SessionState.SignedIn(handle = "b.test", did = "did:plc:b")
+            pages.posts("q", PostSearchFilters())
+
+            assertEquals(2, posts.callLog.size)
+        }
 }

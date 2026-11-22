@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.search.impl.data
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 
 /**
@@ -34,9 +35,9 @@ internal class FirstPageCache<K : Any, V>(
     ): Result<V> {
         val current =
             synchronized(lock) {
-                entry?.takeIf { it.key == key } ?: start(key, fetch).also { entry = it }
+                entry?.takeIf { it.key == key } ?: install(key, fetch)
             }
-        return await(current)
+        return current.result.await()
     }
 
     /** Runs [fetch] again for [key], replacing whatever is held. */
@@ -44,12 +45,34 @@ internal class FirstPageCache<K : Any, V>(
         key: K,
         fetch: suspend () -> Result<V>,
     ): Result<V> {
-        val current = synchronized(lock) { start(key, fetch).also { entry = it } }
-        return await(current)
+        val current = synchronized(lock) { install(key, fetch) }
+        return current.result.await()
     }
 
     fun clear() {
         synchronized(lock) { entry = null }
+    }
+
+    /**
+     * Makes a new request the held entry, and arranges for the entry to drop
+     * itself the moment the request fails or is cancelled, whether or not any
+     * caller is still waiting. The handler is registered after the entry is
+     * stored so a request that completes at once still finds it.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun install(
+        key: K,
+        fetch: suspend () -> Result<V>,
+    ): Entry<K, V> {
+        val created = start(key, fetch)
+        entry = created
+        created.result.invokeOnCompletion {
+            val unusable = created.result.isCancelled || created.result.getCompleted().isFailure
+            if (unusable) {
+                synchronized(lock) { if (entry === created) entry = null }
+            }
+        }
+        return created
     }
 
     private fun start(
@@ -68,12 +91,4 @@ internal class FirstPageCache<K : Any, V>(
                 }
             },
         )
-
-    private suspend fun await(current: Entry<K, V>): Result<V> {
-        val result = current.result.await()
-        if (result.isFailure) {
-            synchronized(lock) { if (entry === current) entry = null }
-        }
-        return result
-    }
 }

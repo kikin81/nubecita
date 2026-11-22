@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.search.impl.data
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -93,5 +94,54 @@ class FirstPageCacheTest {
             val followUp = cache.get("b") { bCalls++.let { Result.success("refetched") } }
             assertEquals("b-value", followUp.getOrThrow())
             assertEquals(1, bCalls, "a late completion for A must not disturb B's entry")
+        }
+
+    @Test
+    fun `a failure is dropped even when its only caller was cancelled`() =
+        runTest {
+            val cache = FirstPageCache<String, String>(backgroundScope)
+            val gate = CompletableDeferred<Result<String>>()
+            var calls = 0
+
+            val caller = async { cache.get("a") { gate.await() } }
+            runCurrent()
+            caller.cancel()
+            runCurrent()
+            gate.complete(Result.failure(IllegalStateException("offline")))
+            runCurrent()
+
+            val next = cache.get("a") { calls++.let { Result.success("fresh") } }
+            assertEquals("fresh", next.getOrThrow())
+            assertEquals(1, calls)
+        }
+
+    @Test
+    fun `a late failure for an old key does not evict the current entry`() =
+        runTest {
+            val cache = FirstPageCache<String, String>(backgroundScope)
+            val gateA = CompletableDeferred<Result<String>>()
+            var bCalls = 0
+
+            val callerA = async { cache.get("a") { gateA.await() } }
+            runCurrent()
+            cache.get("b") { bCalls++.let { Result.success("b-value") } }
+            gateA.complete(Result.failure(IllegalStateException("late")))
+            assertTrue(callerA.await().isFailure)
+
+            val followUp = cache.get("b") { bCalls++.let { Result.success("refetched") } }
+            assertEquals("b-value", followUp.getOrThrow())
+            assertEquals(1, bCalls)
+        }
+
+    @Test
+    fun `a cancelled request is not served to the next caller`() =
+        runTest {
+            val cache = FirstPageCache<String, String>(backgroundScope)
+
+            val first = runCatching { cache.get("a") { throw CancellationException("request cancelled") } }
+            val next = cache.get("a") { Result.success("fresh") }
+
+            assertTrue(first.isFailure)
+            assertEquals("fresh", next.getOrThrow())
         }
 }

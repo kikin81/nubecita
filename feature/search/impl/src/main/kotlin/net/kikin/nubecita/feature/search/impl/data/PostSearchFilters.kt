@@ -78,7 +78,7 @@ internal fun PostSearchFilters.toRequest(
         is DateFilter.Custom -> {
             val first = minOf(window.from, window.to)
             val last = maxOf(window.from, window.to)
-            since = first.atStartOfDay(zone).toInstant()
+            since = minOf(first.atStartOfDay(zone).toInstant(), now)
             until = minOf(last.plusDays(1).atStartOfDay(zone).toInstant(), now)
         }
     }

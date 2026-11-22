@@ -3,6 +3,7 @@ package net.kikin.nubecita.feature.search.impl.data
 import io.github.kikin81.atproto.runtime.Language
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.Instant
 import java.time.LocalDate
@@ -152,5 +153,14 @@ class PostSearchFiltersTest {
                 date = DateFilter.PastDay,
             ).activeCount,
         )
+    }
+
+    @Test
+    fun `a custom range in the future never sends since after until`() {
+        val request =
+            PostSearchFilters(date = DateFilter.Custom(LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 3))).request()
+        val since = Instant.parse(request.since!!)
+        val until = Instant.parse(request.until!!)
+        assertTrue(since <= until, "since=$since until=$until")
     }
 }
