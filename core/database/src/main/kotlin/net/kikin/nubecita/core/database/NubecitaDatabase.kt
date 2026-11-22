@@ -52,6 +52,9 @@ import net.kikin.nubecita.core.database.util.InstantConverter
  * tables, additive, via `@AutoMigration(11 → 12)`; both start empty. v13 adds
  * `feed_item_member`'s nullable `op_thread_index` / `op_thread_count`, additive,
  * via `@AutoMigration(12 → 13)`; an existing row reads as "no thread position".
+ * v14 adds four nullable columns to `thread_snapshot_item` for the ordered
+ * thread read (thread position, and where the response was cut), additive, via
+ * `@AutoMigration(13 → 14)`; an existing snapshot reads as a plain thread.
  *
  * Schema export is on; generated JSON is committed under
  * `core/database/schemas/`. Every schema bump must commit the new
@@ -75,7 +78,7 @@ import net.kikin.nubecita.core.database.util.InstantConverter
         ThreadSnapshotEntity::class,
         ThreadSnapshotItemEntity::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2, spec = BootstrapEntityDrop::class),
@@ -89,6 +92,7 @@ import net.kikin.nubecita.core.database.util.InstantConverter
         AutoMigration(from = 10, to = 11),
         AutoMigration(from = 11, to = 12),
         AutoMigration(from = 12, to = 13),
+        AutoMigration(from = 13, to = 14),
     ],
 )
 @TypeConverters(InstantConverter::class)

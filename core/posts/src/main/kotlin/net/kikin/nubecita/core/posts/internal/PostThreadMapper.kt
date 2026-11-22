@@ -14,7 +14,9 @@ import net.kikin.nubecita.core.database.model.ThreadSnapshotKind
 import net.kikin.nubecita.core.feedmapping.applyModeration
 import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import net.kikin.nubecita.core.moderation.ModerationPrefs
+import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ThreadItem
+import net.kikin.nubecita.data.models.ThreadPositionUi
 
 /**
  * Maps `app.bsky.feed.getPostThread`'s `thread` open-union response onto
@@ -68,6 +70,12 @@ internal fun GetPostThreadResponseThreadUnion.toThreadItems(
  * [ThreadSnapshotKind], [post] the wire post (null for blocked / not-found
  * slots), [depth] the reply nesting level (0 for ancestors and the focus),
  * [authorDid] the blocked author for a blocked slot.
+ *
+ * The remaining fields come only from the V2 thread read and keep their
+ * defaults on the v1 path: [opThreadIndex] / [opThreadCount] are the server's
+ * numbering for a post in the author's thread, [moreReplies] how many of this
+ * post's replies the response left out, [moreParents] whether its parent chain
+ * was cut above it.
  */
 internal data class RawThreadEntry(
     val kind: String,
@@ -75,6 +83,10 @@ internal data class RawThreadEntry(
     val depth: Int,
     val authorDid: String? = null,
     val post: PostView? = null,
+    val opThreadIndex: Int? = null,
+    val opThreadCount: Int? = null,
+    val moreReplies: Int = 0,
+    val moreParents: Boolean = false,
 )
 
 /** Flattens the response: ancestors root-most first, the focus, then replies depth-first. */
@@ -98,6 +110,21 @@ internal fun GetPostThreadResponseThreadUnion.toRawThreadEntries(): List<RawThre
  * yields the empty list (the VM's "thread unavailable"); an ancestor that
  * fails is skipped; a reply that fails is dropped together with its whole
  * subtree (every following entry deeper than it).
+ *
+ * Entries from the V2 read also carry the server's thread numbering, which
+ * goes onto the post, and where the response was cut:
+ *
+ * - an ancestor whose parents were left out is preceded by
+ *   [ThreadItem.MoreParents];
+ * - a reply with replies left out is followed by [ThreadItem.MoreReplies],
+ *   but only when the next entry is not one of those replies. Mid-chain the
+ *   post simply has other replies the reader reaches by opening it; at the
+ *   end of a chain the row is the only way on. The focus never gets one:
+ *   opening it is where the reader already is;
+ * - a trailing [ThreadSnapshotKind.OTHER_REPLIES] entry becomes
+ *   [ThreadItem.OtherReplies].
+ *
+ * v1 entries carry none of that, so they map exactly as before.
  */
 internal fun List<RawThreadEntry>.toThreadItems(
     prefs: ModerationPrefs,
@@ -105,7 +132,7 @@ internal fun List<RawThreadEntry>.toThreadItems(
 ): ImmutableList<ThreadItem> {
     val out = mutableListOf<ThreadItem>()
     var droppedReplyDepth: Int? = null
-    for (entry in this) {
+    for ((index, entry) in withIndex()) {
         val skipDepth = droppedReplyDepth
         if (skipDepth != null) {
             if (entry.depth > skipDepth) continue
@@ -114,17 +141,26 @@ internal fun List<RawThreadEntry>.toThreadItems(
         when (entry.kind) {
             ThreadSnapshotKind.BLOCKED -> out += ThreadItem.Blocked(uri = entry.uri, authorDid = entry.authorDid.orEmpty())
             ThreadSnapshotKind.NOT_FOUND -> out += ThreadItem.NotFound(uri = entry.uri)
+            ThreadSnapshotKind.OTHER_REPLIES -> if (ThreadItem.OtherReplies !in out) out += ThreadItem.OtherReplies
             else -> {
                 val mapped =
                     entry.post
                         ?.toPostUiCore(viewerDid)
                         ?.applyModeration(entry.post.labels, viewerDid, prefs, dropFiltered = false)
+                        ?.withThreadPosition(entry)
                 when (entry.kind) {
                     ThreadSnapshotKind.FOCUS -> out += ThreadItem.Focus(post = mapped ?: return persistentListOf())
-                    ThreadSnapshotKind.ANCESTOR -> if (mapped != null) out += ThreadItem.Ancestor(post = mapped)
+                    ThreadSnapshotKind.ANCESTOR ->
+                        if (mapped != null) {
+                            if (entry.moreParents) out += ThreadItem.MoreParents(postUri = entry.uri)
+                            out += ThreadItem.Ancestor(post = mapped)
+                        }
                     ThreadSnapshotKind.REPLY ->
                         if (mapped != null) {
                             out += ThreadItem.Reply(post = mapped, depth = entry.depth)
+                            if (entry.moreReplies > 0 && !getOrNull(index + 1).isReplyTo(entry)) {
+                                out += ThreadItem.MoreReplies(postUri = entry.uri, count = entry.moreReplies, depth = entry.depth)
+                            }
                         } else {
                             droppedReplyDepth = entry.depth
                         }
@@ -134,6 +170,18 @@ internal fun List<RawThreadEntry>.toThreadItems(
     }
     return out.toImmutableList()
 }
+
+private fun PostUi.withThreadPosition(entry: RawThreadEntry): PostUi {
+    val position = ThreadPositionUi.of(index = entry.opThreadIndex?.toLong(), count = entry.opThreadCount?.toLong()) ?: return this
+    return copy(threadPosition = position)
+}
+
+/**
+ * Whether this entry, the one right after [parent] in a depth-first list, is a
+ * reply to it: a reply (or a tombstone standing in for one) exactly one level
+ * deeper.
+ */
+private fun RawThreadEntry?.isReplyTo(parent: RawThreadEntry): Boolean = this != null && kind != ThreadSnapshotKind.OTHER_REPLIES && depth == parent.depth + 1
 
 /**
  * Walks the parent chain bottom-up, then reverses so the returned

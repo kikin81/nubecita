@@ -12,6 +12,10 @@ import androidx.compose.runtime.Immutable
  *   root-most ancestor → ... → immediate parent → focus → top-level
  *   replies → nested replies (depth-first)
  *
+ * A thread the server returned only in part also carries [MoreParents],
+ * [MoreReplies] and [OtherReplies] rows: none of them is a post, each is a way
+ * to reach the rest.
+ *
  * Sibling unavailable variants — `app.bsky.feed.defs#blockedPost` and
  * `app.bsky.feed.defs#notFoundPost` — appear inline at the position
  * they occupied in the source tree. The two unavailable variants
@@ -65,18 +69,42 @@ public sealed interface ThreadItem {
     }
 
     /**
-     * Placeholder for elided posts — the lexicon's `parentHeight` /
-     * `depth` parameters cap the tree at finite levels and posts past
-     * the cap collapse into a "View more" affordance. m28.5.1's mapper
-     * does NOT emit `Fold` items (the screen renders the slice the
-     * server returned, no client-side fold). Reserved for m28.5.2's
-     * visual treatment.
+     * The thread continues above [postUri]: the server returned only part of
+     * the parent chain (`moreParents` on the top-most post it did return).
+     * Rendered as a "read earlier posts" row that opens [postUri].
      */
     @Immutable
-    public data class Fold(
-        val above: String,
+    public data class MoreParents(
+        val postUri: String,
     ) : ThreadItem {
-        override val key: String get() = "fold:$above"
+        override val key: String get() = "moreparents:$postUri"
+    }
+
+    /**
+     * [postUri] has [count] more replies than the server returned, and none of
+     * them follows it in the list — the end of a reply chain, or of an author's
+     * thread longer than one response. Rendered as a "read more replies" row
+     * that opens [postUri]. [count] is the server's best effort, not exact.
+     *
+     * [depth] is the depth of the post it follows, so the row sits under it.
+     */
+    @Immutable
+    public data class MoreReplies(
+        val postUri: String,
+        val count: Int,
+        val depth: Int,
+    ) : ThreadItem {
+        override val key: String get() = "morereplies:$postUri"
+    }
+
+    /**
+     * The server holds replies it left out of the thread (muted, or hidden by
+     * the author's threadgate). Rendered as a "show more replies" row at the
+     * end of the list; there is at most one.
+     */
+    @Immutable
+    public data object OtherReplies : ThreadItem {
+        override val key: String get() = "otherreplies"
     }
 
     /**

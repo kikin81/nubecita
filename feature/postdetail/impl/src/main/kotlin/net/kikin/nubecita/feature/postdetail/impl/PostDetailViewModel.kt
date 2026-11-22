@@ -517,7 +517,9 @@ private fun ImmutableList<ThreadItem>.updateMutedByAuthor(
             // Blocked, NotFound, Fold carry no PostUi — pass through.
             is ThreadItem.Blocked,
             is ThreadItem.NotFound,
-            is ThreadItem.Fold,
+            is ThreadItem.MoreParents,
+            is ThreadItem.MoreReplies,
+            ThreadItem.OtherReplies,
             -> item
         }
     }.toImmutableList()
@@ -551,7 +553,9 @@ private fun ThreadItem.postIdOrNull(): String? =
         is ThreadItem.Reply -> post.id
         is ThreadItem.Blocked,
         is ThreadItem.NotFound,
-        is ThreadItem.Fold,
+        is ThreadItem.MoreParents,
+        is ThreadItem.MoreReplies,
+        ThreadItem.OtherReplies,
         -> null
     }
 
@@ -574,7 +578,9 @@ private fun ThreadItem.applyInteraction(
         // Blocked, NotFound, Fold carry no PostUi — pass through.
         is ThreadItem.Blocked,
         is ThreadItem.NotFound,
-        is ThreadItem.Fold,
+        is ThreadItem.MoreParents,
+        is ThreadItem.MoreReplies,
+        ThreadItem.OtherReplies,
         -> this
     }
 

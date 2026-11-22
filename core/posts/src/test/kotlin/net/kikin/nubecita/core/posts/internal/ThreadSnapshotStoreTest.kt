@@ -109,6 +109,55 @@ internal class ThreadSnapshotStoreTest {
         }
 
     @Test
+    fun `write then read keeps thread numbering, cut marks and the other-replies row`() =
+        runTest {
+            val v2Entries =
+                listOf(
+                    RawThreadEntry(ThreadSnapshotKind.ANCESTOR, "at://p", depth = 0, post = post("at://p"), opThreadIndex = 1, opThreadCount = 3, moreParents = true),
+                    RawThreadEntry(ThreadSnapshotKind.FOCUS, "at://f", depth = 0, post = post("at://f"), opThreadIndex = 2, opThreadCount = 3),
+                    RawThreadEntry(ThreadSnapshotKind.REPLY, "at://r", depth = 1, post = post("at://r"), opThreadIndex = 3, opThreadCount = 3, moreReplies = 7),
+                    RawThreadEntry(ThreadSnapshotKind.OTHER_REPLIES, "at://f", depth = 0),
+                )
+            val posts = slot<List<CachedPostEntity>>()
+            val items = slot<List<ThreadSnapshotItemEntity>>()
+            coEvery { postDao.upsert(capture(posts)) } returns Unit
+            coEvery { snapshotDao.replace(any(), capture(items)) } returns Unit
+            store().write("at://f", v2Entries)
+            coEvery { snapshotDao.items(me, "at://f") } returns items.captured
+            coEvery { postDao.byUris(me, any()) } returns posts.captured
+
+            val read = store().read("at://f")
+
+            assertEquals(v2Entries.map { it.copy(post = null) }, read?.map { it.copy(post = null) })
+            // The other-replies row has no post of its own to store or look up.
+            assertEquals(listOf("at://p", "at://f", "at://r"), posts.captured.map { it.uri })
+        }
+
+    @Test
+    fun `rows written before the new columns read as a plain thread`() =
+        runTest {
+            coEvery { snapshotDao.items(me, "at://f") } returns
+                listOf(
+                    ThreadSnapshotItemEntity(me, "at://f", 0, ThreadSnapshotKind.FOCUS, "at://f", 0, null),
+                    ThreadSnapshotItemEntity(me, "at://f", 1, ThreadSnapshotKind.REPLY, "at://r", 1, null),
+                )
+            val posts = slot<List<CachedPostEntity>>()
+            coEvery { postDao.upsert(capture(posts)) } returns Unit
+            store().write("at://seed", entries.filter { it.post != null })
+            coEvery { postDao.byUris(me, any()) } returns posts.captured
+
+            val read = store().read("at://f")
+
+            assertEquals(
+                listOf(
+                    RawThreadEntry(ThreadSnapshotKind.FOCUS, "at://f", depth = 0),
+                    RawThreadEntry(ThreadSnapshotKind.REPLY, "at://r", depth = 1),
+                ),
+                read?.map { it.copy(post = null) },
+            )
+        }
+
+    @Test
     fun `read with no snapshot is null`() =
         runTest {
             coEvery { snapshotDao.items(me, "at://f") } returns emptyList()

@@ -26,6 +26,11 @@ import javax.inject.Singleton
  *    media-viewer launch (`getPost(focus.id)`) resolves while the buggy one
  *    (`getPost(route.postUri)` = handle) 404s.
  *
+ * [getOrderedThread] — what post detail reads — additionally serves the
+ * timeline's numbered author thread ([benchAuthorThread]) for that thread's own
+ * posts, so thread positions, ordering and the read-more rows can be driven
+ * offline.
+ *
  * Returns the gallery thread for every URI except the timeline's foreign-language
  * posts listed in [benchForeignThreads], which open threads of their own so
  * translation can be exercised across the feed and post detail offline. Selected
@@ -41,6 +46,20 @@ internal class BenchFakePostThreadRepository
         override suspend fun getPostThread(uri: String): Result<ImmutableList<ThreadItem>> =
             withContext(ioDispatcher) {
                 Result.success(benchForeignThreads[uri] ?: BENCH_THREAD)
+            }
+
+        /**
+         * The numbered author thread for its own posts, in the server's ordered
+         * shape; every other post keeps the thread [getPostThread] gives it.
+         */
+        override suspend fun getOrderedThread(uri: String): Result<ImmutableList<ThreadItem>> =
+            withContext(ioDispatcher) {
+                benchAuthorThread(uri)?.let { Result.success(it) } ?: getPostThread(uri)
+            }
+
+        override suspend fun getOtherReplies(uri: String): Result<ImmutableList<ThreadItem>> =
+            withContext(ioDispatcher) {
+                Result.success(benchAuthorThreadOtherReplies(uri))
             }
 
         private companion object {
