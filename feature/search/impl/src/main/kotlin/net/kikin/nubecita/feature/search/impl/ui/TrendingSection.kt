@@ -78,7 +78,7 @@ internal fun LazyListScope.trendingSection(
     val shown = if (collapsible && !expanded) trends.take(COLLAPSED_TREND_COUNT) else trends
     items(
         count = shown.size,
-        key = { index -> "trend:" + shown[index].topic.ifBlank { shown[index].link } },
+        key = { index -> "trend:" + shown[index].id },
         contentType = { "trend" },
     ) { index ->
         val trend = shown[index]

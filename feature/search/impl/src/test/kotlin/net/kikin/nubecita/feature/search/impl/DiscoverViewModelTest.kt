@@ -992,6 +992,33 @@ internal class DiscoverViewModelTest {
         }
 
     @Test
+    fun `a second tap while a handle is resolving is ignored`() =
+        runTest(mainDispatcher.dispatcher) {
+            val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+            val repo =
+                FakeExploreRepository(
+                    resolveResult = {
+                        gate.await()
+                        Result.success("did:plc:resolved")
+                    },
+                )
+            val vm = buildVm(suggestionsRepo = repo)
+            val trend = trendFixture(link = "/profile/bsky.app/feed/xyz", displayName = "Eclipse")
+
+            vm.effects.test {
+                vm.handleEvent(DiscoverEvent.OnTrendTapped(trend))
+                vm.handleEvent(DiscoverEvent.OnTrendTapped(trend))
+                gate.complete(Unit)
+                advanceUntilIdle()
+
+                assertEquals(DiscoverEffect.NavigateToFeed("at://did:plc:resolved/app.bsky.feed.generator/xyz", "Eclipse"), awaitItem())
+                expectNoEvents()
+                assertEquals(1, repo.resolveCalls.size)
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
     fun `a handle trend resolves first`() =
         runTest(mainDispatcher.dispatcher) {
             val repo = FakeExploreRepository(resolveResult = { Result.success("did:plc:resolved") })
@@ -1150,7 +1177,7 @@ private class FakeExploreRepository(
     var accountsResult: Result<List<SuggestedAccountUi>> = Result.success(emptyList()),
     var feedsResult: Result<List<SuggestedFeedUi>> = Result.success(emptyList()),
     var previewResult: Result<List<FeedPreviewPostUi>> = Result.success(emptyList()),
-    var resolveResult: (String) -> Result<String> = { Result.success(it) },
+    var resolveResult: suspend (String) -> Result<String> = { Result.success(it) },
 ) : ExploreRepository {
     private val state = MutableStateFlow(ExploreContent())
     private val dismissed = mutableSetOf<String>()
