@@ -1,6 +1,6 @@
 # Thread viewing: post numbers and ordered post detail
 
-Date: 2026-11-21 · Status: design approved 2026-11-21 · Part 1 of 2 (part 2, composing
+Date: 2026-11-21 · Status: shipped 2026-11-22 (epic nubecita-hpl8, PRs #1225–#1230) · Part 1 of 2 (part 2, composing
 threads, is designed separately afterwards)
 
 ## Intent
