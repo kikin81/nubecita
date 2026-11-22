@@ -43,7 +43,8 @@ interface CachedPostDao {
     suspend fun countForAccount(accountDid: String): Int
 
     /**
-     * Deletes this account's posts that no feed-partition row references.
+     * Deletes this account's posts that no feed-partition row, grouped-projection
+     * row or post-detail thread snapshot references.
      *
      * Scoped to one account so a sign-out or an eviction pass on one identity
      * cannot reach another's rows.
@@ -58,7 +59,11 @@ interface CachedPostDao {
             "AND NOT EXISTS (" +
             "SELECT 1 FROM feed_item_member " +
             "WHERE feed_item_member.account_did = cached_post.account_did " +
-            "AND feed_item_member.uri = cached_post.uri)",
+            "AND feed_item_member.uri = cached_post.uri) " +
+            "AND NOT EXISTS (" +
+            "SELECT 1 FROM thread_snapshot_item " +
+            "WHERE thread_snapshot_item.account_did = cached_post.account_did " +
+            "AND thread_snapshot_item.post_uri = cached_post.uri)",
     )
     suspend fun deleteUnreferenced(accountDid: String)
 

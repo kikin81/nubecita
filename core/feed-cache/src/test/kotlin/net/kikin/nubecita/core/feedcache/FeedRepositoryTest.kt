@@ -30,10 +30,12 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.database.NubecitaDatabase
 import net.kikin.nubecita.core.database.dao.CachedPostDao
+import net.kikin.nubecita.core.database.dao.CachedProfileDao
 import net.kikin.nubecita.core.database.dao.FeedItemDao
 import net.kikin.nubecita.core.database.dao.FeedPartitionStateDao
 import net.kikin.nubecita.core.database.dao.FeedPostDao
 import net.kikin.nubecita.core.database.dao.FeedRemoteKeyDao
+import net.kikin.nubecita.core.database.dao.ThreadSnapshotDao
 import net.kikin.nubecita.core.database.model.CachedFeedEntry
 import net.kikin.nubecita.core.database.model.CachedPostEntity
 import net.kikin.nubecita.core.database.model.FeedItemEntity
@@ -55,6 +57,8 @@ internal class FeedRepositoryTest {
     private val partitionStateDao = mockk<FeedPartitionStateDao>(relaxed = true)
     private val database = mockk<NubecitaDatabase>(relaxed = true)
     private val remoteKeyDao = mockk<FeedRemoteKeyDao>(relaxed = true)
+    private val cachedProfileDao = mockk<CachedProfileDao>(relaxed = true)
+    private val threadSnapshotDao = mockk<ThreadSnapshotDao>(relaxed = true)
     private val networkSource = mockk<FeedNetworkSource>(relaxed = true)
 
     private val session = MutableStateFlow<SessionState>(SessionState.SignedIn("me.bsky.social", "did:plc:me"))
@@ -123,6 +127,8 @@ internal class FeedRepositoryTest {
                     transactionRunner = passthroughRunner,
                     analytics = NoOpAnalyticsClient(),
                 ),
+            cachedProfileDao = cachedProfileDao,
+            threadSnapshotDao = threadSnapshotDao,
             testMediator = noopMediator,
             testRows = seed,
         )
@@ -678,6 +684,11 @@ internal class FeedRepositoryTest {
             coVerify { cachedPostDao.clearAccount("did:plc:me") }
             coVerify { partitionStateDao.clearAccount("did:plc:me") }
             coVerify { remoteKeyDao.clearAccount("did:plc:me") }
+            // The profile and post-detail thread caches hold another viewer's
+            // relationship data and post bodies too — sign-out clears them with
+            // the feed, in the same transaction.
+            coVerify { cachedProfileDao.clearAccount("did:plc:me") }
+            coVerify { threadSnapshotDao.clearAccount("did:plc:me") }
         }
 
     @Test
@@ -837,6 +848,8 @@ private class TestFeedRepository(
     transactionRunner: FeedCacheTransactionRunner,
     feedRefresher: FeedRefresher,
     feedCatchUp: FeedCatchUp,
+    cachedProfileDao: CachedProfileDao,
+    threadSnapshotDao: ThreadSnapshotDao,
     private val testMediator: RemoteMediator<Int, CachedFeedRow>,
     private val testRows: List<FeedItemUi>,
 ) : DefaultFeedRepository(
@@ -852,6 +865,8 @@ private class TestFeedRepository(
         transactionRunner,
         feedRefresher,
         feedCatchUp,
+        cachedProfileDao,
+        threadSnapshotDao,
     ) {
     override fun mediatorFor(feedKey: FeedKey): RemoteMediator<Int, CachedFeedRow> = testMediator
 

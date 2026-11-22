@@ -479,4 +479,31 @@ internal class MigrationTest {
 
         db.close()
     }
+
+    @Test
+    fun migrate11To12_createsTheProfileAndThreadCaches_andKeepsCachedPosts() {
+        // Additive: the profile + thread-snapshot caches start empty, and the
+        // post store they reference survives the upgrade untouched.
+        helper.createDatabase(dbName, 11).use { db ->
+            db.execSQL(
+                "INSERT INTO cached_post (account_did, uri, text) " +
+                    "VALUES ('did:plc:t', 'at://did:plc:a/app.bsky.feed.post/1', 'hello')",
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(dbName, 12, true)
+
+        db.query("SELECT text FROM cached_post").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("hello", c.getString(0))
+        }
+        for (table in listOf("cached_profile", "thread_snapshot", "thread_snapshot_item")) {
+            db.query("SELECT count(*) FROM $table").use { c ->
+                assertTrue(c.moveToFirst())
+                assertEquals(0, c.getInt(0))
+            }
+        }
+
+        db.close()
+    }
 }
