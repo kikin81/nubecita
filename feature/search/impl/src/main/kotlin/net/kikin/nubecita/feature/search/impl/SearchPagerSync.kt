@@ -1,65 +1,82 @@
 package net.kikin.nubecita.feature.search.impl
 
+import net.kikin.nubecita.feature.search.impl.data.SearchTab
+
 /**
- * Whether the results pager should animate to the stored tab.
- *
- * The stored tab (`SubmittedSearchStore`) and the pager page are two views of the same fact
- * with writers on both sides: the pager reports a page the user settled on, and the second
- * pane's "See all" writes the tab. Following is only right when the pager is idle and not
- * already heading to that page: a scroll in flight (a tab tap, a swipe, a fling) owns the
- * pager until it settles, and the settle is then reported back, so starting another animation
- * would cancel it and the two sides would chase each other.
+ * What the results pager's driver must do next.
  */
-internal fun shouldFollowTab(
-    storeTab: Int,
-    pagerTarget: Int,
-    isScrollInProgress: Boolean,
-): Boolean = !isScrollInProgress && storeTab != pagerTarget
+internal sealed interface TabSyncAction {
+    data object None : TabSyncAction
 
-/** What to do when the pager has settled (is idle) on a page. */
-internal enum class SettleAction {
-    /** The pager and the store agree. */
-    None,
+    /** Animate the pager to [tab]. Run in its own job: an interrupted animation must end only that job. */
+    data class ScrollTo(
+        val tab: SearchTab,
+    ) : TabSyncAction
 
-    /** Someone else wrote a tab while the pager was busy: scroll to it, the write wins. */
-    ScrollToStore,
-
-    /** Nobody else wrote: the user's page is the truth, write it to the store. */
-    ReportPage,
+    /** Write [tab], the page the user reached by dragging, to the store. */
+    data class Report(
+        val tab: SearchTab,
+    ) : TabSyncAction
 }
 
+/** The new state and the action that goes with an event. */
+internal data class TabSyncStep(
+    val state: TabSyncState,
+    val action: TabSyncAction,
+)
+
 /**
- * The decision at settle. [outsideWrite] is true when the store's tab was written by a surface
- * other than the pager (see [isOutsideWrite]) and the pager has not shown it yet; such a write
- * made while a scroll was running (so [shouldFollowTab] declined) must still win. Intermediate
- * pages of a programmatic scroll never reach this: it is only asked once the pager is idle.
+ * The one rule set that keeps the results pager and the stored tab (`SubmittedSearchStore`) in
+ * step. Two kinds of tab choice exist. A drag is the pager's own: once it settles, the page is
+ * reported to the store. Everything else is a REQUEST written to the store (the second pane's
+ * "See all", a tap on the Search screen's tab row): the pager scrolls to it. A request is
+ * [pending] until the pager reaches it, and is retried if something older (a drag that began
+ * before it) lands the pager elsewhere; but a drag that began AFTER it is the user's newer
+ * choice and wins.
+ *
+ * Pure: the composable only feeds events in and carries the returned actions out.
+ *
+ * @property pending a requested tab the pager has not reached yet.
+ * @property dragSinceRequest the user started a drag after [pending] was requested.
+ * @property expectEcho a tab this screen itself just wrote to the store; when the store reports it
+ *   back it is not a request.
  */
-internal fun settleAction(
-    page: Int,
-    storeTab: Int,
-    outsideWrite: Boolean,
-): SettleAction =
-    when {
-        page == storeTab -> SettleAction.None
-        outsideWrite -> SettleAction.ScrollToStore
-        else -> SettleAction.ReportPage
+internal data class TabSyncState(
+    val pending: SearchTab? = null,
+    val dragSinceRequest: Boolean = false,
+    val expectEcho: SearchTab? = null,
+)
+
+/** The stored tab is [tab]; the pager is currently heading for [pagerTarget] (or sitting on it). */
+internal fun TabSyncState.onStoreTabObserved(
+    tab: SearchTab,
+    pagerTarget: SearchTab,
+): TabSyncStep {
+    if (tab == expectEcho) return TabSyncStep(copy(expectEcho = null), TabSyncAction.None)
+    if (pagerTarget == tab) return TabSyncStep(TabSyncState(), TabSyncAction.None)
+    return TabSyncStep(TabSyncState(pending = tab), TabSyncAction.ScrollTo(tab))
+}
+
+/** The user started dragging the pager. Only a drag after a request matters. */
+internal fun TabSyncState.onUserDragStarted(): TabSyncState = if (pending != null) copy(dragSinceRequest = true) else this
+
+/** The pager is idle on [page] while the store holds [storeTab]. */
+internal fun TabSyncState.onSettled(
+    page: SearchTab,
+    storeTab: SearchTab,
+): TabSyncStep {
+    val request = pending
+    return when {
+        request == page -> TabSyncStep(copy(pending = null, dragSinceRequest = false), TabSyncAction.None)
+        // The request was blocked or interrupted by something older: ask again.
+        request != null && !dragSinceRequest -> TabSyncStep(this, TabSyncAction.ScrollTo(request))
+        // No request (or the user's drag is newer than it): the page is the truth.
+        page != storeTab -> TabSyncStep(TabSyncState(expectEcho = page), TabSyncAction.Report(page))
+        else -> TabSyncStep(TabSyncState(), TabSyncAction.None)
     }
+}
 
-/**
- * Whether the store's [storeTab] is a write from outside the pager. The pager's own report
- * ([lastReportedPage], the page it last wrote; null once it has agreed with the store again)
- * comes back through the store as a tab change too, and that echo is not an outside write.
- */
-internal fun isOutsideWrite(
-    storeTab: Int,
-    lastReportedPage: Int?,
-): Boolean = storeTab != lastReportedPage
-
-/** The results pager's memory between two effects; plain fields, only touched from the main thread. */
-internal class PagerTabSync {
-    /** The page the pager last wrote to the store, or null once it agreed with the store again. */
-    var lastReportedPage: Int? = null
-
-    /** The store holds a tab written from outside that the pager has not shown yet. */
-    var outsideWrite: Boolean = false
+/** Holds the machine's state across effects; plain field, only touched from the main thread. */
+internal class TabSyncHolder {
+    var state = TabSyncState()
 }
