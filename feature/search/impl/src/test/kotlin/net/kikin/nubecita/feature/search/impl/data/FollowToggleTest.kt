@@ -1,7 +1,9 @@
 package net.kikin.nubecita.feature.search.impl.data
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -9,6 +11,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.postinteractions.FollowRepository
 import net.kikin.nubecita.feature.search.impl.FakeFollowRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -18,16 +21,17 @@ import org.junit.jupiter.api.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class FollowToggleTest {
+    private val session = MutableStateFlow<SessionState>(signedIn("did:plc:me"))
     private val provider =
         object : SessionStateProvider {
-            override val state = MutableStateFlow<SessionState>(signedIn("did:plc:me"))
+            override val state = session
 
             override suspend fun refresh() = Unit
         }
 
-    private fun kotlinx.coroutines.test.TestScope.newSut(repo: FakeFollowRepository): Pair<FollowToggle, FollowOverlay> {
+    private fun kotlinx.coroutines.test.TestScope.newSut(repo: FollowRepository): Pair<FollowToggle, FollowOverlay> {
         val overlay = FollowOverlay(TestScope(StandardTestDispatcher(testScheduler)), provider)
-        return FollowToggle(repo, overlay) to overlay
+        return FollowToggle(repo, overlay, provider, CoroutineScope(StandardTestDispatcher(testScheduler))) to overlay
     }
 
     private fun kotlinx.coroutines.test.TestScope.tapScope(): CoroutineScope = CoroutineScope(StandardTestDispatcher(testScheduler))
@@ -120,5 +124,82 @@ class FollowToggleTest {
             assertFalse(started)
             assertNull(overlay["did:plc:a"])
             assertTrue(repo.unfollowCallUris.isEmpty())
+        }
+
+    /** A repository whose calls stay suspended until the test completes them. */
+    private class SuspendedFollowRepository : FollowRepository {
+        val follow = CompletableDeferred<Result<String>>()
+        val unfollow = CompletableDeferred<Result<Unit>>()
+
+        override suspend fun follow(subjectDid: String): Result<String> = follow.await()
+
+        override suspend fun unfollow(followUri: String): Result<Unit> = unfollow.await()
+    }
+
+    @Test
+    fun `a tap whose caller is cancelled mid-call still settles the overlay to the confirmed follow`() =
+        runTest {
+            val repo = SuspendedFollowRepository()
+            val (toggle, overlay) = newSut(repo)
+            val outcomes = mutableListOf<FollowOutcome>()
+            val caller = tapScope()
+
+            toggle.toggle(caller, "did:plc:a", isFollowing = false, followUri = null) { outcomes += it }
+            runCurrent()
+            caller.cancel()
+            repo.follow.complete(Result.success("at://follow/new"))
+            runCurrent()
+
+            assertEquals(FollowOverride(true, "at://follow/new"), overlay["did:plc:a"])
+            assertTrue(outcomes.isEmpty(), "no callback once the caller is gone")
+        }
+
+    @Test
+    fun `a tap whose caller is cancelled mid-call still rolls back when the call fails`() =
+        runTest {
+            val repo = SuspendedFollowRepository()
+            val (toggle, overlay) = newSut(repo)
+            val outcomes = mutableListOf<FollowOutcome>()
+            val caller = tapScope()
+
+            toggle.toggle(caller, "did:plc:a", isFollowing = false, followUri = null) { outcomes += it }
+            runCurrent()
+            caller.cancel()
+            repo.follow.complete(Result.failure(java.io.IOException("net")))
+            runCurrent()
+
+            assertNull(overlay["did:plc:a"])
+            assertTrue(outcomes.isEmpty(), "no callback once the caller is gone")
+        }
+
+    @Test
+    fun `a follow completed after an account switch is not visible to the new account`() =
+        runTest {
+            val repo = SuspendedFollowRepository()
+            val (toggle, overlay) = newSut(repo)
+
+            toggle.toggle(tapScope(), "did:plc:x", isFollowing = false, followUri = null) {}
+            runCurrent()
+            session.value = signedIn("did:plc:b")
+            repo.follow.complete(Result.success("at://follow/as-a"))
+            runCurrent()
+
+            assertNull(overlay["did:plc:x"])
+            assertTrue(overlay.current().isEmpty(), "the new account sees nothing of the first account's follow")
+        }
+
+    @Test
+    fun `a tap with no signed-in account does nothing`() =
+        runTest {
+            val repo = FakeFollowRepository()
+            val (toggle, overlay) = newSut(repo)
+            session.value = SessionState.SignedOut
+
+            val started = toggle.toggle(tapScope(), "did:plc:a", isFollowing = false, followUri = null) {}
+            runCurrent()
+
+            assertFalse(started)
+            assertTrue(repo.followCallDids.isEmpty())
+            assertTrue(overlay.current().isEmpty())
         }
 }

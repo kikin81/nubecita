@@ -60,7 +60,7 @@ class SearchActorsViewModelTest {
         }
     private val overlay = FollowOverlay(CoroutineScope(SupervisorJob() + testDispatcher), sessionProvider)
 
-    private fun newVm(follow: FollowRepository = followRepo) = SearchActorsViewModel(repo, firstPages, FollowToggle(follow, overlay), overlay, sessionProvider, analytics)
+    private fun newVm(follow: FollowRepository = followRepo) = SearchActorsViewModel(repo, firstPages, FollowToggle(follow, overlay, sessionProvider, CoroutineScope(SupervisorJob() + testDispatcher)), overlay, sessionProvider, analytics)
 
     private val firstPages = testSearchFirstPages(CoroutineScope(SupervisorJob() + testDispatcher), actors = repo)
 

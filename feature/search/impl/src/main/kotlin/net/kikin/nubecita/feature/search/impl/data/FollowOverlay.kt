@@ -94,6 +94,27 @@ internal class FollowOverlay
             entries.update { it.putting(did, Entry(override, account)) }
         }
 
+        /**
+         * Writes ([override]) or drops (null) the entry for [did] on behalf of [account], the
+         * account that started the action — not whoever is signed in by the time it settles.
+         * An entry another account has since written for [did] is left alone, so a late
+         * result for one account can never replace or erase another's.
+         */
+        fun write(
+            did: String,
+            override: FollowOverride?,
+            account: String,
+        ) {
+            entries.update { map ->
+                val existing = map[did]
+                when {
+                    existing != null && existing.account != account -> map
+                    override == null -> map.removing(did)
+                    else -> map.putting(did, Entry(override, account))
+                }
+            }
+        }
+
         /** Drops the override for [did], e.g. to roll back an optimistic write. */
         fun clear(did: String) {
             entries.update { it.removing(did) }

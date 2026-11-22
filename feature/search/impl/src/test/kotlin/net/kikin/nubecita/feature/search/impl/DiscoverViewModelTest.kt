@@ -69,7 +69,7 @@ internal class DiscoverViewModelTest {
                 override suspend fun refresh() = Unit
             }
         val overlay = FollowOverlay(CoroutineScope(SupervisorJob() + mainDispatcher.dispatcher), sessions)
-        return DiscoverViewModel(suggestionsRepo, FollowToggle(followRepo, overlay), overlay, pinnedRepo, analytics)
+        return DiscoverViewModel(suggestionsRepo, FollowToggle(followRepo, overlay, sessions, CoroutineScope(SupervisorJob() + mainDispatcher.dispatcher)), overlay, pinnedRepo, analytics)
     }
 
     // -------------------------------------------------------------------------

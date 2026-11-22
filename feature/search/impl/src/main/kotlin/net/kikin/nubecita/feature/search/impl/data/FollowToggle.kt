@@ -3,6 +3,9 @@ package net.kikin.nubecita.feature.search.impl.data
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import net.kikin.nubecita.core.auth.SessionState
+import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.core.postinteractions.FollowRepository
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -23,10 +26,20 @@ internal enum class FollowOutcome {
  * with the new follow record URI, and on failure puts back what the overlay held
  * before the tap.
  *
+ * The call runs in the application scope, not the caller's: a tap whose screen is left
+ * mid-call still completes, so the overlay always settles to the server's answer and
+ * never keeps a phantom "following" that cannot be undone. The caller's [FollowOutcome]
+ * callback is delivered on the caller's scope, and only while that is still active; callers use
+ * it for analytics and their error effect, never for state (state comes from the overlay).
+ *
+ * Every overlay write for a tap is made on behalf of the account that tapped, captured
+ * at tap time. If the session has moved to another account by the time the call returns,
+ * the result is still written under the original account (invisible to the new one, and
+ * right if the first account signs back in within the process) and never over another
+ * account's entry.
+ *
  * One tap per DID is in flight at a time, across every caller: a second tap on the
  * same account (from either surface) is dropped until the first settles.
- *
- * Each caller keeps what is its own: analytics and the error effect, from [FollowOutcome].
  */
 @Singleton
 internal class FollowToggle
@@ -34,15 +47,19 @@ internal class FollowToggle
     constructor(
         private val followRepository: FollowRepository,
         private val followOverlay: FollowOverlay,
+        private val sessionStateProvider: SessionStateProvider,
+        @param:ApplicationScope private val appScope: CoroutineScope,
     ) {
         private val activeJobs = ConcurrentHashMap<String, Job>()
 
         /**
          * Toggles the follow state of [did], currently shown as [isFollowing] with
-         * follow record [followUri]. Returns false, and does nothing, when a tap on
-         * [did] is already in flight or when an unfollow is asked of an account whose
-         * follow record URI is unknown. Otherwise the optimistic write is already in
-         * the overlay when this returns, and [onOutcome] runs when the call settles.
+         * follow record [followUri]. [scope] is the caller's, used only to decide whether
+         * [onOutcome] is still wanted. Returns false, and does nothing, when nobody is
+         * signed in, when a tap on [did] is already in flight, or when an unfollow is asked
+         * of an account whose follow record URI is unknown. Otherwise the optimistic write
+         * is already in the overlay when this returns, and [onOutcome] runs when the call
+         * settles, if [scope] is still active then.
          */
         fun toggle(
             scope: CoroutineScope,
@@ -51,47 +68,40 @@ internal class FollowToggle
             followUri: String?,
             onOutcome: (FollowOutcome) -> Unit,
         ): Boolean {
+            val account = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did ?: return false
             if (activeJobs[did]?.isActive == true) return false
             // An account known to be followed without its record URI cannot be unfollowed.
             if (isFollowing && followUri == null) return false
             val previous = followOverlay[did]
 
-            if (isFollowing) {
-                followOverlay.set(did, FollowOverride(isFollowing = false, followUri = null))
-            } else {
-                followOverlay.set(did, FollowOverride(isFollowing = true, followUri = null))
-            }
+            followOverlay.write(did, FollowOverride(isFollowing = !isFollowing, followUri = null), account)
             val job =
-                scope.launch {
+                appScope.launch {
+                    fun settled(outcome: FollowOutcome) {
+                        // Delivered on the caller's own dispatcher; a cancelled scope never runs it.
+                        scope.launch { onOutcome(outcome) }
+                    }
                     if (isFollowing && followUri != null) {
                         followRepository
                             .unfollow(followUri)
-                            .onSuccess { onOutcome(FollowOutcome.Unfollowed) }
+                            .onSuccess { settled(FollowOutcome.Unfollowed) }
                             .onFailure {
-                                restore(did, previous)
-                                onOutcome(FollowOutcome.UnfollowFailed)
+                                followOverlay.write(did, previous, account)
+                                settled(FollowOutcome.UnfollowFailed)
                             }
                     } else {
                         followRepository
                             .follow(did)
                             .onSuccess { newFollowUri ->
-                                followOverlay.set(did, FollowOverride(isFollowing = true, followUri = newFollowUri))
-                                onOutcome(FollowOutcome.Followed)
+                                followOverlay.write(did, FollowOverride(isFollowing = true, followUri = newFollowUri), account)
+                                settled(FollowOutcome.Followed)
                             }.onFailure {
-                                restore(did, previous)
-                                onOutcome(FollowOutcome.FollowFailed)
+                                followOverlay.write(did, previous, account)
+                                settled(FollowOutcome.FollowFailed)
                             }
                     }
                 }
             activeJobs[did] = job
             return true
-        }
-
-        /** Puts the overlay back to what it held before the optimistic write, or drops the entry. */
-        private fun restore(
-            did: String,
-            previous: FollowOverride?,
-        ) {
-            if (previous != null) followOverlay.set(did, previous) else followOverlay.clear(did)
         }
     }
