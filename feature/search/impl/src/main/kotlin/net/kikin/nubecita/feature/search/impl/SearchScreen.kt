@@ -50,8 +50,10 @@ import net.kikin.nubecita.designsystem.component.NubecitaPullToRefreshBox
 import net.kikin.nubecita.feature.feed.api.FeedView
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.search.api.Search
+import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
 import net.kikin.nubecita.feature.search.impl.data.SearchTab
 import net.kikin.nubecita.feature.search.impl.ui.DiscoverSections
+import net.kikin.nubecita.feature.search.impl.ui.PostFiltersSheet
 import net.kikin.nubecita.feature.search.impl.ui.RecentSearchChipStrip
 
 /**
@@ -74,8 +76,12 @@ internal fun SearchScreen(
     modifier: Modifier = Modifier,
     viewModel: SearchViewModel = hiltViewModel(),
     discoverViewModel: DiscoverViewModel = hiltViewModel(),
+    // The same instance the Posts tab uses (same ViewModelStoreOwner); read here
+    // only for the result estimate the filter sheet's button shows.
+    postsViewModel: SearchPostsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val postsState by postsViewModel.uiState.collectAsStateWithLifecycle()
     val discoverState by discoverViewModel.uiState.collectAsStateWithLifecycle()
 
     val onEvent = remember(viewModel) { viewModel::handleEvent }
@@ -142,6 +148,9 @@ internal fun SearchScreen(
         currentQuery = state.currentQuery,
         phase = state.phase,
         selectedTab = state.selectedTab,
+        filters = state.filters,
+        isFilterSheetOpen = state.isFilterSheetOpen,
+        postsHitsTotal = (postsState.loadStatus as? SearchPostsLoadStatus.Loaded)?.hitsTotal,
         recentSearches = state.recentSearches,
         onEvent = onEvent,
         onClearQueryRequest = onClearQueryRequest,
@@ -192,6 +201,9 @@ internal fun SearchScreenContent(
     onClearQueryRequest: () -> Unit,
     modifier: Modifier = Modifier,
     selectedTab: SearchTab = SearchTab.POSTS,
+    filters: PostSearchFilters = PostSearchFilters(),
+    isFilterSheetOpen: Boolean = false,
+    postsHitsTotal: Long? = null,
     isAtLeastMedium: Boolean = false,
     onNavigateToActor: (handle: String) -> Unit = {},
     discoverState: DiscoverState = DiscoverState(),
@@ -446,6 +458,16 @@ internal fun SearchScreenContent(
                     }
                 }
             }
+        }
+        // Hosted here, not in the Posts tab, so any results tab can open it.
+        if (isFilterSheetOpen && phase is SearchPhase.Results) {
+            PostFiltersSheet(
+                filters = filters,
+                hitsTotal = postsHitsTotal,
+                onFiltersChange = { onEvent(SearchEvent.FiltersChanged(it)) },
+                onReset = { onEvent(SearchEvent.FiltersChanged(PostSearchFilters(sort = filters.sort))) },
+                onDismiss = { onEvent(SearchEvent.FilterSheetOpenChanged(false)) },
+            )
         }
     }
 }

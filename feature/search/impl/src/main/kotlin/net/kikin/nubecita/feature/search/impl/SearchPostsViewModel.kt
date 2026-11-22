@@ -144,6 +144,7 @@ internal class SearchPostsViewModel
                         copy(
                             currentQuery = key.query,
                             sort = key.filters.sort,
+                            filters = key.filters,
                             // The old results belong to the previous key; drop them now so
                             // no pagination can run against them before the reload starts.
                             loadStatus =
@@ -172,6 +173,10 @@ internal class SearchPostsViewModel
                     sendEffect(SearchPostsEffect.NavigateToClearQuery)
                 is SearchPostsEvent.SortClicked ->
                     submittedSearch.updateFilters { it.copy(sort = event.sort) }
+                is SearchPostsEvent.FiltersChanged ->
+                    submittedSearch.updateFilters { event.filters }
+                SearchPostsEvent.OpenFilterSheetClicked ->
+                    submittedSearch.setFilterSheetOpen(true)
                 is SearchPostsEvent.PostTapped ->
                     sendEffect(SearchPostsEffect.NavigateToPost(event.uri))
                 is SearchPostsEvent.OnAuthorTapped ->
@@ -215,6 +220,7 @@ internal class SearchPostsViewModel
                                 items = deduped,
                                 nextCursor = page.nextCursor,
                                 endReached = page.nextCursor == null,
+                                hitsTotal = page.hitsTotal,
                             )
                         }
                     setState { copy(loadStatus = nextStatus) }

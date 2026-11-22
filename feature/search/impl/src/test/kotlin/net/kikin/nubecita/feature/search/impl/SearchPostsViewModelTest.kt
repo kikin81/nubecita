@@ -1023,4 +1023,50 @@ class SearchPostsViewModelTest {
             val status = vm.uiState.value.loadStatus as SearchPostsLoadStatus.Loaded
             assertEquals(listOf("at://b1"), status.items.map { it.post.id })
         }
+
+    @Test
+    fun `FiltersChanged writes the store and the state mirrors it`() =
+        runTest {
+            val vm = buildVm()
+            search("kotlin")
+            runCurrent()
+            val filters = PostSearchFilters(followingOnly = true, language = "es")
+
+            vm.handleEvent(SearchPostsEvent.FiltersChanged(filters))
+            runCurrent()
+
+            assertEquals(filters, store.submitted.value?.filters)
+            assertEquals(filters, vm.uiState.value.filters)
+        }
+
+    @Test
+    fun `OpenFilterSheetClicked opens the sheet through the store`() =
+        runTest {
+            val vm = buildVm()
+            search("kotlin")
+            runCurrent()
+
+            vm.handleEvent(SearchPostsEvent.OpenFilterSheetClicked)
+            runCurrent()
+
+            assertEquals(true, store.submitted.value?.isFilterSheetOpen)
+        }
+
+    @Test
+    fun `the first page's hitsTotal lands on Loaded`() =
+        runTest {
+            val vm = buildVm()
+            repo.respond(
+                query = "kotlin",
+                cursor = null,
+                sort = SearchPostsSort.TOP,
+                items = listOf(searchPostFixture(uri = "at://did:plc:fake/p1", text = "kotlin")),
+                hitsTotal = 1_240L,
+            )
+
+            search("kotlin")
+            runCurrent()
+
+            assertEquals(1_240L, (vm.uiState.value.loadStatus as SearchPostsLoadStatus.Loaded).hitsTotal)
+        }
 }

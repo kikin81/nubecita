@@ -184,4 +184,39 @@
     <string name="hashtag_filter_from_author">From @%1$s</string>
     <string name="hashtag_empty_title">No posts with %1$s yet</string>
     <string name="hashtag_empty_body">Try the other tab, or pull down to check again.</string>
+
+    <!-- 7d66.6: post filters + result count -->
+    <string name="search_filter_row_sheet_description">Filters</string>
+    <string name="search_filter_row_sheet_description_active">Filters, %1$d active</string>
+    <string name="search_filter_sort_description">Sort by: %1$s</string>
+    <string name="search_filter_following">Following</string>
+    <string name="search_filter_media">Media</string>
+    <string name="search_filter_video">Video</string>
+    <string name="search_filter_language">Language</string>
+    <string name="search_filter_language_description">Language: %1$s</string>
+    <string name="search_filter_date">Date</string>
+    <string name="search_filter_date_description">Date: %1$s</string>
+    <string name="search_filter_any">Any</string>
+    <string name="search_filter_date_all_time">All time</string>
+    <string name="search_filter_date_past_day">Past day</string>
+    <string name="search_filter_date_past_week">Past week</string>
+    <string name="search_filter_date_past_month">Past month</string>
+    <string name="search_filter_date_custom">Custom range</string>
+    <string name="search_filter_date_range">%1$s – %2$s</string>
+    <string name="search_filter_range_apply">Apply</string>
+    <string name="search_filter_range_cancel">Cancel</string>
+    <string name="search_posts_hits_total">About %1$s posts</string>
+    <string name="search_filter_sheet_title">Filters</string>
+    <string name="search_filter_sheet_reset">Reset</string>
+    <string name="search_filter_section_from">From</string>
+    <string name="search_filter_section_replies">Replies</string>
+    <string name="search_filter_from_anyone">Anyone</string>
+    <string name="search_filter_from_following">People you follow</string>
+    <string name="search_filter_media_has">Has media</string>
+    <string name="search_filter_media_video_only">Video only</string>
+    <string name="search_filter_replies_include">Include</string>
+    <string name="search_filter_replies_hide">Hide replies</string>
+    <string name="search_filter_replies_only">Only replies</string>
+    <string name="search_filter_sheet_show_count">Show about %1$s posts</string>
+    <string name="search_filter_sheet_show_results">Show results</string>
 </resources>

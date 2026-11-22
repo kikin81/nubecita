@@ -35,11 +35,10 @@ import net.kikin.nubecita.designsystem.component.PostCard
 import net.kikin.nubecita.feature.search.impl.SearchPostsEvent
 import net.kikin.nubecita.feature.search.impl.SearchPostsLoadStatus
 import net.kikin.nubecita.feature.search.impl.SearchPostsState
-import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
 
 /**
  * Stateless body for the Posts tab. Branches on
- * [SearchPostsState.loadStatus]; renders the sort row above non-Idle
+ * [SearchPostsState.loadStatus]; renders the filter header (chips + count) above non-Idle
  * states; for Loaded uses a LazyColumn of PostCards with bodyMatch
  * highlighting; for Loaded + isAppending shows a bottom progress row.
  *
@@ -71,13 +70,17 @@ internal fun PostsTabContent(
         SearchPostsLoadStatus.Idle ->
             Box(modifier = modifier.fillMaxSize())
         SearchPostsLoadStatus.InitialLoading ->
-            PostsLoadingBody(modifier = modifier)
+            Column(modifier = modifier.fillMaxSize()) {
+                FilterHeader(state = state, hitsTotal = null, onEvent = onEvent)
+                PostsLoadingBody()
+            }
         is SearchPostsLoadStatus.Loaded -> {
             LoadedBody(
                 items = status.items,
                 isAppending = status.isAppending,
                 currentQuery = state.currentQuery,
-                currentSort = state.sort,
+                state = state,
+                hitsTotal = status.hitsTotal,
                 listState = listState,
                 callbacks = callbacks,
                 tapMarkers = tapMarkers,
@@ -110,10 +113,7 @@ internal fun PostsTabContent(
         }
         SearchPostsLoadStatus.Empty ->
             Column(modifier = modifier.fillMaxSize()) {
-                PostsSortRow(
-                    activeSort = state.sort,
-                    onSelectSort = { onEvent(SearchPostsEvent.SortClicked(it)) },
-                )
+                FilterHeader(state = state, hitsTotal = null, onEvent = onEvent)
                 PostsEmptyBody(
                     currentQuery = state.currentQuery,
                     currentSort = state.sort,
@@ -122,11 +122,14 @@ internal fun PostsTabContent(
                 )
             }
         is SearchPostsLoadStatus.InitialError ->
-            PostsInitialErrorBody(
-                error = status.error,
-                onRetry = { onEvent(SearchPostsEvent.Retry) },
-                modifier = modifier,
-            )
+            Column(modifier = modifier.fillMaxSize()) {
+                FilterHeader(state = state, hitsTotal = null, onEvent = onEvent)
+                PostsInitialErrorBody(
+                    error = status.error,
+                    onRetry = { onEvent(SearchPostsEvent.Retry) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
     }
 }
 
@@ -135,7 +138,8 @@ private fun LoadedBody(
     items: ImmutableList<FeedItemUi.Single>,
     isAppending: Boolean,
     currentQuery: String,
-    currentSort: SearchPostsSort,
+    state: SearchPostsState,
+    hitsTotal: Long?,
     listState: LazyListState,
     callbacks: PostCallbacks,
     tapMarkers: PostTapMarkers,
@@ -153,11 +157,8 @@ private fun LoadedBody(
         modifier = modifier.fillMaxSize().testTag("search_posts_list"),
         state = listState,
     ) {
-        item("sort-row") {
-            PostsSortRow(
-                activeSort = currentSort,
-                onSelectSort = { onEvent(SearchPostsEvent.SortClicked(it)) },
-            )
+        item("filter-header") {
+            FilterHeader(state = state, hitsTotal = hitsTotal, onEvent = onEvent)
         }
         items(items = items, key = { it.post.id }) { item ->
             PostCard(
@@ -189,6 +190,21 @@ private fun LoadedBody(
             }
         }
     }
+}
+
+/** The filter row and count, wired to the VM; shown above every non-idle body. */
+@Composable
+private fun FilterHeader(
+    state: SearchPostsState,
+    hitsTotal: Long?,
+    onEvent: (SearchPostsEvent) -> Unit,
+) {
+    PostsFilterHeader(
+        filters = state.filters,
+        hitsTotal = hitsTotal,
+        onFiltersChange = { onEvent(SearchPostsEvent.FiltersChanged(it)) },
+        onOpenSheet = { onEvent(SearchPostsEvent.OpenFilterSheetClicked) },
+    )
 }
 
 private const val PAGINATION_PREFETCH_DISTANCE = 5

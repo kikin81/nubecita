@@ -6,6 +6,7 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
 import net.kikin.nubecita.feature.search.impl.data.SearchTab
 
 /**
@@ -31,6 +32,10 @@ internal data class SearchScreenViewState(
     val phase: SearchPhase = SearchPhase.Discover,
     /** The result tab of the submitted search, mirrored from the store. */
     val selectedTab: SearchTab = SearchTab.POSTS,
+    /** The post filters of the submitted search, mirrored from the store. */
+    val filters: PostSearchFilters = PostSearchFilters(),
+    /** Whether the filter sheet is open, mirrored from the store. */
+    val isFilterSheetOpen: Boolean = false,
 ) : UiState
 
 /**
@@ -108,6 +113,16 @@ internal sealed interface SearchEvent : UiEvent {
     /** The pager settled on [tab]; recorded in the store so other surfaces and a recreated screen agree. */
     data class TabSelected(
         val tab: SearchTab,
+    ) : SearchEvent
+
+    /** The filter sheet changed the filters (each choice applies live). */
+    data class FiltersChanged(
+        val filters: PostSearchFilters,
+    ) : SearchEvent
+
+    /** The filter sheet was opened or dismissed. */
+    data class FilterSheetOpenChanged(
+        val open: Boolean,
     ) : SearchEvent
 
     /** System back from results: blanks the field and returns the body to Discover. */

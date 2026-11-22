@@ -6,6 +6,7 @@ import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
 import net.kikin.nubecita.data.models.FeedItemUi
+import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
 
 /**
@@ -28,6 +29,8 @@ import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
 internal data class SearchPostsState(
     val currentQuery: String = "",
     val sort: SearchPostsSort = SearchPostsSort.TOP,
+    /** Every filter of the submitted search, mirrored from the store; [sort] is its sort. */
+    val filters: PostSearchFilters = PostSearchFilters(),
     val loadStatus: SearchPostsLoadStatus = SearchPostsLoadStatus.Idle,
 ) : UiState
 
@@ -55,6 +58,8 @@ internal sealed interface SearchPostsLoadStatus {
         val nextCursor: String?,
         val endReached: Boolean,
         val isAppending: Boolean = false,
+        /** The server's estimate of the total hits, from the first page; null when it gave none. */
+        val hitsTotal: Long? = null,
     ) : SearchPostsLoadStatus
 
     @Immutable
@@ -80,6 +85,14 @@ internal sealed interface SearchPostsEvent : UiEvent {
     data class SortClicked(
         val sort: SearchPostsSort,
     ) : SearchPostsEvent
+
+    /** A chip in the filter row changed the filters; writes the store, which refetches. */
+    data class FiltersChanged(
+        val filters: PostSearchFilters,
+    ) : SearchPostsEvent
+
+    /** The sheet chip was tapped; opens the filter sheet through the store. */
+    data object OpenFilterSheetClicked : SearchPostsEvent
 
     /** Tap on a post card. Emits [SearchPostsEffect.NavigateToPost]. */
     data class PostTapped(
