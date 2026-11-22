@@ -1,7 +1,9 @@
 package net.kikin.nubecita.feature.search.impl.ui
 
 import android.content.res.Configuration
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Surface
+import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
@@ -12,6 +14,7 @@ import net.kikin.nubecita.feature.search.impl.data.MediaFilter
 import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
 import net.kikin.nubecita.feature.search.impl.data.ReplyFilter
 import java.time.LocalDate
+import java.time.ZoneOffset
 
 // A fixed list instead of the device's locales, so the baseline does not depend on the host.
 private val languages =
@@ -78,4 +81,45 @@ private fun PostFiltersSheetNoCountScreenshot() {
 @Composable
 private fun PostFiltersSheetEs419Screenshot() {
     SheetFixture(filters = PostSearchFilters(followingOnly = true, replies = ReplyFilter.ONLY), hitsTotal = 1_240L)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RangePickerFixture(
+    start: LocalDate?,
+    end: LocalDate?,
+) {
+    NubecitaTheme(dynamicColor = false) {
+        Surface {
+            RangePickerFullScreenContent(
+                state =
+                    rememberDateRangePickerState(
+                        initialSelectedStartDateMillis = start?.atStartOfDay(ZoneOffset.UTC)?.toInstant()?.toEpochMilli(),
+                        initialSelectedEndDateMillis = end?.atStartOfDay(ZoneOffset.UTC)?.toInstant()?.toEpochMilli(),
+                        initialDisplayedMonthMillis =
+                            LocalDate
+                                .of(2026, 11, 1)
+                                .atStartOfDay(ZoneOffset.UTC)
+                                .toInstant()
+                                .toEpochMilli(),
+                    ),
+                onClose = {},
+                onConfirm = {},
+            )
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "range-picker-full-screen-chosen-light", showBackground = true, heightDp = 800)
+@Composable
+private fun RangePickerFullScreenChosenScreenshot() {
+    RangePickerFixture(start = LocalDate.of(2026, 11, 1), end = LocalDate.of(2026, 11, 8))
+}
+
+@PreviewTest
+@Preview(name = "range-picker-full-screen-empty-light", showBackground = true, heightDp = 800)
+@Composable
+private fun RangePickerFullScreenEmptyScreenshot() {
+    RangePickerFixture(start = null, end = null)
 }

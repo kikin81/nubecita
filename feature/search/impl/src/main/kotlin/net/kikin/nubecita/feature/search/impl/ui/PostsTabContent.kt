@@ -64,6 +64,7 @@ internal fun PostsTabContent(
     listState: LazyListState = rememberLazyListState(),
     translations: PostTranslationsHandle? = null,
     onOpenImage: (postUri: String, imageIndex: Int) -> Unit = { _, _ -> },
+    fullScreenRangePicker: Boolean = false,
 ) {
     val currentOnEvent by rememberUpdatedState(onEvent)
     val status = state.loadStatus
@@ -78,11 +79,12 @@ internal fun PostsTabContent(
                 filters = state.filters,
                 hitsTotal = state.hitsTotal,
                 onEvent = onEvent,
+                fullScreenRangePicker = fullScreenRangePicker,
             )
         }
         when (status) {
             SearchPostsLoadStatus.Idle -> Box(modifier = Modifier.weight(1f).fillMaxWidth())
-            SearchPostsLoadStatus.InitialLoading -> PostsLoadingBody()
+            SearchPostsLoadStatus.InitialLoading -> PostsLoadingBody(modifier = Modifier.weight(1f).fillMaxWidth())
             is SearchPostsLoadStatus.Loaded -> {
                 LoadedBody(
                     items = status.items,
@@ -194,12 +196,14 @@ private fun FilterHeader(
     filters: PostSearchFilters,
     hitsTotal: Long?,
     onEvent: (SearchPostsEvent) -> Unit,
+    fullScreenRangePicker: Boolean,
 ) {
     PostsFilterHeader(
         filters = filters,
         hitsTotal = hitsTotal,
         onFiltersChange = { onEvent(SearchPostsEvent.FiltersChanged(it)) },
         onOpenSheet = { onEvent(SearchPostsEvent.OpenFilterSheetClicked) },
+        fullScreenRangePicker = fullScreenRangePicker,
     )
 }
 

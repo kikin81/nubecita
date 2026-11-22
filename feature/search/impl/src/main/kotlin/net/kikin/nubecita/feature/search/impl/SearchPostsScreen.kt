@@ -59,6 +59,7 @@ internal fun SearchPostsScreen(
     onShowAppendError: (SearchPostsError) -> Unit,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
+    fullScreenRangePicker: Boolean = false,
     viewModel: SearchPostsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -191,5 +192,6 @@ internal fun SearchPostsScreen(
         listState = listState,
         translations = translations,
         onOpenImage = rememberOpenMediaViewer(),
+        fullScreenRangePicker = fullScreenRangePicker,
     )
 }

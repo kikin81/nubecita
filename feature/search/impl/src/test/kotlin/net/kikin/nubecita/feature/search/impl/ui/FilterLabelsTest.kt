@@ -137,4 +137,19 @@ class FilterLabelsTest {
         assertEquals(1L, shownHitsTotal(1L))
         assertEquals(1_240L, shownHitsTotal(1_240L))
     }
+
+    @Test
+    fun languageChoices_normalisesARegionTaggedSelection() {
+        val choices =
+            languageChoices(
+                deviceLocales = listOf(Locale.forLanguageTag("en")),
+                selected = "en-US",
+                displayLocale = Locale.US,
+            )
+
+        assertEquals(1, choices.size)
+        assertEquals("en", choices.single().code)
+        // The selected value matches that entry once normalised the same way.
+        assertEquals(choices.single().code, bareLanguageCode("en-US"))
+    }
 }

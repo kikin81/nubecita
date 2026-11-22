@@ -5,17 +5,22 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DateRangePicker
+import androidx.compose.material3.DateRangePickerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDateRangePickerState
@@ -32,6 +37,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.text.rememberCompactCount
@@ -68,6 +75,7 @@ internal fun PostFiltersSheet(
     onReset: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    fullScreenRangePicker: Boolean = false,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -83,6 +91,7 @@ internal fun PostFiltersSheet(
             languages = languages,
             onFiltersChange = onFiltersChange,
             onReset = onReset,
+            fullScreenRangePicker = fullScreenRangePicker,
             onDone = {
                 scope.launch {
                     sheetState.hide()
@@ -102,6 +111,7 @@ internal fun PostFiltersSheetContent(
     onReset: () -> Unit,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
+    fullScreenRangePicker: Boolean = false,
 ) {
     var showRangePicker by rememberSaveable { mutableStateOf(false) }
     Column(
@@ -191,7 +201,7 @@ internal fun PostFiltersSheetContent(
             languages.forEach { choice ->
                 ChoiceChip(
                     label = choice.label,
-                    selected = filters.language == choice.code,
+                    selected = bareLanguageCode(filters.language) == choice.code,
                     onClick = { onFiltersChange(filters.copy(language = choice.code)) },
                 )
             }
@@ -234,6 +244,7 @@ internal fun PostFiltersSheetContent(
                 onFiltersChange(filters.copy(date = it))
             },
             onDismiss = { showRangePicker = false },
+            fullScreen = fullScreenRangePicker,
         )
     }
 }
@@ -281,9 +292,11 @@ private fun ChoiceChip(
 }
 
 /**
- * The M3 date-range picker in a dialog, over the sheet or the row. Confirm is
- * enabled once both ends are chosen. The picker works in UTC-midnight
- * milliseconds; [DateFilter.Custom] holds plain dates, so they convert here.
+ * The M3 date-range picker over the sheet or the row. On compact windows
+ * ([fullScreen]) it is a full-screen dialog, as Material specifies for phones;
+ * on wider windows it stays in a standard dialog. Confirm is enabled once both
+ * ends are chosen. The picker works in UTC-midnight milliseconds;
+ * [DateFilter.Custom] holds plain dates, so they convert here.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -291,6 +304,7 @@ internal fun CustomRangeDialog(
     initial: DateFilter.Custom?,
     onConfirm: (DateFilter.Custom) -> Unit,
     onDismiss: () -> Unit,
+    fullScreen: Boolean = false,
 ) {
     val state =
         rememberDateRangePickerState(
@@ -299,23 +313,78 @@ internal fun CustomRangeDialog(
         )
     val start = state.selectedStartDateMillis
     val end = state.selectedEndDateMillis
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
+    val confirm = {
+        if (start != null && end != null) {
+            onConfirm(DateFilter.Custom(from = start.toUtcDate(), to = end.toUtcDate()))
+        }
+    }
+    if (fullScreen) {
+        Dialog(
+            onDismissRequest = onDismiss,
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.surface,
+            ) {
+                RangePickerFullScreenContent(
+                    state = state,
+                    onClose = onDismiss,
+                    onConfirm = confirm,
+                    modifier = Modifier.safeDrawingPadding(),
+                )
+            }
+        }
+    } else {
+        DatePickerDialog(
+            onDismissRequest = onDismiss,
+            confirmButton = {
+                TextButton(enabled = start != null && end != null, onClick = confirm) {
+                    Text(stringResource(R.string.search_filter_range_apply))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.search_filter_range_cancel)) }
+            },
+        ) {
+            DateRangePicker(state = state)
+        }
+    }
+}
+
+/**
+ * The body of the full-screen range picker: a close button and a confirm button
+ * (enabled once both dates are chosen) over the picker. Stateless apart from the
+ * picker [state] it is handed, so it can be previewed.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun RangePickerFullScreenContent(
+    state: DateRangePickerState,
+    onClose: () -> Unit,
+    onConfirm: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = MaterialTheme.spacing.s2),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            IconButton(onClick = onClose) {
+                NubecitaIcon(
+                    name = NubecitaIconName.Close,
+                    contentDescription = stringResource(R.string.search_filter_range_cancel),
+                )
+            }
             TextButton(
-                enabled = start != null && end != null,
-                onClick = {
-                    if (start != null && end != null) {
-                        onConfirm(DateFilter.Custom(from = start.toUtcDate(), to = end.toUtcDate()))
-                    }
-                },
-            ) { Text(stringResource(R.string.search_filter_range_apply)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.search_filter_range_cancel)) }
-        },
-    ) {
-        DateRangePicker(state = state)
+                enabled = state.selectedStartDateMillis != null && state.selectedEndDateMillis != null,
+                onClick = onConfirm,
+            ) {
+                Text(stringResource(R.string.search_filter_range_apply))
+            }
+        }
+        DateRangePicker(state = state, modifier = Modifier.weight(1f))
     }
 }
 

@@ -54,12 +54,14 @@ internal fun PostsFilterHeader(
     onFiltersChange: (PostSearchFilters) -> Unit,
     onOpenSheet: () -> Unit,
     modifier: Modifier = Modifier,
+    fullScreenRangePicker: Boolean = false,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         PostsFilterRow(
             filters = filters,
             onFiltersChange = onFiltersChange,
             onOpenSheet = onOpenSheet,
+            fullScreenRangePicker = fullScreenRangePicker,
         )
         shownHitsTotal(hitsTotal)?.let { PostsResultCount(hitsTotal = it) }
     }
@@ -101,6 +103,7 @@ internal fun PostsFilterRow(
     onFiltersChange: (PostSearchFilters) -> Unit,
     onOpenSheet: () -> Unit,
     modifier: Modifier = Modifier,
+    fullScreenRangePicker: Boolean = false,
 ) {
     val displayLocale = LocalLocale.current.platformLocale
     val chips = remember(filters, displayLocale) { filterChipState(filters, displayLocale) }
@@ -145,6 +148,7 @@ internal fun PostsFilterRow(
             date = filters.date,
             selected = chips.dateSelected,
             onDateChange = { onFiltersChange(filters.copy(date = it)) },
+            fullScreenRangePicker = fullScreenRangePicker,
         )
     }
 }
@@ -235,7 +239,7 @@ private fun LanguageChip(
             choices.forEach { choice ->
                 ChoiceMenuItem(
                     label = choice.label,
-                    selected = choice.code == language,
+                    selected = choice.code == bareLanguageCode(language),
                     onClick = {
                         expanded = false
                         onLanguageChange(choice.code)
@@ -251,6 +255,7 @@ private fun DateChip(
     date: DateFilter,
     selected: Boolean,
     onDateChange: (DateFilter) -> Unit,
+    fullScreenRangePicker: Boolean,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     var showRangePicker by rememberSaveable { mutableStateOf(false) }
@@ -293,6 +298,7 @@ private fun DateChip(
                 onDateChange(it)
             },
             onDismiss = { showRangePicker = false },
+            fullScreen = fullScreenRangePicker,
         )
     }
 }

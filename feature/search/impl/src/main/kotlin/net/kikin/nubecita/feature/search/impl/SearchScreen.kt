@@ -437,6 +437,7 @@ internal fun SearchScreenContent(
                                     onClearQuery = onClearQueryRequest,
                                     onShowAppendError = onPostsAppendError,
                                     snackbarHostState = snackbarHostState,
+                                    fullScreenRangePicker = !isAtLeastMedium,
                                 )
                             1 ->
                                 SearchActorsScreen(
@@ -464,6 +465,7 @@ internal fun SearchScreenContent(
             PostFiltersSheet(
                 filters = filters,
                 hitsTotal = postsHitsTotal,
+                fullScreenRangePicker = !isAtLeastMedium,
                 onFiltersChange = { onEvent(SearchEvent.FiltersChanged(it)) },
                 onReset = { onEvent(SearchEvent.FiltersChanged(PostSearchFilters(sort = filters.sort))) },
                 onDismiss = { onEvent(SearchEvent.FilterSheetOpenChanged(false)) },

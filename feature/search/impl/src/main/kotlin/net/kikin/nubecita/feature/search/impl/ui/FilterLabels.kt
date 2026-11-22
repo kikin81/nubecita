@@ -74,8 +74,18 @@ internal fun languageChoices(
 ): ImmutableList<LanguageChoice> {
     val codes = LinkedHashSet<String>()
     deviceLocales.forEach { locale -> locale.language.takeIf { it.isNotBlank() }?.let(codes::add) }
-    selected?.takeIf { it.isNotBlank() }?.let(codes::add)
+    bareLanguageCode(selected)?.let(codes::add)
     return codes.map { LanguageChoice(code = it, label = languageDisplayName(it, displayLocale)) }.toImmutableList()
+}
+
+/**
+ * A language tag reduced to its bare language code (`en-US` -> `en`), the form
+ * [languageChoices] uses, so a region-tagged selection matches its choice.
+ * Blank is null; a tag with no parsable language keeps its original string.
+ */
+internal fun bareLanguageCode(tag: String?): String? {
+    if (tag.isNullOrBlank()) return null
+    return Locale.forLanguageTag(tag).language.ifBlank { tag }
 }
 
 private fun languageDisplayName(
