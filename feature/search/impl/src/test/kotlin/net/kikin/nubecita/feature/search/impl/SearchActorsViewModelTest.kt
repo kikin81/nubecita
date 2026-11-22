@@ -28,6 +28,7 @@ import net.kikin.nubecita.feature.search.impl.data.FollowOverlay
 import net.kikin.nubecita.feature.search.impl.data.FollowOverride
 import net.kikin.nubecita.feature.search.impl.data.FollowToggle
 import net.kikin.nubecita.feature.search.impl.data.actorFixture
+import net.kikin.nubecita.feature.search.impl.data.seed
 import net.kikin.nubecita.feature.search.impl.data.signedIn
 import net.kikin.nubecita.feature.search.impl.data.testSearchFirstPages
 import org.junit.jupiter.api.AfterEach
@@ -702,7 +703,7 @@ class SearchActorsViewModelTest {
             runCurrent()
             val requests = repo.callLog.size
 
-            overlay.set("did:plc:sci", FollowOverride(isFollowing = true, followUri = "at://follow/x"))
+            overlay.seed("did:plc:sci", FollowOverride(isFollowing = true, followUri = "at://follow/x"))
             runCurrent()
 
             val actor = vm.items().single()

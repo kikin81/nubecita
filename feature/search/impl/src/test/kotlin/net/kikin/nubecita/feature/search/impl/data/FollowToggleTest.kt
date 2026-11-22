@@ -72,7 +72,7 @@ class FollowToggleTest {
             // The account was followed earlier in this session; the unfollow now fails.
             val repo = FakeFollowRepository(unfollowResult = Result.failure(java.io.IOException("net")))
             val (toggle, overlay) = newSut(repo)
-            overlay.set("did:plc:a", FollowOverride(true, "at://follow/original"))
+            overlay.seed("did:plc:a", FollowOverride(true, "at://follow/original"))
             val outcomes = mutableListOf<FollowOutcome>()
 
             toggle.toggle(tapScope(), "did:plc:a", isFollowing = true, followUri = "at://follow/original") { outcomes += it }
@@ -201,5 +201,65 @@ class FollowToggleTest {
             assertFalse(started)
             assertTrue(repo.followCallDids.isEmpty())
             assertTrue(overlay.current().isEmpty())
+        }
+
+    @Test
+    fun `the new account can follow a target the previous account had in flight`() =
+        runTest {
+            val first = SuspendedFollowRepository()
+            val second = FakeFollowRepository(followResult = Result.success("at://follow/as-b"))
+            val calls = mutableListOf<String>()
+            val repo =
+                object : FollowRepository {
+                    override suspend fun follow(subjectDid: String): Result<String> {
+                        calls += subjectDid
+                        return if (calls.size == 1) first.follow(subjectDid) else second.follow(subjectDid)
+                    }
+
+                    override suspend fun unfollow(followUri: String): Result<Unit> = Result.success(Unit)
+                }
+            val (toggle, overlay) = newSut(repo)
+
+            toggle.toggle(tapScope(), "did:plc:x", isFollowing = false, followUri = null) {}
+            runCurrent()
+            session.value = signedIn("did:plc:b")
+            first.follow.complete(Result.success("at://follow/as-a"))
+            runCurrent()
+
+            val started = toggle.toggle(tapScope(), "did:plc:x", isFollowing = false, followUri = null) {}
+            runCurrent()
+
+            assertTrue(started)
+            assertEquals(FollowOverride(true, "at://follow/as-b"), overlay["did:plc:x"])
+            assertEquals(listOf("did:plc:x", "did:plc:x"), calls)
+        }
+
+    @Test
+    fun `a tap by the new account is not blocked by the previous account's in-flight call`() =
+        runTest {
+            val first = SuspendedFollowRepository()
+            val calls = mutableListOf<String>()
+            val repo =
+                object : FollowRepository {
+                    override suspend fun follow(subjectDid: String): Result<String> {
+                        calls += subjectDid
+                        return if (calls.size == 1) first.follow(subjectDid) else Result.success("at://follow/as-b")
+                    }
+
+                    override suspend fun unfollow(followUri: String): Result<Unit> = Result.success(Unit)
+                }
+            val (toggle, overlay) = newSut(repo)
+
+            toggle.toggle(tapScope(), "did:plc:x", isFollowing = false, followUri = null) {}
+            runCurrent()
+            session.value = signedIn("did:plc:b")
+            val started = toggle.toggle(tapScope(), "did:plc:x", isFollowing = false, followUri = null) {}
+            runCurrent()
+            first.follow.complete(Result.success("at://follow/as-a"))
+            runCurrent()
+
+            assertTrue(started)
+            assertEquals(2, calls.size)
+            assertEquals(FollowOverride(true, "at://follow/as-b"), overlay["did:plc:x"])
         }
 }

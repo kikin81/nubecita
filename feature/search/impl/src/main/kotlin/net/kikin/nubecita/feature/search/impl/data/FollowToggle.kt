@@ -34,9 +34,9 @@ internal enum class FollowOutcome {
  *
  * Every overlay write for a tap is made on behalf of the account that tapped, captured
  * at tap time. If the session has moved to another account by the time the call returns,
- * the result is still written under the original account (invisible to the new one, and
- * right if the first account signs back in within the process) and never over another
- * account's entry.
+ * the result is dropped (the overlay refuses writes for an account that is no longer signed
+ * in): it is invisible to the new account and stale for the old one, and keeping it would
+ * only get in the new account's way.
  *
  * One tap per DID is in flight at a time, across every caller: a second tap on the
  * same account (from either surface) is dropped until the first settles.
@@ -50,7 +50,8 @@ internal class FollowToggle
         private val sessionStateProvider: SessionStateProvider,
         @param:ApplicationScope private val appScope: CoroutineScope,
     ) {
-        private val activeJobs = ConcurrentHashMap<String, Job>()
+        /** In-flight taps, keyed by (account that tapped, target): one account's tap never blocks another's. */
+        private val activeJobs = ConcurrentHashMap<Pair<String, String>, Job>()
 
         /**
          * Toggles the follow state of [did], currently shown as [isFollowing] with
@@ -69,7 +70,7 @@ internal class FollowToggle
             onOutcome: (FollowOutcome) -> Unit,
         ): Boolean {
             val account = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did ?: return false
-            if (activeJobs[did]?.isActive == true) return false
+            if (activeJobs[account to did]?.isActive == true) return false
             // An account known to be followed without its record URI cannot be unfollowed.
             if (isFollowing && followUri == null) return false
             val previous = followOverlay[did]
@@ -101,7 +102,7 @@ internal class FollowToggle
                             }
                     }
                 }
-            activeJobs[did] = job
+            activeJobs[account to did] = job
             return true
         }
     }

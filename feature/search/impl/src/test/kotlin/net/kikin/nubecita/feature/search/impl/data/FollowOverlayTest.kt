@@ -31,7 +31,7 @@ class FollowOverlayTest {
         runTest {
             val state = session("did:plc:me")
             val overlay = FollowOverlay(TestScope(UnconfinedTestDispatcher(testScheduler)), provider(state))
-            overlay.set("did:plc:a", FollowOverride(true, "at://follow/1"))
+            overlay.seed("did:plc:a", FollowOverride(true, "at://follow/1"))
             assertEquals(1, overlay.current().size)
 
             state.value = signedIn("did:plc:other")
@@ -44,10 +44,10 @@ class FollowOverlayTest {
     fun `clear removes only that account`() =
         runTest {
             val overlay = FollowOverlay(TestScope(UnconfinedTestDispatcher(testScheduler)), provider(session("did:plc:me")))
-            overlay.set("did:plc:a", FollowOverride(true, "u1"))
-            overlay.set("did:plc:b", FollowOverride(false, null))
+            overlay.seed("did:plc:a", FollowOverride(true, "u1"))
+            overlay.seed("did:plc:b", FollowOverride(false, null))
 
-            overlay.clear("did:plc:a")
+            overlay.write("did:plc:a", null, "did:plc:me")
 
             assertEquals(setOf("did:plc:b"), overlay.current().keys)
         }
@@ -68,7 +68,7 @@ class FollowOverlayTest {
             val state = session("did:plc:me")
             // A scope nothing advances: the account-change clear never gets to run.
             val overlay = FollowOverlay(TestScope(StandardTestDispatcher(testScheduler)), provider(state))
-            overlay.set("did:plc:a", FollowOverride(true, "at://follow/1"))
+            overlay.seed("did:plc:a", FollowOverride(true, "at://follow/1"))
             assertEquals(setOf("did:plc:a"), overlay.current().keys)
 
             state.value = signedIn("did:plc:other")
@@ -78,11 +78,38 @@ class FollowOverlayTest {
             assertTrue(overlay.overrides.first().isEmpty())
 
             // The new account's own write is visible; the old one stays hidden.
-            overlay.set("did:plc:b", FollowOverride(false, null))
+            overlay.seed("did:plc:b", FollowOverride(false, null), account = "did:plc:other")
             assertEquals(setOf("did:plc:b"), overlay.current().keys)
 
             // Signing back in as the first account does not bring its entry back either, once cleared.
             state.value = SessionState.SignedOut
+            assertTrue(overlay.current().isEmpty())
+        }
+
+    @Test
+    fun `an entry left by another account does not block a write`() =
+        runTest {
+            val state = session("did:plc:a")
+            // Nothing advances this scope, so the account-change clear never runs.
+            val overlay = FollowOverlay(TestScope(StandardTestDispatcher(testScheduler)), provider(state))
+            overlay.write("did:plc:x", FollowOverride(true, "at://follow/as-a"), account = "did:plc:a")
+            state.value = signedIn("did:plc:b")
+
+            overlay.write("did:plc:x", FollowOverride(true, "at://follow/as-b"), account = "did:plc:b")
+
+            assertEquals(mapOf("did:plc:x" to FollowOverride(true, "at://follow/as-b")), overlay.current())
+        }
+
+    @Test
+    fun `a write for an account that is no longer signed in is dropped`() =
+        runTest {
+            val state = session("did:plc:a")
+            val overlay = FollowOverlay(TestScope(StandardTestDispatcher(testScheduler)), provider(state))
+            state.value = signedIn("did:plc:b")
+
+            overlay.write("did:plc:x", FollowOverride(true, "at://follow/late"), account = "did:plc:a")
+            state.value = signedIn("did:plc:a")
+
             assertTrue(overlay.current().isEmpty())
         }
 }
