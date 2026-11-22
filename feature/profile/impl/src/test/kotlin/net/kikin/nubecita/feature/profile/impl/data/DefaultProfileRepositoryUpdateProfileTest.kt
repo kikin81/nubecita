@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.profile.impl.data
 
 import app.cash.turbine.test
+import io.github.kikin81.atproto.app.bsky.actor.ProfileViewDetailed
 import io.github.kikin81.atproto.runtime.NoAuth
 import io.github.kikin81.atproto.runtime.XrpcClient
 import io.ktor.client.HttpClient
@@ -33,6 +34,7 @@ import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPrefs
 import net.kikin.nubecita.core.postinteractions.FollowRepository
 import net.kikin.nubecita.core.profile.DefaultProfileRecordWriter
+import net.kikin.nubecita.core.profile.ProfileCache
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -894,9 +896,19 @@ class DefaultProfileRepositoryUpdateProfileTest {
                 // The real shared writer, so these tests keep exercising the
                 // full getRecord → merge → putRecord path end to end.
                 profileRecordWriter = DefaultProfileRecordWriter(xrpcClientProvider, sessionStateProvider, dispatcher),
+                profileCache = NoopProfileCache,
                 dispatcher = dispatcher,
             )
         return engine to repo
+    }
+
+    // updateProfile never reads or writes the header cache.
+    private object NoopProfileCache : ProfileCache {
+        override suspend fun read(actor: String): ProfileViewDetailed? = null
+
+        override suspend fun write(profile: ProfileViewDetailed) = Unit
+
+        override suspend fun remove(actor: String) = Unit
     }
 
     // updateProfile never touches follow/unfollow; an inert delegate

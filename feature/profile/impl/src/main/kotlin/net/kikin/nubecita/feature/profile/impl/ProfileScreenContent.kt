@@ -229,6 +229,7 @@ internal fun ProfileScreenContent(
                             onMute = { onEvent(ProfileEvent.HeroMuteTapped) },
                             onOverflowAction = { action -> onEvent(ProfileEvent.StubActionTapped(action)) },
                             modifier = Modifier.fillMaxWidth(),
+                            actionsEnabled = !state.isShowingCachedHeader,
                         )
                         ProfilePillTabs(
                             tabs = pillTabs,

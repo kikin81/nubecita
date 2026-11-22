@@ -42,6 +42,13 @@ data class ProfileScreenViewState(
     val header: ProfileHeaderUi? = null,
     /** Sticky-once header error; coexists with non-null `header` after a refresh fails. */
     val headerError: ProfileError? = null,
+    /**
+     * True while [header] came from the local cache and no fetch has replaced
+     * it yet (including after a transient failure). Edit and Follow stay
+     * inert meanwhile: a stale header would write stale fields back, or
+     * follow / unfollow against an outdated relationship.
+     */
+    val isShowingCachedHeader: Boolean = false,
     val ownProfile: Boolean = false,
     /**
      * Whether the signed-in device holds the Nubecita Pro entitlement,

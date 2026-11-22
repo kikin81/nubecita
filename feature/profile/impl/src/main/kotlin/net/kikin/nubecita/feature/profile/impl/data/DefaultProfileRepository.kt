@@ -42,6 +42,7 @@ import net.kikin.nubecita.core.common.coroutines.runCatchingCancellable
 import net.kikin.nubecita.core.image.ImageEncoder
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.postinteractions.FollowRepository
+import net.kikin.nubecita.core.profile.ProfileCache
 import net.kikin.nubecita.core.profile.ProfileRecordWriter
 import net.kikin.nubecita.data.models.VerifierUi
 import net.kikin.nubecita.feature.profile.impl.ProfileTab
@@ -75,6 +76,7 @@ internal class DefaultProfileRepository
         private val encoder: ImageEncoder,
         private val followRepository: FollowRepository,
         private val profileRecordWriter: ProfileRecordWriter,
+        private val profileCache: ProfileCache,
         @param:IoDispatcher private val dispatcher: CoroutineDispatcher,
     ) : ProfileRepository {
         // replay = 0 (only live collectors react) + extraBufferCapacity = 1
@@ -87,17 +89,50 @@ internal class DefaultProfileRepository
                 runCatchingCancellable {
                     val client = xrpcClientProvider.authenticated()
                     val response = ActorService(client).getProfile(buildGetProfileRequest(actor))
+                    cacheSafely { profileCache.write(response) }
                     response.toProfileHeaderWithViewer(
                         viewerDid = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did,
                         moderationPrefs = moderationPreferences.prefs.value,
                     )
                 }.onFailure { throwable ->
+                    // A definitive "gone" answer must not leave the dead profile
+                    // renderable from cache; a transient failure keeps it.
+                    if (throwable.isDefinitiveProfileGone()) cacheSafely { profileCache.remove(actor) }
                     // `actor` is a raw DID or handle (PII). Log only the
                     // error identity — matches the redaction discipline
                     // applied to DIDs in `:core:auth/DefaultXrpcClientProvider`.
                     Timber.tag(TAG).w(throwable, "fetchHeader failed: %s", throwable.javaClass.name)
                 }
             }
+
+        override suspend fun cachedHeader(actor: String): ProfileHeaderWithViewer? =
+            withContext(dispatcher) {
+                // A cache that can't be read is a miss, never a crash.
+                val cached =
+                    try {
+                        profileCache.read(actor)
+                    } catch (cancellation: CancellationException) {
+                        throw cancellation
+                    } catch (error: Exception) {
+                        Timber.tag(TAG).w(error, "Profile cache read failed: %s", error.javaClass.name)
+                        null
+                    }
+                cached?.toProfileHeaderWithViewer(
+                    viewerDid = (sessionStateProvider.state.value as? SessionState.SignedIn)?.did,
+                    moderationPrefs = moderationPreferences.prefs.value,
+                )
+            }
+
+        /** The header cache is a speed layer: a storage failure is logged, never surfaced. */
+        private suspend fun cacheSafely(block: suspend () -> Unit) {
+            try {
+                block()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                Timber.tag(TAG).w(error, "Profile cache write failed: %s", error.javaClass.name)
+            }
+        }
 
         override suspend fun resolveVerifiers(refs: ImmutableList<VerifierRef>): Result<ImmutableList<VerifierUi>> =
             withContext(dispatcher) {
