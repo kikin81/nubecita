@@ -98,10 +98,13 @@ private fun RangePickerFixture(
                         initialSelectedEndDateMillis = end?.atStartOfDay(ZoneOffset.UTC)?.toInstant()?.toEpochMilli(),
                         initialDisplayedMonthMillis =
                             LocalDate
-                                .of(2026, 11, 1)
+                                .of(2024, 3, 1)
                                 .atStartOfDay(ZoneOffset.UTC)
                                 .toInstant()
                                 .toEpochMilli(),
+                        // A fixed past year: the picker rings today's date, so a month that can
+                        // contain today would change the image every day.
+                        yearRange = 2024..2024,
                     ),
                 onClose = {},
                 onConfirm = {},
@@ -114,7 +117,7 @@ private fun RangePickerFixture(
 @Preview(name = "range-picker-full-screen-chosen-light", showBackground = true, heightDp = 800)
 @Composable
 private fun RangePickerFullScreenChosenScreenshot() {
-    RangePickerFixture(start = LocalDate.of(2026, 11, 1), end = LocalDate.of(2026, 11, 8))
+    RangePickerFixture(start = LocalDate.of(2024, 3, 3), end = LocalDate.of(2024, 3, 10))
 }
 
 @PreviewTest
