@@ -10,9 +10,8 @@ Stack: Coil 3 (images), Media3 (video), `atproto-kotlin` SDK (networking), DataS
 
 ```bash
 ./gradlew :app:assembleDebug
-./gradlew testDebugUnitTest
+./gradlew jacocoTestReportAggregated                   # whole-repo unit tests + coverage (root testDebugUnitTest skips every flavored module)
 ./gradlew spotlessCheck lint :app:checkSortDependencies
-./gradlew jacocoTestReportAggregated
 ./gradlew :designsystem:validateScreenshots             # validate against committed screenshot baselines
 ./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest  # Macrobenchmark, needs connected device/emulator
 
@@ -172,6 +171,7 @@ Every Android module's `build.gradle.kts` applies one of the convention plugins 
 | `nubecita.android.benchmark` | `:benchmark` only (AGP test variant + baseline profile producer) |
 | `nubecita.android.room` | Add-on for modules that own Room entities/DAOs (`:core:database`) |
 | `nubecita.android.wear.application` | `:wear:app` only (Wear OS app: minSdk 33, Wear Compose M3, own `production`/`bench` flavors like `:app`) |
+| `nubecita.android.flavors` | Add-on for modules shipping a `src/bench/` source set (adds the `bench`/`production` `environment` dimension — see the flavored-module task names above) |
 | `nubecita.android.jacoco` | Applied transitively by `library` and `application` (not `benchmark`) — all library and application modules get it automatically |
 
 #### Feature-module sequencing: `:api`-only stubs
@@ -191,33 +191,55 @@ Each `:feature:*:impl` module that contributes a `@Provides @IntoSet EntryProvid
 
 ```
 app/                     thin shell; aggregates DI, hosts NavDisplay + MainActivity
-build-logic/             composite build with eight Gradle convention plugins
+build-logic/             composite build with ten Gradle convention plugins
 core/
+  actors/                mute / block / follow relationships (ActorRepository, MuteRepository, BlockRepository)
+  analytics/             provider-agnostic AnalyticsClient
   auth/                  OAuth session storage + token refresh (Tink-encrypted DataStore)
   billing/               SDK-agnostic Pro entitlement + purchase boundary (RevenueCat impl, anonymous appUserID)
+  bookmarks/             BookmarkRepository
   common/                MVI base, navigation qualifiers, coroutine dispatchers, time utils
   database/              Room database, entities, DAOs, migrations
+  feed-cache/            Room-backed feed cache (FeedRepository, refresher, eviction)
   feed-mapping/          atproto wire types → UI model mappers (PostUi, EmbedUi, AuthorUi)
+  feeds/                 feed generators, pinned feeds, feed view preferences
+  image/                 image pick / encode / crop (ImagePicker, ImageEncoder)
+  klipy/                 GIF provider (Klipy API) repository + paging
+  logging/               logging abstraction
+  moderation/            content moderation domain
   post-interactions/     like / repost / follow primitives; also the shared follow state (`FollowOverlay`, `FollowToggle`)
+  post-interactions-ui/  shared `rememberPostInteractions` Composable helper
+  post-translation/      per-post translation coordinator + Room cache
+  post-translation-ui/   `rememberPostTranslations`, auto-translate offer
   posting/               post-creation domain (ComposerError, ComposerAttachment)
   posts/                 post fetching repositories
   preferences/           DataStore preferences (non-encrypted, user settings)
   profile/               profile fetching (getProfile XRPC)
   push/                  FCM token registration + notification handling
+  review/                Play In-App Review
   testing/               JVM test helpers (MainDispatcherExtension)
   testing-android/       androidTest helpers (HiltTestRunner, HiltTestActivity, MockEngineModule)
+  translation/           on-device ML Kit translation engine + language identification
+  update/                Play In-App Update (InAppUpdateController, UpdatePolicy)
   video/                 Media3 / ExoPlayer coordinator (single-player, HLS)
+  video-feed/            vertical video feed sources (trending, author)
+  video-upload/          video upload repository + limits
   wear-contract/         phone↔watch Data Layer contract (paths, capabilities, versioned DTOs)
+  wear-sync/             phone-side watch publishers / handlers (feed, DMs, session, actions)
+  widget-sync/           home-screen widget refresh + image prefetch scheduling
 data/
   models/                @Stable UI data classes (PostUi, AuthorUi, EmbedUi, etc.)
 designsystem/            M3 Expressive tokens, components, preview wrappers
 feature/
+  bookmarks/{api,impl}   saved posts list
   chats/{api,impl}       conversation list + DM thread
   composer/{api,impl}    post composer (grapheme counter, language picker, mention typeahead)
   feed/{api,impl}        Following timeline with paginated scroll
+  feeds/{api,impl}       manage pinned feeds
   login/{api,impl}       OAuth login (outer shell)
   mediaviewer/{api,impl} zoomable image / HLS video lightbox (telephoto)
   moderation/{api,impl}  moderation actions
+  notifications/{api,impl} notifications list
   onboarding/{api,impl}  onboarding flow
   paywall/{api,impl}     custom Compose Nubecita Pro paywall (plan picker, purchase/restore)
   postdetail/{api,impl}  thread view (ancestors + focus + replies)
@@ -227,6 +249,7 @@ feature/
   settings/{api,impl}    settings screen
   videoplayer/{api,impl} inline video player
   videos/{api,impl}      vertical trending video feed
+  widgets/{api,impl}     Glance home-screen widgets
 benchmark/               Macrobenchmark + BaselineProfile generator
 wear/
   app/                   Wear OS companion app (Wear Compose M3 + Nav3; phone-relayed, offline)
@@ -407,7 +430,7 @@ Journeys in `app/src/journeysTest/` are plain-language steps run on a device: `s
 #### Unit tests (`:core:testing`)
 
 - JUnit Jupiter (`junit.jupiter.api`) is the default test runner for JVM tests.
-- `MainDispatcherExtension` (`@ExtendWith(MainDispatcherExtension::class)`) installs `UnconfinedTestDispatcher` as `Dispatchers.Main` for ViewModel tests.
+- `MainDispatcherExtension` (`@ExtendWith(MainDispatcherExtension::class)`) installs a `StandardTestDispatcher` as `Dispatchers.Main` by default — coroutines launched in `init` don't run until `runCurrent()` / `advanceUntilIdle()`; for a different dispatcher (e.g. `UnconfinedTestDispatcher()`), register it with `@RegisterExtension val ext = MainDispatcherExtension(dispatcher)` instead — `@ExtendWith` always uses the no-arg constructor. Use `runTest(ext.dispatcher) { … }` so `advanceUntilIdle()` / `runCurrent()` drive `viewModelScope`; a bare `runTest` gets a disjoint scheduler and hangs or false-passes.
 - Turbine (`turbine`) for Flow assertions.
 - MockK (`mockk`) for mocking.
 - Coroutines test: `kotlinx.coroutines.test` (always present via `:core:testing`).
@@ -439,7 +462,7 @@ Any change under `wear/`, `core/wear-contract/` or `core/wear-sync/` follows `do
 | Job | Trigger | What it runs |
 |---|---|---|
 | `lint` | PR, push to `main` | pre-commit, Spotless, Android Lint, checkSortDependencies, semantic-release dry-run |
-| `test` | PR, push to `main` | `testDebugUnitTest`, JaCoCo coverage, madrapps/jacoco-report comment |
+| `test` | PR, push to `main` | `jacocoTestReportAggregated` (unit tests incl. flavored modules + JaCoCo coverage), madrapps/jacoco-report comment |
 | `build` | PR, push to `main` | `assembleDebug` |
 | `screenshot` | PR, push to `main` | `validateScreenshots` against committed baselines |
 | `instrumented` | push to `main`, `workflow_dispatch`, PR with `run-instrumented` label | Connected device tests (runs on `ubuntu-latest` with emulator) |
