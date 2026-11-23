@@ -117,7 +117,10 @@ internal fun SearchBarSection(
                 // Stable tag (surfaced as a bare resource-id via
                 // testTagsAsResourceId) so the baseline-profile journey can
                 // focus + type a query (nubecita-ioe5).
-                modifier = Modifier.testTag("search_input"),
+                // fillMaxWidth: the docked dropdown is exactly as wide as its input
+                // field (capped at the collapsed pill's width), so a wrapping
+                // field would leave the dropdown narrower than the pill.
+                modifier = Modifier.fillMaxWidth().testTag("search_input"),
                 textFieldState = textFieldState,
                 searchBarState = searchBarState,
                 onSearch = {
@@ -167,7 +170,7 @@ internal fun SearchBarSection(
     SearchBar(
         state = searchBarState,
         inputField = inputField,
-        modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
     )
     // Shared expanded-overlay content, identical across widths. Submitting
     // from inside the overlay (tapping a recent row or the "Search for {q}"
