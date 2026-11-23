@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795420472820,
+  "lastUpdate": 1795420476454,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -7715,6 +7715,124 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationSumMs",
             "value": 233.19,
             "range": "+/- 68.6%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "d01a95d16b02ba7a867ef824f353dccf1fc4f7f5",
+          "message": "ci(release): 1.386.0\n\n## [1.386.0](https://github.com/kikin81/nubecita/compare/v1.385.0...v1.386.0) (2026-11-23)\n\n### Documentation\n\n* **openspec:** archive add-thread-viewing ([#1235](https://github.com/kikin81/nubecita/issues/1235)) ([7625565](https://github.com/kikin81/nubecita/commit/76255655847e2bcebe5ebf78333ba8ab4019f13c))\n* **spec:** design search v2 filters, explore landing and second pane ([#1236](https://github.com/kikin81/nubecita/issues/1236)) ([a7807c5](https://github.com/kikin81/nubecita/commit/a7807c5c4fcb971c953c423d9d6590f5fe31a2f8))\n\n### Features\n\n* **search:** add post filters and a result count ([#1244](https://github.com/kikin81/nubecita/issues/1244)) ([89318ee](https://github.com/kikin81/nubecita/commit/89318ee3430895aa63dd281d5121f99328ac8037))\n* **starterpack:** add starter packs to search and a pack screen ([#1250](https://github.com/kikin81/nubecita/issues/1250)) ([7bd12d7](https://github.com/kikin81/nubecita/commit/7bd12d7274a572d989f0f3b3d5c593d287006d72))\n* **search:** hold the submitted search in a shared store ([#1243](https://github.com/kikin81/nubecita/issues/1243)) ([a798f61](https://github.com/kikin81/nubecita/commit/a798f615a0e8ffb7862a238a4cb1a8b705796a1d))\n* **search:** load trends and suggestions for Explore ([#1246](https://github.com/kikin81/nubecita/issues/1246)) ([aa6cd5f](https://github.com/kikin81/nubecita/commit/aa6cd5f8e9c0946e4c1429fe020fcd9ee65bed31))\n* **search:** show bio, follow and pin in result rows ([#1245](https://github.com/kikin81/nubecita/issues/1245)) ([056e0f5](https://github.com/kikin81/nubecita/commit/056e0f5c4fccc5b6637481e87a4909fa11ea6da6))\n* **search:** show Explore in the detail pane ([#1248](https://github.com/kikin81/nubecita/issues/1248)) ([df75d8d](https://github.com/kikin81/nubecita/commit/df75d8d642d161b1f369fbffb3b97e466a77029f))\n* **search:** show trending on the search landing ([#1247](https://github.com/kikin81/nubecita/issues/1247)) ([07a0bf3](https://github.com/kikin81/nubecita/commit/07a0bf35283b561280558c8875aa7aae08bf520b))\n* **search:** summarize the search in the detail pane ([#1249](https://github.com/kikin81/nubecita/issues/1249)) ([7e7be53](https://github.com/kikin81/nubecita/commit/7e7be5301d9081bec6a6a611ebb2b7465d97e21c))\n\n### Bug Fixes\n\n* **auth:** complete sign-out in the bench build ([#1237](https://github.com/kikin81/nubecita/issues/1237)) ([2e99f05](https://github.com/kikin81/nubecita/commit/2e99f0503d506b65a328639365152b7e8898de4f))\n* **search:** keep the search bar collapsed across configuration changes ([#1240](https://github.com/kikin81/nubecita/issues/1240)) ([65ea261](https://github.com/kikin81/nubecita/commit/65ea261a72e9c54d9aaced5e3de698703e840496))\n* **feed:** open a feed in the detail pane on wide windows ([#1241](https://github.com/kikin81/nubecita/issues/1241)) ([aa4d340](https://github.com/kikin81/nubecita/commit/aa4d3402c4d4fe1315e5c0784f3c34fcdfd1a36b))\n* **search:** size the search bar and its dropdown to the pane ([#1238](https://github.com/kikin81/nubecita/issues/1238)) ([9ba250e](https://github.com/kikin81/nubecita/commit/9ba250ed9f0c90cf9db5daffc7e9d4adb56f3bb0))\n\n### Code Refactoring\n\n* **search:** move post search to v2 and share first pages ([#1242](https://github.com/kikin81/nubecita/issues/1242)) ([e3cd297](https://github.com/kikin81/nubecita/commit/e3cd297b7da188dba1247e5bb388b40204b81ab7))\n\n### Tests\n\n* **search:** add journeys, a scroll benchmark and final review fixes ([#1251](https://github.com/kikin81/nubecita/issues/1251)) ([453b26c](https://github.com/kikin81/nubecita/commit/453b26cbb4c147529ccf312af5c22f243c369a70))",
+          "timestamp": "2026-11-23T03:44:26Z",
+          "url": "https://github.com/kikin81/nubecita/commit/d01a95d16b02ba7a867ef824f353dccf1fc4f7f5"
+        },
+        "date": 1795420475751,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / ClassInitCount",
+            "value": 194,
+            "range": "+/- 0.5%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / ClassInitSumMs",
+            "value": 13.67,
+            "range": "+/- 123.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / JIT compilationCount",
+            "value": 141,
+            "range": "+/- 23.3%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / JIT compilationSumMs",
+            "value": 454.725,
+            "range": "+/- 23.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / ClassInitCount",
+            "value": 140,
+            "range": "+/- 0%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / ClassInitSumMs",
+            "value": 13.719,
+            "range": "+/- 55.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / JIT compilationCount",
+            "value": 3,
+            "range": "+/- 49.8%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / JIT compilationSumMs",
+            "value": 10.395,
+            "range": "+/- 149.1%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / ClassInitCount",
+            "value": 2,
+            "range": "+/- 67.4%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / ClassInitSumMs",
+            "value": 0.172,
+            "range": "+/- 157.1%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / JIT compilationCount",
+            "value": 493,
+            "range": "+/- 66.3%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / JIT compilationSumMs",
+            "value": 1196.541,
+            "range": "+/- 28%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / ClassInitCount",
+            "value": 0,
+            "range": "+/- 149.1%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / ClassInitSumMs",
+            "value": 0,
+            "range": "+/- 176.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationCount",
+            "value": 48,
+            "range": "+/- 55.6%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationSumMs",
+            "value": 679.6,
+            "range": "+/- 65.7%",
             "unit": "ms"
           }
         ]
