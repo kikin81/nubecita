@@ -1,8 +1,10 @@
 package net.kikin.nubecita.shell
 
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.Posture
 import androidx.compose.material3.adaptive.WindowAdaptiveInfo
 import androidx.compose.material3.adaptive.layout.PaneExpansionAnchor
+import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import androidx.window.core.layout.computeWindowSizeClass
@@ -21,6 +23,7 @@ class MainSceneStrategyTest {
         assertEquals(1, directive.maxHorizontalPartitions)
     }
 
+    @OptIn(ExperimentalMaterial3AdaptiveApi::class)
     @Test
     fun `calculateListDetailDirective in standard medium renders two panes with 412dp list pane`() {
         val mediumAdaptiveInfo =
@@ -31,6 +34,13 @@ class MainSceneStrategyTest {
         val directive = calculateListDetailDirective(mediumAdaptiveInfo)
         assertEquals(2, directive.maxHorizontalPartitions)
         assertEquals(412.dp, directive.defaultPanePreferredWidth)
+        assertEquals(false, directive.shouldAutoFocusCurrentDestination)
+        val base = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(mediumAdaptiveInfo)
+        assertEquals(base.horizontalPartitionSpacerSize, directive.horizontalPartitionSpacerSize)
+        assertEquals(base.maxVerticalPartitions, directive.maxVerticalPartitions)
+        assertEquals(base.verticalPartitionSpacerSize, directive.verticalPartitionSpacerSize)
+        assertEquals(base.defaultPanePreferredHeight, directive.defaultPanePreferredHeight)
+        assertEquals(base.excludedBounds, directive.excludedBounds)
     }
 
     @Test

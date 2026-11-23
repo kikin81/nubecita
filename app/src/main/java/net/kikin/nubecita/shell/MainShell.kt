@@ -672,13 +672,26 @@ internal val TopLevelDestinations: List<TopLevelDestination> =
 internal fun calculateListDetailDirective(adaptiveInfo: WindowAdaptiveInfo): PaneScaffoldDirective {
     val baseDirective = calculatePaneScaffoldDirectiveWithTwoPanesOnMediumWidth(adaptiveInfo)
     val widthClass = adaptiveInfo.windowSizeClass
-    return baseDirective.copy(
+    // Built with the primary constructor, not `copy()`, so auto-focus can be turned off:
+    // the scaffold's auto-focus runs whenever it re-enters composition (theme change,
+    // rotation, fold) and lands on the Search pill, which expands on focus in touch
+    // mode and opens the IME (nubecita-uapw). `copy()` cannot carry the flag in
+    // adaptive 1.3.0 (it always rebuilds with it true). Keep every other value from
+    // `baseDirective`.
+    return PaneScaffoldDirective(
+        maxHorizontalPartitions = baseDirective.maxHorizontalPartitions,
+        horizontalPartitionSpacerSize = baseDirective.horizontalPartitionSpacerSize,
+        maxVerticalPartitions = baseDirective.maxVerticalPartitions,
+        verticalPartitionSpacerSize = baseDirective.verticalPartitionSpacerSize,
         defaultPanePreferredWidth =
             when {
                 widthClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) -> EXPANDED_LIST_PANE_WIDTH
                 widthClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) -> 412.dp
                 else -> baseDirective.defaultPanePreferredWidth
             },
+        defaultPanePreferredHeight = baseDirective.defaultPanePreferredHeight,
+        excludedBounds = baseDirective.excludedBounds,
+        shouldAutoFocusCurrentDestination = false,
     )
 }
 
