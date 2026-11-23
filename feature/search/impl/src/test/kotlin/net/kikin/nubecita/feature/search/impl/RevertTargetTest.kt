@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test
 class RevertTargetTest {
     @Test
     fun results_revertsToTheSubmittedQuery() {
-        assertEquals("kotlin", revertTargetFor(SearchPhase.Results("kotlin")))
+        assertEquals("kotlin", revertTargetFor(SearchPhase.Results("kotlin", submission = 1)))
     }
 
     @Test

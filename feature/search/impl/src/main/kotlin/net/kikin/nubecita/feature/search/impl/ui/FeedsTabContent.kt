@@ -99,7 +99,7 @@ private fun LoadedBody(
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(modifier = modifier.fillMaxSize().testTag("search_feeds_list"), state = listState) {
-        items(items = items, key = { it.uri }) { feed ->
+        items(items = items, key = { it.uri }, contentType = { "feed" }) { feed ->
             FeedRow(
                 feed = feed,
                 onClick = { onFeedClick(feed) },
@@ -108,7 +108,7 @@ private fun LoadedBody(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
         if (isAppending) {
-            item("appending-indicator") {
+            item(key = "appending-indicator", contentType = "appending") {
                 Box(
                     modifier =
                         Modifier

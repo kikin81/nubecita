@@ -12,9 +12,9 @@ import javax.inject.Singleton
  * The bench journey doesn't go through the auth flow, so this store
  * is never read in practice. [FakeSessionStateProvider] short-circuits
  * the only legitimate `load()` caller in the routing path. A more
- * faithful in-memory implementation would synthesize a hardcoded
+ * faithful in-memory implementation would synthesize a fixed
  * `OAuthSession` here for parity with [FakeSessionStateProvider]'s
- * `SignedIn` state, but constructing one requires DPoP key material +
+ * `SignedIn` state (which [FakeSessionStateProvider.setSignedIn] toggles), but constructing one requires DPoP key material +
  * a wire-shaped access token that we'd never use; the simpler "no
  * session" shape keeps the Hilt graph valid without introducing
  * cryptographic stubs.

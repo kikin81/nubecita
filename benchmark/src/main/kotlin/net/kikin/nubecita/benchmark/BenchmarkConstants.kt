@@ -57,6 +57,16 @@ internal const val PROFILE_LIST_RES_ID: String = "profile_list"
 /** The Search `SearchBar` input field. */
 internal const val SEARCH_INPUT_RES_ID: String = "search_input"
 
+/**
+ * Search's list tags, pinned to `SearchTestTags` by
+ * `:feature:search:impl/SearchTestTagsTest`. Flung by `SearchScrollBenchmark`.
+ * The Explore and Summary lists exist only on a wide window (the list-detail
+ * second pane); on a phone they never appear and their benchmarks skip.
+ */
+internal const val SEARCH_POSTS_LIST_RES_ID: String = "search_posts_list"
+internal const val SEARCH_EXPLORE_LIST_RES_ID: String = "search_explore_list"
+internal const val SEARCH_SUMMARY_LIST_RES_ID: String = "search_summary_list"
+
 /** The composer's `OutlinedTextField`. */
 internal const val COMPOSER_TEXT_FIELD_RES_ID: String = "composer_text_field"
 

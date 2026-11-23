@@ -352,4 +352,31 @@ class StarterPackViewModelTest {
                 assertEquals(StarterPackEffect.NavigateToFeed("at://f", "Feed"), awaitItem())
             }
         }
+
+    @Test
+    fun `a member repeated in the first page shows once`() =
+        runTest {
+            repo.respondPack(PACK_URI, detailFixture())
+            repo.respondMembers(LIST_URI, null, listOf(memberFixture("did:plc:a"), memberFixture("did:plc:b"), memberFixture("did:plc:a")), nextCursor = null)
+
+            val vm = newVm()
+            runCurrent()
+
+            assertEquals(listOf("did:plc:a", "did:plc:b"), vm.loaded().members.map { it.did })
+        }
+
+    @Test
+    fun `a member repeated inside the appended page shows once`() =
+        runTest {
+            repo.respondPack(PACK_URI, detailFixture())
+            repo.respondMembers(LIST_URI, null, listOf(memberFixture("did:plc:a")), nextCursor = "c2")
+            repo.respondMembers(LIST_URI, "c2", listOf(memberFixture("did:plc:a"), memberFixture("did:plc:b"), memberFixture("did:plc:b")), nextCursor = null)
+            val vm = newVm()
+            runCurrent()
+
+            vm.handleEvent(StarterPackEvent.LoadMore)
+            runCurrent()
+
+            assertEquals(listOf("did:plc:a", "did:plc:b"), vm.loaded().members.map { it.did })
+        }
 }

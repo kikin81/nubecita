@@ -76,7 +76,7 @@ class SearchFeedsViewModelTest {
             val hit = feedFixture(uri = "at://did:plc:f1/app.bsky.feed.generator/discover", displayName = "Discover")
             repo.respond(query = "art", cursor = null, items = listOf(hit), nextCursor = "c2")
 
-            vm.setQuery("art")
+            vm.setQuery("art", submission = 1)
             runCurrent()
 
             val status = vm.uiState.value.loadStatus
@@ -95,7 +95,7 @@ class SearchFeedsViewModelTest {
             val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, FeedPinToggle(pinnedRepo), analytics)
             repo.respond(query = "art", cursor = null, items = listOf(feedFixture()), nextCursor = null)
 
-            vm.setQuery("art")
+            vm.setQuery("art", submission = 1)
             runCurrent()
 
             assertEquals(
@@ -110,7 +110,7 @@ class SearchFeedsViewModelTest {
             val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, FeedPinToggle(pinnedRepo), analytics)
             repo.respond(query = "no-matches", cursor = null, items = emptyList(), nextCursor = null)
 
-            vm.setQuery("no-matches")
+            vm.setQuery("no-matches", submission = 1)
             runCurrent()
 
             assertEquals(SearchFeedsLoadStatus.Empty, vm.uiState.value.loadStatus)
@@ -122,7 +122,7 @@ class SearchFeedsViewModelTest {
             val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, FeedPinToggle(pinnedRepo), analytics)
             repo.fail(query = "art", cursor = null, throwable = java.io.IOException("disconnected"))
 
-            vm.setQuery("art")
+            vm.setQuery("art", submission = 1)
             runCurrent()
 
             val status = vm.uiState.value.loadStatus
@@ -146,7 +146,7 @@ class SearchFeedsViewModelTest {
             repo.respond(query = "x", cursor = null, items = page1, nextCursor = "c2")
             repo.respond(query = "x", cursor = "c2", items = page2, nextCursor = "c3")
 
-            vm.setQuery("x")
+            vm.setQuery("x", submission = 1)
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is SearchFeedsLoadStatus.Loaded)
 
@@ -174,7 +174,7 @@ class SearchFeedsViewModelTest {
             val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, FeedPinToggle(pinnedRepo), analytics)
             repo.respond(query = "x", cursor = null, items = listOf(feedFixture()), nextCursor = null)
 
-            vm.setQuery("x")
+            vm.setQuery("x", submission = 1)
             runCurrent()
             val beforeCallCount = repo.callLog.size
 
@@ -192,7 +192,7 @@ class SearchFeedsViewModelTest {
             // Gate the second-page fetch so isAppending stays true.
             repo.gate(query = "x", cursor = "c2")
 
-            vm.setQuery("x")
+            vm.setQuery("x", submission = 1)
             runCurrent()
 
             vm.handleEvent(SearchFeedsEvent.LoadMore)
@@ -223,11 +223,11 @@ class SearchFeedsViewModelTest {
                 nextCursor = null,
             )
 
-            vm.setQuery("ar")
+            vm.setQuery("ar", submission = 1)
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is SearchFeedsLoadStatus.InitialLoading)
 
-            vm.setQuery("art")
+            vm.setQuery("art", submission = 1)
             runCurrent()
 
             staleGate.complete(
@@ -275,7 +275,7 @@ class SearchFeedsViewModelTest {
             // Gate the page-2-art fetch so we control completion timing.
             val pageTwoArtGate = repo.gate(query = "art", cursor = "c2")
 
-            vm.setQuery("art")
+            vm.setQuery("art", submission = 1)
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is SearchFeedsLoadStatus.Loaded)
 
@@ -287,7 +287,7 @@ class SearchFeedsViewModelTest {
             )
 
             // User types past the boundary. mapLatest fires runFirstPage(books).
-            vm.setQuery("books")
+            vm.setQuery("books", submission = 1)
             runCurrent()
             val afterTyping = vm.uiState.value.loadStatus
             assertTrue(afterTyping is SearchFeedsLoadStatus.Loaded)
@@ -329,7 +329,7 @@ class SearchFeedsViewModelTest {
             repo.respond(query = "x", cursor = null, items = listOf(feedFixture()), nextCursor = "c2")
             repo.fail(query = "x", cursor = "c2", throwable = java.io.IOException("flap"))
 
-            vm.setQuery("x")
+            vm.setQuery("x", submission = 1)
             runCurrent()
 
             vm.effects.test {
@@ -353,7 +353,7 @@ class SearchFeedsViewModelTest {
             val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, FeedPinToggle(pinnedRepo), analytics)
             repo.fail(query = "x", cursor = null, throwable = java.io.IOException("network"))
 
-            vm.setQuery("x")
+            vm.setQuery("x", submission = 1)
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is SearchFeedsLoadStatus.InitialError)
 
@@ -427,11 +427,11 @@ class SearchFeedsViewModelTest {
             val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, FeedPinToggle(pinnedRepo), analytics)
             repo.respond(query = "art", cursor = null, items = listOf(feedFixture()), nextCursor = null)
 
-            vm.setQuery("art")
+            vm.setQuery("art", submission = 1)
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is SearchFeedsLoadStatus.Loaded)
 
-            vm.setQuery("")
+            vm.setQuery("", submission = 1)
             runCurrent()
 
             assertEquals(SearchFeedsLoadStatus.Idle, vm.uiState.value.loadStatus)
@@ -463,7 +463,7 @@ class SearchFeedsViewModelTest {
     private fun loadedWith(vararg feeds: FeedGeneratorUi): SearchFeedsViewModel {
         val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, FeedPinToggle(pinnedRepo), analytics)
         repo.respond(query = "art", cursor = null, items = feeds.toList(), nextCursor = null)
-        vm.setQuery("art")
+        vm.setQuery("art", submission = 1)
         return vm
     }
 
@@ -521,7 +521,7 @@ class SearchFeedsViewModelTest {
                 }
             val vm = SearchFeedsViewModel(repo, firstPages, gatedPins, FeedPinToggle(gatedPins), analytics)
             repo.respond(query = "art", cursor = null, items = listOf(feedFixture(uri = "at://f/a")), nextCursor = null)
-            vm.setQuery("art")
+            vm.setQuery("art", submission = 1)
             runCurrent()
 
             vm.handleEvent(SearchFeedsEvent.PinTapped("at://f/a"))

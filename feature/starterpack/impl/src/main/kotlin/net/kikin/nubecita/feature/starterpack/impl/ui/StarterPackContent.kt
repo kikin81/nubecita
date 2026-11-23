@@ -150,7 +150,9 @@ private fun LoadedBody(
             }
         }
     }
-    LaunchedEffect(listState, status.members.size, status.endReached) {
+    // Keyed on the cursor too: an appended page made only of members already shown leaves the
+    // size unchanged, and the effect must still restart to ask for the page after it.
+    LaunchedEffect(listState, status.members.size, status.nextCursor, status.endReached) {
         snapshotFlow {
             val info = listState.layoutInfo
             (info.visibleItemsInfo.lastOrNull()?.index ?: -1) to info.totalItemsCount

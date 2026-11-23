@@ -29,6 +29,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -43,6 +44,7 @@ import net.kikin.nubecita.feature.search.impl.DiscoverFeedUi
 import net.kikin.nubecita.feature.search.impl.DiscoverSectionStatus
 import net.kikin.nubecita.feature.search.impl.DiscoverState
 import net.kikin.nubecita.feature.search.impl.R
+import net.kikin.nubecita.feature.search.impl.SearchTestTags
 import net.kikin.nubecita.feature.search.impl.ui.StarterPackCard
 import net.kikin.nubecita.feature.search.impl.ui.SuggestedAccountCard
 import net.kikin.nubecita.feature.search.impl.ui.SuggestedFeedCard
@@ -166,9 +168,10 @@ internal fun ExplorePaneContent(
     // Feed cards load their preview posts when they scroll into view and settle. Keyed by the
     // first feed of each visible row; the row's second feed is read from the shown list.
     val currentShownFeeds by rememberUpdatedState(shownFeeds)
-    // Changes at runtime when the pane crosses the two-column width, so it must not be captured.
+    // Changes at runtime when the pane crosses the two-column width. The effect restarts on it:
+    // the same rows can then hold different feeds while the visible keys stay the same.
     val currentFeedColumns by rememberUpdatedState(feedColumns)
-    LaunchedEffect(listState) {
+    LaunchedEffect(listState, feedColumns) {
         snapshotFlow {
             if (listState.isScrollInProgress) {
                 emptyList()
@@ -190,7 +193,7 @@ internal fun ExplorePaneContent(
     LazyColumn(
         state = listState,
         contentPadding = contentPadding,
-        modifier = modifier,
+        modifier = modifier.testTag(SearchTestTags.EXPLORE_LIST),
     ) {
         if (body == ExploreBody.Retry) {
             item(key = "explore:retry", contentType = "retry") {

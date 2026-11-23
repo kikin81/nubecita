@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class SearchBackTest {
-    private val phases = listOf(SearchPhase.Discover, SearchPhase.Results("kotlin"))
+    private val phases = listOf(SearchPhase.Discover, SearchPhase.Results("kotlin", submission = 1))
 
     @Test
     fun `back clears the search only on results at the top of the stack with the bar collapsed`() {

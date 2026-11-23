@@ -21,7 +21,7 @@ enum class FollowOutcome {
 
 /**
  * The one follow / unfollow action for every surface that lists people (the People
- * tab, the Explore suggestions). Follow state has a single source, [FollowOverlay]:
+ * tab, the Explore suggestions, the search pane and the starter-pack screen). Follow state has a single source, [FollowOverlay]:
  * this writes the optimistic override, calls [FollowRepository], confirms the override
  * with the new follow record URI, and on failure puts back what the overlay held
  * before the tap.
@@ -38,8 +38,9 @@ enum class FollowOutcome {
  * in): it is invisible to the new account and stale for the old one, and keeping it would
  * only get in the new account's way.
  *
- * One tap per DID is in flight at a time, across every caller: a second tap on the
- * same account (from either surface) is dropped until the first settles.
+ * One tap per (account, DID) is in flight at a time, across every caller: a second tap by
+ * the same signed-in account on the same target (from any surface) is dropped until the
+ * first settles.
  */
 @Singleton
 class FollowToggle
@@ -103,6 +104,9 @@ class FollowToggle
                     }
                 }
             activeJobs[account to did] = job
+            // Registered after the put: the job runs on the app scope and may already be done,
+            // in which case this runs at once. The two-argument remove never drops a newer tap's job.
+            job.invokeOnCompletion { activeJobs.remove(account to did, job) }
             return true
         }
 

@@ -49,13 +49,13 @@ import javax.inject.Inject
  * ## Follow toggle
  * [DiscoverEvent.OnFollowTapped] goes through the shared [FollowToggle]: optimistic
  * override, repository call, rollback on failure. Analytics ([InteractActor]) fires on
- * success; a failure emits [DiscoverEffect.ShowError]. Rapid taps on the same DID are dropped.
+ * success; a failure emits [DiscoverEffect.FollowFailed]. Rapid taps on the same DID are dropped.
  *
  * ## Pin toggle
  * [DiscoverEvent.OnPinTapped] flips the pin optimistically, then calls
  * [PinnedFeedsRepository.pinFeed] / [PinnedFeedsRepository.unpinFeed]. Analytics
  * ([InteractFeed]) fires on success; on failure the flip is undone and
- * [DiscoverEffect.ShowError] is emitted. Rapid taps on the same URI are dropped.
+ * [DiscoverEffect.PinFailed] is emitted. Rapid taps on the same URI are dropped.
  *
  * ## Trend tap
  * [DiscoverEvent.OnTrendTapped] opens a feed trend's feed (resolving a handle to a DID
@@ -223,8 +223,8 @@ internal class DiscoverViewModel
                             analytics.log(InteractActor(ActorAction.Follow, PostSurface.Explore))
                         FollowOutcome.Unfollowed ->
                             analytics.log(InteractActor(ActorAction.Unfollow, PostSurface.Explore))
-                        FollowOutcome.FollowFailed -> sendEffect(DiscoverEffect.ShowError("Failed to follow"))
-                        FollowOutcome.UnfollowFailed -> sendEffect(DiscoverEffect.ShowError("Failed to unfollow"))
+                        FollowOutcome.FollowFailed -> sendEffect(DiscoverEffect.FollowFailed(wasUnfollow = false))
+                        FollowOutcome.UnfollowFailed -> sendEffect(DiscoverEffect.FollowFailed(wasUnfollow = true))
                     }
                 }
             // The optimistic override is written already; show it now rather than when
@@ -264,7 +264,7 @@ internal class DiscoverViewModel
                         }.onFailure {
                             optimisticPins.remove(uri)
                             project()
-                            sendEffect(DiscoverEffect.ShowError("Failed to ${if (wasPinned) "unpin" else "pin"} feed"))
+                            sendEffect(DiscoverEffect.PinFailed(wasUnpin = wasPinned))
                         }
                 }
         }

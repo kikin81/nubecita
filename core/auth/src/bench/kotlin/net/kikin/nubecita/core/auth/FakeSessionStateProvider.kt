@@ -17,8 +17,9 @@ import javax.inject.Singleton
  * `state.value` read used by `setKeepOnScreenCondition` works from the
  * platform's frame callback.
  *
- * [refresh] is a no-op — the bench session is hardcoded and doesn't read
- * from any underlying store.
+ * [refresh] is a no-op: the bench session reads no underlying store. It
+ * starts signed in, and [setSignedIn] (driven by the fake sign-out / sign-in
+ * flows) toggles it between that fixed account and signed out.
  *
  * Scoped `@Singleton` to match the production binding.
  */

@@ -246,6 +246,7 @@ internal class DefaultExploreRepository
                             responseSerializer = GetSuggestedFeedsResponse.serializer(),
                         ).feeds
                         .map { it.toSuggestedFeedUi() }
+                        .distinctBy { it.uri }
                 }
             commit(token) { current ->
                 result.fold(
@@ -282,6 +283,7 @@ internal class DefaultExploreRepository
                             responseSerializer = GetSuggestedUsersResponse.serializer(),
                         ).actors
                         .map { it.toSuggestedAccountUi() }
+                        .distinctBy { it.did }
                 }
             commit(token) { current ->
                 result.fold(

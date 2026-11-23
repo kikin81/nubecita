@@ -15,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -131,11 +132,11 @@ internal fun TrendRow(
     val countText = rememberCompactCount(trend.postCount)
     val countLabel =
         if (trend.postCount > 0L) stringResource(R.string.trending_post_count, countText) else null
-    val subtitle = trendSubtitleParts(hotLabel, trend.category, countLabel)
-    val subtitleText = subtitle.joinToString(SUBTITLE_SEPARATOR)
+    val subtitle = remember(hotLabel, trend.category, countLabel) { trendSubtitleParts(hotLabel, trend.category, countLabel) }
+    val subtitleText = remember(subtitle) { subtitle.joinToString(SUBTITLE_SEPARATOR) }
     val spoken = stringResource(R.string.trending_row_content_desc, rank, trend.displayName)
     val contentDescription =
-        if (subtitle.isEmpty()) spoken else spoken + ", " + subtitle.joinToString(", ")
+        remember(spoken, subtitle) { if (subtitle.isEmpty()) spoken else spoken + ", " + subtitle.joinToString(", ") }
 
     Row(
         modifier =

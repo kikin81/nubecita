@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.feature.feed.api.FeedView
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
@@ -78,14 +79,17 @@ internal fun SearchPane(
                 is SearchPaneEffect.NavigateToFeed ->
                     navState.add(FeedView(feedUri = effect.uri, displayName = effect.displayName))
                 is SearchPaneEffect.NavigateToPack -> navState.add(StarterPack(uri = effect.uri))
-                is SearchPaneEffect.FollowFailed -> {
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(if (effect.wasUnfollow) unfollowErrorMsg else followErrorMsg)
-                }
-                is SearchPaneEffect.PinFailed -> {
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(if (effect.wasUnpin) unpinErrorMsg else pinErrorMsg)
-                }
+                is SearchPaneEffect.FollowFailed ->
+                    // Launched, not awaited: a visible snackbar must not hold up the next effect.
+                    launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(if (effect.wasUnfollow) unfollowErrorMsg else followErrorMsg)
+                    }
+                is SearchPaneEffect.PinFailed ->
+                    launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(if (effect.wasUnpin) unpinErrorMsg else pinErrorMsg)
+                    }
             }
         }
     }
@@ -98,10 +102,16 @@ internal fun SearchPane(
                 is DiscoverEffect.NavigateToPack -> navState.add(StarterPack(uri = effect.uri))
                 // Only a trend tap emits this, and the pane shows no trends (they live in the list pane).
                 is DiscoverEffect.SubmitSearch -> Unit
-                is DiscoverEffect.ShowError -> {
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(effect.message)
-                }
+                is DiscoverEffect.FollowFailed ->
+                    launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(if (effect.wasUnfollow) unfollowErrorMsg else followErrorMsg)
+                    }
+                is DiscoverEffect.PinFailed ->
+                    launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(if (effect.wasUnpin) unpinErrorMsg else pinErrorMsg)
+                    }
             }
         }
     }
@@ -119,7 +129,7 @@ internal fun SearchPane(
             val saved = if (target == ScrollTarget.Summary) paneState.summaryScroll else paneState.exploreScroll
             LazyListState(saved.index, saved.offset)
         }
-    DisposableEffect(listState, target) {
+    DisposableEffect(listState, target, listKey) {
         onDispose {
             onPaneEvent(
                 SearchPaneEvent.ScrollSaved(

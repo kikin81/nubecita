@@ -27,6 +27,7 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -79,7 +80,10 @@ internal fun SearchScreen(
     postsViewModel: SearchPostsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val postsState by postsViewModel.uiState.collectAsStateWithLifecycle()
+    // Only the estimate: the Posts state is read inside derivedStateOf alone, so this screen
+    // recomposes when the estimate changes, not on every Posts emission (each page, each like).
+    val postsState = postsViewModel.uiState.collectAsStateWithLifecycle()
+    val postsHitsTotal by remember(postsState) { derivedStateOf { postsState.value.hitsTotal } }
     val discoverState by discoverViewModel.uiState.collectAsStateWithLifecycle()
 
     val onEvent = remember(viewModel) { viewModel::handleEvent }
@@ -117,9 +121,14 @@ internal fun SearchScreen(
         remember(navState) { { handle: String -> navState.add(Profile(handle = handle)) } }
 
     // Snackbar state hoisted to this level so both SearchScreenContent's per-tab
-    // error handlers AND the discover-effect ShowError can share a single host.
+    // error handlers AND the discover follow / pin errors can share a single host.
     val snackbarHostState = remember { SnackbarHostState() }
     val snackScope = rememberCoroutineScope()
+
+    val followErrorMsg = stringResource(R.string.search_follow_error)
+    val unfollowErrorMsg = stringResource(R.string.search_unfollow_error)
+    val pinErrorMsg = stringResource(R.string.search_pin_error)
+    val unpinErrorMsg = stringResource(R.string.search_unpin_error)
 
     // Collect Discover VM effects: nav → MainShellNavState, error → snackbar.
     LaunchedEffect(Unit) {
@@ -136,10 +145,15 @@ internal fun SearchScreen(
                     viewModel.textFieldState.setTextAndPlaceCursorAtEnd(effect.query)
                     viewModel.handleEvent(SearchEvent.SubmitClicked)
                 }
-                is DiscoverEffect.ShowError ->
+                is DiscoverEffect.FollowFailed ->
                     snackScope.launch {
                         snackbarHostState.currentSnackbarData?.dismiss()
-                        snackbarHostState.showSnackbar(effect.message)
+                        snackbarHostState.showSnackbar(if (effect.wasUnfollow) unfollowErrorMsg else followErrorMsg)
+                    }
+                is DiscoverEffect.PinFailed ->
+                    snackScope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(if (effect.wasUnpin) unpinErrorMsg else pinErrorMsg)
                     }
             }
         }
@@ -153,7 +167,7 @@ internal fun SearchScreen(
         selectedTab = state.selectedTab,
         filters = state.filters,
         isFilterSheetOpen = state.isFilterSheetOpen,
-        postsHitsTotal = postsState.hitsTotal,
+        postsHitsTotal = postsHitsTotal,
         recentSearches = state.recentSearches,
         onEvent = onEvent,
         onClearQueryRequest = onClearQueryRequest,

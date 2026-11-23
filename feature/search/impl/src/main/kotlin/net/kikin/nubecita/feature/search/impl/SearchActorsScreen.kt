@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.search.impl.ui.PeopleTabContent
@@ -63,10 +64,12 @@ internal fun SearchActorsScreen(
                     navState.add(Profile(handle = effect.handle))
                 is SearchActorsEffect.ShowAppendError ->
                     currentOnShowAppendError(effect.error)
-                is SearchActorsEffect.FollowFailed -> {
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(if (effect.wasUnfollow) unfollowErrorMsg else followErrorMsg)
-                }
+                is SearchActorsEffect.FollowFailed ->
+                    // Launched, not awaited: a visible snackbar must not hold up the next effect.
+                    launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(if (effect.wasUnfollow) unfollowErrorMsg else followErrorMsg)
+                    }
                 SearchActorsEffect.NavigateToClearQuery ->
                     currentOnClearQuery()
             }

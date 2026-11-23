@@ -45,7 +45,7 @@ internal fun StarterPackCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val description = stringResource(R.string.search_pack_content_desc, pack.name, pack.creatorHandle)
+    val description = packContentDescription(pack)
     ElevatedCard(
         modifier =
             modifier
@@ -63,7 +63,12 @@ internal fun StarterPackCard(
         ) {
             Box(modifier = Modifier.height(AVATAR_ROW_HEIGHT), contentAlignment = Alignment.CenterStart) {
                 if (pack.avatarUrls.isNotEmpty()) {
-                    PackAvatarStack(avatarUrls = pack.avatarUrls, avatarSize = AVATAR_ROW_HEIGHT)
+                    PackAvatarStack(
+                        avatarUrls = pack.avatarUrls,
+                        avatarSize = AVATAR_ROW_HEIGHT,
+                        // The card is a surfaceContainer item card; ring in its own colour.
+                        ringColor = MaterialTheme.colorScheme.surfaceContainer,
+                    )
                 }
             }
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {

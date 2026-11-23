@@ -254,7 +254,7 @@ internal class DiscoverViewModelTest {
         }
 
     @Test
-    fun `follow failure rolls back isFollowing and emits ShowError`() =
+    fun `follow failure rolls back isFollowing and emits FollowFailed`() =
         runTest(mainDispatcher.dispatcher) {
             val did = "did:plc:alice"
             val account = accountFixture(did = did, isFollowing = false)
@@ -274,7 +274,7 @@ internal class DiscoverViewModelTest {
                 advanceUntilIdle()
 
                 val effect = awaitItem()
-                assertTrue(effect is DiscoverEffect.ShowError, "expected ShowError, was $effect")
+                assertEquals(DiscoverEffect.FollowFailed(wasUnfollow = false), effect)
                 cancelAndIgnoreRemainingEvents()
             }
 
@@ -326,7 +326,7 @@ internal class DiscoverViewModelTest {
         }
 
     @Test
-    fun `unfollow failure rolls back isFollowing and emits ShowError`() =
+    fun `unfollow failure rolls back isFollowing and emits FollowFailed`() =
         runTest(mainDispatcher.dispatcher) {
             val did = "did:plc:alice"
             val followUri = "at://did:plc:me/app.bsky.graph.follow/existing"
@@ -347,7 +347,7 @@ internal class DiscoverViewModelTest {
                 advanceUntilIdle()
 
                 val effect = awaitItem()
-                assertTrue(effect is DiscoverEffect.ShowError, "expected ShowError, was $effect")
+                assertEquals(DiscoverEffect.FollowFailed(wasUnfollow = true), effect)
                 cancelAndIgnoreRemainingEvents()
             }
 
@@ -424,7 +424,7 @@ internal class DiscoverViewModelTest {
         }
 
     @Test
-    fun `pin failure rolls back isPinned on current state and emits ShowError`() =
+    fun `pin failure rolls back isPinned on current state and emits PinFailed`() =
         runTest(mainDispatcher.dispatcher) {
             val uri = "at://did:plc:f1/app.bsky.feed.generator/test"
             val feed = feedFixture(uri = uri, isPinned = false)
@@ -447,7 +447,7 @@ internal class DiscoverViewModelTest {
                 advanceUntilIdle()
 
                 val effect = awaitItem()
-                assertTrue(effect is DiscoverEffect.ShowError, "expected ShowError, was $effect")
+                assertEquals(DiscoverEffect.PinFailed(wasUnpin = false), effect)
                 cancelAndIgnoreRemainingEvents()
             }
 
@@ -494,7 +494,7 @@ internal class DiscoverViewModelTest {
         }
 
     @Test
-    fun `unpin failure rolls back isPinned and emits ShowError`() =
+    fun `unpin failure rolls back isPinned and emits PinFailed`() =
         runTest(mainDispatcher.dispatcher) {
             val uri = "at://did:plc:f1/app.bsky.feed.generator/test"
             val feed = feedFixture(uri = uri, isPinned = false) // API value; repo is source of truth
@@ -519,7 +519,7 @@ internal class DiscoverViewModelTest {
                 advanceUntilIdle()
 
                 val effect = awaitItem()
-                assertTrue(effect is DiscoverEffect.ShowError, "expected ShowError, was $effect")
+                assertEquals(DiscoverEffect.PinFailed(wasUnpin = true), effect)
                 cancelAndIgnoreRemainingEvents()
             }
 

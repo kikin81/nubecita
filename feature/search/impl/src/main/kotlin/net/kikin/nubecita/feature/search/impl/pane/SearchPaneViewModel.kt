@@ -2,6 +2,8 @@ package net.kikin.nubecita.feature.search.impl.pane
 
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -21,8 +23,12 @@ import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
 import net.kikin.nubecita.core.postinteractions.FollowOutcome
 import net.kikin.nubecita.core.postinteractions.FollowOverlay
 import net.kikin.nubecita.core.postinteractions.FollowToggle
+import net.kikin.nubecita.core.postinteractions.PostInteractionState
+import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.withFollowOverride
 import net.kikin.nubecita.data.models.ActorUi
+import net.kikin.nubecita.data.models.FeedItemUi
+import net.kikin.nubecita.feature.search.impl.applyInteractions
 import net.kikin.nubecita.feature.search.impl.data.FeedPinToggle
 import net.kikin.nubecita.feature.search.impl.data.PinOutcome
 import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
@@ -49,7 +55,7 @@ import javax.inject.Inject
  * tabs do, keyed by the store's (query, filters, submission) so the pane and a tab of the same
  * search share one request. Posts depend on the filters; people, feeds and packs do not, so a filter
  * change reloads the posts section only. A section re-reads when [SearchFirstPages.version]
- * moves (a tab refreshed, or the session changed), without going back to Loading, and a failed
+ * moves (a tab refreshed, or the session changed; no tab refreshes yet), without going back to Loading, and a failed
  * re-read keeps the rows it had; but when the signed-in account changes the sections are
  * cleared first, so a failed re-read shows Error and never the previous account's rows. A new
  * search cancels the requests of the old one.
@@ -57,6 +63,11 @@ import javax.inject.Inject
  * Follow and pin go through the primitives the People and Feeds tabs use ([FollowToggle] over
  * [FollowOverlay], [FeedPinToggle] over the pinned-feeds stream), so the three surfaces agree.
  * The pane logs no analytics: it never reports a search of its own.
+ *
+ * The top post is projected through [PostInteractionsCache] with the Posts tab's own
+ * [applyInteractions], and re-projected on every cache emission: its counts follow a like or
+ * repost made anywhere, and when the viewer deletes it the next surviving post of the first
+ * page takes its place (the section is hidden when none survives).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -68,6 +79,7 @@ internal class SearchPaneViewModel
         private val followToggle: FollowToggle,
         private val followOverlay: FollowOverlay,
         private val pinToggle: FeedPinToggle,
+        private val interactionsCache: PostInteractionsCache,
         pinnedFeedsRepository: PinnedFeedsRepository,
         sessionStateProvider: SessionStateProvider,
     ) : MviViewModel<SearchPaneState, SearchPaneEvent, SearchPaneEffect>(SearchPaneState()) {
@@ -100,6 +112,25 @@ internal class SearchPaneViewModel
         /** Latest pinned feed URIs; applied to every feeds page as it lands. */
         private var currentPinnedUris: Set<String> = emptySet()
 
+        /**
+         * The posts first page the top post was picked from, with the search and viewer it was
+         * applied for. Kept so a cache emission can re-pick: the top post carries the viewer's
+         * likes and reposts, and a post the viewer deleted gives way to the next surviving one.
+         */
+        private data class TopPostSource(
+            val key: PostsKey,
+            val viewerDid: String?,
+            val items: ImmutableList<FeedItemUi.Single>,
+        )
+
+        private var topPostSource: TopPostSource? = null
+
+        /** The first post of [items] that survives the cache (deleted posts drop out), merged. */
+        private fun topPostOf(
+            items: ImmutableList<FeedItemUi.Single>,
+            interactions: PersistentMap<String, PostInteractionState>,
+        ): FeedItemUi.Single? = items.applyInteractions(interactions).firstOrNull()
+
         init {
             store.submitted
                 .onEach { search -> onSubmittedChanged(search) }
@@ -113,6 +144,21 @@ internal class SearchPaneViewModel
                 .onEach { overrides ->
                     updateSummary { copy(people = people.map { it.withFollowOverride(overrides) }.toImmutableList()) }
                 }.launchIn(viewModelScope)
+            // The same projection the Posts tab applies, so a like there (or anywhere) shows on the
+            // pane's card, and a deleted top post is replaced by the next one from the page.
+            interactionsCache.state
+                .onEach { interactions ->
+                    setState {
+                        val summary = mode as? SearchPaneMode.Summary ?: return@setState this
+                        val source = topPostSource ?: return@setState this
+                        if (summary.postsStatus != SummarySectionStatus.Loaded) return@setState this
+                        if (source.key != summary.search.postsKey() || source.viewerDid != viewerDid) return@setState this
+                        // The cache emits for every post in the app; most emissions leave this card as it is.
+                        val topPost = topPostOf(source.items, interactions)
+                        if (topPost == summary.topPost) return@setState this
+                        copy(mode = summary.copy(topPost = topPost))
+                    }
+                }.launchIn(viewModelScope)
             pinnedFeedsRepository
                 .observePinnedFeeds()
                 .map { result -> result.feeds.map { it.uri }.toSet() }
@@ -125,8 +171,15 @@ internal class SearchPaneViewModel
                 section = SummarySection.Posts,
                 keyOf = { it.postsKey() },
                 fetch = { key -> firstPages.posts(key.query, key.filters, key.submission) },
-                onLoaded = { page ->
-                    copy(hitsTotal = page.hitsTotal, topPost = page.items.firstOrNull(), postsStatus = SummarySectionStatus.Loaded)
+                onLoaded = { page, viewer ->
+                    // Runs inside the apply-time guard below, so the source is recorded only for
+                    // the adopted search and viewer.
+                    topPostSource = TopPostSource(search.postsKey(), viewer, page.items)
+                    copy(
+                        hitsTotal = page.hitsTotal,
+                        topPost = topPostOf(page.items, interactionsCache.state.value),
+                        postsStatus = SummarySectionStatus.Loaded,
+                    )
                 },
                 onFailed = { copy(postsStatus = postsStatus.afterFailure()) },
             )
@@ -134,7 +187,7 @@ internal class SearchPaneViewModel
                 section = SummarySection.People,
                 keyOf = { it.queryKey() },
                 fetch = { key -> firstPages.people(key.query, key.submission) },
-                onLoaded = { page ->
+                onLoaded = { page, _ ->
                     val overrides = followOverlay.current()
                     copy(
                         people =
@@ -151,7 +204,7 @@ internal class SearchPaneViewModel
                 section = SummarySection.Feeds,
                 keyOf = { it.queryKey() },
                 fetch = { key -> firstPages.feeds(key.query, key.submission) },
-                onLoaded = { page ->
+                onLoaded = { page, _ ->
                     copy(
                         feeds =
                             page.items
@@ -167,7 +220,7 @@ internal class SearchPaneViewModel
                 section = SummarySection.Packs,
                 keyOf = { it.queryKey() },
                 fetch = { key -> firstPages.packs(key.query, key.submission) },
-                onLoaded = { page ->
+                onLoaded = { page, _ ->
                     copy(packs = page.items.take(SUMMARY_PACK_ROWS).toImmutableList(), packsStatus = SummarySectionStatus.Loaded)
                 },
                 onFailed = { copy(packsStatus = packsStatus.afterFailure()) },
@@ -215,7 +268,7 @@ internal class SearchPaneViewModel
             section: SummarySection,
             keyOf: (SubmittedSearch) -> K,
             fetch: suspend (K) -> Result<P>,
-            onLoaded: SearchPaneMode.Summary.(P) -> SearchPaneMode.Summary,
+            onLoaded: SearchPaneMode.Summary.(page: P, viewerDid: String?) -> SearchPaneMode.Summary,
             onFailed: SearchPaneMode.Summary.() -> SearchPaneMode.Summary,
         ) {
             // The account is part of the trigger: after an account change the sections reload even
@@ -232,7 +285,7 @@ internal class SearchPaneViewModel
                     setState {
                         val summary = mode as? SearchPaneMode.Summary ?: return@setState this
                         if (keyOf(summary.search) != current || viewerDid != did) return@setState this
-                        copy(mode = summary.run { result.fold(onSuccess = { onLoaded(it) }, onFailure = { onFailed() }) })
+                        copy(mode = summary.run { result.fold(onSuccess = { onLoaded(it, did) }, onFailure = { onFailed() }) })
                     }
                 }.launchIn(viewModelScope)
         }

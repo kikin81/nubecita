@@ -102,7 +102,7 @@ internal class StarterPackViewModel
                                 } else {
                                     StarterPackLoadStatus.Loaded(
                                         pack = pack,
-                                        members = page.members.withOverlay(),
+                                        members = page.members.distinctBy { it.did }.withOverlay(),
                                         nextCursor = page.nextCursor,
                                         endReached = page.nextCursor == null,
                                     )
@@ -126,8 +126,7 @@ internal class StarterPackViewModel
                     .onSuccess { page ->
                         if (epoch != loadEpoch) return@onSuccess
                         val current = uiState.value.status as? StarterPackLoadStatus.Loaded ?: return@onSuccess
-                        val known = current.members.mapTo(HashSet()) { it.did }
-                        val appended = (current.members + page.members.filter { it.did !in known }.withOverlay()).toImmutableList()
+                        val appended = (current.members + page.members.withOverlay()).distinctBy { it.did }.toImmutableList()
                         setState {
                             copy(
                                 status =

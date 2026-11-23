@@ -26,8 +26,8 @@ data class FollowOverride(
 
 /**
  * The viewer's follow actions in this session, keyed by DID, laid over every
- * people list — including ones served again from [SearchFirstPages]'s cache
- * and the shared Explore suggestions, which still carry the follow state they
+ * people list — including ones served again from the search feature's shared
+ * first-page cache and the shared Explore suggestions, which still carry the follow state they
  * were fetched with. Every reader of people (the People tab, the Explore
  * suggestions) applies the same overlay, so they agree without a refetch.
  *

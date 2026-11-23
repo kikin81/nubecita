@@ -12,8 +12,8 @@ import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
 /**
  * MVI state for the Search Posts tab.
  *
- * [currentQuery] mirrors the latest non-debounced query set via
- * [SearchPostsViewModel.setQuery]. Held here (rather than re-derived
+ * [currentQuery] mirrors the query of the search the Posts tab currently shows,
+ * read from the submitted-search store by [SearchPostsViewModel]. Held here (rather than re-derived
  * from the parent) so the empty-state copy + body match-highlighting
  * have a stable, recompose-friendly source.
  *

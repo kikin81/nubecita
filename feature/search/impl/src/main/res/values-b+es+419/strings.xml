@@ -217,6 +217,7 @@
     <string name="search_packs_append_error_unknown">No se pudieron cargar más paquetes de inicio. Inténtalo de nuevo.</string>
     <string name="search_pack_byline">por @%1$s</string>
     <string name="search_pack_content_desc">%1$s, por @%2$s</string>
+    <string name="search_pack_content_desc_with_members">%1$s, por @%2$s, %3$s</string>
     <plurals name="search_pack_member_count">
         <item quantity="one">%1$d persona</item>
         <item quantity="other">%1$d personas</item>

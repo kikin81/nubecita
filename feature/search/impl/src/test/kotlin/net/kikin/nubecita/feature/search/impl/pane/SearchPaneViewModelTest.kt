@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.search.impl.pane
 
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -19,9 +20,11 @@ import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.postinteractions.FollowOverlay
 import net.kikin.nubecita.core.postinteractions.FollowOverride
 import net.kikin.nubecita.core.postinteractions.FollowToggle
+import net.kikin.nubecita.core.postinteractions.PostInteractionState
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.feature.search.impl.FakeFollowRepository
 import net.kikin.nubecita.feature.search.impl.FakePinnedFeedsRepository
+import net.kikin.nubecita.feature.search.impl.FakePostInteractionsCache
 import net.kikin.nubecita.feature.search.impl.data.DateFilter
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchActorsRepository
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchFeedsRepository
@@ -64,6 +67,7 @@ internal class SearchPaneViewModelTest {
     private val packs = FakeSearchStarterPacksRepository()
     private val pinned = FakePinnedFeedsRepository()
     private val followRepo = FakeFollowRepository()
+    private val interactions = FakePostInteractionsCache()
     private val session = MutableStateFlow<SessionState>(signedIn("did:plc:me"))
     private val sessionProvider =
         object : SessionStateProvider {
@@ -88,6 +92,7 @@ internal class SearchPaneViewModelTest {
             followToggle = FollowToggle(followRepo, overlay, sessionProvider, appScope),
             followOverlay = overlay,
             pinToggle = FeedPinToggle(pinned),
+            interactionsCache = interactions,
             pinnedFeedsRepository = pinned,
             sessionStateProvider = sessionProvider,
         )
@@ -1043,4 +1048,64 @@ internal class SearchPaneViewModelTest {
             assertEquals(filters.activeSummaryFilters() - filter, removed.activeSummaryFilters())
         }
     }
+
+    @Test
+    fun `a like in the cache shows on the top post`() =
+        runTest {
+            respondPosts("kotlin", "at://p/1", "at://p/2")
+            val vm = buildVm()
+            store.submit("kotlin", fromRecent = false)
+            advanceUntilIdle()
+            assertFalse(
+                summary(vm)
+                    .topPost
+                    ?.post
+                    ?.viewer
+                    ?.isLikedByViewer ?: true,
+            )
+
+            interactions.emit(persistentMapOf("at://p/1" to PostInteractionState(viewerLikeUri = "at://like/1", likeCount = 7)))
+            advanceUntilIdle()
+
+            val top = summary(vm).topPost
+            assertEquals("at://p/1", top?.post?.id)
+            assertEquals(true, top?.post?.viewer?.isLikedByViewer)
+            assertEquals(7, top?.post?.stats?.likeCount)
+        }
+
+    @Test
+    fun `a deleted top post gives way to the next post, and the section empties when none survives`() =
+        runTest {
+            respondPosts("kotlin", "at://p/1", "at://p/2")
+            val vm = buildVm()
+            store.submit("kotlin", fromRecent = false)
+            advanceUntilIdle()
+            assertEquals("at://p/1", summary(vm).topPost?.post?.id)
+
+            interactions.emit(persistentMapOf("at://p/1" to PostInteractionState(isDeleted = true)))
+            advanceUntilIdle()
+            assertEquals("at://p/2", summary(vm).topPost?.post?.id)
+
+            interactions.emit(
+                persistentMapOf(
+                    "at://p/1" to PostInteractionState(isDeleted = true),
+                    "at://p/2" to PostInteractionState(isDeleted = true),
+                ),
+            )
+            advanceUntilIdle()
+            assertNull(summary(vm).topPost)
+            assertEquals(SummarySectionStatus.Loaded, summary(vm).postsStatus)
+        }
+
+    @Test
+    fun `a post deleted before the page lands is skipped`() =
+        runTest {
+            interactions.emit(persistentMapOf("at://p/1" to PostInteractionState(isDeleted = true)))
+            respondPosts("kotlin", "at://p/1", "at://p/2")
+            val vm = buildVm()
+            store.submit("kotlin", fromRecent = false)
+            advanceUntilIdle()
+
+            assertEquals("at://p/2", summary(vm).topPost?.post?.id)
+        }
 }
