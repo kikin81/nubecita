@@ -65,7 +65,7 @@ class SearchPacksViewModelTest {
             val hit = packFixture(slug = "android", name = "Android")
             repo.respond(query = "art", cursor = null, items = listOf(hit), nextCursor = "c2")
 
-            vm.setQuery("art")
+            vm.setQuery("art", submission = 1)
             runCurrent()
 
             val status = vm.uiState.value.loadStatus
@@ -84,7 +84,7 @@ class SearchPacksViewModelTest {
             val vm = newVm()
             repo.respond(query = "art", cursor = null, items = listOf(packFixture()), nextCursor = null)
 
-            vm.setQuery("art", fromRecent = true)
+            vm.setQuery("art", fromRecent = true, submission = 1)
             runCurrent()
 
             assertEquals(listOf(SearchPerform(scope = SearchScope.Packs, fromRecent = true)), analytics.events)
@@ -96,7 +96,7 @@ class SearchPacksViewModelTest {
             val vm = newVm()
             repo.respond(query = "no-matches", cursor = null, items = emptyList(), nextCursor = null)
 
-            vm.setQuery("no-matches")
+            vm.setQuery("no-matches", submission = 1)
             runCurrent()
 
             assertEquals(SearchPacksLoadStatus.Empty, vm.uiState.value.loadStatus)
@@ -108,7 +108,7 @@ class SearchPacksViewModelTest {
             val vm = newVm()
             repo.fail(query = "art", cursor = null, throwable = java.io.IOException("disconnected"))
 
-            vm.setQuery("art")
+            vm.setQuery("art", submission = 1)
             runCurrent()
 
             val status = vm.uiState.value.loadStatus
@@ -125,7 +125,7 @@ class SearchPacksViewModelTest {
             repo.respond(query = "x", cursor = null, items = page1, nextCursor = "c2")
             repo.respond(query = "x", cursor = "c2", items = page2, nextCursor = "c3")
 
-            vm.setQuery("x")
+            vm.setQuery("x", submission = 1)
             runCurrent()
             vm.handleEvent(SearchPacksEvent.LoadMore)
             runCurrent()
@@ -143,7 +143,7 @@ class SearchPacksViewModelTest {
             val vm = newVm()
             repo.respond(query = "x", cursor = null, items = listOf(packFixture()), nextCursor = null)
 
-            vm.setQuery("x")
+            vm.setQuery("x", submission = 1)
             runCurrent()
             val callsBefore = repo.callLog.size
             vm.handleEvent(SearchPacksEvent.LoadMore)
@@ -160,7 +160,7 @@ class SearchPacksViewModelTest {
             repo.respond(query = "x", cursor = null, items = listOf(packFixture()), nextCursor = "c2")
             repo.gate(query = "x", cursor = "c2")
 
-            vm.setQuery("x")
+            vm.setQuery("x", submission = 1)
             runCurrent()
             vm.handleEvent(SearchPacksEvent.LoadMore)
             runCurrent()
@@ -182,11 +182,11 @@ class SearchPacksViewModelTest {
             val staleGate = repo.gate(query = "ar", cursor = null)
             repo.respond(query = "art", cursor = null, items = listOf(packFixture(slug = "art")), nextCursor = null)
 
-            vm.setQuery("ar")
+            vm.setQuery("ar", submission = 1)
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is SearchPacksLoadStatus.InitialLoading)
 
-            vm.setQuery("art")
+            vm.setQuery("art", submission = 1)
             runCurrent()
             staleGate.complete(Result.success(SearchStarterPacksPage(persistentListOf(packFixture(slug = "stale")), null)))
             runCurrent()
@@ -204,13 +204,13 @@ class SearchPacksViewModelTest {
             repo.respond(query = "books", cursor = null, items = listOf(packFixture(slug = "books")), nextCursor = null)
             val pageTwoArtGate = repo.gate(query = "art", cursor = "c2")
 
-            vm.setQuery("art")
+            vm.setQuery("art", submission = 1)
             runCurrent()
             vm.handleEvent(SearchPacksEvent.LoadMore)
             runCurrent()
             assertTrue((vm.uiState.value.loadStatus as SearchPacksLoadStatus.Loaded).isAppending, "page-2-art fetch should be in flight")
 
-            vm.setQuery("books")
+            vm.setQuery("books", submission = 1)
             runCurrent()
             assertEquals(listOf(packFixture(slug = "books").uri), (vm.uiState.value.loadStatus as SearchPacksLoadStatus.Loaded).items.map { it.uri })
 
@@ -229,7 +229,7 @@ class SearchPacksViewModelTest {
             repo.respond(query = "x", cursor = null, items = listOf(packFixture()), nextCursor = "c2")
             repo.fail(query = "x", cursor = "c2", throwable = java.io.IOException("flap"))
 
-            vm.setQuery("x")
+            vm.setQuery("x", submission = 1)
             runCurrent()
 
             vm.effects.test {
@@ -252,7 +252,7 @@ class SearchPacksViewModelTest {
             val vm = newVm()
             repo.fail(query = "x", cursor = null, throwable = java.io.IOException("network"))
 
-            vm.setQuery("x")
+            vm.setQuery("x", submission = 1)
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is SearchPacksLoadStatus.InitialError)
 
@@ -290,11 +290,11 @@ class SearchPacksViewModelTest {
             val vm = newVm()
             repo.respond(query = "art", cursor = null, items = listOf(packFixture()), nextCursor = null)
 
-            vm.setQuery("art")
+            vm.setQuery("art", submission = 1)
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is SearchPacksLoadStatus.Loaded)
 
-            vm.setQuery("")
+            vm.setQuery("", submission = 1)
             runCurrent()
 
             assertEquals(SearchPacksLoadStatus.Idle, vm.uiState.value.loadStatus)

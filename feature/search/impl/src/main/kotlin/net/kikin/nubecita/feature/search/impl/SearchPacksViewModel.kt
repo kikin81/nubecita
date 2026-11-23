@@ -63,7 +63,7 @@ internal class SearchPacksViewModel
         fun setQuery(
             query: String,
             fromRecent: Boolean = false,
-            submission: Int = 0,
+            submission: Int,
         ) {
             fetchKey.update { it.copy(query = query, fromRecent = fromRecent, submission = submission) }
         }

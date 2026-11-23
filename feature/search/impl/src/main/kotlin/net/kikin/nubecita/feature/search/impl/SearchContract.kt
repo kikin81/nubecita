@@ -74,7 +74,7 @@ sealed interface SearchPhase {
          * its first-page request on it, so submitting the same text again
          * fetches fresh instead of replaying the cached page.
          */
-        val submission: Int = 0,
+        val submission: Int,
     ) : SearchPhase
 }
 

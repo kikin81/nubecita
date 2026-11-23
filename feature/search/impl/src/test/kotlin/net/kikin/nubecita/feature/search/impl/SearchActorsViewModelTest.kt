@@ -92,7 +92,7 @@ class SearchActorsViewModelTest {
             val vm = newVm()
             repo.respond(query = "alice", cursor = null, items = emptyList(), nextCursor = null)
 
-            vm.setQuery("alice", fromRecent = true)
+            vm.setQuery("alice", fromRecent = true, submission = 1)
             runCurrent()
 
             assertEquals(
@@ -113,7 +113,7 @@ class SearchActorsViewModelTest {
                 nextCursor = "c2",
             )
 
-            vm.setQuery("alice")
+            vm.setQuery("alice", submission = 1)
             runCurrent()
 
             val status = vm.uiState.value.loadStatus
@@ -137,7 +137,7 @@ class SearchActorsViewModelTest {
                 nextCursor = null,
             )
 
-            vm.setQuery("no-matches")
+            vm.setQuery("no-matches", submission = 1)
             runCurrent()
 
             assertEquals(SearchActorsLoadStatus.Empty, vm.uiState.value.loadStatus)
@@ -149,7 +149,7 @@ class SearchActorsViewModelTest {
             val vm = newVm()
             repo.fail(query = "alice", cursor = null, throwable = java.io.IOException("disconnected"))
 
-            vm.setQuery("alice")
+            vm.setQuery("alice", submission = 1)
             runCurrent()
 
             val status = vm.uiState.value.loadStatus
@@ -172,11 +172,11 @@ class SearchActorsViewModelTest {
                 nextCursor = null,
             )
 
-            vm.setQuery("ali")
+            vm.setQuery("ali", submission = 1)
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is SearchActorsLoadStatus.InitialLoading)
 
-            vm.setQuery("alic")
+            vm.setQuery("alic", submission = 1)
             runCurrent()
 
             aliGate.complete(
@@ -214,7 +214,7 @@ class SearchActorsViewModelTest {
             repo.respond(query = "x", cursor = null, items = page1, nextCursor = "c2")
             repo.respond(query = "x", cursor = "c2", items = page2, nextCursor = "c3")
 
-            vm.setQuery("x")
+            vm.setQuery("x", submission = 1)
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is SearchActorsLoadStatus.Loaded)
 
@@ -244,7 +244,7 @@ class SearchActorsViewModelTest {
                 nextCursor = null,
             )
 
-            vm.setQuery("x")
+            vm.setQuery("x", submission = 1)
             runCurrent()
             val beforeCallCount = repo.callLog.size
 
@@ -267,7 +267,7 @@ class SearchActorsViewModelTest {
             // Gate the second-page fetch so isAppending stays true.
             repo.gate(query = "x", cursor = "c2")
 
-            vm.setQuery("x")
+            vm.setQuery("x", submission = 1)
             runCurrent()
 
             vm.handleEvent(SearchActorsEvent.LoadMore)
@@ -298,7 +298,7 @@ class SearchActorsViewModelTest {
             )
             repo.fail(query = "x", cursor = "c2", throwable = java.io.IOException("flap"))
 
-            vm.setQuery("x")
+            vm.setQuery("x", submission = 1)
             runCurrent()
 
             vm.effects.test {
@@ -343,7 +343,7 @@ class SearchActorsViewModelTest {
             val pageTwoAliceGate = repo.gate(query = "alice", cursor = "c2")
 
             // 1. Initial query → Loaded(alice).
-            vm.setQuery("alice")
+            vm.setQuery("alice", submission = 1)
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is SearchActorsLoadStatus.Loaded)
 
@@ -356,7 +356,7 @@ class SearchActorsViewModelTest {
             )
 
             // 3. User types a different query. mapLatest fires runFirstPage(bob).
-            vm.setQuery("bob")
+            vm.setQuery("bob", submission = 1)
             runCurrent()
             val afterTyping = vm.uiState.value.loadStatus
             assertTrue(afterTyping is SearchActorsLoadStatus.Loaded)
@@ -399,7 +399,7 @@ class SearchActorsViewModelTest {
             val vm = newVm()
             repo.fail(query = "x", cursor = null, throwable = java.io.IOException("network"))
 
-            vm.setQuery("x")
+            vm.setQuery("x", submission = 1)
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is SearchActorsLoadStatus.InitialError)
 
@@ -464,11 +464,11 @@ class SearchActorsViewModelTest {
                 nextCursor = null,
             )
 
-            vm.setQuery("alice")
+            vm.setQuery("alice", submission = 1)
             runCurrent()
             assertTrue(vm.uiState.value.loadStatus is SearchActorsLoadStatus.Loaded)
 
-            vm.setQuery("")
+            vm.setQuery("", submission = 1)
             runCurrent()
 
             assertEquals(SearchActorsLoadStatus.Idle, vm.uiState.value.loadStatus)
@@ -485,12 +485,12 @@ class SearchActorsViewModelTest {
             val vm = newVm()
             val aliceGate = repo.gate(query = "alice", cursor = null)
 
-            vm.setQuery("alice")
+            vm.setQuery("alice", submission = 1)
             runCurrent()
             assertEquals(SearchActorsLoadStatus.InitialLoading, vm.uiState.value.loadStatus)
 
             // User clears the field while the fetch is still in flight.
-            vm.setQuery("")
+            vm.setQuery("", submission = 1)
             runCurrent()
             assertEquals(SearchActorsLoadStatus.Idle, vm.uiState.value.loadStatus)
 
@@ -542,7 +542,7 @@ class SearchActorsViewModelTest {
     private fun loadedWith(vararg actors: ActorUi): SearchActorsViewModel {
         val vm = newVm()
         repo.respond(query = "sci", cursor = null, items = actors.toList(), nextCursor = null)
-        vm.setQuery("sci")
+        vm.setQuery("sci", submission = 1)
         return vm
     }
 
@@ -582,7 +582,7 @@ class SearchActorsViewModelTest {
                 }
             val vm = newVm(follow = gatedFollow)
             repo.respond(query = "sci", cursor = null, items = listOf(actorFixture(did = "did:plc:sci")), nextCursor = null)
-            vm.setQuery("sci")
+            vm.setQuery("sci", submission = 1)
             runCurrent()
 
             vm.handleEvent(SearchActorsEvent.FollowTapped("did:plc:sci"))
