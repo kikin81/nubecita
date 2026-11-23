@@ -12,6 +12,7 @@
   <actions>
     <action>Tap the Search tab on the main navigation bar</action>
     <action>Verify that the search bar and the Trending list are visible</action>
+    <action>Tap the search bar</action>
     <action>Type a search query into the search field</action>
     <action>Submit the search</action>
     <action>Verify that search results are displayed</action>
@@ -23,7 +24,7 @@
     <action>Verify that starter pack results are visible</action>
     <action>Tap the Posts tab in search results</action>
     <action>Tap the Media chip above the results</action>
-    <action>Verify that the Media chip is selected and that every visible result shows an image or a video</action>
+    <action>Verify that the Media chip is selected and that every visible result shows an image, a video or a covered-media placeholder</action>
     <action>Tap the Media chip again</action>
     <action>Verify that the Media chip is no longer selected</action>
     <action>Tap the first search result item to view details</action>
@@ -34,7 +35,7 @@
     <action>Switch the device back to light theme</action>
     <action>Press the system back button to clear the search and leave the results</action>
     <action>Verify that the search bar and the Trending list are visible</action>
-    <action>Repeat all of the steps above two more times</action>
+    <action>Repeat the steps from "Tap the search bar" to the landing check two more times. Do not tap the Search tab again: re-tapping it opens the search bar over the Trending list</action>
     <action>Press the Home button to send the app to the background, then wait 15 seconds for LeakCanary analysis</action>
     <action>Verify that no LeakCanary leak notification appears except for known accessibility delegate semantics cache</action>
   </actions>
