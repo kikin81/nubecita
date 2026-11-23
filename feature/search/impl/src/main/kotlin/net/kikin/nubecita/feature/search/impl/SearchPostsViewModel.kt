@@ -142,8 +142,11 @@ internal class SearchPostsViewModel
                     activeKey = key
                     setState {
                         copy(
+                            // A reload of the same query keeps the last count; a new query drops it.
+                            hitsTotal = hitsTotal.takeIf { currentQuery == key.query },
                             currentQuery = key.query,
                             sort = key.filters.sort,
+                            filters = key.filters,
                             // The old results belong to the previous key; drop them now so
                             // no pagination can run against them before the reload starts.
                             loadStatus =
@@ -172,6 +175,10 @@ internal class SearchPostsViewModel
                     sendEffect(SearchPostsEffect.NavigateToClearQuery)
                 is SearchPostsEvent.SortClicked ->
                     submittedSearch.updateFilters { it.copy(sort = event.sort) }
+                is SearchPostsEvent.FiltersChanged ->
+                    submittedSearch.updateFilters { event.filters }
+                SearchPostsEvent.OpenFilterSheetClicked ->
+                    submittedSearch.setFilterSheetOpen(true)
                 is SearchPostsEvent.PostTapped ->
                     sendEffect(SearchPostsEffect.NavigateToPost(event.uri))
                 is SearchPostsEvent.OnAuthorTapped ->
@@ -217,10 +224,18 @@ internal class SearchPostsViewModel
                                 endReached = page.nextCursor == null,
                             )
                         }
-                    setState { copy(loadStatus = nextStatus) }
+                    setState {
+                        copy(
+                            loadStatus = nextStatus,
+                            hitsTotal = page.hitsTotal.takeIf { nextStatus is SearchPostsLoadStatus.Loaded },
+                        )
+                    }
                 }.onFailure { throwable ->
                     setState {
-                        copy(loadStatus = SearchPostsLoadStatus.InitialError(throwable.toSearchPostsError()))
+                        copy(
+                            loadStatus = SearchPostsLoadStatus.InitialError(throwable.toSearchPostsError()),
+                            hitsTotal = null,
+                        )
                     }
                 }
         }

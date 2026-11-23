@@ -115,4 +115,43 @@
     <string name="hashtag_filter_from_author">De @%1$s</string>
     <string name="hashtag_empty_title">Aún no hay publicaciones con %1$s</string>
     <string name="hashtag_empty_body">Prueba la otra pestaña o desliza hacia abajo para volver a buscar.</string>
+
+    <!-- 7d66.6: post filters + result count -->
+    <string name="search_filter_row_sheet_description">Filtros</string>
+    <plurals name="search_filter_row_sheet_description_active">
+        <item quantity="one">Filtros, %1$d activo</item>
+        <item quantity="many">Filtros, %1$d activos</item>
+        <item quantity="other">Filtros, %1$d activos</item>
+    </plurals>
+    <string name="search_filter_sort_description">Ordenar por: %1$s</string>
+    <string name="search_filter_following">Siguiendo</string>
+    <string name="search_filter_media">Multimedia</string>
+    <string name="search_filter_video">Video</string>
+    <string name="search_filter_language">Idioma</string>
+    <string name="search_filter_language_description">Idioma: %1$s</string>
+    <string name="search_filter_date">Fecha</string>
+    <string name="search_filter_date_description">Fecha: %1$s</string>
+    <string name="search_filter_any">Cualquiera</string>
+    <string name="search_filter_date_all_time">Todo el tiempo</string>
+    <string name="search_filter_date_past_day">Último día</string>
+    <string name="search_filter_date_past_week">Última semana</string>
+    <string name="search_filter_date_past_month">Último mes</string>
+    <string name="search_filter_date_custom">Rango personalizado</string>
+    <string name="search_filter_date_range">%1$s – %2$s</string>
+    <string name="search_filter_range_apply">Aplicar</string>
+    <string name="search_filter_range_cancel">Cancelar</string>
+    <string name="search_posts_hits_total">Publicaciones: unas %1$s</string>
+    <string name="search_filter_sheet_title">Filtros</string>
+    <string name="search_filter_sheet_reset">Restablecer</string>
+    <string name="search_filter_section_from">De</string>
+    <string name="search_filter_section_replies">Respuestas</string>
+    <string name="search_filter_from_anyone">Cualquiera</string>
+    <string name="search_filter_from_following">Personas que sigues</string>
+    <string name="search_filter_media_has">Con multimedia</string>
+    <string name="search_filter_media_video_only">Solo video</string>
+    <string name="search_filter_replies_include">Incluir</string>
+    <string name="search_filter_replies_hide">Ocultar respuestas</string>
+    <string name="search_filter_replies_only">Solo respuestas</string>
+    <string name="search_filter_sheet_show_count">Mostrar resultados (unos %1$s)</string>
+    <string name="search_filter_sheet_show_results">Mostrar resultados</string>
 </resources>

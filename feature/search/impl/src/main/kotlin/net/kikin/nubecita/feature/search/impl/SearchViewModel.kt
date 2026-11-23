@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
 import net.kikin.nubecita.feature.search.impl.data.RecentSearchRepository
 import net.kikin.nubecita.feature.search.impl.data.SearchTab
 import net.kikin.nubecita.feature.search.impl.data.SubmittedSearch
@@ -113,6 +114,8 @@ internal class SearchViewModel
                         recentSearches.clearAll()
                     }
                 is SearchEvent.TabSelected -> submittedSearch.selectTab(event.tab)
+                is SearchEvent.FiltersChanged -> submittedSearch.updateFilters { event.filters }
+                is SearchEvent.FilterSheetOpenChanged -> submittedSearch.setFilterSheetOpen(event.open)
                 SearchEvent.ClearSearch -> clearSearch()
             }
         }
@@ -151,7 +154,13 @@ internal class SearchViewModel
          * when there is none. Typeahead is not a body state, so the phase
          * depends solely on the store, not on the in-flight text.
          */
-        private fun SearchScreenViewState.followingSubmitted(submitted: SubmittedSearch?): SearchScreenViewState = copy(phase = submitted.toPhase(), selectedTab = submitted?.selectedTab ?: SearchTab.POSTS)
+        private fun SearchScreenViewState.followingSubmitted(submitted: SubmittedSearch?): SearchScreenViewState =
+            copy(
+                phase = submitted.toPhase(),
+                selectedTab = submitted?.selectedTab ?: SearchTab.POSTS,
+                filters = submitted?.filters ?: PostSearchFilters(),
+                isFilterSheetOpen = submitted?.isFilterSheetOpen ?: false,
+            )
 
         private fun SubmittedSearch?.toPhase(): SearchPhase =
             if (this == null) {

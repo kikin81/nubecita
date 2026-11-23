@@ -66,12 +66,14 @@ internal class FakeSearchPostsRepository : SearchPostsRepository {
         sort: SearchPostsSort,
         items: List<FeedItemUi.Single>,
         nextCursor: String? = null,
+        hitsTotal: Long? = null,
     ) {
         gate(query, cursor, sort).complete(
             Result.success(
                 SearchPostsPage(
                     items = items.toImmutableList(),
                     nextCursor = nextCursor,
+                    hitsTotal = hitsTotal,
                 ),
             ),
         )
