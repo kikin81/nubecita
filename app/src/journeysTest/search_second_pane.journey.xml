@@ -17,8 +17,7 @@
     <action>Type a search query into the search field</action>
     <action>Submit the search</action>
     <action>Verify that the list pane shows the Posts, People, Feeds and Packs tabs</action>
-    <action>Verify that the right pane shows a Summary headed "Results for" followed by the query that was searched</action>
-    <action>Verify that the Summary shows the "Results for" header with the query and the top post</action>
+    <action>Verify that the right pane shows a Summary headed "Results for" followed by the query that was searched, and the top post</action>
     <action>Scroll the Summary down slowly until the People, Feeds and Starter packs sections are visible</action>
     <action>Verify that the People, Feeds and Starter packs sections are shown, each with "See all"</action>
     <action>Tap "See all" under People in the Summary</action>
