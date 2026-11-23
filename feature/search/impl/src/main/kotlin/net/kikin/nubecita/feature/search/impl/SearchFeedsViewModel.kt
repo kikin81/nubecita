@@ -4,18 +4,25 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.FeedAction
 import net.kikin.nubecita.core.analytics.FeedType
+import net.kikin.nubecita.core.analytics.InteractFeed
+import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.analytics.SearchPerform
 import net.kikin.nubecita.core.analytics.SearchScope
 import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.core.common.mvi.MviViewModel
+import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
+import net.kikin.nubecita.feature.search.impl.data.FeedGeneratorUi
 import net.kikin.nubecita.feature.search.impl.data.SearchFeedsRepository
 import net.kikin.nubecita.feature.search.impl.data.SearchFirstPages
 import javax.inject.Inject
@@ -44,6 +51,7 @@ internal class SearchFeedsViewModel
     constructor(
         private val repository: SearchFeedsRepository,
         private val firstPages: SearchFirstPages,
+        private val pinnedFeedsRepository: PinnedFeedsRepository,
         private val analytics: AnalyticsClient,
     ) : MviViewModel<SearchFeedsState, SearchFeedsEvent, SearchFeedsEffect>(SearchFeedsState()) {
         private data class FetchKey(
@@ -56,9 +64,27 @@ internal class SearchFeedsViewModel
             val submission: Int,
         )
 
+        /**
+         * Latest pinned feed URIs from [PinnedFeedsRepository.observePinnedFeeds] — the same
+         * source `DiscoverViewModel` seeds [FeedGeneratorUi.isPinned] from. Applied to every
+         * page as it lands, and re-applied to the rows on screen whenever it changes, so a
+         * pin made on another surface shows here without a request per row.
+         */
+        private var currentPinnedUris: Set<String> = emptySet()
+
+        /** In-flight pin/unpin jobs keyed by feed URI — drops rapid concurrent taps. */
+        private val activePinJobs = mutableMapOf<String, Job>()
+
         private val fetchKey = MutableStateFlow(FetchKey(query = "", incarnation = 0, fromRecent = false, submission = 0))
 
         init {
+            pinnedFeedsRepository
+                .observePinnedFeeds()
+                .map { result -> result.feeds.map { it.uri }.toSet() }
+                .onEach { uris ->
+                    currentPinnedUris = uris
+                    mapLoadedItems { it.withPinnedFrom(uris) }
+                }.launchIn(viewModelScope)
             fetchKey
                 .onEach { key -> setState { copy(currentQuery = key.query) } }
                 .mapLatest { key ->
@@ -88,8 +114,58 @@ internal class SearchFeedsViewModel
                     sendEffect(SearchFeedsEffect.NavigateToClearQuery)
                 is SearchFeedsEvent.FeedTapped ->
                     sendEffect(SearchFeedsEffect.NavigateToFeed(event.uri, event.displayName))
+                is SearchFeedsEvent.PinTapped -> onPinTapped(event.uri)
             }
         }
+
+        /**
+         * Optimistic pin / unpin, the same shape as `DiscoverViewModel`'s: flip first, call
+         * [PinnedFeedsRepository], and on failure flip back on the CURRENT state (a targeted
+         * rollback, never a snapshot restore) and tell the screen. Analytics fires on success only.
+         */
+        private fun onPinTapped(uri: String) {
+            if (activePinJobs[uri]?.isActive == true) return
+            val feed = (uiState.value.loadStatus as? SearchFeedsLoadStatus.Loaded)?.items?.find { it.uri == uri } ?: return
+            val wasPinned = feed.isPinned
+
+            setPinned(uri, !wasPinned)
+            activePinJobs[uri] =
+                viewModelScope.launch {
+                    val result =
+                        if (wasPinned) {
+                            pinnedFeedsRepository.unpinFeed(uri)
+                        } else {
+                            pinnedFeedsRepository.pinFeed(uri)
+                        }
+                    result
+                        .onSuccess {
+                            analytics.log(
+                                InteractFeed(
+                                    action = if (wasPinned) FeedAction.Unpin else FeedAction.Pin,
+                                    surface = PostSurface.Search,
+                                ),
+                            )
+                        }.onFailure {
+                            setPinned(uri, wasPinned)
+                            sendEffect(SearchFeedsEffect.PinFailed(wasUnpin = wasPinned))
+                        }
+                }
+        }
+
+        private fun setPinned(
+            uri: String,
+            pinned: Boolean,
+        ) = mapLoadedItems { feed -> if (feed.uri == uri) feed.copy(isPinned = pinned) else feed }
+
+        /** Rewrites the loaded rows on the CURRENT state; a no-op when nothing is loaded. */
+        private fun mapLoadedItems(transform: (FeedGeneratorUi) -> FeedGeneratorUi) {
+            setState {
+                val status = loadStatus as? SearchFeedsLoadStatus.Loaded ?: return@setState this
+                copy(loadStatus = status.copy(items = status.items.map(transform).toImmutableList()))
+            }
+        }
+
+        private fun FeedGeneratorUi.withPinnedFrom(uris: Set<String>): FeedGeneratorUi = if (isPinned == (uri in uris)) this else copy(isPinned = uri in uris)
 
         private suspend fun runFirstPage(key: FetchKey) {
             setState { copy(loadStatus = SearchFeedsLoadStatus.InitialLoading) }
@@ -107,7 +183,7 @@ internal class SearchFeedsViewModel
                             SearchFeedsLoadStatus.Empty
                         } else {
                             SearchFeedsLoadStatus.Loaded(
-                                items = page.items,
+                                items = page.items.map { it.withPinnedFrom(currentPinnedUris) }.toImmutableList(),
                                 nextCursor = page.nextCursor,
                                 endReached = page.nextCursor == null,
                             )
@@ -135,7 +211,7 @@ internal class SearchFeedsViewModel
                     .onSuccess { page ->
                         if (fetchKey.value != capturedKey) return@onSuccess
                         val current = uiState.value.loadStatus as? SearchFeedsLoadStatus.Loaded ?: return@onSuccess
-                        val appended = (current.items + page.items).toImmutableList()
+                        val appended = (current.items + page.items.map { it.withPinnedFrom(currentPinnedUris) }).toImmutableList()
                         setState {
                             copy(
                                 loadStatus =

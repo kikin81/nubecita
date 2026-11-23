@@ -53,6 +53,11 @@ enum class NubecitaActorRowDensity {
  *
  * @param query the text to highlight in the name and handle, when the row is
  *   showing search or typeahead results. Blank or null highlights nothing.
+ * @param handleHighlightRanges when non-null, the end-inclusive ranges of
+ *   [ActorUi.handle] to highlight, replacing the plain substring match of
+ *   [query] on the handle line. The caller owns the rule — search keeps the
+ *   shared `.bsky.social` suffix from lighting up. Null keeps the substring
+ *   match. The display-name line always uses [query].
  * @param supportingContent an optional third line under the handle — the login
  *   typeahead uses it for the network hosting the account. Rendered inside the
  *   text column, so it wraps and ellipsizes with the rest.
@@ -71,6 +76,7 @@ fun NubecitaActorRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     query: String? = null,
+    handleHighlightRanges: List<IntRange>? = null,
     showAvatarFallback: Boolean = false,
     density: NubecitaActorRowDensity = NubecitaActorRowDensity.Comfortable,
     trailingContent: @Composable (() -> Unit)? = null,
@@ -113,32 +119,62 @@ fun NubecitaActorRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                HighlightedText(
-                    modifier = Modifier.weight(1f, fill = false),
-                    text = displayName ?: actor.handle,
-                    match = query?.takeIf { it.isNotBlank() },
-                    style =
-                        if (compact) {
-                            MaterialTheme.typography.titleSmall
-                        } else {
-                            MaterialTheme.typography.titleMedium
-                        },
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                val titleStyle =
+                    if (compact) {
+                        MaterialTheme.typography.titleSmall
+                    } else {
+                        MaterialTheme.typography.titleMedium
+                    }
+                if (displayName == null && handleHighlightRanges != null) {
+                    // The handle is the title here, so it follows the caller's handle rule too.
+                    HighlightedText(
+                        modifier = Modifier.weight(1f, fill = false),
+                        text = actor.handle,
+                        ranges = handleHighlightRanges,
+                        style = titleStyle,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                } else {
+                    HighlightedText(
+                        modifier = Modifier.weight(1f, fill = false),
+                        text = displayName ?: actor.handle,
+                        match = query?.takeIf { it.isNotBlank() },
+                        style = titleStyle,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 VerificationBadge(badge = actor.verifiedBadge)
             }
             // Only when a display name occupies the line above — otherwise the
             // handle is already the title and would render twice.
             if (displayName != null) {
-                HighlightedText(
-                    text = stringResource(R.string.nubecita_actor_handle, actor.handle),
-                    match = query?.takeIf { it.isNotBlank() },
-                    style =
-                        MaterialTheme.typography.bodySmall.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        ),
-                )
+                val handleText = stringResource(R.string.nubecita_actor_handle, actor.handle)
+                val handleStyle =
+                    MaterialTheme.typography.bodySmall.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                if (handleHighlightRanges != null) {
+                    // The ranges index the bare handle; the line shows it after a prefix.
+                    val offset = handleOffsetIn(handleText, actor.handle)
+                    HighlightedText(
+                        text = handleText,
+                        ranges =
+                            if (offset == null) {
+                                emptyList()
+                            } else {
+                                handleHighlightRanges.map { (it.first + offset)..(it.last + offset) }
+                            },
+                        style = handleStyle,
+                    )
+                } else {
+                    HighlightedText(
+                        text = handleText,
+                        match = query?.takeIf { it.isNotBlank() },
+                        style = handleStyle,
+                    )
+                }
             }
             supportingContent?.invoke(this)
         }
@@ -148,3 +184,13 @@ fun NubecitaActorRow(
 
 /** Keeps the compact row's avatar in proportion with its reduced type. */
 private val COMPACT_AVATAR_SIZE = 36.dp
+
+/**
+ * Where [handle] starts inside the formatted handle line [text], or null when it
+ * is not there. The handle is the end of that line, so the last occurrence is
+ * the right one even if a localized prefix happens to contain the same word.
+ */
+internal fun handleOffsetIn(
+    text: String,
+    handle: String,
+): Int? = text.lastIndexOf(handle).takeIf { it >= 0 }

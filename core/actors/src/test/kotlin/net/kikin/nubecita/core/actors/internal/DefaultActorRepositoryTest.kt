@@ -328,6 +328,45 @@ class DefaultActorRepositoryTest {
             )
         }
 
+    @Test
+    fun searchActors_mapsBioAndViewerFollowState() =
+        runTest {
+            val actorDao = mockk<ActorDao>(relaxed = true)
+            val (_, repo) =
+                newRepo(actorDao) { _ ->
+                    okJson(
+                        """
+                        {
+                          "actors": [
+                            {
+                              "${'$'}type": "app.bsky.actor.defs#profileView",
+                              "did": "did:plc:followed",
+                              "handle": "followed.bsky.social",
+                              "description": "Writes about trains",
+                              "viewer": { "following": "at://did:plc:me/app.bsky.graph.follow/3k" }
+                            },
+                            {
+                              "${'$'}type": "app.bsky.actor.defs#profileView",
+                              "did": "did:plc:plain",
+                              "handle": "plain.bsky.social",
+                              "description": "   "
+                            }
+                          ]
+                        }
+                        """.trimIndent(),
+                    )
+                }
+
+            val items = repo.searchActors(query = "x", cursor = null, limit = 25).getOrThrow().items
+
+            assertEquals("Writes about trains", items[0].bio)
+            assertTrue(items[0].isFollowing)
+            assertEquals("at://did:plc:me/app.bsky.graph.follow/3k", items[0].followUri)
+            assertNull(items[1].bio, "a blank description collapses to no bio")
+            assertFalse(items[1].isFollowing)
+            assertNull(items[1].followUri)
+        }
+
     // -------------------------------------------------------------------------
     // Cache write failure is best-effort (does not fail the search)
     // -------------------------------------------------------------------------

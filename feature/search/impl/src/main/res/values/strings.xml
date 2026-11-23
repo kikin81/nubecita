@@ -114,8 +114,8 @@
     <string name="search_feeds_append_error_unknown">Couldn\'t load more feeds. Try again.</string>
 
     <plurals name="search_feeds_like_count">
-        <item quantity="one">%1$d like</item>
-        <item quantity="other">%1$d likes</item>
+        <item quantity="one">%1$s like</item>
+        <item quantity="other">%1$s likes</item>
     </plurals>
 
     <!-- Byline on a FeedRow when the creator has a display name. %1$s is the
@@ -222,4 +222,14 @@
     <string name="search_filter_replies_only">Only replies</string>
     <string name="search_filter_sheet_show_count">Show results (about %1$s)</string>
     <string name="search_filter_sheet_show_results">Show results</string>
+
+    <!-- 7d66.7: result-row polish — follow / pin buttons on People and Feeds rows -->
+    <string name="search_actor_follow_content_desc">Follow %1$s</string>
+    <string name="search_actor_unfollow_content_desc">Unfollow %1$s</string>
+    <string name="search_feed_pin_content_desc">Pin %1$s</string>
+    <string name="search_feed_unpin_content_desc">Unpin %1$s</string>
+    <string name="search_follow_error">Couldn\'t follow. Try again.</string>
+    <string name="search_unfollow_error">Couldn\'t unfollow. Try again.</string>
+    <string name="search_pin_error">Couldn\'t pin the feed. Try again.</string>
+    <string name="search_unpin_error">Couldn\'t unpin the feed. Try again.</string>
 </resources>

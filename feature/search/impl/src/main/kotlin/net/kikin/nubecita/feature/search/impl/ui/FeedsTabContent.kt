@@ -100,7 +100,11 @@ private fun LoadedBody(
 ) {
     LazyColumn(modifier = modifier.fillMaxSize().testTag("search_feeds_list"), state = listState) {
         items(items = items, key = { it.uri }) { feed ->
-            FeedRow(feed = feed, onClick = { onFeedClick(feed) })
+            FeedRow(
+                feed = feed,
+                onClick = { onFeedClick(feed) },
+                onPinClick = { onEvent(SearchFeedsEvent.PinTapped(feed.uri)) },
+            )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
         if (isAppending) {

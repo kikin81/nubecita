@@ -23,6 +23,8 @@ import net.kikin.nubecita.data.models.ActorUi
 internal data class SearchActorsState(
     val currentQuery: String = "",
     val loadStatus: SearchActorsLoadStatus = SearchActorsLoadStatus.Idle,
+    /** The signed-in account, whose own row offers no Follow button. Null when signed out. */
+    val viewerDid: String? = null,
 ) : UiState
 
 /**
@@ -74,6 +76,17 @@ internal sealed interface SearchActorsEvent : UiEvent {
     data class ActorTapped(
         val handle: String,
     ) : SearchActorsEvent
+
+    /**
+     * Follow / Following button on a row. Optimistically flips
+     * [ActorUi.isFollowing], then follows or unfollows through
+     * `FollowRepository`; a failure rolls the flip back and emits
+     * [SearchActorsEffect.FollowFailed]. Concurrent taps on the same [did] are
+     * dropped. Same mechanism as the Discover tab's `OnFollowTapped`.
+     */
+    data class FollowTapped(
+        val did: String,
+    ) : SearchActorsEvent
 }
 
 internal sealed interface SearchActorsEffect : UiEffect {
@@ -85,6 +98,14 @@ internal sealed interface SearchActorsEffect : UiEffect {
     /** Snackbar-surface for append-time failures; existing results stay visible. */
     data class ShowAppendError(
         val error: SearchActorsError,
+    ) : SearchActorsEffect
+
+    /**
+     * A follow or unfollow failed and the optimistic flip was rolled back.
+     * [wasUnfollow] picks the snackbar copy.
+     */
+    data class FollowFailed(
+        val wasUnfollow: Boolean,
     ) : SearchActorsEffect
 
     /**

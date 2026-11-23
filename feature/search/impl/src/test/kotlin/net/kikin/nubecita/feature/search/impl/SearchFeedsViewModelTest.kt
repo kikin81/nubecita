@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.search.impl
 
 import app.cash.turbine.test
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -10,16 +11,22 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import net.kikin.nubecita.core.analytics.FeedAction
 import net.kikin.nubecita.core.analytics.FeedType
+import net.kikin.nubecita.core.analytics.InteractFeed
+import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.analytics.SearchPerform
 import net.kikin.nubecita.core.analytics.SearchScope
 import net.kikin.nubecita.core.analytics.ViewFeed
+import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
 import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchFeedsRepository
+import net.kikin.nubecita.feature.search.impl.data.FeedGeneratorUi
 import net.kikin.nubecita.feature.search.impl.data.feedFixture
 import net.kikin.nubecita.feature.search.impl.data.testSearchFirstPages
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -37,6 +44,7 @@ class SearchFeedsViewModelTest {
 
     // Recording analytics sink so view_feed emission can be asserted.
     private val analytics = RecordingAnalyticsClient()
+    private val pinnedRepo = FakePinnedFeedsRepository()
     private val firstPages = testSearchFirstPages(CoroutineScope(SupervisorJob() + testDispatcher), feeds = repo)
 
     @BeforeEach
@@ -52,7 +60,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun setQuery_blank_stateStaysIdle() =
         runTest {
-            val vm = SearchFeedsViewModel(repo, firstPages, analytics)
+            val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, analytics)
             runCurrent()
 
             assertEquals(SearchFeedsLoadStatus.Idle, vm.uiState.value.loadStatus)
@@ -63,7 +71,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun setQuery_nonBlank_fetchesFirstPage_emitsLoaded() =
         runTest {
-            val vm = SearchFeedsViewModel(repo, firstPages, analytics)
+            val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, analytics)
             val hit = feedFixture(uri = "at://did:plc:f1/app.bsky.feed.generator/discover", displayName = "Discover")
             repo.respond(query = "art", cursor = null, items = listOf(hit), nextCursor = "c2")
 
@@ -83,7 +91,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun setQuery_nonBlank_emitsViewFeedCustom() =
         runTest {
-            val vm = SearchFeedsViewModel(repo, firstPages, analytics)
+            val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, analytics)
             repo.respond(query = "art", cursor = null, items = listOf(feedFixture()), nextCursor = null)
 
             vm.setQuery("art")
@@ -98,7 +106,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun setQuery_emptyResponse_emitsEmpty() =
         runTest {
-            val vm = SearchFeedsViewModel(repo, firstPages, analytics)
+            val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, analytics)
             repo.respond(query = "no-matches", cursor = null, items = emptyList(), nextCursor = null)
 
             vm.setQuery("no-matches")
@@ -110,7 +118,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun setQuery_failure_emitsInitialError_withMappedError() =
         runTest {
-            val vm = SearchFeedsViewModel(repo, firstPages, analytics)
+            val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, analytics)
             repo.fail(query = "art", cursor = null, throwable = java.io.IOException("disconnected"))
 
             vm.setQuery("art")
@@ -127,7 +135,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun loadMore_loaded_appendsNextPage_andClearsIsAppending() =
         runTest {
-            val vm = SearchFeedsViewModel(repo, firstPages, analytics)
+            val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, analytics)
             val page1 = listOf(feedFixture(uri = "at://did:plc:a/app.bsky.feed.generator/a"))
             val page2 =
                 listOf(
@@ -162,7 +170,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun loadMore_endReached_isNoOp() =
         runTest {
-            val vm = SearchFeedsViewModel(repo, firstPages, analytics)
+            val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, analytics)
             repo.respond(query = "x", cursor = null, items = listOf(feedFixture()), nextCursor = null)
 
             vm.setQuery("x")
@@ -178,7 +186,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun loadMore_alreadyAppending_isNoOp_singleFlight() =
         runTest {
-            val vm = SearchFeedsViewModel(repo, firstPages, analytics)
+            val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, analytics)
             repo.respond(query = "x", cursor = null, items = listOf(feedFixture()), nextCursor = "c2")
             // Gate the second-page fetch so isAppending stays true.
             repo.gate(query = "x", cursor = "c2")
@@ -205,7 +213,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun setQuery_rapidChange_cancelsPrior_viaMapLatest() =
         runTest {
-            val vm = SearchFeedsViewModel(repo, firstPages, analytics)
+            val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, analytics)
             val staleGate = repo.gate(query = "ar", cursor = null)
             repo.respond(
                 query = "art",
@@ -248,7 +256,7 @@ class SearchFeedsViewModelTest {
         runTest {
             // Regression test for the stale-completion guard. Mirrors the
             // analogous People VM test inherited from vrba.6's review.
-            val vm = SearchFeedsViewModel(repo, firstPages, analytics)
+            val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, analytics)
             // Page 1 "art": one item + nextCursor=c2 so loadMore is valid.
             repo.respond(
                 query = "art",
@@ -316,7 +324,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun loadMore_failure_emitsShowAppendError_keepsExistingItems() =
         runTest {
-            val vm = SearchFeedsViewModel(repo, firstPages, analytics)
+            val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, analytics)
             repo.respond(query = "x", cursor = null, items = listOf(feedFixture()), nextCursor = "c2")
             repo.fail(query = "x", cursor = "c2", throwable = java.io.IOException("flap"))
 
@@ -341,7 +349,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun retry_initialError_retriggersFirstPage_viaIncarnationBump() =
         runTest {
-            val vm = SearchFeedsViewModel(repo, firstPages, analytics)
+            val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, analytics)
             repo.fail(query = "x", cursor = null, throwable = java.io.IOException("network"))
 
             vm.setQuery("x")
@@ -360,7 +368,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun clearQueryClicked_emitsNavigateToClearQueryEffect() =
         runTest {
-            val vm = SearchFeedsViewModel(repo, firstPages, analytics)
+            val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, analytics)
             vm.effects.test {
                 vm.handleEvent(SearchFeedsEvent.ClearQueryClicked)
                 runCurrent()
@@ -373,7 +381,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun feedTapped_emitsNavigateToFeedEffect() =
         runTest {
-            val vm = SearchFeedsViewModel(repo, firstPages, analytics)
+            val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, analytics)
             vm.effects.test {
                 vm.handleEvent(
                     SearchFeedsEvent.FeedTapped(
@@ -395,7 +403,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun feedTapped_nullDisplayName_emitsNavigateToFeedWithNullDisplayName() =
         runTest {
-            val vm = SearchFeedsViewModel(repo, firstPages, analytics)
+            val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, analytics)
             vm.effects.test {
                 vm.handleEvent(
                     SearchFeedsEvent.FeedTapped(
@@ -415,7 +423,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun setQuery_becomesBlankAfterLoaded_resetsToIdle() =
         runTest {
-            val vm = SearchFeedsViewModel(repo, firstPages, analytics)
+            val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, analytics)
             repo.respond(query = "art", cursor = null, items = listOf(feedFixture()), nextCursor = null)
 
             vm.setQuery("art")
@@ -432,7 +440,7 @@ class SearchFeedsViewModelTest {
     @Test
     fun `resubmitting the same query refetches`() =
         runTest {
-            val vm = SearchFeedsViewModel(repo, firstPages, analytics)
+            val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, analytics)
             vm.setQuery("kotlin", submission = 1)
             runCurrent()
             assertEquals(1, repo.callLog.size)
@@ -445,5 +453,131 @@ class SearchFeedsViewModelTest {
             runCurrent()
 
             assertEquals(2, repo.callLog.size)
+        }
+
+    // -------------------------------------------------------------------------
+    // Pin toggle — same mechanism as DiscoverViewModel.onPinTapped
+    // -------------------------------------------------------------------------
+
+    private fun loadedWith(vararg feeds: FeedGeneratorUi): SearchFeedsViewModel {
+        val vm = SearchFeedsViewModel(repo, firstPages, pinnedRepo, analytics)
+        repo.respond(query = "art", cursor = null, items = feeds.toList(), nextCursor = null)
+        vm.setQuery("art")
+        return vm
+    }
+
+    private fun SearchFeedsViewModel.items(): List<FeedGeneratorUi> = (uiState.value.loadStatus as SearchFeedsLoadStatus.Loaded).items.toList()
+
+    @Test
+    fun `a loaded feed is marked pinned from the pinned feeds repository`() =
+        runTest {
+            pinnedRepo.setPinnedUris(setOf("at://f/pinned"))
+            val vm = loadedWith(feedFixture(uri = "at://f/pinned"), feedFixture(uri = "at://f/other"))
+            runCurrent()
+
+            assertEquals(listOf(true, false), vm.items().map { it.isPinned })
+        }
+
+    @Test
+    fun `pinning elsewhere updates the rows already on screen`() =
+        runTest {
+            val vm = loadedWith(feedFixture(uri = "at://f/a"))
+            runCurrent()
+            assertFalse(vm.items().single().isPinned)
+
+            pinnedRepo.setPinnedUris(setOf("at://f/a"))
+            runCurrent()
+
+            assertTrue(vm.items().single().isPinned)
+        }
+
+    @Test
+    fun `pin success flips isPinned, calls pinFeed and logs Pin`() =
+        runTest {
+            val vm = loadedWith(feedFixture(uri = "at://f/a"))
+            runCurrent()
+
+            vm.handleEvent(SearchFeedsEvent.PinTapped("at://f/a"))
+            runCurrent()
+
+            assertTrue(vm.items().single().isPinned)
+            assertEquals(listOf("at://f/a"), pinnedRepo.pinCallUris)
+            assertEquals(listOf(InteractFeed(FeedAction.Pin, PostSurface.Search)), analytics.events.filterIsInstance<InteractFeed>())
+        }
+
+    @Test
+    fun `pin is optimistic while the request is in flight, and a second tap is dropped`() =
+        runTest {
+            val gate = CompletableDeferred<Result<Unit>>()
+            val gatedPins =
+                object : PinnedFeedsRepository by pinnedRepo {
+                    var calls = 0
+
+                    override suspend fun pinFeed(uri: String): Result<Unit> {
+                        calls++
+                        return gate.await()
+                    }
+                }
+            val vm = SearchFeedsViewModel(repo, firstPages, gatedPins, analytics)
+            repo.respond(query = "art", cursor = null, items = listOf(feedFixture(uri = "at://f/a")), nextCursor = null)
+            vm.setQuery("art")
+            runCurrent()
+
+            vm.handleEvent(SearchFeedsEvent.PinTapped("at://f/a"))
+            vm.handleEvent(SearchFeedsEvent.PinTapped("at://f/a"))
+            runCurrent()
+
+            assertTrue(vm.items().single().isPinned, "flipped before the server answered")
+            assertEquals(1, gatedPins.calls, "the concurrent tap is dropped")
+            gate.complete(Result.success(Unit))
+        }
+
+    @Test
+    fun `pin failure rolls back and emits PinFailed`() =
+        runTest {
+            pinnedRepo.pinResult = Result.failure(java.io.IOException("net"))
+            val vm = loadedWith(feedFixture(uri = "at://f/a"))
+            runCurrent()
+
+            vm.effects.test {
+                vm.handleEvent(SearchFeedsEvent.PinTapped("at://f/a"))
+                runCurrent()
+
+                assertEquals(SearchFeedsEffect.PinFailed(wasUnpin = false), awaitItem())
+            }
+            assertFalse(vm.items().single().isPinned)
+            assertTrue(analytics.events.filterIsInstance<InteractFeed>().isEmpty())
+        }
+
+    @Test
+    fun `unpin success clears isPinned and logs Unpin`() =
+        runTest {
+            pinnedRepo.setPinnedUris(setOf("at://f/a"))
+            val vm = loadedWith(feedFixture(uri = "at://f/a"))
+            runCurrent()
+
+            vm.handleEvent(SearchFeedsEvent.PinTapped("at://f/a"))
+            runCurrent()
+
+            assertFalse(vm.items().single().isPinned)
+            assertEquals(listOf("at://f/a"), pinnedRepo.unpinCallUris)
+            assertEquals(listOf(InteractFeed(FeedAction.Unpin, PostSurface.Search)), analytics.events.filterIsInstance<InteractFeed>())
+        }
+
+    @Test
+    fun `unpin failure restores the pin and emits PinFailed for an unpin`() =
+        runTest {
+            pinnedRepo.unpinResult = Result.failure(java.io.IOException("net"))
+            pinnedRepo.setPinnedUris(setOf("at://f/a"))
+            val vm = loadedWith(feedFixture(uri = "at://f/a"))
+            runCurrent()
+
+            vm.effects.test {
+                vm.handleEvent(SearchFeedsEvent.PinTapped("at://f/a"))
+                runCurrent()
+
+                assertEquals(SearchFeedsEffect.PinFailed(wasUnpin = true), awaitItem())
+            }
+            assertTrue(vm.items().single().isPinned)
         }
 }

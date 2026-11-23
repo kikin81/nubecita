@@ -28,6 +28,13 @@ import androidx.compose.runtime.Immutable
  * cache default to [VerifiedBadge.None] since the `actors` table doesn't persist
  * it — those surfaces (recency / DM pickers) don't render a badge today, so a
  * fresh search always supplies the live value where it's shown.
+ *
+ * `bio` is the profile description as the server returned it (blank collapses to
+ * null); `followUri` is the viewer's follow-record AtUri (`viewer.following`),
+ * present iff the viewer already follows the account, and `isFollowing` mirrors
+ * it. Both are populated by the full `ProfileView` mappers (search results);
+ * cache-read and typeahead actors keep the defaults (no bio, not following),
+ * and a surface that shows a Follow button only reads them from search results.
  */
 @Immutable
 public data class ActorUi(
@@ -37,4 +44,7 @@ public data class ActorUi(
     val avatarUrl: String?,
     val canMessage: Boolean = true,
     val verifiedBadge: VerifiedBadge = VerifiedBadge.None,
+    val bio: String? = null,
+    val isFollowing: Boolean = false,
+    val followUri: String? = null,
 )

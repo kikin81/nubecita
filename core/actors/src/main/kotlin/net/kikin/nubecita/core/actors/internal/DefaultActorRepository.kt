@@ -140,6 +140,9 @@ private fun ProfileView.toActorUi(): ActorUi =
         avatarUrl = avatar?.raw,
         canMessage = canViewerMessage(associated, viewer),
         verifiedBadge = verification.toVerifiedBadge(),
+        bio = description?.takeIf { it.isNotBlank() },
+        isFollowing = viewer?.following != null,
+        followUri = viewer?.following?.raw,
     )
 
 internal fun ProfileViewBasic.toActorUi(): ActorUi =

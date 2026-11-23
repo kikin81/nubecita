@@ -1,10 +1,12 @@
 package net.kikin.nubecita.feature.search.impl
 
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
@@ -28,6 +30,7 @@ internal fun SearchFeedsScreen(
     submission: Int,
     onClearQuery: () -> Unit,
     onShowAppendError: (SearchFeedsError) -> Unit,
+    snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier,
     viewModel: SearchFeedsViewModel = hiltViewModel(),
 ) {
@@ -43,11 +46,18 @@ internal fun SearchFeedsScreen(
         viewModel.setQuery(currentQuery, fromRecent = fromRecent, submission = submission)
     }
 
+    val pinErrorMsg = stringResource(R.string.search_pin_error)
+    val unpinErrorMsg = stringResource(R.string.search_unpin_error)
+
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
             when (effect) {
                 is SearchFeedsEffect.ShowAppendError ->
                     currentOnShowAppendError(effect.error)
+                is SearchFeedsEffect.PinFailed -> {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(if (effect.wasUnpin) unpinErrorMsg else pinErrorMsg)
+                }
                 SearchFeedsEffect.NavigateToClearQuery ->
                     currentOnClearQuery()
                 is SearchFeedsEffect.NavigateToFeed ->

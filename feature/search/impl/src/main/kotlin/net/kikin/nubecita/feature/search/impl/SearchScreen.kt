@@ -446,6 +446,7 @@ internal fun SearchScreenContent(
                                     submission = submission,
                                     onClearQuery = onClearQueryRequest,
                                     onShowAppendError = onActorsAppendError,
+                                    snackbarHostState = snackbarHostState,
                                 )
                             2 ->
                                 SearchFeedsScreen(
@@ -454,6 +455,7 @@ internal fun SearchScreenContent(
                                     submission = submission,
                                     onClearQuery = onClearQueryRequest,
                                     onShowAppendError = onFeedsAppendError,
+                                    snackbarHostState = snackbarHostState,
                                 )
                         }
                     }

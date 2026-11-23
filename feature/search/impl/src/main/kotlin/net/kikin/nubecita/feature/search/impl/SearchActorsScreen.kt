@@ -1,10 +1,12 @@
 package net.kikin.nubecita.feature.search.impl
 
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
@@ -17,8 +19,9 @@ import net.kikin.nubecita.feature.search.impl.ui.PeopleTabContent
  * [SearchActorsEffect.NavigateToProfile] to [LocalMainShellNavState] —
  * mirroring `SearchPostsScreen`'s pattern.
  *
- * Two effects propagate via callback up to the (future) vrba.8
- * search-results screen:
+ * [SearchActorsEffect.FollowFailed] is shown on the shared [snackbarHostState]
+ * here, where the localized copy resolves. Two effects propagate via callback
+ * up to the (future) vrba.8 search-results screen:
  *  - [onClearQuery]: parent SearchViewModel owns the canonical
  *    TextFieldState and is the only thing that can reset it.
  *  - [onShowAppendError]: append-time failures surface as snackbars
@@ -32,6 +35,7 @@ internal fun SearchActorsScreen(
     submission: Int,
     onClearQuery: () -> Unit,
     onShowAppendError: (SearchActorsError) -> Unit,
+    snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier,
     viewModel: SearchActorsViewModel = hiltViewModel(),
 ) {
@@ -49,6 +53,9 @@ internal fun SearchActorsScreen(
         viewModel.setQuery(currentQuery, fromRecent = fromRecent, submission = submission)
     }
 
+    val followErrorMsg = stringResource(R.string.search_follow_error)
+    val unfollowErrorMsg = stringResource(R.string.search_unfollow_error)
+
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->
             when (effect) {
@@ -56,6 +63,10 @@ internal fun SearchActorsScreen(
                     navState.add(Profile(handle = effect.handle))
                 is SearchActorsEffect.ShowAppendError ->
                     currentOnShowAppendError(effect.error)
+                is SearchActorsEffect.FollowFailed -> {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(if (effect.wasUnfollow) unfollowErrorMsg else followErrorMsg)
+                }
                 SearchActorsEffect.NavigateToClearQuery ->
                     currentOnClearQuery()
             }
