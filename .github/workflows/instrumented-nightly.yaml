@@ -56,7 +56,7 @@ jobs:
   avd-warmup:
     name: Warm AVD cache
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       # Same preamble as the matrix legs below: the emulator-runner drives sdkmanager
       # (a Java tool) to install the system image, so pin the JDK + Android SDK rather
@@ -108,6 +108,29 @@ jobs:
           disable-animations: true
           script: echo "AVD created and cached"
 
+      # The ONE Gradle cache writer of this workflow (nubecita-rjni). setup-gradle
+      # saves a full copy of the dependency bundle for every job that resolves a
+      # different set, so 17 legs writing their own entries put 11.6 GB into a 10 GB
+      # repository quota every night and evicted the entries ci.yaml's PR jobs read.
+      # This job resolves what the legs need once and saves it; the legs below are
+      # `cache-read-only` and restore it as the most recent entry.
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # Same command as ci.yaml's "Compile instrumented (androidTest) sources": it
+      # resolves and compiles every module's androidTest sources without dexing or
+      # an emulator. It does not cover what a leg resolves only when it packages and
+      # runs (runtime-only dependencies, the test platform), so a leg may still
+      # download a few artifacts. `continue-on-error`: a failure here (a rate-limited
+      # download, a compile error the legs will report anyway) must not skip the
+      # whole sweep, which `needs` this job.
+      - name: Warm the Gradle cache for the matrix legs
+        continue-on-error: true
+        run: >-
+          ./gradlew
+          compileProductionDebugAndroidTestSources compileDebugAndroidTestSources
+          hiltJavaCompileProductionDebugAndroidTest hiltJavaCompileDebugAndroidTest
+
   instrumented-nightly:
     name: androidTest — ${{ matrix.module }}
     needs: avd-warmup
@@ -150,8 +173,12 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
 
+      # Read-only: `avd-warmup` is the one writer (see there). A leg that saved its
+      # own entry would add 0.2-0.9 GB each, every night.
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
 
       # Resolve the correct connected task for this module: flavored modules
       # (`:app`, feature :impl modules) expose `connectedProductionDebugAndroidTest`;
