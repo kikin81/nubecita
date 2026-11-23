@@ -27,6 +27,7 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,8 +42,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
@@ -81,11 +80,10 @@ internal fun SearchScreen(
     postsViewModel: SearchPostsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    // Only the estimate: collecting the whole Posts state would recompose this screen on every
-    // Posts emission (each page, each like).
-    val postsHitsTotal by remember(postsViewModel) {
-        postsViewModel.uiState.map { it.hitsTotal }.distinctUntilChanged()
-    }.collectAsStateWithLifecycle(initialValue = postsViewModel.uiState.value.hitsTotal)
+    // Only the estimate: the Posts state is read inside derivedStateOf alone, so this screen
+    // recomposes when the estimate changes, not on every Posts emission (each page, each like).
+    val postsState = postsViewModel.uiState.collectAsStateWithLifecycle()
+    val postsHitsTotal by remember(postsState) { derivedStateOf { postsState.value.hitsTotal } }
     val discoverState by discoverViewModel.uiState.collectAsStateWithLifecycle()
 
     val onEvent = remember(viewModel) { viewModel::handleEvent }
