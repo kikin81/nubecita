@@ -95,8 +95,8 @@ internal fun DiscoverSectionStatus.needsLoad(): Boolean = this !is DiscoverSecti
  *
  * The three sections ([trends] / [accounts] / [feeds]) load and fail independently
  * so one section's error does not mask the others. This state is a projection of
- * the shared `ExploreRepository` content (see [DiscoverViewModel]); nothing renders
- * [trends] yet.
+ * the shared `ExploreRepository` content (see [DiscoverViewModel]); the Trending list
+ * renders [trends].
  *
  * [accounts] is the suggested-people list after session-local dismissals are
  * applied (the repository holds the exclusion for the account's session) and
@@ -110,6 +110,8 @@ internal fun DiscoverSectionStatus.needsLoad(): Boolean = this !is DiscoverSecti
 internal data class DiscoverState(
     val trends: ImmutableList<TrendUi> = persistentListOf(),
     val trendsStatus: DiscoverSectionStatus = DiscoverSectionStatus.Idle,
+    /** Whether the compact Trending list shows every trend instead of the first few. */
+    val trendsExpanded: Boolean = false,
     val accounts: ImmutableList<SuggestedAccountUi> = persistentListOf(),
     val accountsStatus: DiscoverSectionStatus = DiscoverSectionStatus.Idle,
     val feeds: ImmutableList<DiscoverFeedUi> = persistentListOf(),
@@ -187,6 +189,9 @@ internal sealed interface DiscoverEvent : UiEvent {
     data class OnTrendTapped(
         val trend: TrendUi,
     ) : DiscoverEvent
+
+    /** "Show more" / "Show less" on the Trending list. Flips [DiscoverState.trendsExpanded]. */
+    data object OnTrendsExpansionToggled : DiscoverEvent
 
     /**
      * The user dismissed the account card for [did]. Removes the account from

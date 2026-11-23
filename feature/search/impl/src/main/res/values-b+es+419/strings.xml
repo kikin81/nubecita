@@ -164,4 +164,12 @@
     <string name="search_unfollow_error">No se pudo dejar de seguir. Inténtalo de nuevo.</string>
     <string name="search_pin_error">No se pudo fijar el feed. Inténtalo de nuevo.</string>
     <string name="search_unpin_error">No se pudo desfijar el feed. Inténtalo de nuevo.</string>
+
+    <!-- vrba.14: Search landing — Trending section -->
+    <string name="trending_section_title">Tendencias</string>
+    <string name="trending_show_more">Ver más</string>
+    <string name="trending_show_less">Ver menos</string>
+    <string name="trending_hot_label">En auge</string>
+    <string name="trending_post_count">%1$s publicaciones</string>
+    <string name="trending_row_content_desc">Tendencia número %1$d, %2$s</string>
 </resources>

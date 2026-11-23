@@ -886,6 +886,36 @@ internal class DiscoverViewModelTest {
         }
 
     @Test
+    fun `show more expands and show less collapses`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = buildVm(suggestionsRepo = FakeExploreRepository(trendsResult = Result.success(listOf(trendFixture()))))
+            vm.handleEvent(DiscoverEvent.OnAppear)
+            advanceUntilIdle()
+            assertFalse(vm.uiState.value.trendsExpanded)
+
+            vm.handleEvent(DiscoverEvent.OnTrendsExpansionToggled)
+            assertTrue(vm.uiState.value.trendsExpanded)
+
+            vm.handleEvent(DiscoverEvent.OnTrendsExpansionToggled)
+            assertFalse(vm.uiState.value.trendsExpanded)
+        }
+
+    @Test
+    fun `the expanded flag survives a content refresh`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = buildVm(suggestionsRepo = FakeExploreRepository(trendsResult = Result.success(listOf(trendFixture()))))
+            vm.handleEvent(DiscoverEvent.OnAppear)
+            advanceUntilIdle()
+            vm.handleEvent(DiscoverEvent.OnTrendsExpansionToggled)
+
+            vm.handleEvent(DiscoverEvent.OnRefresh)
+            advanceUntilIdle()
+
+            assertTrue(vm.uiState.value.trendsExpanded)
+            assertEquals(DiscoverSectionStatus.Loaded, vm.uiState.value.trendsStatus)
+        }
+
+    @Test
     fun `two instances over one repository show the same content`() =
         runTest(mainDispatcher.dispatcher) {
             val repo =
@@ -957,6 +987,33 @@ internal class DiscoverViewModelTest {
                 advanceUntilIdle()
 
                 assertEquals(DiscoverEffect.NavigateToFeed("at://did:plc:abc/app.bsky.feed.generator/xyz", "Eclipse"), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `a second tap while a handle is resolving is ignored`() =
+        runTest(mainDispatcher.dispatcher) {
+            val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+            val repo =
+                FakeExploreRepository(
+                    resolveResult = {
+                        gate.await()
+                        Result.success("did:plc:resolved")
+                    },
+                )
+            val vm = buildVm(suggestionsRepo = repo)
+            val trend = trendFixture(link = "/profile/bsky.app/feed/xyz", displayName = "Eclipse")
+
+            vm.effects.test {
+                vm.handleEvent(DiscoverEvent.OnTrendTapped(trend))
+                vm.handleEvent(DiscoverEvent.OnTrendTapped(trend))
+                gate.complete(Unit)
+                advanceUntilIdle()
+
+                assertEquals(DiscoverEffect.NavigateToFeed("at://did:plc:resolved/app.bsky.feed.generator/xyz", "Eclipse"), awaitItem())
+                expectNoEvents()
+                assertEquals(1, repo.resolveCalls.size)
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -1120,7 +1177,7 @@ private class FakeExploreRepository(
     var accountsResult: Result<List<SuggestedAccountUi>> = Result.success(emptyList()),
     var feedsResult: Result<List<SuggestedFeedUi>> = Result.success(emptyList()),
     var previewResult: Result<List<FeedPreviewPostUi>> = Result.success(emptyList()),
-    var resolveResult: (String) -> Result<String> = { Result.success(it) },
+    var resolveResult: suspend (String) -> Result<String> = { Result.success(it) },
 ) : ExploreRepository {
     private val state = MutableStateFlow(ExploreContent())
     private val dismissed = mutableSetOf<String>()

@@ -232,4 +232,12 @@
     <string name="search_unfollow_error">Couldn\'t unfollow. Try again.</string>
     <string name="search_pin_error">Couldn\'t pin the feed. Try again.</string>
     <string name="search_unpin_error">Couldn\'t unpin the feed. Try again.</string>
+
+    <!-- vrba.14: Search landing — Trending section -->
+    <string name="trending_section_title">Trending</string>
+    <string name="trending_show_more">Show more</string>
+    <string name="trending_show_less">Show less</string>
+    <string name="trending_hot_label">Hot</string>
+    <string name="trending_post_count">%1$s posts</string>
+    <string name="trending_row_content_desc">Trending number %1$d, %2$s</string>
 </resources>

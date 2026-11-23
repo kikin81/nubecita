@@ -311,6 +311,7 @@ internal val DISCOVER_FEEDS_ONLY_STATE =
 
 internal val DISCOVER_EMPTY_STATE =
     DiscoverState(
+        trendsStatus = DiscoverSectionStatus.Empty,
         accounts = persistentListOf(),
         accountsStatus = DiscoverSectionStatus.Empty,
         feeds = persistentListOf(),

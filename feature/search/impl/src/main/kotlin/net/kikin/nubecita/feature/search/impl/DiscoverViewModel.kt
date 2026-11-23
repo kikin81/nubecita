@@ -96,6 +96,9 @@ internal class DiscoverViewModel
         /** Whether the last projection saw every section Idle — one reload per transition to that. */
         private var wasAllIdle = false
 
+        /** The handle resolution of the last feed-trend tap, while it is in flight. */
+        private var trendTapJob: Job? = null
+
         /** The most-recently-launched section load (cancel-and-restart on refresh). */
         private var loadJob: Job? = null
 
@@ -130,6 +133,7 @@ internal class DiscoverViewModel
                     sendEffect(DiscoverEffect.NavigateToFeed(event.uri, event.displayName))
                 is DiscoverEvent.OnAccountDismissed -> onAccountDismissed(event.did)
                 is DiscoverEvent.OnTrendTapped -> onTrendTapped(event.trend)
+                DiscoverEvent.OnTrendsExpansionToggled -> setState { copy(trendsExpanded = !trendsExpanded) }
             }
         }
 
@@ -286,20 +290,23 @@ internal class DiscoverViewModel
         // -------------------------------------------------------------------------
 
         private fun onTrendTapped(trend: TrendUi) {
+            // A double tap on a feed trend would otherwise open the feed twice.
+            if (trendTapJob?.isActive == true) return
             when (val link = parseTrendLink(trend.link)) {
                 is TrendLink.Feed ->
-                    viewModelScope.launch {
-                        exploreRepository
-                            .resolveDid(link.actor)
-                            .onSuccess { did ->
-                                sendEffect(
-                                    DiscoverEffect.NavigateToFeed(
-                                        uri = "at://$did/app.bsky.feed.generator/${link.rkey}",
-                                        displayName = trend.displayName,
-                                    ),
-                                )
-                            }.onFailure { sendEffect(DiscoverEffect.SubmitSearch(trend.displayName)) }
-                    }
+                    trendTapJob =
+                        viewModelScope.launch {
+                            exploreRepository
+                                .resolveDid(link.actor)
+                                .onSuccess { did ->
+                                    sendEffect(
+                                        DiscoverEffect.NavigateToFeed(
+                                            uri = "at://$did/app.bsky.feed.generator/${link.rkey}",
+                                            displayName = trend.displayName,
+                                        ),
+                                    )
+                                }.onFailure { sendEffect(DiscoverEffect.SubmitSearch(trend.displayName)) }
+                        }
                 is TrendLink.Search -> sendEffect(DiscoverEffect.SubmitSearch(link.query))
                 // Starter packs open in their own screen in a later change; until then, search the name.
                 is TrendLink.StarterPack, TrendLink.Unknown -> sendEffect(DiscoverEffect.SubmitSearch(trend.displayName))

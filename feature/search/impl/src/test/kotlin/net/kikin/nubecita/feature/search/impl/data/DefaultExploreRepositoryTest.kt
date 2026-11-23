@@ -33,6 +33,7 @@ class DefaultExploreRepositoryTest {
     private val session = MutableStateFlow<SessionState>(signedIn("did:plc:me"))
     private var actorsBody = ACTORS
     private var feedsBody = FEEDS
+    private var trendsBody = TRENDS
     private var postsBody = FEED_POSTS
 
     @Test
@@ -71,6 +72,57 @@ class DefaultExploreRepositoryTest {
             assertEquals("did:plc:lth", account.did)
             assertEquals("rotopat.bsky.social", account.handle)
             assertFalse(account.isFollowing)
+        }
+
+    @Test
+    fun `duplicate trends are collapsed to the first occurrence`() =
+        runTest {
+            trendsBody =
+                trendsJson(
+                    trendJson("a", "/search?q=a", "First A"),
+                    trendJson("b", "/search?q=b", "B"),
+                    trendJson("a", "/search?q=other", "Second A"),
+                    trendJson("", "/search?q=x", "Link only"),
+                    trendJson("", "/search?q=x", "Link only again"),
+                )
+            val (_, repo) = newRepo { route(it) }
+
+            repo.load()
+
+            val trends = repo.content.value.trends
+            assertEquals(listOf("First A", "B", "Link only"), trends.map { it.displayName })
+            assertEquals(trends.map { it.id }.distinct(), trends.map { it.id }, "ids are unique")
+        }
+
+    @Test
+    fun `a trend with no topic and no link is dropped`() =
+        runTest {
+            trendsBody =
+                trendsJson(
+                    trendJson("", "", "Unopenable"),
+                    trendJson("  ", "   ", "Blank"),
+                    trendJson("keep", "", "Kept"),
+                )
+            val (_, repo) = newRepo { route(it) }
+
+            repo.load()
+
+            assertEquals(
+                listOf("Kept"),
+                repo.content.value.trends
+                    .map { it.displayName },
+            )
+        }
+
+    @Test
+    fun `a payload of only unusable trends leaves the section empty`() =
+        runTest {
+            trendsBody = trendsJson(trendJson("", "", "Nothing"))
+            val (_, repo) = newRepo { route(it) }
+
+            repo.load()
+
+            assertEquals(DiscoverSectionStatus.Empty, repo.content.value.trendsStatus)
         }
 
     @Test
@@ -497,10 +549,18 @@ class DefaultExploreRepositoryTest {
 
     // --- helpers ---
 
+    private fun trendJson(
+        topic: String,
+        link: String,
+        name: String,
+    ) = """{"topic": "$topic", "displayName": "$name", "link": "$link", "postCount": 1, "startedAt": "2026-11-22T10:00:00.000Z", "actors": []}"""
+
+    private fun trendsJson(vararg trends: String) = """{"recIdStr": "1", "trends": [${trends.joinToString(",")}]}"""
+
     private fun MockRequestHandleScope.route(request: HttpRequestData): HttpResponseData {
         val path = request.url.encodedPath
         return when {
-            path.endsWith("app.bsky.unspecced.getTrends") -> okJson(TRENDS)
+            path.endsWith("app.bsky.unspecced.getTrends") -> okJson(trendsBody)
             path.endsWith("app.bsky.unspecced.getSuggestedFeeds") -> okJson(feedsBody)
             path.endsWith("app.bsky.unspecced.getSuggestedUsersForExplore") -> okJson(actorsBody)
             path.endsWith("com.atproto.identity.resolveHandle") -> okJson("""{"did": "did:plc:resolved"}""")

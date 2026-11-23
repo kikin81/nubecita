@@ -46,7 +46,7 @@ internal class BenchFakeExploreRepository
             state.update { current ->
                 val priorByUri = current.feeds.associateBy { it.feed.uri }
                 current.copy(
-                    trends = trends.toImmutableList(),
+                    trends = trends.usableTrends().toImmutableList(),
                     trendsStatus = DiscoverSectionStatus.Loaded,
                     feeds =
                         feeds

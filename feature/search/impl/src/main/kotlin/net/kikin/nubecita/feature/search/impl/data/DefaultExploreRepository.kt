@@ -212,6 +212,7 @@ internal class DefaultExploreRepository
                             responseSerializer = GetTrendsResponse.serializer(),
                         ).trends
                         .map { it.toTrendUi() }
+                        .usableTrends()
                         .toImmutableList()
                 }
             commit(token) { current ->
