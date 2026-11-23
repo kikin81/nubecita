@@ -15,6 +15,7 @@ class SearchFirstPagesTest {
     private val posts = FakeSearchPostsRepository()
     private val actors = FakeSearchActorsRepository()
     private val feeds = FakeSearchFeedsRepository()
+    private val packs = FakeSearchStarterPacksRepository()
     private val session = MutableStateFlow<SessionState>(SessionState.SignedIn(handle = "a.test", did = "did:plc:a"))
 
     private fun TestScope.newPages(): SearchFirstPages =
@@ -22,6 +23,7 @@ class SearchFirstPagesTest {
             postsRepository = posts,
             actorRepository = actors,
             feedsRepository = feeds,
+            packsRepository = packs,
             scope = backgroundScope,
             sessionStateProvider =
                 object : SessionStateProvider {
@@ -35,6 +37,7 @@ class SearchFirstPagesTest {
         posts("q", PostSearchFilters(), submission = 1)
         people("q", submission = 1)
         feeds("q", submission = 1)
+        packs("q", submission = 1)
     }
 
     @Test
@@ -49,6 +52,7 @@ class SearchFirstPagesTest {
             assertEquals(1, posts.callLog.size)
             assertEquals(1, actors.callLog.size)
             assertEquals(1, feeds.callLog.size)
+            assertEquals(1, packs.callLog.size)
         }
 
     @Test
@@ -72,13 +76,16 @@ class SearchFirstPagesTest {
             pages.posts("q", PostSearchFilters(), submission = 1)
             pages.people("q", submission = 1)
             pages.feeds("q", submission = 1)
+            pages.packs("q", submission = 1)
             pages.posts("q", PostSearchFilters(), submission = 2)
             pages.people("q", submission = 2)
             pages.feeds("q", submission = 2)
+            pages.packs("q", submission = 2)
 
             assertEquals(2, posts.callLog.size)
             assertEquals(2, actors.callLog.size)
             assertEquals(2, feeds.callLog.size)
+            assertEquals(2, packs.callLog.size)
         }
 
     @Test
@@ -93,10 +100,13 @@ class SearchFirstPagesTest {
             pages.people("q", submission = 3)
             pages.feeds("q", submission = 3)
             pages.feeds("q", submission = 3)
+            pages.packs("q", submission = 3)
+            pages.packs("q", submission = 3)
 
             assertEquals(1, posts.callLog.size)
             assertEquals(1, actors.callLog.size)
             assertEquals(1, feeds.callLog.size)
+            assertEquals(1, packs.callLog.size)
         }
 
     @Test
@@ -129,6 +139,7 @@ class SearchFirstPagesTest {
             assertEquals(2, posts.callLog.size)
             assertEquals(2, actors.callLog.size)
             assertEquals(2, feeds.callLog.size)
+            assertEquals(2, packs.callLog.size)
         }
 
     @Test
@@ -147,6 +158,7 @@ class SearchFirstPagesTest {
             assertEquals(2, posts.callLog.size)
             assertEquals(2, actors.callLog.size)
             assertEquals(2, feeds.callLog.size)
+            assertEquals(2, packs.callLog.size)
         }
 
     @Test

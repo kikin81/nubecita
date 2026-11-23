@@ -17,13 +17,15 @@ import net.kikin.nubecita.core.analytics.InteractFeed
 import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.postinteractions.FollowOverlay
+import net.kikin.nubecita.core.postinteractions.FollowToggle
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
+import net.kikin.nubecita.data.models.StarterPackUi
+import net.kikin.nubecita.data.models.StarterPackUiFixtures
 import net.kikin.nubecita.feature.search.impl.data.ExploreContent
 import net.kikin.nubecita.feature.search.impl.data.ExploreRepository
 import net.kikin.nubecita.feature.search.impl.data.FeedPreviewPostUi
-import net.kikin.nubecita.feature.search.impl.data.FollowOverlay
-import net.kikin.nubecita.feature.search.impl.data.FollowToggle
 import net.kikin.nubecita.feature.search.impl.data.SuggestedAccountUi
 import net.kikin.nubecita.feature.search.impl.data.SuggestedFeedUi
 import net.kikin.nubecita.feature.search.impl.data.TrendUi
@@ -1081,9 +1083,44 @@ internal class DiscoverViewModelTest {
         }
 
     @Test
-    fun `a starter-pack link submits the display name`() =
+    fun `a starter-pack trend link navigates to the pack`() =
         runTest(mainDispatcher.dispatcher) {
-            val vm = buildVm()
+            val repo = FakeExploreRepository(resolveResult = { Result.success("did:plc:resolved") })
+            val vm = buildVm(suggestionsRepo = repo)
+
+            vm.effects.test {
+                vm.handleEvent(DiscoverEvent.OnTrendTapped(trendFixture(link = "/starter-pack/alice.test/3k", displayName = "Eclipse")))
+                advanceUntilIdle()
+
+                assertEquals(
+                    DiscoverEffect.NavigateToPack("at://did:plc:resolved/app.bsky.graph.starterpack/3k"),
+                    awaitItem(),
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(listOf("alice.test"), repo.resolveCalls)
+        }
+
+    @Test
+    fun `a starter-pack trend link with a DID navigates without resolving`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeExploreRepository()
+            val vm = buildVm(suggestionsRepo = repo)
+
+            vm.effects.test {
+                vm.handleEvent(DiscoverEvent.OnTrendTapped(trendFixture(link = "/starter-pack/did:plc:abc/3k", displayName = "Eclipse")))
+                advanceUntilIdle()
+
+                assertEquals(DiscoverEffect.NavigateToPack("at://did:plc:abc/app.bsky.graph.starterpack/3k"), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `a starter-pack trend link whose handle does not resolve submits the display name`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeExploreRepository(resolveResult = { Result.failure(java.io.IOException("no")) })
+            val vm = buildVm(suggestionsRepo = repo)
 
             vm.effects.test {
                 vm.handleEvent(DiscoverEvent.OnTrendTapped(trendFixture(link = "/starter-pack/alice.test/3k", displayName = "Eclipse")))
@@ -1092,6 +1129,39 @@ internal class DiscoverViewModelTest {
                 assertEquals(DiscoverEffect.SubmitSearch("Eclipse"), awaitItem())
                 cancelAndIgnoreRemainingEvents()
             }
+        }
+
+    @Test
+    fun `tapping a starter pack card navigates to it`() =
+        runTest(mainDispatcher.dispatcher) {
+            val vm = buildVm()
+
+            vm.effects.test {
+                vm.handleEvent(DiscoverEvent.OnPackTapped("at://did:plc:c/app.bsky.graph.starterpack/p"))
+                advanceUntilIdle()
+
+                assertEquals(DiscoverEffect.NavigateToPack("at://did:plc:c/app.bsky.graph.starterpack/p"), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `the starter pack section projects from the repository and loads with the rest`() =
+        runTest(mainDispatcher.dispatcher) {
+            val repo = FakeExploreRepository(packsResult = Result.success(listOf(StarterPackUiFixtures.pack(slug = "a"), StarterPackUiFixtures.pack(slug = "b"))))
+            val vm = buildVm(suggestionsRepo = repo)
+
+            vm.handleEvent(DiscoverEvent.OnAppear)
+            advanceUntilIdle()
+
+            assertEquals(DiscoverSectionStatus.Loaded, vm.uiState.value.starterPacksStatus)
+            assertEquals(2, vm.uiState.value.starterPacks.size)
+            assertEquals(1, repo.packCallCount)
+
+            // A loaded section is not fetched again on the next appearance.
+            vm.handleEvent(DiscoverEvent.OnAppear)
+            advanceUntilIdle()
+            assertEquals(1, repo.packCallCount)
         }
 
     // -------------------------------------------------------------------------
@@ -1176,6 +1246,7 @@ private class FakeExploreRepository(
     var trendsResult: Result<List<TrendUi>> = Result.success(emptyList()),
     var accountsResult: Result<List<SuggestedAccountUi>> = Result.success(emptyList()),
     var feedsResult: Result<List<SuggestedFeedUi>> = Result.success(emptyList()),
+    var packsResult: Result<List<StarterPackUi>> = Result.success(emptyList()),
     var previewResult: Result<List<FeedPreviewPostUi>> = Result.success(emptyList()),
     var resolveResult: suspend (String) -> Result<String> = { Result.success(it) },
 ) : ExploreRepository {
@@ -1187,6 +1258,7 @@ private class FakeExploreRepository(
     var trendCallCount = 0
     var accountCallCount = 0
     var feedCallCount = 0
+    var packCallCount = 0
     val previewCallUris = mutableListOf<String>()
     val resolveCalls = mutableListOf<String>()
 
@@ -1233,6 +1305,20 @@ private class FakeExploreRepository(
                     }
                 },
                 onFailure = { state.update { it.copy(feedsStatus = DiscoverSectionStatus.Error) } },
+            )
+        }
+        if (force || state.value.starterPacksStatus != DiscoverSectionStatus.Loaded) {
+            packCallCount++
+            packsResult.fold(
+                onSuccess = { list ->
+                    state.update {
+                        it.copy(
+                            starterPacks = list.toImmutableList(),
+                            starterPacksStatus = if (list.isEmpty()) DiscoverSectionStatus.Empty else DiscoverSectionStatus.Loaded,
+                        )
+                    }
+                },
+                onFailure = { state.update { it.copy(starterPacksStatus = DiscoverSectionStatus.Error) } },
             )
         }
     }

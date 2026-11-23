@@ -52,11 +52,12 @@ import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
 import net.kikin.nubecita.feature.search.impl.data.SearchTab
 import net.kikin.nubecita.feature.search.impl.ui.DiscoverLanding
 import net.kikin.nubecita.feature.search.impl.ui.PostFiltersSheet
+import net.kikin.nubecita.feature.starterpack.api.StarterPack
 
 /**
  * Stateful Search tab home. Hoists [SearchViewModel] and [DiscoverViewModel]
  * and forwards their state down to [SearchScreenContent]. The per-tab Screens
- * (Posts / People / Feeds) are mounted inside the stateless body's
+ * (Posts / People / Feeds / Packs) are mounted inside the stateless body's
  * [HorizontalPager] gated on `!isQueryBlank`.
  *
  * [DiscoverViewModel] effects are collected here (the stateful boundary) so
@@ -130,6 +131,7 @@ internal fun SearchScreen(
                     navState.add(
                         FeedView(feedUri = effect.uri, displayName = effect.displayName),
                     )
+                is DiscoverEffect.NavigateToPack -> navState.add(StarterPack(uri = effect.uri))
                 is DiscoverEffect.SubmitSearch -> {
                     viewModel.textFieldState.setTextAndPlaceCursorAtEnd(effect.query)
                     viewModel.handleEvent(SearchEvent.SubmitClicked)
@@ -180,7 +182,7 @@ internal fun SearchScreen(
  *    [DiscoverLanding]: recents, the Trending list, then (phones only) the
  *      accounts and feeds carousels, or an empty-state hint when nothing loads.
  *  - [SearchPhase.Results]: [SecondaryTabRow] + [HorizontalPager] hosting
- *    [SearchPostsScreen] / [SearchActorsScreen] / [SearchFeedsScreen].
+ *    [SearchPostsScreen] / [SearchActorsScreen] / [SearchFeedsScreen] / [SearchPacksScreen].
  *
  * [snackbarHostState] defaults to a fresh remembered state so existing
  * screenshot tests that call [SearchScreenContent] without it continue to
@@ -261,6 +263,9 @@ internal fun SearchScreenContent(
                 Unit
             }
         }
+    val packsNetworkMsg = stringResource(R.string.search_packs_append_error_network)
+    val packsRateLimitedMsg = stringResource(R.string.search_packs_append_error_rate_limited)
+    val packsUnknownMsg = stringResource(R.string.search_packs_append_error_unknown)
     val onActorsAppendError =
         remember(snackScope, snackbarHostState, peopleNetworkMsg, peopleRateLimitedMsg, peopleUnknownMsg) {
             { error: SearchActorsError ->
@@ -285,6 +290,22 @@ internal fun SearchScreenContent(
                         SearchFeedsError.Network -> feedsNetworkMsg
                         SearchFeedsError.RateLimited -> feedsRateLimitedMsg
                         is SearchFeedsError.Unknown -> feedsUnknownMsg
+                    }
+                snackScope.launch {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(message)
+                }
+                Unit
+            }
+        }
+    val onPacksAppendError =
+        remember(snackScope, snackbarHostState, packsNetworkMsg, packsRateLimitedMsg, packsUnknownMsg) {
+            { error: SearchPacksError ->
+                val message =
+                    when (error) {
+                        SearchPacksError.Network -> packsNetworkMsg
+                        SearchPacksError.RateLimited -> packsRateLimitedMsg
+                        is SearchPacksError.Unknown -> packsUnknownMsg
                     }
                 snackScope.launch {
                     snackbarHostState.currentSnackbarData?.dismiss()
@@ -449,6 +470,14 @@ internal fun SearchScreenContent(
                                     onShowAppendError = onFeedsAppendError,
                                     snackbarHostState = snackbarHostState,
                                 )
+                            3 ->
+                                SearchPacksScreen(
+                                    currentQuery = submittedQuery,
+                                    fromRecent = fromRecent,
+                                    submission = submission,
+                                    onClearQuery = onClearQueryRequest,
+                                    onShowAppendError = onPacksAppendError,
+                                )
                         }
                     }
                 }
@@ -496,6 +525,11 @@ internal fun SearchResultsTabBar(
             selected = selectedTabIndex == 2,
             onClick = { onSelectTab(2) },
             text = { Text(stringResource(R.string.search_tab_feeds)) },
+        )
+        Tab(
+            selected = selectedTabIndex == 3,
+            onClick = { onSelectTab(3) },
+            text = { Text(stringResource(R.string.search_tab_packs)) },
         )
     }
 }

@@ -11,7 +11,9 @@ internal class ExplorePaneLogicTest {
         feedsHasItems: Boolean = false,
         accounts: DiscoverSectionStatus,
         accountsHasItems: Boolean = false,
-    ) = exploreBodyFor(feeds, feedsHasItems, accounts, accountsHasItems)
+        packs: DiscoverSectionStatus = accounts,
+        packsHaveItems: Boolean = accountsHasItems,
+    ) = exploreBodyFor(feeds, feedsHasItems, accounts, accountsHasItems, packs, packsHaveItems)
 
     @Test
     fun `all failed shows retry`() {
@@ -50,6 +52,25 @@ internal class ExplorePaneLogicTest {
         assertEquals(
             ExploreBody.Content,
             body(DiscoverSectionStatus.Idle, accounts = DiscoverSectionStatus.Idle),
+        )
+    }
+
+    @Test
+    fun `starter packs count as a section`() {
+        // Feeds and people failed, packs loaded: there is content, not a retry.
+        assertEquals(
+            ExploreBody.Content,
+            body(DiscoverSectionStatus.Error, accounts = DiscoverSectionStatus.Error, packs = DiscoverSectionStatus.Loaded, packsHaveItems = true),
+        )
+        // Packs still loading keeps the content even when the other two failed.
+        assertEquals(
+            ExploreBody.Content,
+            body(DiscoverSectionStatus.Error, accounts = DiscoverSectionStatus.Error, packs = DiscoverSectionStatus.Loading),
+        )
+        // Packs are the only section that did not fail: nothing to suggest, not a retry.
+        assertEquals(
+            ExploreBody.Nothing,
+            body(DiscoverSectionStatus.Error, accounts = DiscoverSectionStatus.Error, packs = DiscoverSectionStatus.Empty),
         )
     }
 

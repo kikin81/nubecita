@@ -1,6 +1,8 @@
 package net.kikin.nubecita.feature.search.impl.data
 
 import net.kikin.nubecita.core.auth.SessionState
+import net.kikin.nubecita.core.postinteractions.FollowOverlay
+import net.kikin.nubecita.core.postinteractions.FollowOverride
 
 internal fun signedIn(did: String): SessionState.SignedIn = SessionState.SignedIn(handle = "me.bsky.social", did = did)
 

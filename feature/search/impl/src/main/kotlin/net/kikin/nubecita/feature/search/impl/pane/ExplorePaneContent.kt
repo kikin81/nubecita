@@ -43,6 +43,7 @@ import net.kikin.nubecita.feature.search.impl.DiscoverFeedUi
 import net.kikin.nubecita.feature.search.impl.DiscoverSectionStatus
 import net.kikin.nubecita.feature.search.impl.DiscoverState
 import net.kikin.nubecita.feature.search.impl.R
+import net.kikin.nubecita.feature.search.impl.ui.StarterPackCard
 import net.kikin.nubecita.feature.search.impl.ui.SuggestedAccountCard
 import net.kikin.nubecita.feature.search.impl.ui.SuggestedFeedCard
 
@@ -50,6 +51,7 @@ import net.kikin.nubecita.feature.search.impl.ui.SuggestedFeedCard
 internal const val EXPLORE_COLLAPSED_COUNT = 4
 
 private const val PEOPLE_COLUMNS = 2
+private const val PACKS_COLUMNS = 2
 
 /** The pane width from which the feed cards go two to a row. */
 private val TWO_FEED_COLUMNS_MIN_WIDTH = 600.dp
@@ -93,11 +95,14 @@ internal fun exploreBodyFor(
     feedsHaveItems: Boolean,
     accountsStatus: DiscoverSectionStatus,
     accountsHaveItems: Boolean,
+    packsStatus: DiscoverSectionStatus,
+    packsHaveItems: Boolean,
 ): ExploreBody {
     val phases =
         listOf(
             feedsStatus.sectionPhase(feedsHaveItems),
             accountsStatus.sectionPhase(accountsHaveItems),
+            packsStatus.sectionPhase(packsHaveItems),
         )
     return when {
         phases.any { it == SectionPhase.Content || it == SectionPhase.Loading } -> ExploreBody.Content
@@ -107,7 +112,7 @@ internal fun exploreBodyFor(
 }
 
 /**
- * The Explore pane: suggested feeds, then people to follow, each a two-column grid built
+ * The Explore pane: suggested feeds, then people to follow, then starter packs, each a two-column grid built
  * from rows of two equally weighted cells inside this one [LazyColumn] (never a horizontal
  * carousel, so nothing is clipped at the pane edge).
  *
@@ -127,9 +132,11 @@ internal fun ExplorePaneContent(
     feedColumns: Int,
     feedsExpanded: Boolean,
     accountsExpanded: Boolean,
+    packsExpanded: Boolean,
     onDiscoverEvent: (DiscoverEvent) -> Unit,
     onToggleFeeds: () -> Unit,
     onToggleAccounts: () -> Unit,
+    onTogglePacks: () -> Unit,
     listState: LazyListState,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
@@ -137,19 +144,24 @@ internal fun ExplorePaneContent(
     val currentOnEvent by rememberUpdatedState(onDiscoverEvent)
     val feedsTitle = stringResource(R.string.explore_pane_feeds_title)
     val peopleTitle = stringResource(R.string.explore_pane_people_title)
+    val packsTitle = stringResource(R.string.explore_pane_packs_title)
 
     val feedsPhase = state.feedsStatus.sectionPhase(hasItems = state.feeds.isNotEmpty())
     val accountsPhase = state.accountsStatus.sectionPhase(hasItems = state.accounts.isNotEmpty())
+    val packsPhase = state.starterPacksStatus.sectionPhase(hasItems = state.starterPacks.isNotEmpty())
     val body =
         exploreBodyFor(
             state.feedsStatus,
             state.feeds.isNotEmpty(),
             state.accountsStatus,
             state.accounts.isNotEmpty(),
+            state.starterPacksStatus,
+            state.starterPacks.isNotEmpty(),
         )
 
     val shownFeeds = if (feedsExpanded) state.feeds else state.feeds.take(EXPLORE_COLLAPSED_COUNT)
     val shownAccounts = if (accountsExpanded) state.accounts else state.accounts.take(EXPLORE_COLLAPSED_COUNT)
+    val shownPacks = if (packsExpanded) state.starterPacks else state.starterPacks.take(EXPLORE_COLLAPSED_COUNT)
 
     // Feed cards load their preview posts when they scroll into view and settle. Keyed by the
     // first feed of each visible row; the row's second feed is read from the shown list.
@@ -236,6 +248,24 @@ internal fun ExplorePaneContent(
                     onAccountClick = { currentOnEvent(DiscoverEvent.OnAccountTapped(did = account.did, handle = account.handle)) },
                     onFollowClick = { currentOnEvent(DiscoverEvent.OnFollowTapped(did = account.did)) },
                     onDismissClick = { currentOnEvent(DiscoverEvent.OnAccountDismissed(did = account.did)) },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            gridSection(
+                keyPrefix = "packs",
+                columns = PACKS_COLUMNS,
+                title = packsTitle,
+                phase = packsPhase,
+                shown = shownPacks,
+                total = state.starterPacks.size,
+                expanded = packsExpanded,
+                onToggle = onTogglePacks,
+                itemKey = { it.uri },
+                rowKeyPrefix = "packs:row:",
+            ) { pack ->
+                StarterPackCard(
+                    pack = pack,
+                    onClick = { currentOnEvent(DiscoverEvent.OnPackTapped(pack.uri)) },
                     modifier = Modifier.fillMaxSize(),
                 )
             }

@@ -53,6 +53,7 @@ enum class AnalyticsScreen(
     FeedView("feed_view"),
     Feeds("feeds"),
     Hashtag("hashtag"),
+    StarterPack("starter_pack"),
     Paywall("paywall"),
     BlockedAccounts("blocked_accounts"),
     SafetyAndReporting("safety_and_reporting"),

@@ -198,4 +198,33 @@
     <string name="summary_pane_feeds_error">Não foi possível carregar os feeds.</string>
     <string name="summary_pane_retry">Tentar novamente</string>
     <string name="summary_pane_no_results">Nenhum resultado para \"%1$s\"</string>
+
+    <string name="search_tab_packs">Pacotes</string>
+    <string name="search_packs_loading_content_description">Buscando pacotes iniciais</string>
+    <string name="search_packs_empty_title">Nenhum pacote inicial corresponde a \"%1$s\"</string>
+    <string name="search_packs_empty_body">Tente outra palavra-chave.</string>
+    <string name="search_packs_empty_clear">Limpar busca</string>
+    <string name="search_packs_empty_icon_content_description">Nenhum pacote inicial correspondente</string>
+    <string name="search_packs_error_network_title">Sem conexão</string>
+    <string name="search_packs_error_network_body">Verifique sua conexão e tente de novo.</string>
+    <string name="search_packs_error_rate_limited_title">Mais devagar</string>
+    <string name="search_packs_error_rate_limited_body">Você buscou bastante. Aguarde um momento e tente de novo.</string>
+    <string name="search_packs_error_unknown_title">Algo deu errado</string>
+    <string name="search_packs_error_unknown_body">Não foi possível carregar sua busca. Tente de novo.</string>
+    <string name="search_packs_error_retry">Tentar de novo</string>
+    <string name="search_packs_append_error_network">Não foi possível carregar mais pacotes iniciais. Verifique sua conexão.</string>
+    <string name="search_packs_append_error_rate_limited">Mais devagar — você buscou bastante.</string>
+    <string name="search_packs_append_error_unknown">Não foi possível carregar mais pacotes iniciais. Tente de novo.</string>
+    <string name="search_pack_byline">por @%1$s</string>
+    <string name="search_pack_content_desc">%1$s, por @%2$s</string>
+    <plurals name="search_pack_member_count">
+        <item quantity="one">%1$d pessoa</item>
+        <item quantity="other">%1$d pessoas</item>
+    </plurals>
+
+    <string name="explore_pane_packs_title">Pacotes iniciais</string>
+    <string name="discover_packs_section_title">Pacotes iniciais</string>
+    <string name="summary_pane_packs_title">Pacotes iniciais</string>
+    <string name="summary_pane_see_all_packs_description">Ver todos os pacotes iniciais</string>
+    <string name="summary_pane_packs_error">Não foi possível carregar os pacotes iniciais.</string>
 </resources>

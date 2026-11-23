@@ -16,6 +16,9 @@ import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.actors.ActorSearchPage
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
+import net.kikin.nubecita.core.postinteractions.FollowOverlay
+import net.kikin.nubecita.core.postinteractions.FollowOverride
+import net.kikin.nubecita.core.postinteractions.FollowToggle
 import net.kikin.nubecita.core.testing.MainDispatcherExtension
 import net.kikin.nubecita.feature.search.impl.FakeFollowRepository
 import net.kikin.nubecita.feature.search.impl.FakePinnedFeedsRepository
@@ -23,20 +26,20 @@ import net.kikin.nubecita.feature.search.impl.data.DateFilter
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchActorsRepository
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchFeedsRepository
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchPostsRepository
+import net.kikin.nubecita.feature.search.impl.data.FakeSearchStarterPacksRepository
 import net.kikin.nubecita.feature.search.impl.data.FeedPinToggle
-import net.kikin.nubecita.feature.search.impl.data.FollowOverlay
-import net.kikin.nubecita.feature.search.impl.data.FollowOverride
-import net.kikin.nubecita.feature.search.impl.data.FollowToggle
 import net.kikin.nubecita.feature.search.impl.data.MediaFilter
 import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
 import net.kikin.nubecita.feature.search.impl.data.ReplyFilter
 import net.kikin.nubecita.feature.search.impl.data.SearchFirstPages
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsPage
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
+import net.kikin.nubecita.feature.search.impl.data.SearchStarterPacksPage
 import net.kikin.nubecita.feature.search.impl.data.SearchTab
 import net.kikin.nubecita.feature.search.impl.data.SubmittedSearchStore
 import net.kikin.nubecita.feature.search.impl.data.actorFixture
 import net.kikin.nubecita.feature.search.impl.data.feedFixture
+import net.kikin.nubecita.feature.search.impl.data.packFixture
 import net.kikin.nubecita.feature.search.impl.data.searchPostFixture
 import net.kikin.nubecita.feature.search.impl.data.seed
 import net.kikin.nubecita.feature.search.impl.data.signedIn
@@ -58,6 +61,7 @@ internal class SearchPaneViewModelTest {
     private val posts = FakeSearchPostsRepository()
     private val actors = FakeSearchActorsRepository()
     private val feeds = FakeSearchFeedsRepository()
+    private val packs = FakeSearchStarterPacksRepository()
     private val pinned = FakePinnedFeedsRepository()
     private val followRepo = FakeFollowRepository()
     private val session = MutableStateFlow<SessionState>(signedIn("did:plc:me"))
@@ -76,7 +80,7 @@ internal class SearchPaneViewModelTest {
         // Not `backgroundScope`: `advanceUntilIdle` does not run background tasks, and the shared
         // first pages and the follow call are real coroutines the tests wait for.
         val appScope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))
-        firstPages = SearchFirstPages(posts, actors, feeds, appScope, sessionProvider)
+        firstPages = SearchFirstPages(posts, actors, feeds, packs, appScope, sessionProvider)
         overlay = FollowOverlay(appScope, sessionProvider)
         return SearchPaneViewModel(
             store = store,
@@ -710,6 +714,163 @@ internal class SearchPaneViewModelTest {
             vm.handleEvent(SearchPaneEvent.SeeAllClicked(SearchTab.FEEDS))
 
             assertEquals(SearchTab.FEEDS, store.submitted.value?.selectedTab)
+        }
+
+    @Test
+    fun `SeeAllClicked for packs selects the Packs tab`() =
+        runTest {
+            val vm = buildVm()
+            store.submit("kotlin", fromRecent = false)
+            advanceUntilIdle()
+
+            vm.handleEvent(SearchPaneEvent.SeeAllClicked(SearchTab.PACKS))
+
+            assertEquals(SearchTab.PACKS, store.submitted.value?.selectedTab)
+        }
+
+    @Test
+    fun `the packs section loads once per search and shows at most two rows`() =
+        runTest {
+            packs.respond("kotlin", null, (1..5).map { packFixture(slug = "p$it") }, nextCursor = "c2")
+            val vm = buildVm()
+            store.submit("kotlin", fromRecent = false)
+            advanceUntilIdle()
+
+            assertEquals(listOf(packFixture(slug = "p1").uri, packFixture(slug = "p2").uri), summary(vm).packs.map { it.uri })
+            assertEquals(SummarySectionStatus.Loaded, summary(vm).packsStatus)
+            assertEquals(1, packs.callLog.size)
+
+            // Neither the tab nor the sheet flag is a new search.
+            store.selectTab(SearchTab.PACKS)
+            store.setFilterSheetOpen(true)
+            advanceUntilIdle()
+            assertEquals(1, packs.callLog.size)
+
+            // A filter change reloads the posts only: packs neither reload nor go back to loading.
+            store.updateFilters { it.copy(followingOnly = true) }
+            advanceUntilIdle()
+            assertEquals(1, packs.callLog.size)
+            assertEquals(SummarySectionStatus.Loaded, summary(vm).packsStatus)
+
+            // A re-submit of the same text is a new search.
+            store.submit("kotlin", fromRecent = false)
+            advanceUntilIdle()
+            assertEquals(2, packs.callLog.size)
+        }
+
+    @Test
+    fun `a packs result for an old search never reaches the new one`() =
+        runTest {
+            val oldPacks = packs.gate("kotlin", null)
+            packs.respond("compose", null, listOf(packFixture(slug = "compose")))
+            val vm = buildVm()
+            store.submit("kotlin", fromRecent = false)
+            advanceUntilIdle()
+            store.submit("compose", fromRecent = false)
+            advanceUntilIdle()
+
+            oldPacks.complete(Result.success(SearchStarterPacksPage(persistentListOf(packFixture(slug = "stale")), null)))
+            advanceUntilIdle()
+
+            val mode = summary(vm)
+            assertEquals("compose", mode.search.query)
+            assertEquals(listOf(packFixture(slug = "compose").uri), mode.packs.map { it.uri })
+        }
+
+    @Test
+    fun `a packs page that arrives for the previous search after a new one was adopted is dropped`() =
+        runTest {
+            val oldPacks = packs.gate("kotlin", null)
+            val vm = buildVm()
+            store.submit("kotlin", fromRecent = false)
+            advanceUntilIdle()
+
+            oldPacks.complete(Result.success(SearchStarterPacksPage(persistentListOf(packFixture(slug = "kotlin")), null)))
+            packs.fail("compose", null, IOException("offline"))
+            store.submit("compose", fromRecent = false)
+            advanceUntilIdle()
+
+            val mode = summary(vm)
+            assertEquals(SummarySectionStatus.Error, mode.packsStatus)
+            assertTrue(mode.packs.isEmpty())
+        }
+
+    @Test
+    fun `packs failing leaves the others loaded and RetrySection reloads only packs`() =
+        runTest {
+            actors.respond("kotlin", null, listOf(actorFixture("did:plc:a")))
+            packs.fail("kotlin", null, IOException("offline"))
+            val vm = buildVm()
+            store.submit("kotlin", fromRecent = false)
+            advanceUntilIdle()
+
+            assertEquals(SummarySectionStatus.Error, summary(vm).packsStatus)
+            assertEquals(SummarySectionStatus.Loaded, summary(vm).peopleStatus)
+            val peopleCalls = actors.callLog.size
+
+            packs.clearGate("kotlin", null)
+            packs.respond("kotlin", null, listOf(packFixture(slug = "ok")))
+            vm.handleEvent(SearchPaneEvent.RetrySection(SummarySection.Packs))
+            advanceUntilIdle()
+
+            assertEquals(SummarySectionStatus.Loaded, summary(vm).packsStatus)
+            assertEquals(1, summary(vm).packs.size)
+            assertEquals(peopleCalls, actors.callLog.size, "people were not reloaded")
+        }
+
+    @Test
+    fun `a summary with only empty sections including packs has no results, a pack alone is a result`() =
+        runTest {
+            val vm = buildVm()
+            store.submit("kotlin", fromRecent = false)
+            advanceUntilIdle()
+            assertTrue(summary(vm).hasNoResults())
+
+            packs.clearGate("kotlin", null)
+            packs.respond("kotlin", null, listOf(packFixture()))
+            store.submit("kotlin", fromRecent = false)
+            advanceUntilIdle()
+            assertEquals(false, summary(vm).hasNoResults())
+        }
+
+    @Test
+    fun `an account change clears the packs and the pack tap navigates`() =
+        runTest {
+            packs.respond("kotlin", null, listOf(packFixture()))
+            val vm = buildVm()
+            store.submit("kotlin", fromRecent = false)
+            advanceUntilIdle()
+            assertEquals(1, summary(vm).packs.size)
+
+            session.value = signedIn("did:plc:other")
+            packs.clearGate("kotlin", null)
+            packs.fail("kotlin", null, IOException("offline"))
+            advanceUntilIdle()
+
+            assertEquals(SummarySectionStatus.Error, summary(vm).packsStatus)
+            assertTrue(summary(vm).packs.isEmpty())
+
+            vm.handleEvent(SearchPaneEvent.PackTapped("at://did:plc:c/app.bsky.graph.starterpack/p"))
+            assertEquals(
+                SearchPaneEffect.NavigateToPack("at://did:plc:c/app.bsky.graph.starterpack/p"),
+                vm.effects
+                    .take(1)
+                    .toList()
+                    .single(),
+            )
+        }
+
+    @Test
+    fun `the packs expansion toggle flips on its own`() =
+        runTest {
+            val vm = buildVm()
+            advanceUntilIdle()
+
+            vm.handleEvent(SearchPaneEvent.PacksExpansionToggled)
+
+            assertTrue(vm.uiState.value.packsExpanded)
+            assertEquals(false, vm.uiState.value.feedsExpanded)
+            assertEquals(false, vm.uiState.value.accountsExpanded)
         }
 
     @Test

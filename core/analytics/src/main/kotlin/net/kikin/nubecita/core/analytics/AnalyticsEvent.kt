@@ -444,6 +444,7 @@ enum class SearchScope(
     Latest("latest"),
     People("people"),
     Feeds("feeds"),
+    Packs("packs"),
 }
 
 /**

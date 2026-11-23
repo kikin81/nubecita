@@ -16,10 +16,11 @@ import net.kikin.nubecita.core.analytics.InteractFeed
 import net.kikin.nubecita.core.analytics.PostSurface
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
+import net.kikin.nubecita.core.postinteractions.FollowOutcome
+import net.kikin.nubecita.core.postinteractions.FollowOverlay
+import net.kikin.nubecita.core.postinteractions.FollowToggle
+import net.kikin.nubecita.core.postinteractions.withFollowOverride
 import net.kikin.nubecita.feature.search.impl.data.ExploreRepository
-import net.kikin.nubecita.feature.search.impl.data.FollowOutcome
-import net.kikin.nubecita.feature.search.impl.data.FollowOverlay
-import net.kikin.nubecita.feature.search.impl.data.FollowToggle
 import net.kikin.nubecita.feature.search.impl.data.TrendLink
 import net.kikin.nubecita.feature.search.impl.data.TrendUi
 import net.kikin.nubecita.feature.search.impl.data.parseTrendLink
@@ -58,8 +59,9 @@ import javax.inject.Inject
  *
  * ## Trend tap
  * [DiscoverEvent.OnTrendTapped] opens a feed trend's feed (resolving a handle to a DID
- * first), searches a search trend's query, and otherwise — an unknown link, a starter
- * pack, or a handle that does not resolve — searches the trend's display name.
+ * first), opens a starter-pack trend's pack (same resolution, URI
+ * `at://{did}/app.bsky.graph.starterpack/{rkey}`), searches a search trend's query, and
+ * otherwise — an unknown link, or a handle that does not resolve — searches the trend's display name.
  *
  * ## Session-local account dismissal
  * [DiscoverEvent.OnAccountDismissed] asks the repository to drop the account, so every
@@ -131,6 +133,7 @@ internal class DiscoverViewModel
                     sendEffect(DiscoverEffect.NavigateToProfile(event.handle))
                 is DiscoverEvent.OnFeedTapped ->
                     sendEffect(DiscoverEffect.NavigateToFeed(event.uri, event.displayName))
+                is DiscoverEvent.OnPackTapped -> sendEffect(DiscoverEffect.NavigateToPack(event.uri))
                 is DiscoverEvent.OnAccountDismissed -> onAccountDismissed(event.did)
                 is DiscoverEvent.OnTrendTapped -> onTrendTapped(event.trend)
                 DiscoverEvent.OnTrendsExpansionToggled -> setState { copy(trendsExpanded = !trendsExpanded) }
@@ -149,7 +152,8 @@ internal class DiscoverViewModel
             val allIdle =
                 content.trendsStatus == DiscoverSectionStatus.Idle &&
                     content.feedsStatus == DiscoverSectionStatus.Idle &&
-                    content.accountsStatus == DiscoverSectionStatus.Idle
+                    content.accountsStatus == DiscoverSectionStatus.Idle &&
+                    content.starterPacksStatus == DiscoverSectionStatus.Idle
             val reloadNeeded = allIdle && !wasAllIdle && appeared
             wasAllIdle = allIdle
             val overrides = followOverlay.current()
@@ -171,6 +175,8 @@ internal class DiscoverViewModel
                                 }
                             }.toImmutableList(),
                     feedsStatus = content.feedsStatus,
+                    starterPacks = content.starterPacks,
+                    starterPacksStatus = content.starterPacksStatus,
                 )
             }
             if (reloadNeeded) startLoad(force = false)
@@ -184,7 +190,10 @@ internal class DiscoverViewModel
             appeared = true
             val state = uiState.value
             val needsLoad =
-                state.trendsStatus.needsLoad() || state.accountsStatus.needsLoad() || state.feedsStatus.needsLoad()
+                state.trendsStatus.needsLoad() ||
+                    state.accountsStatus.needsLoad() ||
+                    state.feedsStatus.needsLoad() ||
+                    state.starterPacksStatus.needsLoad()
             if (!needsLoad) return
             startLoad(force = false)
         }
@@ -307,9 +316,17 @@ internal class DiscoverViewModel
                                     )
                                 }.onFailure { sendEffect(DiscoverEffect.SubmitSearch(trend.displayName)) }
                         }
+                is TrendLink.StarterPack ->
+                    trendTapJob =
+                        viewModelScope.launch {
+                            exploreRepository
+                                .resolveDid(link.actor)
+                                .onSuccess { did ->
+                                    sendEffect(DiscoverEffect.NavigateToPack("at://$did/app.bsky.graph.starterpack/${link.rkey}"))
+                                }.onFailure { sendEffect(DiscoverEffect.SubmitSearch(trend.displayName)) }
+                        }
                 is TrendLink.Search -> sendEffect(DiscoverEffect.SubmitSearch(link.query))
-                // Starter packs open in their own screen in a later change; until then, search the name.
-                is TrendLink.StarterPack, TrendLink.Unknown -> sendEffect(DiscoverEffect.SubmitSearch(trend.displayName))
+                TrendLink.Unknown -> sendEffect(DiscoverEffect.SubmitSearch(trend.displayName))
             }
         }
     }

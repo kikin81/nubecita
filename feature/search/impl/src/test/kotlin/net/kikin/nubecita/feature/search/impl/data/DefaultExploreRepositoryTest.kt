@@ -35,6 +35,7 @@ class DefaultExploreRepositoryTest {
     private var feedsBody = FEEDS
     private var trendsBody = TRENDS
     private var postsBody = FEED_POSTS
+    private var packsBody = PACKS
 
     @Test
     fun `each endpoint decodes into its section`() =
@@ -47,6 +48,7 @@ class DefaultExploreRepositoryTest {
             assertEquals(DiscoverSectionStatus.Loaded, content.trendsStatus)
             assertEquals(DiscoverSectionStatus.Loaded, content.feedsStatus)
             assertEquals(DiscoverSectionStatus.Loaded, content.accountsStatus)
+            assertEquals(DiscoverSectionStatus.Loaded, content.starterPacksStatus)
 
             assertEquals(2, content.trends.size)
             assertEquals(
@@ -72,6 +74,58 @@ class DefaultExploreRepositoryTest {
             assertEquals("did:plc:lth", account.did)
             assertEquals("rotopat.bsky.social", account.handle)
             assertFalse(account.isFollowing)
+
+            val pack = content.starterPacks.single()
+            assertEquals("at://did:plc:m7h/app.bsky.graph.starterpack/3lggcx32mgu23", pack.uri)
+            assertEquals("Gaming : Studios", pack.name)
+            assertEquals("x3nu.bsky.social", pack.creatorHandle)
+            assertEquals(72, pack.memberCount)
+            assertEquals(listOf("https://cdn.example/ign.jpg"), pack.avatarUrls)
+        }
+
+    @Test
+    fun `starter packs are de-duplicated by uri, keeping the first`() =
+        runTest {
+            packsBody = packsJson(packJson("a", "First A"), packJson("b", "B"), packJson("a", "Second A"))
+            val (_, repo) = newRepo { route(it) }
+
+            repo.load()
+
+            assertEquals(
+                listOf("First A", "B"),
+                repo.content.value.starterPacks
+                    .map { it.name },
+            )
+        }
+
+    @Test
+    fun `a pack without a usable name is left out and an all-unusable payload is Empty`() =
+        runTest {
+            packsBody = packsJson(packJson("a", ""))
+            val (_, repo) = newRepo { route(it) }
+
+            repo.load()
+
+            assertEquals(DiscoverSectionStatus.Empty, repo.content.value.starterPacksStatus)
+            assertTrue(
+                repo.content.value.starterPacks
+                    .isEmpty(),
+            )
+        }
+
+    @Test
+    fun `starter packs failing leaves the other sections loaded`() =
+        runTest {
+            val (_, repo) =
+                newRepo {
+                    if ("getSuggestedStarterPacks" in it.url.toString()) okJson("""{"recIdStr": "1"}""") else route(it)
+                }
+
+            repo.load()
+
+            assertEquals(DiscoverSectionStatus.Error, repo.content.value.starterPacksStatus)
+            assertEquals(DiscoverSectionStatus.Loaded, repo.content.value.trendsStatus)
+            assertEquals(DiscoverSectionStatus.Loaded, repo.content.value.accountsStatus)
         }
 
     @Test
@@ -136,6 +190,7 @@ class DefaultExploreRepositoryTest {
             assertTrue(urls.single { "getTrends" in it }.contains("limit=10"), urls.toString())
             assertTrue(urls.single { "getSuggestedFeeds" in it }.contains("limit=8"), urls.toString())
             assertTrue(urls.single { "getSuggestedUsersForExplore" in it }.contains("limit=12"), urls.toString())
+            assertTrue(urls.single { "getSuggestedStarterPacks" in it }.contains("limit=6"), urls.toString())
         }
 
     @Test
@@ -183,7 +238,7 @@ class DefaultExploreRepositoryTest {
             gate.complete(Unit)
             loads.awaitAll()
 
-            assertEquals(3, engine.requestHistory.size, engine.requestHistory.map { it.url.encodedPath }.toString())
+            assertEquals(4, engine.requestHistory.size, engine.requestHistory.map { it.url.encodedPath }.toString())
             assertEquals(DiscoverSectionStatus.Loaded, repo.content.value.trendsStatus)
         }
 
@@ -203,7 +258,7 @@ class DefaultExploreRepositoryTest {
                     route(it)
                 }
             repo.load()
-            assertEquals(3, seen.size)
+            assertEquals(4, seen.size)
 
             failFeeds = false
             gate = CompletableDeferred()
@@ -214,8 +269,8 @@ class DefaultExploreRepositoryTest {
             gate.complete(Unit)
             listOf(unforced, forced).awaitAll()
 
-            // 3 initial + 1 feeds retry (unforced) + 3 forced.
-            assertEquals(7, seen.size, seen.toString())
+            // 4 initial + 1 feeds retry (unforced) + 4 forced.
+            assertEquals(9, seen.size, seen.toString())
         }
 
     @Test
@@ -225,10 +280,10 @@ class DefaultExploreRepositoryTest {
 
             repo.load()
             repo.load()
-            assertEquals(3, engine.requestHistory.size)
+            assertEquals(4, engine.requestHistory.size)
 
             repo.load(force = true)
-            assertEquals(6, engine.requestHistory.size)
+            assertEquals(8, engine.requestHistory.size)
         }
 
     @Test
@@ -248,7 +303,8 @@ class DefaultExploreRepositoryTest {
             assertEquals(DiscoverSectionStatus.Error, content.trendsStatus)
             assertEquals(DiscoverSectionStatus.Error, content.feedsStatus)
             assertEquals(DiscoverSectionStatus.Error, content.accountsStatus)
-            assertEquals(3, seen.size)
+            assertEquals(DiscoverSectionStatus.Error, content.starterPacksStatus)
+            assertEquals(4, seen.size)
 
             failing = false
             repo.load(force = true)
@@ -257,6 +313,7 @@ class DefaultExploreRepositoryTest {
             assertEquals(DiscoverSectionStatus.Loaded, content.trendsStatus)
             assertEquals(DiscoverSectionStatus.Loaded, content.feedsStatus)
             assertEquals(DiscoverSectionStatus.Loaded, content.accountsStatus)
+            assertEquals(DiscoverSectionStatus.Loaded, content.starterPacksStatus)
         }
 
     @Test
@@ -276,7 +333,7 @@ class DefaultExploreRepositoryTest {
             repo.load()
 
             assertEquals(DiscoverSectionStatus.Loaded, repo.content.value.feedsStatus)
-            assertEquals(4, seen.size, "only the failed feeds section was fetched again")
+            assertEquals(5, seen.size, "only the failed feeds section was fetched again")
         }
 
     @Test
@@ -555,6 +612,13 @@ class DefaultExploreRepositoryTest {
         name: String,
     ) = """{"topic": "$topic", "displayName": "$name", "link": "$link", "postCount": 1, "startedAt": "2026-11-22T10:00:00.000Z", "actors": []}"""
 
+    private fun packJson(
+        slug: String,
+        name: String,
+    ) = """{"uri": "at://did:plc:m7h/app.bsky.graph.starterpack/$slug", "cid": "bafyreigbqzmnwqk6larzrtakh4r2d7ojjw46a6yzfrgmzpr3af5c2hvbhu", "record": {"name": "$name"}, "creator": {"did": "did:plc:m7h", "handle": "x3nu.bsky.social"}, "indexedAt": "2025-02-26T06:24:41.554Z"}"""
+
+    private fun packsJson(vararg packs: String) = """{"recIdStr": "1", "starterPacks": [${packs.joinToString(",")}]}"""
+
     private fun trendsJson(vararg trends: String) = """{"recIdStr": "1", "trends": [${trends.joinToString(",")}]}"""
 
     private fun MockRequestHandleScope.route(request: HttpRequestData): HttpResponseData {
@@ -563,6 +627,7 @@ class DefaultExploreRepositoryTest {
             path.endsWith("app.bsky.unspecced.getTrends") -> okJson(trendsBody)
             path.endsWith("app.bsky.unspecced.getSuggestedFeeds") -> okJson(feedsBody)
             path.endsWith("app.bsky.unspecced.getSuggestedUsersForExplore") -> okJson(actorsBody)
+            path.endsWith("app.bsky.unspecced.getSuggestedStarterPacks") -> okJson(packsBody)
             path.endsWith("com.atproto.identity.resolveHandle") -> okJson("""{"did": "did:plc:resolved"}""")
             path.endsWith("app.bsky.feed.getFeed") -> okJson(postsBody)
             else -> respond("unexpected $path", HttpStatusCode.NotFound)
@@ -660,6 +725,25 @@ class DefaultExploreRepositoryTest {
               "recIdStr": "1",
               "actors": [
                 { "did": "did:plc:lth", "handle": "rotopat.bsky.social", "displayName": "Patrick Daugherty" }
+              ]
+            }
+        """
+
+        const val PACKS = """
+            {
+              "recIdStr": "852536140545611558",
+              "starterPacks": [
+                {
+                  "uri": "at://did:plc:m7h/app.bsky.graph.starterpack/3lggcx32mgu23",
+                  "cid": "bafyreigbqzmnwqk6larzrtakh4r2d7ojjw46a6yzfrgmzpr3af5c2hvbhu",
+                  "record": { "${'$'}type": "app.bsky.graph.starterpack", "name": "Gaming : Studios", "list": "at://did:plc:m7h/app.bsky.graph.list/l" },
+                  "creator": { "did": "did:plc:m7h", "handle": "x3nu.bsky.social", "displayName": "" },
+                  "list": { "uri": "at://did:plc:m7h/app.bsky.graph.list/l", "cid": "bafyreidpaxaukmaxnx5vb5q5kd6nllfyouxhw4jquy7jjk4msxrvfm5fgm", "name": "Gaming & Leaks", "purpose": "app.bsky.graph.defs#referencelist", "listItemCount": 72, "indexedAt": "2025-01-23T16:37:32.457Z" },
+                  "listItemsSample": [
+                    { "uri": "at://did:plc:m7h/app.bsky.graph.listitem/1", "subject": { "did": "did:plc:ign", "handle": "ign.com", "avatar": "https://cdn.example/ign.jpg" } }
+                  ],
+                  "indexedAt": "2025-02-26T06:24:41.554Z"
+                }
               ]
             }
         """

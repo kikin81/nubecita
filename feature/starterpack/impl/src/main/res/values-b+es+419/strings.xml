@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="starterpack_title">Paquete de inicio</string>
+    <string name="starterpack_back_content_description">Atrás</string>
+    <string name="starterpack_byline">por @%1$s</string>
+    <string name="starterpack_section_feeds">Feeds</string>
+    <string name="starterpack_section_people">Personas</string>
+    <plurals name="starterpack_member_count">
+        <item quantity="one">%1$d persona</item>
+        <item quantity="other">%1$d personas</item>
+    </plurals>
+    <string name="starterpack_follow_button">Seguir</string>
+    <string name="starterpack_following_button">Siguiendo</string>
+    <string name="starterpack_follow_content_desc">Seguir a %1$s</string>
+    <string name="starterpack_unfollow_content_desc">Dejar de seguir a %1$s</string>
+    <string name="starterpack_loading_content_description">Cargando paquete de inicio</string>
+    <string name="starterpack_empty_title">Este paquete está vacío</string>
+    <string name="starterpack_empty_body">Todavía no se agregó a nadie.</string>
+    <string name="starterpack_error_network_title">Sin conexión</string>
+    <string name="starterpack_error_network_body">Revisa tu conexión e inténtalo de nuevo.</string>
+    <string name="starterpack_error_unknown_title">No se pudo cargar este paquete</string>
+    <string name="starterpack_error_unknown_body">Puede que lo hayan eliminado. Inténtalo de nuevo.</string>
+    <string name="starterpack_error_retry">Reintentar</string>
+    <string name="starterpack_append_error_network">No se pudieron cargar más personas. Revisa tu conexión.</string>
+    <string name="starterpack_append_error_unknown">No se pudieron cargar más personas. Inténtalo de nuevo.</string>
+    <string name="starterpack_follow_error">No se pudo seguir. Inténtalo de nuevo.</string>
+    <string name="starterpack_unfollow_error">No se pudo dejar de seguir. Inténtalo de nuevo.</string>
+</resources>

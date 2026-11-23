@@ -8,6 +8,7 @@ import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
 import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.data.models.FeedItemUi
+import net.kikin.nubecita.data.models.StarterPackUi
 import net.kikin.nubecita.feature.search.impl.data.DateFilter
 import net.kikin.nubecita.feature.search.impl.data.FeedGeneratorUi
 import net.kikin.nubecita.feature.search.impl.data.MediaFilter
@@ -33,7 +34,7 @@ internal sealed interface SearchPaneMode {
     data object Explore : SearchPaneMode
 
     /**
-     * A search is submitted: what the list pane's search found, in brief. Each of the three
+     * A search is submitted: what the list pane's search found, in brief. Each of the four
      * sections loads on its own and carries its own status; every field here belongs to
      * [search] (a result for any other search is dropped, never shown under this header).
      */
@@ -47,20 +48,26 @@ internal sealed interface SearchPaneMode {
         val people: ImmutableList<ActorUi> = persistentListOf(),
         /** The first [SUMMARY_ROWS] feeds, with the viewer's pins applied. */
         val feeds: ImmutableList<FeedGeneratorUi> = persistentListOf(),
+        /** The first [SUMMARY_PACK_ROWS] starter packs. */
+        val packs: ImmutableList<StarterPackUi> = persistentListOf(),
         val postsStatus: SummarySectionStatus = SummarySectionStatus.Loading,
         val peopleStatus: SummarySectionStatus = SummarySectionStatus.Loading,
         val feedsStatus: SummarySectionStatus = SummarySectionStatus.Loading,
+        val packsStatus: SummarySectionStatus = SummarySectionStatus.Loading,
     ) : SearchPaneMode
 }
 
-/** How many people and feeds the Summary lists. */
+/** How many people and feeds the Summary lists (starter packs: [SUMMARY_PACK_ROWS]). */
 internal const val SUMMARY_ROWS = 3
+
+/** How many starter packs the Summary lists. */
+internal const val SUMMARY_PACK_ROWS = 2
 
 /** Where one Summary section's request stands. A section with no results is Loaded and empty. */
 internal enum class SummarySectionStatus { Loading, Loaded, Error }
 
-/** The three requests behind a Summary, each retried on its own. */
-internal enum class SummarySection { Posts, People, Feeds }
+/** The four requests behind a Summary, each retried on its own. */
+internal enum class SummarySection { Posts, People, Feeds, Packs }
 
 /** A filter the Summary shows as a removable chip. */
 internal enum class SummaryFilter { Sort, Following, Media, Video, Replies, Language, Date }
@@ -129,6 +136,8 @@ internal data class SearchPaneState(
     val feedsExpanded: Boolean = false,
     /** Whether the people grid shows every loaded account instead of the first few. */
     val accountsExpanded: Boolean = false,
+    /** Whether the starter-pack grid shows every loaded pack instead of the first few. */
+    val packsExpanded: Boolean = false,
     /** The signed-in account's DID; its own row in the Summary's people offers no Follow. */
     val viewerDid: String? = null,
 ) : UiState
@@ -155,6 +164,8 @@ internal sealed interface SearchPaneEvent : UiEvent {
     data object FeedsExpansionToggled : SearchPaneEvent
 
     data object AccountsExpansionToggled : SearchPaneEvent
+
+    data object PacksExpansionToggled : SearchPaneEvent
 
     /** A removable filter chip was tapped: that filter goes back to its default, the tab does not change. */
     data class FilterRemoved(
@@ -194,6 +205,10 @@ internal sealed interface SearchPaneEvent : UiEvent {
     data class PinTapped(
         val uri: String,
     ) : SearchPaneEvent
+
+    data class PackTapped(
+        val uri: String,
+    ) : SearchPaneEvent
 }
 
 /**
@@ -213,6 +228,10 @@ internal sealed interface SearchPaneEffect : UiEffect {
     data class NavigateToFeed(
         val uri: String,
         val displayName: String,
+    ) : SearchPaneEffect
+
+    data class NavigateToPack(
+        val uri: String,
     ) : SearchPaneEffect
 
     data class FollowFailed(

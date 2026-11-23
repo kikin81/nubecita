@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.search.impl.data
+package net.kikin.nubecita.core.postinteractions
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -4,6 +4,7 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.feature.search.impl.data.SubmittedSearch
 import net.kikin.nubecita.feature.search.impl.data.actorFixture
 import net.kikin.nubecita.feature.search.impl.data.feedFixture
+import net.kikin.nubecita.feature.search.impl.data.packFixture
 import net.kikin.nubecita.feature.search.impl.data.searchPostFixture
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -16,10 +17,11 @@ class SummaryPaneLogicTest {
         posts: SummarySectionStatus = loaded,
         people: SummarySectionStatus = loaded,
         feeds: SummarySectionStatus = loaded,
-    ) = SearchPaneMode.Summary(search, postsStatus = posts, peopleStatus = people, feedsStatus = feeds)
+        packs: SummarySectionStatus = loaded,
+    ) = SearchPaneMode.Summary(search, postsStatus = posts, peopleStatus = people, feedsStatus = feeds, packsStatus = packs)
 
     @Test
-    fun `no results only when all three loaded and all are empty`() {
+    fun `no results only when all four loaded and all are empty`() {
         assertEquals(true, summary().hasNoResults())
     }
 
@@ -28,6 +30,8 @@ class SummaryPaneLogicTest {
         assertEquals(false, summary(posts = SummarySectionStatus.Loading).hasNoResults())
         assertEquals(false, summary(people = SummarySectionStatus.Error).hasNoResults())
         assertEquals(false, summary(feeds = SummarySectionStatus.Loading).hasNoResults())
+        assertEquals(false, summary(packs = SummarySectionStatus.Loading).hasNoResults())
+        assertEquals(false, summary(packs = SummarySectionStatus.Error).hasNoResults())
     }
 
     @Test
@@ -35,5 +39,6 @@ class SummaryPaneLogicTest {
         assertEquals(false, summary().copy(topPost = searchPostFixture("at://p/1", "x")).hasNoResults())
         assertEquals(false, summary().copy(people = persistentListOf(actorFixture())).hasNoResults())
         assertEquals(false, summary().copy(feeds = persistentListOf(feedFixture())).hasNoResults())
+        assertEquals(false, summary().copy(packs = persistentListOf(packFixture())).hasNoResults())
     }
 }

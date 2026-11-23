@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Top bar title while the pack's name is not known yet, and its fallback. -->
+    <string name="starterpack_title">Starter pack</string>
+    <string name="starterpack_back_content_description">Back</string>
+
+    <!-- "by @handle" under the pack's name and on a feed row. %1$s is the handle without the @. -->
+    <string name="starterpack_byline">by @%1$s</string>
+
+    <!-- Section headers. -->
+    <string name="starterpack_section_feeds">Feeds</string>
+    <string name="starterpack_section_people">People</string>
+    <plurals name="starterpack_member_count">
+        <item quantity="one">%1$d person</item>
+        <item quantity="other">%1$d people</item>
+    </plurals>
+
+    <!-- Follow button on a member row; the content descriptions name the account. -->
+    <string name="starterpack_follow_button">Follow</string>
+    <string name="starterpack_following_button">Following</string>
+    <string name="starterpack_follow_content_desc">Follow %1$s</string>
+    <string name="starterpack_unfollow_content_desc">Unfollow %1$s</string>
+
+    <!-- Loading, empty and error states. -->
+    <string name="starterpack_loading_content_description">Loading starter pack</string>
+    <string name="starterpack_empty_title">This pack is empty</string>
+    <string name="starterpack_empty_body">Nobody has been added to it yet.</string>
+    <string name="starterpack_error_network_title">No connection</string>
+    <string name="starterpack_error_network_body">Check your connection and try again.</string>
+    <string name="starterpack_error_unknown_title">Couldn\'t load this pack</string>
+    <string name="starterpack_error_unknown_body">It may have been removed. Try again.</string>
+    <string name="starterpack_error_retry">Try again</string>
+
+    <!-- Snackbars. -->
+    <string name="starterpack_append_error_network">Couldn\'t load more people. Check your connection.</string>
+    <string name="starterpack_append_error_unknown">Couldn\'t load more people. Try again.</string>
+    <string name="starterpack_follow_error">Couldn\'t follow. Try again.</string>
+    <string name="starterpack_unfollow_error">Couldn\'t unfollow. Try again.</string>
+</resources>

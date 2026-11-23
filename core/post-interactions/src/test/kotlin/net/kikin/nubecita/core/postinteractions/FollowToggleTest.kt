@@ -1,4 +1,4 @@
-package net.kikin.nubecita.feature.search.impl.data
+package net.kikin.nubecita.core.postinteractions
 
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -11,8 +11,6 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
-import net.kikin.nubecita.core.postinteractions.FollowRepository
-import net.kikin.nubecita.feature.search.impl.FakeFollowRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull

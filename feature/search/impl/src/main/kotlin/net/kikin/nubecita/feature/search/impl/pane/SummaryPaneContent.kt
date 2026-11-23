@@ -52,6 +52,7 @@ import net.kikin.nubecita.feature.search.impl.data.ReplyFilter
 import net.kikin.nubecita.feature.search.impl.data.SearchTab
 import net.kikin.nubecita.feature.search.impl.ui.ActorRow
 import net.kikin.nubecita.feature.search.impl.ui.FeedRow
+import net.kikin.nubecita.feature.search.impl.ui.StarterPackRow
 import net.kikin.nubecita.feature.search.impl.ui.dateLabel
 import net.kikin.nubecita.feature.search.impl.ui.filterChipState
 import net.kikin.nubecita.feature.search.impl.ui.shownHitsTotal
@@ -65,21 +66,23 @@ private const val QUERY_MAX_LINES = 3
 private const val POST_TEXT_MAX_LINES = 4
 
 /**
- * True when all three sections finished, none failed, and none has anything to show: the
+ * True when all four sections finished, none failed, and none has anything to show: the
  * pane then says so once instead of showing three empty sections.
  */
 internal fun SearchPaneMode.Summary.hasNoResults(): Boolean =
     postsStatus == SummarySectionStatus.Loaded &&
         peopleStatus == SummarySectionStatus.Loaded &&
         feedsStatus == SummarySectionStatus.Loaded &&
+        packsStatus == SummarySectionStatus.Loaded &&
         topPost == null &&
         people.isEmpty() &&
-        feeds.isEmpty()
+        feeds.isEmpty() &&
+        packs.isEmpty()
 
 /**
  * The Summary: the submitted search in brief, for the second pane of a wide window. A header
  * (the query, the estimated count, the active filters as removable chips and "Edit filters"),
- * the top post as a small card, then the first people and feeds, each with "See all".
+ * the top post as a small card, then the first people, feeds and starter packs, each with "See all".
  *
  * Each section is independent: it shows placeholders while it loads, a one-line message with
  * Retry when it failed, and is hidden when it has nothing. Stateless: [listState] is owned by
@@ -130,6 +133,7 @@ internal fun SummaryPaneContent(
         postsSection(summary, onEvent = { currentOnEvent(it) })
         peopleSection(summary, viewerDid, onEvent = { currentOnEvent(it) })
         feedsSection(summary, onEvent = { currentOnEvent(it) })
+        packsSection(summary, onEvent = { currentOnEvent(it) })
     }
 }
 
@@ -341,9 +345,48 @@ private fun LazyListScope.feedsSection(
     }
 }
 
-private fun LazyListScope.placeholderRows(prefix: String) {
+private fun LazyListScope.packsSection(
+    summary: SearchPaneMode.Summary,
+    onEvent: (SearchPaneEvent) -> Unit,
+) {
+    when (summary.packsStatus) {
+        SummarySectionStatus.Loading -> {
+            item(key = "packs:heading", contentType = "heading") { SectionHeading(R.string.summary_pane_packs_title) }
+            placeholderRows("packs", count = SUMMARY_PACK_ROWS)
+        }
+        SummarySectionStatus.Error -> {
+            item(key = "packs:heading", contentType = "heading") { SectionHeading(R.string.summary_pane_packs_title) }
+            item(key = "packs:error", contentType = "error") {
+                SectionError(R.string.summary_pane_packs_error) { onEvent(SearchPaneEvent.RetrySection(SummarySection.Packs)) }
+            }
+        }
+        SummarySectionStatus.Loaded -> {
+            if (summary.packs.isEmpty()) return
+            item(key = "packs:heading", contentType = "heading") {
+                SectionHeading(
+                    title = R.string.summary_pane_packs_title,
+                    seeAllDescription = R.string.summary_pane_see_all_packs_description,
+                    onSeeAll = { onEvent(SearchPaneEvent.SeeAllClicked(SearchTab.PACKS)) },
+                )
+            }
+            items(
+                count = summary.packs.size,
+                key = { index -> "packs:row:${summary.packs[index].uri}" },
+                contentType = { "packs-row" },
+            ) { index ->
+                val pack = summary.packs[index]
+                StarterPackRow(pack = pack, onClick = { onEvent(SearchPaneEvent.PackTapped(pack.uri)) })
+            }
+        }
+    }
+}
+
+private fun LazyListScope.placeholderRows(
+    prefix: String,
+    count: Int = SUMMARY_ROWS,
+) {
     items(
-        count = SUMMARY_ROWS,
+        count = count,
         key = { "$prefix:placeholder:$it" },
         contentType = { "row-placeholder" },
     ) {

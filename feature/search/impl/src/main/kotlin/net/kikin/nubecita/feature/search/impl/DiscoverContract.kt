@@ -6,6 +6,7 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.data.models.StarterPackUi
 import net.kikin.nubecita.feature.search.impl.data.FeedPreviewPostUi
 import net.kikin.nubecita.feature.search.impl.data.SuggestedAccountUi
 import net.kikin.nubecita.feature.search.impl.data.SuggestedFeedUi
@@ -116,6 +117,8 @@ internal data class DiscoverState(
     val accountsStatus: DiscoverSectionStatus = DiscoverSectionStatus.Idle,
     val feeds: ImmutableList<DiscoverFeedUi> = persistentListOf(),
     val feedsStatus: DiscoverSectionStatus = DiscoverSectionStatus.Idle,
+    val starterPacks: ImmutableList<StarterPackUi> = persistentListOf(),
+    val starterPacksStatus: DiscoverSectionStatus = DiscoverSectionStatus.Idle,
 ) : UiState
 
 internal sealed interface DiscoverEvent : UiEvent {
@@ -176,6 +179,11 @@ internal sealed interface DiscoverEvent : UiEvent {
         val handle: String,
     ) : DiscoverEvent
 
+    /** Tap on a starter-pack card. Emits [DiscoverEffect.NavigateToPack]. */
+    data class OnPackTapped(
+        val uri: String,
+    ) : DiscoverEvent
+
     /** Tap on a feed card (outside the Pin button). Emits [DiscoverEffect.NavigateToFeed]. */
     data class OnFeedTapped(
         val uri: String,
@@ -184,7 +192,8 @@ internal sealed interface DiscoverEvent : UiEvent {
 
     /**
      * A trending topic was tapped. Emits [DiscoverEffect.NavigateToFeed] for a feed
-     * trend and [DiscoverEffect.SubmitSearch] for everything else.
+     * trend, [DiscoverEffect.NavigateToPack] for a starter-pack trend and
+     * [DiscoverEffect.SubmitSearch] for everything else.
      */
     data class OnTrendTapped(
         val trend: TrendUi,
@@ -214,6 +223,11 @@ internal sealed interface DiscoverEffect : UiEffect {
     data class NavigateToFeed(
         val uri: String,
         val displayName: String,
+    ) : DiscoverEffect
+
+    /** Navigate to the starter-pack screen for the pack at [uri]. */
+    data class NavigateToPack(
+        val uri: String,
     ) : DiscoverEffect
 
     /** Search for [query], as if the user had typed it and submitted. */

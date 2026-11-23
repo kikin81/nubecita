@@ -6,7 +6,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /** The result tabs of a submitted search. */
-internal enum class SearchTab { POSTS, PEOPLE, FEEDS }
+internal enum class SearchTab { POSTS, PEOPLE, FEEDS, PACKS }
 
 /**
  * What was searched, and how the results are being narrowed.

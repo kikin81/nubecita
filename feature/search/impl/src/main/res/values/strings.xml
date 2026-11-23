@@ -266,4 +266,37 @@
     <string name="summary_pane_feeds_error">Couldn\'t load feeds.</string>
     <string name="summary_pane_retry">Retry</string>
     <string name="summary_pane_no_results">No results for \"%1$s\"</string>
+
+    <!-- Starter packs: the fourth results tab, and the pack row / card. -->
+    <string name="search_tab_packs">Packs</string>
+    <string name="search_packs_loading_content_description">Searching starter packs</string>
+    <string name="search_packs_empty_title">No starter packs match \"%1$s\"</string>
+    <string name="search_packs_empty_body">Try a different keyword.</string>
+    <string name="search_packs_empty_clear">Clear search</string>
+    <string name="search_packs_empty_icon_content_description">No matching starter packs</string>
+    <string name="search_packs_error_network_title">No connection</string>
+    <string name="search_packs_error_network_body">Check your connection and try again.</string>
+    <string name="search_packs_error_rate_limited_title">Slow down</string>
+    <string name="search_packs_error_rate_limited_body">You\'ve been searching a lot. Wait a moment and try again.</string>
+    <string name="search_packs_error_unknown_title">Something went wrong</string>
+    <string name="search_packs_error_unknown_body">We couldn\'t load your search. Try again.</string>
+    <string name="search_packs_error_retry">Try again</string>
+    <string name="search_packs_append_error_network">Couldn\'t load more starter packs. Check your connection.</string>
+    <string name="search_packs_append_error_rate_limited">Slow down — you\'ve been searching a lot.</string>
+    <string name="search_packs_append_error_unknown">Couldn\'t load more starter packs. Try again.</string>
+    <!-- "by @handle" on a pack row or card. %1$s is the creator\'s handle without the @. -->
+    <string name="search_pack_byline">by @%1$s</string>
+    <!-- Accessible name of a whole pack row or card: the pack\'s name and its creator. -->
+    <string name="search_pack_content_desc">%1$s, by @%2$s</string>
+    <plurals name="search_pack_member_count">
+        <item quantity="one">%1$d person</item>
+        <item quantity="other">%1$d people</item>
+    </plurals>
+
+    <!-- Starter packs in Explore and the Summary. -->
+    <string name="explore_pane_packs_title">Starter packs</string>
+    <string name="discover_packs_section_title">Starter packs</string>
+    <string name="summary_pane_packs_title">Starter packs</string>
+    <string name="summary_pane_see_all_packs_description">See all starter packs</string>
+    <string name="summary_pane_packs_error">Couldn\'t load starter packs.</string>
 </resources>

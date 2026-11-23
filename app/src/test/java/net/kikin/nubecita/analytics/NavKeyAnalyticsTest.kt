@@ -48,6 +48,7 @@ import net.kikin.nubecita.feature.settings.api.Moderation
 import net.kikin.nubecita.feature.settings.api.Settings
 import net.kikin.nubecita.feature.settings.api.Translation
 import net.kikin.nubecita.feature.settings.api.WatchSettings
+import net.kikin.nubecita.feature.starterpack.api.StarterPack
 import net.kikin.nubecita.feature.videoplayer.api.VideoPlayerRoute
 import net.kikin.nubecita.feature.videos.api.VideoFeed
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -102,6 +103,7 @@ class NavKeyAnalyticsTest {
             FeedView(feedUri = "at://feed") to AnalyticsScreen.FeedView,
             Feeds to AnalyticsScreen.Feeds,
             Hashtag(tag = "kotlin") to AnalyticsScreen.Hashtag,
+            StarterPack(uri = "at://did:plc:x/app.bsky.graph.starterpack/p") to AnalyticsScreen.StarterPack,
             PaywallRoute() to AnalyticsScreen.Paywall,
             BlockedAccounts to AnalyticsScreen.BlockedAccounts,
             SafetyAndReporting to AnalyticsScreen.SafetyAndReporting,

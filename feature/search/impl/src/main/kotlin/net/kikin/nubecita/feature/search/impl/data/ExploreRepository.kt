@@ -3,13 +3,14 @@ package net.kikin.nubecita.feature.search.impl.data
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.StateFlow
+import net.kikin.nubecita.data.models.StarterPackUi
 import net.kikin.nubecita.feature.search.impl.DiscoverFeedUi
 import net.kikin.nubecita.feature.search.impl.DiscoverSectionStatus
 
 /**
  * Everything the Search tab's Explore content shows, in one value: trending
- * topics, suggested feeds (each with its lazily loaded preview) and suggested
- * accounts, each with its own load status so one endpoint failing marks only its
+ * topics, suggested feeds (each with its lazily loaded preview), suggested
+ * accounts and suggested starter packs, each with its own load status so one endpoint failing marks only its
  * own section.
  *
  * [accounts] are as the server returned them, minus the ones dismissed this
@@ -24,6 +25,8 @@ internal data class ExploreContent(
     val feedsStatus: DiscoverSectionStatus = DiscoverSectionStatus.Idle,
     val accounts: ImmutableList<SuggestedAccountUi> = persistentListOf(),
     val accountsStatus: DiscoverSectionStatus = DiscoverSectionStatus.Idle,
+    val starterPacks: ImmutableList<StarterPackUi> = persistentListOf(),
+    val starterPacksStatus: DiscoverSectionStatus = DiscoverSectionStatus.Idle,
 )
 
 /**
@@ -33,7 +36,8 @@ internal data class ExploreContent(
  *
  * Implementations:
  * - Production: [DefaultExploreRepository] — `app.bsky.unspecced.getTrends`,
- *   `getSuggestedFeeds`, `getSuggestedUsersForExplore` and `app.bsky.feed.getFeed`.
+ *   `getSuggestedFeeds`, `getSuggestedUsersForExplore`, `getSuggestedStarterPacks`
+ *   and `app.bsky.feed.getFeed`.
  * - Bench: `BenchFakeExploreRepository` — deterministic in-memory fixture, no network.
  */
 internal interface ExploreRepository {

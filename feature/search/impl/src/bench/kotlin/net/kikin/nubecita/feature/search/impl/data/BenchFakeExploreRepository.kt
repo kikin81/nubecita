@@ -6,6 +6,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import net.kikin.nubecita.data.models.StarterPackUi
+import net.kikin.nubecita.data.models.StarterPackUiFixtures
 import net.kikin.nubecita.feature.search.impl.DiscoverFeedUi
 import net.kikin.nubecita.feature.search.impl.DiscoverSectionStatus
 import net.kikin.nubecita.feature.search.impl.FeedPreviewStatus
@@ -56,6 +58,8 @@ internal class BenchFakeExploreRepository
                     feedsStatus = DiscoverSectionStatus.Loaded,
                     accounts = accounts.filter { it.did !in dismissed }.toImmutableList(),
                     accountsStatus = DiscoverSectionStatus.Loaded,
+                    starterPacks = starterPacks.toImmutableList(),
+                    starterPacksStatus = DiscoverSectionStatus.Loaded,
                 )
             }
         }
@@ -148,6 +152,28 @@ internal class BenchFakeExploreRepository
                     postCount = 1_950L,
                     isHot = false,
                 ),
+            )
+
+        private val starterPacks: List<StarterPackUi> =
+            listOf(
+                StarterPackUiFixtures
+                    .packWithAvatars(count = 4, slug = "bench-science", name = "Science writers", memberCount = 48)
+                    .copy(creatorHandle = "labnotes.bsky.social"),
+                StarterPackUiFixtures
+                    .pack(slug = "bench-design", name = "Type and illustration", memberCount = 31)
+                    .copy(creatorHandle = "studio.bsky.social"),
+                StarterPackUiFixtures
+                    .packWithAvatars(count = 3, slug = "bench-indie", name = "Indie developers", memberCount = null)
+                    .copy(creatorHandle = "shipit.bsky.social"),
+                StarterPackUiFixtures
+                    .packWithAvatars(count = 4, slug = "bench-coffee", name = "Coffee people", memberCount = 22)
+                    .copy(creatorHandle = "thirdwave.bsky.social"),
+                StarterPackUiFixtures
+                    .pack(slug = "bench-trail", name = "Trail runners", memberCount = 64)
+                    .copy(creatorHandle = "switchback.bsky.social"),
+                StarterPackUiFixtures
+                    .packWithAvatars(count = 2, slug = "bench-photo", name = "Photographers", memberCount = 90)
+                    .copy(creatorHandle = "goldenhour.bsky.social"),
             )
 
         private val accounts: List<SuggestedAccountUi> =
