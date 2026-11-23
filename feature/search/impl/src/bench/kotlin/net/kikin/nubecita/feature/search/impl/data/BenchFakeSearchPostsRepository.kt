@@ -26,8 +26,9 @@ import kotlin.time.Instant
  *
  * Behavior:
  *
- * - [searchPosts] ignores `query`, `cursor`, `limit`, and `sort`: it
- *   always returns the full [posts] fixture in a single page with
+ * - [searchPosts] ignores `query`, `cursor`, `limit`, and every filter except
+ *   `media`: it returns the [posts] fixture (narrowed to posts with images or
+ *   video, or video only, when the media filter asks for it) in a single page with
  *   `nextCursor = null`, so `SearchPostsViewModel.loadMore` short-circuits
  *   via its `endReached` guard before issuing a second-page call. The
  *   journey scrolls the loaded page; pagination variance is not what it
@@ -46,16 +47,24 @@ internal class BenchFakeSearchPostsRepository
     constructor() : SearchPostsRepository {
         override suspend fun searchPosts(
             query: String,
+            filters: PostSearchFilters,
             cursor: String?,
             limit: Int,
-            sort: SearchPostsSort,
-        ): Result<SearchPostsPage> =
-            Result.success(
+        ): Result<SearchPostsPage> {
+            val items =
+                when (filters.media) {
+                    MediaFilter.ANY -> posts
+                    MediaFilter.HAS_MEDIA -> posts.filter { it.post.embed.hasImagesOrVideo() }
+                    MediaFilter.VIDEO_ONLY -> posts.filter { it.post.embed.hasVideo() }
+                }.toImmutableList()
+            return Result.success(
                 SearchPostsPage(
-                    items = posts.toImmutableList(),
+                    items = items,
                     nextCursor = null,
+                    hitsTotal = items.size.toLong(),
                 ),
             )
+        }
 
         override suspend fun searchHashtag(
             tag: String,
@@ -63,7 +72,7 @@ internal class BenchFakeSearchPostsRepository
             cursor: String?,
             limit: Int,
             sort: SearchPostsSort,
-        ): Result<SearchPostsPage> = searchPosts(query = "#$tag", cursor = cursor, limit = limit, sort = sort)
+        ): Result<SearchPostsPage> = searchPosts(query = "#$tag", filters = PostSearchFilters(sort = sort), cursor = cursor, limit = limit)
 
         private val posts: List<FeedItemUi.Single> =
             listOf(
@@ -182,6 +191,14 @@ internal class BenchFakeSearchPostsRepository
                     langs = listOf("de"),
                 ),
             )
+
+        private fun EmbedUi.hasVideo(): Boolean = this is EmbedUi.Video || (this is EmbedUi.RecordWithMedia && media is EmbedUi.Video)
+
+        private fun EmbedUi.hasImagesOrVideo(): Boolean =
+            this is EmbedUi.Images ||
+                this is EmbedUi.Gallery ||
+                hasVideo() ||
+                (this is EmbedUi.RecordWithMedia && (media is EmbedUi.Images || media is EmbedUi.Gallery))
 
         private companion object {
             // CID is the same placeholder used across the bench/test post

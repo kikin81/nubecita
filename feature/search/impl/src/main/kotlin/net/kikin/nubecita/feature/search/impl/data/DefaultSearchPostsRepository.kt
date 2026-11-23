@@ -2,7 +2,6 @@ package net.kikin.nubecita.feature.search.impl.data
 
 import io.github.kikin81.atproto.app.bsky.feed.FeedService
 import io.github.kikin81.atproto.app.bsky.feed.PostView
-import io.github.kikin81.atproto.app.bsky.feed.SearchPostsRequest
 import io.github.kikin81.atproto.app.bsky.feed.SearchPostsV2Request
 import io.github.kikin81.atproto.runtime.AtIdentifier
 import kotlinx.collections.immutable.ImmutableList
@@ -19,6 +18,8 @@ import net.kikin.nubecita.core.feedmapping.toPostUiCore
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.data.models.FeedItemUi
 import timber.log.Timber
+import java.time.Instant
+import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -27,8 +28,8 @@ import javax.inject.Singleton
  * [FeedService]. Routes through the authenticated [XrpcClientProvider]
  * (same client every other reader uses).
  *
- * Sends `q` + `cursor` + `limit` and projects [FeedService.searchPosts]
- * response via [toFlatFeedItemUiSingle] (flat — search results never
+ * Sends the query, filters, `cursor` and `limit` to [FeedService.searchPostsV2]
+ * and projects the response via [toFlatFeedItemUiSingle] (flat — search results never
  * render reply clusters). Posts that fail to project (malformed
  * embedded record) are filtered out at the collection boundary.
  *
@@ -47,13 +48,13 @@ internal class DefaultSearchPostsRepository
     ) : SearchPostsRepository {
         override suspend fun searchPosts(
             query: String,
+            filters: PostSearchFilters,
             cursor: String?,
             limit: Int,
-            sort: SearchPostsSort,
         ): Result<SearchPostsPage> {
             // Fail fast on misuse rather than forwarding to the server and
             // surfacing an opaque 400. The atproto lexicon for
-            // `app.bsky.feed.searchPosts` allows 1..100; SEARCH_POSTS_PAGE_LIMIT
+            // `app.bsky.feed.searchPostsV2` allows 1..100; SEARCH_POSTS_PAGE_LIMIT
             // is the default but production callers (the search VM in vrba.6)
             // may eventually want to vary it.
             require(limit in 1..100) {
@@ -63,15 +64,22 @@ internal class DefaultSearchPostsRepository
                 try {
                     val client = xrpcClientProvider.authenticated()
                     val response =
-                        FeedService(client).searchPosts(
-                            SearchPostsRequest(
-                                q = query,
+                        FeedService(client).searchPostsV2(
+                            filters.toRequest(
+                                query = query,
                                 cursor = cursor,
-                                limit = limit.toLong(),
-                                sort = sort.name.lowercase(),
+                                limit = limit,
+                                now = Instant.now(),
+                                zone = ZoneId.systemDefault(),
                             ),
                         )
-                    Result.success(SearchPostsPage(items = response.posts.toModeratedItems(), nextCursor = response.cursor))
+                    Result.success(
+                        SearchPostsPage(
+                            items = response.posts.toModeratedItems(),
+                            nextCursor = response.cursor,
+                            hitsTotal = response.hitsTotal,
+                        ),
+                    )
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (t: Throwable) {
@@ -79,9 +87,10 @@ internal class DefaultSearchPostsRepository
                     // reaches Crashlytics breadcrumbs. Keep cursor/sort + error identity.
                     Timber.tag(TAG).w(
                         t,
-                        "searchPosts failed (cursor=%s, sort=%s): %s",
+                        "searchPosts failed (cursor=%s, sort=%s, filters=%d): %s",
                         cursor,
-                        sort,
+                        filters.sort,
+                        filters.activeCount,
                         t.javaClass.name,
                     )
                     Result.failure(t)
@@ -112,7 +121,13 @@ internal class DefaultSearchPostsRepository
                                 sort = sort.v2WireValue,
                             ),
                         )
-                    Result.success(SearchPostsPage(items = response.posts.toModeratedItems(), nextCursor = response.cursor))
+                    Result.success(
+                        SearchPostsPage(
+                            items = response.posts.toModeratedItems(),
+                            nextCursor = response.cursor,
+                            hitsTotal = response.hitsTotal,
+                        ),
+                    )
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (t: Throwable) {
@@ -150,11 +165,3 @@ internal class DefaultSearchPostsRepository
             const val TAG = "SearchPostsRepo"
         }
     }
-
-/** `searchPostsV2` names the recency sort `recent` (v1 used `latest`). */
-private val SearchPostsSort.v2WireValue: String
-    get() =
-        when (this) {
-            SearchPostsSort.TOP -> "top"
-            SearchPostsSort.LATEST -> "recent"
-        }

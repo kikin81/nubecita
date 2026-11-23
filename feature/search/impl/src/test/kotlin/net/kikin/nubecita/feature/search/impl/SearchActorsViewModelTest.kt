@@ -1,8 +1,10 @@
 package net.kikin.nubecita.feature.search.impl
 
 import app.cash.turbine.test
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -14,6 +16,7 @@ import net.kikin.nubecita.core.analytics.SearchScope
 import net.kikin.nubecita.core.testing.RecordingAnalyticsClient
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchActorsRepository
 import net.kikin.nubecita.feature.search.impl.data.actorFixture
+import net.kikin.nubecita.feature.search.impl.data.testSearchFirstPages
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -32,6 +35,7 @@ class SearchActorsViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private val repo = FakeSearchActorsRepository()
     private val analytics = RecordingAnalyticsClient()
+    private val firstPages = testSearchFirstPages(CoroutineScope(SupervisorJob() + testDispatcher), actors = repo)
 
     @BeforeEach
     fun setUp() {
@@ -46,7 +50,7 @@ class SearchActorsViewModelTest {
     @Test
     fun setQuery_blank_stateStaysIdle() =
         runTest {
-            val vm = SearchActorsViewModel(repo, analytics)
+            val vm = SearchActorsViewModel(repo, firstPages, analytics)
             runCurrent()
 
             assertEquals(SearchActorsLoadStatus.Idle, vm.uiState.value.loadStatus)
@@ -57,7 +61,7 @@ class SearchActorsViewModelTest {
     @Test
     fun search_logsSearchPerform_peopleScope_withFromRecent() =
         runTest {
-            val vm = SearchActorsViewModel(repo, analytics)
+            val vm = SearchActorsViewModel(repo, firstPages, analytics)
             repo.respond(query = "alice", cursor = null, items = emptyList(), nextCursor = null)
 
             vm.setQuery("alice", fromRecent = true)
@@ -72,7 +76,7 @@ class SearchActorsViewModelTest {
     @Test
     fun setQuery_nonBlank_fetchesFirstPage_emitsLoaded() =
         runTest {
-            val vm = SearchActorsViewModel(repo, analytics)
+            val vm = SearchActorsViewModel(repo, firstPages, analytics)
             val hit = actorFixture(did = "did:plc:alice", handle = "alice.bsky.social", displayName = "Alice")
             repo.respond(
                 query = "alice",
@@ -97,7 +101,7 @@ class SearchActorsViewModelTest {
     @Test
     fun setQuery_emptyResponse_emitsEmpty() =
         runTest {
-            val vm = SearchActorsViewModel(repo, analytics)
+            val vm = SearchActorsViewModel(repo, firstPages, analytics)
             repo.respond(
                 query = "no-matches",
                 cursor = null,
@@ -114,7 +118,7 @@ class SearchActorsViewModelTest {
     @Test
     fun setQuery_failure_emitsInitialError_withMappedError() =
         runTest {
-            val vm = SearchActorsViewModel(repo, analytics)
+            val vm = SearchActorsViewModel(repo, firstPages, analytics)
             repo.fail(query = "alice", cursor = null, throwable = java.io.IOException("disconnected"))
 
             vm.setQuery("alice")
@@ -131,7 +135,7 @@ class SearchActorsViewModelTest {
     @Test
     fun setQuery_rapidChange_cancelsPrior_viaMapLatest() =
         runTest {
-            val vm = SearchActorsViewModel(repo, analytics)
+            val vm = SearchActorsViewModel(repo, firstPages, analytics)
             val aliGate = repo.gate(query = "ali", cursor = null)
             repo.respond(
                 query = "alic",
@@ -172,7 +176,7 @@ class SearchActorsViewModelTest {
     @Test
     fun loadMore_loaded_appendsNextPage_andClearsIsAppending() =
         runTest {
-            val vm = SearchActorsViewModel(repo, analytics)
+            val vm = SearchActorsViewModel(repo, firstPages, analytics)
             val page1 = listOf(actorFixture(did = "did:plc:a", handle = "a.bsky.social"))
             val page2 =
                 listOf(
@@ -204,7 +208,7 @@ class SearchActorsViewModelTest {
     @Test
     fun loadMore_endReached_isNoOp() =
         runTest {
-            val vm = SearchActorsViewModel(repo, analytics)
+            val vm = SearchActorsViewModel(repo, firstPages, analytics)
             repo.respond(
                 query = "x",
                 cursor = null,
@@ -225,7 +229,7 @@ class SearchActorsViewModelTest {
     @Test
     fun loadMore_alreadyAppending_isNoOp_singleFlight() =
         runTest {
-            val vm = SearchActorsViewModel(repo, analytics)
+            val vm = SearchActorsViewModel(repo, firstPages, analytics)
             repo.respond(
                 query = "x",
                 cursor = null,
@@ -257,7 +261,7 @@ class SearchActorsViewModelTest {
     @Test
     fun loadMore_failure_emitsShowAppendError_keepsExistingItems() =
         runTest {
-            val vm = SearchActorsViewModel(repo, analytics)
+            val vm = SearchActorsViewModel(repo, firstPages, analytics)
             repo.respond(
                 query = "x",
                 cursor = null,
@@ -292,7 +296,7 @@ class SearchActorsViewModelTest {
         runTest {
             // Regression test for the stale-completion guard inherited
             // from vrba.6's code-quality review.
-            val vm = SearchActorsViewModel(repo, analytics)
+            val vm = SearchActorsViewModel(repo, firstPages, analytics)
             // Page 1 "alice": one item + nextCursor=c2 so loadMore is valid.
             repo.respond(
                 query = "alice",
@@ -364,7 +368,7 @@ class SearchActorsViewModelTest {
     @Test
     fun retry_initialError_retriggersFirstPage_viaIncarnationBump() =
         runTest {
-            val vm = SearchActorsViewModel(repo, analytics)
+            val vm = SearchActorsViewModel(repo, firstPages, analytics)
             repo.fail(query = "x", cursor = null, throwable = java.io.IOException("network"))
 
             vm.setQuery("x")
@@ -390,7 +394,7 @@ class SearchActorsViewModelTest {
     @Test
     fun actorTapped_emitsNavigateToProfileEffect() =
         runTest {
-            val vm = SearchActorsViewModel(repo, analytics)
+            val vm = SearchActorsViewModel(repo, firstPages, analytics)
             vm.effects.test {
                 vm.handleEvent(SearchActorsEvent.ActorTapped("alice.bsky.social"))
                 runCurrent()
@@ -408,7 +412,7 @@ class SearchActorsViewModelTest {
     @Test
     fun clearQueryClicked_emitsNavigateToClearQueryEffect() =
         runTest {
-            val vm = SearchActorsViewModel(repo, analytics)
+            val vm = SearchActorsViewModel(repo, firstPages, analytics)
             vm.effects.test {
                 vm.handleEvent(SearchActorsEvent.ClearQueryClicked)
                 runCurrent()
@@ -424,7 +428,7 @@ class SearchActorsViewModelTest {
             // Regression for Copilot finding on PR #199: the prior
             // `.filter { isNotBlank() }` shape silently kept the stale
             // Loaded state visible after the user cleared the field.
-            val vm = SearchActorsViewModel(repo, analytics)
+            val vm = SearchActorsViewModel(repo, firstPages, analytics)
             repo.respond(
                 query = "alice",
                 cursor = null,
@@ -450,7 +454,7 @@ class SearchActorsViewModelTest {
             // mapLatest, a blank emission would NOT cancel an in-flight
             // runFirstPage — so the prior fetch could resolve late and
             // overwrite the Idle reset with a stale Loaded.
-            val vm = SearchActorsViewModel(repo, analytics)
+            val vm = SearchActorsViewModel(repo, firstPages, analytics)
             val aliceGate = repo.gate(query = "alice", cursor = null)
 
             vm.setQuery("alice")

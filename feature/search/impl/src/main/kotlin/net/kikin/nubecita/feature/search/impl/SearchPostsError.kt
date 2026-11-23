@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.search.impl
 
+import io.github.kikin81.atproto.runtime.XrpcError
 import java.io.IOException
 
 /**
@@ -21,6 +22,9 @@ internal sealed interface SearchPostsError {
     /** Bluesky / atproto rate-limit response (HTTP 429). */
     data object RateLimited : SearchPostsError
 
+    /** The server rejected the query text itself (`BadQueryString`). */
+    data object BadQuery : SearchPostsError
+
     /** Anything else (server 5xx, decode failure, unexpected throwable). */
     data class Unknown(
         val cause: String?,
@@ -30,8 +34,17 @@ internal sealed interface SearchPostsError {
 internal fun Throwable.toSearchPostsError(): SearchPostsError =
     when (this) {
         is IOException -> SearchPostsError.Network
+        is XrpcError ->
+            if (errorName == BAD_QUERY_STRING) {
+                SearchPostsError.BadQuery
+            } else {
+                SearchPostsError.Unknown(cause = message)
+            }
         // Future: add a branch for the SDK's typed 429 exception when it
         // exists (file an upstream issue against kikin81/atproto-kotlin
         // if it doesn't; we have a reference memory for that pattern).
         else -> SearchPostsError.Unknown(cause = message)
     }
+
+/** The XRPC error name `searchPostsV2` returns for a malformed query. */
+private const val BAD_QUERY_STRING = "BadQueryString"

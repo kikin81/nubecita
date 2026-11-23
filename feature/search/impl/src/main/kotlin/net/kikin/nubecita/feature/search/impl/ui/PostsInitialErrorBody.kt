@@ -42,6 +42,8 @@ internal fun PostsInitialErrorBody(
                 R.string.search_posts_error_network_title to R.string.search_posts_error_network_body
             SearchPostsError.RateLimited ->
                 R.string.search_posts_error_rate_limited_title to R.string.search_posts_error_rate_limited_body
+            SearchPostsError.BadQuery ->
+                R.string.search_posts_error_bad_query_title to R.string.search_posts_error_bad_query_body
             is SearchPostsError.Unknown ->
                 R.string.search_posts_error_unknown_title to R.string.search_posts_error_unknown_body
         }

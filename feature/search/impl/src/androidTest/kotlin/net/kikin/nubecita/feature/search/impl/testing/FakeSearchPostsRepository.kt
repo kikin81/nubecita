@@ -8,6 +8,7 @@ import net.kikin.nubecita.data.models.FeedItemUi
 import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
+import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsPage
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsRepository
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
@@ -32,9 +33,9 @@ internal class FakeSearchPostsRepository
     constructor() : SearchPostsRepository {
         override suspend fun searchPosts(
             query: String,
+            filters: PostSearchFilters,
             cursor: String?,
             limit: Int,
-            sort: SearchPostsSort,
         ): Result<SearchPostsPage> =
             Result.success(
                 SearchPostsPage(
@@ -49,7 +50,7 @@ internal class FakeSearchPostsRepository
             cursor: String?,
             limit: Int,
             sort: SearchPostsSort,
-        ): Result<SearchPostsPage> = searchPosts(query = "#$tag", cursor = cursor, limit = limit, sort = sort)
+        ): Result<SearchPostsPage> = searchPosts(query = "#$tag", filters = PostSearchFilters(sort = sort), cursor = cursor, limit = limit)
 
         companion object {
             const val POST_ALICE_URI: String = "at://did:plc:alice/app.bsky.feed.post/post1"

@@ -4,8 +4,10 @@ import app.cash.turbine.test
 import io.mockk.mockk
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -19,6 +21,7 @@ import net.kikin.nubecita.feature.search.impl.data.FakeSearchPostsRepository
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsPage
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
 import net.kikin.nubecita.feature.search.impl.data.searchPostFixture
+import net.kikin.nubecita.feature.search.impl.data.testSearchFirstPages
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -48,6 +51,7 @@ class SearchPostsViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private val repo = FakeSearchPostsRepository()
     private val analytics = RecordingAnalyticsClient()
+    private val firstPages = testSearchFirstPages(CoroutineScope(SupervisorJob() + testDispatcher), posts = repo)
     private val cache = FakePostInteractionsCache()
     private val handler = FakePostInteractionHandler(cache)
 
@@ -61,7 +65,7 @@ class SearchPostsViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun buildVm() = SearchPostsViewModel(repo, analytics, cache, handler, mockk(relaxed = true))
+    private fun buildVm() = SearchPostsViewModel(repo, firstPages, analytics, cache, handler, mockk(relaxed = true))
 
     @Test
     fun setQuery_blank_stateStaysIdle() =

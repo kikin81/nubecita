@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.search.impl
 
+import io.github.kikin81.atproto.runtime.XrpcError
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -24,5 +25,17 @@ class SearchPostsErrorTest {
         val mapped = RuntimeException().toSearchPostsError()
         assertTrue(mapped is SearchPostsError.Unknown)
         assertEquals(null, (mapped as SearchPostsError.Unknown).cause)
+    }
+
+    @Test
+    fun xrpcBadQueryString_mapsToBadQuery() {
+        val mapped = XrpcError.Unknown("BadQueryString", "bad", 400).toSearchPostsError()
+        assertEquals(SearchPostsError.BadQuery, mapped)
+    }
+
+    @Test
+    fun otherXrpcError_mapsToUnknown() {
+        val mapped = XrpcError.Unknown("InternalServerError", "oops", 500).toSearchPostsError()
+        assertTrue(mapped is SearchPostsError.Unknown)
     }
 }

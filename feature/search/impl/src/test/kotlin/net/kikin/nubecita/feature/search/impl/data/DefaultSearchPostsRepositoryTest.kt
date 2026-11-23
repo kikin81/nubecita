@@ -25,6 +25,8 @@ import net.kikin.nubecita.core.moderation.ContentLabel
 import net.kikin.nubecita.core.moderation.LabelVisibility
 import net.kikin.nubecita.core.moderation.ModerationPreferencesRepository
 import net.kikin.nubecita.core.moderation.ModerationPrefs
+import net.kikin.nubecita.feature.search.impl.SearchPostsError
+import net.kikin.nubecita.feature.search.impl.toSearchPostsError
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -63,7 +65,7 @@ class DefaultSearchPostsRepositoryTest {
                     okJson(SEARCH_POSTS_RESPONSE_TWO_HITS)
                 }
 
-            val result = repo.searchPosts(query = "kotlin", cursor = "c1", limit = 25)
+            val result = repo.searchPosts(query = "kotlin", filters = PostSearchFilters(), cursor = "c1", limit = 25)
 
             assertTrue(result.isSuccess)
             val page = result.getOrThrow()
@@ -89,10 +91,10 @@ class DefaultSearchPostsRepositoryTest {
             newRepo { _ -> okJson("""{"posts": []}""") }
 
         assertThrows(IllegalArgumentException::class.java) {
-            runBlocking { repo.searchPosts(query = "kotlin", cursor = null, limit = 0) }
+            runBlocking { repo.searchPosts(query = "kotlin", filters = PostSearchFilters(), cursor = null, limit = 0) }
         }
         assertThrows(IllegalArgumentException::class.java) {
-            runBlocking { repo.searchPosts(query = "kotlin", cursor = null, limit = 101) }
+            runBlocking { repo.searchPosts(query = "kotlin", filters = PostSearchFilters(), cursor = null, limit = 101) }
         }
     }
 
@@ -104,7 +106,7 @@ class DefaultSearchPostsRepositoryTest {
             // surface (dropFiltered = true), so it must not appear in the page.
             val (_, repo) = newRepo { _ -> okJson(SEARCH_POSTS_RESPONSE_ONE_LABELED) }
 
-            val page = repo.searchPosts(query = "kotlin", cursor = null, limit = 25).getOrThrow()
+            val page = repo.searchPosts(query = "kotlin", filters = PostSearchFilters(), cursor = null, limit = 25).getOrThrow()
 
             assertTrue(page.items.isEmpty(), "a hard-filtered search hit must be dropped")
         }
@@ -123,7 +125,7 @@ class DefaultSearchPostsRepositoryTest {
                     )
                 }
 
-            val page = repo.searchPosts(query = "kotlin", cursor = null, limit = 25).getOrThrow()
+            val page = repo.searchPosts(query = "kotlin", filters = PostSearchFilters(), cursor = null, limit = 25).getOrThrow()
 
             assertTrue(page.items.isEmpty())
             assertNull(page.nextCursor)
@@ -137,7 +139,7 @@ class DefaultSearchPostsRepositoryTest {
                     throw IOException("network down")
                 }
 
-            val result = repo.searchPosts(query = "kotlin", cursor = null, limit = 25)
+            val result = repo.searchPosts(query = "kotlin", filters = PostSearchFilters(), cursor = null, limit = 25)
 
             assertTrue(result.isFailure)
             assertTrue(result.exceptionOrNull() is IOException)
@@ -158,7 +160,7 @@ class DefaultSearchPostsRepositoryTest {
 
         assertThrows(CancellationException::class.java) {
             runBlocking {
-                repo.searchPosts(query = "kotlin", cursor = null, limit = 25)
+                repo.searchPosts(query = "kotlin", filters = PostSearchFilters(), cursor = null, limit = 25)
             }
         }
     }
@@ -171,7 +173,7 @@ class DefaultSearchPostsRepositoryTest {
                     okJson("""{"posts": []}""")
                 }
 
-            repo.searchPosts(query = "kotlin lang", cursor = "abc", limit = 13)
+            repo.searchPosts(query = "kotlin lang", filters = PostSearchFilters(), cursor = "abc", limit = 13)
 
             val url =
                 engine.requestHistory
@@ -179,7 +181,7 @@ class DefaultSearchPostsRepositoryTest {
                     .url
                     .toString()
             // Order of query params is not contractual, just presence:
-            assertTrue(url.contains("q=kotlin")) // kotlin lang URL-encoded → kotlin+lang or kotlin%20lang
+            assertTrue(url.contains("query=kotlin")) // kotlin lang URL-encoded → kotlin+lang or kotlin%20lang
             assertTrue(url.contains("cursor=abc"))
             assertTrue(url.contains("limit=13"))
         }
@@ -192,9 +194,9 @@ class DefaultSearchPostsRepositoryTest {
 
             repo.searchPosts(
                 query = "kotlin",
+                filters = PostSearchFilters(sort = SearchPostsSort.LATEST),
                 cursor = null,
                 limit = 25,
-                sort = SearchPostsSort.LATEST,
             )
 
             val url =
@@ -202,7 +204,7 @@ class DefaultSearchPostsRepositoryTest {
                     .single()
                     .url
                     .toString()
-            assertTrue(url.contains("sort=latest"))
+            assertTrue(url.contains("sort=recent"))
         }
 
     @Test
@@ -213,9 +215,9 @@ class DefaultSearchPostsRepositoryTest {
 
             repo.searchPosts(
                 query = "kotlin",
+                filters = PostSearchFilters(sort = SearchPostsSort.TOP),
                 cursor = null,
                 limit = 25,
-                sort = SearchPostsSort.TOP,
             )
 
             val url =
@@ -258,6 +260,46 @@ class DefaultSearchPostsRepositoryTest {
             val url = engine.requestHistory.single().url
             assertEquals(listOf("alice.bsky.social"), url.parameters.getAll("authors"))
             assertEquals("top", url.parameters["sort"])
+        }
+
+    @Test
+    fun searchPosts_callsSearchPostsV2_withAllTimeAndFilters_andMapsHitsTotal() =
+        runTest {
+            val (engine, repo) = newRepo { _ -> okJson(SEARCH_POSTS_RESPONSE_TWO_HITS) }
+
+            val page =
+                repo
+                    .searchPosts(
+                        query = "kotlin",
+                        filters = PostSearchFilters(followingOnly = true, media = MediaFilter.HAS_MEDIA),
+                        cursor = null,
+                        limit = 25,
+                    ).getOrThrow()
+
+            val url = engine.requestHistory.single().url
+            assertTrue(url.encodedPath.endsWith("app.bsky.feed.searchPostsV2"), url.encodedPath)
+            assertEquals("true", url.parameters["allTime"])
+            assertEquals("true", url.parameters["following"])
+            assertEquals("true", url.parameters["hasMedia"])
+            assertNull(url.parameters["hasVideo"])
+            assertEquals(42L, page.hitsTotal)
+        }
+
+    @Test
+    fun searchPosts_badQueryStringResponse_mapsToBadQueryError() =
+        runTest {
+            val (_, repo) =
+                newRepo { _ ->
+                    respond(
+                        content = ByteReadChannel("""{"error":"BadQueryString","message":"bad"}"""),
+                        status = HttpStatusCode.BadRequest,
+                        headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                    )
+                }
+
+            val result = repo.searchPosts(query = "(", filters = PostSearchFilters(), cursor = null, limit = 25)
+
+            assertEquals(SearchPostsError.BadQuery, result.exceptionOrNull()?.toSearchPostsError())
         }
 
     // --- helpers ---

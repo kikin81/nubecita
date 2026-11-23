@@ -23,6 +23,8 @@ import net.kikin.nubecita.core.postinteractions.PostInteractionsCache
 import net.kikin.nubecita.core.postinteractions.mergeInteractionState
 import net.kikin.nubecita.core.posttranslation.PostTranslations
 import net.kikin.nubecita.data.models.FeedItemUi
+import net.kikin.nubecita.feature.search.impl.data.PostSearchFilters
+import net.kikin.nubecita.feature.search.impl.data.SearchFirstPages
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsRepository
 import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
 import javax.inject.Inject
@@ -63,6 +65,7 @@ internal class SearchPostsViewModel
     @Inject
     constructor(
         private val repository: SearchPostsRepository,
+        private val firstPages: SearchFirstPages,
         private val analytics: AnalyticsClient,
         private val cache: PostInteractionsCache,
         private val handler: PostInteractionHandler,
@@ -153,8 +156,8 @@ internal class SearchPostsViewModel
 
         private suspend fun runFirstPage(key: FetchKey) {
             setState { copy(loadStatus = SearchPostsLoadStatus.InitialLoading) }
-            repository
-                .searchPosts(query = key.query, cursor = null, sort = key.sort)
+            firstPages
+                .posts(query = key.query, filters = PostSearchFilters(sort = key.sort))
                 .onSuccess { page ->
                     // search_perform fires on a completed first-page search (incl.
                     // empty results); scope tracks the active Top/Latest sort. The
@@ -206,8 +209,11 @@ internal class SearchPostsViewModel
             val capturedKey = fetchKey.value
             viewModelScope.launch {
                 repository
-                    .searchPosts(query = capturedKey.query, cursor = cursor, sort = capturedKey.sort)
-                    .onSuccess { page ->
+                    .searchPosts(
+                        query = capturedKey.query,
+                        filters = PostSearchFilters(sort = capturedKey.sort),
+                        cursor = cursor,
+                    ).onSuccess { page ->
                         // Stale-completion guard: if the user changed sort or query
                         // (or hit Retry) while this append was in flight, the
                         // mapLatest pipeline has already moved the state on. Don't
