@@ -38,8 +38,8 @@ internal data class DiscoverFeedUi(
  *
  * Transitions: Idle → Loading → Loaded | Error.
  * Once in [Loaded] or [Error], a subsequent [DiscoverEvent.OnFeedCardVisible]
- * for the same URI is a no-op — the fetch is cached for the lifetime of
- * the [DiscoverViewModel].
+ * for the same URI is a no-op — the preview is cached in the Explore repository,
+ * per process and per signed-in account (an account change clears it).
  */
 @Immutable
 internal sealed interface FeedPreviewStatus {

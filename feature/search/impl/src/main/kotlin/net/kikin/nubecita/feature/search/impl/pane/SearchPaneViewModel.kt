@@ -55,7 +55,7 @@ import javax.inject.Inject
  * tabs do, keyed by the store's (query, filters, submission) so the pane and a tab of the same
  * search share one request. Posts depend on the filters; people, feeds and packs do not, so a filter
  * change reloads the posts section only. A section re-reads when [SearchFirstPages.version]
- * moves (a tab refreshed, or the session changed), without going back to Loading, and a failed
+ * moves (a tab refreshed, or the session changed; no tab refreshes yet), without going back to Loading, and a failed
  * re-read keeps the rows it had; but when the signed-in account changes the sections are
  * cleared first, so a failed re-read shows Error and never the previous account's rows. A new
  * search cancels the requests of the old one.

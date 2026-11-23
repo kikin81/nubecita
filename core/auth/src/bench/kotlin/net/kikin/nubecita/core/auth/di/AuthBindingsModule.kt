@@ -35,7 +35,7 @@ import javax.inject.Singleton
  * - [FakeOAuthSessionStore] — always reports "no session"
  * - [FakeAuthRepository] — deterministic happy-path results
  * - [FakeOAuthRedirectBroker] — empty redirect stream, no-op publish
- * - [FakeSessionStateProvider] — hardcoded [SessionState.SignedIn] at boot
+ * - [FakeSessionStateProvider] — [SessionState.SignedIn] at boot, togglable via `setSignedIn`
  * - [FakeXrpcClientProvider] — throws on `authenticated()` (no real XRPC)
  *
  * See `bd show nubecita-crmi.6` for the broader Section A scope.

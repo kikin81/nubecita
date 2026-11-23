@@ -5,9 +5,9 @@ import kotlinx.collections.immutable.ImmutableList
 import net.kikin.nubecita.core.postinteractions.FollowOverride
 
 /**
- * UI-ready projection of an `app.bsky.actor.defs#profileView` from the
- * `app.bsky.actor.getSuggestions` surface. Drives the suggested-people
- * section in the Discover tab.
+ * UI-ready projection of an `app.bsky.actor.defs#profileView` from
+ * `app.bsky.unspecced.getSuggestedUsersForExplore`. Drives the People to
+ * follow section of Explore (the phone landing and the wide-window pane).
  *
  * - [isFollowing] / [followUri]: derived from `viewer.following` — the
  *   follow-record AtUri is present iff the viewer follows this account.

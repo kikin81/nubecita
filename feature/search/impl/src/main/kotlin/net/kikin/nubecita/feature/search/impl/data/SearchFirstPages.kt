@@ -29,6 +29,10 @@ import javax.inject.Singleton
  * Every cache is cleared when the signed-in account changes or signs out, so
  * one account's results never reach another. [version] bumps on every
  * refresh and clear, so an observer holding a page can tell it is stale.
+ *
+ * The `refresh` parameters replace an entry instead of reusing it, as the design calls for;
+ * no caller uses them yet (the result tabs have no pull-to-refresh, and a re-submitted search
+ * gets a new submission number instead).
  */
 @Singleton
 internal class SearchFirstPages
@@ -69,7 +73,7 @@ internal class SearchFirstPages
 
         private val _version = MutableStateFlow(0)
 
-        /** Bumps on every refresh and clear. */
+        /** Bumps on every refresh and clear. No caller refreshes yet, so today only a clear bumps it. */
         val version: StateFlow<Int> = _version
 
         init {

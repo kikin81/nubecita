@@ -23,8 +23,11 @@ import org.junit.runner.RunWith
  * list, and (wide windows only) the Explore and Summary second-pane lists.
  *
  * Same rule, metric, compilation mode, iteration count and warm start as
- * [FeedScrollBenchmark]. Navigation and typing happen in `setupBlock`; the
- * measured block is only the flings. The list tags are the contract in
+ * [FeedScrollBenchmark], but not the same gesture profile, so the two are not
+ * like-for-like (the tails especially): the bench search fixture is one page of
+ * 10 posts, so this test flings both directions and reverses at the list ends,
+ * while the feed test flings one way through a long paged list. Navigation and
+ * typing happen in `setupBlock`; the measured block is only the flings. The list tags are the contract in
  * `BenchmarkConstants` (pinned by `:feature:search:impl/SearchTestTagsTest`).
  *
  * The Explore and Summary lists exist only in the list-detail second pane, so a

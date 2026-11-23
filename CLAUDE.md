@@ -223,7 +223,7 @@ feature/
   postdetail/{api,impl}  thread view (ancestors + focus + replies)
   profile/{api,impl}     user profile with hero + Posts/Replies/Media tabs
   search/{api,impl}      search with typeahead, posts/people/feeds/packs tabs, post filters, Trending + Explore landing, and recent search
-  starterpack/{api,impl} starter pack screen (members, follow all) opened from search results and the Explore pane
+  starterpack/{api,impl} starter pack screen (header, feeds, members) opened from search results and the Explore pane
   settings/{api,impl}    settings screen
   videoplayer/{api,impl} inline video player
   videos/{api,impl}      vertical trending video feed
@@ -402,7 +402,7 @@ Nubecita Pro is an auto-renewing Google Play subscription mediated by RevenueCat
 
 ### Testing conventions
 
-Journeys in `app/src/journeysTest/` are plain-language steps run on a device: `search` (leak check, any width), `search_filters` (any width) and `search_second_pane` (wide window only) cover Search; run them after touching `:feature:search:impl`. `SearchScrollBenchmark` in `:benchmark` measures scrolling of the results list and the Explore and Summary panes; it needs a real device (`./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest`, bench flavor) and its two pane tests skip on a phone.
+Journeys in `app/src/journeysTest/` are plain-language steps run on a device: `search` (leak check, any width), `search_filters` (any width) and `search_second_pane` (wide window only) cover Search; run them after touching `:feature:search:impl`. `SearchScrollBenchmark` in `:benchmark` measures scrolling of the results list and the Explore and Summary panes; it needs a real device (`./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest`, bench flavor) and its two pane tests skip on a phone. Its numbers are not like-for-like with `FeedScrollBenchmark`'s: the bench search fixture is one page of 10 posts, so the test flings both directions and reverses at the list ends, while the feed test flings one way through a long paged list, so the tails differ.
 
 #### Unit tests (`:core:testing`)
 
