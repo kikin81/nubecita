@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -35,7 +36,7 @@ import net.kikin.nubecita.feature.search.impl.R
  * Single starter-pack row for the Packs tab and the Summary: the pack's name, "by @creator", the
  * member count when the server gave one, and up to four member avatars at the end when the
  * response carried a sample. The whole row is one click target that opens the pack, and its
- * accessible name is the pack's name and creator.
+ * accessible name is the pack's name, creator and member count (see [packContentDescription]).
  *
  * Stateless: plain data and a lambda, so the wide-window summary pane reuses it unchanged.
  */
@@ -45,7 +46,7 @@ internal fun StarterPackRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val description = stringResource(R.string.search_pack_content_desc, pack.name, pack.creatorHandle)
+    val description = packContentDescription(pack)
     Row(
         modifier =
             modifier
@@ -87,16 +88,36 @@ internal fun StarterPackRow(
 }
 
 /**
- * Overlapping member avatars, the first on top, each ringed in the surface colour so the circles
- * stay distinct. Decorative: the pack's own name carries the accessible description.
+ * The merged accessible name of a pack row or card: its name, "by @creator", and the member
+ * count when the server gave one (the visible text shows it, so a screen reader must too).
+ */
+@Composable
+internal fun packContentDescription(pack: StarterPackUi): String {
+    val count = pack.memberCount
+    return if (count == null) {
+        stringResource(R.string.search_pack_content_desc, pack.name, pack.creatorHandle)
+    } else {
+        stringResource(
+            R.string.search_pack_content_desc_with_members,
+            pack.name,
+            pack.creatorHandle,
+            pluralStringResource(R.plurals.search_pack_member_count, count, count),
+        )
+    }
+}
+
+/**
+ * Overlapping member avatars, the first on top, each ringed in [ringColor] (the colour of what
+ * they sit on, `surface` by default) so the circles stay distinct. Decorative: the pack's own
+ * name carries the accessible description.
  */
 @Composable
 internal fun PackAvatarStack(
     avatarUrls: ImmutableList<String>,
     avatarSize: Dp,
     modifier: Modifier = Modifier,
+    ringColor: Color = MaterialTheme.colorScheme.surface,
 ) {
-    val ring = MaterialTheme.colorScheme.surface
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(-avatarSize * 0.3f),
@@ -110,7 +131,7 @@ internal fun PackAvatarStack(
                 modifier =
                     Modifier
                         .zIndex((avatarUrls.size - index).toFloat())
-                        .border(width = 1.5.dp, color = ring, shape = CircleShape),
+                        .border(width = 1.5.dp, color = ringColor, shape = CircleShape),
             )
         }
     }

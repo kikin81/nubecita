@@ -288,6 +288,7 @@
     <string name="search_pack_byline">by @%1$s</string>
     <!-- Accessible name of a whole pack row or card: the pack\'s name and its creator. -->
     <string name="search_pack_content_desc">%1$s, by @%2$s</string>
+    <string name="search_pack_content_desc_with_members">%1$s, by @%2$s, %3$s</string>
     <plurals name="search_pack_member_count">
         <item quantity="one">%1$d person</item>
         <item quantity="other">%1$d people</item>
