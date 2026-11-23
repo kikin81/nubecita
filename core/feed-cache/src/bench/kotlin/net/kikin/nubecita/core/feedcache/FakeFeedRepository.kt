@@ -1,6 +1,8 @@
 package net.kikin.nubecita.core.feedcache
 
 import android.content.Context
+import androidx.paging.LoadState
+import androidx.paging.LoadStates
 import androidx.paging.PagingData
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.collections.immutable.ImmutableList
@@ -76,7 +78,10 @@ internal class FakeFeedRepository
         override fun pagedFeed(
             feedKey: FeedKey,
             initialPosition: Int?,
-        ): Flow<PagingData<CachedFeedRow>> = flow { emit(PagingData.from(itemsFor(feedKey).map(CachedFeedRow::Item))) }
+        ): Flow<PagingData<CachedFeedRow>> =
+            // Completed load states: without them refresh stays Loading and the pull-to-refresh
+            // indicator never goes away, unlike production's Pager.
+            flow { emit(PagingData.from(itemsFor(feedKey).map(CachedFeedRow::Item), COMPLETED_LOAD_STATES)) }
 
         override fun head(
             feedKey: FeedKey,
@@ -266,3 +271,10 @@ private fun List<FeedItemUi>.allPosts(): List<PostUi> =
             is FeedItemUi.Blocked, is FeedItemUi.NotFound -> emptyList()
         }
     }
+
+private val COMPLETED_LOAD_STATES =
+    LoadStates(
+        refresh = LoadState.NotLoading(endOfPaginationReached = false),
+        prepend = LoadState.NotLoading(endOfPaginationReached = true),
+        append = LoadState.NotLoading(endOfPaginationReached = true),
+    )

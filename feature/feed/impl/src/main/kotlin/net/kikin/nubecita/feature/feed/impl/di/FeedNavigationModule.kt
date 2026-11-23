@@ -118,23 +118,27 @@ internal object FeedNavigationModule {
         }
 
     /**
-     * [FeedView] — a full-screen custom / generator feed screen.
+     * [FeedView] — a custom / generator feed screen.
      *
-     * Plain full-screen, NOT wrapped in `adaptiveDialog()`: mirrors
-     * PostDetail / Profile where the content is a paginated list that
-     * belongs full-screen at every width class.
+     * Full-screen on Compact, NOT wrapped in `adaptiveDialog()`: mirrors
+     * PostDetail / Profile where the content is a paginated list. On
+     * Medium/Expanded it takes the DETAIL pane role (like `Hashtag` and
+     * `Profile(handle = …)`): it is a sub-route pushed from Search, so
+     * without a pane role it would replace the list and stretch across the
+     * whole window. Its post taps stack above it in the same pane.
      *
      * Nav-callback wiring follows the same pattern as [provideFeedEntries]:
      * `LocalMainShellNavState` for inner back-stack pushes, `LocalAppNavigator`
      * for outer-shell routes (MediaViewer / VideoPlayer) that must escape the
      * NavigationSuiteScaffold chrome.
      */
+    @OptIn(ExperimentalMaterial3AdaptiveApi::class)
     @Provides
     @IntoSet
     @MainShell
     fun provideFeedViewEntries(): EntryProviderInstaller =
         {
-            entry<FeedView> { route ->
+            entry<FeedView>(metadata = ListDetailSceneStrategy.detailPane()) { route ->
                 val navState = LocalMainShellNavState.current
                 val appNavigator = LocalAppNavigator.current
                 CompositionLocalProvider(
