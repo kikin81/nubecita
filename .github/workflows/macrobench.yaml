@@ -101,8 +101,14 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
 
+      # Read-only (nubecita-rjni): this nightly run saved about 1.1 GB of its own
+      # cache entries, which helped push ci.yaml's entries out of the 10 GB
+      # repository quota. It restores the most recent entry on `main` and downloads
+      # the benchmark-only libraries it adds.
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
 
       # Confirm the runner exposes hardware-virtualization extensions before
       # spending minutes booting an emulator that would otherwise fall back

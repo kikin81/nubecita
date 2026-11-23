@@ -405,8 +405,13 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
 
+      # Read-only (nubecita-rjni): on a push to `main` this job saved about 0.85 GB
+      # of its own cache entries, on top of the five jobs above. Its dependencies
+      # overlap the `build` job's, which compiles every module's androidTest sources.
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
 
       # KVM is needed for x86_64 emulator hardware acceleration on the
       # ubuntu-latest runner. Without this, emulator boot time goes from
