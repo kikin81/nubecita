@@ -7,6 +7,7 @@ import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.coroutines.ApplicationScope
 import net.kikin.nubecita.core.postinteractions.FollowRepository
+import net.kikin.nubecita.data.models.ActorUi
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -105,4 +106,51 @@ internal class FollowToggle
             activeJobs[account to did] = job
             return true
         }
+
+        /**
+         * [toggle] for a row on screen: the one place that decides what [actor]'s row becomes.
+         * [updateActor] rewrites that row in the caller's list (a targeted rewrite of the
+         * CURRENT state, never a snapshot restore): once now for the optimistic flip, then for
+         * the outcome per [afterFollowOutcome]. [onOutcome] runs after the row was rewritten, for
+         * what is the caller's own (analytics, an error message). Returns what [toggle] returns.
+         */
+        fun toggleActor(
+            scope: CoroutineScope,
+            actor: ActorUi,
+            updateActor: ((ActorUi) -> ActorUi) -> Unit,
+            onOutcome: (FollowOutcome) -> Unit,
+        ): Boolean {
+            val did = actor.did
+            val wasFollowing = actor.isFollowing
+            val previousFollowUri = actor.followUri
+            val started =
+                toggle(scope, did, wasFollowing, previousFollowUri) { outcome ->
+                    updateActor { it.afterFollowOutcome(outcome, previousFollowUri, followOverlay[did]?.followUri) }
+                    onOutcome(outcome)
+                }
+            // The toggle has already written the optimistic override; show it now rather than
+            // when the overlay's collector next runs.
+            if (started) {
+                val overrides = followOverlay.current()
+                updateActor { it.withFollowOverride(overrides) }
+            }
+            return started
+        }
+    }
+
+/**
+ * What a row becomes when its follow call settles with [outcome]: followed (with the record
+ * [newFollowUri]), unfollowed (unchanged: the overlay already cleared it), or rolled back to the
+ * state before the tap ([previousFollowUri] is the record URI the row carried).
+ */
+internal fun ActorUi.afterFollowOutcome(
+    outcome: FollowOutcome,
+    previousFollowUri: String?,
+    newFollowUri: String?,
+): ActorUi =
+    when (outcome) {
+        FollowOutcome.Followed -> copy(isFollowing = true, followUri = newFollowUri)
+        FollowOutcome.Unfollowed -> this
+        FollowOutcome.FollowFailed -> copy(isFollowing = false, followUri = null)
+        FollowOutcome.UnfollowFailed -> copy(isFollowing = true, followUri = previousFollowUri)
     }

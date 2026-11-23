@@ -263,3 +263,34 @@ class FollowToggleTest {
             assertEquals(FollowOverride(true, "at://follow/as-b"), overlay["did:plc:x"])
         }
 }
+
+class FollowOutcomeRulesTest {
+    private val followed = actorFixture("did:plc:a").copy(isFollowing = true, followUri = "at://follow/old")
+    private val notFollowed = actorFixture("did:plc:a")
+
+    @Test
+    fun `followed keeps the new record uri`() {
+        assertEquals(
+            notFollowed.copy(isFollowing = true, followUri = "at://follow/new"),
+            notFollowed.afterFollowOutcome(FollowOutcome.Followed, previousFollowUri = null, newFollowUri = "at://follow/new"),
+        )
+    }
+
+    @Test
+    fun `unfollowed leaves the row as it is`() {
+        val row = followed.copy(isFollowing = false, followUri = null)
+        assertEquals(row, row.afterFollowOutcome(FollowOutcome.Unfollowed, previousFollowUri = "at://follow/old", newFollowUri = null))
+    }
+
+    @Test
+    fun `a failed follow flips back to not following`() {
+        val optimistic = notFollowed.copy(isFollowing = true)
+        assertEquals(notFollowed, optimistic.afterFollowOutcome(FollowOutcome.FollowFailed, previousFollowUri = null, newFollowUri = null))
+    }
+
+    @Test
+    fun `a failed unfollow restores following with the previous record uri`() {
+        val optimistic = followed.copy(isFollowing = false, followUri = null)
+        assertEquals(followed, optimistic.afterFollowOutcome(FollowOutcome.UnfollowFailed, previousFollowUri = "at://follow/old", newFollowUri = null))
+    }
+}

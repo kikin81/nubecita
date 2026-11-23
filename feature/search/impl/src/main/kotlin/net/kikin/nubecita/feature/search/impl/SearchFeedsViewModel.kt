@@ -4,7 +4,6 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
@@ -23,8 +22,11 @@ import net.kikin.nubecita.core.analytics.ViewFeed
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.feeds.PinnedFeedsRepository
 import net.kikin.nubecita.feature.search.impl.data.FeedGeneratorUi
+import net.kikin.nubecita.feature.search.impl.data.FeedPinToggle
+import net.kikin.nubecita.feature.search.impl.data.PinOutcome
 import net.kikin.nubecita.feature.search.impl.data.SearchFeedsRepository
 import net.kikin.nubecita.feature.search.impl.data.SearchFirstPages
+import net.kikin.nubecita.feature.search.impl.data.withPinnedFrom
 import javax.inject.Inject
 
 /**
@@ -52,6 +54,7 @@ internal class SearchFeedsViewModel
         private val repository: SearchFeedsRepository,
         private val firstPages: SearchFirstPages,
         private val pinnedFeedsRepository: PinnedFeedsRepository,
+        private val pinToggle: FeedPinToggle,
         private val analytics: AnalyticsClient,
     ) : MviViewModel<SearchFeedsState, SearchFeedsEvent, SearchFeedsEffect>(SearchFeedsState()) {
         private data class FetchKey(
@@ -71,9 +74,6 @@ internal class SearchFeedsViewModel
          * pin made on another surface shows here without a request per row.
          */
         private var currentPinnedUris: Set<String> = emptySet()
-
-        /** In-flight pin/unpin jobs keyed by feed URI — drops rapid concurrent taps. */
-        private val activePinJobs = mutableMapOf<String, Job>()
 
         private val fetchKey = MutableStateFlow(FetchKey(query = "", incarnation = 0, fromRecent = false, submission = 0))
 
@@ -124,32 +124,26 @@ internal class SearchFeedsViewModel
          * rollback, never a snapshot restore) and tell the screen. Analytics fires on success only.
          */
         private fun onPinTapped(uri: String) {
-            if (activePinJobs[uri]?.isActive == true) return
             val feed = (uiState.value.loadStatus as? SearchFeedsLoadStatus.Loaded)?.items?.find { it.uri == uri } ?: return
             val wasPinned = feed.isPinned
 
-            setPinned(uri, !wasPinned)
-            activePinJobs[uri] =
-                viewModelScope.launch {
-                    val result =
-                        if (wasPinned) {
-                            pinnedFeedsRepository.unpinFeed(uri)
-                        } else {
-                            pinnedFeedsRepository.pinFeed(uri)
-                        }
-                    result
-                        .onSuccess {
-                            analytics.log(
-                                InteractFeed(
-                                    action = if (wasPinned) FeedAction.Unpin else FeedAction.Pin,
-                                    surface = PostSurface.Search,
-                                ),
-                            )
-                        }.onFailure {
-                            setPinned(uri, wasPinned)
-                            sendEffect(SearchFeedsEffect.PinFailed(wasUnpin = wasPinned))
-                        }
+            pinToggle.toggle(
+                scope = viewModelScope,
+                uri = uri,
+                isPinned = wasPinned,
+                onOptimistic = { pinned -> setPinned(uri, pinned) },
+            ) { outcome ->
+                when (outcome) {
+                    PinOutcome.Pinned ->
+                        analytics.log(InteractFeed(action = FeedAction.Pin, surface = PostSurface.Search))
+                    PinOutcome.Unpinned ->
+                        analytics.log(InteractFeed(action = FeedAction.Unpin, surface = PostSurface.Search))
+                    PinOutcome.PinFailed, PinOutcome.UnpinFailed -> {
+                        setPinned(uri, wasPinned)
+                        sendEffect(SearchFeedsEffect.PinFailed(wasUnpin = wasPinned))
+                    }
                 }
+            }
         }
 
         private fun setPinned(
@@ -164,8 +158,6 @@ internal class SearchFeedsViewModel
                 copy(loadStatus = status.copy(items = status.items.map(transform).toImmutableList()))
             }
         }
-
-        private fun FeedGeneratorUi.withPinnedFrom(uris: Set<String>): FeedGeneratorUi = if (isPinned == (uri in uris)) this else copy(isPinned = uri in uris)
 
         private suspend fun runFirstPage(key: FetchKey) {
             setState { copy(loadStatus = SearchFeedsLoadStatus.InitialLoading) }

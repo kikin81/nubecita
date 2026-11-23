@@ -2,6 +2,7 @@ package net.kikin.nubecita.feature.search.impl
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,6 +40,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
 import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
@@ -370,19 +372,48 @@ internal fun SearchScreenContent(
                     // so a fresh search never inherits the previous pager page.
                     val pagerState = rememberPagerState(initialPage = selectedTab.ordinal, pageCount = { SearchTab.entries.size })
                     val currentOnEvent by rememberUpdatedState(onEvent)
+                    // One state machine decides every pager / stored-tab move (see TabSyncState); this
+                    // only feeds it events and carries its actions out. A scroll runs in its own job
+                    // and an interrupted one ends only that job, so no collector below can die with it.
+                    val tabSync = remember(pagerState) { TabSyncHolder() }
+                    val currentSelectedTab by rememberUpdatedState(selectedTab)
+                    val applyStep: (TabSyncStep) -> Unit = { step ->
+                        tabSync.state = step.state
+                        when (val action = step.action) {
+                            TabSyncAction.None -> Unit
+                            is TabSyncAction.ScrollTo ->
+                                tabScope.launch {
+                                    try {
+                                        pagerState.animateScrollToPage(action.tab.ordinal)
+                                    } catch (_: CancellationException) {
+                                        // Interrupted by a newer scroll or a drag: nothing to undo.
+                                    }
+                                }
+                            is TabSyncAction.Report -> currentOnEvent(SearchEvent.TabSelected(action.tab))
+                        }
+                    }
+                    val currentApplyStep by rememberUpdatedState(applyStep)
                     LaunchedEffect(selectedTab, pagerState) {
-                        if (pagerState.currentPage != selectedTab.ordinal) {
-                            pagerState.animateScrollToPage(selectedTab.ordinal)
+                        currentApplyStep(
+                            tabSync.state.onStoreTabObserved(selectedTab, SearchTab.entries[pagerState.targetPage]),
+                        )
+                    }
+                    LaunchedEffect(pagerState) {
+                        pagerState.interactionSource.interactions.collect { interaction ->
+                            if (interaction is DragInteraction.Start) tabSync.state = tabSync.state.onUserDragStarted()
                         }
                     }
                     LaunchedEffect(pagerState) {
-                        snapshotFlow { pagerState.settledPage }.collect { page ->
-                            currentOnEvent(SearchEvent.TabSelected(SearchTab.entries[page]))
-                        }
+                        snapshotFlow { pagerState.settledPage to pagerState.isScrollInProgress }
+                            .collect { (page, scrolling) ->
+                                if (scrolling) return@collect
+                                currentApplyStep(tabSync.state.onSettled(SearchTab.entries[page], currentSelectedTab))
+                            }
                     }
                     SearchResultsTabBar(
                         selectedTabIndex = pagerState.currentPage,
-                        onSelectTab = { page -> tabScope.launch { pagerState.animateScrollToPage(page) } },
+                        // A tap is a request like any other: it goes to the store and the pager follows.
+                        onSelectTab = { page -> currentOnEvent(SearchEvent.TabSelected(SearchTab.entries[page])) },
                     )
                     HorizontalPager(
                         state = pagerState,

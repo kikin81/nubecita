@@ -179,4 +179,23 @@
     <string name="explore_pane_error_message">Não foi possível carregar as sugestões.</string>
     <string name="explore_pane_nothing_message">Nada para sugerir no momento</string>
     <string name="explore_pane_retry">Tentar novamente</string>
+
+    <!-- Summary pane (wide windows): the submitted search in brief. -->
+    <string name="summary_pane_results_for">Resultados para</string>
+    <string name="summary_pane_count_line">Publicações: cerca de %1$s · %2$s</string>
+    <string name="summary_pane_edit_filters">Editar filtros</string>
+    <string name="summary_pane_remove_filter">Remover filtro: %1$s</string>
+    <string name="summary_pane_top_post_title">Publicação em destaque</string>
+    <string name="summary_pane_top_post_description">Abrir a publicação de %1$s</string>
+    <string name="summary_pane_post_counts">Respostas %1$s · Reposts %2$s · Curtidas %3$s</string>
+    <string name="summary_pane_people_title">Pessoas</string>
+    <string name="summary_pane_feeds_title">Feeds</string>
+    <string name="summary_pane_see_all">Ver tudo</string>
+    <string name="summary_pane_see_all_people_description">Ver todas as pessoas</string>
+    <string name="summary_pane_see_all_feeds_description">Ver todos os feeds</string>
+    <string name="summary_pane_posts_error">Não foi possível carregar as publicações.</string>
+    <string name="summary_pane_people_error">Não foi possível carregar as pessoas.</string>
+    <string name="summary_pane_feeds_error">Não foi possível carregar os feeds.</string>
+    <string name="summary_pane_retry">Tentar novamente</string>
+    <string name="summary_pane_no_results">Nenhum resultado para \"%1$s\"</string>
 </resources>
