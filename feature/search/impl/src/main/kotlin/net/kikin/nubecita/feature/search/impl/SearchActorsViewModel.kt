@@ -5,7 +5,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
@@ -24,10 +23,10 @@ import net.kikin.nubecita.core.analytics.SearchScope
 import net.kikin.nubecita.core.auth.SessionState
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.common.mvi.MviViewModel
-import net.kikin.nubecita.core.postinteractions.FollowRepository
 import net.kikin.nubecita.data.models.ActorUi
+import net.kikin.nubecita.feature.search.impl.data.FollowOutcome
 import net.kikin.nubecita.feature.search.impl.data.FollowOverlay
-import net.kikin.nubecita.feature.search.impl.data.FollowOverride
+import net.kikin.nubecita.feature.search.impl.data.FollowToggle
 import net.kikin.nubecita.feature.search.impl.data.SearchFirstPages
 import net.kikin.nubecita.feature.search.impl.data.withFollowOverride
 import javax.inject.Inject
@@ -71,7 +70,7 @@ internal class SearchActorsViewModel
     constructor(
         private val repository: ActorRepository,
         private val firstPages: SearchFirstPages,
-        private val followRepository: FollowRepository,
+        private val followToggle: FollowToggle,
         private val followOverlay: FollowOverlay,
         private val sessionStateProvider: SessionStateProvider,
         private val analytics: AnalyticsClient,
@@ -85,9 +84,6 @@ internal class SearchActorsViewModel
             /** The store's submission counter: an explicit re-submit of the same text is a new search. */
             val submission: Int,
         )
-
-        /** In-flight follow/unfollow jobs keyed by DID — drops rapid concurrent taps. */
-        private val activeFollowJobs = mutableMapOf<String, Job>()
 
         private val fetchKey = MutableStateFlow(FetchKey(query = "", incarnation = 0, fromRecent = false, submission = 0))
 
@@ -139,64 +135,52 @@ internal class SearchActorsViewModel
         }
 
         /**
-         * Optimistic follow / unfollow, the same shape as `DiscoverViewModel`'s:
-         * flip first, call [FollowRepository], and on failure flip back on the
-         * CURRENT state (a targeted rollback, never a snapshot restore) and tell
-         * the screen. Analytics fires on success only.
+         * Optimistic follow / unfollow through the shared [FollowToggle]: it writes the
+         * overlay, calls the repository and rolls the overlay back. Here the row on
+         * screen is flipped at once and, on failure, flipped back on the CURRENT state
+         * (a targeted rollback, never a snapshot restore) with a message for the
+         * screen. Analytics fires on success only.
          */
         private fun onFollowTapped(did: String) {
             if (did == uiState.value.viewerDid) return
-            if (activeFollowJobs[did]?.isActive == true) return
             val actor = loadedItems().find { it.did == did } ?: return
-            val previousOverride = followOverlay.overrides.value[did]
+            val wasFollowing = actor.isFollowing
+            val previousFollowUri = actor.followUri
 
-            if (actor.isFollowing) {
-                // An account known to be followed without its record URI cannot be unfollowed.
-                val followUri = actor.followUri ?: return
-                updateActor(did) { it.copy(isFollowing = false, followUri = null) }
-                followOverlay.set(did, FollowOverride(isFollowing = false, followUri = null))
-                activeFollowJobs[did] =
-                    viewModelScope.launch {
-                        followRepository
-                            .unfollow(followUri)
-                            .onSuccess {
-                                analytics.log(InteractActor(ActorAction.Unfollow, PostSurface.Search))
-                            }.onFailure {
-                                updateActor(did) { it.copy(isFollowing = true, followUri = followUri) }
-                                restoreOverride(did, previousOverride)
-                                sendEffect(SearchActorsEffect.FollowFailed(wasUnfollow = true))
-                            }
+            val started =
+                followToggle.toggle(
+                    scope = viewModelScope,
+                    did = did,
+                    isFollowing = wasFollowing,
+                    followUri = previousFollowUri,
+                ) { outcome ->
+                    when (outcome) {
+                        FollowOutcome.Followed -> {
+                            updateActor(did) { it.copy(isFollowing = true, followUri = followOverlay[did]?.followUri) }
+                            analytics.log(InteractActor(ActorAction.Follow, PostSurface.Search))
+                        }
+                        FollowOutcome.Unfollowed ->
+                            analytics.log(InteractActor(ActorAction.Unfollow, PostSurface.Search))
+                        FollowOutcome.FollowFailed -> {
+                            updateActor(did) { it.copy(isFollowing = false, followUri = null) }
+                            sendEffect(SearchActorsEffect.FollowFailed(wasUnfollow = false))
+                        }
+                        FollowOutcome.UnfollowFailed -> {
+                            updateActor(did) { it.copy(isFollowing = true, followUri = previousFollowUri) }
+                            sendEffect(SearchActorsEffect.FollowFailed(wasUnfollow = true))
+                        }
                     }
-            } else {
-                updateActor(did) { it.copy(isFollowing = true) }
-                followOverlay.set(did, FollowOverride(isFollowing = true, followUri = null))
-                activeFollowJobs[did] =
-                    viewModelScope.launch {
-                        followRepository
-                            .follow(did)
-                            .onSuccess { newFollowUri ->
-                                followOverlay.set(did, FollowOverride(isFollowing = true, followUri = newFollowUri))
-                                updateActor(did) { it.copy(isFollowing = true, followUri = newFollowUri) }
-                                analytics.log(InteractActor(ActorAction.Follow, PostSurface.Search))
-                            }.onFailure {
-                                updateActor(did) { it.copy(isFollowing = false, followUri = null) }
-                                restoreOverride(did, previousOverride)
-                                sendEffect(SearchActorsEffect.FollowFailed(wasUnfollow = false))
-                            }
-                    }
+                }
+            // The toggle has already written the optimistic override; show it now rather
+            // than when the overlay's collector next runs.
+            if (started) {
+                val overrides = followOverlay.current()
+                updateActor(did) { it.withFollowOverride(overrides) }
             }
         }
 
-        /** Puts the overlay back to what it held before the optimistic write, or drops the entry. */
-        private fun restoreOverride(
-            did: String,
-            previous: FollowOverride?,
-        ) {
-            if (previous != null) followOverlay.set(did, previous) else followOverlay.clear(did)
-        }
-
         private fun List<ActorUi>.withOverlay(): ImmutableList<ActorUi> {
-            val overrides = followOverlay.overrides.value
+            val overrides = followOverlay.current()
             return map { it.withFollowOverride(overrides) }.toImmutableList()
         }
 

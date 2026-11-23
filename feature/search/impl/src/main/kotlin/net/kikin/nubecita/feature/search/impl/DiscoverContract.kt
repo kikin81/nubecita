@@ -9,6 +9,7 @@ import net.kikin.nubecita.core.common.mvi.UiState
 import net.kikin.nubecita.feature.search.impl.data.FeedPreviewPostUi
 import net.kikin.nubecita.feature.search.impl.data.SuggestedAccountUi
 import net.kikin.nubecita.feature.search.impl.data.SuggestedFeedUi
+import net.kikin.nubecita.feature.search.impl.data.TrendUi
 
 /**
  * A suggested feed entry augmented with its lazy-loaded preview strip and
@@ -92,19 +93,23 @@ internal fun DiscoverSectionStatus.needsLoad(): Boolean = this !is DiscoverSecti
 /**
  * MVI state for the Discover tab.
  *
- * The two sections ([accounts] / [feeds]) load and fail independently so a
- * feeds error does not mask the accounts section and vice-versa.
+ * The three sections ([trends] / [accounts] / [feeds]) load and fail independently
+ * so one section's error does not mask the others. This state is a projection of
+ * the shared `ExploreRepository` content (see [DiscoverViewModel]); nothing renders
+ * [trends] yet.
  *
  * [accounts] is the suggested-people list after session-local dismissals are
- * applied — dismissed DIDs are removed immediately and the exclusion is kept
- * in [DiscoverViewModel] for the lifetime of the ViewModel. [accountsStatus]
- * is the section load lifecycle.
+ * applied (the repository holds the exclusion for the account's session) and
+ * with the viewer's follow actions laid over it. [accountsStatus] is the
+ * section load lifecycle.
  *
  * [feeds] is the list of [DiscoverFeedUi] entries, each with its own lazy
  * preview state. [feedsStatus] is the section load lifecycle.
  */
 @Immutable
 internal data class DiscoverState(
+    val trends: ImmutableList<TrendUi> = persistentListOf(),
+    val trendsStatus: DiscoverSectionStatus = DiscoverSectionStatus.Idle,
     val accounts: ImmutableList<SuggestedAccountUi> = persistentListOf(),
     val accountsStatus: DiscoverSectionStatus = DiscoverSectionStatus.Idle,
     val feeds: ImmutableList<DiscoverFeedUi> = persistentListOf(),
@@ -155,7 +160,7 @@ internal sealed interface DiscoverEvent : UiEvent {
 
     /**
      * A feed card scrolled into view. Triggers a one-shot lazy preview fetch
-     * for [uri] via [net.kikin.nubecita.feature.search.impl.data.SuggestionsRepository.getFeedPreview].
+     * for [uri] via [net.kikin.nubecita.feature.search.impl.data.ExploreRepository.loadFeedPreview].
      * Subsequent calls for the same [uri] are no-ops once the fetch has started
      * or completed (successful or failed).
      */
@@ -176,8 +181,16 @@ internal sealed interface DiscoverEvent : UiEvent {
     ) : DiscoverEvent
 
     /**
+     * A trending topic was tapped. Emits [DiscoverEffect.NavigateToFeed] for a feed
+     * trend and [DiscoverEffect.SubmitSearch] for everything else.
+     */
+    data class OnTrendTapped(
+        val trend: TrendUi,
+    ) : DiscoverEvent
+
+    /**
      * The user dismissed the account card for [did]. Removes the account from
-     * [DiscoverState.accounts] for the lifetime of this ViewModel session.
+     * [DiscoverState.accounts] for the rest of the signed-in account's session.
      * The dismissal is NOT persisted — restarting the app restores the account
      * on the next suggestions fetch.
      */
@@ -196,6 +209,11 @@ internal sealed interface DiscoverEffect : UiEffect {
     data class NavigateToFeed(
         val uri: String,
         val displayName: String,
+    ) : DiscoverEffect
+
+    /** Search for [query], as if the user had typed it and submitted. */
+    data class SubmitSearch(
+        val query: String,
     ) : DiscoverEffect
 
     /** Non-sticky error — the screen surfaces this as a transient snackbar. */

@@ -12,6 +12,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -133,6 +134,10 @@ internal fun SearchScreen(
                     navState.add(
                         FeedView(feedUri = effect.uri, displayName = effect.displayName),
                     )
+                is DiscoverEffect.SubmitSearch -> {
+                    viewModel.textFieldState.setTextAndPlaceCursorAtEnd(effect.query)
+                    viewModel.handleEvent(SearchEvent.SubmitClicked)
+                }
                 is DiscoverEffect.ShowError ->
                     snackScope.launch {
                         snackbarHostState.currentSnackbarData?.dismiss()

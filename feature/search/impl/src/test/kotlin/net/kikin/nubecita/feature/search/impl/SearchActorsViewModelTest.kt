@@ -26,7 +26,9 @@ import net.kikin.nubecita.data.models.ActorUi
 import net.kikin.nubecita.feature.search.impl.data.FakeSearchActorsRepository
 import net.kikin.nubecita.feature.search.impl.data.FollowOverlay
 import net.kikin.nubecita.feature.search.impl.data.FollowOverride
+import net.kikin.nubecita.feature.search.impl.data.FollowToggle
 import net.kikin.nubecita.feature.search.impl.data.actorFixture
+import net.kikin.nubecita.feature.search.impl.data.seed
 import net.kikin.nubecita.feature.search.impl.data.signedIn
 import net.kikin.nubecita.feature.search.impl.data.testSearchFirstPages
 import org.junit.jupiter.api.AfterEach
@@ -59,7 +61,7 @@ class SearchActorsViewModelTest {
         }
     private val overlay = FollowOverlay(CoroutineScope(SupervisorJob() + testDispatcher), sessionProvider)
 
-    private fun newVm(follow: FollowRepository = followRepo) = SearchActorsViewModel(repo, firstPages, follow, overlay, sessionProvider, analytics)
+    private fun newVm(follow: FollowRepository = followRepo) = SearchActorsViewModel(repo, firstPages, FollowToggle(follow, overlay, sessionProvider, CoroutineScope(SupervisorJob() + testDispatcher)), overlay, sessionProvider, analytics)
 
     private val firstPages = testSearchFirstPages(CoroutineScope(SupervisorJob() + testDispatcher), actors = repo)
 
@@ -691,7 +693,7 @@ class SearchActorsViewModelTest {
             vm.handleEvent(SearchActorsEvent.FollowTapped("did:plc:sci"))
             runCurrent()
 
-            assertFalse(overlay.overrides.value.containsKey("did:plc:sci"))
+            assertFalse(overlay.current().containsKey("did:plc:sci"))
         }
 
     @Test
@@ -701,7 +703,7 @@ class SearchActorsViewModelTest {
             runCurrent()
             val requests = repo.callLog.size
 
-            overlay.set("did:plc:sci", FollowOverride(isFollowing = true, followUri = "at://follow/x"))
+            overlay.seed("did:plc:sci", FollowOverride(isFollowing = true, followUri = "at://follow/x"))
             runCurrent()
 
             val actor = vm.items().single()

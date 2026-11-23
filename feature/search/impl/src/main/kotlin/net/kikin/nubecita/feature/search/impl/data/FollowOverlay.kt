@@ -4,8 +4,9 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -25,16 +26,18 @@ internal data class FollowOverride(
 
 /**
  * The viewer's follow actions in this session, keyed by DID, laid over every
- * people page — including ones served again from [SearchFirstPages]'s cache,
- * which still carry the follow state they were fetched with. Every reader of
- * people pages (the People tab, and later the summary pane) applies the same
- * overlay, so they agree without a refetch.
+ * people list — including ones served again from [SearchFirstPages]'s cache
+ * and the shared Explore suggestions, which still carry the follow state they
+ * were fetched with. Every reader of people (the People tab, the Explore
+ * suggestions) applies the same overlay, so they agree without a refetch.
  *
  * There was no existing shared follow-state cache to reuse: `FollowRepository`
  * only performs the call, and `PostInteractionsCache` holds post state.
  *
- * Emptied when the signed-in account changes or signs out, with the same
- * synchronous-baseline approach as [SearchFirstPages].
+ * Each override remembers the account that wrote it. Readers go through
+ * [current] / [overrides], which skip the entries of any other account
+ * synchronously, so one account's follow actions never show for the next even
+ * in the window before the (asynchronous) clear on an account change has run.
  */
 @Singleton
 internal class FollowOverlay
@@ -43,14 +46,30 @@ internal class FollowOverlay
         @ApplicationScope scope: CoroutineScope,
         sessionStateProvider: SessionStateProvider,
     ) {
+        private class Entry(
+            val override: FollowOverride,
+            val account: String?,
+        )
+
         private val session = sessionStateProvider.state
 
         private fun currentDid(): String? = (session.value as? SessionState.SignedIn)?.did
 
-        private val _overrides = MutableStateFlow<PersistentMap<String, FollowOverride>>(persistentMapOf())
+        private val entries = MutableStateFlow<PersistentMap<String, Entry>>(persistentMapOf())
 
-        /** Overrides by account DID. */
-        val overrides: StateFlow<PersistentMap<String, FollowOverride>> = _overrides
+        private fun Map<String, Entry>.visibleTo(did: String?): Map<String, FollowOverride> = filterValues { it.account == did }.mapValues { it.value.override }
+
+        /** The overrides of the signed-in account, read now. */
+        fun current(): Map<String, FollowOverride> = entries.value.visibleTo(currentDid())
+
+        /** The override for [did] written by the signed-in account, read now. */
+        operator fun get(did: String): FollowOverride? = entries.value[did]?.takeIf { it.account == currentDid() }?.override
+
+        /** The overrides of the signed-in account, re-emitted on every write and every account change. */
+        val overrides: Flow<Map<String, FollowOverride>> =
+            combine(entries, session.map { (it as? SessionState.SignedIn)?.did }.distinctUntilChanged()) { map, did ->
+                map.visibleTo(did)
+            }
 
         init {
             var knownDid = currentDid()
@@ -61,27 +80,42 @@ internal class FollowOverlay
                     .collect { did ->
                         if (did != knownDid) {
                             knownDid = did
-                            _overrides.value = persistentMapOf()
+                            entries.value = persistentMapOf()
                         }
                     }
             }
         }
 
-        fun set(
+        /**
+         * Writes ([override]) or drops (null) the entry for [did] on behalf of [account], the
+         * account that started the action. A write for an account that is no longer the signed-in
+         * one is DROPPED: it is stale, nobody can see it, and switching back clears the map
+         * anyway. An entry left by another account never blocks a write for the current one.
+         */
+        fun write(
             did: String,
-            override: FollowOverride,
+            override: FollowOverride?,
+            account: String,
         ) {
-            _overrides.update { it.put(did, override) }
-        }
-
-        /** Drops the override for [did], e.g. to roll back an optimistic write. */
-        fun clear(did: String) {
-            _overrides.update { it.remove(did) }
+            if (account != currentDid()) return
+            entries.update { map ->
+                if (override == null) map.removing(did) else map.putting(did, Entry(override, account))
+            }
         }
     }
 
 /** This actor with the viewer's own follow action applied, when there is one. */
 internal fun ActorUi.withFollowOverride(overrides: Map<String, FollowOverride>): ActorUi {
+    val override = overrides[did] ?: return this
+    return if (isFollowing == override.isFollowing && followUri == override.followUri) {
+        this
+    } else {
+        copy(isFollowing = override.isFollowing, followUri = override.followUri)
+    }
+}
+
+/** This suggested account with the viewer's own follow action applied, when there is one. */
+internal fun SuggestedAccountUi.withFollowOverride(overrides: Map<String, FollowOverride>): SuggestedAccountUi {
     val override = overrides[did] ?: return this
     return if (isFollowing == override.isFollowing && followUri == override.followUri) {
         this
