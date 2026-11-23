@@ -153,7 +153,10 @@ internal class SearchPaneViewModel
                         val source = topPostSource ?: return@setState this
                         if (summary.postsStatus != SummarySectionStatus.Loaded) return@setState this
                         if (source.key != summary.search.postsKey() || source.viewerDid != viewerDid) return@setState this
-                        copy(mode = summary.copy(topPost = topPostOf(source.items, interactions)))
+                        // The cache emits for every post in the app; most emissions leave this card as it is.
+                        val topPost = topPostOf(source.items, interactions)
+                        if (topPost == summary.topPost) return@setState this
+                        copy(mode = summary.copy(topPost = topPost))
                     }
                 }.launchIn(viewModelScope)
             pinnedFeedsRepository
