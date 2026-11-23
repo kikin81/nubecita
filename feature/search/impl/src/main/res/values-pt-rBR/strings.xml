@@ -172,4 +172,11 @@
     <string name="trending_hot_label">Bombando</string>
     <string name="trending_post_count">%1$s posts</string>
     <string name="trending_row_content_desc">Assunto em alta número %1$d, %2$s</string>
+
+    <!-- Search second pane — Explore -->
+    <string name="explore_pane_feeds_title">Feeds sugeridos</string>
+    <string name="explore_pane_people_title">Pessoas para seguir</string>
+    <string name="explore_pane_error_message">Não foi possível carregar as sugestões.</string>
+    <string name="explore_pane_nothing_message">Nada para sugerir no momento</string>
+    <string name="explore_pane_retry">Tentar novamente</string>
 </resources>
