@@ -430,7 +430,7 @@ Journeys in `app/src/journeysTest/` are plain-language steps run on a device: `s
 #### Unit tests (`:core:testing`)
 
 - JUnit Jupiter (`junit.jupiter.api`) is the default test runner for JVM tests.
-- `MainDispatcherExtension` (`@ExtendWith(MainDispatcherExtension::class)`) installs a `StandardTestDispatcher` as `Dispatchers.Main` by default — coroutines launched in `init` don't run until `runCurrent()` / `advanceUntilIdle()`; pass `UnconfinedTestDispatcher()` to the constructor for eager execution.
+- `MainDispatcherExtension` (`@ExtendWith(MainDispatcherExtension::class)`) installs a `StandardTestDispatcher` as `Dispatchers.Main` by default — coroutines launched in `init` don't run until `runCurrent()` / `advanceUntilIdle()`; for a different dispatcher (e.g. `UnconfinedTestDispatcher()`), register it with `@RegisterExtension val ext = MainDispatcherExtension(dispatcher)` instead — `@ExtendWith` always uses the no-arg constructor. Use `runTest(ext.dispatcher) { … }` so `advanceUntilIdle()` / `runCurrent()` drive `viewModelScope`; a bare `runTest` gets a disjoint scheduler and hangs or false-passes.
 - Turbine (`turbine`) for Flow assertions.
 - MockK (`mockk`) for mocking.
 - Coroutines test: `kotlinx.coroutines.test` (always present via `:core:testing`).
