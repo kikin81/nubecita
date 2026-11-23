@@ -1,5 +1,6 @@
 package net.kikin.nubecita.feature.search.impl
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,8 @@ import androidx.compose.foundation.text.input.clearText
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SearchBarState
+import androidx.compose.material3.SearchBarValue
 import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -30,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -45,6 +49,8 @@ import net.kikin.nubecita.core.common.navigation.LocalTabReTapSignal
 import net.kikin.nubecita.designsystem.component.NubecitaPullToRefreshBox
 import net.kikin.nubecita.feature.feed.api.FeedView
 import net.kikin.nubecita.feature.profile.api.Profile
+import net.kikin.nubecita.feature.search.api.Search
+import net.kikin.nubecita.feature.search.impl.data.SearchTab
 import net.kikin.nubecita.feature.search.impl.ui.DiscoverSections
 import net.kikin.nubecita.feature.search.impl.ui.RecentSearchChipStrip
 
@@ -85,6 +91,24 @@ internal fun SearchScreen(
             .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
     val navState = LocalMainShellNavState.current
+    val searchBarState = rememberSearchBarState()
+
+    // System back from results clears the search instead of leaving the tab.
+    // The condition reads the tab's back stack, not the pane layout: on a wide
+    // window a pushed post or profile replaces the detail pane and Search is
+    // still on screen, but it is no longer the top of its stack, so back must
+    // close that pane first. The search survives underneath it.
+    BackHandler(
+        enabled =
+            shouldClearSearchOnBack(
+                isTopOfTabStack = navState.backStack.lastOrNull() == Search,
+                phase = state.phase,
+                isBarCollapsed = searchBarState.currentValue == SearchBarValue.Collapsed,
+            ),
+    ) {
+        onEvent(SearchEvent.ClearSearch)
+    }
+
     val onNavigateToActor =
         remember(navState) { { handle: String -> navState.add(Profile(handle = handle)) } }
 
@@ -117,6 +141,7 @@ internal fun SearchScreen(
         isQueryBlank = state.isQueryBlank,
         currentQuery = state.currentQuery,
         phase = state.phase,
+        selectedTab = state.selectedTab,
         recentSearches = state.recentSearches,
         onEvent = onEvent,
         onClearQueryRequest = onClearQueryRequest,
@@ -125,6 +150,7 @@ internal fun SearchScreen(
         discoverState = discoverState,
         onDiscoverEvent = onDiscoverEvent,
         snackbarHostState = snackbarHostState,
+        searchBarState = searchBarState,
         modifier = modifier,
     )
 }
@@ -165,11 +191,13 @@ internal fun SearchScreenContent(
     onEvent: (SearchEvent) -> Unit,
     onClearQueryRequest: () -> Unit,
     modifier: Modifier = Modifier,
+    selectedTab: SearchTab = SearchTab.POSTS,
     isAtLeastMedium: Boolean = false,
     onNavigateToActor: (handle: String) -> Unit = {},
     discoverState: DiscoverState = DiscoverState(),
     onDiscoverEvent: (DiscoverEvent) -> Unit = {},
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
+    searchBarState: SearchBarState = rememberSearchBarState(),
 ) {
     val onSubmit = remember(onEvent) { { onEvent(SearchEvent.SubmitClicked) } }
     val onChipTap = remember(onEvent) { { query: String -> onEvent(SearchEvent.RecentChipTapped(query)) } }
@@ -182,10 +210,8 @@ internal fun SearchScreenContent(
 
     val snackScope = rememberCoroutineScope()
 
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 3 })
     val tabScope = rememberCoroutineScope()
 
-    val searchBarState = rememberSearchBarState()
     val searchBarScope = rememberCoroutineScope()
 
     val tabReTapSignal = LocalTabReTapSignal.current
@@ -366,6 +392,21 @@ internal fun SearchScreenContent(
                 is SearchPhase.Results -> {
                     val submittedQuery = phase.query
                     val fromRecent = phase.fromRecent
+                    val submission = phase.submission
+                    // Created per results session, starting on the stored tab,
+                    // so a fresh search never inherits the previous pager page.
+                    val pagerState = rememberPagerState(initialPage = selectedTab.ordinal, pageCount = { SearchTab.entries.size })
+                    val currentOnEvent by rememberUpdatedState(onEvent)
+                    LaunchedEffect(selectedTab, pagerState) {
+                        if (pagerState.currentPage != selectedTab.ordinal) {
+                            pagerState.animateScrollToPage(selectedTab.ordinal)
+                        }
+                    }
+                    LaunchedEffect(pagerState) {
+                        snapshotFlow { pagerState.settledPage }.collect { page ->
+                            currentOnEvent(SearchEvent.TabSelected(SearchTab.entries[page]))
+                        }
+                    }
                     SearchResultsTabBar(
                         selectedTabIndex = pagerState.currentPage,
                         onSelectTab = { page -> tabScope.launch { pagerState.animateScrollToPage(page) } },
@@ -381,8 +422,6 @@ internal fun SearchScreenContent(
                         when (page) {
                             0 ->
                                 SearchPostsScreen(
-                                    currentQuery = submittedQuery,
-                                    fromRecent = fromRecent,
                                     onClearQuery = onClearQueryRequest,
                                     onShowAppendError = onPostsAppendError,
                                     snackbarHostState = snackbarHostState,
@@ -391,6 +430,7 @@ internal fun SearchScreenContent(
                                 SearchActorsScreen(
                                     currentQuery = submittedQuery,
                                     fromRecent = fromRecent,
+                                    submission = submission,
                                     onClearQuery = onClearQueryRequest,
                                     onShowAppendError = onActorsAppendError,
                                 )
@@ -398,6 +438,7 @@ internal fun SearchScreenContent(
                                 SearchFeedsScreen(
                                     currentQuery = submittedQuery,
                                     fromRecent = fromRecent,
+                                    submission = submission,
                                     onClearQuery = onClearQueryRequest,
                                     onShowAppendError = onFeedsAppendError,
                                 )

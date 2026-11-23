@@ -32,9 +32,9 @@ class SearchFirstPagesTest {
         )
 
     private suspend fun SearchFirstPages.loadAllThree() {
-        posts("q", PostSearchFilters())
-        people("q")
-        feeds("q")
+        posts("q", PostSearchFilters(), submission = 1)
+        people("q", submission = 1)
+        feeds("q", submission = 1)
     }
 
     @Test
@@ -57,10 +57,46 @@ class SearchFirstPagesTest {
             val pages = newPages()
             runCurrent()
 
-            pages.posts("q", PostSearchFilters())
-            pages.posts("q", PostSearchFilters(followingOnly = true))
+            pages.posts("q", PostSearchFilters(), submission = 1)
+            pages.posts("q", PostSearchFilters(followingOnly = true), submission = 1)
 
             assertEquals(2, posts.callLog.size)
+        }
+
+    @Test
+    fun `the same query with a new submission fetches again`() =
+        runTest {
+            val pages = newPages()
+            runCurrent()
+
+            pages.posts("q", PostSearchFilters(), submission = 1)
+            pages.people("q", submission = 1)
+            pages.feeds("q", submission = 1)
+            pages.posts("q", PostSearchFilters(), submission = 2)
+            pages.people("q", submission = 2)
+            pages.feeds("q", submission = 2)
+
+            assertEquals(2, posts.callLog.size)
+            assertEquals(2, actors.callLog.size)
+            assertEquals(2, feeds.callLog.size)
+        }
+
+    @Test
+    fun `the same query and submission is shared`() =
+        runTest {
+            val pages = newPages()
+            runCurrent()
+
+            pages.posts("q", PostSearchFilters(), submission = 3)
+            pages.posts("q", PostSearchFilters(), submission = 3)
+            pages.people("q", submission = 3)
+            pages.people("q", submission = 3)
+            pages.feeds("q", submission = 3)
+            pages.feeds("q", submission = 3)
+
+            assertEquals(1, posts.callLog.size)
+            assertEquals(1, actors.callLog.size)
+            assertEquals(1, feeds.callLog.size)
         }
 
     @Test
@@ -68,10 +104,10 @@ class SearchFirstPagesTest {
         runTest {
             val pages = newPages()
             runCurrent()
-            pages.posts("q", PostSearchFilters())
+            pages.posts("q", PostSearchFilters(), submission = 1)
             val before = pages.version.value
 
-            pages.posts("q", PostSearchFilters(), refresh = true)
+            pages.posts("q", PostSearchFilters(), submission = 1, refresh = true)
 
             assertEquals(2, posts.callLog.size)
             assertEquals(before + 1, pages.version.value)
@@ -145,10 +181,10 @@ class SearchFirstPagesTest {
     fun `a page cached for one did is not returned for another before the clear runs`() =
         runTest {
             val pages = newPages()
-            pages.posts("q", PostSearchFilters())
+            pages.posts("q", PostSearchFilters(), submission = 1)
 
             session.value = SessionState.SignedIn(handle = "b.test", did = "did:plc:b")
-            pages.posts("q", PostSearchFilters())
+            pages.posts("q", PostSearchFilters(), submission = 1)
 
             assertEquals(2, posts.callLog.size)
         }

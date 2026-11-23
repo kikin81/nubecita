@@ -24,15 +24,14 @@ import net.kikin.nubecita.data.models.FacetTarget
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
 import net.kikin.nubecita.feature.search.api.Hashtag
-import net.kikin.nubecita.feature.search.impl.data.SearchPostsSort
 import net.kikin.nubecita.feature.search.impl.ui.PostsTabContent
 import net.kikin.nubecita.feature.search.impl.ui.rememberOpenMediaViewer
 import android.net.Uri as AndroidUri
 import net.kikin.nubecita.designsystem.R as DesignSystemR
 
 /**
- * Stateful entry for the Posts tab. Hoists [SearchPostsViewModel],
- * wires the parent's debounced query via [LaunchedEffect], and routes
+ * Stateful entry for the Posts tab. Hoists [SearchPostsViewModel], which reads
+ * the submitted search from `SubmittedSearchStore` itself, and routes
  * [SearchPostsEffect] to [LocalMainShellNavState] —
  * mirroring `:feature:chats:impl/ChatScreen`'s effect-collection
  * pattern.
@@ -56,12 +55,9 @@ import net.kikin.nubecita.designsystem.R as DesignSystemR
 @Suppress("ktlint:compose:vm-forwarding-check", "ComposeViewModelForwarding")
 @Composable
 internal fun SearchPostsScreen(
-    currentQuery: String,
-    fromRecent: Boolean,
     onClearQuery: () -> Unit,
     onShowAppendError: (SearchPostsError) -> Unit,
     modifier: Modifier = Modifier,
-    initialSort: SearchPostsSort = SearchPostsSort.TOP,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     viewModel: SearchPostsViewModel = hiltViewModel(),
 ) {
@@ -151,24 +147,6 @@ internal fun SearchPostsScreen(
                 },
             )
         }
-
-    // Push the latest debounced query down to the VM. The VM
-    // dedupes via StateFlow operator fusion on the FetchKey.
-    // Key on fromRecent too: the same query can be re-submitted with a
-    // different origin (e.g. typed Search after a recent-chip tap), and the
-    // VM must see the new fromRecent so search_perform isn't logged stale.
-    LaunchedEffect(currentQuery, fromRecent) {
-        viewModel.setQuery(currentQuery, fromRecent = fromRecent)
-    }
-
-    // initialSort is fired once on screen entry — the user's
-    // subsequent SortClicked events drive sort changes from inside the
-    // VM, so we don't re-LaunchedEffect on this past first composition.
-    LaunchedEffect(Unit) {
-        if (initialSort != SearchPostsSort.TOP) {
-            viewModel.handleEvent(SearchPostsEvent.SortClicked(initialSort))
-        }
-    }
 
     LaunchedEffect(Unit) {
         viewModel.effects.collect { effect ->

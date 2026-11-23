@@ -1,6 +1,7 @@
 package net.kikin.nubecita.feature.search.impl
 
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.viewModelScope
@@ -14,6 +15,9 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.feature.search.impl.data.RecentSearchRepository
+import net.kikin.nubecita.feature.search.impl.data.SearchTab
+import net.kikin.nubecita.feature.search.impl.data.SubmittedSearch
+import net.kikin.nubecita.feature.search.impl.data.SubmittedSearchStore
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -26,22 +30,28 @@ import kotlin.time.Duration.Companion.milliseconds
  * `OutlinedTextField(state = vm.textFieldState, ...)` directly so IME
  * writes don't round-trip through `handleEvent`.
  *
- * `init` launches two collectors:
+ * What was submitted lives in [SubmittedSearchStore], not here, so the
+ * result tabs (and anything outside this screen) read the same value. The
+ * body [SearchScreenViewState.phase] is derived from the store's `submitted`
+ * value, so the two can never disagree. A search belongs to this ViewModel:
+ * it starts with none ([SubmittedSearchStore.clear] in `init`, which drops a
+ * search a previous instance left behind) and ends with none (`onCleared`).
+ *
+ * `init` launches three collectors:
  *   - `snapshotFlow { textFieldState.text.toString() }.debounce(DEBOUNCE)
  *     .distinctUntilChanged()` updates [SearchScreenViewState.currentQuery]
- *     (which drives the expanded overlay's typeahead) and recomputes the
- *     body [SearchScreenViewState.phase] from [submittedQuery].
+ *     (which drives the expanded overlay's typeahead) and clears the store when
+ *     the field goes blank.
+ *   - the store's `submitted` flow updates [SearchScreenViewState.phase].
  *   - [RecentSearchRepository.observeRecent] updates
  *     [SearchScreenViewState.recentSearches].
  *
- * [submittedQuery] is intentionally a private field (not in state): the
- * UI never branches on "what was last submitted"; it only branches on
- * the derived [SearchPhase]. Submission paths ([SearchEvent.SubmitClicked]
- * and [SearchEvent.RecentChipTapped]) update it synchronously and
- * atomically flip [SearchScreenViewState.phase] to [SearchPhase.Results]
- * so the body doesn't flicker through a stale Discover frame while the
- * 250ms debounce window catches up. Typeahead is an overlay concern,
- * driven by the live [SearchScreenViewState.currentQuery], not a body phase.
+ * The submit paths ([SearchEvent.SubmitClicked] and
+ * [SearchEvent.RecentChipTapped]) write the store and flip the phase
+ * synchronously, so the body doesn't flicker through a stale Discover frame
+ * while the 250ms debounce window catches up. Typeahead is an overlay
+ * concern, driven by the live [SearchScreenViewState.currentQuery], not a
+ * body phase.
  */
 @OptIn(FlowPreview::class)
 @HiltViewModel
@@ -49,36 +59,30 @@ internal class SearchViewModel
     @Inject
     constructor(
         private val recentSearches: RecentSearchRepository,
+        private val submittedSearch: SubmittedSearchStore,
     ) : MviViewModel<SearchScreenViewState, SearchEvent, SearchEffect>(SearchScreenViewState()) {
         val textFieldState: TextFieldState = TextFieldState()
 
-        /**
-         * The query the user most recently submitted (IME, CTA, chip tap).
-         * Cleared back to `""` when the field goes blank so the body returns
-         * to Discover after a clear, rather than showing stale results.
-         */
-        private var submittedQuery: String = ""
-
-        /** Whether [submittedQuery] came from a recent-search chip tap. Sticky
-         * until the next submit so the debounced re-emission of `phaseForBody()`
-         * preserves it (carried into `search_perform`'s `from_recent`). */
-        private var submittedFromRecent: Boolean = false
-
         init {
+            submittedSearch.clear()
+
+            submittedSearch.submitted
+                .onEach { submitted -> setState { followingSubmitted(submitted) } }
+                .launchIn(viewModelScope)
+
             snapshotFlow { textFieldState.text.toString() }
                 .debounce(DEBOUNCE.inWholeMilliseconds)
                 .distinctUntilChanged()
                 .onEach { raw ->
                     val trimmed = raw.trim()
                     if (trimmed.isEmpty()) {
-                        submittedQuery = ""
+                        submittedSearch.clear()
                     }
                     setState {
                         copy(
                             currentQuery = trimmed,
                             isQueryBlank = trimmed.isEmpty(),
-                            phase = phaseForBody(),
-                        )
+                        ).followingSubmitted(submittedSearch.submitted.value)
                     }
                 }.launchIn(viewModelScope)
 
@@ -86,6 +90,11 @@ internal class SearchViewModel
                 .observeRecent()
                 .onEach { list -> setState { copy(recentSearches = list.toImmutableList()) } }
                 .launchIn(viewModelScope)
+        }
+
+        override fun onCleared() {
+            submittedSearch.clear()
+            super.onCleared()
         }
 
         override fun handleEvent(event: SearchEvent) {
@@ -103,41 +112,52 @@ internal class SearchViewModel
                     viewModelScope.launch {
                         recentSearches.clearAll()
                     }
+                is SearchEvent.TabSelected -> submittedSearch.selectTab(event.tab)
+                SearchEvent.ClearSearch -> clearSearch()
             }
         }
 
         private fun persistCurrent(fromRecent: Boolean) {
             val text = textFieldState.text.toString().trim()
             if (text.isEmpty()) return
-            submittedQuery = text
-            submittedFromRecent = fromRecent
+            submittedSearch.submit(text, fromRecent = fromRecent)
             // Atomic phase flip so the body switches to Results immediately
-            // on submit rather than waiting for the debounced currentQuery
-            // emission. The debounced emission that follows computes the same
-            // SearchPhase.Results value and is a no-op.
+            // on submit rather than waiting for the store collector or the
+            // debounced currentQuery emission; both compute the same value
+            // from the store and are no-ops.
             setState {
                 copy(
                     currentQuery = text,
                     isQueryBlank = false,
-                    phase = SearchPhase.Results(text, fromRecent = fromRecent),
-                )
+                ).followingSubmitted(submittedSearch.submitted.value)
             }
             viewModelScope.launch { recentSearches.record(text) }
         }
 
+        private fun clearSearch() {
+            textFieldState.clearText()
+            submittedSearch.clear()
+            setState {
+                copy(
+                    currentQuery = "",
+                    isQueryBlank = true,
+                ).followingSubmitted(submittedSearch.submitted.value)
+            }
+        }
+
         /**
          * The body beneath the collapsed search bar shows the result tabs
-         * for the last submitted query, or the Discover (recent chips)
-         * surface when nothing has been submitted. Typeahead is no longer a
-         * body state — it lives only in the expanded overlay, driven by the
-         * live [SearchScreenViewState.currentQuery]. So the body phase depends
-         * solely on [submittedQuery], not on the in-flight text.
+         * for the submitted search, or the Discover (recent chips) surface
+         * when there is none. Typeahead is not a body state, so the phase
+         * depends solely on the store, not on the in-flight text.
          */
-        private fun phaseForBody(): SearchPhase =
-            if (submittedQuery.isEmpty()) {
+        private fun SearchScreenViewState.followingSubmitted(submitted: SubmittedSearch?): SearchScreenViewState = copy(phase = submitted.toPhase(), selectedTab = submitted?.selectedTab ?: SearchTab.POSTS)
+
+        private fun SubmittedSearch?.toPhase(): SearchPhase =
+            if (this == null) {
                 SearchPhase.Discover
             } else {
-                SearchPhase.Results(submittedQuery, fromRecent = submittedFromRecent)
+                SearchPhase.Results(query = query, fromRecent = fromRecent, submission = submission)
             }
 
         private companion object {

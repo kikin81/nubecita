@@ -16,11 +16,13 @@ import net.kikin.nubecita.core.testing.android.HiltTestActivity
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.search.api.Search
+import net.kikin.nubecita.feature.search.impl.data.SubmittedSearchStore
 import net.kikin.nubecita.feature.search.impl.testing.FakeSearchPostsRepository
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import javax.inject.Inject
 
 /**
  * Reference instrumentation test for `nubecita-vrba.9`'s tap-through nav:
@@ -47,11 +49,16 @@ class SearchPostsScreenInstrumentationTest {
     @get:Rule(order = 1)
     val composeTestRule = createAndroidComposeRule<HiltTestActivity>()
 
+    @Inject
+    internal lateinit var submittedSearch: SubmittedSearchStore
+
     private lateinit var navState: MainShellNavState
 
     @Before
     fun setUp() {
         hiltRule.inject()
+        // The Posts tab reads what to fetch from the submitted-search store.
+        submittedSearch.submit("alice", fromRecent = false)
         navState =
             MainShellNavState(
                 startRoute = Search,
@@ -66,8 +73,6 @@ class SearchPostsScreenInstrumentationTest {
             CompositionLocalProvider(LocalMainShellNavState provides navState) {
                 NubecitaTheme {
                     SearchPostsScreen(
-                        currentQuery = "alice",
-                        fromRecent = false,
                         onClearQuery = {},
                         onShowAppendError = {},
                     )
@@ -110,8 +115,6 @@ class SearchPostsScreenInstrumentationTest {
             CompositionLocalProvider(LocalMainShellNavState provides navState) {
                 NubecitaTheme {
                     SearchPostsScreen(
-                        currentQuery = "alice",
-                        fromRecent = false,
                         onClearQuery = {},
                         onShowAppendError = {},
                     )

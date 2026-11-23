@@ -65,9 +65,11 @@ internal class SearchActorsViewModel
             val incarnation: Int,
             /** Whether the query arrived via a recent-search tap (for search_perform). */
             val fromRecent: Boolean,
+            /** The store's submission counter: an explicit re-submit of the same text is a new search. */
+            val submission: Int,
         )
 
-        private val fetchKey = MutableStateFlow(FetchKey(query = "", incarnation = 0, fromRecent = false))
+        private val fetchKey = MutableStateFlow(FetchKey(query = "", incarnation = 0, fromRecent = false, submission = 0))
 
         init {
             fetchKey
@@ -90,8 +92,9 @@ internal class SearchActorsViewModel
         fun setQuery(
             query: String,
             fromRecent: Boolean = false,
+            submission: Int = 0,
         ) {
-            fetchKey.update { it.copy(query = query, fromRecent = fromRecent) }
+            fetchKey.update { it.copy(query = query, fromRecent = fromRecent, submission = submission) }
         }
 
         override fun handleEvent(event: SearchActorsEvent) {
@@ -109,7 +112,7 @@ internal class SearchActorsViewModel
         private suspend fun runFirstPage(key: FetchKey) {
             setState { copy(loadStatus = SearchActorsLoadStatus.InitialLoading) }
             firstPages
-                .people(query = key.query)
+                .people(query = key.query, submission = key.submission)
                 .onSuccess { page ->
                     // search_perform fires on a completed People search (incl. empty);
                     // the query text is never attached.

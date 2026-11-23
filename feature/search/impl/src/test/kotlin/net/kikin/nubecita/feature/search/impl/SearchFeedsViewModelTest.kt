@@ -428,4 +428,22 @@ class SearchFeedsViewModelTest {
             assertEquals(SearchFeedsLoadStatus.Idle, vm.uiState.value.loadStatus)
             assertEquals("", vm.uiState.value.currentQuery)
         }
+
+    @Test
+    fun `resubmitting the same query refetches`() =
+        runTest {
+            val vm = SearchFeedsViewModel(repo, firstPages, analytics)
+            vm.setQuery("kotlin", submission = 1)
+            runCurrent()
+            assertEquals(1, repo.callLog.size)
+
+            vm.setQuery("kotlin", submission = 1)
+            runCurrent()
+            assertEquals(1, repo.callLog.size, "the same submission is the same search")
+
+            vm.setQuery("kotlin", submission = 2)
+            runCurrent()
+
+            assertEquals(2, repo.callLog.size)
+        }
 }

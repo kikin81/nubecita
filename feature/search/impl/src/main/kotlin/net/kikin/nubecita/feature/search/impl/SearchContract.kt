@@ -6,6 +6,7 @@ import kotlinx.collections.immutable.persistentListOf
 import net.kikin.nubecita.core.common.mvi.UiEffect
 import net.kikin.nubecita.core.common.mvi.UiEvent
 import net.kikin.nubecita.core.common.mvi.UiState
+import net.kikin.nubecita.feature.search.impl.data.SearchTab
 
 /**
  * MVI state for the Search tab home (search bar + chip strip / results).
@@ -23,11 +24,13 @@ import net.kikin.nubecita.core.common.mvi.UiState
  * (the surface beneath the collapsed search bar). See [SearchPhase] KDoc.
  */
 @Immutable
-data class SearchScreenViewState(
+internal data class SearchScreenViewState(
     val recentSearches: ImmutableList<String> = persistentListOf(),
     val currentQuery: String = "",
     val isQueryBlank: Boolean = true,
     val phase: SearchPhase = SearchPhase.Discover,
+    /** The result tab of the submitted search, mirrored from the store. */
+    val selectedTab: SearchTab = SearchTab.POSTS,
 ) : UiState
 
 /**
@@ -61,10 +64,31 @@ sealed interface SearchPhase {
          * boolean is logged, the query text itself is never sent.
          */
         val fromRecent: Boolean = false,
+        /**
+         * The store's submission counter for this search. Each result tab keys
+         * its first-page request on it, so submitting the same text again
+         * fetches fresh instead of replaying the cached page.
+         */
+        val submission: Int = 0,
     ) : SearchPhase
 }
 
-sealed interface SearchEvent : UiEvent {
+/**
+ * Whether system back should end the current search (blank the field and
+ * return to Discover) rather than leave the Search screen.
+ *
+ * All three must hold: Search is the top of its tab's back stack (a pushed
+ * post or profile must pop first, and the search survives underneath it), the
+ * body is showing results, and the search bar is collapsed (while it is
+ * expanded, back collapses it).
+ */
+internal fun shouldClearSearchOnBack(
+    isTopOfTabStack: Boolean,
+    phase: SearchPhase,
+    isBarCollapsed: Boolean,
+): Boolean = isTopOfTabStack && phase is SearchPhase.Results && isBarCollapsed
+
+internal sealed interface SearchEvent : UiEvent {
     /** IME action `Search` / hardware Enter. Persists the current non-blank text. */
     data object SubmitClicked : SearchEvent
 
@@ -80,6 +104,14 @@ sealed interface SearchEvent : UiEvent {
 
     /** Overflow-menu "Clear all" item. Wipes the recent-search list. */
     data object ClearAllRecentsClicked : SearchEvent
+
+    /** The pager settled on [tab]; recorded in the store so other surfaces and a recreated screen agree. */
+    data class TabSelected(
+        val tab: SearchTab,
+    ) : SearchEvent
+
+    /** System back from results: blanks the field and returns the body to Discover. */
+    data object ClearSearch : SearchEvent
 }
 
 /**
