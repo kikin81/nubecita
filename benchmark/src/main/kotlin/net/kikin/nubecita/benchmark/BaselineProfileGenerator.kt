@@ -206,11 +206,14 @@ class BaselineProfileGenerator {
                     device.flingList(PROFILE_LIST_RES_ID)
                 }
 
-            // 5. Search → type → results.
+            // 5. Search → Explore pane → type → submit → results → Summary pane.
             coverage["search"] =
                 step("search") {
                     device.returnToFeed()
                     check(device.tapDesc(TAB_SEARCH_DESC)) { "Search tab not found" }
+                    // The second pane exists only on a wide window: Explore before a
+                    // search, the Summary after one. On a phone both are skipped.
+                    if (device.awaitRes(SEARCH_EXPLORE_LIST_RES_ID, NAV_SETTLE_WAIT_MS) != null) device.flingList(SEARCH_EXPLORE_LIST_RES_ID)
                     device.requireRes(SEARCH_INPUT_RES_ID).click()
                     // Found by focus, not by tag. The tap expands the bar into
                     // its own window, and `testTagsAsResourceId` does not cross
@@ -222,9 +225,13 @@ class BaselineProfileGenerator {
                         "the expanded search field could not be typed into"
                     }
                     device.waitForIdle()
-                    // Let the typeahead query + results list render (network-backed).
+                    // Let the typeahead query render (network-backed), then submit:
+                    // the bar collapses and the result tabs load.
                     SystemClock.sleep(RESULTS_SETTLE_MS)
-                    device.pressBack() // collapse the search overlay
+                    device.pressEnter()
+                    device.flingList(SEARCH_POSTS_LIST_RES_ID)
+                    if (device.awaitRes(SEARCH_SUMMARY_LIST_RES_ID, NAV_SETTLE_WAIT_MS) != null) device.flingList(SEARCH_SUMMARY_LIST_RES_ID)
+                    device.pressBack() // back from the results clears the search
                 }
 
             // 6. Chats → open a thread (optional: the account may have no convos).
