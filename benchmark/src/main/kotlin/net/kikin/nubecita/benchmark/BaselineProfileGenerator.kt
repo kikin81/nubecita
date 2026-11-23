@@ -229,6 +229,9 @@ class BaselineProfileGenerator {
                     // the bar collapses and the result tabs load.
                     SystemClock.sleep(RESULTS_SETTLE_MS)
                     device.pressEnter()
+                    // The results are a network round trip away; a fling only waits
+                    // SHORT_WAIT_MS for its list, so wait for them here first.
+                    device.requireRes(SEARCH_POSTS_LIST_RES_ID, FEED_WAIT_MS)
                     device.flingList(SEARCH_POSTS_LIST_RES_ID)
                     if (device.awaitRes(SEARCH_SUMMARY_LIST_RES_ID, NAV_SETTLE_WAIT_MS) != null) device.flingList(SEARCH_SUMMARY_LIST_RES_ID)
                     device.pressBack() // back from the results clears the search
