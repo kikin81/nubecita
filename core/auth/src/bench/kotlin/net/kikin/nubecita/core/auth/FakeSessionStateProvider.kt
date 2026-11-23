@@ -28,13 +28,28 @@ internal class FakeSessionStateProvider
     constructor() : SessionStateProvider {
         private val _state =
             MutableStateFlow<SessionState>(
-                SessionState.SignedIn(
-                    handle = "bench.nubecita.app",
-                    did = "did:plc:benchnubecita0000000000000",
-                ),
+                SessionState.SignedIn(handle = BENCH_HANDLE, did = BENCH_DID),
             )
 
         override val state: StateFlow<SessionState> = _state.asStateFlow()
 
         override suspend fun refresh() = Unit
+
+        /**
+         * Flips the bench session so the fake sign-out / sign-in flows
+         * reach the same `SessionState` transitions as production.
+         */
+        fun setSignedIn(signedIn: Boolean) {
+            _state.value =
+                if (signedIn) {
+                    SessionState.SignedIn(handle = BENCH_HANDLE, did = BENCH_DID)
+                } else {
+                    SessionState.SignedOut
+                }
+        }
+
+        private companion object {
+            const val BENCH_HANDLE = "bench.nubecita.app"
+            const val BENCH_DID = "did:plc:benchnubecita0000000000000"
+        }
     }
