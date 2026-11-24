@@ -46,6 +46,7 @@ capture a clip + add a `JOURNEYS` entry — no new component.
 | composer | `capture/journeys/composer.sh <serial>` | `composer.mp4` | "Say it with a GIF" |
 | threads | `capture/journeys/threads.sh <serial>` | `threads.mp4` | "Tap any photo to zoom" |
 | search | `capture/journeys/search.sh <serial>` | `search.mp4` | "Posts, feeds, and starter packs" |
+| translation | `capture/journeys/translation.sh <serial>` | `translation.mp4` | "Read posts in any language" |
 | tablet | `capture/journeys/tablet.sh <serial>` | `tablet.mp4` | "Drag to resize, it snaps" |
 | watch | `capture/journeys/watch.sh <serial>` | `watch.mp4` | "Bluesky, on your wrist" |
 | foldableV2 | `capture/journeys/foldable-v2.sh <serial> remotion/public` | `fold_open.mp4` + `fold_tabletop.mp4` | "Fold it into a stand" |
@@ -115,6 +116,18 @@ times are source-clip seconds tied to the script's pauses: change a pause and
 retime the segments (a 1–2 fps `ffmpeg … tile` contact sheet of
 `public/watch.mp4` makes the beats easy to read). Registered as `Watch-9x16`,
 `Watch-1x1` and `Watch-16x9`; `npm run render:watch` renders all three.
+
+### Translation journey
+
+`translation.sh` uses the real on-device ML Kit translator, so the bench phone
+needs network once to download the Japanese pack: the first run on a fresh
+emulator spends a few seconds on "Downloading language…", so run it twice and
+keep the second take. Each run starts untranslated: it deletes the translation
+preferences and empties the Room `post_translation` cache (the emulator ships
+no `sqlite3`, so the database round-trips through the host's). Accepting the
+auto-translate offer sometimes leaves a post that is already on screen offered
+instead of translated, an app race (`nubecita-ty8r`); the script retries its dry pass and exits
+non-zero when the take missed it, so rerun on that.
 
 ### Composer journey needs real GIFs
 

@@ -74,6 +74,21 @@ const JOURNEYS: JourneySpec[] = [
     ],
   },
   {
+    id: "translation",
+    device: "phone",
+    videoSrc: "translation.mp4",
+    sourceAspect: PHONE_ASPECT,
+    durationSec: 18.5,
+    outroStartSec: 15.0,
+    layouts: ["vertical", "square"],
+    captions: [
+      { at: 0.4, dur: 3.0, lead: "Read posts in", accent: "any language." },
+      { at: 3.7, dur: 3.9, lead: "Translate", accent: "automatically." },
+      { at: 7.9, dur: 3.5, lead: "The original,", accent: "one tap away." },
+      { at: 11.7, dur: 3.1, lead: "Replies,", accent: "translated too." },
+    ],
+  },
+  {
     id: "tablet",
     device: "tablet",
     videoSrc: "tablet.mp4",
