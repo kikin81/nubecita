@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795506687367,
+  "lastUpdate": 1795506691531,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -7903,6 +7903,124 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationSumMs",
             "value": 679.6,
             "range": "+/- 65.7%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "1101de70b0765482cea77ec25319eb3416576038",
+          "message": "chore(promo): capture the watch journey and cut it into the Watch promo (#1257)\n\n* chore(promo): capture the watch journey and cut it into the Watch promo\n\nAdd capture/journeys/watch.sh: it drives the Wear bench build on the\nround Wear AVD from the launcher widget through the feed (repost with\nconfirm, bookmark), a DM quick reply and a typed post, then resamples\nscreenrecord's variable-rate clip to 60 fps and holds the posted card.\nIt refuses any device that is not a round Wear AVD.\n\nThe Watch comp now plays the ~57 s take as timed segments, speeding up\ntyping and navigation and skipping the launch splash and the bench's\n10 s \"Posting…\", for a ~26 s cut with captions on each beat. The round\nscreen is positioned so the segments' Sequences stay clipped to it.\n\nRefs: nubecita-mp67.2\n\n* fix(promo): read the AVD name via getprop and clean up the watch recording\n\nRefs: nubecita-mp67.2\n\n* fix(promo): guard the watch capture to 454x454 and trap only its own recorder\n\nRefs: nubecita-mp67.2",
+          "timestamp": "2026-11-24T05:22:26Z",
+          "url": "https://github.com/kikin81/nubecita/commit/1101de70b0765482cea77ec25319eb3416576038"
+        },
+        "date": 1795506690387,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / ClassInitCount",
+            "value": 194,
+            "range": "+/- 0.2%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / ClassInitSumMs",
+            "value": 12.015,
+            "range": "+/- 40.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / JIT compilationCount",
+            "value": 160,
+            "range": "+/- 20.9%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / JIT compilationSumMs",
+            "value": 581.991,
+            "range": "+/- 18.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / ClassInitCount",
+            "value": 140,
+            "range": "+/- 0%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / ClassInitSumMs",
+            "value": 24.822,
+            "range": "+/- 36.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / JIT compilationCount",
+            "value": 4,
+            "range": "+/- 34.2%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / JIT compilationSumMs",
+            "value": 18.366,
+            "range": "+/- 129.3%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / ClassInitCount",
+            "value": 2,
+            "range": "+/- 67.4%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / ClassInitSumMs",
+            "value": 0.152,
+            "range": "+/- 113.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / JIT compilationCount",
+            "value": 494,
+            "range": "+/- 67.3%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / JIT compilationSumMs",
+            "value": 1205.469,
+            "range": "+/- 28%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / ClassInitCount",
+            "value": 0,
+            "range": "+/- 149.1%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / ClassInitSumMs",
+            "value": 0,
+            "range": "+/- 173.1%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationCount",
+            "value": 49,
+            "range": "+/- 54.9%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationSumMs",
+            "value": 345.533,
+            "range": "+/- 92.3%",
             "unit": "ms"
           }
         ]
