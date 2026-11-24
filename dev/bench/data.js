@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795420476454,
+  "lastUpdate": 1795506687367,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -4291,6 +4291,76 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 564,
             "range": "+/- 1.3%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "1101de70b0765482cea77ec25319eb3416576038",
+          "message": "chore(promo): capture the watch journey and cut it into the Watch promo (#1257)\n\n* chore(promo): capture the watch journey and cut it into the Watch promo\n\nAdd capture/journeys/watch.sh: it drives the Wear bench build on the\nround Wear AVD from the launcher widget through the feed (repost with\nconfirm, bookmark), a DM quick reply and a typed post, then resamples\nscreenrecord's variable-rate clip to 60 fps and holds the posted card.\nIt refuses any device that is not a round Wear AVD.\n\nThe Watch comp now plays the ~57 s take as timed segments, speeding up\ntyping and navigation and skipping the launch splash and the bench's\n10 s \"Posting…\", for a ~26 s cut with captions on each beat. The round\nscreen is positioned so the segments' Sequences stay clipped to it.\n\nRefs: nubecita-mp67.2\n\n* fix(promo): read the AVD name via getprop and clean up the watch recording\n\nRefs: nubecita-mp67.2\n\n* fix(promo): guard the watch capture to 454x454 and trap only its own recorder\n\nRefs: nubecita-mp67.2",
+          "timestamp": "2026-11-24T05:22:26Z",
+          "url": "https://github.com/kikin81/nubecita/commit/1101de70b0765482cea77ec25319eb3416576038"
+        },
+        "date": 1795506685347,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 26,
+            "range": "+/- 4.3%",
+            "unit": "frames"
+          },
+          {
+            "name": "PostCommentsSheetBenchmark.dragAndScrollCommentsSheetOverVideoPlayback / frameCount",
+            "value": 333,
+            "range": "+/- 0.7%",
+            "unit": "frames"
+          },
+          {
+            "name": "SearchScrollBenchmark.scrollSearchResults / frameCount",
+            "value": 123,
+            "range": "+/- 6.2%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1572.297,
+            "range": "+/- 8.1%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1404.672,
+            "range": "+/- 3.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1222.181,
+            "range": "+/- 16.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1168.785,
+            "range": "+/- 14%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 554,
+            "range": "+/- 1.8%",
             "unit": "frames"
           }
         ]
