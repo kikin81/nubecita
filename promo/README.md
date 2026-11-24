@@ -154,7 +154,7 @@ the fake at real, loadable GIFs, then revert:
   app/build/outputs/apk/bench/debug/app-bench-debug.apk`. Never use a Gradle
   `install…` task, which installs on every connected device.
 - The phone scripts (`record-journey.sh`, `capture-screens.sh` and the
-  `composer`, `threads`, `search` and `tablet` journeys) need the
+  `composer`, `threads`, `search`, `translation` and `tablet` journeys) need the
   **`Nubecita_Bench_Phone`** AVD (Pixel 10 Pro profile, 1280×2856) and refuse
   any other device, because the other phone emulators here hold real signed-in
   sessions. Create it once with:
@@ -164,8 +164,8 @@ the fake at real, loadable GIFs, then revert:
     -k "system-images;android-37.0;google_apis_playstore;arm64-v8a"
   ```
 
-  `tablet.sh` resizes that emulator to a Pixel Tablet (2560×1600 @ 320 dpi)
-  for the take and restores it on exit.
+  `tablet.sh` and `capture-screens.sh` resize that emulator to a Pixel Tablet
+  (2560×1600 @ 320 dpi) for the tablet shots and restore it on exit.
 - The scripts share `capture/lib.sh`. It finds tap targets by accessibility
   label through `uiautomator` instead of fixed coordinates, so a layout change
   doesn't silently tap the wrong thing. A missing label stops the script. Each
@@ -179,13 +179,14 @@ the fake at real, loadable GIFs, then revert:
 promo/capture/record-journey.sh <bench-phone-serial>   # → promo_raw.mp4 (640×1428, 60fps)
 cp -f promo_raw.mp4 promo/remotion/public/promo.mp4
 
-# 2. Capture the still screenshots for the image assets
+# 2. Capture the still screenshots for the image assets (promo/ads only; the
+#    Play listing screenshots come from fastlane, see the prepare-release skill)
 promo/capture/capture-screens.sh <bench-phone-serial>  # → remotion/public/{feed,search,profile,post,tablet_*}.png
 
 # 3. Render
 cd promo/remotion
 npm install
-npm run render:all                              # hero (3 aspect ratios) + the 4 feature journeys
+npm run render:all                              # hero, the feature journeys, foldable and watch
 # …or a single composition by id: npx remotion render Composer-9x16 out/composer-9x16.mp4
 
 # image assets (one still per ASSET_SPECS entry):
