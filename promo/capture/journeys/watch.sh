@@ -21,7 +21,7 @@ trap cleanup EXIT
 
 # The phone emulators on this machine hold real signed-in sessions; refuse
 # anything that isn't a round Wear AVD.
-AVD="$(A emu avd name 2>/dev/null | head -1 | tr -d '\r')"
+AVD="$(SH getprop ro.boot.qemu.avd_name | tr -d '\r')"   # empty on a real device
 [[ "$AVD" == Wear_OS_*Round ]] || { echo "refusing: $SERIAL is '$AVD', not a round Wear AVD" >&2; exit 1; }
 
 widget(){ SH input keyevent 3; pause 1.0; drag 400 227 50 227 300; pause 1.6; }
@@ -72,6 +72,7 @@ echo "[record] stop"
 SH pkill -INT screenrecord >/dev/null 2>&1 || true
 wait "$REC_PID" 2>/dev/null || true; pause 1.0
 A pull "$OUT_DEVICE" "${OUT_LOCAL%.mp4}.vfr.mp4" >/dev/null
+SH rm -f "$OUT_DEVICE"
 
 # screenrecord writes a frame only when the screen changes, so the clip is
 # variable-rate and the posted card is its very last frame, shown for an
