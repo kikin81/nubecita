@@ -115,6 +115,38 @@ nubecita-xh99 (Section A2) rather than as a standalone bd child issue.
     clip-3.mp4
   ```
 
+### `clip-4.mp4` — "vertical vista" (portrait 9:16)
+
+- **Source.** `clip-3.mp4`'s first 9 s (one shot on the bridge), cropped to
+  portrait around the actor on the right.
+- **License.** CC BY 3.0 — © 2012 Blender Foundation, as `clip-3.mp4`.
+- **Why this clip.** The vertical video feed's only portrait item. It also
+  backs the item that declares 16:9 while decoding at 720×1280
+  (`FakeVideoFeedSource`, nubecita-mfac), so it must stay 720×1280. No audio.
+- **Transcode.**
+
+  ```bash
+  ffmpeg -i clip-3.mp4 -t 9 \
+    -vf "crop=405:720:860:0,scale=720:1280:flags=lanczos,fps=30" \
+    -c:v libx264 -profile:v main -level 4.0 -preset slow -crf 23 \
+    -pix_fmt yuv420p -an -movflags +faststart \
+    clip-4.mp4
+  ```
+
+### Posters
+
+`img/posts/video-poster-<n>.jpg` is the first frame of `clip-<n>.mp4` at the
+clip's own aspect ratio, so the poster a player shows before its first frame
+is the frame that replaces it:
+
+```bash
+ffmpeg -i clip-1.mp4 -frames:v 1 -vf scale=800:450 -q:v 4 video-poster-1.jpg
+ffmpeg -i clip-2.mp4 -frames:v 1 -vf scale=800:340 -q:v 4 video-poster-2.jpg
+ffmpeg -i clip-4.mp4 -frames:v 1 -q:v 4 video-poster-4.jpg
+```
+
+`video-poster-3.jpg` is a 1728×720 frame of `clip-3.mp4`.
+
 ## Why these specific clips
 
 - **Codec coverage.** All three are H.264 main profile / AAC stereo —
@@ -151,6 +183,7 @@ on macOS arm64. The output sizes are:
 | `clip-1.mp4` | ~3.4 MB | H.264 (`big_buck_bunny_1080p_h264.mov`) | H.264 main / AAC stereo / MP4 + faststart |
 | `clip-2.mp4` | ~2.7 MB | H.264 (`Sintel.2010.720p.mkv`)        | H.264 main / AAC stereo / MP4 + faststart |
 | `clip-3.mp4` | ~4.7 MB | VP8 (`tears_of_steel_1080p.webm`)     | H.264 main / AAC stereo / MP4 + faststart |
+| `clip-4.mp4` | ~1.4 MB | H.264 (`clip-3.mp4`)                  | H.264 main / no audio / MP4 + faststart |
 
 A future re-baseline under a pinned `ffmpeg 7.0` LTS will not match these
 clips byte-for-byte (libx264 micro-versions across major releases produce
