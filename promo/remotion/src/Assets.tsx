@@ -74,8 +74,9 @@ export const Asset: React.FC<AssetSpec> = ({
   const bg = `radial-gradient(120% 90% at 50% 15%, ${NAVY_2} 0%, ${NAVY} 65%)`;
 
   if (orientation === "landscape") {
-    // Tablet on the left, headline on the right.
-    const dh = height * 0.82;
+    // Tablet on the left, headline on the right. The column is narrow: size
+    // the tablet and the type so the longest word ("context.") still fits.
+    const dh = height * 0.78;
     const dw = dh * TABLET_ASPECT;
     return (
       <AbsoluteFill style={{ background: bg, flexDirection: "row", alignItems: "center" }}>
@@ -85,10 +86,10 @@ export const Asset: React.FC<AssetSpec> = ({
         <div
           style={{
             flex: 1,
-            padding: `0 ${width * 0.05}px`,
+            padding: `0 ${width * 0.035}px`,
             fontFamily: FRAUNCES,
             fontWeight: 600,
-            fontSize: height * 0.115,
+            fontSize: height * 0.095,
             lineHeight: 1.05,
             color: WHITE,
             letterSpacing: -1,
@@ -133,7 +134,7 @@ export const Asset: React.FC<AssetSpec> = ({
 export const ASSET_SPECS: AssetSpec[] = [
   // Phone — Portrait 4:5 (1200x1500)
   { id: "phone-feed-45", width: 1200, height: 1500, orientation: "portrait", device: "phone", src: "feed.png", lead: "Your feed,", accent: "buttery smooth." },
-  { id: "phone-search-45", width: 1200, height: 1500, orientation: "portrait", device: "phone", src: "search.png", lead: "Find", accent: "who to follow." },
+  { id: "phone-search-45", width: 1200, height: 1500, orientation: "portrait", device: "phone", src: "search.png", lead: "See what's", accent: "trending." },
   { id: "phone-profile-45", width: 1200, height: 1500, orientation: "portrait", device: "phone", src: "profile.png", lead: "Profiles that feel", accent: "native." },
   // Phone — Square 1:1 (1200x1200)
   { id: "phone-feed-11", width: 1200, height: 1200, orientation: "square", device: "phone", src: "feed.png", lead: "A faster", accent: "Bluesky." },
