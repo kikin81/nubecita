@@ -47,7 +47,7 @@ capture a clip + add a `JOURNEYS` entry — no new component.
 | threads | `capture/journeys/threads.sh` | `threads.mp4` | "Tap any photo to zoom" |
 | search | `capture/journeys/search.sh` | `search.mp4` | "Posts, people, and feeds" |
 | tablet | `capture/journeys/tablet.sh` | `tablet.mp4` | "Two panes, more context" |
-| watch | _(nubecita-mp67.2)_ | `watch.mp4` | "Bluesky, on your wrist" |
+| watch | `capture/journeys/watch.sh <serial>` | `watch.mp4` | "Bluesky, on your wrist" |
 
 The journey scripts drive the **bench** build with `adb` and depend on two
 bench traits: tapping any post opens one **canned thread** (Jessica Elena's
@@ -58,13 +58,27 @@ restores it on exit.
 ### Watch journey
 
 `src/Watch.tsx` draws a round watch case (metal ring, bezel, crown, strap) and
-clips the clip to a circle, so `public/watch.mp4` is the plain **square**
-screenrecord of the `Wear_OS_Large_Round` AVD (454×454) running the Wear
-**bench** build — see `docs/wear-testing.md` for the bench scenarios that reach
-every watch state offline. It is registered as `Watch-9x16`, `Watch-1x1` and
-`Watch-16x9`; render them with `npm run render:watch`. The 454 px source is
-upscaled to a ~670–750 px screen, so record at the native resolution and don't
-re-encode it before rendering.
+clips the capture to a circle. `capture/journeys/watch.sh <serial>` records it on
+the `Wear_OS_Large_Round` AVD (454×454) running the Wear **bench** build
+(`:wear:app:assembleBenchDebug`, installed by serial — see
+`docs/wear-testing.md`); it refuses any device that isn't a round Wear AVD,
+since the phone emulators here hold real sessions. The Nubecita launcher widget
+must already sit on the widget carousel, to the right of the watch face.
+
+The beats: watch face → widget → Home → feed → post → Repost (confirm) +
+Bookmark → widget → Messages → quick reply → widget → New post → type → Post →
+"Posting…" → posted. Typing uses `scripts/wear-type-keys.py`, because
+`adb shell input text` never reaches the app on a watch.
+
+`screenrecord` writes a frame only when the screen changes, so the script
+resamples the raw clip to a constant 60 fps and holds its last frame (the
+posted card) for 3 s. The raw take runs ~57 s; `WATCH_SEGMENTS` in `Root.tsx`
+cuts it to ~26 s by speeding up the slow parts (typing, navigation) and
+skipping the app's launch splash and the bench's 10 s "Posting…". The segment
+times are source-clip seconds tied to the script's pauses: change a pause and
+retime the segments (a 1–2 fps `ffmpeg … tile` contact sheet of
+`public/watch.mp4` makes the beats easy to read). Registered as `Watch-9x16`,
+`Watch-1x1` and `Watch-16x9`; `npm run render:watch` renders all three.
 
 ### Composer journey needs real GIFs
 

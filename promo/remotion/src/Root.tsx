@@ -3,7 +3,7 @@ import { Composition } from "remotion";
 import { Promo, Journey, Layout } from "./Promo";
 import { Asset, ASSET_SPECS } from "./Assets";
 import { Foldable, FoldableJourney } from "./Foldable";
-import { Watch, WatchJourney } from "./Watch";
+import { Watch, WatchJourney, segmentsDuration } from "./Watch";
 
 // Phone captures are 640x1428 (device 1280x2856); tablet captures are 1280x800
 // (device 2560x1600). 60fps. Each journey's captured clip drives one story;
@@ -109,22 +109,37 @@ const FOLDABLE: FoldableSpec = {
   ],
 };
 
-// Wear OS: square screenrecord of the round Wear_OS_Large_Round AVD (454×454),
-// clipped to a circle by the Watch comp. Captions follow the nubecita-mp67.2
-// capture beats; retime them against the real clip once it is recorded.
+// Wear OS: capture/journeys/watch.sh records the round Wear_OS_Large_Round
+// AVD (454×454) and resamples it to 60 fps; the Watch comp clips it to a
+// circle. The segments are source-clip seconds, matched to that script's beats.
 type WatchSpec = WatchJourney & { durationSec: number; layouts: Layout[] };
+
+// Each section opens on the widget tap, then cuts past the app's launch
+// splash straight to its content.
+const WATCH_SEGMENTS = [
+  { from: 0.4, to: 3.9, rate: 1 }, // watch face → launcher widget (2 new) → tap Home
+  { from: 4.5, to: 17.2, rate: 1.8 }, // feed → post → repost (confirm) → bookmark
+  { from: 19.2, to: 20.4, rate: 1 }, // widget → tap Messages
+  { from: 21.0, to: 29.2, rate: 1.8 }, // Ana → Reply → "On my way" · Sent
+  { from: 31.2, to: 32.3, rate: 1 }, // widget → tap New post
+  { from: 32.8, to: 42.5, rate: 2.5 }, // keyboard → typing → Send
+  { from: 43.1, to: 45.5, rate: 1.2 }, // past the keyboard closing: Post → "Posting…"
+  { from: 54.2, to: 57.4, rate: 1 }, // posted card (the bench holds "Posting…" for 10 s)
+];
+const WATCH_CUT_SEC = segmentsDuration(WATCH_SEGMENTS); // ≈ 26.5 s
 
 const WATCH: WatchSpec = {
   id: "watch",
   videoSrc: "watch.mp4",
-  durationSec: 18,
-  outroStartSec: 14.5,
+  segments: WATCH_SEGMENTS,
+  outroStartSec: WATCH_CUT_SEC,
+  durationSec: WATCH_CUT_SEC + 3.5,
   layouts: ["vertical", "square", "wide"],
   captions: [
-    { at: 0.4, dur: 3.4, lead: "Bluesky,", accent: "on your wrist." },
-    { at: 4.1, dur: 3.4, lead: "Like and repost", accent: "in a tap." },
-    { at: 7.8, dur: 3.2, lead: "Reply to DMs", accent: "by voice." },
-    { at: 11.3, dur: 3.0, lead: "Post without", accent: "your phone." },
+    { at: 0.3, dur: 3.0, lead: "Bluesky,", accent: "on your wrist." },
+    { at: 3.7, dur: 6.7, lead: "Like and repost", accent: "in a tap." },
+    { at: 10.8, dur: 5.3, lead: "Answer DMs", accent: "at a glance." },
+    { at: 16.5, dur: 9.8, lead: "Post without", accent: "your phone." },
   ],
 };
 
