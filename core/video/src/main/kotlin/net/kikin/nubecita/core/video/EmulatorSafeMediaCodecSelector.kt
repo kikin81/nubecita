@@ -5,6 +5,13 @@ package net.kikin.nubecita.core.video
 import android.os.Build
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 
+// Build properties are fixed for the process: check once, not per decoder lookup.
+private val isEmulator: Boolean =
+    Build.HARDWARE.contains("ranchu", ignoreCase = true) ||
+        Build.HARDWARE.contains("goldfish", ignoreCase = true) ||
+        Build.FINGERPRINT.contains("generic", ignoreCase = true) ||
+        Build.PRODUCT.contains("sdk_gphone", ignoreCase = true)
+
 /**
  * The default decoder order, except on an emulator, where the software
  * decoders (`c2.android.*`, `OMX.google.*`) go first.
@@ -24,11 +31,6 @@ internal val emulatorSafeMediaCodecSelector =
                 requiresSecureDecoder,
                 requiresTunnelingDecoder,
             )
-        val isEmulator =
-            Build.HARDWARE.contains("ranchu", ignoreCase = true) ||
-                Build.HARDWARE.contains("goldfish", ignoreCase = true) ||
-                Build.FINGERPRINT.contains("generic", ignoreCase = true) ||
-                Build.PRODUCT.contains("sdk_gphone", ignoreCase = true)
         if (isEmulator) {
             decoders.sortedBy { decoder ->
                 if (decoder.name.startsWith("c2.android.") || decoder.name.startsWith("OMX.google.")) 0 else 1
