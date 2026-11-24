@@ -28,14 +28,14 @@ public class FakeVideoFeedSource
                     // declares 16:9, simulating a record whose optional aspectRatio is absent
                     // (the mapper fabricates 16:9). The surface must follow the decoded size,
                     // not the declared 16:9, or the portrait clip stretches (nubecita-mfac).
-                    videoPost(4, "No aspect ratio in the record", "ivy.jpg", "Lyra", declaredAspectRatio = 16f / 9f),
+                    videoPost(4, "No aspect ratio in the record", "elena.jpg", "Lyra", declaredAspectRatio = 16f / 9f),
                     // Portrait 9:16 clip, so a landscape -> portrait swipe is one step away.
                     // Exercises the aspect-ratio transition (nubecita aspect-lag bug).
-                    videoPost(4, "Vertical vista", "ivy.jpg", "Ivy"),
-                    videoPost(2, "Sunset over the bay", "ivy.jpg", "Ivy"),
-                    videoPost(3, "Studio session take 4", "jess.jpg", "Jess"),
+                    videoPost(4, "Vertical vista", "carmen.jpg", "Ivy"),
+                    videoPost(1, "Sunset over the bay", "carmen.jpg", "Ivy"),
+                    videoPost(3, "Studio session take 4", "alice.jpg", "Jess"),
                     videoPost(1, "Rewatching the good part", "hugo.jpg", "Hugo"),
-                    videoPost(2, "One more loop", "ivy.jpg", "Ivy"),
+                    videoPost(2, "One more loop", "carmen.jpg", "Ivy"),
                 )
 
             /**
@@ -45,7 +45,7 @@ public class FakeVideoFeedSource
              * when the real size arrives — the exact jump D4 exists to prevent.
              *
              * clip-1 1280x720, clip-2 1694x720, clip-3 1728x720 (landscape); clip-4
-             * 720x1280 (portrait 9:16). Durations 15/14/15/12s.
+             * 720x1280 (portrait 9:16). Durations 15/14/15/9s.
              */
             private fun aspectFor(clip: Int): Float =
                 when (clip) {
@@ -58,7 +58,7 @@ public class FakeVideoFeedSource
             private fun durationFor(clip: Int): Int =
                 when (clip) {
                     2 -> 14
-                    4 -> 12
+                    4 -> 9
                     else -> 15
                 }
 

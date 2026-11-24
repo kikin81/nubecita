@@ -26,7 +26,7 @@ promo/
     capture-screens.sh   # adb: still screenshots → remotion/public/*.png (the image assets)
   capture/journeys/      # one script per feature-story video (see below)
   remotion/
-    src/Root.tsx         # JOURNEYS registry (5 videos × aspect ratios) + 7 image stills
+    src/Root.tsx         # JOURNEYS registry (7 journeys × aspect ratios) + 7 image stills
     src/Promo.tsx        # journey-driven video comp (device frame + captions + CTA outro + Play badge)
     src/Assets.tsx       # the image-asset comp + ASSET_SPECS matrix
     public/gp_badge.png  # official Google Play badge (committed; used unmodified)
@@ -46,6 +46,7 @@ capture a clip + add a `JOURNEYS` entry — no new component.
 | composer | `capture/journeys/composer.sh <serial>` | `composer.mp4` | "Say it with a GIF" |
 | threads | `capture/journeys/threads.sh <serial>` | `threads.mp4` | "Tap any photo to zoom" |
 | search | `capture/journeys/search.sh <serial>` | `search.mp4` | "Posts, feeds, and starter packs" |
+| videos | `capture/journeys/videos.sh <serial>` | `videos.mp4` | "Double-tap to like" |
 | translation | `capture/journeys/translation.sh <serial>` | `translation.mp4` | "Read posts in any language" |
 | tablet | `capture/journeys/tablet.sh <serial>` | `tablet.mp4` | "Drag to resize, it snaps" |
 | watch | `capture/journeys/watch.sh <serial>` | `watch.mp4` | "Bluesky, on your wrist" |
@@ -154,7 +155,8 @@ the fake at real, loadable GIFs, then revert:
   app/build/outputs/apk/bench/debug/app-bench-debug.apk`. Never use a Gradle
   `install…` task, which installs on every connected device.
 - The phone scripts (`record-journey.sh`, `capture-screens.sh` and the
-  `composer`, `threads`, `search`, `translation` and `tablet` journeys) need the
+  `composer`, `threads`, `search`, `videos`, `translation` and `tablet`
+  journeys) need the
   **`Nubecita_Bench_Phone`** AVD (Pixel 10 Pro profile, 1280×2856) and refuse
   any other device, because the other phone emulators here hold real signed-in
   sessions. Create it once with:
