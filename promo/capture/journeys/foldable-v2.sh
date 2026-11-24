@@ -110,7 +110,9 @@ done
 [[ -n "$pos" ]] || { echo "Luna's video post not found" >&2; exit 1; }
 read -r _ ty <<<"$pos"
 drag 600 "$ty" 600 400 1500; pause 1.5         # slow drag (no fling): the post near the top
-pos="$(find_text "slow process shot")"; read -r _ ty <<<"$pos"
+pos="$(find_text "slow process shot")"
+[[ -n "$pos" ]] || { echo "Luna's video post not found after the drag" >&2; exit 1; }
+read -r _ ty <<<"$pos"
 tap 711 $((ty + 320)); pause 2.0               # its video, just below the post text
 echo "[tabletop] turn the device so the hinge is horizontal"
 A emu rotate >/dev/null; ROTATIONS=$((ROTATIONS + 1)); pause 3.0

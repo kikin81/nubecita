@@ -223,14 +223,19 @@ export const FoldableV2: React.FC<{ layout: Layout; journey: FoldableV2Journey }
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  // Swap the turned portrait slab for the landscape one; they're the same size.
-  const swap = interpolate(sec, [t.tabletopStart - 0.15, t.tabletopStart], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
   const long = g.s;
   const short = g.s * journey.openAspect;
+  // Mid-turn the slab's bounding box grows (√2 × at 45°): shrink it just enough
+  // to stay inside the frame, and back to full size once it's landscape.
+  const theta = (Math.PI / 2) * turn;
+  const boxW = short * Math.cos(theta) + long * Math.sin(theta);
+  const boxH = short * Math.sin(theta) + long * Math.cos(theta);
+  const room = 0.98;
+  const fit = Math.min(
+    1,
+    (room * 2 * Math.min(g.cx, width - g.cx)) / boxW,
+    (room * 2 * Math.min(g.cy, height - g.cy)) / boxH,
+  );
   const place = (w: number, h: number): React.CSSProperties => ({
     position: "absolute",
     left: g.cx - w / 2,
@@ -239,11 +244,20 @@ export const FoldableV2: React.FC<{ layout: Layout; journey: FoldableV2Journey }
 
   return (
     <AbsoluteFill style={{ background: `radial-gradient(120% 90% at 50% 20%, ${NAVY_2} 0%, ${NAVY} 62%)` }}>
-      <div style={{ ...place(short, long), opacity: 1 - swap, transform: `scale(${interpolate(enter, [0, 1], [0.92, 1])}) rotate(${-90 * turn}deg)` }}>
-        <Slab w={short} h={long} s={g.s} crease="vertical">
-          <SegmentedVideo src={journey.openSrc} segments={journey.openSegments} />
-        </Slab>
-      </div>
+      {/* The turned portrait slab and the landscape one are the same size:
+          a hard swap at tabletopStart, with no frame where neither is up. */}
+      <Sequence durationInFrames={Math.round(t.tabletopStart * fps)} layout="none">
+        <div
+          style={{
+            ...place(short, long),
+            transform: `scale(${interpolate(enter, [0, 1], [0.92, 1]) * fit}) rotate(${-90 * turn}deg)`,
+          }}
+        >
+          <Slab w={short} h={long} s={g.s} crease="vertical">
+            <SegmentedVideo src={journey.openSrc} segments={journey.openSegments} />
+          </Slab>
+        </div>
+      </Sequence>
 
       <Sequence from={Math.round(t.tabletopStart * fps)} layout="none">
         <div style={{ ...place(long, short) }}>
