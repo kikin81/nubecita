@@ -18,12 +18,22 @@ const { NAVY, NAVY_2, ACCENT, WHITE } = PALETTE;
 // circle inside a drawn watch case, so the source needs no masking.
 export type WatchCaption = { at: number; dur: number; lead: string; accent: string };
 
+// A slice of the capture, played back to back with the others. The raw
+// capture runs ~57 s (typing on a watch keyboard is slow, and the bench holds
+// "Posting…" for 10 s), so the cut speeds up and skips the dead time.
+export type WatchSegment = { from: number; to: number; rate: number }; // source seconds
+
 export type WatchJourney = {
   id: string;
-  videoSrc: string; // square capture in public/
+  videoSrc: string; // square capture in public/, constant 60 fps
+  segments: WatchSegment[];
   outroStartSec: number;
   captions: WatchCaption[];
 };
+
+// Output length of the segments, in seconds.
+export const segmentsDuration = (segments: WatchSegment[]) =>
+  segments.reduce((sum, s) => sum + (s.to - s.from) / s.rate, 0);
 
 type Geo = {
   d: number; // watch screen diameter
@@ -80,7 +90,11 @@ const geometry = (layout: Layout, w: number, h: number): Geo => {
 
 // Round case: brushed-metal ring, a thin black bezel, the crown on the right
 // and two strap stubs. Proportions are relative to the screen diameter `d`.
-const WatchDevice: React.FC<{ g: Geo; src: string }> = ({ g, src }) => {
+const WatchDevice: React.FC<{ g: Geo; src: string; segments: WatchSegment[] }> = ({
+  g,
+  src,
+  segments,
+}) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const enter = spring({ frame, fps, config: { damping: 200 }, durationInFrames: 24 });
@@ -160,6 +174,9 @@ const WatchDevice: React.FC<{ g: Geo; src: string }> = ({ g, src }) => {
       >
         <div
           style={{
+            // Positioned, so the segments' absolutely-positioned Sequences are
+            // clipped to the round screen instead of escaping the overflow.
+            position: "relative",
             width: "100%",
             height: "100%",
             borderRadius: "50%",
@@ -167,13 +184,36 @@ const WatchDevice: React.FC<{ g: Geo; src: string }> = ({ g, src }) => {
             background: "#000",
           }}
         >
-          <OffthreadVideo
-            src={staticFile(src)}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
+          <SegmentedVideo src={src} segments={segments} />
         </div>
       </div>
     </div>
+  );
+};
+
+const SegmentedVideo: React.FC<{ src: string; segments: WatchSegment[] }> = ({ src, segments }) => {
+  const { fps } = useVideoConfig();
+  let at = 0;
+  return (
+    <>
+      {segments.map((seg, i) => {
+        const len = Math.round(((seg.to - seg.from) / seg.rate) * fps);
+        const from = at;
+        at += len;
+        return (
+          // The last segment stays up through the CTA fade instead of cutting to black.
+          <Sequence key={i} from={from} durationInFrames={i === segments.length - 1 ? undefined : len}>
+            <OffthreadVideo
+              src={staticFile(src)}
+              trimBefore={Math.round(seg.from * fps)}
+              playbackRate={seg.rate}
+              muted
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          </Sequence>
+        );
+      })}
+    </>
   );
 };
 
@@ -212,7 +252,7 @@ export const Watch: React.FC<{ layout: Layout; journey: WatchJourney }> = ({ lay
     <AbsoluteFill
       style={{ background: `radial-gradient(120% 90% at 50% 20%, ${NAVY_2} 0%, ${NAVY} 62%)` }}
     >
-      <WatchDevice g={g} src={journey.videoSrc} />
+      <WatchDevice g={g} src={journey.videoSrc} segments={journey.segments} />
       {journey.captions.map((c, i) => (
         <Sequence key={i} from={Math.round(c.at * fps)} durationInFrames={Math.round(c.dur * fps)}>
           <CaptionView g={g} lead={c.lead} accent={c.accent} />
