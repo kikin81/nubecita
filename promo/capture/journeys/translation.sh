@@ -43,8 +43,12 @@ reset_translations(){
   done
   # A fresh install has no database yet, so nothing is cached to forget.
   if [[ -s "$tmp/nubecita.db" ]]; then
-    sqlite3 "$tmp/nubecita.db" "DELETE FROM post_translation; PRAGMA wal_checkpoint(TRUNCATE);" >/dev/null
-    A exec-in run-as "$PKG" sh -c 'cat > databases/nubecita.db' < "$tmp/nubecita.db"
+    # Explicit checks: dry_pass runs under `&&`, where set -e is off, and a
+    # failed step here must not go on to drop the device's WAL.
+    sqlite3 "$tmp/nubecita.db" "DELETE FROM post_translation; PRAGMA wal_checkpoint(TRUNCATE);" >/dev/null \
+      || { echo "sqlite3 failed; the device database is untouched" >&2; exit 1; }
+    A exec-in run-as "$PKG" sh -c 'cat > databases/nubecita.db' < "$tmp/nubecita.db" \
+      || { echo "database upload failed" >&2; exit 1; }
     SH run-as "$PKG" rm -f databases/nubecita.db-wal databases/nubecita.db-shm
   fi
   rm -rf "$tmp"
@@ -108,7 +112,12 @@ tap $BODY; pause 4.0
 echo "[record] stop"
 SH pkill -INT screenrecord >/dev/null 2>&1 || true
 wait "$REC_PID" 2>/dev/null || true; pause 1.0
-[[ -n "$(node text "Today's Tokyo")" ]] || { echo "take missed the translation (app race); rerun" >&2; exit 1; }
+# The take must end in the thread (the feed shows the same translated post)
+# with the focus post and a reply both translated.
+[[ -n "$(node resource-id post_detail_list)" ]] || { echo "take never opened the thread; rerun" >&2; exit 1; }
+SHOWN="$(SH cat /sdcard/journey_ui.xml | grep -o 'text="Show original"' | wc -l | tr -d ' ')"
+(( SHOWN >= 2 )) && [[ -n "$(node text "Today's Tokyo")" ]] \
+  || { echo "take missed a translation in the thread (app race); rerun" >&2; exit 1; }
 A pull "$OUT_DEVICE" "${OUT_LOCAL%.mp4}.vfr.mp4" >/dev/null
 SH rm -f "$OUT_DEVICE"
 cfr "${OUT_LOCAL%.mp4}.vfr.mp4" "$OUT_LOCAL" 3   # hold the thread
