@@ -41,9 +41,12 @@ reset_translations(){
   for f in nubecita.db nubecita.db-wal nubecita.db-shm; do
     A exec-out run-as "$PKG" cat "databases/$f" > "$tmp/$f" 2>/dev/null || rm -f "$tmp/$f"
   done
-  sqlite3 "$tmp/nubecita.db" "DELETE FROM post_translation; PRAGMA wal_checkpoint(TRUNCATE);" >/dev/null
-  A exec-in run-as "$PKG" sh -c 'cat > databases/nubecita.db' < "$tmp/nubecita.db"
-  SH run-as "$PKG" rm -f databases/nubecita.db-wal databases/nubecita.db-shm
+  # A fresh install has no database yet, so nothing is cached to forget.
+  if [[ -s "$tmp/nubecita.db" ]]; then
+    sqlite3 "$tmp/nubecita.db" "DELETE FROM post_translation; PRAGMA wal_checkpoint(TRUNCATE);" >/dev/null
+    A exec-in run-as "$PKG" sh -c 'cat > databases/nubecita.db' < "$tmp/nubecita.db"
+    SH run-as "$PKG" rm -f databases/nubecita.db-wal databases/nubecita.db-shm
+  fi
   rm -rf "$tmp"
 }
 
