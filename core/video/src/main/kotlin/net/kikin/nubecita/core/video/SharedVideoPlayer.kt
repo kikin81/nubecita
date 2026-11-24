@@ -2,14 +2,12 @@
 
 package net.kikin.nubecita.core.video
 
-import android.os.Build
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -557,28 +555,6 @@ class SharedVideoPlayer
          */
         fun clearPlaybackError() {
             _playbackError.value = null
-        }
-    }
-
-private val emulatorSafeMediaCodecSelector =
-    MediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
-        val decoders =
-            MediaCodecSelector.DEFAULT.getDecoderInfos(
-                mimeType,
-                requiresSecureDecoder,
-                requiresTunnelingDecoder,
-            )
-        val isEmulator =
-            Build.HARDWARE.contains("ranchu", ignoreCase = true) ||
-                Build.HARDWARE.contains("goldfish", ignoreCase = true) ||
-                Build.FINGERPRINT.contains("generic", ignoreCase = true) ||
-                Build.PRODUCT.contains("sdk_gphone", ignoreCase = true)
-        if (isEmulator) {
-            decoders.sortedBy { decoder ->
-                if (decoder.name.startsWith("c2.android.") || decoder.name.startsWith("OMX.google.")) 0 else 1
-            }
-        } else {
-            decoders
         }
     }
 
