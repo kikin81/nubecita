@@ -14,6 +14,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import net.kikin.nubecita.core.video.emulatorSafeMediaCodecSelector
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -24,7 +25,7 @@ import javax.inject.Singleton
  * (`VerticalVideoPlaylistPlayer`, epic nubecita-zdv8 Slice 2b) consumes. Wires:
  * the process-shared [VideoCache] via a [CacheDataSource] over the default HTTP
  * upstream, the short-video [shortVideoLoadControl], and a renderers factory
- * with software-decoder fallback enabled.
+ * with software-decoder fallback enabled and the emulator-safe decoder order.
  *
  * `MediaSource`es are produced fresh per playback by [DefaultMediaSourceFactory]
  * (which delegates to the HLS module for `.m3u8`); they are never cached or
@@ -49,7 +50,10 @@ public class VideoPlayerFactory
          */
         public suspend fun create(trackSelector: TrackSelector): ExoPlayer =
             withContext(Dispatchers.Main.immediate) {
-                val renderersFactory = DefaultRenderersFactory(context).setEnableDecoderFallback(true)
+                val renderersFactory =
+                    DefaultRenderersFactory(context)
+                        .setEnableDecoderFallback(true)
+                        .setMediaCodecSelector(emulatorSafeMediaCodecSelector)
                 ExoPlayer
                     .Builder(context, renderersFactory)
                     .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory()))
