@@ -28,12 +28,12 @@ Y_MID=800   # the divider handle sits at the window's vertical center
 # DOWN/MOVE/UP events with a pause before UP settle on the stop nearest the
 # release point.
 divider(){ # divider <dx>
-  local x i; x="$(handle_x $Y_MID)"
+  local x i cmd; x="$(handle_x $Y_MID)"
   [[ -n "$x" ]] || { echo "divider handle not found" >&2; exit 1; }
-  SH input motionevent DOWN "$x" $Y_MID
-  for i in 1 2 3 4 5 6 7 8; do SH input motionevent MOVE $(( x + $1 * i / 8 )) $Y_MID; done
-  pause 0.4
-  SH input motionevent UP $(( x + $1 )) $Y_MID
+  # One shell for the whole gesture: an adb round trip per event makes it jerky.
+  cmd="input motionevent DOWN $x $Y_MID"
+  for i in 1 2 3 4 5 6 7 8; do cmd="$cmd; input motionevent MOVE $(( x + $1 * i / 8 )) $Y_MID"; done
+  SH "$cmd; sleep 0.4; input motionevent UP $(( x + $1 )) $Y_MID"
 }
 
 echo "[tablet] resize display to 2560x1600 @ 320 dpi (1280x800 dp)"

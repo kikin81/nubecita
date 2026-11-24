@@ -5,6 +5,7 @@
 #
 # It refuses any device that isn't the Nubecita_Bench_Phone AVD before touching
 # it: the other phone emulators on this machine hold real signed-in sessions.
+: "${SERIAL:?set SERIAL before sourcing lib.sh}"
 PKG="net.kikin.nubecita"
 A(){ adb -s "$SERIAL" "$@"; }
 SH(){ A shell "$@"; }
