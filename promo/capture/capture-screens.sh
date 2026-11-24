@@ -7,11 +7,15 @@
 #   feed.png search.png profile.png post.png tablet_feed.png tablet_detail.png
 set -euo pipefail
 
-SERIAL="${1:-emulator-5554}"
+SERIAL="${1:?usage: capture-screens.sh <bench-phone-serial>}"
 PKG="net.kikin.nubecita"
 DEST="$(cd "$(dirname "$0")/../remotion/public" && pwd)"
 A() { adb -s "$SERIAL" "$@"; }
 SH() { A shell "$@"; }
+# The phone emulators on this machine hold real signed-in sessions; refuse
+# anything that isn't the bench phone AVD, before touching the device.
+AVD="$(SH getprop ro.boot.qemu.avd_name | tr -d '\r')"   # empty on a real device
+[[ "$AVD" == Nubecita_Bench_Phone ]] || { echo "refusing: $SERIAL is '$AVD', not Nubecita_Bench_Phone" >&2; exit 1; }
 tap() { SH input tap "$1" "$2"; }
 grab() { A exec-out screencap -p > "$DEST/$1"; echo "  → $1"; }
 relaunch() { SH am force-stop "$PKG"; sleep 0.5; SH am start -n "$PKG/.MainActivity" >/dev/null; sleep 5; }
