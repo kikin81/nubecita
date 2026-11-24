@@ -48,12 +48,44 @@ capture a clip + add a `JOURNEYS` entry — no new component.
 | search | `capture/journeys/search.sh` | `search.mp4` | "Posts, people, and feeds" |
 | tablet | `capture/journeys/tablet.sh` | `tablet.mp4` | "Two panes, more context" |
 | watch | `capture/journeys/watch.sh <serial>` | `watch.mp4` | "Bluesky, on your wrist" |
+| foldableV2 | `capture/journeys/foldable-v2.sh <serial> remotion/public` | `fold_open.mp4` + `fold_tabletop.mp4` | "Fold it into a stand" |
 
 The journey scripts drive the **bench** build with `adb` and depend on two
 bench traits: tapping any post opens one **canned thread** (Jessica Elena's
 4-image gallery — used by `threads` and `tablet`), and the feed/search fakes are
 deterministic. `tablet.sh` temporarily resizes the display to 2560×1600 and
 restores it on exit.
+
+### Foldable v2 journey
+
+`src/FoldableV2.tsx` draws the nearly square inner display of a book-style
+foldable. It plays the open clip, turns a quarter, then folds its bottom half
+back into tabletop. `capture/journeys/foldable-v2.sh <serial> remotion/public`
+records both clips on the `Nubecita_Bench_Fold` AVD (inner display 2076×2152)
+running the phone **bench** build (`:app:assembleBenchDebug`, installed by
+serial). It refuses any other device, since the phone emulators here hold real
+sessions.
+
+- **open** (flat, portrait): open a post into the second pane → Search, with
+  Explore in the second pane → search "coffee" → the search summary takes
+  over the second pane.
+- **tabletop** (landscape): Luna Martinez's video post fullscreen, played flat,
+  then `adb emu sensor set hinge-angle0 90`. The emulator reports a real
+  `HALF_FOLDED` posture (some physical foldables don't), and the player puts
+  the video on the top half and the controls on the bottom.
+
+The script turns the emulator with `adb emu rotate` and puts the hinge and
+rotation back on exit. It finds Luna's post through `uiautomator` text instead
+of fixed scrolls, and skips the player back to the start (the inline player
+autoplays while the feed scrolls). Both clips are resampled to a constant
+60 fps like the watch clip.
+
+`openSegments` in `Root.tsx` are source seconds tied to the script's pauses.
+`tabletopSwitchSec` is the tabletop clip's first split frame. The drawn bend
+ends on it, so retime it after a recapture by finding the first frame whose top
+band turns bright. List-detail column snapping is not in this cut: on a ~850dp
+fold the anchors are ~26dp apart, so it belongs in the tablet journey. `npm run
+render:foldable` renders `FoldableV2-9x16`, `-1x1` and `-16x9`.
 
 ### Watch journey
 
