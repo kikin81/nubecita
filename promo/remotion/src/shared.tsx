@@ -2,6 +2,8 @@ import React from "react";
 import {
   AbsoluteFill,
   Img,
+  OffthreadVideo,
+  Sequence,
   staticFile,
   interpolate,
   useCurrentFrame,
@@ -76,5 +78,41 @@ export const CtaOutro: React.FC<{ layout: Layout; startSec: number }> = ({
         style={{ height: layout === "wide" ? 112 : 100, width: "auto", marginTop: 16 }}
       />
     </AbsoluteFill>
+  );
+};
+
+// A slice of a capture, in source seconds, played back to back with the others
+// at `rate`. Captures run long (slow typing, bench delays), so a cut speeds up
+// and skips the dead time.
+export type Segment = { from: number; to: number; rate: number };
+
+// Output length of the segments, in seconds.
+export const segmentsDuration = (segments: Segment[]) =>
+  segments.reduce((sum, s) => sum + (s.to - s.from) / s.rate, 0);
+
+// Plays `segments` of `src` back to back from frame 0. The last segment stays
+// up past its end (a frozen last frame) so a cut can hold or fade over it.
+export const SegmentedVideo: React.FC<{ src: string; segments: Segment[] }> = ({ src, segments }) => {
+  const { fps } = useVideoConfig();
+  let at = 0;
+  return (
+    <>
+      {segments.map((seg, i) => {
+        const len = Math.round(((seg.to - seg.from) / seg.rate) * fps);
+        const from = at;
+        at += len;
+        return (
+          <Sequence key={i} from={from} durationInFrames={i === segments.length - 1 ? undefined : len}>
+            <OffthreadVideo
+              src={staticFile(src)}
+              trimBefore={Math.round(seg.from * fps)}
+              playbackRate={seg.rate}
+              muted
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          </Sequence>
+        );
+      })}
+    </>
   );
 };

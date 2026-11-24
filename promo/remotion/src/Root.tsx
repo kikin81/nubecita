@@ -3,7 +3,9 @@ import { Composition } from "remotion";
 import { Promo, Journey, Layout } from "./Promo";
 import { Asset, ASSET_SPECS } from "./Assets";
 import { Foldable, FoldableJourney } from "./Foldable";
-import { Watch, WatchJourney, segmentsDuration } from "./Watch";
+import { Watch, WatchJourney } from "./Watch";
+import { FoldableV2, FoldableV2Journey, foldableV2Timing } from "./FoldableV2";
+import { segmentsDuration } from "./shared";
 
 // Phone captures are 640x1428 (device 1280x2856); tablet captures are 1280x800
 // (device 2560x1600). 60fps. Each journey's captured clip drives one story;
@@ -109,6 +111,31 @@ const FOLDABLE: FoldableSpec = {
   ],
 };
 
+// Foldable v2: capture/journeys/foldable-v2.sh on the Nubecita_Bench_Fold AVD.
+// Segments are source-clip seconds, matched to that script's beats.
+type FoldableV2Spec = FoldableV2Journey & { id: string; layouts: Layout[] };
+
+const FOLDABLE_V2: FoldableV2Spec = {
+  id: "foldableV2",
+  openSrc: "fold_open.mp4",
+  openSegments: [
+    { from: 2.2, to: 8.8, rate: 1.5 }, // tap a post → its thread in the second pane → read down
+    { from: 8.8, to: 16.6, rate: 1.8 }, // Search: Explore in the second pane → type "coffee"
+    { from: 16.6, to: 20.5, rate: 1 }, // results + the search summary pane
+  ],
+  tabletopSrc: "fold_tabletop.mp4",
+  tabletopSegment: { from: 0.8, to: 9.5, rate: 1 }, // flat → hinge to 90° → split on the fold
+  tabletopSwitchSec: 3.72, // first tabletop frame (223 @ 60 fps)
+  openAspect: 1038 / 1076,
+  layouts: ["vertical", "square", "wide"],
+  captions: [
+    { at: 0.3, dur: 4.0, lead: "Two panes,", accent: "more context." },
+    { at: 4.6, dur: 3.9, lead: "Explore", accent: "side by side." },
+    { at: 8.8, dur: 3.7, lead: "Every search,", accent: "summarized." },
+    { at: 14.0, dur: 8.0, lead: "Fold it into", accent: "a stand." },
+  ],
+};
+
 // Wear OS: capture/journeys/watch.sh records the round Wear_OS_Large_Round
 // AVD (454×454) and resamples it to 60 fps; the Watch comp clips it to a
 // circle. The segments are source-clip seconds, matched to that script's beats.
@@ -184,6 +211,22 @@ export const RemotionRoot: React.FC = () => {
             width={d.w}
             height={d.h}
             defaultProps={{ layout, journey: FOLDABLE }}
+          />
+        );
+      })}
+
+      {FOLDABLE_V2.layouts.map((layout) => {
+        const d = DIMS[layout];
+        return (
+          <Composition
+            key={`${FOLDABLE_V2.id}-${d.tag}`}
+            id={`${cap(FOLDABLE_V2.id)}-${d.tag}`}
+            component={FoldableV2}
+            durationInFrames={Math.round(foldableV2Timing(FOLDABLE_V2).durationSec * FPS)}
+            fps={FPS}
+            width={d.w}
+            height={d.h}
+            defaultProps={{ layout, journey: FOLDABLE_V2 }}
           />
         );
       })}
