@@ -17,12 +17,14 @@ tap(){ SH input tap "$1" "$2"; }
 drag(){ SH input swipe "$1" "$2" "$3" "$4" "${5:-500}"; }
 pause(){ sleep "$1"; }
 cleanup(){ SH pkill -INT screenrecord >/dev/null 2>&1 || true; }
-trap cleanup EXIT
 
 # The phone emulators on this machine hold real signed-in sessions; refuse
-# anything that isn't a round Wear AVD.
+# anything that isn't the large round Wear AVD, before touching the device.
 AVD="$(SH getprop ro.boot.qemu.avd_name | tr -d '\r')"   # empty on a real device
 [[ "$AVD" == Wear_OS_*Round ]] || { echo "refusing: $SERIAL is '$AVD', not a round Wear AVD" >&2; exit 1; }
+# Every tap and swipe below is a fixed 454×454 coordinate (Wear_OS_Large_Round).
+SIZE="$(SH wm size | awk '/Physical size/{print $3}' | tr -d '\r')"
+[[ "$SIZE" == 454x454 ]] || { echo "refusing: $SERIAL is $SIZE; the journey's coordinates need 454x454" >&2; exit 1; }
 
 widget(){ SH input keyevent 3; pause 1.0; drag 400 227 50 227 300; pause 1.6; }
 
@@ -35,6 +37,7 @@ SH input keyevent 3; pause 1.5
 echo "[record] start"
 SH screenrecord --bit-rate 12000000 --time-limit 90 "$OUT_DEVICE" &
 REC_PID=$!
+trap cleanup EXIT                              # only once our own recorder is running
 pause 1.2
 
 echo "[beat 1] watch face → launcher widget"
