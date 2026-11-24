@@ -1,70 +1,61 @@
 #!/usr/bin/env bash
-# Drives the bench app through the promo journey (feed scroll → tab tour →
-# post interactions) on a connected emulator, while screenrecord captures.
-# Screen assumed 1280x2856. All fake/apolitical bench data.
+# Journey: hero. Like the top post → 120hz feed scroll → tab tour
+# (Search · Chats · You · Feed). Nubecita_Bench_Phone AVD (1280x2856) running
+# the phone bench build; all fake/apolitical bench data. Taps find their
+# targets by accessibility label (lib.sh), so layout changes don't break them.
+#
+#   promo/capture/record-journey.sh <bench-phone-serial> [out.mp4]
 set -euo pipefail
-
-SERIAL="${1:-emulator-5554}"
-PKG="net.kikin.nubecita"
-OUT_DEVICE="/sdcard/promo.mp4"
-OUT_LOCAL="${2:-promo_raw.mp4}"
-A() { adb -s "$SERIAL" "$@"; }
-SH() { A shell "$@"; }
-tap() { SH input tap "$1" "$2"; }
-fling() { SH input swipe "$1" "$2" "$3" "$4" "${5:-220}"; }
-pause() { sleep "$1"; }
+# shellcheck disable=SC2034  # used by lib.sh
+SERIAL="${1:?usage: record-journey.sh <bench-phone-serial> [out.mp4]}"
+OUT_DEVICE="/sdcard/promo.mp4"; OUT_LOCAL="${2:-promo_raw.mp4}"
+# shellcheck source=lib.sh
+source "$(dirname "$0")/lib.sh"
 
 # On any exit (success, error, Ctrl-C): stop a dangling screenrecord + leave demo mode.
-cleanup() {
-  SH pkill -INT screenrecord >/dev/null 2>&1 || true
-  SH am broadcast -a com.android.systemui.demo -e command exit >/dev/null || true
-}
+cleanup(){ SH pkill -INT screenrecord >/dev/null 2>&1 || true; demo_off; }
 trap cleanup EXIT
 
-# Bottom-nav tab x-centers (5 tabs across 1280) at y≈2713
-Y_NAV=2713
-X_FEED=128; X_SEARCH=384; X_NOTIF=640; X_CHATS=896; X_PROFILE=1152
+echo "[app] demo status bar, fresh process on the feed top"
+demo_on; relaunch 6
 
-echo "[demo] clean status bar"
-SH settings put global sysui_demo_allowed 1 || true
-SH am broadcast -a com.android.systemui.demo -e command enter >/dev/null || true
-SH am broadcast -a com.android.systemui.demo -e command clock -e hhmm 1200 >/dev/null || true
-SH am broadcast -a com.android.systemui.demo -e command battery -e level 100 -e plugged false >/dev/null || true
-SH am broadcast -a com.android.systemui.demo -e command network -e wifi show -e level 4 -e mobile show -e level 4 >/dev/null || true
-SH am broadcast -a com.android.systemui.demo -e command notifications -e visible false >/dev/null || true
-
-echo "[app] relaunch to a clean feed top"
-SH am force-stop "$PKG"; pause 0.5
-SH am start -n "$PKG/.MainActivity" >/dev/null; pause 5
+# Resolve the targets before recording: each lookup is a ~2 s UI dump.
+LIKE="$(node content-desc Like 1)"
+read -r X_SEARCH Y_NAV <<<"$(node content-desc Search)"
+read -r X_CHATS _ <<<"$(node content-desc Chats)"
+read -r X_YOU _ <<<"$(node content-desc You)"
+read -r X_FEED _ <<<"$(node content-desc Feed)"
+[[ -n "$LIKE" && -n "$Y_NAV" && -n "$X_CHATS" && -n "$X_YOU" && -n "$X_FEED" ]] \
+  || { echo "feed targets not found" >&2; exit 1; }
 
 echo "[record] start"
 SH screenrecord --size 640x1428 --bit-rate 16000000 --time-limit 60 "$OUT_DEVICE" &
 REC_PID=$!
 pause 1.2   # let the recorder warm up + show the resting feed
 
-# Order: interaction FIRST (fresh launch = top post at a known position, so the
-# like heart is deterministic), then scroll, then the tab tour.
-
-echo "[beat 1] like animation on the top post"
-pause 1.3                                # rest on the feed
-tap 690 810; pause 2.3                   # like → heart fills 88→89 (verified); hold
+# Order: interaction FIRST (fresh launch = top post at a known position), then
+# scroll, then the tab tour.
+echo "[beat 1] like the top post"
+pause 1.3
+# shellcheck disable=SC2086
+tap $LIKE; pause 2.3                     # heart fills, count ticks up; hold
 
 echo "[beat 2] 120hz feed scroll"
-for i in 1 2 3 4; do fling 640 2150 640 620 190; pause 0.85; done
+for _ in 1 2 3 4; do fling 640 2150 640 620 190; pause 0.85; done
 pause 0.5
 fling 640 800 640 2000 300; pause 1.0    # gentle scroll back (no pull-to-refresh)
 
 echo "[beat 3] tab tour"
-tap $X_SEARCH  $Y_NAV; pause 1.7
-tap $X_CHATS   $Y_NAV; pause 1.7
-tap $X_PROFILE $Y_NAV; pause 1.9
-tap $X_FEED    $Y_NAV; pause 1.4
+tap "$X_SEARCH" "$Y_NAV"; pause 1.7
+tap "$X_CHATS"  "$Y_NAV"; pause 1.7
+tap "$X_YOU"    "$Y_NAV"; pause 1.9
+tap "$X_FEED"   "$Y_NAV"; pause 1.4
 
 echo "[record] stop"
 SH pkill -INT screenrecord >/dev/null 2>&1 || true
-wait "$REC_PID" 2>/dev/null || true
-pause 1.0
-
-echo "[pull] $OUT_LOCAL"                          # demo mode restored by the EXIT trap
-A pull "$OUT_DEVICE" "$OUT_LOCAL" >/dev/null
+wait "$REC_PID" 2>/dev/null || true; pause 1.0
+A pull "$OUT_DEVICE" "${OUT_LOCAL%.mp4}.vfr.mp4" >/dev/null
+SH rm -f "$OUT_DEVICE"
+cfr "${OUT_LOCAL%.mp4}.vfr.mp4" "$OUT_LOCAL" 1
+rm -f "${OUT_LOCAL%.mp4}.vfr.mp4"
 echo "done: $OUT_LOCAL"

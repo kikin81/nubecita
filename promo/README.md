@@ -42,19 +42,23 @@ capture a clip + add a `JOURNEYS` entry — no new component.
 
 | Journey | Capture script | Clip | Hook |
 |---|---|---|---|
-| hero | `capture/record-journey.sh` | `promo.mp4` | like → 120hz scroll → tab tour |
-| composer | `capture/journeys/composer.sh` | `composer.mp4` | "Say it with a GIF" |
-| threads | `capture/journeys/threads.sh` | `threads.mp4` | "Tap any photo to zoom" |
-| search | `capture/journeys/search.sh` | `search.mp4` | "Posts, people, and feeds" |
-| tablet | `capture/journeys/tablet.sh` | `tablet.mp4` | "Two panes, more context" |
+| hero | `capture/record-journey.sh <serial>` | `promo.mp4` | like → 120hz scroll → tab tour |
+| composer | `capture/journeys/composer.sh <serial>` | `composer.mp4` | "Say it with a GIF" |
+| threads | `capture/journeys/threads.sh <serial>` | `threads.mp4` | "Tap any photo to zoom" |
+| search | `capture/journeys/search.sh <serial>` | `search.mp4` | "Posts, feeds, and starter packs" |
+| tablet | `capture/journeys/tablet.sh <serial>` | `tablet.mp4` | "Drag to resize, it snaps" |
 | watch | `capture/journeys/watch.sh <serial>` | `watch.mp4` | "Bluesky, on your wrist" |
 | foldableV2 | `capture/journeys/foldable-v2.sh <serial> remotion/public` | `fold_open.mp4` + `fold_tabletop.mp4` | "Fold it into a stand" |
 
 The journey scripts drive the **bench** build with `adb` and depend on two
 bench traits: tapping any post opens one **canned thread** (Jessica Elena's
 4-image gallery — used by `threads` and `tablet`), and the feed/search fakes are
-deterministic. `tablet.sh` temporarily resizes the display to 2560×1600 and
-restores it on exit.
+deterministic. `tablet.sh` temporarily resizes the display to 2560×1600 @ 320 dpi
+(1280×800 dp, where the list-detail divider has four snap stops) and restores
+it on exit. The divider handle has no accessibility label, so `lib.sh`'s
+`handle_x` finds it in a screenshot. The drags use `input motionevent` with a
+pause before release: `input swipe` lets go mid-motion and flings the divider
+past the nearest stop.
 
 ### Foldable v2 journey
 
@@ -118,31 +122,52 @@ The bench KLIPY fake serves *synthetic* URLs (`static.klipy.com/…/<slug>.webp`
 so the picker grid is empty offline. To capture `composer.sh`, temporarily point
 the fake at real, loadable GIFs, then revert:
 
-1. Drop a few public-domain GIFs in `app/src/bench/assets/promo_gifs/` (e.g.
-   Wikimedia Commons via `https://commons.wikimedia.org/wiki/Special:FilePath/<file>.gif`).
+1. Put a few GIFs in `app/src/bench/assets/promo_gifs/`. The last capture cut
+   six 2 s loops (320×240, 12 fps, `loop1.gif`…`loop6.gif`) from the bench's
+   own video clips (`app/src/bench/assets/video/clip-1.mp4` and `clip-3.mp4`)
+   with ffmpeg `palettegen`/`paletteuse`.
 2. In `core/klipy/src/bench/…/BenchFakeKlipyRepository.kt`, return a list of
    `KlipyMediaUi` whose `previewUrl`/`embedUrl` are
    `file:///android_asset/promo_gifs/<file>.gif` (Coil loads asset URIs offline).
-3. `./gradlew :app:installBenchDebug`, run `composer.sh`, then **revert** the
-   fake + delete the assets (this override is intentionally not committed).
+3. `./gradlew :app:assembleBenchDebug`, install it on the bench phone by
+   serial, run `composer.sh`, then **revert** the fake, delete the assets, and
+   reinstall a clean bench build (this override is intentionally not committed).
 
 ## Prerequisites
 
 - **Node ≥ 20**, **ffmpeg** (`brew install ffmpeg`).
-- A **connected emulator/device** with the **bench** build installed:
-  `./gradlew :app:installBenchDebug` (see the `bench-build-skips-signin` note).
-  The capture scripts assume a phone screen of **1280×2856** — retune the tap
-  coordinates in the scripts if your AVD differs.
+- The **bench** build (`./gradlew :app:assembleBenchDebug`) installed **by
+  serial** on a dedicated emulator: `adb -s <serial> install -r
+  app/build/outputs/apk/bench/debug/app-bench-debug.apk`. Never use a Gradle
+  `install…` task, which installs on every connected device.
+- The phone scripts (`record-journey.sh`, `capture-screens.sh` and the
+  `composer`, `threads`, `search` and `tablet` journeys) need the
+  **`Nubecita_Bench_Phone`** AVD (Pixel 10 Pro profile, 1280×2856) and refuse
+  any other device, because the other phone emulators here hold real signed-in
+  sessions. Create it once with:
+
+  ```bash
+  avdmanager create avd -n Nubecita_Bench_Phone -d pixel_10_pro \
+    -k "system-images;android-37.0;google_apis_playstore;arm64-v8a"
+  ```
+
+  `tablet.sh` resizes that emulator to a Pixel Tablet (2560×1600 @ 320 dpi)
+  for the take and restores it on exit.
+- The scripts share `capture/lib.sh`. It finds tap targets by accessibility
+  label through `uiautomator` instead of fixed coordinates, so a layout change
+  doesn't silently tap the wrong thing. A missing label stops the script. Each
+  lookup is a ~2 s UI dump, so the scripts resolve targets in a dry pass before
+  recording. Clips are resampled to a constant 60 fps (`cfr`).
 
 ## Regenerate — full flow
 
 ```bash
 # 1. Capture the video journey (feed like → 120hz scroll → tab tour)
-promo/capture/record-journey.sh                 # → promo_raw.mp4 (640×1428, 60fps)
+promo/capture/record-journey.sh <bench-phone-serial>   # → promo_raw.mp4 (640×1428, 60fps)
 cp -f promo_raw.mp4 promo/remotion/public/promo.mp4
 
 # 2. Capture the still screenshots for the image assets
-promo/capture/capture-screens.sh                # → remotion/public/{feed,search,profile,post,tablet_*}.png
+promo/capture/capture-screens.sh <bench-phone-serial>  # → remotion/public/{feed,search,profile,post,tablet_*}.png
 
 # 3. Render
 cd promo/remotion
