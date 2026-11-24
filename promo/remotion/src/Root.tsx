@@ -3,6 +3,7 @@ import { Composition } from "remotion";
 import { Promo, Journey, Layout } from "./Promo";
 import { Asset, ASSET_SPECS } from "./Assets";
 import { Foldable, FoldableJourney } from "./Foldable";
+import { Watch, WatchJourney } from "./Watch";
 
 // Phone captures are 640x1428 (device 1280x2856); tablet captures are 1280x800
 // (device 2560x1600). 60fps. Each journey's captured clip drives one story;
@@ -108,6 +109,25 @@ const FOLDABLE: FoldableSpec = {
   ],
 };
 
+// Wear OS: square screenrecord of the round Wear_OS_Large_Round AVD (454×454),
+// clipped to a circle by the Watch comp. Captions follow the nubecita-mp67.2
+// capture beats; retime them against the real clip once it is recorded.
+type WatchSpec = WatchJourney & { durationSec: number; layouts: Layout[] };
+
+const WATCH: WatchSpec = {
+  id: "watch",
+  videoSrc: "watch.mp4",
+  durationSec: 18,
+  outroStartSec: 14.5,
+  layouts: ["vertical", "square", "wide"],
+  captions: [
+    { at: 0.4, dur: 3.4, lead: "Bluesky,", accent: "on your wrist." },
+    { at: 4.1, dur: 3.4, lead: "Like and repost", accent: "in a tap." },
+    { at: 7.8, dur: 3.2, lead: "Reply to DMs", accent: "by voice." },
+    { at: 11.3, dur: 3.0, lead: "Post without", accent: "your phone." },
+  ],
+};
+
 const DIMS: Record<Layout, { w: number; h: number; tag: string }> = {
   vertical: { w: 1080, h: 1920, tag: "9x16" },
   square: { w: 1080, h: 1080, tag: "1x1" },
@@ -149,6 +169,22 @@ export const RemotionRoot: React.FC = () => {
             width={d.w}
             height={d.h}
             defaultProps={{ layout, journey: FOLDABLE }}
+          />
+        );
+      })}
+
+      {WATCH.layouts.map((layout) => {
+        const d = DIMS[layout];
+        return (
+          <Composition
+            key={`${WATCH.id}-${d.tag}`}
+            id={`${cap(WATCH.id)}-${d.tag}`}
+            component={Watch}
+            durationInFrames={Math.round(WATCH.durationSec * FPS)}
+            fps={FPS}
+            width={d.w}
+            height={d.h}
+            defaultProps={{ layout, journey: WATCH }}
           />
         );
       })}
