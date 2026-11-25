@@ -60,7 +60,7 @@ However, running as a standard flat tablet window in XR encounters distinct fric
 - **[Risk] Keyboard shortcut conflicts with text inputs (e.g. composer or search)**
   → *Mitigation:* Attach `Modifier.onKeyEvent` at the shell level, guarded by a focus check that disables global hotkeys whenever a `TextField` has active focus.
 - **[Risk] Missing XR runtime dependencies on standard devices**
-  → *Mitigation:* Declare `android.software.xr.api` with `required="false"` in the manifest and ensure Jetpack XR Compose calls are guarded behind capability checks.
+  → *Mitigation:* Declare `android.software.xr.api.spatial` with `required="false"` in the manifest and ensure Jetpack XR Compose calls are guarded behind capability checks.
 
 ## Migration Plan
 
