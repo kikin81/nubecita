@@ -33,6 +33,9 @@ import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsSheetCon
 import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsViewModel
 import net.kikin.nubecita.core.review.requestReviewIfEligible
 import net.kikin.nubecita.designsystem.adaptive.PostCommentsSheetScaffold
+import net.kikin.nubecita.designsystem.input.rememberHasHardwareKeyboard
+import net.kikin.nubecita.designsystem.spatial.rememberSpatialSessionEnvironment
+import net.kikin.nubecita.designsystem.spatial.rememberTheaterMode
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
@@ -97,6 +100,17 @@ internal fun VideoPlayerScreen(
     // as a flag. The PiP window is never laid out as tabletop, whatever the
     // device posture underneath it.
     val isTabletop = isTabletopPosture() && !isInPip
+
+    // Android XR (nubecita-h6kf.5): in Full Space the controls float in an Orbiter below
+    // the panel; Theater Mode (Full Space, passthrough faded out) is offered on any XR
+    // device. Both are no-ops elsewhere: spatial UI is never enabled and there is no
+    // session, so the button stays hidden.
+    val spatialControls = rememberSpatialSessionEnvironment().isSpatialUiEnabled && !isInPip
+    val theaterMode = rememberTheaterMode()
+
+    // Hardware keyboard: Space plays / pauses, arrows skip 10s, M mutes (in the content).
+    // One LocalConfiguration read for the whole player, not per item.
+    val hasHardwareKeyboard = rememberHasHardwareKeyboard()
 
     // Instant PiP snap-to-hidden: bypass exit animation so PiP capture window does not snap a collapsing sheet.
     LaunchedEffect(isInPip) {
@@ -222,6 +236,10 @@ internal fun VideoPlayerScreen(
                     onPopOut = onPopOut,
                     isTabletop = isTabletop,
                     contentPadding = innerPadding,
+                    spatialControls = spatialControls,
+                    isTheaterMode = theaterMode?.isActive == true,
+                    onTheaterModeToggle = theaterMode?.let { it::toggle },
+                    keyboardShortcuts = hasHardwareKeyboard,
                     modifier = Modifier.fillMaxSize(),
                 )
             }

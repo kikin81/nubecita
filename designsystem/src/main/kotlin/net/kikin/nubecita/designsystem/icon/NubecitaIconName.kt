@@ -88,6 +88,10 @@ enum class NubecitaIconName(
     Search("\uE8B6"),
     Send("\uE163"),
     Settings("\uE8B8"),
+
+    // Video player Theater Mode on Android XR (nubecita-h6kf.5): enter / exit.
+    Theaters("\uE8DA"),
+    CloseFullscreen("\uF1CF"),
     Translate("\uE8E2"),
     Verified("\uEF76"),
     VolumeOff("\uE04F"),

@@ -33,4 +33,9 @@
     <string name="keyboard_shortcut_previous_post">Publicación anterior</string>
     <string name="keyboard_shortcut_reply">Responder a la publicación</string>
     <string name="keyboard_shortcut_like">Dar me gusta a la publicación</string>
+    <string name="keyboard_shortcuts_group_video">Video</string>
+    <string name="keyboard_shortcut_play_pause">Reproducir o pausar</string>
+    <string name="keyboard_shortcut_skip_back">Retroceder 10 segundos</string>
+    <string name="keyboard_shortcut_skip_forward">Adelantar 10 segundos</string>
+    <string name="keyboard_shortcut_mute">Silenciar o activar sonido</string>
 </resources>

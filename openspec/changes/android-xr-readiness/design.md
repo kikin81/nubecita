@@ -47,11 +47,12 @@ However, running as a standard flat tablet window in XR encounters distinct fric
 - **Alternatives Considered:**
   - *Scaling up icons to 56dp:* Destroys visual hierarchy and crowds typography.
 
-### 4. Media3 Spatial Audio & Full Space Immersion
-- **Decision:** Configure `:core:video` Player surface to register with Android XR spatial audio, and provide a Theater Mode button that calls `Session.requestFullSpaceMode()`.
-- **Rationale:** Aligns audio origin directly with the visual placement of the video player in the room, and allows cinema viewing with dimmed ambient passthrough for deep focus.
+### 4. Panel Audio & Full Space Theater Mode
+- **Decision:** Leave audio to the platform, which already emits an app's audio from its panel, and provide a Theater Mode button that calls `scene.requestFullSpace()` and fades the passthrough out (`spatialEnvironment.preferredPassthroughOpacity = 0`). In Full Space the player's controls move to a bottom Orbiter.
+- **Rationale:** Panel-anchored audio needs no code, and the positional audio APIs refuse `USAGE_MEDIA`, which video audio uses. Theater Mode gives cinema viewing with the room darkened; the Orbiter keeps the video unobscured.
 - **Alternatives Considered:**
-  - *Standard stereo audio only:* Disorienting in XR when turning your head away from the window.
+  - *Positional audio through a custom Media3 AudioTrack provider:* Not possible for media audio (usage restriction), and the platform's panel anchoring already does it.
+  - *A curved virtual screen:* Needs the video in a Subspace panel rather than the main panel; left as a follow-up.
 
 ## Risks / Trade-offs
 
@@ -67,7 +68,7 @@ However, running as a standard flat tablet window in XR encounters distinct fric
 1. **Phase 1 (Navigation & Shell):** Add XR dependencies to version catalog; implement `SpatialScaffold` in `:app` with conditional `Orbiter` projection for top-level navigation.
 2. **Phase 2 (Panels & Scene Strategy):** Audit and wire `ListDetailSceneStrategy` / `SupportingPaneSceneStrategy` for dynamic multi-pane rendering across wide spatial panels.
 3. **Phase 3 (Input Ergonomics):** Update post interaction hit targets in `:designsystem` to 56dp; add hover/focus rings and wire hardware keyboard shortcuts (`j`/`k`, `r`, `Space`).
-4. **Phase 4 (Media Immersion):** Implement video player floating controls Orbiter, spatial audio attributes in Media3, and Theater Mode toggle.
+4. **Phase 4 (Media Immersion):** Implement video player floating controls Orbiter and the Theater Mode toggle (audio is anchored to the panel by the platform).
 5. **Phase 5 (Testing & Quality Gates):** Add Compose Preview screenshot tests for expanded spatial form factors and run unit tests.
 
 ## Stacked PR Architecture (`gh-stack`)

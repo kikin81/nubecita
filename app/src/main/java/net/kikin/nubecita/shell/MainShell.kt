@@ -459,7 +459,11 @@ fun MainShell(modifier: Modifier = Modifier) {
         LocalMainShellNavState provides mainShellNavState,
         LocalTabReTapSignal provides readOnlyTabReTapSignal,
         LocalGifAutoplayEnabled provides gifAutoplayEnabled,
-        LocalKeyboardFocusAnchors provides focusAnchors,
+        // Only with a hardware keyboard: PostCard and the feed list read this static local
+        // (not LocalConfiguration) to decide whether to set up shortcuts at all, so a
+        // configuration change, e.g. each step of an XR panel resize, does not recompose
+        // every card.
+        LocalKeyboardFocusAnchors provides if (hasHardwareKeyboard) focusAnchors else null,
         // Raycast / pinch targets for dense inline actions (post action row) on XR;
         // touch devices keep Compose's built-in 48dp touch extension.
         LocalSpatialMinimumTargetSize provides if (isXr) SpatialMinimumTargetSize else Dp.Unspecified,

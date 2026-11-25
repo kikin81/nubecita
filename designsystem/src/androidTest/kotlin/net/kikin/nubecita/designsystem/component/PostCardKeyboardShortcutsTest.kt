@@ -1,12 +1,11 @@
 package net.kikin.nubecita.designsystem.component
 
-import android.content.res.Configuration
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
@@ -27,6 +26,8 @@ import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.NubecitaTheme
+import net.kikin.nubecita.designsystem.input.KeyboardFocusAnchors
+import net.kikin.nubecita.designsystem.input.LocalKeyboardFocusAnchors
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -125,18 +126,14 @@ class PostCardKeyboardShortcutsTest {
         }
     }
 
+    // MainShell provides the anchors only when a hardware keyboard is attached.
     @Composable
     private fun WithKeyboard(
         enabled: Boolean,
         content: @Composable () -> Unit,
     ) {
-        val configuration =
-            Configuration(LocalConfiguration.current).apply {
-                keyboard = if (enabled) Configuration.KEYBOARD_QWERTY else Configuration.KEYBOARD_NOKEYS
-                hardKeyboardHidden =
-                    if (enabled) Configuration.HARDKEYBOARDHIDDEN_NO else Configuration.HARDKEYBOARDHIDDEN_YES
-            }
-        CompositionLocalProvider(LocalConfiguration provides configuration, content = content)
+        val anchors = remember { KeyboardFocusAnchors() }
+        CompositionLocalProvider(LocalKeyboardFocusAnchors provides if (enabled) anchors else null, content = content)
     }
 
     /** The card's own clickable: the node that holds focus and merges the post's text. */

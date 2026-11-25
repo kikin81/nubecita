@@ -57,7 +57,6 @@ import net.kikin.nubecita.designsystem.component.PostCard
 import net.kikin.nubecita.designsystem.component.ThreadCluster
 import net.kikin.nubecita.designsystem.input.LocalKeyboardFocusAnchors
 import net.kikin.nubecita.designsystem.input.listKeyboardAnchor
-import net.kikin.nubecita.designsystem.input.rememberHasHardwareKeyboard
 import net.kikin.nubecita.feature.feed.impl.FeedTestTags
 import net.kikin.nubecita.feature.feed.impl.video.FeedVideoPlayerCoordinator
 import net.kikin.nubecita.feature.feed.impl.video.mostVisibleVideoTarget
@@ -236,13 +235,13 @@ internal fun PostFeedList(
         indicatorPadding = contentPadding,
     ) {
         // Hardware keyboard: the list takes focus so j / k land on a post (no-op on touch).
-        val hasHardwareKeyboard = rememberHasHardwareKeyboard()
+        val keyboardAnchors = LocalKeyboardFocusAnchors.current
         LazyColumn(
             state = listState,
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .listKeyboardAnchor(enabled = hasHardwareKeyboard, anchors = LocalKeyboardFocusAnchors.current)
+                    .listKeyboardAnchor(enabled = keyboardAnchors != null, anchors = keyboardAnchors)
                     // Stable selector for the :benchmark Macrobenchmark
                     // module's FeedScrollBenchmark. Surfaces as a UIAutomator
                     // resource-id via the testTagsAsResourceId flag set on

@@ -26,4 +26,7 @@
     <string name="video_player_error_unknown_title">Something went wrong</string>
     <string name="video_player_error_unknown_body">We couldn\'t load this video. Try again.</string>
     <string name="video_player_error_retry">Try again</string>
+    <!-- Android XR Theater Mode button (nubecita-h6kf.5). -->
+    <string name="video_player_theater_mode_content_description">Theater mode</string>
+    <string name="video_player_theater_mode_exit_content_description">Exit theater mode</string>
 </resources>

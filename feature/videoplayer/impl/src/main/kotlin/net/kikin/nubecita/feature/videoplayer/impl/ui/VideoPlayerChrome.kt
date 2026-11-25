@@ -74,10 +74,14 @@ import java.util.Locale
  *
  * The three bands are named areas of one `Grid`. By default they share a
  * single cell and are pinned to its edges, which is the overlay that sits on
- * top of the video. With [stacked] they get a row each, for the half-height
- * tabletop panel where the centered transport would otherwise collide with
- * the bottom band. Same children either way; see
- * [VideoPlayerChromeGridConfiguration].
+ * top of the video. [VideoPlayerChromeLayout.Stacked] gives them a row each,
+ * for the half-height tabletop panel where the centered transport would
+ * otherwise collide with the bottom band. [VideoPlayerChromeLayout.Orbiter]
+ * stacks them at their own size, for the Android XR Orbiter below the panel.
+ * Same children in every layout; see [VideoPlayerChromeGridConfiguration].
+ *
+ * [onTheaterModeToggle] shows the Theater Mode button (Android XR only; null
+ * elsewhere), labelled by [isTheaterMode].
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -90,7 +94,9 @@ internal fun VideoPlayerChrome(
     // (PiP entry for Pro, paywall for non-Pro) lives in the screen, not the VM
     // (design D5), so it's a plain callback rather than a VideoPlayerEvent.
     onPopOut: (() -> Unit)? = null,
-    stacked: Boolean = false,
+    layout: VideoPlayerChromeLayout = VideoPlayerChromeLayout.Overlay,
+    isTheaterMode: Boolean = false,
+    onTheaterModeToggle: (() -> Unit)? = null,
 ) {
     // Remembered so the morph button's `shapes` is a stable instance —
     // IconButtonShapes isn't @Stable, so allocating it inline would defeat
@@ -103,20 +109,24 @@ internal fun VideoPlayerChrome(
             )
         }
     val gridConfig =
-        if (stacked) VideoPlayerChromeGridConfiguration.Stacked else VideoPlayerChromeGridConfiguration.Overlay
+        when (layout) {
+            VideoPlayerChromeLayout.Overlay -> VideoPlayerChromeGridConfiguration.Overlay
+            VideoPlayerChromeLayout.Stacked -> VideoPlayerChromeGridConfiguration.Stacked
+            VideoPlayerChromeLayout.Orbiter -> VideoPlayerChromeGridConfiguration.Orbiter
+        }
     // Stacked means this panel is the flat half below the fold: its top edge is
     // the hinge, not the top of the window, so the status bar inset does not
-    // apply to it.
+    // apply to it. An Orbiter floats outside the window and takes no insets.
     // Remembered: this composable re-runs on every 250ms position tick, and a
     // fresh `only(...)` wrapper each time would hand windowInsetsPadding a new
     // insets instance to compare on each of them.
     val systemBars = WindowInsets.systemBars
     val insets =
-        remember(systemBars, stacked) {
-            if (stacked) {
-                systemBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom)
-            } else {
-                systemBars
+        remember(systemBars, layout) {
+            when (layout) {
+                VideoPlayerChromeLayout.Overlay -> systemBars
+                VideoPlayerChromeLayout.Stacked -> systemBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom)
+                VideoPlayerChromeLayout.Orbiter -> NoInsets
             }
         }
     Grid(
@@ -217,6 +227,20 @@ internal fun VideoPlayerChrome(
                         icon = NubecitaIconName.PictureInPictureAlt,
                         accessibilityLabel = stringResource(R.string.video_player_pip_content_description),
                         onClick = onPopOut,
+                    )
+                }
+                if (onTheaterModeToggle != null) {
+                    NubecitaOverlayIconButton(
+                        icon = if (isTheaterMode) NubecitaIconName.CloseFullscreen else NubecitaIconName.Theaters,
+                        accessibilityLabel =
+                            stringResource(
+                                if (isTheaterMode) {
+                                    R.string.video_player_theater_mode_exit_content_description
+                                } else {
+                                    R.string.video_player_theater_mode_content_description
+                                },
+                            ),
+                        onClick = onTheaterModeToggle,
                     )
                 }
             }
@@ -586,3 +610,17 @@ private fun VideoPlayerActionItem(
         }
     }
 }
+
+/** Where [VideoPlayerChrome] is drawn, which picks its grid configuration and insets. */
+internal enum class VideoPlayerChromeLayout {
+    /** Over the video, auto-hiding. Phones, tablets, XR Home Space. */
+    Overlay,
+
+    /** The flat lower half of a foldable in tabletop posture. */
+    Stacked,
+
+    /** An Android XR Orbiter below the panel, in Full Space. */
+    Orbiter,
+}
+
+private val NoInsets = WindowInsets(0, 0, 0, 0)

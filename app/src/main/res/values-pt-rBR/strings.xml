@@ -33,4 +33,9 @@
     <string name="keyboard_shortcut_previous_post">Post anterior</string>
     <string name="keyboard_shortcut_reply">Responder ao post</string>
     <string name="keyboard_shortcut_like">Curtir post</string>
+    <string name="keyboard_shortcuts_group_video">Vídeo</string>
+    <string name="keyboard_shortcut_play_pause">Reproduzir ou pausar</string>
+    <string name="keyboard_shortcut_skip_back">Voltar 10 segundos</string>
+    <string name="keyboard_shortcut_skip_forward">Avançar 10 segundos</string>
+    <string name="keyboard_shortcut_mute">Ativar ou desativar som</string>
 </resources>

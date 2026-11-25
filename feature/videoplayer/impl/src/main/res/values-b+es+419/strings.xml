@@ -20,4 +20,7 @@
     <string name="video_player_error_unknown_title">Algo salió mal</string>
     <string name="video_player_error_unknown_body">No pudimos cargar este video. Inténtalo de nuevo.</string>
     <string name="video_player_error_retry">Reintentar</string>
+    <!-- Android XR Theater Mode button (nubecita-h6kf.5). -->
+    <string name="video_player_theater_mode_content_description">Modo cine</string>
+    <string name="video_player_theater_mode_exit_content_description">Salir del modo cine</string>
 </resources>

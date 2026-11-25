@@ -1,9 +1,12 @@
 package net.kikin.nubecita.feature.videoplayer.impl.ui
 
 import android.content.res.Configuration
+import androidx.compose.foundation.background
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.ExperimentalMediaQueryApi
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
@@ -431,6 +434,55 @@ private fun VideoPlayerDetailWithCommentsExpandedScreenshot() {
                     onEvent = {},
                 )
             },
+        )
+    }
+}
+
+private val XR_READY_STATE =
+    VideoPlayerState(
+        loadStatus = VideoPlayerLoadStatus.Ready,
+        aspectRatio = 16f / 9f,
+        isPlaying = true,
+        isMuted = false,
+        positionMs = 5_400L,
+        durationMs = 30_000L,
+        chromeVisible = true,
+    )
+
+// Android XR Home Space (nubecita-h6kf.5): the overlay chrome as on a phone, plus the
+// Theater Mode button at the end of the mute / pop-out row.
+@PreviewTest
+@Preview(name = "xr-theater-button-light", showBackground = true, heightDp = CANVAS_HEIGHT_DP)
+@Preview(name = "xr-theater-button-dark", showBackground = true, heightDp = CANVAS_HEIGHT_DP, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun VideoPlayerContentXrTheaterButtonScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        VideoPlayerContent(
+            state = XR_READY_STATE,
+            player = null,
+            onEvent = {},
+            onPopOut = {},
+            onTheaterModeToggle = {},
+        )
+    }
+}
+
+// Android XR Full Space: the chrome as laid out inside the controls Orbiter below the
+// panel, content-sized and in Theater Mode (exit glyph). The Orbiter itself only exists in
+// an XR session, so the fixture renders its content on the same black background.
+@PreviewTest
+@Preview(name = "xr-orbiter-chrome-light", showBackground = true)
+@Preview(name = "xr-orbiter-chrome-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun VideoPlayerChromeXrOrbiterScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        VideoPlayerChrome(
+            state = XR_READY_STATE,
+            onEvent = {},
+            modifier = Modifier.background(Color.Black),
+            layout = VideoPlayerChromeLayout.Orbiter,
+            isTheaterMode = true,
+            onTheaterModeToggle = {},
         )
     }
 }
