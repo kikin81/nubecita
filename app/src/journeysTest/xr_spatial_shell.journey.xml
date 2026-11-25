@@ -27,10 +27,11 @@
     2026-11-24, emulator image UP1A.231005.007.A1). Its only AVC decoder is the software one,
     and the GPU cannot import its YV12 frames: a TextureView player (inline feed video,
     vertical video feed) aborts the app's RenderThread with "Invalid GrBackendTexture", and the
-    SurfaceView fullscreen player aborts SurfaceFlinger. Before the Full Space section, set
-    Settings > Media and animations > Autoplay videos to Never (bench keeps it in memory until
-    the process dies), or scrolling Discover crashes the app. Run the Fullscreen video steps
-    on hardware (Galaxy XR, XREAL Aura) only.
+    SurfaceView fullscreen player aborts SurfaceFlinger. On the emulator, set Settings > Media
+    and animations > Autoplay videos to Never after every launch and relaunch, before scrolling
+    to any video: bench keeps the setting in memory only, so each force-stop resets it to
+    Always, and an autoplaying video crashes the app. Run the Fullscreen video steps on
+    hardware (Galaxy XR, XREAL Aura) only.
 
     Video player changes must also re-run video_player_tabletop.journey.xml on a foldable
     and the video steps of media_viewer.journey.xml on a phone.
@@ -38,6 +39,7 @@
   <actions>
     <!-- Home Space -->
     <action>Launch the app normally and verify that it opens on the Home feed in Home Space</action>
+    <action>On the emulator only, open Settings, set Media and animations > Autoplay videos to Never, then return to the Home feed</action>
     <action>Verify that the navigation capsule (Feed, Search, Notifications, Chats, You) is drawn inside the panel at its leading edge, vertically centered, and does not overlap the feed</action>
     <action>Tap the Search destination in the capsule and verify that the Search screen opens, then tap Feed to return to the Home feed</action>
     <action>Tap a post in the feed and verify that the post thread opens in a detail pane beside the feed, with the feed still visible on the leading side</action>
@@ -45,6 +47,7 @@
 
     <!-- Full Space -->
     <action>Relaunch the app in Full Space</action>
+    <action>On the emulator only, set Autoplay videos to Never again, since the relaunch reset it, then return to the Home feed</action>
     <action>Verify that the navigation capsule now floats outside the panel, to the left of its leading edge, and that none of it covers the feed</action>
     <action>Verify that the feed now uses the full width of the panel with no empty strip where the capsule used to be</action>
     <action>Tap each destination in the floating capsule (Search, Notifications, Chats, You, then Feed) and verify that each opens its screen and the selected destination is highlighted</action>
