@@ -2,11 +2,11 @@
 
 ### Requirement: AndroidManifest declares spatial panel compatibility and resizability
 
-The application manifest SHALL declare `android:resizeableActivity="true"` on `MainActivity` and declare the `android.software.xr.api` feature with `android:required="false"`. The app MUST install and run on both standard mobile/tablet devices and Android XR headsets without build variant bifurcation.
+The application manifest SHALL declare `android:resizeableActivity="true"` on `MainActivity` and declare the `android.software.xr.api.spatial` feature with `android:required="false"`. The app MUST install and run on both standard mobile/tablet devices and Android XR headsets without build variant bifurcation.
 
 #### Scenario: App declares optional XR feature
 - **WHEN** the application manifest is inspected
-- **THEN** `android.software.xr.api` SHALL be declared with `android:required="false"` and `MainActivity` SHALL have `android:resizeableActivity="true"`
+- **THEN** `android.software.xr.api.spatial` SHALL be declared with `android:required="false"` and `MainActivity` SHALL have `android:resizeableActivity="true"`
 
 ### Requirement: Multi-pane SceneStrategy expands side-by-side on wide spatial canvases
 

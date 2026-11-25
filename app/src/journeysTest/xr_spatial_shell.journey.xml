@@ -1,0 +1,66 @@
+<journey name="XR - Spatial Shell, Panes and Video">
+  <description>
+    Verifies the Android XR experience on a headset or XR glasses (Android XR emulator
+    XR_Headset, Galaxy XR, XREAL Aura): the navigation capsule inside the panel in Home
+    Space, the leading navigation Orbiter outside the panel in Full Space, list-detail panes
+    on the wide default panel, and the fullscreen video player driven by pinch (tap) input.
+    The relaunch below restarts the app, so it does not cover state surviving an in-session
+    Home Space / Full Space switch; check that by hand with the title-bar button on a device.
+
+    Run with the bench build. Launch in Home Space normally; to enter Full Space without the
+    title-bar button (adb input taps on it do not register on the emulator), relaunch with
+      adb shell am force-stop net.kikin.nubecita
+      adb shell am start --xrActivityStartMode 1 -n net.kikin.nubecita/.MainActivity
+    and confirm with: adb shell dumpsys activity activities | grep -o "xrDesktopMode=[a-z-]*"
+    (expect full-space-managed). A plain launch returns to Home Space.
+
+    In Home Space the capsule sitting inside the panel is by design, not a regression:
+    Orbiters only exist in Full Space. The default panel is 1024x640dp, which is the
+    Expanded width class, so list-detail panes are expected at the default size.
+
+    Driving it from adb: `adb shell input tap` takes panel coordinates (the bounds that
+    `uiautomator dump --windows` reports), not screenshot pixels. The Full Space Orbiter is a
+    separate window that injected taps never reach (they land on the panel underneath), so
+    tap the Orbiter's destinations by hand with the emulator's mouse.
+
+    Video on the emulator: the Android XR emulator cannot play video at all (checked
+    2026-11-24, emulator image UP1A.231005.007.A1). Its only AVC decoder is the software one,
+    and the GPU cannot import its YV12 frames: a TextureView player (inline feed video,
+    vertical video feed) aborts the app's RenderThread with "Invalid GrBackendTexture", and the
+    SurfaceView fullscreen player aborts SurfaceFlinger. Before the Full Space section, set
+    Settings > Media and animations > Autoplay videos to Never (bench keeps it in memory until
+    the process dies), or scrolling Discover crashes the app. Run the Fullscreen video steps
+    on hardware (Galaxy XR, XREAL Aura) only.
+
+    Video player changes must also re-run video_player_tabletop.journey.xml on a foldable
+    and the video steps of media_viewer.journey.xml on a phone.
+  </description>
+  <actions>
+    <!-- Home Space -->
+    <action>Launch the app normally and verify that it opens on the Home feed in Home Space</action>
+    <action>Verify that the navigation capsule (Feed, Search, Notifications, Chats, You) is drawn inside the panel at its leading edge, vertically centered, and does not overlap the feed</action>
+    <action>Tap the Search destination in the capsule and verify that the Search screen opens, then tap Feed to return to the Home feed</action>
+    <action>Tap a post in the feed and verify that the post thread opens in a detail pane beside the feed, with the feed still visible on the leading side</action>
+    <action>Drag the feed pane up several posts and verify that it scrolls smoothly while the detail pane stays in place</action>
+
+    <!-- Full Space -->
+    <action>Relaunch the app in Full Space</action>
+    <action>Verify that the navigation capsule now floats outside the panel, to the left of its leading edge, and that none of it covers the feed</action>
+    <action>Verify that the feed now uses the full width of the panel with no empty strip where the capsule used to be</action>
+    <action>Tap each destination in the floating capsule (Search, Notifications, Chats, You, then Feed) and verify that each opens its screen and the selected destination is highlighted</action>
+    <action>Tap a post in the feed and verify that the thread opens in a detail pane beside the feed</action>
+    <action>Tap a post author's avatar and verify that their profile opens in the detail pane, and that only one Compose button is visible across both panes</action>
+
+    <!-- Fullscreen video (hardware only, see the description) -->
+    <action>Tap the Feed destination, tap the Discover feed chip, and drag the feed until a video post is visible and starts playing</action>
+    <action>Tap the video to open the fullscreen video player and verify that the video plays and fills the panel without being cropped</action>
+    <action>Tap an empty area of the video and verify that the Close, Skip back, Pause and Skip forward controls and the seek bar appear and are fully inside the panel</action>
+    <action>Tap Pause and verify that playback stops, then tap Play and verify that it resumes from the same position</action>
+    <action>Drag the seek bar thumb forward and verify that the elapsed time jumps forward and playback continues</action>
+    <action>Tap Close and verify that the feed is visible again, with the floating navigation capsule still outside the panel</action>
+
+    <!-- Back to Home Space -->
+    <action>Relaunch the app normally to return to Home Space</action>
+    <action>Verify that the navigation capsule is back inside the panel at its leading edge and the app opens on the Home feed without a crash or a sign-in screen</action>
+  </actions>
+</journey>
