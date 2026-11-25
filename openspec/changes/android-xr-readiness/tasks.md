@@ -36,8 +36,8 @@ Every layer and feature in this plan MUST meet the following three universal gat
 
 - [x] 4.1 On Android XR, `MainShell` provides `LocalSpatialMinimumTargetSize` (56dp). `PostStat` puts its gesture on an outer box sized by it and keeps the ripple on the drawn pill, so icons stay at optical size. Phones keep the pill and Compose's touch extension. Tests: `PostActionRowTargetBoundsTest` (instrumented, both directions) and the `xr-targets` `PostCard` screenshot.
 - [x] 4.2 `FocusRingIndication` (node-based, no recomposition) draws a 2dp `secondary` ring on post cards and action pills while they hold keyboard or controller focus. Hover already gets the M3 ripple state layer. A focused state cannot be captured by a static screenshot, so the ring was verified on the XR emulator by tabbing through the feed.
-- [ ] 4.3 (moved to its own stack branch, `nubecita-h6kf.7`) Keyboard shortcuts: `j`/`k` move focus between feed posts, `r` replies and `l` likes the focused post, `/` focuses search, Ctrl+N composes, Ctrl+1-5 switch tabs, all published to the Keyboard Shortcut Helper and inert while a text field has focus. `Space` for play/pause moves to 5.1 with the player work.
-- [ ] 4.4 Test input ergonomics on `Pixel_10a` (normal touch targets), `Pixel_10_Pro_Fold`, and XR emulator (gaze targeting and keyboard shortcuts).
+- [x] 4.3 (stack branch `nubecita-h6kf.7`) With a hardware keyboard: `j`/`k` move focus between posts and `r`/`l` reply / like (on `PostCard`, so every post surface), `/` focuses Search, Ctrl+N composes, Ctrl+1-5 switch tabs. Focus anchors give keys a path; text fields keep their letters. Listed in the Shortcut Helper. Tests: `PostCardKeyboardShortcutsTest`, `KeyboardShortcutsTest`. `Space` moves to 5.1.
+- [ ] 4.4 Test input ergonomics on `Pixel_10a` (normal touch targets), `Pixel_10_Pro_Fold`, and XR emulator (gaze targeting and keyboard shortcuts). Done: bench phone (layout and focus unchanged) and XR emulator (56dp targets, focus ring, every shortcut). Open: foldable pass.
 
 ## 5. Spatial Media & Video Immersion
 *Stack Branch:* `feat/nubecita-h6kf.5-xr-spatial-media` (Base: `feat/nubecita-h6kf.4-xr-input-ergonomics`)

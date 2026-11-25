@@ -22,6 +22,7 @@ import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,7 +31,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -76,6 +83,8 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.R
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.designsystem.input.isPlainPress
+import net.kikin.nubecita.designsystem.input.rememberHasHardwareKeyboard
 import net.kikin.nubecita.designsystem.semanticColors
 import java.util.Locale
 import kotlin.time.Clock
@@ -175,11 +184,19 @@ fun PostCard(
         }
     // Shared by the card's ripple and its keyboard / controller focus ring.
     val cardInteractionSource = remember { MutableInteractionSource() }
-    Column(modifier = modifier.then(connectorModifier).fillMaxWidth()) {
+    val keyboardShortcuts = rememberPostKeyboardShortcuts(post, callbacks)
+    Column(
+        modifier =
+            modifier
+                .then(connectorModifier)
+                .fillMaxWidth()
+                .then(keyboardShortcuts.handler),
+    ) {
         Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    .then(keyboardShortcuts.cardFocusTarget)
                     .clickable(
                         interactionSource = cardInteractionSource,
                         indication = ripple(),
@@ -1077,6 +1094,70 @@ private fun PostOverflowAffordance(
             post = post,
             onDismiss = { expanded = false },
             onAction = onAction,
+        )
+    }
+}
+
+/** The two halves of [rememberPostKeyboardShortcuts]: both [Modifier] when inactive. */
+@Immutable
+private class PostKeyboardShortcuts(
+    /** On the card's outer container: sees keys from the card and everything inside it. */
+    val handler: Modifier,
+    /** On the card's own clickable, so `j` / `k` can move focus back to it first. */
+    val cardFocusTarget: Modifier,
+)
+
+private val NoPostKeyboardShortcuts = PostKeyboardShortcuts(Modifier, Modifier)
+
+/**
+ * Hardware keyboard shortcuts for whichever post holds focus (the card, or anything inside
+ * it): `j` / `k` move focus to the next / previous post, `r` replies, `l` likes.
+ *
+ * On the card, so every surface that shows posts (feed, profile, thread, search) gets them
+ * with no host wiring. Handled in `onKeyEvent`: the key bubbles up from the focused element,
+ * and a focused text field would have consumed it first. Inactive (both halves [Modifier])
+ * on touch-only devices, so a phone's feed composes nothing extra.
+ *
+ * `j` / `k` first move focus from any inner element (avatar, link, action pill) back to the
+ * card, then step spatially (Down / Up) from the card's bounds, which reaches the adjacent
+ * card's clickable, or a focusable row between cards. A lazy list composes the target and
+ * scrolls it into view as focus moves.
+ */
+@Composable
+private fun rememberPostKeyboardShortcuts(
+    post: PostUi,
+    callbacks: PostCallbacks,
+): PostKeyboardShortcuts {
+    if (!rememberHasHardwareKeyboard()) return NoPostKeyboardShortcuts
+    val focusManager = LocalFocusManager.current
+    val currentPost by rememberUpdatedState(post)
+    val currentCallbacks by rememberUpdatedState(callbacks)
+    return remember(focusManager) {
+        val cardFocus = FocusRequester()
+
+        fun step(direction: FocusDirection): Boolean {
+            cardFocus.requestFocus()
+            return focusManager.moveFocus(direction)
+        }
+        PostKeyboardShortcuts(
+            handler =
+                Modifier.onKeyEvent { event ->
+                    val target = currentPost
+                    when {
+                        event.isPlainPress(Key.J) -> step(FocusDirection.Down)
+                        event.isPlainPress(Key.K) -> step(FocusDirection.Up)
+                        event.isPlainPress(Key.R) && target.viewer.canViewerReply -> {
+                            currentCallbacks.onReply(target)
+                            true
+                        }
+                        event.isPlainPress(Key.L) -> {
+                            currentCallbacks.onLike(target)
+                            true
+                        }
+                        else -> false
+                    }
+                },
+            cardFocusTarget = Modifier.focusRequester(cardFocus),
         )
     }
 }

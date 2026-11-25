@@ -31,4 +31,13 @@
     </plurals>
     <string name="main_shell_send_failed">Couldn\'t send your post</string>
     <string name="main_shell_send_retry">Retry</string>
+
+    <!-- Hardware keyboard shortcuts, as listed in the system Keyboard Shortcut Helper (nubecita-h6kf.7). -->
+    <string name="keyboard_shortcuts_group_posts">Posts</string>
+    <string name="keyboard_shortcut_search">Search</string>
+    <string name="keyboard_shortcut_new_post">New post</string>
+    <string name="keyboard_shortcut_next_post">Next post</string>
+    <string name="keyboard_shortcut_previous_post">Previous post</string>
+    <string name="keyboard_shortcut_reply">Reply to post</string>
+    <string name="keyboard_shortcut_like">Like post</string>
 </resources>
