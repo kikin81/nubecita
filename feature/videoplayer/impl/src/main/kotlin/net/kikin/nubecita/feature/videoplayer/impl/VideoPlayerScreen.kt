@@ -18,6 +18,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CancellationException
@@ -33,6 +35,12 @@ import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsSheetCon
 import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsViewModel
 import net.kikin.nubecita.core.review.requestReviewIfEligible
 import net.kikin.nubecita.designsystem.adaptive.PostCommentsSheetScaffold
+import net.kikin.nubecita.designsystem.input.LocalKeyboardFocusAnchors
+import net.kikin.nubecita.designsystem.input.isPlainPress
+import net.kikin.nubecita.designsystem.input.keyboardFocusAnchor
+import net.kikin.nubecita.designsystem.input.rememberHasHardwareKeyboard
+import net.kikin.nubecita.designsystem.spatial.rememberSpatialSessionEnvironment
+import net.kikin.nubecita.designsystem.spatial.rememberTheaterMode
 import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.postdetail.api.PostDetailRoute
 import net.kikin.nubecita.feature.profile.api.Profile
@@ -97,6 +105,35 @@ internal fun VideoPlayerScreen(
     // as a flag. The PiP window is never laid out as tabletop, whatever the
     // device posture underneath it.
     val isTabletop = isTabletopPosture() && !isInPip
+
+    // Android XR (nubecita-h6kf.5): in Full Space the controls float in an Orbiter below
+    // the panel; Theater Mode (Full Space, passthrough faded out) is offered on any XR
+    // device. Both are no-ops elsewhere: spatial UI is never enabled and there is no
+    // session, so the button stays hidden.
+    val spatialControls = rememberSpatialSessionEnvironment().isSpatialUiEnabled && !isInPip
+    val theaterMode = rememberTheaterMode()
+
+    // Hardware keyboard: Space plays / pauses, arrows skip 10s, M mutes. The player takes
+    // keyboard focus when it opens so they work at once; inert without a keyboard.
+    val hasHardwareKeyboard = rememberHasHardwareKeyboard()
+    val playerKeys =
+        if (!hasHardwareKeyboard) {
+            Modifier
+        } else {
+            Modifier
+                .keyboardFocusAnchor(enabled = true, anchors = LocalKeyboardFocusAnchors.current)
+                .onKeyEvent { event ->
+                    val playerEvent =
+                        when {
+                            event.isPlainPress(Key.Spacebar) -> VideoPlayerEvent.PlayPauseClicked
+                            event.isPlainPress(Key.DirectionLeft) -> VideoPlayerEvent.SkipBack
+                            event.isPlainPress(Key.DirectionRight) -> VideoPlayerEvent.SkipForward
+                            event.isPlainPress(Key.M) -> VideoPlayerEvent.MuteClicked
+                            else -> null
+                        }
+                    playerEvent?.let(viewModel::handleEvent) != null
+                }
+        }
 
     // Instant PiP snap-to-hidden: bypass exit animation so PiP capture window does not snap a collapsing sheet.
     LaunchedEffect(isInPip) {
@@ -222,7 +259,10 @@ internal fun VideoPlayerScreen(
                     onPopOut = onPopOut,
                     isTabletop = isTabletop,
                     contentPadding = innerPadding,
-                    modifier = Modifier.fillMaxSize(),
+                    spatialControls = spatialControls,
+                    isTheaterMode = theaterMode?.isActive == true,
+                    onTheaterModeToggle = theaterMode?.let { it::toggle },
+                    modifier = Modifier.fillMaxSize().then(playerKeys),
                 )
             }
         },

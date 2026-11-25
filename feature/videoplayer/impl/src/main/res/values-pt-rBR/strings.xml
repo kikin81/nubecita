@@ -20,4 +20,7 @@
     <string name="video_player_error_unknown_title">Algo deu errado</string>
     <string name="video_player_error_unknown_body">Não foi possível carregar este vídeo. Tente de novo.</string>
     <string name="video_player_error_retry">Tentar de novo</string>
+    <!-- Android XR Theater Mode button (nubecita-h6kf.5). -->
+    <string name="video_player_theater_mode_content_description">Modo cinema</string>
+    <string name="video_player_theater_mode_exit_content_description">Sair do modo cinema</string>
 </resources>

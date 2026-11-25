@@ -106,7 +106,25 @@ internal object VideoPlayerChromeGridConfiguration {
         area(areaId = VideoPlayerChromeArea.Transport, row = 2, column = 1)
         area(areaId = VideoPlayerChromeArea.BottomBar, row = 3, column = 1)
     }
+
+    /**
+     * Orbiter: the Stacked rows, but every track sized to its content. An Orbiter
+     * is measured against the whole window, so a flexible row or column would
+     * stretch the floating controls to the window's size.
+     */
+    val Orbiter: GridConfigurationScope.() -> Unit = {
+        column(ORBITER_CHROME_WIDTH)
+        row(GridTrackSize.Auto)
+        row(GridTrackSize.Auto)
+        row(GridTrackSize.Auto)
+        area(areaId = VideoPlayerChromeArea.TopBar, row = 1, column = 1)
+        area(areaId = VideoPlayerChromeArea.Transport, row = 2, column = 1)
+        area(areaId = VideoPlayerChromeArea.BottomBar, row = 3, column = 1)
+    }
 }
+
+/** Width of the XR controls Orbiter: wide enough for a usable seek bar. */
+private val ORBITER_CHROME_WIDTH = 480.dp
 
 /**
  * True while the window is folded into tabletop posture (hinge horizontal,

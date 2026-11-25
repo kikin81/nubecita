@@ -40,4 +40,9 @@
     <string name="keyboard_shortcut_previous_post">Previous post</string>
     <string name="keyboard_shortcut_reply">Reply to post</string>
     <string name="keyboard_shortcut_like">Like post</string>
+    <string name="keyboard_shortcuts_group_video">Video</string>
+    <string name="keyboard_shortcut_play_pause">Play or pause</string>
+    <string name="keyboard_shortcut_skip_back">Skip back 10 seconds</string>
+    <string name="keyboard_shortcut_skip_forward">Skip forward 10 seconds</string>
+    <string name="keyboard_shortcut_mute">Mute or unmute</string>
 </resources>

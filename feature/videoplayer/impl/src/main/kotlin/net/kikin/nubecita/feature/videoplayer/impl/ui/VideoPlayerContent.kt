@@ -31,6 +31,7 @@ import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
+import net.kikin.nubecita.designsystem.spatial.BottomControlsOrbiter
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerError
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerEvent
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerLoadStatus
@@ -80,6 +81,13 @@ internal fun VideoPlayerContent(
     // insets (12dp on a Pixel Fold, where the status bar is taller than the
     // gesture bar).
     contentPadding: PaddingValues = PaddingValues(),
+    // Android XR Full Space: the chrome floats in an Orbiter below the panel instead
+    // of covering the video. Only the chrome moves; the PlayerSurface stays put, so
+    // entering or leaving Full Space never recreates it.
+    spatialControls: Boolean = false,
+    // Theater Mode button (Android XR only); null hides it.
+    isTheaterMode: Boolean = false,
+    onTheaterModeToggle: (() -> Unit)? = null,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val layoutDirection = LocalLayoutDirection.current
@@ -196,29 +204,55 @@ internal fun VideoPlayerContent(
                             )
                         }
                     }
-                    AnimatedVisibility(
-                        // Chrome (back button, seek bar, controls) is always hidden in
-                        // PiP: the floating window shows only the video. In tabletop
-                        // it is pinned visible instead. It has its own half of the
-                        // screen there and covers nothing, so auto-hide would only
-                        // leave the flat half empty.
-                        visible = (state.chromeVisible || isTabletop) && !isInPip,
-                        enter = fadeIn(),
-                        exit = fadeOut(),
-                        modifier =
-                            Modifier
-                                .gridItem(areaId = VideoPlayerArea.Controller)
-                                .fillMaxSize()
-                                .padding(controllerPadding)
-                                .testTag("video_player_controller"),
-                    ) {
-                        VideoPlayerChrome(
-                            state = state,
-                            onEvent = onEvent,
-                            modifier = Modifier.fillMaxSize(),
-                            onPopOut = onPopOut,
-                            stacked = isTabletop,
-                        )
+                    if (!spatialControls) {
+                        AnimatedVisibility(
+                            // Chrome (back button, seek bar, controls) is always hidden in
+                            // PiP: the floating window shows only the video. In tabletop
+                            // it is pinned visible instead. It has its own half of the
+                            // screen there and covers nothing, so auto-hide would only
+                            // leave the flat half empty.
+                            visible = (state.chromeVisible || isTabletop) && !isInPip,
+                            enter = fadeIn(),
+                            exit = fadeOut(),
+                            modifier =
+                                Modifier
+                                    .gridItem(areaId = VideoPlayerArea.Controller)
+                                    .fillMaxSize()
+                                    .padding(controllerPadding)
+                                    .testTag("video_player_controller"),
+                        ) {
+                            VideoPlayerChrome(
+                                state = state,
+                                onEvent = onEvent,
+                                modifier = Modifier.fillMaxSize(),
+                                onPopOut = onPopOut,
+                                layout = if (isTabletop) VideoPlayerChromeLayout.Stacked else VideoPlayerChromeLayout.Overlay,
+                                isTheaterMode = isTheaterMode,
+                                onTheaterModeToggle = onTheaterModeToggle,
+                            )
+                        }
+                    }
+                }
+                if (spatialControls) {
+                    // Same auto-hide as the overlay (tap the video to bring it back), but
+                    // outside the panel, so the video is never covered.
+                    BottomControlsOrbiter {
+                        AnimatedVisibility(
+                            visible = state.chromeVisible && !isInPip,
+                            enter = fadeIn(),
+                            exit = fadeOut(),
+                            modifier = Modifier.testTag("video_player_controller"),
+                        ) {
+                            VideoPlayerChrome(
+                                state = state,
+                                onEvent = onEvent,
+                                modifier = Modifier.background(Color.Black),
+                                onPopOut = onPopOut,
+                                layout = VideoPlayerChromeLayout.Orbiter,
+                                isTheaterMode = isTheaterMode,
+                                onTheaterModeToggle = onTheaterModeToggle,
+                            )
+                        }
                     }
                 }
             }

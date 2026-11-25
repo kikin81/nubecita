@@ -9,8 +9,9 @@ import net.kikin.nubecita.R
 /**
  * The hardware keyboard shortcuts the main shell and `PostCard` handle, for the system
  * Keyboard Shortcut Helper (Meta+/ or the keyboard's shortcut key). Must list exactly what
- * the handlers dispatch: `MainShell`'s `keyboardShortcuts` (tabs, new post, search) and
- * `PostCard`'s `rememberPostKeyboardShortcuts` (j / k / r / l).
+ * the handlers dispatch: `MainShell`'s `keyboardShortcuts` (tabs, new post, search),
+ * `PostCard`'s `rememberPostKeyboardShortcuts` (j / k / r / l) and `VideoPlayerScreen`'s
+ * `playerKeys` (Space, arrows, M).
  */
 internal fun nubecitaKeyboardShortcutGroups(context: Context): List<KeyboardShortcutGroup> {
     fun shortcut(
@@ -40,5 +41,15 @@ internal fun nubecitaKeyboardShortcutGroups(context: Context): List<KeyboardShor
                 shortcut(R.string.keyboard_shortcut_like, KeyEvent.KEYCODE_L),
             ),
         )
-    return listOf(app, posts)
+    val video =
+        KeyboardShortcutGroup(
+            context.getString(R.string.keyboard_shortcuts_group_video),
+            listOf(
+                shortcut(R.string.keyboard_shortcut_play_pause, KeyEvent.KEYCODE_SPACE),
+                shortcut(R.string.keyboard_shortcut_skip_back, KeyEvent.KEYCODE_DPAD_LEFT),
+                shortcut(R.string.keyboard_shortcut_skip_forward, KeyEvent.KEYCODE_DPAD_RIGHT),
+                shortcut(R.string.keyboard_shortcut_mute, KeyEvent.KEYCODE_M),
+            ),
+        )
+    return listOf(app, posts, video)
 }
