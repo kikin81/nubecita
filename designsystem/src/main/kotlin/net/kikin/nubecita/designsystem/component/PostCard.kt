@@ -2,6 +2,8 @@ package net.kikin.nubecita.designsystem.component
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -27,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -169,13 +173,21 @@ fun PostCard(
         } else {
             Modifier
         }
+    // Shared by the card's ripple and its keyboard / controller focus ring.
+    val cardInteractionSource = remember { MutableInteractionSource() }
     Column(modifier = modifier.then(connectorModifier).fillMaxWidth()) {
         Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clickable { callbacks.onTap(post) }
-                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                    .clickable(
+                        interactionSource = cardInteractionSource,
+                        indication = ripple(),
+                        onClick = { callbacks.onTap(post) },
+                    ).indication(
+                        cardInteractionSource,
+                        FocusRingIndication(RectangleShape, MaterialTheme.colorScheme.secondary),
+                    ).padding(horizontal = 20.dp, vertical = 14.dp),
         ) {
             post.repostedBy?.let { name ->
                 RepostedByLine(name = name, modifier = Modifier.padding(start = 56.dp, bottom = 4.dp))

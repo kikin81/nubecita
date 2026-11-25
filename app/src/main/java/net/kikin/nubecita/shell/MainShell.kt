@@ -67,6 +67,8 @@ import net.kikin.nubecita.designsystem.LocalGifAutoplayEnabled
 import net.kikin.nubecita.designsystem.adaptive.SpatialScaffold
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.designsystem.spatial.LocalSpatialMinimumTargetSize
+import net.kikin.nubecita.designsystem.spatial.SpatialMinimumTargetSize
 import net.kikin.nubecita.designsystem.spatial.rememberSpatialSessionEnvironment
 import net.kikin.nubecita.feature.chats.api.Chats
 import net.kikin.nubecita.feature.feed.api.Feed
@@ -365,6 +367,9 @@ fun MainShell(modifier: Modifier = Modifier) {
         LocalMainShellNavState provides mainShellNavState,
         LocalTabReTapSignal provides readOnlyTabReTapSignal,
         LocalGifAutoplayEnabled provides gifAutoplayEnabled,
+        // Raycast / pinch targets for dense inline actions (post action row) on XR;
+        // touch devices keep Compose's built-in 48dp touch extension.
+        LocalSpatialMinimumTargetSize provides if (isXr) SpatialMinimumTargetSize else Dp.Unspecified,
     ) {
         MainShellChrome(
             activeKey = mainShellNavState.topLevelKey,
