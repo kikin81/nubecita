@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795593026104,
+  "lastUpdate": 1795593029312,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -8091,6 +8091,124 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationSumMs",
             "value": 345.533,
             "range": "+/- 92.3%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "77cff3a3a5935939e940aad5704d9f878ddb73a4",
+          "message": "chore(xr): add an XR journey and reconcile the XR readiness spec (#1266)\n\n* chore(xr): add an XR journey and reconcile the XR readiness spec\n\nAdd xr_spatial_shell.journey.xml covering the Home Space capsule, the Full\nSpace navigation Orbiter, list-detail panes on the default panel, and the\nfullscreen video player. A dry run on the XR_Headset emulator showed it\ncannot play video at all: its GPU cannot import the software decoder's\nYV12 frames, so the TextureView player aborts the app's RenderThread and\nthe SurfaceView player aborts SurfaceFlinger. The journey keeps video to\nhardware and records how to drive the emulator from adb.\n\nTick the phase 1 tasks that shipped, mark 3.2 and 3.3 open, correct the\nfeature name to android.software.xr.api.spatial, and make task 5.4 run the\ntabletop and phone video journeys and verify video on XR hardware.\n\nRefs: nubecita-h6kf.6\n\n* chore(xr): reapply the autoplay workaround after every relaunch\n\nRefs: nubecita-h6kf.6",
+          "timestamp": "2026-11-25T06:03:51Z",
+          "url": "https://github.com/kikin81/nubecita/commit/77cff3a3a5935939e940aad5704d9f878ddb73a4"
+        },
+        "date": 1795593028748,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / ClassInitCount",
+            "value": 194,
+            "range": "+/- 0.5%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / ClassInitSumMs",
+            "value": 9.575,
+            "range": "+/- 47.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / JIT compilationCount",
+            "value": 139,
+            "range": "+/- 20.4%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / JIT compilationSumMs",
+            "value": 364.891,
+            "range": "+/- 21.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / ClassInitCount",
+            "value": 140,
+            "range": "+/- 0%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / ClassInitSumMs",
+            "value": 13.631,
+            "range": "+/- 54.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / JIT compilationCount",
+            "value": 2,
+            "range": "+/- 55.9%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / JIT compilationSumMs",
+            "value": 9.177,
+            "range": "+/- 151.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / ClassInitCount",
+            "value": 2,
+            "range": "+/- 67.4%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / ClassInitSumMs",
+            "value": 0.163,
+            "range": "+/- 65.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / JIT compilationCount",
+            "value": 401,
+            "range": "+/- 118.9%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / JIT compilationSumMs",
+            "value": 961.856,
+            "range": "+/- 39.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / ClassInitCount",
+            "value": 0,
+            "range": "+/- 149.1%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / ClassInitSumMs",
+            "value": 0,
+            "range": "+/- 176.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationCount",
+            "value": 44,
+            "range": "+/- 59.4%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationSumMs",
+            "value": 371.797,
+            "range": "+/- 72.4%",
             "unit": "ms"
           }
         ]
