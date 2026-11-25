@@ -34,9 +34,9 @@ Every layer and feature in this plan MUST meet the following three universal gat
 ## 4. Input Ergonomics & Target Sizing
 *Stack Branch:* `feat/nubecita-h6kf.4-xr-input-ergonomics` (Base: `feat/nubecita-h6kf.3-xr-multipane-scene-strategy`)
 
-- [ ] 4.1 Update `PostActionRow` and interaction icon buttons in `:core:post-interactions-ui` to support 56dp minimum touch/pinch target bounds via `minimumInteractiveComponentSize` when running in XR or pointer environments, preserving 24dp optical graphic sizing. Add screenshot test `PostActionRowTargetBoundsTest`.
-- [ ] 4.2 Implement accessible hover and raycast focus styling in `:designsystem` (tonal highlight overlay and high-visibility focus ring) for post cards and buttons. Add screenshot test `PostCardFocusStateScreenshotTest`.
-- [ ] 4.3 Implement hardware keyboard key event handler (`Modifier.onSpatialKeyEvent`) in `:core:common` mapping `j`/`k` (feed navigation), `r` (reply to focused post), `Space` (toggle video playback), and `/` (focus search), guarded against active text fields. Add unit test `SpatialKeyNavigationTest`.
+- [x] 4.1 On Android XR, `MainShell` provides `LocalSpatialMinimumTargetSize` (56dp). `PostStat` puts its gesture on an outer box sized by it and keeps the ripple on the drawn pill, so icons stay at optical size. Phones keep the pill and Compose's touch extension. Tests: `PostActionRowTargetBoundsTest` (instrumented, both directions) and the `xr-targets` `PostCard` screenshot.
+- [x] 4.2 `FocusRingIndication` (node-based, no recomposition) draws a 2dp `secondary` ring on post cards and action pills while they hold keyboard or controller focus. Hover already gets the M3 ripple state layer. A focused state cannot be captured by a static screenshot, so the ring was verified on the XR emulator by tabbing through the feed.
+- [ ] 4.3 (moved to its own stack branch, `nubecita-h6kf.7`) Keyboard shortcuts: `j`/`k` move focus between feed posts, `r` replies and `l` likes the focused post, `/` focuses search, Ctrl+N composes, Ctrl+1-5 switch tabs, all published to the Keyboard Shortcut Helper and inert while a text field has focus. `Space` for play/pause moves to 5.1 with the player work.
 - [ ] 4.4 Test input ergonomics on `Pixel_10a` (normal touch targets), `Pixel_10_Pro_Fold`, and XR emulator (gaze targeting and keyboard shortcuts).
 
 ## 5. Spatial Media & Video Immersion

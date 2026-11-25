@@ -7,12 +7,17 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -29,10 +34,12 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
 import net.kikin.nubecita.designsystem.semanticColors
+import net.kikin.nubecita.designsystem.spatial.LocalSpatialMinimumTargetSize
 
 /**
  * One interactive icon + count cell in a [PostCard]'s action row.
@@ -73,6 +80,12 @@ import net.kikin.nubecita.designsystem.semanticColors
  * for the reply CTA on a threadgated post where the appview reports the viewer
  * cannot reply. The [onClick] / [onLongClick] gestures are dropped, so a tap
  * can't reach a host callback that would open a doomed composer.
+ *
+ * Hit area vs. drawn pill: the gesture lives on an outer box and the ripple on the
+ * inner pill, sharing one interaction source. Off XR the box hugs the pill, so
+ * nothing changes. On Android XR, [LocalSpatialMinimumTargetSize] grows the box
+ * to 56dp tall so a raycast pinch lands easily, while the hover / press highlight
+ * still draws on the same pill as on a phone.
  */
 @Composable
 internal fun PostStat(
@@ -147,6 +160,9 @@ internal fun PostStat(
             }
         }
     }
+    // One source for the outer gesture box and the inner pill's ripple: hover,
+    // focus and press on the (possibly taller) box all draw on the pill.
+    val interactionSource = remember { MutableInteractionSource() }
     val interactionModifier =
         when {
             // Disabled: no gesture at all. clearAndSetSemantics substitutes the
@@ -161,11 +177,15 @@ internal fun PostStat(
             toggleable ->
                 Modifier.toggleable(
                     value = active,
+                    interactionSource = interactionSource,
+                    indication = null,
                     role = Role.Switch,
                     onValueChange = { onClick() },
                 )
             onLongClick != null ->
                 Modifier.combinedClickable(
+                    interactionSource = interactionSource,
+                    indication = null,
                     role = Role.Button,
                     onClickLabel = accessibilityLabel,
                     onLongClickLabel = onLongClickLabel,
@@ -174,18 +194,57 @@ internal fun PostStat(
                 )
             else ->
                 Modifier.clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
                     role = Role.Button,
                     onClickLabel = accessibilityLabel,
                     onClick = onClick,
                 )
         }
+    val minTargetHeight = LocalSpatialMinimumTargetSize.current
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier =
+            modifier
+                .then(if (minTargetHeight.isSpecified) Modifier.heightIn(min = minTargetHeight) else Modifier)
+                .then(interactionModifier),
+    ) {
+        PostStatPill(
+            name = name,
+            accessibilityLabel = accessibilityLabel,
+            count = count,
+            filled = filled,
+            toggleable = toggleable,
+            tint = tint,
+            animateUserDelta = animateUserDelta,
+            interactionSource = interactionSource,
+            iconScale = { popScale.value },
+            iconRotation = { rotation.value },
+        )
+    }
+}
+
+@Composable
+private fun PostStatPill(
+    name: NubecitaIconName,
+    accessibilityLabel: String,
+    count: Long?,
+    filled: Boolean,
+    toggleable: Boolean,
+    tint: Color,
+    animateUserDelta: Boolean,
+    interactionSource: MutableInteractionSource,
+    iconScale: () -> Float,
+    iconRotation: () -> Float,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier =
-            modifier
+            Modifier
                 .clip(CircleShape)
-                .then(interactionModifier)
+                .indication(interactionSource, ripple())
+                .indication(interactionSource, FocusRingIndication(CircleShape, MaterialTheme.colorScheme.secondary))
                 .padding(horizontal = 6.dp, vertical = 4.dp),
     ) {
         // For toggleable cells, the Icon carries the contentDescription so
@@ -201,9 +260,10 @@ internal fun PostStat(
             opticalSize = STAT_ICON_SIZE,
             modifier =
                 Modifier.graphicsLayer {
-                    scaleX = popScale.value
-                    scaleY = popScale.value
-                    rotationZ = rotation.value
+                    val scale = iconScale()
+                    scaleX = scale
+                    scaleY = scale
+                    rotationZ = iconRotation()
                 },
         )
         if (count != null) {

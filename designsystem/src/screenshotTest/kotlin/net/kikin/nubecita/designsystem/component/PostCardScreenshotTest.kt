@@ -2,6 +2,7 @@ package net.kikin.nubecita.designsystem.component
 
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewWrapper
 import com.android.tools.screenshot.PreviewTest
@@ -23,6 +24,8 @@ import net.kikin.nubecita.data.models.PostStatsUi
 import net.kikin.nubecita.data.models.PostUi
 import net.kikin.nubecita.data.models.ViewerStateUi
 import net.kikin.nubecita.designsystem.preview.NubecitaComponentPreview
+import net.kikin.nubecita.designsystem.spatial.LocalSpatialMinimumTargetSize
+import net.kikin.nubecita.designsystem.spatial.SpatialMinimumTargetSize
 import kotlin.time.Instant
 
 /**
@@ -470,4 +473,18 @@ private fun PostCardViewerLikedAndRepostedScreenshot() {
                 viewer = ViewerStateUi(isLikedByViewer = true, isRepostedByViewer = true),
             ),
     )
+}
+
+// Android XR (h6kf.4): MainShell provides a 56dp minimum target height, so the
+// action row grows to give raycast pinches a full-size target while each pill
+// stays drawn at its phone size.
+@PreviewTest
+@Preview(name = "xr-targets-light", showBackground = true)
+@Preview(name = "xr-targets-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@PreviewWrapper(NubecitaComponentPreview::class)
+@Composable
+private fun PostCardXrTargetsScreenshot() {
+    CompositionLocalProvider(LocalSpatialMinimumTargetSize provides SpatialMinimumTargetSize) {
+        PostCard(post = screenshotPost())
+    }
 }
