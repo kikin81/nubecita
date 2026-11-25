@@ -5,6 +5,8 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.view.KeyboardShortcutGroup
+import android.view.Menu
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -67,6 +69,7 @@ import net.kikin.nubecita.feature.onboarding.api.Onboarding
 import net.kikin.nubecita.feature.postdetail.api.PostDeepLinkKey
 import net.kikin.nubecita.feature.postdetail.api.toPostDetailRoute
 import net.kikin.nubecita.pip.ActivityPipBridge
+import net.kikin.nubecita.shell.nubecitaKeyboardShortcutGroups
 import net.kikin.nubecita.theme.AppThemeState
 import net.kikin.nubecita.update.InAppUpdateHost
 import timber.log.Timber
@@ -128,6 +131,16 @@ class MainActivity : ComponentActivity() {
      * the Compose layer reaches it via a `CompositionLocal` in a later task.
      */
     private lateinit var pipBridge: ActivityPipBridge
+
+    // Lists the hardware keyboard shortcuts in the system Keyboard Shortcut Helper.
+    override fun onProvideKeyboardShortcuts(
+        data: MutableList<KeyboardShortcutGroup>,
+        menu: Menu?,
+        deviceId: Int,
+    ) {
+        super.onProvideKeyboardShortcuts(data, menu, deviceId)
+        data += nubecitaKeyboardShortcutGroups(this)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // installSplashScreen() must run BEFORE super.onCreate so the splash claims the

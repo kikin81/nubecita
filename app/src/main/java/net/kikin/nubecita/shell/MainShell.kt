@@ -30,10 +30,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -54,7 +61,9 @@ import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import net.kikin.nubecita.R
 import net.kikin.nubecita.analytics.TrackScreenViews
 import net.kikin.nubecita.core.common.navigation.LocalMainShellNavState
@@ -67,10 +76,17 @@ import net.kikin.nubecita.designsystem.LocalGifAutoplayEnabled
 import net.kikin.nubecita.designsystem.adaptive.SpatialScaffold
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.designsystem.input.KeyboardFocusAnchors
+import net.kikin.nubecita.designsystem.input.LocalKeyboardFocusAnchors
+import net.kikin.nubecita.designsystem.input.isCtrlPress
+import net.kikin.nubecita.designsystem.input.isPlainPress
+import net.kikin.nubecita.designsystem.input.keyboardFocusAnchor
+import net.kikin.nubecita.designsystem.input.rememberHasHardwareKeyboard
 import net.kikin.nubecita.designsystem.spatial.LocalSpatialMinimumTargetSize
 import net.kikin.nubecita.designsystem.spatial.SpatialMinimumTargetSize
 import net.kikin.nubecita.designsystem.spatial.rememberSpatialSessionEnvironment
 import net.kikin.nubecita.feature.chats.api.Chats
+import net.kikin.nubecita.feature.composer.api.ComposerRoute
 import net.kikin.nubecita.feature.feed.api.Feed
 import net.kikin.nubecita.feature.notifications.api.NotificationsTab
 import net.kikin.nubecita.feature.profile.api.Profile
@@ -363,10 +379,87 @@ fun MainShell(modifier: Modifier = Modifier) {
             else -> defaultLayoutType
         }
 
+    val onTabClick: (NavKey) -> Unit = { tapped ->
+        // Re-tap on the active tab fires the generic tab-re-tap
+        // signal. Each tab's screen interprets it: Feed/Profile
+        // scroll their list to top, Search focuses the EditText
+        // and opens the IME. Switching tabs navigates as before
+        // — the destination tab comes back exactly as it was left
+        // (stack, ViewModels, scroll position) because every tab's
+        // entries stay decorated while off screen; see
+        // `MainShellNavState.rememberDecoratedEntries`.
+        // `mainShellNavState.topLevelKey` resolves the post-
+        // mutation active tab so a rapid double-tap during a tab
+        // switch animation behaves correctly (per the change's
+        // design Decision 3).
+        if (tapped == mainShellNavState.topLevelKey) {
+            tabReTapSignal.tryEmit(Unit)
+        } else {
+            mainShellNavState.addTopLevel(tapped)
+        }
+    }
+
+    // Hardware keyboard shortcuts (nubecita-h6kf.7): Ctrl+1-5 switch tabs, Ctrl+N
+    // composes, / opens Search with its field focused. The shell is the focus anchor
+    // of last resort, so these work before the user has focused anything; the feed
+    // list anchors itself on top of it. Inert on touch-only devices. Post shortcuts
+    // (j / k / r / l) live on PostCard.
+    val hasHardwareKeyboard = rememberHasHardwareKeyboard()
+    val focusAnchors = remember { KeyboardFocusAnchors() }
+    val focusRestoreScope = rememberCoroutineScope()
+    var pendingSearchFocus by remember { mutableStateOf(false) }
+    LaunchedEffect(pendingSearchFocus) {
+        if (!pendingSearchFocus) return@LaunchedEffect
+        // The re-tap signal has no replay, so wait for the Search screen to subscribe:
+        // two frames let the old tab's collector finish cancelling and the new one start.
+        withFrameNanos { }
+        withFrameNanos { }
+        withTimeoutOrNull(SEARCH_FOCUS_TIMEOUT_MS) { tabReTapSignal.subscriptionCount.first { it > 0 } }
+        tabReTapSignal.tryEmit(Unit)
+        pendingSearchFocus = false
+    }
+    val currentOnTabClick by rememberUpdatedState(onTabClick)
+    val keyboardShortcuts =
+        if (!hasHardwareKeyboard) {
+            Modifier
+        } else {
+            // When nothing in the shell holds focus any more, hand it back to the newest
+            // anchor (the feed list when one is showing, else the shell itself). Posted,
+            // not requested inside the focus callback.
+            Modifier
+                .onFocusChanged { state ->
+                    if (!state.hasFocus) focusRestoreScope.launch { focusAnchors.restore() }
+                }.keyboardFocusAnchor(enabled = true, anchors = focusAnchors)
+                .onKeyEvent { event ->
+                    val tab = TAB_KEYS.indexOfFirst { event.isCtrlPress(it) }
+                    when {
+                        tab >= 0 -> {
+                            TopLevelDestinations.getOrNull(tab)?.let { currentOnTabClick(it.key) }
+                            true
+                        }
+                        event.isCtrlPress(Key.N) -> {
+                            mainShellNavState.add(ComposerRoute())
+                            true
+                        }
+                        event.isPlainPress(Key.Slash) -> {
+                            if (mainShellNavState.topLevelKey == Search) {
+                                tabReTapSignal.tryEmit(Unit)
+                            } else {
+                                mainShellNavState.addTopLevel(Search)
+                                pendingSearchFocus = true
+                            }
+                            true
+                        }
+                        else -> false
+                    }
+                }
+        }
+
     CompositionLocalProvider(
         LocalMainShellNavState provides mainShellNavState,
         LocalTabReTapSignal provides readOnlyTabReTapSignal,
         LocalGifAutoplayEnabled provides gifAutoplayEnabled,
+        LocalKeyboardFocusAnchors provides focusAnchors,
         // Raycast / pinch targets for dense inline actions (post action row) on XR;
         // touch devices keep Compose's built-in 48dp touch extension.
         LocalSpatialMinimumTargetSize provides if (isXr) SpatialMinimumTargetSize else Dp.Unspecified,
@@ -375,27 +468,9 @@ fun MainShell(modifier: Modifier = Modifier) {
             activeKey = mainShellNavState.topLevelKey,
             notificationsUnreadCount = notificationsUnreadCount,
             chatsUnreadCount = chatsUnreadCount,
-            onTabClick = { tapped ->
-                // Re-tap on the active tab fires the generic tab-re-tap
-                // signal. Each tab's screen interprets it: Feed/Profile
-                // scroll their list to top, Search focuses the EditText
-                // and opens the IME. Switching tabs navigates as before
-                // — the destination tab comes back exactly as it was left
-                // (stack, ViewModels, scroll position) because every tab's
-                // entries stay decorated while off screen; see
-                // `MainShellNavState.rememberDecoratedEntries`.
-                // `mainShellNavState.topLevelKey` resolves the post-
-                // mutation active tab so a rapid double-tap during a tab
-                // switch animation behaves correctly (per the change's
-                // design Decision 3).
-                if (tapped == mainShellNavState.topLevelKey) {
-                    tabReTapSignal.tryEmit(Unit)
-                } else {
-                    mainShellNavState.addTopLevel(tapped)
-                }
-            },
+            onTabClick = onTabClick,
             layoutType = layoutType,
-            modifier = modifier,
+            modifier = modifier.then(keyboardShortcuts),
         ) {
             // The inner `NavDisplay` is deliberately NOT wrapped in a `key(...)` on the pane
             // count. `MainActivity` handles rotation and fold via `configChanges` (no Activity
@@ -748,3 +823,9 @@ private val EXPANDED_LIST_PANE_WIDTH = 440.dp
 private val LARGE_WINDOW_WIDTH = 1200.dp
 
 private fun List<OutgoingPost>.failedIds(): Set<String> = filter { it.status is OutgoingPostStatus.Failed }.mapTo(HashSet()) { it.localId }
+
+/** Ctrl+1 to Ctrl+5 select [TopLevelDestinations] in display order. */
+private val TAB_KEYS = listOf(Key.One, Key.Two, Key.Three, Key.Four, Key.Five)
+
+/** How long `/` waits for the Search screen to start listening before giving up. */
+private const val SEARCH_FOCUS_TIMEOUT_MS = 1_000L
