@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795506691531,
+  "lastUpdate": 1795593026104,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -4361,6 +4361,76 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 554,
             "range": "+/- 1.8%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Francisco Velazquez",
+            "username": "kikin81",
+            "email": "kikin81@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "77cff3a3a5935939e940aad5704d9f878ddb73a4",
+          "message": "chore(xr): add an XR journey and reconcile the XR readiness spec (#1266)\n\n* chore(xr): add an XR journey and reconcile the XR readiness spec\n\nAdd xr_spatial_shell.journey.xml covering the Home Space capsule, the Full\nSpace navigation Orbiter, list-detail panes on the default panel, and the\nfullscreen video player. A dry run on the XR_Headset emulator showed it\ncannot play video at all: its GPU cannot import the software decoder's\nYV12 frames, so the TextureView player aborts the app's RenderThread and\nthe SurfaceView player aborts SurfaceFlinger. The journey keeps video to\nhardware and records how to drive the emulator from adb.\n\nTick the phase 1 tasks that shipped, mark 3.2 and 3.3 open, correct the\nfeature name to android.software.xr.api.spatial, and make task 5.4 run the\ntabletop and phone video journeys and verify video on XR hardware.\n\nRefs: nubecita-h6kf.6\n\n* chore(xr): reapply the autoplay workaround after every relaunch\n\nRefs: nubecita-h6kf.6",
+          "timestamp": "2026-11-25T06:03:51Z",
+          "url": "https://github.com/kikin81/nubecita/commit/77cff3a3a5935939e940aad5704d9f878ddb73a4"
+        },
+        "date": 1795593023700,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 26,
+            "range": "+/- 17.4%",
+            "unit": "frames"
+          },
+          {
+            "name": "PostCommentsSheetBenchmark.dragAndScrollCommentsSheetOverVideoPlayback / frameCount",
+            "value": 372,
+            "range": "+/- 51.3%",
+            "unit": "frames"
+          },
+          {
+            "name": "SearchScrollBenchmark.scrollSearchResults / frameCount",
+            "value": 112,
+            "range": "+/- 2.4%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1274.289,
+            "range": "+/- 5.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1181.81,
+            "range": "+/- 7.1%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1099.664,
+            "range": "+/- 9.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1145.899,
+            "range": "+/- 11%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 684,
+            "range": "+/- 3.4%",
             "unit": "frames"
           }
         ]
