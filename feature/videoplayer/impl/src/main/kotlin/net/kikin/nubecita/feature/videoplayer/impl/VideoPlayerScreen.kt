@@ -18,8 +18,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.onKeyEvent
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CancellationException
@@ -35,9 +33,6 @@ import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsSheetCon
 import net.kikin.nubecita.core.postinteractions.ui.comments.PostCommentsViewModel
 import net.kikin.nubecita.core.review.requestReviewIfEligible
 import net.kikin.nubecita.designsystem.adaptive.PostCommentsSheetScaffold
-import net.kikin.nubecita.designsystem.input.LocalKeyboardFocusAnchors
-import net.kikin.nubecita.designsystem.input.isPlainPress
-import net.kikin.nubecita.designsystem.input.keyboardFocusAnchor
 import net.kikin.nubecita.designsystem.input.rememberHasHardwareKeyboard
 import net.kikin.nubecita.designsystem.spatial.rememberSpatialSessionEnvironment
 import net.kikin.nubecita.designsystem.spatial.rememberTheaterMode
@@ -113,27 +108,9 @@ internal fun VideoPlayerScreen(
     val spatialControls = rememberSpatialSessionEnvironment().isSpatialUiEnabled && !isInPip
     val theaterMode = rememberTheaterMode()
 
-    // Hardware keyboard: Space plays / pauses, arrows skip 10s, M mutes. The player takes
-    // keyboard focus when it opens so they work at once; inert without a keyboard.
+    // Hardware keyboard: Space plays / pauses, arrows skip 10s, M mutes (in the content).
+    // One LocalConfiguration read for the whole player, not per item.
     val hasHardwareKeyboard = rememberHasHardwareKeyboard()
-    val playerKeys =
-        if (!hasHardwareKeyboard) {
-            Modifier
-        } else {
-            Modifier
-                .keyboardFocusAnchor(enabled = true, anchors = LocalKeyboardFocusAnchors.current)
-                .onKeyEvent { event ->
-                    val playerEvent =
-                        when {
-                            event.isPlainPress(Key.Spacebar) -> VideoPlayerEvent.PlayPauseClicked
-                            event.isPlainPress(Key.DirectionLeft) -> VideoPlayerEvent.SkipBack
-                            event.isPlainPress(Key.DirectionRight) -> VideoPlayerEvent.SkipForward
-                            event.isPlainPress(Key.M) -> VideoPlayerEvent.MuteClicked
-                            else -> null
-                        }
-                    playerEvent?.let(viewModel::handleEvent) != null
-                }
-        }
 
     // Instant PiP snap-to-hidden: bypass exit animation so PiP capture window does not snap a collapsing sheet.
     LaunchedEffect(isInPip) {
@@ -262,7 +239,8 @@ internal fun VideoPlayerScreen(
                     spatialControls = spatialControls,
                     isTheaterMode = theaterMode?.isActive == true,
                     onTheaterModeToggle = theaterMode?.let { it::toggle },
-                    modifier = Modifier.fillMaxSize().then(playerKeys),
+                    keyboardShortcuts = hasHardwareKeyboard,
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
         },

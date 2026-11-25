@@ -21,6 +21,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -31,6 +33,8 @@ import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.component.NubecitaAsyncImage
+import net.kikin.nubecita.designsystem.input.isPlainPress
+import net.kikin.nubecita.designsystem.input.keyboardFocusAnchor
 import net.kikin.nubecita.designsystem.spatial.BottomControlsOrbiter
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerError
 import net.kikin.nubecita.feature.videoplayer.impl.VideoPlayerEvent
@@ -88,6 +92,9 @@ internal fun VideoPlayerContent(
     // Theater Mode button (Android XR only); null hides it.
     isTheaterMode: Boolean = false,
     onTheaterModeToggle: (() -> Unit)? = null,
+    // A hardware keyboard is attached: the player takes keyboard focus when it opens, and
+    // Space plays / pauses, the arrow keys skip 10s and M mutes. Off for touch-only devices.
+    keyboardShortcuts: Boolean = false,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val layoutDirection = LocalLayoutDirection.current
@@ -125,6 +132,7 @@ internal fun VideoPlayerContent(
         modifier =
             modifier
                 .fillMaxSize()
+                .then(if (keyboardShortcuts) Modifier.playerKeyboardShortcuts(onEvent) else Modifier)
                 .background(Color.Black)
                 .clickable(
                     interactionSource = interactionSource,
@@ -346,3 +354,22 @@ private fun VideoPlayerContentErrorPreview() {
         )
     }
 }
+
+/**
+ * Focus anchor plus the player's keys. Ahead of the root's `clickable` in the chain, so the
+ * anchor is the node that takes focus and these keys are handled before the clickable's own
+ * Enter / Space activation (which would toggle the chrome instead of playback).
+ */
+private fun Modifier.playerKeyboardShortcuts(onEvent: (VideoPlayerEvent) -> Unit): Modifier =
+    keyboardFocusAnchor(enabled = true, anchors = null)
+        .onKeyEvent { event ->
+            val playerEvent =
+                when {
+                    event.isPlainPress(Key.Spacebar) -> VideoPlayerEvent.PlayPauseClicked
+                    event.isPlainPress(Key.DirectionLeft) -> VideoPlayerEvent.SkipBack
+                    event.isPlainPress(Key.DirectionRight) -> VideoPlayerEvent.SkipForward
+                    event.isPlainPress(Key.M) -> VideoPlayerEvent.MuteClicked
+                    else -> null
+                }
+            playerEvent?.let(onEvent) != null
+        }

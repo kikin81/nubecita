@@ -160,6 +160,7 @@ jobs:
           - ":feature:profile:impl"
           - ":feature:search:impl"
           - ":feature:settings:impl"
+          - ":feature:videoplayer:impl"
     steps:
       - name: Checkout
         uses: actions/checkout@v7

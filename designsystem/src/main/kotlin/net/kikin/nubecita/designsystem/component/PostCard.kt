@@ -83,8 +83,8 @@ import net.kikin.nubecita.designsystem.NubecitaTheme
 import net.kikin.nubecita.designsystem.R
 import net.kikin.nubecita.designsystem.icon.NubecitaIcon
 import net.kikin.nubecita.designsystem.icon.NubecitaIconName
+import net.kikin.nubecita.designsystem.input.LocalKeyboardFocusAnchors
 import net.kikin.nubecita.designsystem.input.isPlainPress
-import net.kikin.nubecita.designsystem.input.rememberHasHardwareKeyboard
 import net.kikin.nubecita.designsystem.semanticColors
 import java.util.Locale
 import kotlin.time.Clock
@@ -1116,7 +1116,7 @@ private val NoPostKeyboardShortcuts = PostKeyboardShortcuts(Modifier, Modifier)
  * On the card, so every surface that shows posts (feed, profile, thread, search) gets them
  * with no host wiring. Handled in `onKeyEvent`: the key bubbles up from the focused element,
  * and a focused text field would have consumed it first. Inactive (both halves [Modifier])
- * on touch-only devices, so a phone's feed composes nothing extra.
+ * unless the shell reports a hardware keyboard, so a phone's feed composes nothing extra.
  *
  * `j` / `k` first move focus from any inner element (avatar, link, action pill) back to the
  * card, then step spatially (Down / Up) from the card's bounds, which reaches the adjacent
@@ -1128,7 +1128,9 @@ private fun rememberPostKeyboardShortcuts(
     post: PostUi,
     callbacks: PostCallbacks,
 ): PostKeyboardShortcuts {
-    if (!rememberHasHardwareKeyboard()) return NoPostKeyboardShortcuts
+    // The shell provides anchors only with a hardware keyboard; a static local, so cards are
+    // not recomposed by every configuration change the way a LocalConfiguration read would.
+    if (LocalKeyboardFocusAnchors.current == null) return NoPostKeyboardShortcuts
     val focusManager = LocalFocusManager.current
     val currentPost by rememberUpdatedState(post)
     val currentCallbacks by rememberUpdatedState(callbacks)

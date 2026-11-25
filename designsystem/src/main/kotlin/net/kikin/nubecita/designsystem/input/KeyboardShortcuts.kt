@@ -85,8 +85,13 @@ class KeyboardFocusAnchors {
 }
 
 /**
- * The shell's [KeyboardFocusAnchors], or null outside the main shell (previews, the outer
- * login / onboarding shell), where anchors simply do not register.
+ * The shell's [KeyboardFocusAnchors] while a hardware keyboard is attached, else null; also
+ * null outside the main shell (previews, the outer login / onboarding shell).
+ *
+ * Doubles as the "keyboard shortcuts are on" signal for per-item code such as `PostCard`:
+ * being static, it only recomposes readers when a keyboard is attached or removed, whereas
+ * reading [rememberHasHardwareKeyboard] (a dynamic `LocalConfiguration` read) in every card
+ * would recompose them all on every configuration change.
  */
 val LocalKeyboardFocusAnchors = staticCompositionLocalOf<KeyboardFocusAnchors?> { null }
 
