@@ -45,16 +45,21 @@ Expect a relayed `400 use_dpop_nonce`, then a relayed `201` with a `request_uri`
 Point a debug build of the app at it:
 
 ```bash
-adb reverse tcp:5001 tcp:5001
-./gradlew :app:installProductionDebug \
+adb -s <serial> reverse tcp:5001 tcp:5001
+./gradlew :app:assembleProductionDebug \
   -PoauthClientMetadataUrl=https://nubecita.app/oauth/client-metadata-test.json \
   -PoauthMediatorUrl=http://localhost:5001/nubecita-2a4c1/us-central1/oauthMediator
+adb -s <serial> install -r app/build/outputs/apk/production/debug/app-production-debug.apk
 ```
+
+Install with `adb -s <serial>`, never a Gradle `install…` task: those install on every attached device, including the emulators that hold real sessions.
 
 - Debug builds allow plain http to `localhost`, `127.0.0.1` and `10.0.2.2` only. Release builds allow none.
 - Use a real device. The `Pixel_10_Pro` and `Pixel_10_Pro_Fold` emulators hold real sessions: never install a test build on them or clear their data.
 - Never test against the production client id. The test client is confidential; the rehearsal client exists only for the flip rehearsal below.
-- With no `-PoauthMediatorUrl` the app is inert: it talks to the authorization server directly and requests no attestation token.
+- `production` builds use `https://auth.nubecita.app` unless told otherwise. `-PoauthMediatorUrl=<url>` points one build somewhere else; passing it empty (`-PoauthMediatorUrl=`) gives a build that talks to the authorization server directly and requests no attestation token. The `bench` flavor never uses the backend: it is offline.
+- A debug build has no Play Integrity verdict, so the backend records its attestation as `missing`. That is harmless while sign-in enforcement is off. Once it is on, register the build's App Check debug token in the Firebase console or debug builds cannot sign in.
+- To force a refresh on a device, build with `-PauthTestHarness=true` (only possible on a machine with no release keystore) and use the `auth-harness` skill's `BadAccessToken` scenario.
 
 ## Operating the backend
 
@@ -135,16 +140,39 @@ Reading them:
 - `outcome = mediator_error` is the backend answering for itself. It never ends a session.
 - `session_cleared` with `client_auth = confidential` and a low `days_since_login` is a loss a confidential session should not have had. Investigate each one.
 
+## Observed on a device
+
+Pixel 11 Pro, debug build, real account on `bsky.social`, backend at `https://auth.nubecita.app`. Each line was read from both the device's HTTP log and the backend's request log.
+
+| Date | Client | What | Result |
+|---|---|---|---|
+| 2026-11-26 | test (confidential) | Sign-in | Sign-in start `400` (nonce) then `201`, code exchange `200`, all relayed from the server and signed with `test-1`. The browser returned to the app through the `https://nubecita.app/oauth-redirect/` App Link. Requests to the PDS went direct. |
+| 2026-11-26 | test (confidential) | Forced refresh (`BadAccessToken`) | `400` (nonce) then `200`, relayed, `test-1`, `private_key_jwt`. Still signed in. About 0.35 s per request. |
+
+Two things that run were not designed to show, and did:
+
+- **No consent screen.** The server remembers which clients an account has approved by client id and scope, not by the manifest's contents. The test client's id had been approved in May under an earlier manifest at the same URL, so the browser leg completed in 0.65 s with no prompt. By the same rule, changing the production manifest should not make existing users approve the app again.
+- **Two refreshes on one cold start, 0.4 s apart.** A request that left with the old access token while the refresh was in flight was rejected after it finished, and the SDK refreshed again (`nubecita-kjmk`). Both succeeded. It matters at the flip: see the guard in the checklist below.
+
 ## Rehearsal
 
 Before production is touched, the change of authentication method is rehearsed on the rehearsal client with a real account on a real device.
+
+How to run it:
+
+1. Install a debug build for the rehearsal client (`-PoauthClientMetadataUrl=https://nubecita.app/oauth/client-metadata-rehearsal.json`, harness on) and sign in. The client is public at this point.
+2. Force a refresh. It goes through the backend with an assertion attached, which the server must ignore (outcome 3).
+3. Merge the rehearsal manifest change in `nubecita-web` (confidential, key `rehearsal-1`). Wait 20 minutes: servers cache a manifest for about ten minutes per process.
+4. Force a refresh (outcome 1), and read whether a second one follows it (outcome 5).
+5. Install the same build with `-PoauthMediatorUrl=` and force a refresh: it must fail without signing out (outcome 2). Reinstall the mediated build and confirm it resumes.
+6. Keep that session alive on some device until day 15 (outcome 7).
 
 | # | Outcome | Status |
 |---|---|---|
 | 1 | A session created while the client is public refreshes through the backend after the flip, without re-auth | Not yet run |
 | 2 | A build with no backend URL cannot refresh after the flip, is not signed out, and resumes once rebuilt with the URL | Not yet run |
 | 3 | The server accepts requests carrying an assertion while the client is public | **Observed for a sign-in start** (2026-11-26, emulator, `bsky.social`): `201` with the backend reporting `none`. Still to observe for a refresh. |
-| 4 | A `web` client completes sign-in through the App Link redirect | A sign-in start for the confidential test client is accepted (2026-11-26, `201`, `private_key_jwt`). The browser leg is not yet run. |
+| 4 | A `web` client completes sign-in through the App Link redirect | **Observed** (2026-11-26, Pixel 11 Pro, test client): full sign-in, code returned through the App Link, exchanged through the backend. The redirect was automatic (see above), so the consent-page tap was not exercised for a `web` client. |
 | 5 | Two refreshes in quick succession right after the flip (sizes the flip guard) | Not yet run |
 | 6 | On a disposable session: reverting to public deletes a bound session | Belongs to the flip issue (`nubecita-xg9g`) |
 | 7 | The session from outcome 1 is still valid on day 15 | Belongs to the flip issue |
@@ -160,6 +188,7 @@ A surprise in any of 1 to 4 stops the work and returns to design.
 - [ ] At least 95% of 7-day active users are on a version that uses the backend (exclude `sdk_gphone*` devices and the `OnePlus8Pro` bot traffic)
 - [ ] At least 14 days since that version reached full rollout
 - [ ] Replay-safe refresh (`nubecita-dcvt.9`) is live
+- [ ] The redundant second refresh (`nubecita-kjmk`) is fixed in the shipped SDK, or the decision to flip without the fix is written down. Unfixed, the minimum refresh interval below refuses the second refresh on affected cold starts and one request fails each time.
 - [ ] The sign-in App Check pass rate has been reviewed, and App Check token lifetime checked against the Play Integrity quota
 - [ ] The share of sessions with `issuer_kind = other` has been reviewed (a non-reference server may make those users sign in once)
 - [ ] A release at in-app-update priority 5 is live, so older builds see the update screen
