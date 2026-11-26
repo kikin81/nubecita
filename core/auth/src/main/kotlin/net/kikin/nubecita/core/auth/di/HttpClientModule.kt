@@ -83,6 +83,9 @@ internal object HttpClientModule {
                 sanitizeHeader { header ->
                     header.equals("Authorization", ignoreCase = true) ||
                         header.equals("DPoP", ignoreCase = true) ||
+                        // Sent to the token-mediating backend: an attestation
+                        // token is a credential too.
+                        header.equals("X-Firebase-AppCheck", ignoreCase = true) ||
                         header.equals("Cookie", ignoreCase = true) ||
                         header.equals("Set-Cookie", ignoreCase = true)
                 }
