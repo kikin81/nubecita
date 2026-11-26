@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795593029312,
+  "lastUpdate": 1795679645382,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -4431,6 +4431,76 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 684,
             "range": "+/- 3.4%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "445a4b66fe32f355dd226dffc5ca9df5e8399499",
+          "message": "ci(release): 1.387.0\n\n## [1.387.0](https://github.com/kikin81/nubecita/compare/v1.386.3...v1.387.0) (2026-11-25)\n\n### Miscellaneous\n\n* **xr:** add an XR journey and reconcile the XR readiness spec ([#1266](https://github.com/kikin81/nubecita/issues/1266)) ([77cff3a](https://github.com/kikin81/nubecita/commit/77cff3a3a5935939e940aad5704d9f878ddb73a4))\n\n### Features\n\n* **xr:** 56dp post action targets and a focus ring on XR ([#1268](https://github.com/kikin81/nubecita/issues/1268)) ([d02045c](https://github.com/kikin81/nubecita/commit/d02045ca2ff9d4a182059dda679408b47b734ae8))\n* **xr:** hardware keyboard shortcuts for posts, tabs, search and compose ([#1269](https://github.com/kikin81/nubecita/issues/1269)) ([8ef7c45](https://github.com/kikin81/nubecita/commit/8ef7c453a2dfc0f35f668e7b3eda42ee9b5d09aa))\n* **xr:** video controls Orbiter and Theater Mode ([#1271](https://github.com/kikin81/nubecita/issues/1271)) ([ea51088](https://github.com/kikin81/nubecita/commit/ea510886054e5f1a9db03985b5385cc05306e53d))",
+          "timestamp": "2026-11-25T20:23:29Z",
+          "url": "https://github.com/kikin81/nubecita/commit/445a4b66fe32f355dd226dffc5ca9df5e8399499"
+        },
+        "date": 1795679642636,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 23,
+            "range": "+/- 5.7%",
+            "unit": "frames"
+          },
+          {
+            "name": "PostCommentsSheetBenchmark.dragAndScrollCommentsSheetOverVideoPlayback / frameCount",
+            "value": 354,
+            "range": "+/- 1.7%",
+            "unit": "frames"
+          },
+          {
+            "name": "SearchScrollBenchmark.scrollSearchResults / frameCount",
+            "value": 110,
+            "range": "+/- 27.3%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1328.895,
+            "range": "+/- 2.1%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1235.082,
+            "range": "+/- 5.9%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1016.541,
+            "range": "+/- 25.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1124.306,
+            "range": "+/- 44.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 646,
+            "range": "+/- 2%",
             "unit": "frames"
           }
         ]
