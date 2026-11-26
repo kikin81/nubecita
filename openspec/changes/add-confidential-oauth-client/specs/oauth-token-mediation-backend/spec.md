@@ -127,6 +127,11 @@ The app SHALL supply only an authorization server issuer, never an endpoint URL.
 - **WHEN** an issuer's hostname resolves to a loopback, private, link-local or cloud-metadata address
 - **THEN** the backend SHALL refuse the request without connecting
 
+#### Scenario: The address that was checked is the one connected to
+
+- **WHEN** an issuer's hostname passes the address check
+- **THEN** the backend SHALL connect to the address it checked, and SHALL NOT resolve the hostname again for the connection
+
 #### Scenario: IP-literal and non-https issuers are refused
 
 - **WHEN** an issuer is not an https URL with a DNS hostname
@@ -158,12 +163,12 @@ For a given refresh token, the backend SHALL have at most one forwarded request 
 #### Scenario: Concurrent duplicate is held back
 
 - **WHEN** two refresh requests with the same refresh token arrive at the same time
-- **THEN** exactly one SHALL be forwarded, and the other SHALL receive either the first one's result or a backend-produced "try again" error
+- **THEN** exactly one SHALL be forwarded, and the other SHALL receive either the first one's result or the backend-produced `mediator_in_progress` error
 
 #### Scenario: Retry after an unknown outcome is held back
 
 - **WHEN** a refresh was forwarded and the backend answered that its outcome is unknown, and the same refresh token is presented again before the first attempt could still be running
-- **THEN** the backend SHALL NOT forward it again and SHALL answer with a backend-produced "try again" error
+- **THEN** the backend SHALL NOT forward it again and SHALL answer with the backend-produced `mediator_in_progress` error
 
 ### Requirement: An operator can enforce a minimum interval between refreshes
 
@@ -172,7 +177,7 @@ An operator SHALL be able to set a minimum interval. While it is set, the backen
 #### Scenario: Second refresh inside the interval is refused
 
 - **WHEN** the interval is set to 30 minutes and a refresh arrives using a token the backend issued 5 minutes earlier
-- **THEN** the backend SHALL answer with a backend-produced "try again" error and SHALL NOT forward the request
+- **THEN** the backend SHALL answer with the backend-produced `mediator_rate_limited` error and SHALL NOT forward the request
 
 #### Scenario: Interval off
 
@@ -265,7 +270,7 @@ The backend SHALL limit the rate of pushed authorization requests per caller add
 #### Scenario: Burst of sign-in starts from one address
 
 - **WHEN** one address sends more pushed authorization requests than the limit allows
-- **THEN** the excess SHALL be refused with a backend-produced rate-limit error and SHALL NOT be forwarded
+- **THEN** the excess SHALL be refused with the backend-produced `mediator_rate_limited` error and SHALL NOT be forwarded
 
 ### Requirement: Deployment is restricted and keyless
 

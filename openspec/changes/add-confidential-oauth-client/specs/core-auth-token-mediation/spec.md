@@ -137,12 +137,17 @@ The app SHALL store with a session the key id the backend reported, but only fro
 
 ### Requirement: Sign-in sends an attestation token and explains a refusal
 
-Mediated sign-in requests SHALL carry an App Check token. When the backend refuses a sign-in because the app or device could not be verified, the sign-in screen SHALL show a message saying so, in the user's language, and SHALL NOT report it as a network or credentials error.
+Mediated sign-in requests SHALL carry an App Check token when one can be obtained, and SHALL still be sent without one when it cannot: the backend, not the app, decides whether a sign-in may proceed. When the backend refuses a sign-in because the app or device could not be verified, the sign-in screen SHALL show a message saying so, in the user's language, and SHALL NOT report it as a network or credentials error.
 
 #### Scenario: Verified device signs in
 
 - **WHEN** a sign-in is started on a device that yields a valid App Check token
 - **THEN** the mediated requests SHALL carry it
+
+#### Scenario: Token unavailable at sign-in
+
+- **WHEN** a sign-in is started and obtaining an App Check token fails
+- **THEN** the sign-in requests SHALL still be sent, without a token, so that the backend's observe-only mode can record the failure and let the sign-in proceed
 
 #### Scenario: Unverifiable device sees a specific message
 

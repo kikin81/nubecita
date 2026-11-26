@@ -69,7 +69,7 @@ Decisions marked **(Francisco)** were made in the brainstorm. The rest are the a
 
 App Check is already in the same project, deploys can use Workload Identity Federation, and the emulator fits the test plan. The function and the metadata it must match live in one repository and change in one pull request.
 
-- One `onRequest` function, three paths (`/par`, `/token`, `/revoke`), Node 22, TypeScript.
+- One `onRequest` function, three paths (`/par`, `/token`, `/revoke`), Node 24, TypeScript. (Node 24 rather than 22: the Functions runtime for 22 is deprecated on 2027-04-30.)
 - 1 vCPU, concurrency 80 (the work is all I/O), max 10 instances, min 0 instances to start.
 - Alternatives: a Cloudflare Worker (no cold starts and no private-network reach, but a readable Worker secret, hand-rolled App Check verification and a long-lived deploy token); the Fly push gateway (would put the key in a service that takes calls from any PDS); AWS (nothing of ours runs there).
 
@@ -114,7 +114,7 @@ Nubecita-Mediator-Origin: mediator
 {"error": "mediator_<reason>", "forwarded": false | true | "unknown"}
 ```
 
-Reasons: `bypass`, `attestation_required`, `unknown_client`, `unknown_key`, `issuer_rejected`, `rate_limited`, `upstream_timeout`, `upstream_unreachable`, `in_progress`, `internal`. The `mediator_` prefix guarantees no backend error can be read as an OAuth error. Header and reason names are the builder's to adjust; the three properties that must hold are in the specs (origin marking, forwarded flag, never `invalid_grant`).
+Reasons: `not_found`, `bypass`, `attestation_required`, `unknown_client`, `unknown_key`, `issuer_rejected`, `rate_limited` (also used for the minimum refresh interval), `upstream_timeout`, `upstream_unreachable`, `in_progress`, `internal`. The `mediator_` prefix guarantees no backend error can be read as an OAuth error. Header and reason names are the builder's to adjust; the three properties that must hold are in the specs (origin marking, forwarded flag, never `invalid_grant`).
 
 The backend always attaches an assertion, whatever the metadata says. While the client is public the server ignores it, so the later metadata change needs no backend or app release. If the rehearsal shows a server rejecting an assertion for a public client, the fallback is to attach it only when the client's published metadata registers `private_key_jwt`; the worst case is then up to 10 minutes of `invalid_request` refreshes, which are retryable and consume nothing.
 
@@ -213,6 +213,8 @@ Until this group lands, the mediated path has no store and behaves like today's 
 - Enforcement starts in observe-only mode. The observed sign-in pass rate is one of the flip gates.
 
 Why sign-in is the place that matters: the GitHub Pages fallback page still forwards the authorization code to `app.nubecita:`, a scheme any app can register on a device where Nubecita is absent. Without attestation another app could run a sign-in through our backend and hold a two-year session presented to the user as Nubecita. A refresh, by contrast, already requires the current refresh token and the device's DPoP key.
+
+The app never decides enforcement itself: if it cannot obtain a token it sends the sign-in request without one, and the backend refuses or (in observe-only mode) records and proceeds.
 
 `:core:auth` gets an `AttestationTokenProvider` interface; `:app` implements it with Firebase App Check. This keeps Firebase out of `:core:auth`, matching how analytics is abstracted.
 
