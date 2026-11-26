@@ -162,6 +162,17 @@ android {
             name = "OAUTH_REDIRECT_URI",
             value = "\"$oauthRedirectUri\"",
         )
+        // Base URL of the OAuth token-mediating backend. Empty means the app talks
+        // to the authorization server directly, as a public client, and never
+        // asks for an attestation token — which is what every build gets until
+        // the backend is switched on. Point a debug build at a local emulator
+        // or at the deployed service with -PoauthMediatorUrl=...
+        val oauthMediatorUrl = providers.gradleProperty("oauthMediatorUrl").orNull ?: ""
+        buildConfigField(
+            type = "String",
+            name = "OAUTH_MEDIATOR_URL",
+            value = "\"$oauthMediatorUrl\"",
+        )
         buildConfigField(
             type = "String",
             name = "OAUTH_SCOPE",
@@ -411,6 +422,7 @@ dependencies {
     implementation(libs.firebase.appcheck.playintegrity)
     implementation(libs.firebase.crashlytics)
     implementation(libs.kotlinx.collections.immutable)
+    implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.timber)
 
