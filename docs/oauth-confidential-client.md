@@ -148,6 +148,9 @@ Pixel 11 Pro, debug build, real account on `bsky.social`, backend at `https://au
 |---|---|---|---|
 | 2026-11-26 | test (confidential) | Sign-in | Sign-in start `400` (nonce) then `201`, code exchange `200`, all relayed from the server and signed with `test-1`. The browser returned to the app through the `https://nubecita.app/oauth-redirect/` App Link. Requests to the PDS went direct. |
 | 2026-11-26 | test (confidential) | Forced refresh (`BadAccessToken`) | `400` (nonce) then `200`, relayed, `test-1`, `private_key_jwt`. Still signed in. About 0.35 s per request. |
+| 2026-11-26 | test (confidential) | Sign-out | Revocation `400` (nonce) then `200`, relayed, `test-1`, `private_key_jwt`. |
+| 2026-11-26 | rehearsal (public) | Sign-in, 14:44 PST | Sign-in start `201` and code exchange `200`, relayed, with the backend reporting `none`: it attached an assertion signed with `rehearsal-1` and the server ignored it. Consent page shown. **This is the rehearsal session**; day 15 is 2026-12-11. |
+| 2026-11-26 | rehearsal (public) | Forced refresh | `400` (nonce) then `200`, relayed, `none`. One refresh. The app sent no key id with it: a public session stores none. |
 
 Two things that run were not designed to show, and did:
 
@@ -171,7 +174,7 @@ How to run it:
 |---|---|---|
 | 1 | A session created while the client is public refreshes through the backend after the flip, without re-auth | Not yet run |
 | 2 | A build with no backend URL cannot refresh after the flip, is not signed out, and resumes once rebuilt with the URL | Not yet run |
-| 3 | The server accepts requests carrying an assertion while the client is public | **Observed for a sign-in start** (2026-11-26, emulator, `bsky.social`): `201` with the backend reporting `none`. Still to observe for a refresh. |
+| 3 | The server accepts requests carrying an assertion while the client is public | **Observed** (2026-11-26, Pixel 11 Pro, `bsky.social`) for a sign-in start, a code exchange and a refresh: each succeeded with the backend reporting `none`. |
 | 4 | A `web` client completes sign-in through the App Link redirect | **Observed** (2026-11-26, Pixel 11 Pro, test client): full sign-in, code returned through the App Link, exchanged through the backend. The redirect was automatic (see above), so the consent-page tap was not exercised for a `web` client. |
 | 5 | Two refreshes in quick succession right after the flip (sizes the flip guard) | Not yet run |
 | 6 | On a disposable session: reverting to public deletes a bound session | Belongs to the flip issue (`nubecita-xg9g`) |
