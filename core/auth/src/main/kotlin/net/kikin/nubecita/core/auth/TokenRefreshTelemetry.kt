@@ -5,9 +5,12 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.ClientAuthRegime
+import net.kikin.nubecita.core.analytics.IssuerKind
 import net.kikin.nubecita.core.analytics.TokenRefresh
 import net.kikin.nubecita.core.analytics.TokenRefreshCaller
 import net.kikin.nubecita.core.analytics.TokenRefreshOutcome
+import net.kikin.nubecita.core.analytics.TokenRequestPath
 import net.kikin.nubecita.core.auth.di.AuthCoroutineScope
 import net.kikin.nubecita.core.logging.CrashReporter
 import timber.log.Timber
@@ -64,6 +67,8 @@ internal data class TokenRefreshAttempt(
     val epochMillis: Long,
     /** The token endpoint's `error_description`, when it rejected the token. */
     val errorDescription: String?,
+    val path: TokenRequestPath = TokenRequestPath.Direct,
+    val clientAuth: ClientAuthRegime = ClientAuthRegime.Unknown,
 )
 
 /**
@@ -162,6 +167,10 @@ internal class TokenRefreshTelemetry(
         durationMillis: Long,
         errorDescription: String? = null,
         cause: Throwable? = null,
+        path: TokenRequestPath = TokenRequestPath.Direct,
+        clientAuth: ClientAuthRegime = ClientAuthRegime.Unknown,
+        replayed: Boolean = false,
+        issuer: IssuerKind = IssuerKind.Unknown,
     ) {
         try {
             val attempt =
@@ -172,13 +181,26 @@ internal class TokenRefreshTelemetry(
                     durationMillis = durationMillis,
                     epochMillis = clock.now().toEpochMilliseconds(),
                     errorDescription = errorDescription?.take(MAX_DESCRIPTION_LENGTH),
+                    path = path,
+                    clientAuth = clientAuth,
                 )
             lastAttempt = attempt
             crashReporter.log(
                 "[$TAG] caller=${caller.wire} outcome=${outcome.wire} " +
-                    "fg=${attempt.foreground} ms=$durationMillis",
+                    "fg=${attempt.foreground} ms=$durationMillis " +
+                    "path=${path.wire} auth=${clientAuth.wire} replayed=$replayed issuer=${issuer.wire}",
             )
-            analytics.log(TokenRefresh(caller = caller, outcome = outcome, foreground = attempt.foreground))
+            analytics.log(
+                TokenRefresh(
+                    caller = caller,
+                    outcome = outcome,
+                    foreground = attempt.foreground,
+                    path = path,
+                    clientAuth = clientAuth,
+                    replayed = replayed,
+                    issuer = issuer,
+                ),
+            )
             if (outcome == TokenRefreshOutcome.LostResponse && cause != null) {
                 crashReporter.setCustomKey(KEY_LOST_REFRESH_CALLER, caller.wire)
                 crashReporter.recordException(TokenRefreshOutcomeUnknownException(cause))
@@ -219,6 +241,8 @@ internal class TokenRefreshTelemetry(
             put("clearing_refresh_caller", trigger?.caller?.wire ?: NONE)
             put("clearing_refresh_fg", trigger?.foreground?.toString() ?: NONE)
             put("clearing_refresh_error", trigger?.errorDescription ?: NONE)
+            put(KEY_CLEARING_REFRESH_PATH, trigger?.path?.wire ?: NONE)
+            put(KEY_CLEARING_CLIENT_AUTH, trigger?.clientAuth?.wire ?: NONE)
             put("last_ok_refresh_mins_ago", past.lastOk.minutesAgo(now))
             put("last_ok_refresh_caller", past.lastOk?.caller?.wire ?: NONE)
             put("last_lost_refresh_mins_ago", past.lastLostResponse.minutesAgo(now))
@@ -240,7 +264,10 @@ internal class TokenRefreshTelemetry(
         }
     }
 
-    private companion object {
+    internal companion object {
+        /** Read back by [SessionTelemetry] for the `session_cleared` event. */
+        const val KEY_CLEARING_REFRESH_PATH = "clearing_refresh_path"
+        const val KEY_CLEARING_CLIENT_AUTH = "clearing_client_auth"
         const val TAG = "TokenRefresh"
         const val KEY_LOST_REFRESH_CALLER = "lost_refresh_caller"
         const val KEY_DIED_REFRESH_CALLER = "died_refresh_caller"

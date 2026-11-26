@@ -9,12 +9,14 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.SerializationException
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.AuthKeysetRegenerated
+import net.kikin.nubecita.core.analytics.ClientAuthRegime
 import net.kikin.nubecita.core.analytics.SessionClearReason
 import net.kikin.nubecita.core.analytics.SessionClearTelemetryLost
 import net.kikin.nubecita.core.analytics.SessionCleared
 import net.kikin.nubecita.core.analytics.SessionReadError
 import net.kikin.nubecita.core.analytics.SessionReadErrorCause
 import net.kikin.nubecita.core.analytics.SessionReadErrorTerminal
+import net.kikin.nubecita.core.analytics.TokenRequestPath
 import net.kikin.nubecita.core.logging.CrashReporter
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -168,6 +170,40 @@ class SessionTelemetryTest {
                 crashReporter.setCustomKey("last_lost_refresh_caller", "dm_poll")
                 crashReporter.recordException(marker)
             }
+        }
+
+    @Test
+    fun `the session_cleared event says which route the clearing refresh took and how the client was registered`() =
+        runTest {
+            val marker = markerWithStack("io.github.kikin81.atproto.oauth.DpopAuthProvider", "failRefresh")
+            val forensics =
+                FakeRefreshForensics(
+                    mapOf("clearing_refresh_path" to "mediated", "clearing_client_auth" to "confidential"),
+                )
+
+            telemetry(forensics = forensics).onSessionCleared(marker)
+
+            verify {
+                analytics.log(
+                    SessionCleared(
+                        reason = SessionClearReason.InvalidGrant,
+                        daysSinceLogin = null,
+                        tokenPath = TokenRequestPath.Mediated,
+                        clientAuth = ClientAuthRegime.Confidential,
+                    ),
+                )
+            }
+        }
+
+    @Test
+    fun `a clear with no clearing refresh carries neither`() =
+        runTest {
+            val marker = markerWithStack("io.github.kikin81.atproto.oauth.DpopAuthProvider", "failRefresh")
+            val forensics = FakeRefreshForensics(mapOf("clearing_refresh_path" to "none", "clearing_client_auth" to "none"))
+
+            telemetry(forensics = forensics).onSessionCleared(marker)
+
+            verify { analytics.log(SessionCleared(reason = SessionClearReason.InvalidGrant, daysSinceLogin = null)) }
         }
 
     @Test

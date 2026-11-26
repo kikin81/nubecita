@@ -5,18 +5,23 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.request.forms.submitForm
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
+import io.ktor.http.headersOf
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.ClientAuthRegime
+import net.kikin.nubecita.core.analytics.IssuerKind
 import net.kikin.nubecita.core.analytics.TokenRefresh
 import net.kikin.nubecita.core.analytics.TokenRefreshCaller
 import net.kikin.nubecita.core.analytics.TokenRefreshOutcome
+import net.kikin.nubecita.core.analytics.TokenRequestPath
 import net.kikin.nubecita.core.logging.CrashReporter
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -65,7 +70,177 @@ class TokenRefreshMonitorTest {
     private fun expect(
         caller: TokenRefreshCaller,
         outcome: TokenRefreshOutcome,
-    ) = verify { analytics.log(TokenRefresh(caller = caller, outcome = outcome, foreground = false)) }
+        path: TokenRequestPath = TokenRequestPath.Direct,
+        clientAuth: ClientAuthRegime = ClientAuthRegime.Unknown,
+        replayed: Boolean = false,
+        issuer: IssuerKind = IssuerKind.BskySocial,
+    ) = verify {
+        analytics.log(
+            TokenRefresh(
+                caller = caller,
+                outcome = outcome,
+                foreground = false,
+                path = path,
+                clientAuth = clientAuth,
+                replayed = replayed,
+                issuer = issuer,
+            ),
+        )
+    }
+
+    /** A refresh sent the way the mediated transport sends it: to the backend, tagged with its route. */
+    private suspend fun HttpClient.mediatedRefresh(issuer: String = "https://bsky.social") =
+        withContext(TokenPathElement(TokenRequestPath.Mediated)) {
+            submitForm(
+                url = "https://auth.nubecita.app/token",
+                formParameters =
+                    Parameters.build {
+                        append("grant_type", "refresh_token")
+                        append("refresh_token", "rt")
+                    },
+            ) { header(MediatedTokenEndpointTransport.HEADER_ISSUER, issuer) }
+        }
+
+    private fun relayedHeaders(vararg extra: Pair<String, String>) =
+        headersOf(
+            *(
+                listOf(
+                    MediatedTokenEndpointTransport.HEADER_ORIGIN to MediatedTokenEndpointTransport.ORIGIN_UPSTREAM,
+                    MediatedTokenEndpointTransport.HEADER_AUTH_METHOD to "private_key_jwt",
+                ) + extra
+            ).map { (name, value) -> name to listOf(value) }.toTypedArray(),
+        )
+
+    @Test
+    fun `a mediated refresh records its route, the reported client registration and the issuer it named`() =
+        runTest {
+            val http =
+                client(telemetry(this), MockEngine { respond("""{"access_token":"a"}""", HttpStatusCode.OK, relayedHeaders()) })
+
+            http.mediatedRefresh()
+
+            expect(
+                TokenRefreshCaller.Untagged,
+                TokenRefreshOutcome.Ok,
+                path = TokenRequestPath.Mediated,
+                clientAuth = ClientAuthRegime.Confidential,
+                issuer = IssuerKind.BskySocial,
+            )
+        }
+
+    @Test
+    fun `a self-hosted issuer is recorded only as other, never by name`() =
+        runTest {
+            val http =
+                client(telemetry(this), MockEngine { respond("""{"access_token":"a"}""", HttpStatusCode.OK, relayedHeaders()) })
+
+            http.mediatedRefresh(issuer = "https://pds.alice.example")
+
+            expect(
+                TokenRefreshCaller.Untagged,
+                TokenRefreshOutcome.Ok,
+                path = TokenRequestPath.Mediated,
+                clientAuth = ClientAuthRegime.Confidential,
+                issuer = IssuerKind.Other,
+            )
+            verify(exactly = 0) { crashReporter.log(match { it.contains("alice") }) }
+        }
+
+    @Test
+    fun `a stored response served by the backend is recorded as replayed`() =
+        runTest {
+            val http =
+                client(
+                    telemetry(this),
+                    MockEngine {
+                        respond(
+                            """{"access_token":"a"}""",
+                            HttpStatusCode.OK,
+                            relayedHeaders(MediatedTokenEndpointTransport.HEADER_REPLAYED to "1"),
+                        )
+                    },
+                )
+
+            http.mediatedRefresh()
+
+            expect(
+                TokenRefreshCaller.Untagged,
+                TokenRefreshOutcome.Ok,
+                path = TokenRequestPath.Mediated,
+                clientAuth = ClientAuthRegime.Confidential,
+                replayed = true,
+            )
+        }
+
+    @Test
+    fun `the backend's own answer is a mediator error, even when its body says invalid_grant`() =
+        runTest {
+            val t = telemetry(this)
+            val http = client(t, MockEngine { respond("""{"error":"invalid_grant"}""", HttpStatusCode.BadRequest) })
+
+            http.mediatedRefresh()
+
+            expect(TokenRefreshCaller.Untagged, TokenRefreshOutcome.MediatorError, path = TokenRequestPath.Mediated)
+            // Not an invalid_grant, so it can never be read as what cleared a session.
+            assertEquals("none", t.clearKeys()["clearing_refresh_caller"])
+        }
+
+    @Test
+    fun `an unmarked 200 through the backend is not counted as a rotation`() =
+        runTest {
+            val http = client(telemetry(this), MockEngine { respond("""{"access_token":"a"}""", HttpStatusCode.OK) })
+
+            http.mediatedRefresh()
+
+            expect(TokenRefreshCaller.Untagged, TokenRefreshOutcome.MediatorError, path = TokenRequestPath.Mediated)
+        }
+
+    @Test
+    fun `a relayed invalid_grant is still invalid_grant, with its route and registration on the clear`() =
+        runTest {
+            val t = telemetry(this)
+            val http =
+                client(
+                    t,
+                    MockEngine {
+                        respond(
+                            """{"error":"invalid_grant","error_description":"Session expired"}""",
+                            HttpStatusCode.BadRequest,
+                            relayedHeaders(),
+                        )
+                    },
+                )
+
+            http.mediatedRefresh()
+
+            expect(
+                TokenRefreshCaller.Untagged,
+                TokenRefreshOutcome.InvalidGrant,
+                path = TokenRequestPath.Mediated,
+                clientAuth = ClientAuthRegime.Confidential,
+            )
+            val keys = t.clearKeys()
+            assertEquals("mediated", keys["clearing_refresh_path"])
+            assertEquals("confidential", keys["clearing_client_auth"])
+        }
+
+    @Test
+    fun `a refresh sent direct after the backend was unreachable is recorded as a fallback`() =
+        runTest {
+            val http = client(telemetry(this), MockEngine { respond("""{"access_token":"a"}""", HttpStatusCode.OK) })
+
+            withContext(TokenPathElement(TokenRequestPath.DirectFallback)) { http.refresh() }
+
+            expect(TokenRefreshCaller.Untagged, TokenRefreshOutcome.Ok, path = TokenRequestPath.DirectFallback)
+        }
+
+    @Test
+    fun `the backend's reason is kept, and nothing else from its body`() {
+        assertEquals("mediator_bypass", classifyMediatorAnswer("""{"error":"mediator_bypass","forwarded":false}""").description)
+        assertEquals(null, classifyMediatorAnswer("""{"error":"did:plc:alice says no"}""").description)
+        assertEquals(null, classifyMediatorAnswer("<html>gateway</html>").description)
+        assertEquals(TokenRefreshOutcome.MediatorError, classifyMediatorAnswer(null).outcome)
+    }
 
     @Test
     fun `refresh under a RefreshCaller tag is attributed to that caller`() =
