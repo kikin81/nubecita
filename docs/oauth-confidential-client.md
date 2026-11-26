@@ -142,7 +142,7 @@ Reading them:
 
 ## Observed on a device
 
-Pixel 11 Pro, debug build, real account on `bsky.social`, backend at `https://auth.nubecita.app`. Each line was read from both the device's HTTP log and the backend's request log.
+Pixel 11 Pro unless a row says otherwise, debug build, real account on `bsky.social`, backend at `https://auth.nubecita.app`. Each line was read from both the device's HTTP log and the backend's request log.
 
 | Date | Client | What | Result |
 |---|---|---|---|
@@ -151,6 +151,9 @@ Pixel 11 Pro, debug build, real account on `bsky.social`, backend at `https://au
 | 2026-11-26 | test (confidential) | Sign-out | Revocation `400` (nonce) then `200`, relayed, `test-1`, `private_key_jwt`. |
 | 2026-11-26 | rehearsal (public) | Sign-in, 14:44 PST | Sign-in start `201` and code exchange `200`, relayed, with the backend reporting `none`: it attached an assertion signed with `rehearsal-1` and the server ignored it. Consent page shown. **This is the rehearsal session**; day 15 is 2026-12-11. |
 | 2026-11-26 | rehearsal (public) | Forced refresh | `400` (nonce) then `200`, relayed, `none`. One refresh. The app sent no key id with it: a public session stores none. |
+| 2026-11-26 | production (public) | Sign-in and forced refresh, Galaxy Z Fold 8 | Sign-in start `201`, code exchange `200`, refresh `400` (nonce) then `200`: all relayed, `prod-1` attached, server reports `none`. This is what every user gets from the release that turns the backend on. |
+| 2026-11-26 | production (public) | Refresh with the backend in bypass mode, Galaxy Z Fold 8 | Run against a local copy of the backend with `MEDIATOR_BYPASS=true` (the debug build pointed at it over `adb reverse`): the backend answered `503 mediator_bypass`, the app refreshed directly at `bsky.social` (`200`) and stayed signed in. The next refresh, back on the deployed backend, was relayed normally. Flipping the switch on the deployed service itself has not been exercised. |
+| 2026-11-26 | production (public) | Sign-out, then sign-in again, Galaxy Z Fold 8 | Revocation `400` (nonce) then `200`, relayed, `none`. The sign-in that followed went through the backend as before. |
 
 Two things that run were not designed to show, and did:
 
