@@ -164,14 +164,13 @@ android {
         )
         // Base URL of the OAuth token-mediating backend. Empty means the app talks
         // to the authorization server directly, as a public client, and never
-        // asks for an attestation token — which is what every build gets until
-        // the backend is switched on. Point a debug build at a local emulator
-        // or at the deployed service with -PoauthMediatorUrl=...
-        val oauthMediatorUrl = providers.gradleProperty("oauthMediatorUrl").orNull ?: ""
+        // asks for an attestation token. That is the default here, and what the
+        // `bench` flavor keeps: it is offline and must not reach a real service.
+        // The `production` flavor overrides it below.
         buildConfigField(
             type = "String",
             name = "OAUTH_MEDIATOR_URL",
-            value = "\"$oauthMediatorUrl\"",
+            value = "\"\"",
         )
         buildConfigField(
             type = "String",
@@ -227,7 +226,23 @@ android {
     // See `bd show nubecita-crmi.6` Section A for the full scope.
     flavorDimensions += "environment"
     productFlavors {
-        create("production") { dimension = "environment" }
+        create("production") {
+            dimension = "environment"
+            // Sign-in, token refresh and sign-out go through the token-mediating
+            // backend, which is what lets the client be confidential (see
+            // docs/oauth-confidential-client.md). Override for one build with
+            // -PoauthMediatorUrl=<url>, e.g. a local emulator; pass it empty
+            // (-PoauthMediatorUrl=) for a build that talks to the authorization
+            // server directly.
+            val oauthMediatorUrl =
+                providers.gradleProperty("oauthMediatorUrl").orNull
+                    ?: "https://auth.nubecita.app"
+            buildConfigField(
+                type = "String",
+                name = "OAUTH_MEDIATOR_URL",
+                value = "\"$oauthMediatorUrl\"",
+            )
+        }
         create("bench") { dimension = "environment" }
     }
 
