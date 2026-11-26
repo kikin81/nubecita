@@ -9,12 +9,14 @@ import io.github.kikin81.atproto.oauth.InMemoryPendingAuthStore
 import io.github.kikin81.atproto.oauth.OAuthSessionStore
 import io.github.kikin81.atproto.oauth.PendingAuthStore
 import net.kikin.nubecita.core.auth.AuthRepository
+import net.kikin.nubecita.core.auth.DefaultSessionLifetimeProvider
 import net.kikin.nubecita.core.auth.FakeAuthRepository
 import net.kikin.nubecita.core.auth.FakeOAuthRedirectBroker
 import net.kikin.nubecita.core.auth.FakeOAuthSessionStore
 import net.kikin.nubecita.core.auth.FakeSessionStateProvider
 import net.kikin.nubecita.core.auth.FakeXrpcClientProvider
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
+import net.kikin.nubecita.core.auth.SessionLifetimeProvider
 import net.kikin.nubecita.core.auth.SessionStateProvider
 import net.kikin.nubecita.core.auth.XrpcClientProvider
 import javax.inject.Singleton
@@ -62,6 +64,12 @@ abstract class AuthBindingsModule {
     @Binds
     @Singleton
     internal abstract fun bindXrpcClientProvider(impl: FakeXrpcClientProvider): XrpcClientProvider
+
+    // Bound here rather than with the token-mediation settings so a test graph
+    // that replaces this module (and so has no session store) can supply its own.
+    @Binds
+    @Singleton
+    internal abstract fun bindSessionLifetimeProvider(impl: DefaultSessionLifetimeProvider): SessionLifetimeProvider
 
     companion object {
         /**
