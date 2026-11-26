@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795679645382,
+  "lastUpdate": 1795679649698,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -8279,6 +8279,124 @@ window.BENCHMARK_DATA = {
             "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationSumMs",
             "value": 371.797,
             "range": "+/- 72.4%",
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "445a4b66fe32f355dd226dffc5ca9df5e8399499",
+          "message": "ci(release): 1.387.0\n\n## [1.387.0](https://github.com/kikin81/nubecita/compare/v1.386.3...v1.387.0) (2026-11-25)\n\n### Miscellaneous\n\n* **xr:** add an XR journey and reconcile the XR readiness spec ([#1266](https://github.com/kikin81/nubecita/issues/1266)) ([77cff3a](https://github.com/kikin81/nubecita/commit/77cff3a3a5935939e940aad5704d9f878ddb73a4))\n\n### Features\n\n* **xr:** 56dp post action targets and a focus ring on XR ([#1268](https://github.com/kikin81/nubecita/issues/1268)) ([d02045c](https://github.com/kikin81/nubecita/commit/d02045ca2ff9d4a182059dda679408b47b734ae8))\n* **xr:** hardware keyboard shortcuts for posts, tabs, search and compose ([#1269](https://github.com/kikin81/nubecita/issues/1269)) ([8ef7c45](https://github.com/kikin81/nubecita/commit/8ef7c453a2dfc0f35f668e7b3eda42ee9b5d09aa))\n* **xr:** video controls Orbiter and Theater Mode ([#1271](https://github.com/kikin81/nubecita/issues/1271)) ([ea51088](https://github.com/kikin81/nubecita/commit/ea510886054e5f1a9db03985b5385cc05306e53d))",
+          "timestamp": "2026-11-25T20:23:29Z",
+          "url": "https://github.com/kikin81/nubecita/commit/445a4b66fe32f355dd226dffc5ca9df5e8399499"
+        },
+        "date": 1795679648771,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / ClassInitCount",
+            "value": 194,
+            "range": "+/- 0.5%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / ClassInitSumMs",
+            "value": 28.777,
+            "range": "+/- 45.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / JIT compilationCount",
+            "value": 156,
+            "range": "+/- 34.9%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / JIT compilationSumMs",
+            "value": 488.729,
+            "range": "+/- 32.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / ClassInitCount",
+            "value": 140,
+            "range": "+/- 0%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / ClassInitSumMs",
+            "value": 16.329,
+            "range": "+/- 44.6%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / JIT compilationCount",
+            "value": 3,
+            "range": "+/- 34.4%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / JIT compilationSumMs",
+            "value": 4.34,
+            "range": "+/- 79%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / ClassInitCount",
+            "value": 2,
+            "range": "+/- 91.3%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / ClassInitSumMs",
+            "value": 0.046,
+            "range": "+/- 113.2%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / JIT compilationCount",
+            "value": 354,
+            "range": "+/- 126.3%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / JIT compilationSumMs",
+            "value": 799.779,
+            "range": "+/- 64.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / ClassInitCount",
+            "value": 0,
+            "range": "+/- 149.1%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / ClassInitSumMs",
+            "value": 0,
+            "range": "+/- 188.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationCount",
+            "value": 43,
+            "range": "+/- 62.7%",
+            "unit": ""
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / JIT compilationSumMs",
+            "value": 273.363,
+            "range": "+/- 67.3%",
             "unit": "ms"
           }
         ]
