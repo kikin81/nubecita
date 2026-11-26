@@ -325,6 +325,7 @@ private fun displayStringFor(error: LoginError): String =
         LoginError.Network -> stringResource(R.string.login_error_network)
         LoginError.Generic -> stringResource(R.string.login_error_generic_failure)
         LoginError.BrowserUnavailable -> stringResource(R.string.login_error_no_browser)
+        LoginError.DeviceNotVerified -> stringResource(R.string.login_error_device_not_verified)
     }
 
 @Preview(name = "Empty", showBackground = true)

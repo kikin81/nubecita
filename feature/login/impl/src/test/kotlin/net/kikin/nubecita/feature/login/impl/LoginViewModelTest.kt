@@ -13,6 +13,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import net.kikin.nubecita.core.actors.PublicActorSearch
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.AnalyticsEvent
+import net.kikin.nubecita.core.analytics.ClientAuthRegime
 import net.kikin.nubecita.core.analytics.Login
 import net.kikin.nubecita.core.analytics.LoginErrorReason
 import net.kikin.nubecita.core.analytics.LoginFailed
@@ -22,7 +23,10 @@ import net.kikin.nubecita.core.analytics.LoginStage
 import net.kikin.nubecita.core.analytics.NoOpAnalyticsClient
 import net.kikin.nubecita.core.analytics.OAuthRedirectKind
 import net.kikin.nubecita.core.auth.AuthRepository
+import net.kikin.nubecita.core.auth.DeviceVerificationRequiredException
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
+import net.kikin.nubecita.core.auth.SessionLifetime
+import net.kikin.nubecita.core.auth.SessionLifetimeProvider
 import net.kikin.nubecita.core.logging.CrashReporter
 import net.kikin.nubecita.core.push.NotificationsPromptDecider
 import net.kikin.nubecita.core.push.NotificationsPromptShownStore
@@ -462,6 +466,103 @@ internal class LoginViewModelTest {
         }
 
     @Test
+    fun `a sign-in the backend refuses for device verification shows its own message, at either stage`() =
+        runTest(mainDispatcher.dispatcher) {
+            // Refused when starting the sign-in...
+            val analytics = RecordingAnalyticsClient()
+            val crash = RecordingCrashReporter()
+            val begin =
+                newViewModel(
+                    authRepository = FakeAuthRepository(beginLoginResult = Result.failure(DeviceVerificationRequiredException())),
+                    analytics = analytics,
+                    crashReporter = crash,
+                )
+            begin.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            begin.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            assertEquals(LoginError.DeviceNotVerified, begin.uiState.value.errorMessage)
+            assertFalse(begin.uiState.value.isLoading)
+            assertEquals(
+                listOf<AnalyticsEvent>(LoginFailed(LoginErrorReason.DeviceVerification, LoginStage.Begin)),
+                analytics.events,
+            )
+            assertTrue(crash.recorded.isEmpty(), "An expected refusal is not a crash report")
+
+            // ...or when exchanging the code.
+            val broker = FakeOAuthRedirectBroker()
+            val complete =
+                newViewModel(
+                    authRepository = FakeAuthRepository(completeLoginResult = Result.failure(DeviceVerificationRequiredException())),
+                    broker = broker,
+                )
+            advanceUntilIdle()
+            broker.emit("https://nubecita.app/oauth-redirect/?code=abc")
+            advanceUntilIdle()
+
+            assertEquals(LoginError.DeviceNotVerified, complete.uiState.value.errorMessage)
+        }
+
+    @Test
+    fun `a wrapped device-verification refusal is still recognised`() =
+        runTest(mainDispatcher.dispatcher) {
+            val wrapped = IllegalStateException("login failed", DeviceVerificationRequiredException())
+            val vm = newViewModel(authRepository = FakeAuthRepository(beginLoginResult = Result.failure(wrapped)))
+            vm.handleEvent(LoginEvent.HandleChanged("alice.bsky.social"))
+            vm.handleEvent(LoginEvent.SubmitLogin)
+            advanceUntilIdle()
+
+            assertEquals(LoginError.DeviceNotVerified, vm.uiState.value.errorMessage)
+        }
+
+    @Test
+    fun `the login event records how the client was registered for the new session`() =
+        runTest(mainDispatcher.dispatcher) {
+            suspend fun loggedFor(provider: SessionLifetimeProvider): AnalyticsEvent {
+                val broker = FakeOAuthRedirectBroker()
+                val analytics = RecordingAnalyticsClient()
+                newViewModel(broker = broker, analytics = analytics, sessionLifetime = provider)
+                advanceUntilIdle()
+                broker.emit("https://nubecita.app/oauth-redirect/?code=abc")
+                advanceUntilIdle()
+                return analytics.events.last()
+            }
+
+            // Never reported on: the sign-in went straight to the authorization server.
+            assertEquals(Login(clientAuth = ClientAuthRegime.Unknown), loggedFor(FakeSessionLifetimeProvider(mediated = false)))
+            // Through the backend, while the client is still public.
+            assertEquals(
+                Login(clientAuth = ClientAuthRegime.Public),
+                loggedFor(FakeSessionLifetimeProvider(SessionLifetime.Public, mediated = true)),
+            )
+            // Through the backend, as a confidential client.
+            assertEquals(
+                Login(clientAuth = ClientAuthRegime.Confidential),
+                loggedFor(FakeSessionLifetimeProvider(SessionLifetime.Confidential, mediated = true)),
+            )
+        }
+
+    @Test
+    fun `a failing registration lookup never costs the login event or the sign-in`() =
+        runTest(mainDispatcher.dispatcher) {
+            val broker = FakeOAuthRedirectBroker()
+            val analytics = RecordingAnalyticsClient()
+            val throwing =
+                object : SessionLifetimeProvider {
+                    override suspend fun current(): SessionLifetime? = throw IllegalStateException("store unreadable")
+
+                    override suspend fun isMediated(): Boolean = throw IllegalStateException("store unreadable")
+                }
+            val vm = newViewModel(broker = broker, analytics = analytics, sessionLifetime = throwing)
+            advanceUntilIdle()
+            broker.emit("https://nubecita.app/oauth-redirect/?code=abc")
+            advanceUntilIdle()
+
+            assertEquals(Login(), analytics.events.last())
+            assertNull(vm.uiState.value.errorMessage)
+        }
+
+    @Test
     fun `successful completeLogin logs the login event once`() =
         runTest(mainDispatcher.dispatcher) {
             val broker = FakeOAuthRedirectBroker()
@@ -769,15 +870,27 @@ internal fun newViewModel(
     analytics: AnalyticsClient = NoOpAnalyticsClient(),
     crashReporter: CrashReporter = RecordingCrashReporter(),
     publicActorSearch: PublicActorSearch = FakePublicActorSearch(),
+    sessionLifetime: SessionLifetimeProvider = FakeSessionLifetimeProvider(),
 ): LoginViewModel =
     LoginViewModel(
         authRepository = authRepository,
+        sessionLifetime = sessionLifetime,
         notificationsPromptDecider = notificationsPromptDecider,
         analytics = analytics,
         crashReporter = crashReporter,
         broker = broker,
         publicActorSearch = publicActorSearch,
     )
+
+/** A session the backend has never reported on, unless told otherwise: what the direct path gives. */
+internal class FakeSessionLifetimeProvider(
+    private val lifetime: SessionLifetime? = SessionLifetime.Public,
+    private val mediated: Boolean = false,
+) : SessionLifetimeProvider {
+    override suspend fun current(): SessionLifetime? = lifetime
+
+    override suspend fun isMediated(): Boolean = mediated
+}
 
 /** Records crash-seam calls so tests can assert structured non-fatals + keys. */
 internal class RecordingCrashReporter : CrashReporter {

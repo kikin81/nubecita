@@ -67,6 +67,15 @@ class SessionLifetimeProviderTest {
         }
 
     @Test
+    fun `a session is mediated only once the backend has reported on it`() =
+        runTest {
+            assertEquals(false, DefaultSessionLifetimeProvider(Store(null)).isMediated())
+            assertEquals(false, DefaultSessionLifetimeProvider(Store(session(null))).isMediated())
+            assertEquals(true, DefaultSessionLifetimeProvider(Store(session("none"))).isMediated())
+            assertEquals(true, DefaultSessionLifetimeProvider(Store(session("private_key_jwt"))).isMediated())
+        }
+
+    @Test
     fun `a session the backend reported as confidential has the long lifetime`() =
         runTest {
             assertEquals(SessionLifetime.Confidential, DefaultSessionLifetimeProvider(Store(session("private_key_jwt"))).current())

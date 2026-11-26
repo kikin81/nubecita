@@ -114,6 +114,19 @@ private fun LoginScreenNetworkErrorScreenshot() {
 }
 
 @PreviewTest
+@Preview(name = "device-not-verified-light", showBackground = true)
+@Preview(name = "device-not-verified-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun LoginScreenDeviceNotVerifiedScreenshot() {
+    NubecitaCanvasPreviewTheme {
+        LoginScreen(
+            state = LoginState(handle = "alice.bsky.social", errorMessage = LoginError.DeviceNotVerified),
+            onEvent = {},
+        )
+    }
+}
+
+@PreviewTest
 @Preview(name = "generic-error-light", showBackground = true)
 @Preview(name = "generic-error-dark", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable

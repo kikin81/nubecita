@@ -74,6 +74,14 @@ sealed interface LoginError {
      */
     @Immutable
     data object BrowserUnavailable : LoginError
+
+    /**
+     * Sign-in was refused because this copy of the app, or the device, could
+     * not be verified. Not something retrying fixes, and not a network or
+     * credentials problem, so it gets its own message.
+     */
+    @Immutable
+    data object DeviceNotVerified : LoginError
 }
 
 sealed interface LoginEvent : UiEvent {

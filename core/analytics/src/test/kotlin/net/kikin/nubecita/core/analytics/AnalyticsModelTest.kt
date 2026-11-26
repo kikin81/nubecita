@@ -17,7 +17,21 @@ class AnalyticsModelTest {
     fun `login maps to recommended event with oauth method`() {
         val event = Login()
         assertEquals("login", event.name)
-        assertEquals(mapOf("method" to Str("oauth")), event.params)
+        assertEquals(mapOf("method" to Str("oauth"), "client_auth" to Str("unknown")), event.params)
+        AnalyticsValidator.requireValid(event)
+    }
+
+    @Test
+    fun `login records how the client was registered for the new session`() {
+        assertEquals(Str("public"), Login(clientAuth = ClientAuthRegime.Public).params["client_auth"])
+        assertEquals(Str("confidential"), Login(clientAuth = ClientAuthRegime.Confidential).params["client_auth"])
+    }
+
+    @Test
+    fun `a sign-in refused for device verification has its own login_error reason`() {
+        val event = LoginFailed(reason = LoginErrorReason.DeviceVerification, stage = LoginStage.Begin)
+        assertEquals(Str("device_verification"), event.params["reason"])
+        AnalyticsValidator.requireValid(event)
     }
 
     @Test

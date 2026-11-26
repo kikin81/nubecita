@@ -19,6 +19,14 @@ enum class SessionLifetime {
 interface SessionLifetimeProvider {
     /** The signed-in session's lifetime, or `null` when no one is signed in. */
     suspend fun current(): SessionLifetime?
+
+    /**
+     * Whether the token-mediating backend has reported on the signed-in
+     * session. `false` means the session has only ever used the direct path
+     * (or no one is signed in), so nothing has said how the client is
+     * registered.
+     */
+    suspend fun isMediated(): Boolean
 }
 
 internal class DefaultSessionLifetimeProvider
@@ -32,6 +40,8 @@ internal class DefaultSessionLifetimeProvider
             // has not yet reported on was last refreshed as a public client.
             return if (session.clientAuthMethod == CONFIDENTIAL_METHOD) SessionLifetime.Confidential else SessionLifetime.Public
         }
+
+        override suspend fun isMediated(): Boolean = sessionStore.load()?.clientAuthMethod != null
 
         private companion object {
             const val CONFIDENTIAL_METHOD = "private_key_jwt"

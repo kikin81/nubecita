@@ -188,6 +188,7 @@ private fun newViewModel(
 ): LoginViewModel =
     LoginViewModel(
         authRepository = authRepository,
+        sessionLifetime = FakeSessionLifetimeProvider(),
         notificationsPromptDecider = decider,
         analytics = NoOpAnalyticsClient(),
         crashReporter = NoOpCrashReporter(),
