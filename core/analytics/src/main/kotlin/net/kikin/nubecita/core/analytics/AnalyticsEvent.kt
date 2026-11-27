@@ -35,9 +35,19 @@ enum class LoginMethod(
  */
 data class Login(
     val method: LoginMethod = LoginMethod.OAuth,
+    /**
+     * How the client was registered for the new session. `unknown` means the
+     * sign-in went straight to the authorization server; `public` and
+     * `confidential` mean it went through the token-mediating backend.
+     */
+    val clientAuth: ClientAuthRegime = ClientAuthRegime.Unknown,
 ) : AnalyticsEvent {
     override val name: String = "login"
-    override val params: Map<String, AnalyticsValue> = mapOf("method" to Str(method.wire))
+    override val params: Map<String, AnalyticsValue> =
+        mapOf(
+            "method" to Str(method.wire),
+            "client_auth" to Str(clientAuth.wire),
+        )
 }
 
 /** Why a login attempt failed. Bucketed — never carries the handle. */
@@ -61,6 +71,12 @@ enum class LoginErrorReason(
 
     /** Any other unclassified failure (unexpected throw). */
     Unexpected("unexpected"),
+
+    /**
+     * The token-mediating backend refused the sign-in because the app or the
+     * device could not be verified (no valid attestation token).
+     */
+    DeviceVerification("device_verification"),
 }
 
 /** Which step of the OAuth flow failed. */

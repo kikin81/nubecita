@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Debug builds only. Lets a debug build reach the OAuth token-mediating
+    backend running in the Firebase emulator on the development machine, which
+    serves plain http:
+
+      - a device or emulator with `adb reverse tcp:5001 tcp:5001` uses localhost
+      - an Android emulator without the reverse uses 10.0.2.2
+
+    Everything else stays https-only, and release builds have no network
+    security config at all, so they keep the platform default (no cleartext).
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>

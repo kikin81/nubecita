@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.actors.PublicActorSearch
 import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.ClientAuthRegime
 import net.kikin.nubecita.core.analytics.Login
 import net.kikin.nubecita.core.analytics.LoginErrorReason
 import net.kikin.nubecita.core.analytics.LoginFailed
@@ -28,7 +29,10 @@ import net.kikin.nubecita.core.analytics.LoginRedirectReturned
 import net.kikin.nubecita.core.analytics.LoginStage
 import net.kikin.nubecita.core.analytics.OAuthRedirectKind
 import net.kikin.nubecita.core.auth.AuthRepository
+import net.kikin.nubecita.core.auth.DeviceVerificationRequiredException
 import net.kikin.nubecita.core.auth.OAuthRedirectBroker
+import net.kikin.nubecita.core.auth.SessionLifetime
+import net.kikin.nubecita.core.auth.SessionLifetimeProvider
 import net.kikin.nubecita.core.common.mvi.MviViewModel
 import net.kikin.nubecita.core.logging.CrashReporter
 import net.kikin.nubecita.core.push.NotificationsPromptDecider
@@ -51,6 +55,7 @@ class LoginViewModel
     @Inject
     constructor(
         private val authRepository: AuthRepository,
+        private val sessionLifetime: SessionLifetimeProvider,
         private val publicActorSearch: PublicActorSearch,
         private val notificationsPromptDecider: NotificationsPromptDecider,
         private val analytics: AnalyticsClient,
@@ -114,7 +119,7 @@ class LoginViewModel
                             setState { copy(isLoading = false, errorMessage = null) }
                             // GA4 login event — fires once per successful OAuth
                             // completion (default method = OAuth).
-                            analytics.log(Login())
+                            analytics.log(Login(clientAuth = clientRegistration()))
                             sendEffect(
                                 LoginEffect.LoginSucceeded(
                                     requestPostNotificationsPermission = resolvePostNotificationsPrompt(),
@@ -256,6 +261,24 @@ class LoginViewModel
                 false
             }
 
+        /**
+         * How the client was registered for the session that was just created,
+         * for the login event. Telemetry only: a failure here must never cost
+         * the event or the sign-in.
+         */
+        private suspend fun clientRegistration(): ClientAuthRegime =
+            try {
+                when {
+                    !sessionLifetime.isMediated() -> ClientAuthRegime.Unknown
+                    sessionLifetime.current() == SessionLifetime.Confidential -> ClientAuthRegime.Confidential
+                    else -> ClientAuthRegime.Public
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                ClientAuthRegime.Unknown
+            }
+
         private fun submitLogin() {
             // Ignore re-taps while a login is in flight (beginLogin, or the
             // post-redirect token exchange which also sets isLoading) — prevents
@@ -382,9 +405,14 @@ private class LoginFailureException(
 // analytics [LoginErrorReason]. One classifier keeps the two mappings from
 // drifting: the UI deliberately collapses OauthConfig + Unexpected into one
 // neutral "Generic" message, while analytics keeps them apart for the funnel.
-private enum class LoginFailureKind { HandleNotFound, Network, OauthConfig, Unexpected }
+private enum class LoginFailureKind { HandleNotFound, Network, OauthConfig, DeviceVerification, Unexpected }
 
 private fun Throwable.classifyLoginFailure(): LoginFailureKind {
+    // Checked first, anywhere in the cause chain: it is a definite answer from
+    // the backend, not something to be mistaken for a network problem.
+    if (generateSequence(this) { it.cause }.take(MAX_CAUSE_DEPTH).any { it is DeviceVerificationRequiredException }) {
+        return LoginFailureKind.DeviceVerification
+    }
     if (this is OAuthDiscoveryException) {
         if (isHandleNotFoundDiscoveryMessage()) return LoginFailureKind.HandleNotFound
         if (isNetworkError() || isReachabilityDiscoveryMessage()) return LoginFailureKind.Network
@@ -397,6 +425,7 @@ private fun LoginFailureKind.toLoginError(handle: String): LoginError =
     when (this) {
         LoginFailureKind.HandleNotFound -> LoginError.HandleNotFound(handle)
         LoginFailureKind.Network -> LoginError.Network
+        LoginFailureKind.DeviceVerification -> LoginError.DeviceNotVerified
         // The UI shows one neutral message for both — the throwable detail never
         // reaches the user. Analytics tells them apart below.
         LoginFailureKind.OauthConfig, LoginFailureKind.Unexpected -> LoginError.Generic
@@ -407,6 +436,7 @@ private fun LoginFailureKind.toAnalyticsReason(): LoginErrorReason =
         LoginFailureKind.HandleNotFound -> LoginErrorReason.HandleNotFound
         LoginFailureKind.Network -> LoginErrorReason.Network
         LoginFailureKind.OauthConfig -> LoginErrorReason.OauthConfig
+        LoginFailureKind.DeviceVerification -> LoginErrorReason.DeviceVerification
         LoginFailureKind.Unexpected -> LoginErrorReason.Unexpected
     }
 
@@ -458,5 +488,8 @@ private fun Throwable.isNetworkError(): Boolean {
 }
 
 private const val MIN_QUERY_LENGTH = 2
+
+// Bounds the walk up an exception's cause chain, which can in principle loop.
+private const val MAX_CAUSE_DEPTH = 8
 private const val SUGGESTION_LIMIT = 6
 private val TYPEAHEAD_DEBOUNCE = 200.milliseconds

@@ -10,6 +10,7 @@
     <string name="login_error_network">Não foi possível acessar o Bluesky agora. Verifique sua conexão e tente de novo.</string>
     <string name="login_error_generic_failure">Algo deu errado. Tente de novo.</string>
     <string name="login_error_no_browser">Nenhum navegador disponível para entrar. Instale ou ative um navegador e tente de novo.</string>
+    <string name="login_error_device_not_verified">Não foi possível verificar este dispositivo ou esta cópia do Nubecita, então não dá para entrar por aqui. Atualize o Nubecita pelo Google Play e tente de novo.</string>
     <string name="login_signup_cta_supporting">Não tem uma conta?</string>
     <string name="login_signup_cta_label">Crie uma no Bluesky</string>
     <string name="login_suggestion_network_bluesky">Bluesky Social</string>
