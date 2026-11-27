@@ -154,11 +154,16 @@ Pixel 11 Pro unless a row says otherwise, debug build, real account on `bsky.soc
 | 2026-11-26 | production (public) | Sign-in and forced refresh, Galaxy Z Fold 8 | Sign-in start `201`, code exchange `200`, refresh `400` (nonce) then `200`: all relayed, `prod-1` attached, server reports `none`. This is what every user gets from the release that turns the backend on. |
 | 2026-11-26 | production (public) | Refresh with the backend in bypass mode, Galaxy Z Fold 8 | Run against a local copy of the backend with `MEDIATOR_BYPASS=true` (the debug build pointed at it over `adb reverse`): the backend answered `503 mediator_bypass`, the app refreshed directly at `bsky.social` (`200`) and stayed signed in. The next refresh, back on the deployed backend, was relayed normally. Flipping the switch on the deployed service itself has not been exercised. |
 | 2026-11-26 | production (public) | Sign-out, then sign-in again, Galaxy Z Fold 8 | Revocation `400` (nonce) then `200`, relayed, `none`. The sign-in that followed went through the backend as before. |
+| 2026-11-26 | rehearsal (flipped 15:00 PST) | First refresh after the flip, 15:47 | The app refreshed on its own, 47 minutes after the manifest changed: `400` (nonce) then `200`, relayed. From then on the app sends `rehearsal-1` with every refresh, which it only does once the server has reported the client as confidential. No re-login. |
+| 2026-11-26 | rehearsal (confidential) | Two forced refreshes, 16:17 and 16:18 | Both `200`, relayed, `private_key_jwt`, `rehearsal-1`. |
+| 2026-11-26 | rehearsal (confidential) | Build with no backend URL, forced refresh | 18 direct refresh attempts at `bsky.social` in three seconds, every one answered `400`. The app stayed signed in and showed an empty timeline. |
+| 2026-11-26 | rehearsal (confidential) | Build with the backend URL reinstalled | First refresh `200`, relayed, `private_key_jwt`; the timeline loaded. The session survived the 18 unauthenticated attempts. |
 
 Two things that run were not designed to show, and did:
 
 - **No consent screen.** The server remembers which clients an account has approved by client id and scope, not by the manifest's contents. The test client's id had been approved in May under an earlier manifest at the same URL, so the browser leg completed in 0.65 s with no prompt. By the same rule, changing the production manifest should not make existing users approve the app again.
 - **Two refreshes on one cold start, 0.4 s apart.** A request that left with the old access token while the refresh was in flight was rejected after it finished, and the SDK refreshed again (`nubecita-kjmk`). Both succeeded. It matters at the flip: see the guard in the checklist below.
+- **A build that cannot authenticate keeps trying.** With no backend URL and a confidential client, every rejected request triggered its own refresh attempt: 18 in three seconds. None can succeed and none harms the session, but after the production flip every out-of-date build does this against the user's authorization server until it is updated. That is what the forced-update gate in the checklist is for (`nubecita-uprl`).
 
 ## Rehearsal
 
@@ -175,11 +180,11 @@ How to run it:
 
 | # | Outcome | Status |
 |---|---|---|
-| 1 | A session created while the client is public refreshes through the backend after the flip, without re-auth | Not yet run |
-| 2 | A build with no backend URL cannot refresh after the flip, is not signed out, and resumes once rebuilt with the URL | Not yet run |
+| 1 | A session created while the client is public refreshes through the backend after the flip, without re-auth | **Observed** (2026-11-26, Pixel 11 Pro): the session from 14:44 refreshed at 15:47, 16:17, 16:18 and 16:19 as `private_key_jwt` with no re-login. |
+| 2 | A build with no backend URL cannot refresh after the flip, is not signed out, and resumes once rebuilt with the URL | **Observed** (2026-11-26): every direct attempt answered `400`, the app stayed signed in, and the same session refreshed again as soon as the build with the URL was back. |
 | 3 | The server accepts requests carrying an assertion while the client is public | **Observed** (2026-11-26, Pixel 11 Pro, `bsky.social`) for a sign-in start, a code exchange and a refresh: each succeeded with the backend reporting `none`. |
 | 4 | A `web` client completes sign-in through the App Link redirect | **Observed** (2026-11-26, Pixel 11 Pro, test client): full sign-in, code returned through the App Link, exchanged through the backend. The redirect was automatic (see above), so the consent-page tap was not exercised for a `web` client. |
-| 5 | Two refreshes in quick succession right after the flip (sizes the flip guard) | Not yet run |
+| 5 | Two refreshes in quick succession right after the flip (sizes the flip guard) | **Not observed where it matters.** Nothing refreshed in the first 47 minutes after the flip, so the window in which servers can disagree about the client was never exercised. Refreshes 36 seconds apart an hour later were both fine. Needs a second rehearsal client and forced refreshes through the first 20 minutes; do it before the production flip. |
 | 6 | On a disposable session: reverting to public deletes a bound session | Belongs to the flip issue (`nubecita-xg9g`) |
 | 7 | The session from outcome 1 is still valid on day 15 | Belongs to the flip issue |
 
@@ -189,7 +194,7 @@ A surprise in any of 1 to 4 stops the work and returns to design.
 
 **Irreversible.** Once a session has refreshed as confidential, reverting the manifest deletes it on its next refresh. Do not start unless every line is true, and state the evidence for each in the pull request.
 
-- [ ] Rehearsal outcomes 1 to 5 recorded above; outcome 6 observed on a disposable session
+- [ ] Rehearsal outcomes 1 to 5 recorded above (5 still needs its run inside the first 20 minutes after a flip, on a second rehearsal client); outcome 6 observed on a disposable session
 - [ ] The rehearsal session from outcome 1 is still valid more than 14 days after its sign-in
 - [ ] At least 95% of 7-day active users are on a version that uses the backend (exclude `sdk_gphone*` devices and the `OnePlus8Pro` bot traffic)
 - [ ] At least 14 days since that version reached full rollout
