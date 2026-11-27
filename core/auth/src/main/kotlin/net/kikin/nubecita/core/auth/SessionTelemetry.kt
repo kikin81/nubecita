@@ -5,6 +5,7 @@ import kotlinx.serialization.SerializationException
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.AuthKeysetRegenerated
 import net.kikin.nubecita.core.analytics.ClientAuthRegime
+import net.kikin.nubecita.core.analytics.RefreshErrorDetail
 import net.kikin.nubecita.core.analytics.SessionClearReason
 import net.kikin.nubecita.core.analytics.SessionClearTelemetryLost
 import net.kikin.nubecita.core.analytics.SessionCleared
@@ -164,12 +165,14 @@ internal class SessionTelemetry
                 // not have had.
                 val clearingPath = forensics[TokenRefreshTelemetry.KEY_CLEARING_REFRESH_PATH]
                 val clearingAuth = forensics[TokenRefreshTelemetry.KEY_CLEARING_CLIENT_AUTH]
+                val clearingDetail = forensics[TokenRefreshTelemetry.KEY_CLEARING_ERROR_DETAIL]
                 analytics.log(
                     SessionCleared(
                         reason = reason,
                         daysSinceLogin = daysSinceLogin,
                         tokenPath = TokenRequestPath.entries.firstOrNull { it.wire == clearingPath },
                         clientAuth = ClientAuthRegime.entries.firstOrNull { it.wire == clearingAuth },
+                        errorDetail = RefreshErrorDetail.entries.firstOrNull { it.wire == clearingDetail },
                     ),
                 )
                 // The loss is on the record now, so the durable marker has done

@@ -15,6 +15,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import net.kikin.nubecita.core.analytics.ClientAuthRegime
 import net.kikin.nubecita.core.analytics.IssuerKind
+import net.kikin.nubecita.core.analytics.RefreshErrorDetail
 import net.kikin.nubecita.core.analytics.TokenRefreshCaller
 import net.kikin.nubecita.core.analytics.TokenRefreshOutcome
 import net.kikin.nubecita.core.analytics.TokenRequestPath
@@ -89,6 +90,7 @@ internal fun tokenRefreshMonitor(telemetry: TokenRefreshTelemetry): ClientPlugin
                 caller = caller,
                 outcome = rejection?.outcome ?: TokenRefreshOutcome.Ok,
                 durationMillis = started.elapsedNow().inWholeMilliseconds,
+                errorCode = rejection?.error,
                 errorDescription = rejection?.description,
                 path = path,
                 clientAuth = ClientAuthRegime.fromAuthMethod(call.response.headers[MediatedTokenEndpointTransport.HEADER_AUTH_METHOD]),
@@ -102,7 +104,34 @@ internal fun tokenRefreshMonitor(telemetry: TokenRefreshTelemetry): ClientPlugin
 internal data class RefreshRejection(
     val outcome: TokenRefreshOutcome,
     val description: String?,
+    /** The OAuth `error` code, when it is shaped like one. */
+    val error: String? = null,
 )
+
+/**
+ * Sorts a rejection into [RefreshErrorDetail] by the reference authorization
+ * server's own wording (bluesky-social/atproto `oauth-provider`). Matching is
+ * on that wording because nothing else separates these cases: the server
+ * sends "DPoP proof replayed" and "Failed to verify DPoP proof" under one
+ * error code. A server that words things differently lands in `other`.
+ */
+internal fun refreshErrorDetail(
+    error: String?,
+    description: String?,
+): RefreshErrorDetail {
+    val text = description?.trim().orEmpty()
+    return when {
+        text.equals("Refresh token replayed", ignoreCase = true) -> RefreshErrorDetail.RefreshTokenReplayed
+        text.equals("Session expired", ignoreCase = true) -> RefreshErrorDetail.SessionExpired
+        text.equals("Refresh token expired", ignoreCase = true) -> RefreshErrorDetail.RefreshTokenExpired
+        text.equals("DPoP proof replayed", ignoreCase = true) -> RefreshErrorDetail.DpopProofReplayed
+        text.startsWith("Failed to verify DPoP proof", ignoreCase = true) -> RefreshErrorDetail.DpopProofUnverified
+        text.equals("Invalid DPoP key binding", ignoreCase = true) -> RefreshErrorDetail.DpopKeyBinding
+        error == "invalid_dpop_proof" -> RefreshErrorDetail.DpopProofOther
+        text.isEmpty() -> RefreshErrorDetail.None
+        else -> RefreshErrorDetail.Other
+    }
+}
 
 /**
  * Classifies a non-200 token-endpoint response by its OAuth `error` field
@@ -125,7 +154,7 @@ internal fun classifyRefreshRejection(
             status in 400..499 -> TokenRefreshOutcome.Rejected
             else -> TokenRefreshOutcome.ServerError
         }
-    return RefreshRejection(outcome = outcome, description = description)
+    return RefreshRejection(outcome = outcome, description = description, error = error?.takeIf { OAUTH_ERROR_CODE.matches(it) })
 }
 
 /**
@@ -206,5 +235,8 @@ private fun HttpRequestBuilder.isRefreshTokenGrant(): Boolean = (body as? FormDa
 private const val HTTP_OK = 200
 
 private val MEDIATOR_REASON = Regex("mediator_[a-z_]{1,40}")
+
+// An OAuth error code is a short lowercase token; anything else is not logged.
+private val OAUTH_ERROR_CODE = Regex("[a-z_]{1,40}")
 
 private val refreshErrorJson = Json { ignoreUnknownKeys = true }

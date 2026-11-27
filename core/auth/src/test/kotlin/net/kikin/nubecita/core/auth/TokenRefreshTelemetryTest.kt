@@ -7,11 +7,14 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import net.kikin.nubecita.core.analytics.AnalyticsClient
+import net.kikin.nubecita.core.analytics.RefreshErrorDetail
 import net.kikin.nubecita.core.analytics.TokenRefresh
 import net.kikin.nubecita.core.analytics.TokenRefreshCaller
 import net.kikin.nubecita.core.analytics.TokenRefreshOutcome
 import net.kikin.nubecita.core.logging.CrashReporter
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.IOException
 import kotlin.time.Clock
@@ -156,6 +159,66 @@ class TokenRefreshTelemetryTest {
         }
 
     @Test
+    fun `a rejected refresh records its error code and why, never the server's text`() =
+        runTest {
+            val logged = mutableListOf<String>()
+            every { crashReporter.log(capture(logged)) } returns Unit
+            val telemetry = telemetry(this)
+
+            telemetry.onAttempt(
+                TokenRefreshCaller.DmPoll,
+                TokenRefreshOutcome.Rejected,
+                durationMillis = 593,
+                errorCode = "invalid_dpop_proof",
+                errorDescription = "DPoP proof replayed",
+            )
+
+            val line = logged.single()
+            assertTrue(line.contains("outcome=rejected"), line)
+            assertTrue(line.endsWith("error=invalid_dpop_proof detail=dpop_proof_replayed"), line)
+            assertFalse(line.contains("DPoP proof replayed"), line)
+            verify {
+                analytics.log(
+                    TokenRefresh(
+                        TokenRefreshCaller.DmPoll,
+                        TokenRefreshOutcome.Rejected,
+                        foreground = true,
+                        errorDetail = RefreshErrorDetail.DpopProofReplayed,
+                    ),
+                )
+            }
+        }
+
+    @Test
+    fun `a refresh the server accepted has no error detail`() =
+        runTest {
+            val logged = mutableListOf<String>()
+            every { crashReporter.log(capture(logged)) } returns Unit
+            val telemetry = telemetry(this)
+
+            telemetry.onAttempt(TokenRefreshCaller.DmPoll, TokenRefreshOutcome.Ok, durationMillis = 300)
+
+            assertFalse(logged.single().contains("detail="), logged.single())
+            verify { analytics.log(TokenRefresh(TokenRefreshCaller.DmPoll, TokenRefreshOutcome.Ok, foreground = true)) }
+        }
+
+    @Test
+    fun `the clear names why the server rejected the refresh that caused it`() =
+        runTest {
+            val telemetry = telemetry(this)
+            telemetry.onAttempt(
+                TokenRefreshCaller.Widget,
+                TokenRefreshOutcome.InvalidGrant,
+                durationMillis = 200,
+                errorCode = "invalid_grant",
+                errorDescription = "Session expired",
+            )
+
+            assertEquals("session_expired", telemetry.clearKeys()["clearing_refresh_detail"])
+            assertEquals("none", telemetry.clearKeys()["clearing_refresh_detail"])
+        }
+
+    @Test
     fun `a stale invalid_grant is not named as the trigger`() =
         runTest {
             val telemetry = telemetry(this)
@@ -177,6 +240,7 @@ class TokenRefreshTelemetryTest {
                     "clearing_refresh_error" to "none",
                     "clearing_refresh_path" to "none",
                     "clearing_client_auth" to "none",
+                    "clearing_refresh_detail" to "none",
                     "last_ok_refresh_mins_ago" to "none",
                     "last_ok_refresh_caller" to "none",
                     "last_lost_refresh_mins_ago" to "none",

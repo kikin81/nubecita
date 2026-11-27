@@ -30,9 +30,32 @@ object NetworkEngineModule {
     fun provideTokenEndpointEngine(): HttpClientEngine = OkHttp.create { preconfigured = tokenEndpointOkHttpClient() }
 
     /**
-     * OkHttp re-sends a request whose connection dropped mid-flight
-     * (`retryOnConnectionFailure`, on by default). For a token POST that
-     * re-send is a replay of a single-use token, so it is off here.
+     * A client that sends each request exactly once.
+     *
+     * A token POST spends a single-use refresh token, and the server deletes
+     * the session when it sees a spent one again. OkHttp will re-send a
+     * request by itself in three situations, and each is turned off here:
+     *
+     * - the connection dropped mid-flight (`retryOnConnectionFailure`);
+     * - the server answered with a redirect (`followRedirects`);
+     * - the server answered `503` with `Retry-After: 0`, which OkHttp
+     *   retries whatever the setting above says. There is no switch for
+     *   that, so the header is removed before OkHttp decides.
+     *
+     * A re-send the server receives is also what an `invalid_dpop_proof`
+     * ("DPoP proof replayed") on a refresh means: the first copy was
+     * processed and its answer lost (nubecita-75wm).
      */
-    internal fun tokenEndpointOkHttpClient(): OkHttpClient = OkHttpClient.Builder().retryOnConnectionFailure(false).build()
+    internal fun tokenEndpointOkHttpClient(): OkHttpClient =
+        OkHttpClient
+            .Builder()
+            .retryOnConnectionFailure(false)
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .addNetworkInterceptor { chain ->
+                val response = chain.proceed(chain.request())
+                if (response.code == HTTP_UNAVAILABLE) response.newBuilder().removeHeader("Retry-After").build() else response
+            }.build()
+
+    private const val HTTP_UNAVAILABLE = 503
 }

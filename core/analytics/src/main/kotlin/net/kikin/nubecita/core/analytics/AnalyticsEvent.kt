@@ -182,6 +182,8 @@ data class SessionCleared(
     val tokenPath: TokenRequestPath? = null,
     /** How the client was registered at that refresh, when the backend reported it. */
     val clientAuth: ClientAuthRegime? = null,
+    /** Why the server rejected that refresh: what separates a two-week expiry from a replayed token. */
+    val errorDetail: RefreshErrorDetail? = null,
 ) : AnalyticsEvent {
     override val name: String = "session_cleared"
     override val params: Map<String, AnalyticsValue> =
@@ -190,6 +192,7 @@ data class SessionCleared(
             if (daysSinceLogin != null) put("days_since_login", Str(bucketDaysSinceLogin(daysSinceLogin)))
             if (tokenPath != null) put("token_path", Str(tokenPath.wire))
             if (clientAuth != null) put("client_auth", Str(clientAuth.wire))
+            if (errorDetail != null) put("error_detail", Str(errorDetail.wire))
         }
 }
 
@@ -762,6 +765,47 @@ enum class TokenRefreshCaller(
     Harness("harness"),
 }
 
+/**
+ * Why the authorization server turned a refresh down, as far as its error
+ * text says. A fixed list, so the raw text (which a server is free to fill
+ * with anything) never reaches analytics.
+ *
+ * It exists to tell apart outcomes that share an OAuth error code: an
+ * `invalid_grant` is a two-week expiry or a replayed token, and an
+ * `invalid_dpop_proof` is a bad proof or a request the server had already
+ * received once.
+ */
+enum class RefreshErrorDetail(
+    val wire: String,
+) {
+    /** The refresh token was already spent. The server deletes the session. */
+    RefreshTokenReplayed("refresh_token_replayed"),
+
+    /** The session reached its maximum lifetime. */
+    SessionExpired("session_expired"),
+
+    /** The refresh token went unused for longer than it lives. */
+    RefreshTokenExpired("refresh_token_expired"),
+
+    /** The server had already seen this exact DPoP proof: the request arrived twice. */
+    DpopProofReplayed("dpop_proof_replayed"),
+
+    /** The proof's signature or timestamp was not accepted. */
+    DpopProofUnverified("dpop_proof_unverified"),
+
+    /** Another complaint about the DPoP proof. */
+    DpopProofOther("dpop_proof_other"),
+
+    /** The proof was made with a different key from the one the session is bound to. */
+    DpopKeyBinding("dpop_key_binding"),
+
+    /** The server gave a reason that is not on this list. */
+    Other("other"),
+
+    /** The server gave no reason. */
+    None("none"),
+}
+
 /** Which route an OAuth request that authenticates the client took to the authorization server. */
 enum class TokenRequestPath(
     val wire: String,
@@ -893,18 +937,21 @@ data class TokenRefresh(
     /** The backend answered from a stored response to a refresh whose first answer was lost. */
     val replayed: Boolean = false,
     val issuer: IssuerKind = IssuerKind.Unknown,
+    /** Why the server turned the refresh down. Absent when it did not. */
+    val errorDetail: RefreshErrorDetail? = null,
 ) : AnalyticsEvent {
     override val name: String = "token_refresh"
     override val params: Map<String, AnalyticsValue> =
-        mapOf(
-            "refresh_caller" to Str(caller.wire),
-            "outcome" to Str(outcome.wire),
-            "foreground" to BoolVal(foreground),
-            "token_path" to Str(path.wire),
-            "client_auth" to Str(clientAuth.wire),
-            "replayed" to BoolVal(replayed),
-            "issuer_kind" to Str(issuer.wire),
-        )
+        buildMap {
+            put("refresh_caller", Str(caller.wire))
+            put("outcome", Str(outcome.wire))
+            put("foreground", BoolVal(foreground))
+            put("token_path", Str(path.wire))
+            put("client_auth", Str(clientAuth.wire))
+            put("replayed", BoolVal(replayed))
+            put("issuer_kind", Str(issuer.wire))
+            if (errorDetail != null) put("error_detail", Str(errorDetail.wire))
+        }
 }
 
 /**

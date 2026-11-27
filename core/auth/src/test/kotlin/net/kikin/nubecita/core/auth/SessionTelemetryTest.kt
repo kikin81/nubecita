@@ -10,6 +10,7 @@ import kotlinx.serialization.SerializationException
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.AuthKeysetRegenerated
 import net.kikin.nubecita.core.analytics.ClientAuthRegime
+import net.kikin.nubecita.core.analytics.RefreshErrorDetail
 import net.kikin.nubecita.core.analytics.SessionClearReason
 import net.kikin.nubecita.core.analytics.SessionClearTelemetryLost
 import net.kikin.nubecita.core.analytics.SessionCleared
@@ -190,6 +191,25 @@ class SessionTelemetryTest {
                         daysSinceLogin = null,
                         tokenPath = TokenRequestPath.Mediated,
                         clientAuth = ClientAuthRegime.Confidential,
+                    ),
+                )
+            }
+        }
+
+    @Test
+    fun `the session_cleared event says why the server ended the session`() =
+        runTest {
+            val marker = markerWithStack("io.github.kikin81.atproto.oauth.DpopAuthProvider", "failRefresh")
+            val forensics = FakeRefreshForensics(mapOf("clearing_refresh_detail" to "refresh_token_replayed"))
+
+            telemetry(forensics = forensics).onSessionCleared(marker)
+
+            verify {
+                analytics.log(
+                    SessionCleared(
+                        reason = SessionClearReason.InvalidGrant,
+                        daysSinceLogin = null,
+                        errorDetail = RefreshErrorDetail.RefreshTokenReplayed,
                     ),
                 )
             }
