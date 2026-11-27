@@ -2,10 +2,12 @@
 
 ## Purpose
 `:core:auth`'s OAuth Hilt surface: the `AtOAuth` binding, the `AuthRepository` boundary feature code talks to (`completeLogin`, `signOut`, and the `SessionStateProvider` refresh they trigger), the `OAuthRedirectBroker` that carries the redirect URI back from the browser, and the `XrpcClientProvider` that is the only sanctioned source of an authenticated XRPC client.
+
 ## Requirements
+
 ### Requirement: `:core:auth` provides an `AtOAuth` Hilt binding
 
-`:core:auth` SHALL provide a `@Singleton`-scoped Hilt binding for `AtOAuth`, constructed from `BuildConfig.OAUTH_CLIENT_METADATA_URL`, `OAuthSessionStore`, and a Ktor `HttpClient`. The binding SHALL NOT hard-code the metadata URL. The `AtOAuth` type SHALL NOT appear in `:app` `@Inject` parameters (consumers inject `AuthRepository`).
+`:core:auth` SHALL provide a `@Singleton`-scoped Hilt binding for `AtOAuth`, constructed from `BuildConfig.OAUTH_CLIENT_METADATA_URL`, `OAuthSessionStore`, a Ktor `HttpClient`, and the token-mediation transport. The binding SHALL NOT hard-code the metadata URL or the token-mediation backend URL. The `AtOAuth` type SHALL NOT appear in `:app` `@Inject` parameters (consumers inject `AuthRepository`).
 
 #### Scenario: Consumer injects AtOAuth through the DI graph
 
@@ -16,6 +18,11 @@
 
 - **WHEN** `:app/build.gradle.kts` declares `buildConfigField("String", "OAUTH_CLIENT_METADATA_URL", ...)` and the module is rebuilt
 - **THEN** the new URL SHALL be picked up by the provided `AtOAuth` without any source-file edit in `:core:auth`
+
+#### Scenario: Backend URL is build-variant configurable
+
+- **WHEN** a build sets the token-mediation backend URL through a Gradle property
+- **THEN** the provided `AtOAuth` SHALL send mediated requests to that URL without any source-file edit in `:core:auth`
 
 #### Scenario: `:app` does not directly inject AtOAuth
 

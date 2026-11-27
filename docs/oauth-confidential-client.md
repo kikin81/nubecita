@@ -2,7 +2,7 @@
 
 Nubecita signs in to Bluesky as an AT Protocol OAuth client. A *public* client's session ends two weeks after sign-in. A *confidential* client's lasts up to two years, and to be one the app sends four requests through a small backend that holds the client's signing key.
 
-This page is how to run that backend, test against it, rotate its keys, and flip the production client. Design and rationale: `openspec/changes/add-confidential-oauth-client/`.
+This page is how to run that backend, test against it, rotate its keys, and flip the production client. Design and rationale: `openspec/changes/archive/2026-11-26-add-confidential-oauth-client/`.
 
 ## What exists
 
@@ -65,7 +65,7 @@ Install with `adb -s <serial>`, never a Gradle `install…` task: those install 
 
 ### Switches
 
-Three settings can be changed on the running service without a deploy. The next deploy resets them.
+Four settings can be changed on the running service without a deploy. The next deploy resets them.
 
 ```bash
 gcloud run services update oauthmediator --region us-central1 --project nubecita-2a4c1 \
@@ -77,6 +77,7 @@ gcloud run services update oauthmediator --region us-central1 --project nubecita
 | `MEDIATOR_BYPASS` | Every request is answered "not forwarded, use the direct path"; no authorization server is contacted. | The backend is misbehaving **and the production client is still public**. After the flip there is no direct path, so this only turns errors into different errors. |
 | `MEDIATOR_ENFORCE_SIGN_IN_ATTESTATION` | Sign-ins without a valid App Check token are refused. Off = recorded only. | Turn on at the flip, after reviewing the pass rate. |
 | `MEDIATOR_STRICT_REFRESH_ATTESTATION` | Refreshes and sign-outs without one are refused too. | Leave off. An attestation outage would otherwise stall every signed-in user. |
+| `MEDIATOR_MIN_REFRESH_INTERVAL_MINUTES` | A refresh of a token the backend handed out less than this many minutes ago is refused without contacting the server. Off when unset or `0`. A value that is not a number from 0 to 1440 fails every request until corrected, on purpose. | Only for the hour around the production flip. |
 
 ### Alerts
 
@@ -85,6 +86,15 @@ gcloud run services update oauthmediator --region us-central1 --project nubecita
 | OAuth backend: errors | The backend is failing requests itself. Apps keep their sessions but cannot refresh through it. | Read the function's logs. While the client is public, turn on bypass. |
 | OAuth backend: relayed invalid_grant spike | Authorization servers are ending sessions at an unusual rate. | Look for a reused `jti`, a wrong signing key, or a manifest change. Compare with `session_cleared` in GA4. |
 | OAuth backend: sign-in attestation failures | Many sign-ins lack a valid App Check token. | Check Play Integrity quota and the App Check console. Do not turn enforcement on until this is understood. |
+| OAuth backend: replay store failures | The backend cannot read or write its refresh store (Firestore database `oauth-replay`). Unreadable: refreshes are not forwarded and apps are told to use the direct path, which stops working once the client is confidential. Unwritable: refreshes go through, but a lost response would end that session. | Check the database exists and the backend's service account still has its one conditional grant on it. |
+
+### Replay-safe refresh
+
+A refresh token can be used once. If the response to a refresh is lost on its way to the phone, the phone can only retry with the token it still has, and the server deletes the session when it sees a spent token again. So the backend keeps each successful refresh response for 24 hours, encrypted under a key derived from the refresh token it answered, and gives it again to a caller that proves it holds the same DPoP key. Such an answer carries `Nubecita-Replayed: 1` and is logged with `replayed: true`.
+
+The same store makes sure a refresh token is forwarded by one request at a time: a duplicate inside 60 seconds is told to wait (`mediator_in_progress`).
+
+The store is a Firestore database of its own, closed to every client by its rules. Nothing in it is a token or can be turned into one.
 
 ### Logs
 
@@ -158,6 +168,8 @@ Pixel 11 Pro unless a row says otherwise, debug build, real account on `bsky.soc
 | 2026-11-26 | rehearsal (confidential) | Two forced refreshes, 16:17 and 16:18 | Both `200`, relayed, `private_key_jwt`, `rehearsal-1`. |
 | 2026-11-26 | rehearsal (confidential) | Build with no backend URL, forced refresh | 18 direct refresh attempts at `bsky.social` in three seconds, every one answered `400`. The app stayed signed in and showed an empty timeline. |
 | 2026-11-26 | rehearsal (confidential) | Build with the backend URL reinstalled | First refresh `200`, relayed, `private_key_jwt`; the timeline loaded. The session survived the 18 unauthenticated attempts. |
+| 2026-11-26 | rehearsal (confidential) | SDK 10.5.0 build, four forced refreshes | One token request per cold start, each `200`, through the backend revision that has the replay store. |
+| 2026-11-26 | production (public) | A refresh whose response is lost, Galaxy Z Fold 8 | A proxy between the app and the backend threw away the first successful refresh response. The app saw the connection drop, retried with the same (now spent) refresh token 12 ms later, and the backend answered from its store in 48 ms: `200`, `Nubecita-Replayed: 1`, nothing forwarded. The app stayed signed in, and the next refresh, with the token from the replayed answer, was a normal `200`. |
 
 Two things that run were not designed to show, and did:
 
@@ -198,8 +210,8 @@ A surprise in any of 1 to 4 stops the work and returns to design.
 - [ ] The rehearsal session from outcome 1 is still valid more than 14 days after its sign-in
 - [ ] At least 95% of 7-day active users are on a version that uses the backend (exclude `sdk_gphone*` devices and the `OnePlus8Pro` bot traffic)
 - [ ] At least 14 days since that version reached full rollout
-- [ ] Replay-safe refresh (`nubecita-dcvt.9`) is live
-- [ ] The redundant second refresh (`nubecita-kjmk`) is fixed in the shipped SDK, or the decision to flip without the fix is written down. Unfixed, the minimum refresh interval below refuses the second refresh on affected cold starts and one request fails each time.
+- [ ] Replay-safe refresh (`nubecita-dcvt.9`) is live (deployed 2026-11-26 and shown to recover a lost response on a device; confirm it is still enabled and its alert is quiet)
+- [ ] The redundant second refresh (`nubecita-kjmk`) is fixed in the build users have: it shipped in 1.388.1 (SDK 10.5.0), so this is covered by the 95% line above once that line is measured against 1.388.1 or later.
 - [ ] The sign-in App Check pass rate has been reviewed, and App Check token lifetime checked against the Play Integrity quota
 - [ ] The share of sessions with `issuer_kind = other` has been reviewed (a non-reference server may make those users sign in once)
 - [ ] A release at in-app-update priority 5 is live, so older builds see the update screen
