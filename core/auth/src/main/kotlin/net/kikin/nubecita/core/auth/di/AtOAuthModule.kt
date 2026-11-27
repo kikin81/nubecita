@@ -8,8 +8,13 @@ import io.github.kikin81.atproto.oauth.AtOAuth
 import io.github.kikin81.atproto.oauth.OAuthSessionStore
 import io.github.kikin81.atproto.oauth.PendingAuthStore
 import io.ktor.client.HttpClient
+import net.kikin.nubecita.core.auth.AttestationTokenProvider
 import net.kikin.nubecita.core.auth.SessionPersistFailureReporter
+import net.kikin.nubecita.core.auth.TokenMediationConfig
+import net.kikin.nubecita.core.auth.tokenTransportFor
+import java.util.Optional
 import javax.inject.Singleton
+import kotlin.jvm.optionals.getOrNull
 
 /**
  * Hilt provider for the OAuth flow orchestrator. The `clientMetadataUrl`,
@@ -33,6 +38,8 @@ internal object AtOAuthModule {
         httpClient: HttpClient,
         @TokenEndpoint tokenHttpClient: HttpClient,
         persistFailureReporter: SessionPersistFailureReporter,
+        tokenMediation: TokenMediationConfig,
+        attestation: Optional<AttestationTokenProvider>,
     ): AtOAuth =
         AtOAuth(
             clientMetadataUrl = clientMetadataUrl,
@@ -54,5 +61,15 @@ internal object AtOAuthModule {
             // engine never re-sends a dropped POST, which the server would
             // treat as a replay and answer by deleting the session.
             tokenHttpClient = tokenHttpClient,
+            // Through the token-mediating backend when a URL is configured;
+            // otherwise null, which is the SDK's own direct path. With no
+            // attestation source bound, requests simply go without a token.
+            tokenTransport =
+                tokenTransportFor(
+                    config = tokenMediation,
+                    httpClient = httpClient,
+                    tokenHttpClient = tokenHttpClient,
+                    attestation = attestation.getOrNull() ?: AttestationTokenProvider.None,
+                ),
         )
 }

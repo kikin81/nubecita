@@ -175,6 +175,8 @@ class TokenRefreshTelemetryTest {
                     "clearing_refresh_caller" to "none",
                     "clearing_refresh_fg" to "none",
                     "clearing_refresh_error" to "none",
+                    "clearing_refresh_path" to "none",
+                    "clearing_client_auth" to "none",
                     "last_ok_refresh_mins_ago" to "none",
                     "last_ok_refresh_caller" to "none",
                     "last_lost_refresh_mins_ago" to "none",

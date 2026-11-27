@@ -4,12 +4,14 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.AuthKeysetRegenerated
+import net.kikin.nubecita.core.analytics.ClientAuthRegime
 import net.kikin.nubecita.core.analytics.SessionClearReason
 import net.kikin.nubecita.core.analytics.SessionClearTelemetryLost
 import net.kikin.nubecita.core.analytics.SessionCleared
 import net.kikin.nubecita.core.analytics.SessionReadError
 import net.kikin.nubecita.core.analytics.SessionReadErrorCause
 import net.kikin.nubecita.core.analytics.SessionReadErrorTerminal
+import net.kikin.nubecita.core.analytics.TokenRequestPath
 import net.kikin.nubecita.core.logging.CrashReporter
 import timber.log.Timber
 import java.io.IOException
@@ -146,15 +148,30 @@ internal class SessionTelemetry
                 // The refreshes before this clear — the one that consumed the
                 // token usually ran earlier, often in a since-dead process.
                 // Isolated so a forensics failure never costs the non-fatal.
+                var forensics: Map<String, String> = emptyMap()
                 try {
-                    refreshForensics.clearKeys().forEach { (key, value) -> crashReporter.setCustomKey(key, value) }
+                    forensics = refreshForensics.clearKeys()
+                    forensics.forEach { (key, value) -> crashReporter.setCustomKey(key, value) }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
                     Timber.tag(TAG).w(e, "refresh forensics unavailable")
                 }
                 crashReporter.recordException(marker)
-                analytics.log(SessionCleared(reason = reason, daysSinceLogin = daysSinceLogin))
+                // Which route the clearing refresh took, and whether the client
+                // was confidential by then: what separates a public client's
+                // two-week expiry from a loss a confidential session should
+                // not have had.
+                val clearingPath = forensics[TokenRefreshTelemetry.KEY_CLEARING_REFRESH_PATH]
+                val clearingAuth = forensics[TokenRefreshTelemetry.KEY_CLEARING_CLIENT_AUTH]
+                analytics.log(
+                    SessionCleared(
+                        reason = reason,
+                        daysSinceLogin = daysSinceLogin,
+                        tokenPath = TokenRequestPath.entries.firstOrNull { it.wire == clearingPath },
+                        clientAuth = ClientAuthRegime.entries.firstOrNull { it.wire == clearingAuth },
+                    ),
+                )
                 // The loss is on the record now, so the durable marker has done
                 // its job; leaving it would re-report this clear at next launch.
                 clearPending.clearPending()

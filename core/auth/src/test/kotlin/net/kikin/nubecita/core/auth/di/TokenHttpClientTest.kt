@@ -47,6 +47,18 @@ class TokenHttpClientTest {
                     },
             )
 
-            verify { telemetry.onAttempt(any(), TokenRefreshOutcome.Ok, any(), any(), any()) }
+            verify {
+                telemetry.onAttempt(
+                    caller = any(),
+                    outcome = TokenRefreshOutcome.Ok,
+                    durationMillis = any(),
+                    errorDescription = any(),
+                    cause = any(),
+                    path = any(),
+                    clientAuth = any(),
+                    replayed = any(),
+                    issuer = any(),
+                )
+            }
         }
 }

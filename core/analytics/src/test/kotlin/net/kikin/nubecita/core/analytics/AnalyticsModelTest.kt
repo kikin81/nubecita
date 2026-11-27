@@ -225,9 +225,76 @@ class AnalyticsModelTest {
                 "refresh_caller" to Str("dm_poll"),
                 "outcome" to Str("lost_response"),
                 "foreground" to BoolVal(false),
+                "token_path" to Str("direct"),
+                "client_auth" to Str("unknown"),
+                "replayed" to BoolVal(false),
+                "issuer_kind" to Str("unknown"),
             ),
             event.params,
         )
+        AnalyticsValidator.requireValid(event)
+    }
+
+    @Test
+    fun `token_refresh carries the route, client registration, replay and issuer kind`() {
+        val event =
+            TokenRefresh(
+                caller = TokenRefreshCaller.Untagged,
+                outcome = TokenRefreshOutcome.MediatorError,
+                foreground = true,
+                path = TokenRequestPath.Mediated,
+                clientAuth = ClientAuthRegime.Confidential,
+                replayed = true,
+                issuer = IssuerKind.Other,
+            )
+        assertEquals(Str("mediator_error"), event.params["outcome"])
+        assertEquals(Str("mediated"), event.params["token_path"])
+        assertEquals(Str("confidential"), event.params["client_auth"])
+        assertEquals(BoolVal(true), event.params["replayed"])
+        assertEquals(Str("other"), event.params["issuer_kind"])
+        AnalyticsValidator.requireValid(event)
+    }
+
+    @Test
+    fun `the route and registration wire values are pinned, because saved GA4 filters depend on them`() {
+        assertEquals(listOf("mediated", "direct", "direct_fallback"), TokenRequestPath.entries.map { it.wire })
+        assertEquals(listOf("public", "confidential", "unknown"), ClientAuthRegime.entries.map { it.wire })
+        assertEquals(listOf("bsky_social", "other", "unknown"), IssuerKind.entries.map { it.wire })
+    }
+
+    @Test
+    fun `a reported registration maps to its regime and anything else is unknown`() {
+        assertEquals(ClientAuthRegime.Public, ClientAuthRegime.fromAuthMethod("none"))
+        assertEquals(ClientAuthRegime.Confidential, ClientAuthRegime.fromAuthMethod("private_key_jwt"))
+        assertEquals(ClientAuthRegime.Unknown, ClientAuthRegime.fromAuthMethod(null))
+        assertEquals(ClientAuthRegime.Unknown, ClientAuthRegime.fromAuthMethod("unknown"))
+        assertEquals(ClientAuthRegime.Unknown, ClientAuthRegime.fromAuthMethod("client_secret_post"))
+    }
+
+    @Test
+    fun `an issuer is only ever bsky_social, other or unknown`() {
+        assertEquals(IssuerKind.BskySocial, IssuerKind.ofHost("bsky.social"))
+        assertEquals(IssuerKind.BskySocial, IssuerKind.ofHost("BSKY.social"))
+        assertEquals(IssuerKind.Other, IssuerKind.ofHost("pds.alice.example"))
+        assertEquals(IssuerKind.Other, IssuerKind.ofHost("evil-bsky.social"))
+        assertEquals(IssuerKind.Unknown, IssuerKind.ofHost(null))
+        assertEquals(IssuerKind.Unknown, IssuerKind.ofHost(" "))
+    }
+
+    @Test
+    fun `session_cleared carries the clearing refresh's route and registration when known`() {
+        val bare = SessionCleared(reason = SessionClearReason.entries.first(), daysSinceLogin = null)
+        assertEquals(setOf("reason"), bare.params.keys)
+
+        val event =
+            SessionCleared(
+                reason = SessionClearReason.entries.first(),
+                daysSinceLogin = 20,
+                tokenPath = TokenRequestPath.Mediated,
+                clientAuth = ClientAuthRegime.Confidential,
+            )
+        assertEquals(Str("mediated"), event.params["token_path"])
+        assertEquals(Str("confidential"), event.params["client_auth"])
         AnalyticsValidator.requireValid(event)
     }
 

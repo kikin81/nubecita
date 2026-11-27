@@ -162,12 +162,18 @@ enum class SessionClearReason(
 data class SessionCleared(
     val reason: SessionClearReason,
     val daysSinceLogin: Long?,
+    /** The route of the refresh whose rejection is clearing the session, when there was one. */
+    val tokenPath: TokenRequestPath? = null,
+    /** How the client was registered at that refresh, when the backend reported it. */
+    val clientAuth: ClientAuthRegime? = null,
 ) : AnalyticsEvent {
     override val name: String = "session_cleared"
     override val params: Map<String, AnalyticsValue> =
         buildMap {
             put("reason", Str(reason.wire))
             if (daysSinceLogin != null) put("days_since_login", Str(bucketDaysSinceLogin(daysSinceLogin)))
+            if (tokenPath != null) put("token_path", Str(tokenPath.wire))
+            if (clientAuth != null) put("client_auth", Str(clientAuth.wire))
         }
 }
 
@@ -740,6 +746,75 @@ enum class TokenRefreshCaller(
     Harness("harness"),
 }
 
+/** Which route an OAuth request that authenticates the client took to the authorization server. */
+enum class TokenRequestPath(
+    val wire: String,
+) {
+    /** Through Nubecita's token-mediating backend, which adds the client assertion. */
+    Mediated("mediated"),
+
+    /** Straight to the authorization server, as a public client. */
+    Direct("direct"),
+
+    /**
+     * Straight to the authorization server after the backend was unreachable or
+     * told the app to bypass it. Only possible while the client is public.
+     */
+    DirectFallback("direct_fallback"),
+}
+
+/**
+ * How the client is registered with authorization servers, as the backend last
+ * reported it. It decides the session lifetime: about two weeks for a public
+ * client, up to two years for a confidential one.
+ */
+enum class ClientAuthRegime(
+    val wire: String,
+) {
+    Public("public"),
+    Confidential("confidential"),
+
+    /** Nothing has reported it: a direct request, or a backend that could not tell. */
+    Unknown("unknown"),
+    ;
+
+    companion object {
+        /**
+         * From a client's registered `token_endpoint_auth_method`. The wire
+         * values deliberately differ from the method names: `none` would be
+         * indistinguishable from the "no value" placeholder used elsewhere.
+         */
+        fun fromAuthMethod(method: String?): ClientAuthRegime =
+            when (method) {
+                "none" -> Public
+                "private_key_jwt" -> Confidential
+                else -> Unknown
+            }
+    }
+}
+
+/**
+ * Whose authorization server a request went to. Only this split is recorded,
+ * never a host name: a self-hosted server's name can identify its one user.
+ */
+enum class IssuerKind(
+    val wire: String,
+) {
+    BskySocial("bsky_social"),
+    Other("other"),
+    Unknown("unknown"),
+    ;
+
+    companion object {
+        fun ofHost(host: String?): IssuerKind =
+            when {
+                host.isNullOrBlank() -> Unknown
+                host.equals("bsky.social", ignoreCase = true) -> BskySocial
+                else -> Other
+            }
+    }
+}
+
 /** How a single POST of a refresh token to the token endpoint ended. */
 enum class TokenRefreshOutcome(
     val wire: String,
@@ -755,6 +830,13 @@ enum class TokenRefreshOutcome(
 
     /** Any other 4xx. */
     Rejected("rejected"),
+
+    /**
+     * The token-mediating backend answered for itself instead of relaying the
+     * authorization server (it was bypassed, refused the request, or failed).
+     * Never ends a session.
+     */
+    MediatorError("mediator_error"),
 
     /** 5xx, or a non-4xx status other than 200. */
     ServerError("server_error"),
@@ -788,6 +870,13 @@ data class TokenRefresh(
     val caller: TokenRefreshCaller,
     val outcome: TokenRefreshOutcome,
     val foreground: Boolean,
+    /** The route this POST took. */
+    val path: TokenRequestPath = TokenRequestPath.Direct,
+    /** How the client is registered, when the backend reported it on this response. */
+    val clientAuth: ClientAuthRegime = ClientAuthRegime.Unknown,
+    /** The backend answered from a stored response to a refresh whose first answer was lost. */
+    val replayed: Boolean = false,
+    val issuer: IssuerKind = IssuerKind.Unknown,
 ) : AnalyticsEvent {
     override val name: String = "token_refresh"
     override val params: Map<String, AnalyticsValue> =
@@ -795,6 +884,10 @@ data class TokenRefresh(
             "refresh_caller" to Str(caller.wire),
             "outcome" to Str(outcome.wire),
             "foreground" to BoolVal(foreground),
+            "token_path" to Str(path.wire),
+            "client_auth" to Str(clientAuth.wire),
+            "replayed" to BoolVal(replayed),
+            "issuer_kind" to Str(issuer.wire),
         )
 }
 
