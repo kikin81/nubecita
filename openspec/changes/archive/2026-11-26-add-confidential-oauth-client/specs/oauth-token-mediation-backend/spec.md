@@ -163,12 +163,17 @@ For a given refresh token, the backend SHALL have at most one forwarded request 
 #### Scenario: Concurrent duplicate is held back
 
 - **WHEN** two refresh requests with the same refresh token arrive at the same time
-- **THEN** exactly one SHALL be forwarded, and the other SHALL receive either the first one's result or the backend-produced `mediator_in_progress` error
+- **THEN** exactly one SHALL be forwarded, and the other SHALL receive either the first one's result or the backend-produced `mediator_in_progress` error, which SHALL say that the outcome of the refresh token is unknown rather than that nothing was forwarded
 
 #### Scenario: Retry after an unknown outcome is held back
 
 - **WHEN** a refresh was forwarded and the backend answered that its outcome is unknown, and the same refresh token is presented again before the first attempt could still be running
 - **THEN** the backend SHALL NOT forward it again and SHALL answer with the backend-produced `mediator_in_progress` error
+
+#### Scenario: The store cannot be consulted
+
+- **WHEN** a refresh arrives and the backend cannot read or claim its entry in the replay store
+- **THEN** the backend SHALL NOT forward the request and SHALL answer with the bypass response, so that the app takes the direct path only for a refresh token it knows cannot have been spent
 
 ### Requirement: An operator can enforce a minimum interval between refreshes
 
@@ -205,7 +210,7 @@ After a successful refresh, the backend SHALL keep the response so that a later 
 #### Scenario: Wrong DPoP key gets nothing
 
 - **WHEN** a request presents a spent refresh token with a DPoP proof from a different key, or with an invalid or stale proof
-- **THEN** the backend SHALL NOT return the stored response
+- **THEN** the backend SHALL NOT return the stored response and SHALL NOT forward the spent refresh token
 
 #### Scenario: Entry is removed once superseded
 
@@ -271,6 +276,16 @@ The backend SHALL limit the rate of pushed authorization requests per caller add
 
 - **WHEN** one address sends more pushed authorization requests than the limit allows
 - **THEN** the excess SHALL be refused with the backend-produced `mediator_rate_limited` error and SHALL NOT be forwarded
+
+#### Scenario: A caller claiming a new address each time
+
+- **WHEN** one connection sends pushed authorization requests that each claim a different caller address
+- **THEN** the backend SHALL apply a second, looser limit to the address that actually connected, and SHALL refuse the excess
+
+#### Scenario: One caller cannot use up a shared connection's allowance
+
+- **WHEN** a caller keeps sending pushed authorization requests after its own limit is reached, through a connecting address it shares with other callers
+- **THEN** its refused requests SHALL NOT count against the limit of the connecting address
 
 ### Requirement: Deployment is restricted and keyless
 

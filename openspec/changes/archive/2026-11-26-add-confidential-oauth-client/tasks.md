@@ -71,13 +71,13 @@ Epic: `nubecita-dcvt`. Each numbered group is one bd child and one pull request;
 
 ## 9. Backend: replay-safe refresh (`kikin81/nubecita-web`) — `nubecita-dcvt.9`
 
-- [ ] 9.1 Enable Firestore, add deny-all security rules and a TTL policy on the replay collection, and grant the function's service account access to that collection only (in `infra/provision.sh`); verify a client SDK read is denied.
-- [ ] 9.2 Implement the store: id derivation, token-derived AES-GCM encryption, pending/done states, supersession hash, expiry on read; verify with unit tests against the Firestore emulator, including that a raw document contains no substring of the tokens used.
-- [ ] 9.3 Implement single flight around refresh forwarding (create pending in a transaction; `in_progress` for a duplicate younger than 60 s; pending left in place on upstream timeout; takeover only of an entry older than 60 s; delete pending on any non-200 upstream answer); verify with an integration test that two concurrent identical refreshes cause exactly one upstream request, and that a nonce challenge does not block the retry.
-- [ ] 9.4 Implement serving a stored response after DPoP proof verification, and deletion on supersession; verify with integration tests for the lost-response retry, a wrong-key proof, a stale proof, a superseded entry and an expired entry.
-- [ ] 9.5 Make a failed store write non-fatal and log whether a response was served from the store; verify with a test that injects a write failure and still receives the relayed response.
-- [ ] 9.5a Serve stored responses in bypass mode, and add the operator-set minimum refresh interval (off by default) using the supersession record; verify with tests that bypass mode returns a stored response and otherwise the bypass reply, and that with the interval set a refresh of a just-issued token is refused without an upstream request.
-- [ ] 9.6 Verify end to end on a real device: drop the refresh response on the device side (proxy or airplane-mode timing), retry, and confirm the session survives and telemetry records a replayed response.
+- [x] 9.1 Enable Firestore, add deny-all security rules and a TTL policy on the replay collection, and grant the function's service account access to that collection only (in `infra/provision.sh`); verify a client SDK read is denied.
+- [x] 9.2 Implement the store: id derivation, token-derived AES-GCM encryption, pending/done states, supersession hash, expiry on read; verify with unit tests against the Firestore emulator, including that a raw document contains no substring of the tokens used.
+- [x] 9.3 Implement single flight around refresh forwarding (create pending in a transaction; `in_progress` for a duplicate younger than 60 s; pending left in place on upstream timeout; takeover only of an entry older than 60 s; delete pending on any non-200 upstream answer); verify with an integration test that two concurrent identical refreshes cause exactly one upstream request, and that a nonce challenge does not block the retry.
+- [x] 9.4 Implement serving a stored response after DPoP proof verification, and deletion on supersession; verify with integration tests for the lost-response retry, a wrong-key proof, a stale proof, a superseded entry and an expired entry.
+- [x] 9.5 Make a failed store write non-fatal and log whether a response was served from the store; verify with a test that injects a write failure and still receives the relayed response.
+- [x] 9.5a Serve stored responses in bypass mode, and add the operator-set minimum refresh interval (off by default) using the supersession record; verify with tests that bypass mode returns a stored response and otherwise the bypass reply, and that with the interval set a refresh of a just-issued token is refused without an upstream request.
+- [x] 9.6 Verify end to end on a real device: drop the refresh response on the device side (proxy or airplane-mode timing), retry, and confirm the session survives and telemetry records a replayed response.
 
 ## Workflow follow-up
 
