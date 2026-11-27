@@ -18,6 +18,7 @@ import kotlinx.coroutines.withContext
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.ClientAuthRegime
 import net.kikin.nubecita.core.analytics.IssuerKind
+import net.kikin.nubecita.core.analytics.RefreshErrorDetail
 import net.kikin.nubecita.core.analytics.TokenRefresh
 import net.kikin.nubecita.core.analytics.TokenRefreshCaller
 import net.kikin.nubecita.core.analytics.TokenRefreshOutcome
@@ -74,6 +75,7 @@ class TokenRefreshMonitorTest {
         clientAuth: ClientAuthRegime = ClientAuthRegime.Unknown,
         replayed: Boolean = false,
         issuer: IssuerKind = IssuerKind.BskySocial,
+        errorDetail: RefreshErrorDetail? = null,
     ) = verify {
         analytics.log(
             TokenRefresh(
@@ -84,6 +86,7 @@ class TokenRefreshMonitorTest {
                 clientAuth = clientAuth,
                 replayed = replayed,
                 issuer = issuer,
+                errorDetail = errorDetail,
             ),
         )
     }
@@ -218,6 +221,7 @@ class TokenRefreshMonitorTest {
                 TokenRefreshOutcome.InvalidGrant,
                 path = TokenRequestPath.Mediated,
                 clientAuth = ClientAuthRegime.Confidential,
+                errorDetail = RefreshErrorDetail.SessionExpired,
             )
             val keys = t.clearKeys()
             assertEquals("mediated", keys["clearing_refresh_path"])
@@ -294,10 +298,25 @@ class TokenRefreshMonitorTest {
 
             withContext(RefreshCaller.Widget) { http.refresh() }
 
-            expect(TokenRefreshCaller.Widget, TokenRefreshOutcome.InvalidGrant)
+            expect(TokenRefreshCaller.Widget, TokenRefreshOutcome.InvalidGrant, errorDetail = RefreshErrorDetail.RefreshTokenReplayed)
             val keys = telemetry.clearKeys()
             assertEquals("widget", keys["clearing_refresh_caller"])
             assertEquals("Refresh token replayed", keys["clearing_refresh_error"])
+            assertEquals("refresh_token_replayed", keys["clearing_refresh_detail"])
+        }
+
+    @Test
+    fun `a refresh rejected because the server had already seen its proof says so`() =
+        runTest {
+            // What the app sees when a refresh reached the server twice: the
+            // first copy spent the token and its answer was lost; this is the
+            // answer to the second.
+            val body = """{"error":"invalid_dpop_proof","error_description":"DPoP proof replayed"}"""
+            val http = client(telemetry(this), MockEngine { respond(body, HttpStatusCode.Unauthorized) })
+
+            withContext(RefreshCaller.DmPoll) { http.refresh() }
+
+            expect(TokenRefreshCaller.DmPoll, TokenRefreshOutcome.Rejected, errorDetail = RefreshErrorDetail.DpopProofReplayed)
         }
 
     @Test

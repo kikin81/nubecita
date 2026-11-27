@@ -137,18 +137,20 @@ A session in that state is deliberately **not** cleared by the app (its refresh 
 
 | Event | New fields |
 |---|---|
-| `token_refresh` | `token_path` (`mediated`, `direct`, `direct_fallback`), `client_auth` (`public`, `confidential`, `unknown`), `replayed`, `issuer_kind` (`bsky_social`, `other`), outcome `mediator_error` |
+| `token_refresh` | `token_path` (`mediated`, `direct`, `direct_fallback`), `client_auth` (`public`, `confidential`, `unknown`), `replayed`, `issuer_kind` (`bsky_social`, `other`), outcome `mediator_error`, `error_detail` when the server turned the refresh down |
 | `login` | `client_auth` (`unknown` = went direct) |
 | `login_error` | reason `device_verification` |
-| `session_cleared` | `token_path`, `client_auth` of the refresh that cleared it |
+| `session_cleared` | `token_path`, `client_auth` and `error_detail` of the refresh that cleared it |
 
-`token_path`, `client_auth`, `replayed` and `issuer_kind` were registered as GA4 custom dimensions on 2026-11-26. Registration is not retroactive: events sent before that date cannot be broken down by them. A new field needs registering the same way (the analytics MCP is read-only; use the local Admin API script).
+`token_path`, `client_auth`, `replayed`, `issuer_kind` and `error_detail` were registered as GA4 custom dimensions on 2026-11-26. Registration is not retroactive: events sent before that date cannot be broken down by them. A new field needs registering the same way (the analytics MCP is read-only; use the local Admin API script).
 
 Reading them:
 
 - `token_path = direct_fallback` in volume means the backend was unreachable or in bypass.
 - `outcome = mediator_error` is the backend answering for itself. It never ends a session.
 - `session_cleared` with `client_auth = confidential` and a low `days_since_login` is a loss a confidential session should not have had. Investigate each one.
+- `error_detail` says why the server said no, sorted into a fixed list from its error text. On `session_cleared`, `session_expired` is the lifetime cap and `refresh_token_replayed` is a session lost to a spent token.
+- `error_detail = dpop_proof_replayed` on a `token_refresh` means the server had already received that exact request: it was delivered twice, and the first copy may have spent the refresh token (`nubecita-75wm`). The app's token client sends each request once, so one of these through the backend points at a duplicate created beyond it.
 
 ## Observed on a device
 

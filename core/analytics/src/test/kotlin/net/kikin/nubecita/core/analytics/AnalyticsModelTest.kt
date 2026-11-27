@@ -4,6 +4,7 @@ import net.kikin.nubecita.core.analytics.AnalyticsValue.BoolVal
 import net.kikin.nubecita.core.analytics.AnalyticsValue.LongVal
 import net.kikin.nubecita.core.analytics.AnalyticsValue.Str
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 
 /**
@@ -310,6 +311,50 @@ class AnalyticsModelTest {
         assertEquals(Str("mediated"), event.params["token_path"])
         assertEquals(Str("confidential"), event.params["client_auth"])
         AnalyticsValidator.requireValid(event)
+    }
+
+    @Test
+    fun `token_refresh and session_cleared carry why the server said no, only when it did`() {
+        val accepted = TokenRefresh(TokenRefreshCaller.DmPoll, TokenRefreshOutcome.Ok, foreground = true)
+        assertFalse("error_detail" in accepted.params)
+
+        val rejected =
+            TokenRefresh(
+                caller = TokenRefreshCaller.DmPoll,
+                outcome = TokenRefreshOutcome.Rejected,
+                foreground = false,
+                errorDetail = RefreshErrorDetail.DpopProofReplayed,
+            )
+        assertEquals(Str("dpop_proof_replayed"), rejected.params["error_detail"])
+        AnalyticsValidator.requireValid(rejected)
+
+        val cleared =
+            SessionCleared(
+                reason = SessionClearReason.InvalidGrant,
+                daysSinceLogin = 3,
+                errorDetail = RefreshErrorDetail.RefreshTokenReplayed,
+            )
+        assertEquals(Str("refresh_token_replayed"), cleared.params["error_detail"])
+        AnalyticsValidator.requireValid(cleared)
+    }
+
+    @Test
+    fun `the error detail wire values are pinned`() {
+        // Saved GA4 filters match on these strings; a rename silently empties them.
+        assertEquals(
+            listOf(
+                "refresh_token_replayed",
+                "session_expired",
+                "refresh_token_expired",
+                "dpop_proof_replayed",
+                "dpop_proof_unverified",
+                "dpop_proof_other",
+                "dpop_key_binding",
+                "other",
+                "none",
+            ),
+            RefreshErrorDetail.entries.map { it.wire },
+        )
     }
 
     @Test

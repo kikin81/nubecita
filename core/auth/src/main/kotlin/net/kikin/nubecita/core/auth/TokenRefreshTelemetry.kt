@@ -7,6 +7,7 @@ import kotlinx.coroutines.launch
 import net.kikin.nubecita.core.analytics.AnalyticsClient
 import net.kikin.nubecita.core.analytics.ClientAuthRegime
 import net.kikin.nubecita.core.analytics.IssuerKind
+import net.kikin.nubecita.core.analytics.RefreshErrorDetail
 import net.kikin.nubecita.core.analytics.TokenRefresh
 import net.kikin.nubecita.core.analytics.TokenRefreshCaller
 import net.kikin.nubecita.core.analytics.TokenRefreshOutcome
@@ -67,6 +68,8 @@ internal data class TokenRefreshAttempt(
     val epochMillis: Long,
     /** The token endpoint's `error_description`, when it rejected the token. */
     val errorDescription: String?,
+    /** That rejection sorted into a fixed list; `null` when the refresh was not turned down by the server. */
+    val errorDetail: RefreshErrorDetail? = null,
     val path: TokenRequestPath = TokenRequestPath.Direct,
     val clientAuth: ClientAuthRegime = ClientAuthRegime.Unknown,
 )
@@ -167,12 +170,23 @@ internal class TokenRefreshTelemetry(
         durationMillis: Long,
         errorDescription: String? = null,
         cause: Throwable? = null,
+        errorCode: String? = null,
         path: TokenRequestPath = TokenRequestPath.Direct,
         clientAuth: ClientAuthRegime = ClientAuthRegime.Unknown,
         replayed: Boolean = false,
         issuer: IssuerKind = IssuerKind.Unknown,
     ) {
         try {
+            // Only an answer from the authorization server has a reason worth
+            // sorting; the backend's own refusals are already named by
+            // their description.
+            val errorDetail =
+                when (outcome) {
+                    TokenRefreshOutcome.InvalidGrant,
+                    TokenRefreshOutcome.Rejected,
+                    -> refreshErrorDetail(errorCode, errorDescription)
+                    else -> null
+                }
             val attempt =
                 TokenRefreshAttempt(
                     caller = caller,
@@ -181,14 +195,20 @@ internal class TokenRefreshTelemetry(
                     durationMillis = durationMillis,
                     epochMillis = clock.now().toEpochMilliseconds(),
                     errorDescription = errorDescription?.take(MAX_DESCRIPTION_LENGTH),
+                    errorDetail = errorDetail,
                     path = path,
                     clientAuth = clientAuth,
                 )
             lastAttempt = attempt
+            // The code and the sorted reason, never the server's free text:
+            // "rejected" alone cannot tell a proof the server had already
+            // seen (the request arrived twice, and the first copy spent the
+            // refresh token) from a proof it could not verify.
+            val why = if (errorDetail == null) "" else " error=${errorCode ?: NONE} detail=${errorDetail.wire}"
             crashReporter.log(
                 "[$TAG] caller=${caller.wire} outcome=${outcome.wire} " +
                     "fg=${attempt.foreground} ms=$durationMillis " +
-                    "path=${path.wire} auth=${clientAuth.wire} replayed=$replayed issuer=${issuer.wire}",
+                    "path=${path.wire} auth=${clientAuth.wire} replayed=$replayed issuer=${issuer.wire}$why",
             )
             analytics.log(
                 TokenRefresh(
@@ -199,6 +219,7 @@ internal class TokenRefreshTelemetry(
                     clientAuth = clientAuth,
                     replayed = replayed,
                     issuer = issuer,
+                    errorDetail = errorDetail,
                 ),
             )
             if (outcome == TokenRefreshOutcome.LostResponse && cause != null) {
@@ -243,6 +264,7 @@ internal class TokenRefreshTelemetry(
             put("clearing_refresh_error", trigger?.errorDescription ?: NONE)
             put(KEY_CLEARING_REFRESH_PATH, trigger?.path?.wire ?: NONE)
             put(KEY_CLEARING_CLIENT_AUTH, trigger?.clientAuth?.wire ?: NONE)
+            put(KEY_CLEARING_ERROR_DETAIL, trigger?.errorDetail?.wire ?: NONE)
             put("last_ok_refresh_mins_ago", past.lastOk.minutesAgo(now))
             put("last_ok_refresh_caller", past.lastOk?.caller?.wire ?: NONE)
             put("last_lost_refresh_mins_ago", past.lastLostResponse.minutesAgo(now))
@@ -268,6 +290,7 @@ internal class TokenRefreshTelemetry(
         /** Read back by [SessionTelemetry] for the `session_cleared` event. */
         const val KEY_CLEARING_REFRESH_PATH = "clearing_refresh_path"
         const val KEY_CLEARING_CLIENT_AUTH = "clearing_client_auth"
+        const val KEY_CLEARING_ERROR_DETAIL = "clearing_refresh_detail"
         const val TAG = "TokenRefresh"
         const val KEY_LOST_REFRESH_CALLER = "lost_refresh_caller"
         const val KEY_DIED_REFRESH_CALLER = "died_refresh_caller"
