@@ -147,6 +147,11 @@ The app SHALL supply only an authorization server issuer, never an endpoint URL.
 - **WHEN** an authorization server answers with a redirect
 - **THEN** the backend SHALL NOT follow it and SHALL relay or refuse the response
 
+#### Scenario: An oversized response is cut off
+
+- **WHEN** an issuer's metadata, or an authorization server's answer to a forwarded request, exceeds the size limit
+- **THEN** the backend SHALL stop reading it and SHALL NOT parse or relay it, and for a forwarded request SHALL tell the app that the outcome is unknown
+
 ### Requirement: The backend answers before the app gives up
 
 The backend SHALL bound the time it waits for an authorization server so that it always responds to the app, with either the relayed response or a backend-produced error stating the outcome is unknown, before the app's own request timeout elapses.
