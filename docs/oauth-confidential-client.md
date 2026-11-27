@@ -132,7 +132,7 @@ A session in that state is deliberately **not** cleared by the app (its refresh 
 | `login_error` | reason `device_verification` |
 | `session_cleared` | `token_path`, `client_auth` of the refresh that cleared it |
 
-These must be registered as GA4 custom dimensions before they can be queried (the analytics MCP is read-only; use the local Admin API script).
+`token_path`, `client_auth`, `replayed` and `issuer_kind` were registered as GA4 custom dimensions on 2026-11-26. Registration is not retroactive: events sent before that date cannot be broken down by them. A new field needs registering the same way (the analytics MCP is read-only; use the local Admin API script).
 
 Reading them:
 
