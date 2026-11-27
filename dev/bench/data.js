@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795679649698,
+  "lastUpdate": 1795766355721,
   "repoUrl": "https://github.com/kikin81/nubecita",
   "entries": {
     "Benchmark": [
@@ -4501,6 +4501,76 @@ window.BENCHMARK_DATA = {
             "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
             "value": 646,
             "range": "+/- 2%",
+            "unit": "frames"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "committer": {
+            "name": "semantic-release-bot",
+            "username": "semantic-release-bot",
+            "email": "semantic-release-bot@martynus.net"
+          },
+          "id": "721573109d3e2ab391e990e7d07d6f61891ec7b3",
+          "message": "ci(release): 1.388.3\n\n## [1.388.3](https://github.com/kikin81/nubecita/compare/v1.388.2...v1.388.3) (2026-11-27)\n\n### Bug Fixes\n\n* **deps:** update all non-major dependencies ([#1267](https://github.com/kikin81/nubecita/issues/1267)) ([0df7c8d](https://github.com/kikin81/nubecita/commit/0df7c8d306c2f3402e36fcf30e9b556988b51112))",
+          "timestamp": "2026-11-27T06:26:46Z",
+          "url": "https://github.com/kikin81/nubecita/commit/721573109d3e2ab391e990e7d07d6f61891ec7b3"
+        },
+        "date": 1795766354462,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "FeedScrollBenchmark.scrollFeed / frameCount",
+            "value": 23,
+            "range": "+/- 16%",
+            "unit": "frames"
+          },
+          {
+            "name": "PostCommentsSheetBenchmark.dragAndScrollCommentsSheetOverVideoPlayback / frameCount",
+            "value": 793,
+            "range": "+/- 27.4%",
+            "unit": "frames"
+          },
+          {
+            "name": "SearchScrollBenchmark.scrollSearchResults / frameCount",
+            "value": 105,
+            "range": "+/- 43.1%",
+            "unit": "frames"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-None] / timeToInitialDisplayMs",
+            "value": 1673.723,
+            "range": "+/- 4.5%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[COLD-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1557.208,
+            "range": "+/- 5.4%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-None] / timeToInitialDisplayMs",
+            "value": 1327.981,
+            "range": "+/- 10.8%",
+            "unit": "ms"
+          },
+          {
+            "name": "StartupBenchmark.startup[WARM-BaselineProfile] / timeToInitialDisplayMs",
+            "value": 1226.804,
+            "range": "+/- 45.7%",
+            "unit": "ms"
+          },
+          {
+            "name": "VideoFeedScrollBenchmark.scrollVideoFeed / frameCount",
+            "value": 588,
+            "range": "+/- 2.1%",
             "unit": "frames"
           }
         ]
