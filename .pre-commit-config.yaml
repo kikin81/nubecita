@@ -83,7 +83,7 @@ repos:
         entry: openspec validate --all --strict
         language: node
         language_version: lts
-        additional_dependencies: ["@fission-ai/openspec@2.1.1"]
+        additional_dependencies: ["@fission-ai/openspec@2.2.0"]
         files: '^openspec/'
         pass_filenames: false
 
